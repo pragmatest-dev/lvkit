@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+import subprocess
+import sys
 import xml.etree.ElementTree as ET
 from pathlib import Path
+from tempfile import TemporaryDirectory
 
 from .parser import parse_block_diagram, parse_vi_metadata
 from .blockdiagram import (
@@ -437,32 +440,44 @@ def from_vi(
             lines.append("// === SubVI Definitions ===")
 
             for node_uid, subvi_name in subvi_names:
-                # Try to find the SubVI's XML files
-                subvi_bd_path = _find_subvi_xml(subvi_name, _search_paths)
+                # Try to find the SubVI .vi file
+                subvi_path = _find_subvi(subvi_name, _search_paths)
 
-                if subvi_bd_path:
-                    node_var = node_vars.get(node_uid, f"n_{node_uid}")
-                    subvi_var = _sanitize_name(subvi_name.replace(".vi", ""))
+                if subvi_path:
+                    node_var = node_vars.get(node_uid, f"{prefix}n_{node_uid}")
+                    subvi_var = _sanitize_name(subvi_name.replace(".vi", "").replace(".VI", ""))
 
                     lines.append("")
                     lines.append(f"// --- SubVI: {subvi_name} ---")
 
-                    # Recursively generate the SubVI graph
-                    subvi_graph = from_vi(
-                        subvi_bd_path,
-                        expand_subvis=True,
-                        _processed=_processed,
-                        _search_paths=_search_paths,
-                    )
+                    try:
+                        # Extract the SubVI to XML
+                        subvi_bd_xml, subvi_fp_xml, subvi_main_xml = extract_vi_xml(
+                            subvi_path,
+                            output_dir=subvi_path.parent,
+                        )
 
-                    # Check if it was a cycle
-                    if subvi_graph.startswith("// Already processed"):
-                        lines.append(subvi_graph)
-                        lines.append(f"CREATE ({node_var})-[:CALLS]->({subvi_var})")
-                    else:
-                        lines.append(subvi_graph)
+                        # Recursively generate the SubVI graph
+                        subvi_graph = from_vi(
+                            subvi_bd_xml,
+                            fp_xml_path=subvi_fp_xml,
+                            main_xml_path=subvi_main_xml,
+                            expand_subvis=True,
+                            _processed=_processed,
+                            _search_paths=_search_paths,
+                        )
+
+                        # Check if it was a cycle
+                        if subvi_graph.startswith("// Already processed"):
+                            lines.append(subvi_graph)
+                        else:
+                            lines.append(subvi_graph)
+
                         # Link the call site to the SubVI definition
                         lines.append(f"CREATE ({node_var})-[:CALLS]->({subvi_var})")
+
+                    except Exception as e:
+                        lines.append(f"// Failed to extract SubVI: {subvi_name} - {e}")
                 else:
                     lines.append(f"// SubVI not found: {subvi_name}")
 
@@ -472,8 +487,55 @@ def from_vi(
     return "\n".join(lines)
 
 
-def _find_subvi_xml(subvi_name: str, search_paths: list[Path]) -> Path | None:
-    """Find SubVI's block diagram XML file.
+def extract_vi_xml(
+    vi_path: Path | str,
+    output_dir: Path | None = None,
+) -> tuple[Path, Path | None, Path | None]:
+    """Extract a VI file to XML using pylabview.
+
+    Args:
+        vi_path: Path to the .vi file
+        output_dir: Directory for output files (default: temp directory)
+
+    Returns:
+        Tuple of (bd_xml_path, fp_xml_path, main_xml_path)
+        fp_xml and main_xml may be None if not generated
+
+    Raises:
+        RuntimeError: If extraction fails
+    """
+    vi_path = Path(vi_path)
+
+    if output_dir is None:
+        output_dir = vi_path.parent
+
+    result = subprocess.run(
+        [sys.executable, "-m", "pylabview.readRSRC", "-i", str(vi_path), "-x"],
+        capture_output=True,
+        text=True,
+        cwd=output_dir,
+    )
+
+    if result.returncode != 0:
+        raise RuntimeError(f"pylabview extraction failed: {result.stderr}")
+
+    vi_stem = vi_path.stem
+    bd_xml = output_dir / f"{vi_stem}_BDHb.xml"
+    fp_xml = output_dir / f"{vi_stem}_FPHb.xml"
+    main_xml = output_dir / f"{vi_stem}.xml"
+
+    if not bd_xml.exists():
+        raise RuntimeError(f"Block diagram XML not found: {bd_xml}")
+
+    return (
+        bd_xml,
+        fp_xml if fp_xml.exists() else None,
+        main_xml if main_xml.exists() else None,
+    )
+
+
+def _find_subvi(subvi_name: str, search_paths: list[Path]) -> Path | None:
+    """Find a SubVI file (.vi).
 
     Args:
         subvi_name: Name of the SubVI (e.g., "Calculate Test Coverage.vi" or
@@ -481,43 +543,26 @@ def _find_subvi_xml(subvi_name: str, search_paths: list[Path]) -> Path | None:
         search_paths: List of directories to search
 
     Returns:
-        Path to the *_BDHb.xml file, or None if not found
+        Path to the .vi file, or None if not found
     """
     # Handle qualified names like "Library.lvlib:SubVI.vi"
+    # The library/class is just namespace info - VIs are sibling files, not in subdirectories
     if ":" in subvi_name:
         parts = subvi_name.split(":")
-        library_name = parts[0]  # e.g., "VITesterUtilities.lvlib"
-        vi_name = parts[-1]  # e.g., "Calculate Test Coverage.vi"
+        vi_name = parts[-1]  # Just the VI name
     else:
-        library_name = None
         vi_name = subvi_name
 
-    # Remove .vi extension and construct expected XML name
-    base_name = vi_name.replace(".vi", "").replace(".VI", "")
-    bd_xml_name = f"{base_name}_BDHb.xml"
-
-    # Search in each path
+    # Search for the .vi file
     for search_path in search_paths:
-        # Direct match
-        candidate = search_path / bd_xml_name
+        # Direct match in search path
+        candidate = search_path / vi_name
         if candidate.exists():
             return candidate
 
-        # If library/class specified, look in that directory
-        if library_name:
-            # Handle both .lvlib and .lvclass containers
-            lib_dir = library_name.replace(".lvlib", "").replace(".lvclass", "")
-            lib_candidate = search_path / lib_dir / bd_xml_name
-            if lib_candidate.exists():
-                return lib_candidate
-            # Also try with the full library name as directory
-            lib_candidate = search_path / library_name / bd_xml_name
-            if lib_candidate.exists():
-                return lib_candidate
-
-        # Recursive search (limit depth)
+        # Recursive search through subdirectories
         try:
-            for match in search_path.rglob(bd_xml_name):
+            for match in search_path.rglob(vi_name):
                 return match
         except (PermissionError, OSError):
             continue
