@@ -261,6 +261,11 @@ def from_vi(
         f'CREATE ({vi_var}:VI {{name: "{vi_name}"}})',
     ]
 
+    # Build mapping from front panel DCO uid to block diagram terminal uid
+    fp_to_bd_terminal = {}
+    for fp_term in bd.fp_terminals:
+        fp_to_bd_terminal[fp_term.fp_dco_uid] = fp_term.uid
+
     # === FRONT PANEL SECTION ===
     if fp:
         inputs = [c for c in fp.controls if not c.is_indicator]
@@ -271,12 +276,20 @@ def from_vi(
             lines.append("// === Front Panel Inputs (Controls) ===")
             for ctrl in inputs:
                 _generate_control_nodes(lines, ctrl, vi_var, node_vars, is_input=True)
+                # Also map the BD terminal uid to this control for data flow
+                if ctrl.uid in fp_to_bd_terminal:
+                    bd_term_uid = fp_to_bd_terminal[ctrl.uid]
+                    node_vars[bd_term_uid] = node_vars[ctrl.uid]
 
         if outputs:
             lines.append("")
             lines.append("// === Front Panel Outputs (Indicators) ===")
             for ctrl in outputs:
                 _generate_control_nodes(lines, ctrl, vi_var, node_vars, is_input=False)
+                # Also map the BD terminal uid to this control for data flow
+                if ctrl.uid in fp_to_bd_terminal:
+                    bd_term_uid = fp_to_bd_terminal[ctrl.uid]
+                    node_vars[bd_term_uid] = node_vars[ctrl.uid]
 
     # === BLOCK DIAGRAM SECTION ===
     lines.append("")
