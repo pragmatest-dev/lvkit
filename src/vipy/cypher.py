@@ -204,6 +204,9 @@ def from_vi(
     bd_xml_path: Path | str,
     fp_xml_path: Path | str | None = None,
     main_xml_path: Path | str | None = None,
+    expand_subvis: bool = False,
+    _processed: set[str] | None = None,
+    _search_paths: list[Path] | None = None,
 ) -> str:
     """Generate a unified Cypher graph of both front panel and block diagram.
 
@@ -211,16 +214,40 @@ def from_vi(
     - Front panel controls with full type information (clusters, arrays, etc.)
     - Block diagram operations and data flow
     - Connections between front panel and block diagram
+    - Optionally: recursively expanded SubVIs
 
     Args:
         bd_xml_path: Path to the block diagram XML (*_BDHb.xml)
         fp_xml_path: Path to the front panel XML (*_FPHb.xml), auto-detected if None
         main_xml_path: Path to the main VI XML (optional, for metadata)
+        expand_subvis: If True, recursively expand SubVI definitions
+        _processed: Internal set to track processed VIs (cycle detection)
+        _search_paths: Internal list of paths to search for SubVI files
 
     Returns:
         Cypher CREATE statements representing the complete VI
     """
     bd_xml_path = Path(bd_xml_path)
+
+    # Initialize cycle detection set
+    if _processed is None:
+        _processed = set()
+
+    # Build search paths for SubVIs
+    if _search_paths is None:
+        _search_paths = [bd_xml_path.parent]
+        # Add parent directories up to 3 levels
+        parent = bd_xml_path.parent.parent
+        for _ in range(3):
+            if parent.exists():
+                _search_paths.append(parent)
+                parent = parent.parent
+
+    # Check for cycles
+    vi_key = bd_xml_path.stem.replace("_BDHb", "")
+    if vi_key in _processed:
+        return f"// Already processed (cycle detected): {vi_key}"
+    _processed.add(vi_key)
 
     # Auto-detect front panel XML if not provided
     if fp_xml_path is None:
@@ -251,6 +278,8 @@ def from_vi(
         vi_name = bd_xml_path.stem.replace("_BDHb", "")
 
     vi_var = _sanitize_name(vi_name)
+    # Prefix for node variables to avoid collisions in hierarchy
+    prefix = f"{vi_var}_" if len(_processed) > 1 else ""
     node_vars = {}
 
     lines = [
@@ -275,7 +304,7 @@ def from_vi(
             lines.append("")
             lines.append("// === Front Panel Inputs (Controls) ===")
             for ctrl in inputs:
-                _generate_control_nodes(lines, ctrl, vi_var, node_vars, is_input=True)
+                _generate_control_nodes(lines, ctrl, vi_var, node_vars, is_input=True, prefix=prefix)
                 # Also map the BD terminal uid to this control for data flow
                 if ctrl.uid in fp_to_bd_terminal:
                     bd_term_uid = fp_to_bd_terminal[ctrl.uid]
@@ -285,7 +314,7 @@ def from_vi(
             lines.append("")
             lines.append("// === Front Panel Outputs (Indicators) ===")
             for ctrl in outputs:
-                _generate_control_nodes(lines, ctrl, vi_var, node_vars, is_input=False)
+                _generate_control_nodes(lines, ctrl, vi_var, node_vars, is_input=False, prefix=prefix)
                 # Also map the BD terminal uid to this control for data flow
                 if ctrl.uid in fp_to_bd_terminal:
                     bd_term_uid = fp_to_bd_terminal[ctrl.uid]
@@ -296,7 +325,7 @@ def from_vi(
     lines.append("// === Block Diagram Constants ===")
 
     for const in bd.constants:
-        const_var = f"c_{const.uid}"
+        const_var = f"{prefix}c_{const.uid}"
         node_vars[const.uid] = const_var
 
         enum_label = _get_enum_value_label(const, enum_labels)
@@ -323,7 +352,7 @@ def from_vi(
     lines.append("// === Block Diagram Operations ===")
 
     for node in bd.nodes:
-        node_var = f"n_{node.uid}"
+        node_var = f"{prefix}n_{node.uid}"
         node_vars[node.uid] = node_var
 
         if node.node_type == "iUse":
@@ -366,7 +395,7 @@ def from_vi(
         lines.append("")
         lines.append("// === VI Terminals (no front panel XML) ===")
         for i, fp_term in enumerate(bd.fp_terminals):
-            term_var = f"fp_{fp_term.uid}"
+            term_var = f"{prefix}fp_{fp_term.uid}"
             node_vars[fp_term.uid] = term_var
             name = fp_names.get(fp_term.fp_dco_uid) or fp_term.name or f"terminal_{i}"
 
@@ -395,10 +424,120 @@ def from_vi(
         if from_var and to_var:
             lines.append(f"CREATE ({from_var})-[:FLOWS_TO]->({to_var})")
 
+    # === SUBVI EXPANSION ===
+    if expand_subvis:
+        # Collect SubVI names from the nodes
+        subvi_names = []
+        for node in bd.nodes:
+            if node.node_type == "iUse" and node.name:
+                subvi_names.append((node.uid, node.name))
+
+        if subvi_names:
+            lines.append("")
+            lines.append("// === SubVI Definitions ===")
+
+            for node_uid, subvi_name in subvi_names:
+                # Try to find the SubVI's XML files
+                subvi_bd_path = _find_subvi_xml(subvi_name, _search_paths)
+
+                if subvi_bd_path:
+                    node_var = node_vars.get(node_uid, f"n_{node_uid}")
+                    subvi_var = _sanitize_name(subvi_name.replace(".vi", ""))
+
+                    lines.append("")
+                    lines.append(f"// --- SubVI: {subvi_name} ---")
+
+                    # Recursively generate the SubVI graph
+                    subvi_graph = from_vi(
+                        subvi_bd_path,
+                        expand_subvis=True,
+                        _processed=_processed,
+                        _search_paths=_search_paths,
+                    )
+
+                    # Check if it was a cycle
+                    if subvi_graph.startswith("// Already processed"):
+                        lines.append(subvi_graph)
+                        lines.append(f"CREATE ({node_var})-[:CALLS]->({subvi_var})")
+                    else:
+                        lines.append(subvi_graph)
+                        # Link the call site to the SubVI definition
+                        lines.append(f"CREATE ({node_var})-[:CALLS]->({subvi_var})")
+                else:
+                    lines.append(f"// SubVI not found: {subvi_name}")
+
     lines.append("")
     lines.append("// === End of VI Graph ===")
 
     return "\n".join(lines)
+
+
+def _find_subvi_xml(subvi_name: str, search_paths: list[Path]) -> Path | None:
+    """Find SubVI's block diagram XML file.
+
+    Args:
+        subvi_name: Name of the SubVI (e.g., "Calculate Test Coverage.vi" or
+                    "Library.lvlib:SubVI.vi")
+        search_paths: List of directories to search
+
+    Returns:
+        Path to the *_BDHb.xml file, or None if not found
+    """
+    # Handle qualified names like "Library.lvlib:SubVI.vi"
+    if ":" in subvi_name:
+        parts = subvi_name.split(":")
+        library_name = parts[0]  # e.g., "VITesterUtilities.lvlib"
+        vi_name = parts[-1]  # e.g., "Calculate Test Coverage.vi"
+    else:
+        library_name = None
+        vi_name = subvi_name
+
+    # Remove .vi extension and construct expected XML name
+    base_name = vi_name.replace(".vi", "").replace(".VI", "")
+    bd_xml_name = f"{base_name}_BDHb.xml"
+
+    # Search in each path
+    for search_path in search_paths:
+        # Direct match
+        candidate = search_path / bd_xml_name
+        if candidate.exists():
+            return candidate
+
+        # If library/class specified, look in that directory
+        if library_name:
+            # Handle both .lvlib and .lvclass containers
+            lib_dir = library_name.replace(".lvlib", "").replace(".lvclass", "")
+            lib_candidate = search_path / lib_dir / bd_xml_name
+            if lib_candidate.exists():
+                return lib_candidate
+            # Also try with the full library name as directory
+            lib_candidate = search_path / library_name / bd_xml_name
+            if lib_candidate.exists():
+                return lib_candidate
+
+        # Recursive search (limit depth)
+        try:
+            for match in search_path.rglob(bd_xml_name):
+                return match
+        except (PermissionError, OSError):
+            continue
+
+    return None
+
+
+def _parse_qualified_name(name: str) -> tuple[str | None, str]:
+    """Parse a qualified VI name into (library, vi_name).
+
+    Args:
+        name: Qualified name like "Library.lvlib:SubVI.vi" or just "SubVI.vi"
+
+    Returns:
+        Tuple of (library_name or None, vi_name)
+    """
+    if ":" in name:
+        parts = name.split(":")
+        return parts[0], parts[-1]
+    return None, name
 
 
 def _generate_control_nodes(
@@ -408,12 +547,13 @@ def _generate_control_nodes(
     node_vars: dict[str, str],
     is_input: bool,
     parent_var: str | None = None,
+    prefix: str = "",
 ) -> str:
     """Generate Cypher nodes for a control/indicator, handling clusters recursively.
 
     Returns the variable name for this control.
     """
-    ctrl_var = f"ctrl_{ctrl.uid}" if ctrl.uid else f"ctrl_{_sanitize_name(ctrl.name)}"
+    ctrl_var = f"{prefix}ctrl_{ctrl.uid}" if ctrl.uid else f"{prefix}ctrl_{_sanitize_name(ctrl.name)}"
     node_vars[ctrl.uid] = ctrl_var
 
     # Determine node label based on type
@@ -430,7 +570,7 @@ def _generate_control_nodes(
         # Generate child nodes
         for child in ctrl.children:
             child_var = _generate_control_nodes(
-                lines, child, vi_var, node_vars, is_input, parent_var=ctrl_var
+                lines, child, vi_var, node_vars, is_input, parent_var=ctrl_var, prefix=prefix
             )
             lines.append(f"CREATE ({ctrl_var})-[:CONTAINS]->({child_var})")
     else:
