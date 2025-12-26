@@ -76,3 +76,6 @@ dmypy.json
 # LabVIEW files (keep these tracked for testing)
 # *.vi
 # *.lvproj
+
+# Sample LabVIEW projects (external test data)
+samples/
