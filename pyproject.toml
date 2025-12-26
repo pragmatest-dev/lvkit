@@ -16,6 +16,9 @@ dependencies = [
     "pylabview",
 ]
 
+[project.scripts]
+vipy = "vipy.cli:main"
+
 [project.optional-dependencies]
 dev = [
     "pytest",
