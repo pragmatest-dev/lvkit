@@ -8,9 +8,10 @@ from dataclasses import dataclass
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from .frontend import generate_nicegui_code, parse_front_panel, summarize_front_panel
+from .blockdiagram import create_llm_prompt, summarize_vi
+from .cypher import from_blockdiagram as summarize_vi_cypher
+from .frontpanel import generate_nicegui_code, parse_front_panel, summarize_front_panel
 from .llm import LLMConfig, generate_code
-from .summarizer import create_llm_prompt, summarize_vi, summarize_vi_cypher
 
 
 @dataclass

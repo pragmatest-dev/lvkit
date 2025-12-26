@@ -6,7 +6,8 @@ import argparse
 import sys
 from pathlib import Path
 
-from . import __version__, convert_vi, convert_xml, summarize_vi, summarize_vi_cypher
+from . import __version__, convert_vi, convert_xml, summarize_vi
+from .cypher import from_blockdiagram as summarize_vi_cypher
 from .llm import LLMConfig, check_ollama_available, list_models
 from .structure import (
     discover_project_structure,
