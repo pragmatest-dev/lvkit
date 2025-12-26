@@ -79,3 +79,10 @@ dmypy.json
 
 # Sample LabVIEW projects (external test data)
 samples/
+
+# Model files
+models/
+*.gguf
+
+# Test outputs
+outputs/

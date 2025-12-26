@@ -6,7 +6,7 @@ import argparse
 import sys
 from pathlib import Path
 
-from . import __version__, convert_vi, convert_xml, summarize_vi
+from . import __version__, convert_vi, convert_xml, summarize_vi, summarize_vi_cypher
 from .llm import LLMConfig, check_ollama_available, list_models
 from .structure import (
     discover_project_structure,
@@ -32,11 +32,30 @@ def main() -> int:
     convert_parser.add_argument("-o", "--output", help="Output Python file")
     convert_parser.add_argument("--model", default="qwen2.5-coder:7b", help="Ollama model to use")
     convert_parser.add_argument("--main-xml", help="Main VI XML file (if using BDHb input)")
+    convert_parser.add_argument("--fp-xml", help="Front panel XML file (if using BDHb input)")
+    convert_parser.add_argument(
+        "--mode",
+        choices=["script", "gui"],
+        default="script",
+        help="Output mode: 'script' for single file, 'gui' for NiceGUI frontend/backend split",
+    )
+    convert_parser.add_argument(
+        "--format",
+        choices=["text", "cypher"],
+        default="text",
+        help="Summary format: 'text' (default) or 'cypher' (Neo4j graph format)",
+    )
 
     # Summarize command (for debugging/inspection)
     summary_parser = subparsers.add_parser("summarize", help="Show VI summary without converting")
     summary_parser.add_argument("input", help="Block diagram XML (*_BDHb.xml)")
     summary_parser.add_argument("--main-xml", help="Main VI XML file")
+    summary_parser.add_argument(
+        "--format",
+        choices=["text", "cypher"],
+        default="text",
+        help="Output format: 'text' (default) or 'cypher' (Neo4j graph format)",
+    )
 
     # Check command
     check_parser = subparsers.add_parser("check", help="Check if dependencies are available")
@@ -71,22 +90,50 @@ def cmd_convert(args: argparse.Namespace) -> int:
         return 1
 
     config = LLMConfig(model=args.model)
+    mode = args.mode
 
     try:
         if input_path.suffix == ".vi":
-            code = convert_vi(input_path, llm_config=config)
+            result = convert_vi(input_path, args.output, llm_config=config, mode=mode)
         elif input_path.name.endswith("_BDHb.xml"):
-            code = convert_xml(input_path, args.main_xml, llm_config=config)
+            # Auto-detect front panel XML if not specified
+            fp_xml = args.fp_xml
+            if fp_xml is None and mode == "gui":
+                fp_path = input_path.parent / input_path.name.replace("_BDHb.xml", "_FPHb.xml")
+                if fp_path.exists():
+                    fp_xml = str(fp_path)
+
+            result = convert_xml(
+                input_path,
+                args.main_xml,
+                fp_xml,
+                args.output,
+                llm_config=config,
+                mode=mode,
+                summary_format=args.format,
+            )
         else:
             print(f"Error: Unsupported file type: {input_path.suffix}", file=sys.stderr)
             print("Expected .vi file or *_BDHb.xml", file=sys.stderr)
             return 1
 
-        if args.output:
-            Path(args.output).write_text(code)
-            print(f"Written to {args.output}")
+        # Handle output based on mode
+        if mode == "gui" and hasattr(result, "frontend_code"):
+            if args.output:
+                output_path = Path(args.output)
+                print(f"Backend written to: {output_path.stem}_backend.py")
+                print(f"Frontend written to: {output_path.stem}_frontend.py")
+            else:
+                print("# === BACKEND ===")
+                print(result.backend_code)
+                print("\n# === FRONTEND ===")
+                print(result.frontend_code)
         else:
-            print(code)
+            if args.output:
+                # Already written by convert function
+                print(f"Written to {args.output}")
+            else:
+                print(result)
 
         return 0
 
@@ -104,7 +151,10 @@ def cmd_summarize(args: argparse.Namespace) -> int:
         return 1
 
     try:
-        summary = summarize_vi(input_path, args.main_xml)
+        if args.format == "cypher":
+            summary = summarize_vi_cypher(input_path, args.main_xml)
+        else:
+            summary = summarize_vi(input_path, args.main_xml)
         print(summary)
         return 0
     except Exception as e:

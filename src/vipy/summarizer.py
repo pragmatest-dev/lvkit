@@ -2,34 +2,112 @@
 
 from __future__ import annotations
 
+import xml.etree.ElementTree as ET
 from pathlib import Path
 
-from .parser import BlockDiagram, Constant, Node, parse_block_diagram, parse_vi_metadata
+from .parser import BlockDiagram, Constant, FPTerminal, Node, parse_block_diagram, parse_vi_metadata
 
 
-# Known LabVIEW system directory types
+# Known LabVIEW system directory types with Python equivalents
+# Format: (name, python_windows, python_unix)
 SYSTEM_DIR_TYPES = {
-    0: "User Home",
-    1: "User Desktop",
-    2: "User Documents",
-    3: "User Application Data",
-    4: "User Preferences",
-    5: "User Temporary",
-    6: "Public Documents",
-    7: "Public Application Data",
-    8: "Public Preferences",
-    9: "System Core Libraries",
-    10: "System Installed Libraries",
-    11: "Application Files",
-    12: "Boot Volume Root",
+    0: ("User Home", "USERPROFILE", "HOME"),
+    1: ("User Desktop", "USERPROFILE + '/Desktop'", "HOME + '/Desktop'"),
+    2: ("User Documents", "USERPROFILE + '/Documents'", "HOME + '/Documents'"),
+    3: ("User Application Data", "APPDATA", "HOME + '/.config'"),
+    4: ("User Preferences", "APPDATA", "HOME + '/.config'"),
+    5: ("User Temporary", "TEMP", "/tmp"),
+    6: ("Public Documents", "PUBLIC + '/Documents'", "/usr/share"),
+    7: ("Public Application Data", "PROGRAMDATA", "/usr/local/share"),
+    8: ("Public Preferences", "PROGRAMDATA", "/etc"),
+    9: ("System Core Libraries", "SYSTEMROOT + '/System32'", "/usr/lib"),
+    10: ("System Installed Libraries", "PROGRAMFILES", "/usr/local/lib"),
+    11: ("Application Files", "PROGRAMFILES", "/opt"),
+    12: ("Boot Volume Root", "SYSTEMDRIVE", "/"),
 }
 
-# Known primitive mappings (primResID -> description)
-# This is a starting point - needs expansion
+# Comprehensive LabVIEW primitive mappings (primResID -> (name, description, python_equivalent))
 PRIMITIVE_MAP = {
-    1419: "Build Path",
-    1420: "Strip Path",
-    # Add more as discovered
+    # File I/O primitives
+    1419: ("Build Path", "Combines base path with name(s) to create full path", "os.path.join(base, *names)"),
+    1420: ("Strip Path", "Separates path into directory and filename", "os.path.split(path) -> (dir, name)"),
+    1421: ("Path to String", "Converts path to string", "str(path)"),
+    1422: ("String to Path", "Converts string to path", "Path(string)"),
+    1423: ("Path Type", "Returns type of path (absolute, relative, etc.)", "path.is_absolute()"),
+    1502: ("Open/Create/Replace File", "Opens or creates a file", "open(path, mode)"),
+    1503: ("Read from Text File", "Reads text from file", "file.read()"),
+    1504: ("Write to Text File", "Writes text to file", "file.write(text)"),
+    1505: ("Close File", "Closes an open file", "file.close()"),
+    1538: ("Read from Binary File", "Reads binary data from file", "file.read() in 'rb' mode"),
+    1539: ("Write to Binary File", "Writes binary data to file", "file.write(data) in 'wb' mode"),
+
+    # String primitives
+    1051: ("Concatenate Strings", "Joins multiple strings", "''.join(strings) or str1 + str2"),
+    1052: ("String Length", "Returns length of string", "len(string)"),
+    1053: ("String Subset", "Extracts substring", "string[start:start+length]"),
+    1054: ("Search and Replace", "Finds and replaces text", "string.replace(old, new)"),
+    1055: ("Match Pattern", "Regex pattern matching", "re.search(pattern, string)"),
+    1056: ("Format Into String", "Formats values into string", "format_string % values or f-string"),
+    1057: ("Scan From String", "Parses values from string", "parse or regex extract"),
+
+    # Numeric primitives
+    1001: ("Add", "Adds two numbers", "a + b"),
+    1002: ("Subtract", "Subtracts two numbers", "a - b"),
+    1003: ("Multiply", "Multiplies two numbers", "a * b"),
+    1004: ("Divide", "Divides two numbers", "a / b"),
+    1005: ("Quotient & Remainder", "Integer division with remainder", "divmod(a, b)"),
+    1006: ("Increment", "Adds 1 to number", "n + 1"),
+    1007: ("Decrement", "Subtracts 1 from number", "n - 1"),
+    1008: ("Absolute Value", "Returns absolute value", "abs(n)"),
+    1009: ("Round", "Rounds to nearest integer", "round(n)"),
+    1010: ("Square Root", "Returns square root", "math.sqrt(n)"),
+
+    # Comparison primitives
+    1101: ("Equal?", "Tests equality", "a == b"),
+    1102: ("Not Equal?", "Tests inequality", "a != b"),
+    1103: ("Greater?", "Tests greater than", "a > b"),
+    1104: ("Less?", "Tests less than", "a < b"),
+    1105: ("Greater Or Equal?", "Tests greater or equal", "a >= b"),
+    1106: ("Less Or Equal?", "Tests less or equal", "a <= b"),
+    1107: ("Max & Min", "Returns max and min of inputs", "max(a, b), min(a, b)"),
+    1108: ("In Range?", "Tests if value is in range", "low <= x <= high"),
+
+    # Boolean primitives
+    1201: ("And", "Logical AND", "a and b"),
+    1202: ("Or", "Logical OR", "a or b"),
+    1203: ("Not", "Logical NOT", "not a"),
+    1204: ("Exclusive Or", "Logical XOR", "a ^ b"),
+    1205: ("Implies", "Logical implication", "not a or b"),
+
+    # Array primitives
+    1301: ("Array Size", "Returns array dimensions", "len(array) or array.shape"),
+    1302: ("Index Array", "Gets element at index", "array[index]"),
+    1303: ("Replace Array Subset", "Replaces elements", "array[start:end] = new_values"),
+    1304: ("Insert Into Array", "Inserts elements", "array.insert(index, value)"),
+    1305: ("Delete From Array", "Removes elements", "del array[index] or array.pop()"),
+    1306: ("Initialize Array", "Creates array with initial values", "[value] * size"),
+    1307: ("Build Array", "Combines elements/arrays", "list(elements) or np.concatenate"),
+    1308: ("Array Subset", "Extracts portion of array", "array[start:start+length]"),
+    1309: ("Reshape Array", "Changes array dimensions", "np.reshape(array, shape)"),
+    1310: ("Search 1D Array", "Finds element in array", "array.index(value)"),
+    1311: ("Sort 1D Array", "Sorts array", "sorted(array)"),
+    1312: ("Reverse 1D Array", "Reverses array", "array[::-1]"),
+
+    # Cluster primitives
+    1401: ("Bundle", "Creates cluster from elements", "dataclass or namedtuple"),
+    1402: ("Unbundle", "Extracts all elements from cluster", "tuple unpacking"),
+    1403: ("Bundle By Name", "Creates/modifies cluster by name", "dataclass(**kwargs)"),
+    1404: ("Unbundle By Name", "Extracts specific elements", "cluster.field_name"),
+
+    # Timing primitives
+    1601: ("Wait (ms)", "Delays execution", "time.sleep(ms / 1000)"),
+    1602: ("Tick Count (ms)", "Returns millisecond counter", "time.time() * 1000"),
+    1603: ("Get Date/Time", "Returns current date/time", "datetime.datetime.now()"),
+
+    # Dialog primitives
+    1701: ("One Button Dialog", "Shows message box", "messagebox.showinfo()"),
+    1702: ("Two Button Dialog", "Shows yes/no dialog", "messagebox.askyesno()"),
+    1703: ("Three Button Dialog", "Shows dialog with 3 options", "custom dialog"),
 }
 
 
@@ -101,7 +179,15 @@ def summarize_vi(bd_xml_path: Path | str, main_xml_path: Path | str | None = Non
     Returns:
         Human-readable summary string
     """
+    bd_xml_path = Path(bd_xml_path)
     bd = parse_block_diagram(bd_xml_path)
+
+    # Parse raw XML for additional context (enum labels, etc.)
+    tree = ET.parse(bd_xml_path)
+    root = tree.getroot()
+
+    # Extract enum labels from the XML
+    enum_labels = _extract_enum_labels(root)
 
     # Get metadata if available
     vi_name = "Unknown VI"
@@ -110,42 +196,84 @@ def summarize_vi(bd_xml_path: Path | str, main_xml_path: Path | str | None = Non
         meta = parse_vi_metadata(main_xml_path)
         vi_name = meta.get("name", vi_name)
         subvi_refs = meta.get("subvi_refs", [])
+    else:
+        # Try to derive name from filename
+        vi_name = bd_xml_path.stem.replace("_BDHb", "")
 
     lines = [f'LabVIEW VI: "{vi_name}"', ""]
 
-    # Describe nodes
-    lines.append("NODES:")
-    for i, node in enumerate(bd.nodes, 1):
-        if node.node_type == "iUse":
-            lines.append(f'  {i}. SubVI: "{node.name}"')
-        elif node.node_type == "prim":
-            prim_name = PRIMITIVE_MAP.get(node.prim_res_id, f"Primitive #{node.prim_index}")
-            lines.append(f"  {i}. {prim_name} (primResID={node.prim_res_id})")
-        elif node.node_type == "whileLoop":
-            lines.append(f"  {i}. While Loop")
-        elif node.node_type == "forLoop":
-            lines.append(f"  {i}. For Loop")
-        elif node.node_type == "select":
-            lines.append(f"  {i}. Case/Select Structure")
-        elif node.node_type == "propNode":
-            lines.append(f'  {i}. Property Node: "{node.name}"')
-        elif node.node_type in ("seq", "caseStruct", "eventStruct"):
-            lines.append(f"  {i}. {node.node_type}")
+    # Build UID-to-node map for semantic wire descriptions
+    uid_to_node = {}
+    uid_to_const = {}
 
-    # Describe constants
+    for node in bd.nodes:
+        uid_to_node[node.uid] = node
+    for const in bd.constants:
+        uid_to_const[const.uid] = const
+
+    # Describe nodes with Python equivalents
+    lines.append("OPERATIONS:")
+    node_refs = {}  # Map UID to readable reference
+    for i, node in enumerate(bd.nodes, 1):
+        ref = f"[{i}]"
+        node_refs[node.uid] = ref
+
+        if node.node_type == "iUse":
+            lines.append(f'  {ref} SubVI: "{node.name}"')
+        elif node.node_type == "prim":
+            prim_info = PRIMITIVE_MAP.get(node.prim_res_id)
+            if prim_info:
+                name, desc, python_eq = prim_info
+                lines.append(f"  {ref} {name}: {desc}")
+                lines.append(f"       Python: {python_eq}")
+            else:
+                lines.append(f"  {ref} Unknown Primitive (primResID={node.prim_res_id})")
+        elif node.node_type == "whileLoop":
+            lines.append(f"  {ref} While Loop: while condition:")
+        elif node.node_type == "forLoop":
+            lines.append(f"  {ref} For Loop: for i in range(n):")
+        elif node.node_type == "select":
+            lines.append(f"  {ref} Case/Select: if/elif/else structure")
+        elif node.node_type == "propNode":
+            lines.append(f'  {ref} Property Node: "{node.name}"')
+        elif node.node_type in ("seq", "caseStruct", "eventStruct"):
+            lines.append(f"  {ref} {node.node_type}")
+
+    # Describe constants with context
     if bd.constants:
         lines.append("")
         lines.append("CONSTANTS:")
         for const in bd.constants:
-            val_type, val = decode_constant(const)
-            label = const.label or f"constant_{const.uid}"
-            lines.append(f'  - {label}: {val} ({val_type})')
+            const_ref = f"const_{const.uid}"
+            node_refs[const.uid] = const_ref
 
-    # Describe data flow
+            # Check if this is an enum value with known labels
+            enum_label = _get_enum_value_label(const, enum_labels)
+
+            if enum_label:
+                lines.append(f'  - {const_ref}: {enum_label}')
+            else:
+                val_type, val = decode_constant(const)
+                if const.label:
+                    lines.append(f'  - {const_ref} ({const.label}): {val} ({val_type})')
+                else:
+                    lines.append(f'  - {const_ref}: {val} ({val_type})')
+
+    # Build semantic data flow description
     lines.append("")
-    lines.append("WIRES (data flow):")
+    lines.append("DATA FLOW:")
+
+    # Map terminal UIDs to their parent node/constant
+    term_to_parent = _build_terminal_map(root)
+
     for wire in bd.wires:
-        lines.append(f"  {wire.from_term} -> {wire.to_term}")
+        from_parent = term_to_parent.get(wire.from_term, wire.from_term)
+        to_parent = term_to_parent.get(wire.to_term, wire.to_term)
+
+        from_desc = _describe_terminal(from_parent, node_refs, uid_to_node, uid_to_const)
+        to_desc = _describe_terminal(to_parent, node_refs, uid_to_node, uid_to_const)
+
+        lines.append(f"  {from_desc} -> {to_desc}")
 
     # List SubVI dependencies
     if subvi_refs:
@@ -157,15 +285,391 @@ def summarize_vi(bd_xml_path: Path | str, main_xml_path: Path | str | None = Non
     return "\n".join(lines)
 
 
-def create_llm_prompt(summary: str) -> str:
+def _extract_enum_labels(root: ET.Element) -> dict[str, list[str]]:
+    """Extract enum/ring labels from the XML."""
+    enums = {}
+    for multi_label in root.findall(".//*[@class='multiLabel']"):
+        buf = multi_label.find("buf")
+        if buf is not None and buf.text:
+            # Format: (count)"label1""label2"...
+            text = buf.text
+            labels = []
+            i = 0
+            # Skip the count prefix like "(13)"
+            if text.startswith("("):
+                i = text.find(")") + 1
+            # Parse quoted strings
+            while i < len(text):
+                if text[i] == '"':
+                    end = text.find('"', i + 1)
+                    if end > i:
+                        labels.append(text[i + 1:end])
+                        i = end + 1
+                    else:
+                        break
+                else:
+                    i += 1
+            if labels:
+                # Find parent UID
+                parent = multi_label
+                while parent is not None:
+                    uid = parent.get("uid")
+                    if uid:
+                        enums[uid] = labels
+                        break
+                    parent = parent.find("..")  # This won't work, need different approach
+                # Store by parent term UID if we can find it
+                term_parent = root.find(f".//*[@class='term']/*[@class='bDConstDCO']/../..")
+                if term_parent is not None:
+                    term_uid = term_parent.get("uid")
+                    if term_uid:
+                        enums[term_uid] = labels
+    return enums
+
+
+def _get_enum_value_label(const: Constant, enum_labels: dict[str, list[str]]) -> str | None:
+    """Get the label for an enum constant value."""
+    try:
+        if len(const.value) == 8:
+            int_val = int(const.value, 16)
+            # Check if this constant has associated enum labels
+            if const.uid in enum_labels:
+                labels = enum_labels[const.uid]
+                if 0 <= int_val < len(labels):
+                    return f"{labels[int_val]} (enum value {int_val})"
+            # Check for system directory type pattern
+            label_lower = (const.label or "").lower()
+            if "system directory" in label_lower or int_val in SYSTEM_DIR_TYPES:
+                dir_info = SYSTEM_DIR_TYPES.get(int_val)
+                if dir_info:
+                    name, win_env, unix_path = dir_info
+                    return f"{name} (type {int_val}) -> Python: os.environ['{win_env}'] on Windows, '{unix_path}' on Unix"
+    except (ValueError, TypeError):
+        pass
+    return None
+
+
+def _build_terminal_map(root: ET.Element) -> dict[str, str]:
+    """Map terminal UIDs to their parent node/constant UID."""
+    term_map = {}
+
+    # Find all terminals and map to parent
+    for elem in root.iter():
+        elem_uid = elem.get("uid")
+        elem_class = elem.get("class", "")
+
+        if elem_uid:
+            # For prim and iUse nodes, map their terminals
+            if elem_class in ("prim", "iUse", "whileLoop", "forLoop", "select"):
+                for term in elem.findall("./termList/SL__arrayElement[@class='term']"):
+                    term_uid = term.get("uid")
+                    if term_uid:
+                        term_map[term_uid] = elem_uid
+
+            # For constant terminals (directly under term elements with bDConstDCO)
+            if elem_class == "term":
+                dco = elem.find("./dco[@class='bDConstDCO']")
+                if dco is not None:
+                    # This is a constant terminal - map it to itself
+                    term_map[elem_uid] = elem_uid
+
+    return term_map
+
+
+def _describe_terminal(parent_uid: str, node_refs: dict, uid_to_node: dict, uid_to_const: dict) -> str:
+    """Create a human-readable description of a terminal."""
+    if parent_uid in node_refs:
+        return node_refs[parent_uid]
+
+    if parent_uid in uid_to_node:
+        node = uid_to_node[parent_uid]
+        if node.node_type == "iUse" and node.name:
+            return f'"{node.name}"'
+        elif node.node_type == "prim" and node.prim_res_id:
+            prim_info = PRIMITIVE_MAP.get(node.prim_res_id)
+            if prim_info:
+                return prim_info[0]
+        return f"node_{parent_uid}"
+
+    if parent_uid in uid_to_const:
+        const = uid_to_const[parent_uid]
+        return f"const_{const.uid}"
+
+    return f"term_{parent_uid}"
+
+
+def _get_fp_terminal_names(bd_xml_path: Path) -> dict[str, str]:
+    """Get front panel terminal names from the FPHb.xml file.
+
+    Args:
+        bd_xml_path: Path to the block diagram XML (*_BDHb.xml)
+
+    Returns:
+        Dict mapping DCO uid to terminal name
+    """
+    # Derive front panel XML path from block diagram path
+    fp_xml_path = bd_xml_path.parent / bd_xml_path.name.replace("_BDHb.xml", "_FPHb.xml")
+
+    if not fp_xml_path.exists():
+        return {}
+
+    try:
+        tree = ET.parse(fp_xml_path)
+        root = tree.getroot()
+
+        names = {}
+        # Find fPDCO elements (front panel data container objects)
+        for fp_dco in root.findall(".//*[@class='fPDCO']"):
+            uid = fp_dco.get("uid")
+            if not uid:
+                continue
+
+            # Look for the label inside the ddo's partsList
+            # Structure: fPDCO/ddo/partsList/SL__arrayElement[@class='label']/textRec/text
+            ddo = fp_dco.find("ddo")
+            if ddo is not None:
+                # Try multiple paths where label might be
+                label_elem = None
+                for label in ddo.findall(".//*[@class='label']"):
+                    text_elem = label.find(".//textRec/text")
+                    if text_elem is not None and text_elem.text:
+                        label_elem = text_elem
+                        break
+
+                if label_elem is not None and label_elem.text:
+                    names[uid] = label_elem.text.strip('"')
+
+        return names
+    except Exception:
+        return {}
+
+
+def summarize_vi_cypher(bd_xml_path: Path | str, main_xml_path: Path | str | None = None) -> str:
+    """Generate a Cypher graph representation of a VI for LLM processing.
+
+    Args:
+        bd_xml_path: Path to the block diagram XML (*_BDHb.xml)
+        main_xml_path: Path to the main VI XML (optional, for metadata)
+
+    Returns:
+        Cypher CREATE statements representing the VI as a graph
+    """
+    bd_xml_path = Path(bd_xml_path)
+    bd = parse_block_diagram(bd_xml_path)
+
+    # Parse raw XML for additional context
+    tree = ET.parse(bd_xml_path)
+    root = tree.getroot()
+    enum_labels = _extract_enum_labels(root)
+
+    # Try to get front panel terminal names
+    fp_names = _get_fp_terminal_names(bd_xml_path)
+
+    # Get VI name
+    vi_name = "Unknown VI"
+    if main_xml_path:
+        meta = parse_vi_metadata(main_xml_path)
+        vi_name = meta.get("name", vi_name)
+    else:
+        vi_name = bd_xml_path.stem.replace("_BDHb", "")
+
+    # Sanitize name for Cypher variable
+    vi_var = _sanitize_cypher_name(vi_name)
+
+    lines = [
+        "// Cypher graph representation of LabVIEW VI",
+        f"// VI: {vi_name}",
+        "",
+        f"// Create the VI node",
+        f'CREATE ({vi_var}:VI {{name: "{vi_name}"}})',
+        "",
+        "// Constants",
+    ]
+
+    # Track node variables for edge creation
+    node_vars = {}
+    term_to_parent = _build_terminal_map(root)
+
+    # Create constant nodes
+    for const in bd.constants:
+        const_var = f"c_{const.uid}"
+        node_vars[const.uid] = const_var
+
+        # Decode constant value
+        enum_label = _get_enum_value_label(const, enum_labels)
+        if enum_label:
+            # Extract just the python hint if present
+            value_desc = enum_label
+            python_hint = ""
+            if " -> Python: " in enum_label:
+                parts = enum_label.split(" -> Python: ")
+                value_desc = parts[0]
+                python_hint = parts[1]
+            lines.append(
+                f'CREATE ({const_var}:Constant {{id: "{const.uid}", '
+                f'value: "{_escape_cypher(value_desc)}", '
+                f'python: "{_escape_cypher(python_hint)}"}})'
+            )
+        else:
+            val_type, val = decode_constant(const)
+            lines.append(
+                f'CREATE ({const_var}:Constant {{id: "{const.uid}", '
+                f'type: "{val_type}", value: "{_escape_cypher(val)}"}})'
+            )
+
+        # Link constant to VI
+        lines.append(f"CREATE ({vi_var})-[:CONTAINS]->({const_var})")
+
+    lines.append("")
+    lines.append("// Operations (Primitives and SubVIs)")
+
+    # Create operation nodes
+    for node in bd.nodes:
+        node_var = f"n_{node.uid}"
+        node_vars[node.uid] = node_var
+
+        if node.node_type == "iUse":
+            # SubVI call
+            subvi_name = node.name or "Unknown SubVI"
+            lines.append(
+                f'CREATE ({node_var}:SubVI {{id: "{node.uid}", '
+                f'name: "{_escape_cypher(subvi_name)}"}})'
+            )
+        elif node.node_type == "prim":
+            # Primitive operation
+            prim_info = PRIMITIVE_MAP.get(node.prim_res_id)
+            if prim_info:
+                name, desc, python_eq = prim_info
+                lines.append(
+                    f'CREATE ({node_var}:Primitive {{id: "{node.uid}", '
+                    f'name: "{name}", '
+                    f'description: "{_escape_cypher(desc)}", '
+                    f'python: "{_escape_cypher(python_eq)}"}})'
+                )
+            else:
+                lines.append(
+                    f'CREATE ({node_var}:Primitive {{id: "{node.uid}", '
+                    f'primResID: {node.prim_res_id}}})'
+                )
+        elif node.node_type in ("whileLoop", "forLoop"):
+            lines.append(
+                f'CREATE ({node_var}:Loop {{id: "{node.uid}", '
+                f'type: "{node.node_type}"}})'
+            )
+        elif node.node_type in ("select", "caseStruct"):
+            lines.append(
+                f'CREATE ({node_var}:Conditional {{id: "{node.uid}", '
+                f'type: "{node.node_type}"}})'
+            )
+        else:
+            lines.append(
+                f'CREATE ({node_var}:Node {{id: "{node.uid}", '
+                f'type: "{node.node_type}"}})'
+            )
+
+        # Link node to VI
+        lines.append(f"CREATE ({vi_var})-[:CONTAINS]->({node_var})")
+
+    # Create VI input and output nodes
+    if bd.fp_terminals:
+        lines.append("")
+        lines.append("// VI Inputs and Outputs (front panel terminals)")
+        for i, fp_term in enumerate(bd.fp_terminals):
+            term_var = f"fp_{fp_term.uid}"
+            node_vars[fp_term.uid] = term_var
+
+            # Try to get name from front panel, fall back to generic name
+            name = fp_names.get(fp_term.fp_dco_uid) or fp_term.name
+            if not name:
+                name = f"output_{i}" if fp_term.is_indicator else f"input_{i}"
+
+            if fp_term.is_indicator:
+                # Output indicator
+                lines.append(
+                    f'CREATE ({term_var}:Output {{id: "{fp_term.uid}", '
+                    f'name: "{_escape_cypher(name)}"}})'
+                )
+                lines.append(
+                    f"CREATE ({vi_var})-[:RETURNS]->({term_var})"
+                )
+            else:
+                # Input control
+                lines.append(
+                    f'CREATE ({term_var}:Input {{id: "{fp_term.uid}", '
+                    f'name: "{_escape_cypher(name)}"}})'
+                )
+                lines.append(
+                    f"CREATE ({term_var})-[:PARAMETER_OF]->({vi_var})"
+                )
+
+    lines.append("")
+    lines.append("// Data flow edges")
+
+    # Create edges for wires
+    for wire in bd.wires:
+        from_parent = term_to_parent.get(wire.from_term, wire.from_term)
+        to_parent = term_to_parent.get(wire.to_term, wire.to_term)
+
+        from_var = node_vars.get(from_parent)
+        to_var = node_vars.get(to_parent)
+
+        if from_var and to_var:
+            lines.append(
+                f"CREATE ({from_var})-[:FLOWS_TO]->({to_var})"
+            )
+
+    lines.append("")
+    lines.append("// End of VI graph")
+
+    return "\n".join(lines)
+
+
+def _sanitize_cypher_name(name: str) -> str:
+    """Convert a name to a valid Cypher variable name."""
+    # Replace spaces and special chars with underscores
+    result = ""
+    for c in name:
+        if c.isalnum():
+            result += c
+        else:
+            result += "_"
+    # Ensure it starts with a letter
+    if result and not result[0].isalpha():
+        result = "vi_" + result
+    return result.lower() or "vi"
+
+
+def _escape_cypher(s: str) -> str:
+    """Escape a string for use in Cypher."""
+    return s.replace("\\", "\\\\").replace('"', '\\"').replace("'", "\\'")
+
+
+def create_llm_prompt(summary: str, mode: str = "script", summary_format: str = "text") -> str:
     """Create a full prompt for the LLM to convert the VI to Python.
 
     Args:
-        summary: VI summary from summarize_vi()
+        summary: VI summary from summarize_vi() or summarize_vi_cypher()
+        mode: "script" for standalone, "gui" for backend function
+        summary_format: "text" or "cypher"
 
     Returns:
         Complete prompt string
     """
+    if summary_format == "cypher":
+        return _create_cypher_prompt(summary, mode)
+
+    if mode == "gui":
+        return f"""{summary}
+
+Convert this LabVIEW VI to a Python backend function that will be called from a NiceGUI frontend.
+- Create a single function that takes the INPUT controls as parameters
+- Return the OUTPUT indicators as a tuple (or single value if one output)
+- Use os.path for path operations
+- Use os.makedirs with exist_ok=True for directory creation
+- Map system directories to appropriate Python equivalents (e.g., APPDATA, HOME)
+- The function should be importable (no if __name__ == '__main__')
+- Output ONLY the Python code, no explanations."""
+
     return f"""{summary}
 
 Convert this LabVIEW VI to an equivalent Python function.
@@ -173,3 +677,47 @@ Convert this LabVIEW VI to an equivalent Python function.
 - Use os.makedirs with exist_ok=True for directory creation
 - Map system directories to appropriate Python equivalents (e.g., APPDATA, HOME)
 - Output ONLY the Python code, no explanations."""
+
+
+def _create_cypher_prompt(cypher_graph: str, mode: str) -> str:
+    """Create a prompt for Cypher graph input."""
+    base_instructions = """The above is a Cypher graph representation of a LabVIEW VI.
+
+Node types:
+- :VI - The main VI container
+- :Constant - Input values with 'python' property showing the Python equivalent
+- :Primitive - LabVIEW built-in operations with 'python' property showing the equivalent
+- :SubVI - Calls to other VIs (treat as function calls)
+- :Input - VI input parameter (function argument)
+- :Output - VI output/return value
+
+Relationships:
+- [:CONTAINS] - VI contains this node
+- [:FLOWS_TO] - Data flows from source to destination
+- [:RETURNS] - VI returns this output value
+- [:PARAMETER_OF] - This input is a parameter of the VI
+
+IMPORTANT: Pay attention to [:FLOWS_TO] edges going to :Output nodes - these indicate
+what values should be returned. A single node's output can flow to BOTH other operations
+AND to the :Output (return value).
+
+Convert this graph to an equivalent Python function by:
+1. Reading the 'python' property of each node for the Python equivalent
+2. Following [:FLOWS_TO] edges to determine execution order
+3. Using variable names that reflect the data being passed
+4. Returning values that flow to :Output nodes"""
+
+    if mode == "gui":
+        return f"""{cypher_graph}
+
+{base_instructions}
+4. Create a backend function suitable for NiceGUI frontend
+5. Return output values as a tuple
+
+Output ONLY the Python code, no explanations."""
+
+    return f"""{cypher_graph}
+
+{base_instructions}
+
+Output ONLY the Python code, no explanations."""

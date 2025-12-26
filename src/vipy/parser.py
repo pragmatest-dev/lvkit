@@ -38,11 +38,21 @@ class Wire:
 
 
 @dataclass
+class FPTerminal:
+    """A front panel terminal (VI input or output)."""
+    uid: str
+    fp_dco_uid: str  # Links to front panel control/indicator
+    name: str | None = None
+    is_indicator: bool = False  # True = output, False = input (control)
+
+
+@dataclass
 class BlockDiagram:
     """Parsed block diagram representation."""
     nodes: list[Node]
     constants: list[Constant]
     wires: list[Wire]
+    fp_terminals: list[FPTerminal] = field(default_factory=list)
 
     def get_node(self, uid: str) -> Node | None:
         """Get a node by UID."""
@@ -67,8 +77,14 @@ def parse_block_diagram(xml_path: Path | str) -> BlockDiagram:
     nodes = _extract_nodes(root)
     constants = _extract_constants(root)
     wires = _extract_wires(root)
+    fp_terminals = _extract_fp_terminals(root)
 
-    return BlockDiagram(nodes=nodes, constants=constants, wires=wires)
+    return BlockDiagram(
+        nodes=nodes,
+        constants=constants,
+        wires=wires,
+        fp_terminals=fp_terminals,
+    )
 
 
 def _extract_nodes(root: ET.Element) -> list[Node]:
@@ -151,7 +167,11 @@ def _extract_constants(root: ET.Element) -> list[Constant]:
 
 
 def _extract_wires(root: ET.Element) -> list[Wire]:
-    """Extract wires (signals) from the block diagram."""
+    """Extract wires (signals) from the block diagram.
+
+    In LabVIEW, a single signal can connect one source to multiple destinations.
+    We create separate Wire objects for each destination.
+    """
     wires = []
 
     for sig in root.findall(".//signalList/SL__arrayElement[@class='signal']"):
@@ -159,14 +179,76 @@ def _extract_wires(root: ET.Element) -> list[Wire]:
         terms = [t.get("uid") for t in sig.findall("termList/SL__arrayElement")]
 
         if len(terms) >= 2:
-            # Wire connects first term to last term (may have intermediate points)
-            wires.append(Wire(
-                uid=uid,
-                from_term=terms[0],
-                to_term=terms[-1],
-            ))
+            # First terminal is the source, all others are destinations
+            source = terms[0]
+            for i, dest in enumerate(terms[1:]):
+                wires.append(Wire(
+                    uid=f"{uid}_{i}" if i > 0 else uid,
+                    from_term=source,
+                    to_term=dest,
+                ))
 
     return wires
+
+
+def _extract_fp_terminals(root: ET.Element) -> list[FPTerminal]:
+    """Extract front panel terminals (VI inputs and outputs) from the block diagram.
+
+    In LabVIEW, fPTerm elements on the block diagram represent connections to
+    front panel controls (inputs) and indicators (outputs).
+
+    We determine input vs output by analyzing signal (wire) directions:
+    - If wires flow TO the fPTerm, it's an output (indicator)
+    - If wires flow FROM the fPTerm, it's an input (control)
+    """
+    # First, collect all fPTerm UIDs
+    fp_term_uids = set()
+    fp_term_data = {}
+
+    for fp_term in root.findall(".//*[@class='fPTerm']"):
+        uid = fp_term.get("uid")
+        if not uid:
+            continue
+        fp_term_uids.add(uid)
+
+        # Get the linked front panel DCO uid
+        dco = fp_term.find("dco")
+        fp_dco_uid = dco.get("uid") if dco is not None else None
+
+        # Get the label/name
+        label_elem = fp_term.find(".//label/textRec/text")
+        name = label_elem.text.strip('"') if label_elem is not None and label_elem.text else None
+
+        fp_term_data[uid] = {
+            "fp_dco_uid": fp_dco_uid or "",
+            "name": name,
+            "is_indicator": False,  # Will be determined by wire analysis
+        }
+
+    # Analyze signals to determine input vs output
+    # In signals, the first terminal is the source, others are destinations
+    for sig in root.findall(".//signalList/SL__arrayElement[@class='signal']"):
+        terms = [t.get("uid") for t in sig.findall("termList/SL__arrayElement")]
+        if len(terms) >= 2:
+            source = terms[0]
+            destinations = terms[1:]
+
+            # If an fPTerm is a destination, it's an output (indicator)
+            for dest in destinations:
+                if dest in fp_term_uids:
+                    fp_term_data[dest]["is_indicator"] = True
+
+    # Build the result list
+    terminals = []
+    for uid, data in fp_term_data.items():
+        terminals.append(FPTerminal(
+            uid=uid,
+            fp_dco_uid=data["fp_dco_uid"],
+            name=data["name"],
+            is_indicator=data["is_indicator"],
+        ))
+
+    return terminals
 
 
 def parse_vi_metadata(xml_path: Path | str) -> dict[str, Any]:
