@@ -158,6 +158,14 @@ class ConversionAgent:
         # Build primitive mappings (primResID -> function name)
         primitive_mappings = self._get_primitive_mappings(vi_context)
 
+        # Extract expected primitives and SubVIs for completeness checking
+        expected_primitives = list(primitive_mappings.values())
+        expected_subvis = [
+            op["name"]
+            for op in vi_context.get("operations", [])
+            if "SubVI" in op.get("labels", []) and op.get("name")
+        ]
+
         # Build initial context
         context = ContextBuilder.build_vi_context(
             cypher_graph=cypher,
@@ -172,14 +180,17 @@ class ConversionAgent:
 
         code = ""
         errors: list[str] = []
+        original_context = context  # Preserve for error feedback
 
         for attempt in range(1, self.config.max_retries + 1):
             # Generate code
             code = generate_code(context, self.config.llm_config)
             code = self._extract_code(code)
 
-            # Validate
-            validation = self.validator.validate(code, vi_name)
+            # Validate with completeness check
+            validation = self.validator.validate(
+                code, vi_name, expected_primitives, expected_subvis
+            )
 
             if validation.is_valid:
                 # Success - write to file
@@ -199,9 +210,11 @@ class ConversionAgent:
                     ui_path=ui_path,
                 )
 
-            # Validation failed - build error context for retry
+            # Validation failed - build error context with original requirements
             errors = [e.message for e in validation.errors]
-            context = ContextBuilder.build_error_context(code, validation.errors)
+            context = ContextBuilder.build_error_context(
+                code, validation.errors, original_context
+            )
 
         # Max retries exceeded
         return ConversionResult(

@@ -45,10 +45,6 @@ The following primResID values map to these functions from `.primitives`:
 ## Available Imports
 {available_imports}
 
-Standard library imports you may need:
-- `from pathlib import Path` for path operations
-- `import os` for environment variables and OS operations
-
 ## Shared Types
 {shared_types}
 
@@ -56,10 +52,17 @@ Standard library imports you may need:
 - Create a function named `{function_name}`
 - Parameters from VI inputs: {inputs}
 - Return values from VI outputs: {outputs}
-- For each `:Primitive` node, use the corresponding function from `.primitives` based on its primResID
-- Follow the data flow: Input nodes → operations → Output nodes
-- Include ALL necessary imports at the top of the code
-- Add proper type hints to all parameters and return value
+
+CRITICAL: You MUST follow the Data Flow exactly:
+- Each line "A -> B" means the output of A is passed as input to B
+- Use variable names that match the node IDs (e.g., op_129_result for op_129's output)
+- SubVIs that aren't converted yet should raise NotImplementedError
+- The node that flows to an :Output is what gets returned
+
+Example interpretation:
+  "c_59 -> op_90:SubVI" means: op_90_result = subvi_function(c_59_value)
+  "op_90 -> op_129:build_path" means: op_129_result = build_path(op_90_result, ...)
+  "op_129 -> o_166:output" means: return op_129_result
 
 Output ONLY the Python code (with imports), no explanations.'''
 
@@ -277,12 +280,14 @@ def create() -> {class_name}UI:
     def build_error_context(
         code: str,
         errors: list[ValidationError],
+        original_prompt: str = "",
     ) -> str:
         """Build context for error correction.
 
         Args:
             code: The broken Python code
             errors: List of validation errors
+            original_prompt: The original conversion prompt for context
 
         Returns:
             Prompt for LLM to fix errors
@@ -291,7 +296,16 @@ def create() -> {class_name}UI:
 
         error_text = ErrorFormatter.format(errors)
 
-        return f"""The following Python code has errors:
+        context = ""
+        if original_prompt:
+            context = f"""## Original Requirements
+{original_prompt}
+
+---
+
+"""
+
+        return f"""{context}The following Python code has errors that must be fixed:
 
 ```python
 {code}
@@ -299,8 +313,13 @@ def create() -> {class_name}UI:
 
 {error_text}
 
-Please fix these errors and return the corrected code.
-Keep the same function signature and logic.
+Fix these errors. Remember:
+- Include ALL necessary imports (os, pathlib, etc.)
+- Use all primitives from the VI graph
+- Handle all SubVIs (call them or add TODO comments)
+- Do NOT use stubs or pass statements unless absolutely necessary
+- If you must stub something, use: raise NotImplementedError("SubVI: Name.vi")
+
 Output ONLY the corrected Python code, no explanations."""
 
     @staticmethod

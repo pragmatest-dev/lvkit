@@ -331,22 +331,79 @@ class VIGraph:
                 lines.append(f'CREATE (vi)-[:CONTAINS]->(op_{op["id"]})')
             lines.append("")
 
-        # Data flow
+        # Data flow - with descriptive names
         flows = self.query("""
             MATCH (v:VI {name: $name})-[:CONTAINS|RETURNS|PARAMETER_OF*]-(n1)
             MATCH (n1)-[:FLOWS_TO]->(n2)
-            RETURN n1.id AS from_id, n1.name AS from_name,
-                   n2.id AS to_id, n2.name AS to_name
+            RETURN n1.id AS from_id, n1.name AS from_name, labels(n1) AS from_labels,
+                   n1.primResID AS from_prim, n1.value AS from_value,
+                   n2.id AS to_id, n2.name AS to_name, labels(n2) AS to_labels,
+                   n2.primResID AS to_prim
         """, {"name": vi_name})
         if flows:
-            lines.append("// Data Flow")
+            lines.append("// Data Flow (source -> destination)")
             for f in flows:
-                from_name = f.get("from_name") or f"node_{f['from_id']}"
-                to_name = f.get("to_name") or f"node_{f['to_id']}"
-                lines.append(f'// {from_name} -> {to_name}')
+                from_desc = self._describe_node(f, "from")
+                to_desc = self._describe_node(f, "to")
+                lines.append(f'// {from_desc} -> {to_desc}')
             lines.append("")
 
         return "\n".join(lines)
+
+    def _describe_node(self, flow: dict, prefix: str) -> str:
+        """Generate a descriptive name for a node in the data flow.
+
+        Uses the same variable naming as CREATE statements so IDs match up.
+
+        Args:
+            flow: The flow dict from the query
+            prefix: "from" or "to" to pick the right fields
+
+        Returns:
+            A description like "op_129:build_path" or "c_78:constant"
+        """
+        from .agent.primitives import KNOWN_PRIMITIVES
+
+        node_id = flow.get(f"{prefix}_id")
+        name = flow.get(f"{prefix}_name")
+        labels = flow.get(f"{prefix}_labels", [])
+        prim_id = flow.get(f"{prefix}_prim")
+        value = flow.get(f"{prefix}_value")
+
+        # Determine the variable prefix (must match CREATE statements)
+        if "Primitive" in labels or "SubVI" in labels or "Loop" in labels or "Conditional" in labels:
+            var_prefix = "op"
+        elif "Constant" in labels:
+            var_prefix = "c"
+        elif "Input" in labels:
+            var_prefix = "i"
+        elif "Output" in labels:
+            var_prefix = "o"
+        else:
+            var_prefix = "n"
+
+        var_name = f"{var_prefix}_{node_id}"
+
+        # Generate description
+        if "Primitive" in labels and prim_id:
+            if prim_id in KNOWN_PRIMITIVES:
+                func_name, _ = KNOWN_PRIMITIVES[prim_id]
+                return f"{var_name}:{func_name}"
+            return f"{var_name}:primitive_{prim_id}"
+
+        if "SubVI" in labels and name:
+            return f"{var_name}:{name}"
+
+        if "Constant" in labels:
+            if value:
+                short_val = value[:20] + "..." if len(value) > 20 else value
+                return f'{var_name}:"{short_val}"'
+            return f"{var_name}:constant"
+
+        if "Input" in labels or "Output" in labels:
+            return f"{var_name}:{name or 'terminal'}"
+
+        return f"{var_name}:{name or 'node'}"
 
     def get_vi_interface(self, vi_name: str) -> dict:
         """Get just the interface (signature) of a VI for SubVI context.

@@ -164,7 +164,7 @@ def from_blockdiagram(
     lines.append("")
     lines.append("// Data flow edges")
 
-    # Create edges for wires
+    # Create edges for wires with terminal info
     for wire in bd.wires:
         from_parent = bd.term_to_parent.get(wire.from_term, wire.from_term)
         to_parent = bd.term_to_parent.get(wire.to_term, wire.to_term)
@@ -173,8 +173,9 @@ def from_blockdiagram(
         to_var = node_vars.get(to_parent)
 
         if from_var and to_var:
+            # Include terminal IDs to preserve connection details
             lines.append(
-                f"CREATE ({from_var})-[:FLOWS_TO]->({to_var})"
+                f'CREATE ({from_var})-[:FLOWS_TO {{from_term: "{wire.from_term}", to_term: "{wire.to_term}"}}]->({to_var})'
             )
 
     lines.append("")

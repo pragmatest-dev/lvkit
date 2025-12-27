@@ -48,17 +48,26 @@ class CodeValidator:
     1. Syntax check (instant) - ast.parse
     2. Import resolution (fast) - check imports exist
     3. Type checking (slow) - mypy subprocess
+    4. Completeness check - verify all primitives/SubVIs are handled
     """
 
     def __init__(self, config: ValidatorConfig) -> None:
         self.config = config
 
-    def validate(self, code: str, module_name: str) -> ValidationResult:
+    def validate(
+        self,
+        code: str,
+        module_name: str,
+        expected_primitives: list[str] | None = None,
+        expected_subvis: list[str] | None = None,
+    ) -> ValidationResult:
         """Run full validation pipeline.
 
         Args:
             code: Python source code to validate
             module_name: Name for the module (used in temp files)
+            expected_primitives: Primitive function names that should be used
+            expected_subvis: SubVI names that should be called or stubbed
 
         Returns:
             ValidationResult with is_valid flag and any errors
@@ -84,11 +93,62 @@ class CodeValidator:
             errors.extend(type_result.errors)
             warnings.extend(type_result.warnings)
 
+        # 4. Completeness check - verify primitives and SubVIs are handled
+        if not errors:
+            completeness_errors = self._check_completeness(
+                code, expected_primitives or [], expected_subvis or []
+            )
+            errors.extend(completeness_errors)
+
         return ValidationResult(
             is_valid=len(errors) == 0,
             errors=errors,
             warnings=warnings,
         )
+
+    def _check_completeness(
+        self,
+        code: str,
+        expected_primitives: list[str],
+        expected_subvis: list[str],
+    ) -> list[ValidationError]:
+        """Check that all expected primitives and SubVIs are used.
+
+        Args:
+            code: Generated Python code
+            expected_primitives: Function names that should be called
+            expected_subvis: SubVI names that should be handled
+
+        Returns:
+            List of completeness errors
+        """
+        errors: list[ValidationError] = []
+
+        # Check primitives are used
+        for prim_name in expected_primitives:
+            # Look for function call pattern
+            if f"{prim_name}(" not in code:
+                errors.append(
+                    ValidationError(
+                        category="completeness",
+                        message=f"Primitive '{prim_name}' from VI graph not used in generated code",
+                    )
+                )
+
+        # Check SubVIs are handled (either called or commented as TODO)
+        for subvi_name in expected_subvis:
+            # Convert to potential function name
+            func_name = subvi_name.replace(".vi", "").replace(" ", "_").lower()
+            # Check if it's called, defined, or mentioned in a comment
+            if func_name not in code.lower() and subvi_name not in code:
+                errors.append(
+                    ValidationError(
+                        category="completeness",
+                        message=f"SubVI '{subvi_name}' from VI graph not handled in generated code",
+                    )
+                )
+
+        return errors
 
     def _check_syntax(self, code: str) -> list[ValidationError]:
         """Check for Python syntax errors using ast.parse."""
