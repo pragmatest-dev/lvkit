@@ -79,6 +79,21 @@ def main() -> int:
     graph_parser.add_argument("--no-expand", action="store_true", help="Don't expand SubVIs")
     graph_parser.add_argument("--cypher", action="store_true", help="Output Cypher only, don't load to Neo4j")
 
+    # Agent command - convert with validation loop
+    agent_parser = subparsers.add_parser(
+        "agent",
+        help="Convert VIs to Python with validation loop",
+    )
+    agent_parser.add_argument("input", help="VI, directory, .lvlib, .lvclass, or .lvproj")
+    agent_parser.add_argument("-o", "--output", required=True, help="Output directory")
+    agent_parser.add_argument("--uri", default="bolt://localhost:7687", help="Neo4j URI")
+    agent_parser.add_argument("--user", default="neo4j", help="Neo4j username")
+    agent_parser.add_argument("--password", default="vipy-password", help="Neo4j password")
+    agent_parser.add_argument("--max-retries", type=int, default=3, help="Max LLM retries per VI")
+    agent_parser.add_argument("--model", default="qwen2.5-coder:7b", help="Ollama model")
+    agent_parser.add_argument("--no-typecheck", action="store_true", help="Skip mypy type checking")
+    agent_parser.add_argument("--generate-ui", action="store_true", help="Generate NiceGUI wrappers")
+
     args = parser.parse_args()
 
     if args.command == "convert":
@@ -91,6 +106,8 @@ def main() -> int:
         return cmd_structure(args)
     elif args.command == "graph":
         return cmd_graph(args)
+    elif args.command == "agent":
+        return cmd_agent(args)
     else:
         parser.print_help()
         return 0
@@ -381,6 +398,96 @@ def cmd_graph(args: argparse.Namespace) -> int:
 
         graph.close()
         return 0
+
+    except Exception as e:
+        print(f"Error: {e}", file=sys.stderr)
+        return 1
+
+
+def cmd_agent(args: argparse.Namespace) -> int:
+    """Handle the agent command - convert with validation loop."""
+    from .agent import ConversionAgent, ConversionConfig
+    from .cypher import extract_vi_xml
+
+    input_path = Path(args.input)
+    output_dir = Path(args.output)
+
+    if not input_path.exists():
+        print(f"Error: Path not found: {input_path}", file=sys.stderr)
+        return 1
+
+    try:
+        # Connect to Neo4j
+        graph_config = GraphConfig(
+            uri=args.uri,
+            username=args.user,
+            password=args.password,
+        )
+
+        print(f"Connecting to Neo4j at {args.uri}...")
+        graph = VIGraph(graph_config)
+        graph.connect()
+
+        # Load VIs into graph based on input type
+        suffix = input_path.suffix.lower()
+        print(f"Loading VIs from {input_path}...")
+
+        if suffix == ".vi":
+            graph.load_vi(input_path, expand_subvis=True)
+        elif suffix == ".lvlib":
+            from .cypher import from_lvlib
+            cypher = from_lvlib(input_path, expand_subvis=True)
+            graph._load_cypher(cypher)
+        elif suffix == ".lvclass":
+            from .cypher import from_lvclass
+            cypher = from_lvclass(input_path, expand_subvis=True)
+            graph._load_cypher(cypher)
+        elif suffix == ".lvproj":
+            from .cypher import from_project
+            cypher = from_project(input_path, expand_subvis=True)
+            graph._load_cypher(cypher)
+        elif input_path.is_dir():
+            from .cypher import from_directory
+            cypher = from_directory(input_path, expand_subvis=True)
+            graph._load_cypher(cypher)
+        else:
+            print(f"Error: Unsupported file type: {suffix}", file=sys.stderr)
+            return 1
+
+        # Show what's loaded
+        vis = graph.list_vis()
+        print(f"Found {len(vis)} VI(s) to convert")
+
+        # Configure conversion agent
+        llm_config = LLMConfig(model=args.model)
+        agent_config = ConversionConfig(
+            output_dir=output_dir,
+            max_retries=args.max_retries,
+            generate_ui=args.generate_ui,
+            llm_config=llm_config,
+            validate_types=not args.no_typecheck,
+        )
+
+        # Run conversion
+        agent = ConversionAgent(graph, agent_config)
+        results = agent.convert_all()
+
+        # Summary
+        succeeded = sum(1 for r in results if r.success)
+        failed = sum(1 for r in results if not r.success)
+
+        print(f"\nOutput written to: {output_dir}")
+        print(f"  Succeeded: {succeeded}")
+        print(f"  Failed: {failed}")
+
+        if failed > 0:
+            print("\nFailed VIs:")
+            for r in results:
+                if not r.success:
+                    print(f"  - {r.vi_name}: {r.errors[0] if r.errors else 'Unknown error'}")
+
+        graph.close()
+        return 0 if failed == 0 else 1
 
     except Exception as e:
         print(f"Error: {e}", file=sys.stderr)

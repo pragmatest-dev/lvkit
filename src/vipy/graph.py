@@ -298,7 +298,8 @@ class VIGraph:
             MATCH (v:VI {name: $name})-[:CONTAINS]->(op)
             WHERE op:Primitive OR op:SubVI OR op:Loop OR op:Conditional
             RETURN op.id AS id, op.name AS name, op.python AS python,
-                   op.description AS desc, labels(op) AS labels
+                   op.description AS desc, labels(op) AS labels,
+                   op.primResID AS primResID, op.type AS opType
         """, {"name": vi_name})
         if ops:
             lines.append("// Operations")
@@ -306,7 +307,24 @@ class VIGraph:
                 labels = ":".join(op["labels"])
                 name = op.get("name") or op.get("desc") or ""
                 py = op.get("python") or ""
-                props = f'name: "{name}"'
+                prim_res_id = op.get("primResID")
+                op_type = op.get("opType") or ""
+
+                # Build properties based on node type
+                if "Primitive" in op["labels"] and prim_res_id is not None:
+                    # For primitives, primResID is the key identifier
+                    props = f'primResID: {prim_res_id}'
+                    if name:
+                        props += f', name: "{name}"'
+                elif "SubVI" in op["labels"]:
+                    props = f'name: "{name}"'
+                elif "Loop" in op["labels"] or "Conditional" in op["labels"]:
+                    props = f'type: "{op_type}"'
+                    if name:
+                        props += f', name: "{name}"'
+                else:
+                    props = f'name: "{name}"'
+
                 if py:
                     props += f', python: "{py}"'
                 lines.append(f'CREATE (op_{op["id"]}:{labels} {{{props}}})')
