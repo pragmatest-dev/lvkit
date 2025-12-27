@@ -2,14 +2,15 @@
 
 from __future__ import annotations
 
+from collections.abc import Generator
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Generator
+from typing import Any
 
-from neo4j import GraphDatabase, Driver
+from neo4j import Driver, GraphDatabase
 
-from .cypher import from_vi, extract_vi_xml
+from .cypher import extract_vi_xml, from_vi
 
 
 @dataclass
@@ -17,7 +18,7 @@ class GraphConfig:
     """Neo4j connection configuration."""
     uri: str = "bolt://localhost:7687"
     username: str = "neo4j"
-    password: str = "password"
+    password: str = "vipy-password"  # Default for docker-compose
     database: str = "neo4j"
 
 
@@ -61,7 +62,7 @@ class VIGraph:
             self._driver.close()
             self._driver = None
 
-    def __enter__(self) -> "VIGraph":
+    def __enter__(self) -> VIGraph:
         self.connect()
         return self
 
@@ -234,6 +235,197 @@ class VIGraph:
                    n2.name AS to_name, labels(n2) AS to_type
         """, {"name": vi_name})
 
+    def get_vi_cypher(self, vi_name: str) -> str:
+        """Reconstruct Cypher representation of a VI from the graph.
+
+        Returns Cypher-style description suitable for LLM code generation.
+        This queries the graph and formats it like the original Cypher output.
+        """
+        lines = [f"// VI: {vi_name}", ""]
+
+        # Get VI node
+        vi = self.query_single("MATCH (v:VI {name: $name}) RETURN v", {"name": vi_name})
+        if not vi:
+            return f"// VI not found: {vi_name}"
+
+        lines.append(f'CREATE (vi:VI {{name: "{vi_name}"}})')
+        lines.append("")
+
+        # Inputs
+        inputs = self.query("""
+            MATCH (v:VI {name: $name})<-[:PARAMETER_OF]-(i)
+            RETURN i.id AS id, i.name AS name, i.type AS type, labels(i) AS labels
+        """, {"name": vi_name})
+        if inputs:
+            lines.append("// Inputs")
+            for inp in inputs:
+                labels = ":".join(inp["labels"])
+                name = inp.get("name", "unnamed")
+                lines.append(f'CREATE (i_{inp["id"]}:{labels} {{name: "{name}"}})')
+                lines.append(f'CREATE (i_{inp["id"]})-[:PARAMETER_OF]->(vi)')
+            lines.append("")
+
+        # Outputs
+        outputs = self.query("""
+            MATCH (v:VI {name: $name})-[:RETURNS]->(o)
+            RETURN o.id AS id, o.name AS name, o.type AS type, labels(o) AS labels
+        """, {"name": vi_name})
+        if outputs:
+            lines.append("// Outputs")
+            for out in outputs:
+                labels = ":".join(out["labels"])
+                name = out.get("name", "unnamed")
+                lines.append(f'CREATE (o_{out["id"]}:{labels} {{name: "{name}"}})')
+                lines.append(f'CREATE (vi)-[:RETURNS]->(o_{out["id"]})')
+            lines.append("")
+
+        # Constants
+        constants = self.query("""
+            MATCH (v:VI {name: $name})-[:CONTAINS]->(c:Constant)
+            RETURN c.id AS id, c.value AS value, c.type AS type, c.python AS python
+        """, {"name": vi_name})
+        if constants:
+            lines.append("// Constants")
+            for c in constants:
+                py = c.get("python", "")
+                val = c.get("value", "")
+                lines.append(f'CREATE (c_{c["id"]}:Constant {{value: "{val}", python: "{py}"}})')
+                lines.append(f'CREATE (vi)-[:CONTAINS]->(c_{c["id"]})')
+            lines.append("")
+
+        # Operations
+        ops = self.query("""
+            MATCH (v:VI {name: $name})-[:CONTAINS]->(op)
+            WHERE op:Primitive OR op:SubVI OR op:Loop OR op:Conditional
+            RETURN op.id AS id, op.name AS name, op.python AS python,
+                   op.description AS desc, labels(op) AS labels
+        """, {"name": vi_name})
+        if ops:
+            lines.append("// Operations")
+            for op in ops:
+                labels = ":".join(op["labels"])
+                name = op.get("name") or op.get("desc") or ""
+                py = op.get("python") or ""
+                props = f'name: "{name}"'
+                if py:
+                    props += f', python: "{py}"'
+                lines.append(f'CREATE (op_{op["id"]}:{labels} {{{props}}})')
+                lines.append(f'CREATE (vi)-[:CONTAINS]->(op_{op["id"]})')
+            lines.append("")
+
+        # Data flow
+        flows = self.query("""
+            MATCH (v:VI {name: $name})-[:CONTAINS|RETURNS|PARAMETER_OF*]-(n1)
+            MATCH (n1)-[:FLOWS_TO]->(n2)
+            RETURN n1.id AS from_id, n1.name AS from_name,
+                   n2.id AS to_id, n2.name AS to_name
+        """, {"name": vi_name})
+        if flows:
+            lines.append("// Data Flow")
+            for f in flows:
+                from_name = f.get("from_name") or f"node_{f['from_id']}"
+                to_name = f.get("to_name") or f"node_{f['to_id']}"
+                lines.append(f'// {from_name} -> {to_name}')
+            lines.append("")
+
+        return "\n".join(lines)
+
+    def get_vi_interface(self, vi_name: str) -> dict:
+        """Get just the interface (signature) of a VI for SubVI context.
+
+        Returns minimal info needed to call this VI as a function:
+        - name
+        - inputs with types
+        - outputs with types
+
+        Much smaller than get_vi_context(). Used when providing
+        SubVI signatures during parent VI conversion.
+        """
+        return {
+            "name": vi_name,
+            "inputs": self.query("""
+                MATCH (v:VI {name: $name})<-[:PARAMETER_OF]-(i)
+                RETURN i.name AS name, labels(i) AS labels
+            """, {"name": vi_name}),
+            "outputs": self.query("""
+                MATCH (v:VI {name: $name})-[:RETURNS]->(o)
+                RETURN o.name AS name, labels(o) AS labels
+            """, {"name": vi_name}),
+        }
+
+    def get_conversion_context(self, vi_name: str) -> dict:
+        """Get context for converting a VI, including SubVI interfaces.
+
+        Returns:
+        - vi: full context for the VI being converted
+        - subvi_interfaces: signatures of SubVIs it calls (if they exist in the graph)
+        """
+        vi_context = self.get_vi_context(vi_name)
+
+        # Get SubVI nodes and match them to VI definitions by name
+        subvi_nodes = self.query("""
+            MATCH (v:VI {name: $name})-[:CONTAINS]->(s:SubVI)
+            RETURN DISTINCT s.name AS subvi_name
+        """, {"name": vi_name})
+
+        subvi_interfaces = {}
+        all_vis = set(self.list_vis())
+
+        for node in subvi_nodes:
+            subvi_name = node.get("subvi_name")
+            if subvi_name and subvi_name in all_vis:
+                subvi_interfaces[subvi_name] = self.get_vi_interface(subvi_name)
+
+        return {
+            "vi": vi_context,
+            "subvi_interfaces": subvi_interfaces,
+        }
+
+    def get_vi_context(self, vi_name: str) -> dict:
+        """Get complete VI context for code generation as structured data.
+
+        Returns all information needed to generate Python code:
+        - inputs with types
+        - outputs with types
+        - constants with values and python hints
+        - operations with python equivalents
+        - complete data flow
+        - SubVI calls
+
+        For the raw Cypher representation, use get_vi_cypher() instead.
+        """
+        return {
+            "name": vi_name,
+            "inputs": self.query("""
+                MATCH (v:VI {name: $name})<-[:PARAMETER_OF]-(i)
+                RETURN i.name AS name, i.type AS type, labels(i) AS labels,
+                       [(i)-[:CONTAINS*]->(child) | {name: child.name, type: child.type, labels: labels(child)}] AS children
+            """, {"name": vi_name}),
+            "outputs": self.query("""
+                MATCH (v:VI {name: $name})-[:RETURNS]->(o)
+                RETURN o.name AS name, o.type AS type, labels(o) AS labels,
+                       [(o)-[:CONTAINS*]->(child) | {name: child.name, type: child.type, labels: labels(child)}] AS children
+            """, {"name": vi_name}),
+            "constants": self.query("""
+                MATCH (v:VI {name: $name})-[:CONTAINS]->(c:Constant)
+                RETURN c.id AS id, c.value AS value, c.type AS type, c.python AS python
+            """, {"name": vi_name}),
+            "operations": self.query("""
+                MATCH (v:VI {name: $name})-[:CONTAINS]->(op)
+                WHERE op:Primitive OR op:SubVI OR op:Loop OR op:Conditional
+                RETURN labels(op) AS labels, op.name AS name, op.python AS python,
+                       op.description AS description, op.type AS type, op.id AS id,
+                       op.primResID AS primResID, op.primIndex AS primIndex
+            """, {"name": vi_name}),
+            "data_flow": self.query("""
+                MATCH (v:VI {name: $name})-[:CONTAINS|RETURNS|PARAMETER_OF*]-(n1)
+                MATCH (n1)-[:FLOWS_TO]->(n2)
+                RETURN n1.id AS from_id, n1.name AS from_name, labels(n1) AS from_labels,
+                       n2.id AS to_id, n2.name AS to_name, labels(n2) AS to_labels
+            """, {"name": vi_name}),
+            "subvi_calls": self.get_subvi_calls(vi_name),
+        }
+
     def trace_input_to_output(self, input_name: str) -> list[dict]:
         """Trace data flow from an input to outputs."""
         return self.query("""
@@ -241,11 +433,204 @@ class VIGraph:
             RETURN [n IN nodes(path) | {name: n.name, labels: labels(n)}] AS path
         """, {"name": input_name})
 
+    # === Dependency Ordering for Bottom-Up Conversion ===
+
+    def get_leaf_vis(self) -> list[str]:
+        """Get VIs that don't call any SubVIs (leaves of the dependency tree).
+
+        These should be converted first.
+        """
+        results = self.query("""
+            MATCH (v:VI)
+            WHERE NOT EXISTS {
+                MATCH (v)-[:CONTAINS]->(:SubVI)-[:CALLS]->(:VI)
+            }
+            RETURN v.name AS name
+        """)
+        return [r["name"] for r in results]
+
+    def get_vi_dependencies(self, vi_name: str) -> list[str]:
+        """Get VIs that this VI depends on (SubVIs it calls)."""
+        results = self.query("""
+            MATCH (v:VI {name: $name})-[:CONTAINS]->(:SubVI)-[:CALLS]->(sub:VI)
+            RETURN DISTINCT sub.name AS name
+        """, {"name": vi_name})
+        return [r["name"] for r in results]
+
+    def get_vi_dependents(self, vi_name: str) -> list[str]:
+        """Get VIs that depend on this VI (VIs that call it)."""
+        results = self.query("""
+            MATCH (caller:VI)-[:CONTAINS]->(:SubVI)-[:CALLS]->(v:VI {name: $name})
+            RETURN DISTINCT caller.name AS name
+        """, {"name": vi_name})
+        return [r["name"] for r in results]
+
+    def get_conversion_order(self) -> list[str]:
+        """Get VIs in topological order for bottom-up conversion.
+
+        Returns VIs ordered so that dependencies come before dependents.
+        Leaf VIs (no SubVI calls) come first, root VIs (not called by anyone) come last.
+
+        Cyclic dependencies are detected and grouped together - they'll appear
+        in the order after their external dependencies are satisfied.
+
+        Uses iterative approach via get_ready_to_convert().
+        """
+        all_vis = set(self.list_vis())
+        converted: set[str] = set()
+        order = []
+
+        while True:
+            ready = self.get_ready_to_convert(converted)
+            if not ready:
+                # Check for cycles - any remaining VIs form cycles
+                remaining = all_vis - converted
+                if remaining:
+                    # Find VIs in cycles whose external deps are satisfied
+                    cycle_ready = self._get_cycle_ready(remaining, converted)
+                    if cycle_ready:
+                        order.extend(cycle_ready)
+                        converted.update(cycle_ready)
+                        continue
+                break
+            order.extend(ready)
+            converted.update(ready)
+
+        return order
+
+    def _get_cycle_ready(self, remaining: set[str], converted: set[str]) -> list[str]:
+        """Find VIs in cycles that are ready (external deps satisfied).
+
+        Returns VIs whose only unsatisfied dependencies are within the remaining set
+        (i.e., they form cycles with each other).
+        """
+        ready = []
+        for vi in remaining:
+            deps = set(self.get_vi_dependencies(vi))
+            # External deps = deps not in the cycle group
+            external_deps = deps - remaining
+            # Ready if all external deps are converted
+            if external_deps <= converted:
+                ready.append(vi)
+        return ready
+
+    def get_cycles(self) -> list[list[str]]:
+        """Detect and return all cycles in the VI dependency graph.
+
+        Returns:
+            List of cycles, where each cycle is a list of VI names.
+            Empty list if no cycles exist.
+        """
+        # Find VIs that are part of cycles by checking for paths back to themselves
+        results = self.query("""
+            MATCH (start:VI)
+            MATCH path = (start)-[:CONTAINS]->(:SubVI)-[:CALLS]->(:VI)
+                         (()-[:CONTAINS]->(:SubVI)-[:CALLS]->(:VI))*
+                         ()-[:CONTAINS]->(:SubVI)-[:CALLS]->(start)
+            WITH start, [n IN nodes(path) WHERE n:VI | n.name] AS cycle
+            RETURN DISTINCT cycle
+            ORDER BY size(cycle)
+        """)
+
+        # Deduplicate cycles (same cycle can be found starting from different nodes)
+        seen = set()
+        unique_cycles = []
+        for r in results:
+            cycle = r.get("cycle", [])
+            if cycle and len(cycle) > 1:
+                # Normalize: start from alphabetically first node
+                min_idx = cycle.index(min(cycle))
+                normalized = tuple(cycle[min_idx:] + cycle[:min_idx])
+                if normalized not in seen:
+                    seen.add(normalized)
+                    unique_cycles.append(list(normalized))
+
+        return unique_cycles
+
+    def has_cycles(self) -> bool:
+        """Check if the dependency graph contains any cycles.
+
+        Returns True if any VI transitively depends on itself.
+        """
+        # Check each VI to see if it can reach itself via CALLS
+        for vi_name in self.list_vis():
+            deps = set(self.get_vi_dependencies(vi_name))
+            visited = set()
+            to_check = list(deps)
+
+            while to_check:
+                dep = to_check.pop()
+                if dep == vi_name:
+                    return True  # Found cycle back to original
+                if dep not in visited:
+                    visited.add(dep)
+                    to_check.extend(self.get_vi_dependencies(dep))
+
+        return False
+
+    def get_conversion_groups(self) -> list[list[str]]:
+        """Get VIs grouped for conversion.
+
+        Returns VIs in groups that should be converted together:
+        - Non-cyclic VIs are returned as single-element groups
+        - Cyclic VIs are grouped together (they need to be converted as a unit)
+
+        Groups are ordered so dependencies come before dependents.
+        """
+        all_vis = set(self.list_vis())
+        converted: set[str] = set()
+        groups: list[list[str]] = []
+
+        while converted != all_vis:
+            # First, get non-cyclic VIs that are ready
+            ready = self.get_ready_to_convert(converted)
+
+            if ready:
+                # Non-cyclic VIs can be converted individually
+                for vi in ready:
+                    groups.append([vi])
+                converted.update(ready)
+            else:
+                # No ready VIs - remaining must be in cycles
+                remaining = all_vis - converted
+                if remaining:
+                    # Find the cycle group whose external deps are satisfied
+                    cycle_group = self._get_cycle_ready(remaining, converted)
+                    if cycle_group:
+                        # These form a cycle - convert together
+                        groups.append(sorted(cycle_group))
+                        converted.update(cycle_group)
+                    else:
+                        # Shouldn't happen, but break to avoid infinite loop
+                        break
+
+        return groups
+
+    def get_ready_to_convert(self, converted: set[str]) -> list[str]:
+        """Get VIs that are ready to convert (all dependencies already converted).
+
+        Args:
+            converted: Set of VI names that have already been converted
+
+        Returns:
+            List of VI names whose dependencies are all in the converted set
+        """
+        results = self.query("""
+            MATCH (v:VI)
+            WHERE NOT v.name IN $converted
+            AND NOT EXISTS {
+                MATCH (v)-[:CONTAINS]->(:SubVI)-[:CALLS]->(dep:VI)
+                WHERE NOT dep.name IN $converted
+            }
+            RETURN v.name AS name
+        """, {"converted": list(converted)})
+        return [r["name"] for r in results]
+
 
 def connect(
     uri: str = "bolt://localhost:7687",
     username: str = "neo4j",
-    password: str = "password",
+    password: str = "vipy-password",
 ) -> VIGraph:
     """Convenience function to connect to Neo4j.
 

@@ -7,6 +7,15 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from .constants import (
+    CONSTANT_DCO_CLASS,
+    FP_TERMINAL_CLASS,
+    MULTI_LABEL_CLASS,
+    OPERATION_NODE_CLASSES,
+    TERMINAL_CLASS,
+    TERMINAL_OUTPUT_FLAG,
+)
+
 
 @dataclass
 class Node:
@@ -18,6 +27,8 @@ class Node:
     prim_res_id: int | None = None
     inputs: list[str] = field(default_factory=list)
     outputs: list[str] = field(default_factory=list)
+    input_types: list[str] = field(default_factory=list)   # typeDesc for inputs
+    output_types: list[str] = field(default_factory=list)  # typeDesc for outputs
 
 
 @dataclass
@@ -53,6 +64,8 @@ class BlockDiagram:
     constants: list[Constant]
     wires: list[Wire]
     fp_terminals: list[FPTerminal] = field(default_factory=list)
+    enum_labels: dict[str, list[str]] = field(default_factory=dict)  # uid -> labels
+    term_to_parent: dict[str, str] = field(default_factory=dict)  # terminal uid -> parent uid
 
     def get_node(self, uid: str) -> Node | None:
         """Get a node by UID."""
@@ -78,12 +91,16 @@ def parse_block_diagram(xml_path: Path | str) -> BlockDiagram:
     constants = _extract_constants(root)
     wires = _extract_wires(root)
     fp_terminals = _extract_fp_terminals(root)
+    enum_labels = _extract_enum_labels(root)
+    term_to_parent = _build_terminal_map(root, constants)
 
     return BlockDiagram(
         nodes=nodes,
         constants=constants,
         wires=wires,
         fp_terminals=fp_terminals,
+        enum_labels=enum_labels,
+        term_to_parent=term_to_parent,
     )
 
 
@@ -91,21 +108,8 @@ def _extract_nodes(root: ET.Element) -> list[Node]:
     """Extract nodes from the block diagram."""
     nodes = []
 
-    # Node types we care about
-    node_classes = {
-        "prim",      # Primitive functions
-        "iUse",      # SubVI calls
-        "whileLoop", # While loop
-        "forLoop",   # For loop
-        "select",    # Case/select structure
-        "seq",       # Sequence structure
-        "caseStruct",# Case structure
-        "eventStruct", # Event structure
-        "propNode",  # Property node
-    }
-
-    # Search everywhere in the document for these node types
-    for cls in node_classes:
+    # Search everywhere in the document for operation node types
+    for cls in OPERATION_NODE_CLASSES:
         for elem in root.findall(f".//*[@class='{cls}']"):
             uid = elem.get("uid")
 
@@ -113,13 +117,24 @@ def _extract_nodes(root: ET.Element) -> list[Node]:
             label = elem.find("label/textRec/text")
             name = label.text.strip('"') if label is not None and label.text else None
 
-            # If no direct label, structure nodes don't have names
-            if name is None and cls in ("whileLoop", "forLoop", "select", "seq", "caseStruct", "eventStruct"):
-                name = None  # These are structural, no name needed
-
             # Get primitive info
             prim_idx_elem = elem.find("primIndex")
             prim_res_elem = elem.find("primResID")
+
+            # Extract terminal types (inputs and outputs)
+            input_types: list[str] = []
+            output_types: list[str] = []
+            for term in elem.findall(f".//termList/SL__arrayElement[@class='{TERMINAL_CLASS}']"):
+                type_desc = term.find(".//typeDesc")
+                obj_flags = term.find("objFlags")
+
+                type_str = type_desc.text if type_desc is not None and type_desc.text else None
+                if type_str:
+                    flags = int(obj_flags.text) if obj_flags is not None and obj_flags.text else 0
+                    if flags & TERMINAL_OUTPUT_FLAG:
+                        output_types.append(type_str)
+                    else:
+                        input_types.append(type_str)
 
             node = Node(
                 uid=uid,
@@ -127,6 +142,8 @@ def _extract_nodes(root: ET.Element) -> list[Node]:
                 name=name,
                 prim_index=int(prim_idx_elem.text) if prim_idx_elem is not None else None,
                 prim_res_id=int(prim_res_elem.text) if prim_res_elem is not None else None,
+                input_types=input_types,
+                output_types=output_types,
             )
             nodes.append(node)
 
@@ -137,8 +154,8 @@ def _extract_constants(root: ET.Element) -> list[Constant]:
     """Extract constants from the block diagram."""
     constants = []
 
-    for term in root.findall(".//nodeList//SL__arrayElement[@class='term']"):
-        dco = term.find("dco[@class='bDConstDCO']")
+    for term in root.findall(f".//nodeList//SL__arrayElement[@class='{TERMINAL_CLASS}']"):
+        dco = term.find(f"dco[@class='{CONSTANT_DCO_CLASS}']")
         if dco is None:
             continue
 
@@ -205,7 +222,7 @@ def _extract_fp_terminals(root: ET.Element) -> list[FPTerminal]:
     fp_term_uids = set()
     fp_term_data = {}
 
-    for fp_term in root.findall(".//*[@class='fPTerm']"):
+    for fp_term in root.findall(f".//*[@class='{FP_TERMINAL_CLASS}']"):
         uid = fp_term.get("uid")
         if not uid:
             continue
@@ -230,7 +247,6 @@ def _extract_fp_terminals(root: ET.Element) -> list[FPTerminal]:
     for sig in root.findall(".//signalList/SL__arrayElement[@class='signal']"):
         terms = [t.get("uid") for t in sig.findall("termList/SL__arrayElement")]
         if len(terms) >= 2:
-            source = terms[0]
             destinations = terms[1:]
 
             # If an fPTerm is a destination, it's an output (indicator)
@@ -249,6 +265,63 @@ def _extract_fp_terminals(root: ET.Element) -> list[FPTerminal]:
         ))
 
     return terminals
+
+
+def parse_type_map(xml_path: Path | str) -> dict[int, str]:
+    """Parse TypeID mappings from main XML comments.
+
+    Looks for both basic and consolidated type mappings:
+    - <!-- TypeID N: TypeName -->
+    - <!-- Heap TypeID N = Consolidated TypeID M: TypeName -->
+
+    Args:
+        xml_path: Path to main .xml file (not BDHb/FPHb)
+
+    Returns:
+        Dict mapping TypeID -> type name (e.g., 37 -> "NumInt64")
+    """
+    import re
+    type_map = {}
+
+    with open(xml_path, encoding='utf-8', errors='replace') as f:
+        for line in f:
+            # Match <!-- Heap TypeID N = Consolidated TypeID M: TypeName -->
+            # These are more specific, so check first
+            match = re.search(r'Heap TypeID\s+(\d+)\s*=\s*Consolidated TypeID\s+\d+:\s*(\w+)', line)
+            if match:
+                type_id = int(match.group(1))
+                type_name = match.group(2)
+                type_map[type_id] = type_name
+                continue
+
+            # Match <!-- TypeID N: TypeName -->
+            match = re.search(r'<!--\s*TypeID\s+(\d+):\s*(\w+)', line)
+            if match:
+                type_id = int(match.group(1))
+                type_name = match.group(2)
+                # Only use basic mapping if we don't have a consolidated one
+                if type_id not in type_map:
+                    type_map[type_id] = type_name
+
+    return type_map
+
+
+def resolve_type(type_ref: str, type_map: dict[int, str]) -> str:
+    """Resolve TypeID(N) reference to type name.
+
+    Args:
+        type_ref: String like "TypeID(37)"
+        type_map: Mapping from TypeID -> type name
+
+    Returns:
+        Resolved type name or original string if not resolvable
+    """
+    import re
+    match = re.match(r'TypeID\((\d+)\)', type_ref)
+    if match:
+        type_id = int(match.group(1))
+        return type_map.get(type_id, type_ref)
+    return type_ref
 
 
 def parse_vi_metadata(xml_path: Path | str) -> dict[str, Any]:
@@ -279,3 +352,203 @@ def parse_vi_metadata(xml_path: Path | str) -> dict[str, Any]:
     metadata["subvi_refs"] = subvi_refs
 
     return metadata
+
+
+@dataclass
+class DefaultValue:
+    """A default value from the DFDS section."""
+    type_id: int
+    values: list[Any]  # Parsed values (bool, int, float, str, etc.)
+    structure: str  # "Cluster", "Array", "scalar", etc.
+
+
+def parse_dfds(xml_path: Path | str) -> dict[int, DefaultValue]:
+    """Parse the DFDS (Default Fill of Data Space) section for default values.
+
+    Args:
+        xml_path: Path to the main .xml file (not BDHb/FPHb)
+
+    Returns:
+        Dict mapping TypeID to DefaultValue with parsed values
+    """
+    tree = ET.parse(xml_path)
+    root = tree.getroot()
+
+    defaults: dict[int, DefaultValue] = {}
+
+    for data_fill in root.findall(".//DFDS//DataFill"):
+        type_id_str = data_fill.get("TypeID")
+        if not type_id_str:
+            continue
+        type_id = int(type_id_str)
+
+        values, structure = _parse_data_fill(data_fill)
+        if values is not None:
+            defaults[type_id] = DefaultValue(
+                type_id=type_id,
+                values=values,
+                structure=structure,
+            )
+
+    return defaults
+
+
+def _parse_data_fill(elem: ET.Element) -> tuple[list[Any] | None, str]:
+    """Parse a DataFill element and extract values."""
+    # Check for Cluster
+    cluster = elem.find("Cluster") or elem.find("SpecialDSTMCluster/Cluster")
+    if cluster is not None:
+        values = []
+        for child in cluster:
+            val = _parse_value_element(child)
+            if val is not None:
+                values.append(val)
+        return values, "Cluster"
+
+    # Check for Array
+    array = elem.find("Array") or elem.find("SpecialDSTMCluster/Array")
+    if array is not None:
+        dim = array.find("dim")
+        dim_val = int(dim.text) if dim is not None and dim.text else 0
+        values = []
+        for child in array:
+            if child.tag != "dim":
+                val = _parse_value_element(child)
+                if val is not None:
+                    values.append(val)
+        return values, f"Array[{dim_val}]"
+
+    # Single value
+    for child in elem:
+        val = _parse_value_element(child)
+        if val is not None:
+            return [val], "scalar"
+
+    return None, "unknown"
+
+
+def _parse_value_element(elem: ET.Element) -> Any:
+    """Parse a single value element (Boolean, I32, DBL, String, etc.)."""
+    tag = elem.tag
+
+    if tag == "Boolean":
+        return elem.text == "1" if elem.text else False
+    elif tag in ("I32", "I16", "I8", "U32", "U16", "U8"):
+        return int(elem.text) if elem.text else 0
+    elif tag in ("DBL", "SGL", "EXT"):
+        return float(elem.text) if elem.text else 0.0
+    elif tag == "String":
+        return elem.text or ""
+    elif tag == "Path":
+        # Path elements may have nested String
+        path_str = elem.find("String")
+        return path_str.text if path_str is not None and path_str.text else ""
+    elif tag == "Cluster":
+        # Nested cluster
+        values = []
+        for child in elem:
+            val = _parse_value_element(child)
+            if val is not None:
+                values.append(val)
+        return values
+    elif tag == "Array":
+        values = []
+        for child in elem:
+            if child.tag != "dim":
+                val = _parse_value_element(child)
+                if val is not None:
+                    values.append(val)
+        return values
+    elif tag == "RepeatedBlock":
+        # Internal structure, parse children
+        values = []
+        for child in elem:
+            val = _parse_value_element(child)
+            if val is not None:
+                values.append(val)
+        return values
+    elif tag == "Block":
+        # Hex block - return as-is
+        return elem.text or ""
+
+    return None
+
+
+def _extract_enum_labels(root: ET.Element) -> dict[str, list[str]]:
+    """Extract enum/ring labels from the XML.
+
+    Returns:
+        Dict mapping UID to list of enum labels
+    """
+    enums: dict[str, list[str]] = {}
+    for multi_label in root.findall(f".//*[@class='{MULTI_LABEL_CLASS}']"):
+        buf = multi_label.find("buf")
+        if buf is not None and buf.text:
+            # Format: (count)"label1""label2"...
+            text = buf.text
+            labels = []
+            i = 0
+            # Skip the count prefix like "(13)"
+            if text.startswith("("):
+                i = text.find(")") + 1
+            # Parse quoted strings
+            while i < len(text):
+                if text[i] == '"':
+                    end = text.find('"', i + 1)
+                    if end > i:
+                        labels.append(text[i + 1:end])
+                        i = end + 1
+                    else:
+                        break
+                else:
+                    i += 1
+            if labels:
+                # Find parent UID by walking up the tree
+                # Since ElementTree doesn't have parent refs, search for uid in ancestors
+                parent = multi_label
+                while parent is not None:
+                    uid = parent.get("uid")
+                    if uid:
+                        enums[uid] = labels
+                        break
+                    # ElementTree doesn't support parent navigation, so we store at multiLabel level
+                    # The caller will need to match by proximity
+                    break
+    return enums
+
+
+def _build_terminal_map(root: ET.Element, constants: list[Constant]) -> dict[str, str]:
+    """Map terminal UIDs to their parent node/constant UID.
+
+    Args:
+        root: XML root element
+        constants: List of parsed constants (to identify constant terminals)
+
+    Returns:
+        Dict mapping terminal UID to parent node UID
+    """
+    term_map: dict[str, str] = {}
+    const_uids = {c.uid for c in constants}
+
+    for elem in root.iter():
+        elem_uid = elem.get("uid")
+        elem_class = elem.get("class", "")
+
+        if elem_uid:
+            # For operation nodes, map their terminals
+            if elem_class in OPERATION_NODE_CLASSES:
+                xpath = f"./termList/SL__arrayElement[@class='{TERMINAL_CLASS}']"
+                for term in elem.findall(xpath):
+                    term_uid = term.get("uid")
+                    if term_uid:
+                        term_map[term_uid] = elem_uid
+
+            # For constant terminals (the constant IS the terminal)
+            if elem_class == TERMINAL_CLASS and elem_uid in const_uids:
+                term_map[elem_uid] = elem_uid
+
+            # For front panel terminals
+            if elem_class == FP_TERMINAL_CLASS:
+                term_map[elem_uid] = elem_uid
+
+    return term_map

@@ -2,113 +2,176 @@
 
 from __future__ import annotations
 
+import json
 import xml.etree.ElementTree as ET
+from functools import lru_cache
 from pathlib import Path
 
-from .parser import BlockDiagram, Constant, FPTerminal, Node, parse_block_diagram, parse_vi_metadata
+from .constants import SYSTEM_DIR_TYPES
+from .parser import (
+    Constant,
+    parse_block_diagram,
+    parse_vi_metadata,
+)
 
 
-# Known LabVIEW system directory types with Python equivalents
-# Format: (name, python_windows, python_unix)
-SYSTEM_DIR_TYPES = {
-    0: ("User Home", "USERPROFILE", "HOME"),
-    1: ("User Desktop", "USERPROFILE + '/Desktop'", "HOME + '/Desktop'"),
-    2: ("User Documents", "USERPROFILE + '/Documents'", "HOME + '/Documents'"),
-    3: ("User Application Data", "APPDATA", "HOME + '/.config'"),
-    4: ("User Preferences", "APPDATA", "HOME + '/.config'"),
-    5: ("User Temporary", "TEMP", "/tmp"),
-    6: ("Public Documents", "PUBLIC + '/Documents'", "/usr/share"),
-    7: ("Public Application Data", "PROGRAMDATA", "/usr/local/share"),
-    8: ("Public Preferences", "PROGRAMDATA", "/etc"),
-    9: ("System Core Libraries", "SYSTEMROOT + '/System32'", "/usr/lib"),
-    10: ("System Installed Libraries", "PROGRAMFILES", "/usr/local/lib"),
-    11: ("Application Files", "PROGRAMFILES", "/opt"),
-    12: ("Boot Volume Root", "SYSTEMDRIVE", "/"),
-}
+@lru_cache(maxsize=1)
+def _load_primitive_map() -> dict[int, tuple[str, str, str]]:
+    """Load primitive mappings from JSON file.
 
-# Comprehensive LabVIEW primitive mappings (primResID -> (name, description, python_equivalent))
-PRIMITIVE_MAP = {
-    # File I/O primitives
-    1419: ("Build Path", "Combines base path with name(s) to create full path", "os.path.join(base, *names)"),
-    1420: ("Strip Path", "Separates path into directory and filename", "os.path.split(path) -> (dir, name)"),
-    1421: ("Path to String", "Converts path to string", "str(path)"),
-    1422: ("String to Path", "Converts string to path", "Path(string)"),
-    1423: ("Path Type", "Returns type of path (absolute, relative, etc.)", "path.is_absolute()"),
-    1502: ("Open/Create/Replace File", "Opens or creates a file", "open(path, mode)"),
-    1503: ("Read from Text File", "Reads text from file", "file.read()"),
-    1504: ("Write to Text File", "Writes text to file", "file.write(text)"),
-    1505: ("Close File", "Closes an open file", "file.close()"),
-    1538: ("Read from Binary File", "Reads binary data from file", "file.read() in 'rb' mode"),
-    1539: ("Write to Binary File", "Writes binary data to file", "file.write(data) in 'wb' mode"),
+    Returns:
+        Dict mapping primResID (int) -> (name, description, python_equivalent)
+    """
+    json_path = Path(__file__).parent / "primitives.json"
+    with open(json_path, encoding="utf-8") as f:
+        data = json.load(f)
 
-    # String primitives
-    1051: ("Concatenate Strings", "Joins multiple strings", "''.join(strings) or str1 + str2"),
-    1052: ("String Length", "Returns length of string", "len(string)"),
-    1053: ("String Subset", "Extracts substring", "string[start:start+length]"),
-    1054: ("Search and Replace", "Finds and replaces text", "string.replace(old, new)"),
-    1055: ("Match Pattern", "Regex pattern matching", "re.search(pattern, string)"),
-    1056: ("Format Into String", "Formats values into string", "format_string % values or f-string"),
-    1057: ("Scan From String", "Parses values from string", "parse or regex extract"),
+    # Convert string keys to int, skip comment entries
+    return {
+        int(k): tuple(v)
+        for k, v in data.items()
+        if not k.startswith("_")
+    }
 
-    # Numeric primitives
-    1001: ("Add", "Adds two numbers", "a + b"),
-    1002: ("Subtract", "Subtracts two numbers", "a - b"),
-    1003: ("Multiply", "Multiplies two numbers", "a * b"),
-    1004: ("Divide", "Divides two numbers", "a / b"),
-    1005: ("Quotient & Remainder", "Integer division with remainder", "divmod(a, b)"),
-    1006: ("Increment", "Adds 1 to number", "n + 1"),
-    1007: ("Decrement", "Subtracts 1 from number", "n - 1"),
-    1008: ("Absolute Value", "Returns absolute value", "abs(n)"),
-    1009: ("Round", "Rounds to nearest integer", "round(n)"),
-    1010: ("Square Root", "Returns square root", "math.sqrt(n)"),
 
-    # Comparison primitives
-    1101: ("Equal?", "Tests equality", "a == b"),
-    1102: ("Not Equal?", "Tests inequality", "a != b"),
-    1103: ("Greater?", "Tests greater than", "a > b"),
-    1104: ("Less?", "Tests less than", "a < b"),
-    1105: ("Greater Or Equal?", "Tests greater or equal", "a >= b"),
-    1106: ("Less Or Equal?", "Tests less or equal", "a <= b"),
-    1107: ("Max & Min", "Returns max and min of inputs", "max(a, b), min(a, b)"),
-    1108: ("In Range?", "Tests if value is in range", "low <= x <= high"),
+# Module-level access to primitive map (lazy-loaded)
+def get_primitive_map() -> dict[int, tuple[str, str, str]]:
+    """Get the primitive ID to info mapping."""
+    return _load_primitive_map()
 
-    # Boolean primitives
-    1201: ("And", "Logical AND", "a and b"),
-    1202: ("Or", "Logical OR", "a or b"),
-    1203: ("Not", "Logical NOT", "not a"),
-    1204: ("Exclusive Or", "Logical XOR", "a ^ b"),
-    1205: ("Implies", "Logical implication", "not a or b"),
 
-    # Array primitives
-    1301: ("Array Size", "Returns array dimensions", "len(array) or array.shape"),
-    1302: ("Index Array", "Gets element at index", "array[index]"),
-    1303: ("Replace Array Subset", "Replaces elements", "array[start:end] = new_values"),
-    1304: ("Insert Into Array", "Inserts elements", "array.insert(index, value)"),
-    1305: ("Delete From Array", "Removes elements", "del array[index] or array.pop()"),
-    1306: ("Initialize Array", "Creates array with initial values", "[value] * size"),
-    1307: ("Build Array", "Combines elements/arrays", "list(elements) or np.concatenate"),
-    1308: ("Array Subset", "Extracts portion of array", "array[start:start+length]"),
-    1309: ("Reshape Array", "Changes array dimensions", "np.reshape(array, shape)"),
-    1310: ("Search 1D Array", "Finds element in array", "array.index(value)"),
-    1311: ("Sort 1D Array", "Sorts array", "sorted(array)"),
-    1312: ("Reverse 1D Array", "Reverses array", "array[::-1]"),
+# For backwards compatibility
+PRIMITIVE_MAP = property(lambda self: _load_primitive_map())
 
-    # Cluster primitives
-    1401: ("Bundle", "Creates cluster from elements", "dataclass or namedtuple"),
-    1402: ("Unbundle", "Extracts all elements from cluster", "tuple unpacking"),
-    1403: ("Bundle By Name", "Creates/modifies cluster by name", "dataclass(**kwargs)"),
-    1404: ("Unbundle By Name", "Extracts specific elements", "cluster.field_name"),
 
-    # Timing primitives
-    1601: ("Wait (ms)", "Delays execution", "time.sleep(ms / 1000)"),
-    1602: ("Tick Count (ms)", "Returns millisecond counter", "time.time() * 1000"),
-    1603: ("Get Date/Time", "Returns current date/time", "datetime.datetime.now()"),
+class _PrimitiveMapProxy:
+    """Proxy class to provide dict-like access to lazy-loaded primitives."""
 
-    # Dialog primitives
-    1701: ("One Button Dialog", "Shows message box", "messagebox.showinfo()"),
-    1702: ("Two Button Dialog", "Shows yes/no dialog", "messagebox.askyesno()"),
-    1703: ("Three Button Dialog", "Shows dialog with 3 options", "custom dialog"),
-}
+    def get(self, key: int, default=None):
+        return _load_primitive_map().get(key, default)
+
+    def __getitem__(self, key: int):
+        return _load_primitive_map()[key]
+
+    def __contains__(self, key: int) -> bool:
+        return key in _load_primitive_map()
+
+    def items(self):
+        return _load_primitive_map().items()
+
+    def keys(self):
+        return _load_primitive_map().keys()
+
+    def values(self):
+        return _load_primitive_map().values()
+
+
+# Singleton instance for backwards compatibility
+PRIMITIVE_MAP = _PrimitiveMapProxy()
+
+
+# === Dynamic Primitive Discovery ===
+# Tracks unknown primitives encountered during parsing
+_unknown_primitives: dict[int, dict] = {}  # primResID -> {count, contexts, vi_names}
+
+
+def register_unknown_primitive(prim_res_id: int, vi_name: str = "", context: str = "") -> None:
+    """Register an unknown primitive for later mapping.
+
+    Args:
+        prim_res_id: The primitive resource ID
+        vi_name: Name of the VI where this primitive was found
+        context: Any contextual info (connected wires, labels, etc.)
+    """
+    if prim_res_id in PRIMITIVE_MAP:
+        return  # Already known
+
+    if prim_res_id not in _unknown_primitives:
+        _unknown_primitives[prim_res_id] = {
+            "count": 0,
+            "vi_names": set(),
+            "contexts": set(),
+        }
+
+    _unknown_primitives[prim_res_id]["count"] += 1
+    if vi_name:
+        _unknown_primitives[prim_res_id]["vi_names"].add(vi_name)
+    if context:
+        _unknown_primitives[prim_res_id]["contexts"].add(context)
+
+
+def get_unknown_primitives() -> dict[int, dict]:
+    """Get all unknown primitives encountered.
+
+    Returns:
+        Dict mapping primResID -> {count, vi_names, contexts}
+    """
+    # Convert sets to lists for JSON serialization
+    return {
+        pid: {
+            "count": info["count"],
+            "vi_names": list(info["vi_names"]),
+            "contexts": list(info["contexts"])[:5],  # Limit contexts
+        }
+        for pid, info in sorted(_unknown_primitives.items())
+    }
+
+
+def clear_unknown_primitives() -> None:
+    """Clear the unknown primitives registry."""
+    _unknown_primitives.clear()
+
+
+def report_unknown_primitives() -> str:
+    """Generate a report of unknown primitives for adding to PRIMITIVE_MAP.
+
+    Returns:
+        Formatted string ready to paste into PRIMITIVE_MAP
+    """
+    if not _unknown_primitives:
+        return "# No unknown primitives found"
+
+    lines = ["# Unknown primitives discovered (add to PRIMITIVE_MAP):", ""]
+
+    for pid in sorted(_unknown_primitives.keys()):
+        info = _unknown_primitives[pid]
+        count = info["count"]
+        vis = ", ".join(list(info["vi_names"])[:3])
+        contexts = "; ".join(list(info["contexts"])[:2])
+
+        # Try to guess the category based on ID range
+        if 1000 <= pid < 1100:
+            category = "numeric"
+        elif 1100 <= pid < 1200:
+            category = "comparison"
+        elif 1200 <= pid < 1300:
+            category = "boolean"
+        elif 1300 <= pid < 1400:
+            category = "array"
+        elif 1400 <= pid < 1500:
+            category = "cluster"
+        elif 1500 <= pid < 1600:
+            category = "file/ref"
+        elif 1600 <= pid < 1700:
+            category = "timing"
+        elif 1700 <= pid < 1800:
+            category = "dialog"
+        elif 1800 <= pid < 2000:
+            category = "string/variant"
+        elif 8000 <= pid < 9000:
+            category = "vi_server"
+        elif pid >= 20000:
+            category = "oop/class"
+        else:
+            category = "unknown"
+
+        lines.append(f"    # {pid}: seen {count}x in [{vis}] - {category}")
+        if contexts:
+            lines.append(f"    #   context: {contexts[:80]}")
+        lines.append(f'    {pid}: ("Unknown_{pid}", "TODO: identify", "unknown()"),')
+        lines.append("")
+
+    return "\n".join(lines)
 
 
 def decode_labview_path(hex_value: str) -> str:
@@ -130,7 +193,7 @@ def decode_labview_path(hex_value: str) -> str:
             else:
                 break
         return '/'.join(parts)
-    except Exception:
+    except (ValueError, IndexError, UnicodeDecodeError):
         return hex_value
 
 
@@ -182,16 +245,9 @@ def summarize_vi(bd_xml_path: Path | str, main_xml_path: Path | str | None = Non
     bd_xml_path = Path(bd_xml_path)
     bd = parse_block_diagram(bd_xml_path)
 
-    # Parse raw XML for additional context (enum labels, etc.)
-    tree = ET.parse(bd_xml_path)
-    root = tree.getroot()
-
-    # Extract enum labels from the XML
-    enum_labels = _extract_enum_labels(root)
-
     # Get metadata if available
     vi_name = "Unknown VI"
-    subvi_refs = []
+    subvi_refs: list[str] = []
     if main_xml_path:
         meta = parse_vi_metadata(main_xml_path)
         vi_name = meta.get("name", vi_name)
@@ -221,13 +277,13 @@ def summarize_vi(bd_xml_path: Path | str, main_xml_path: Path | str | None = Non
         if node.node_type == "iUse":
             lines.append(f'  {ref} SubVI: "{node.name}"')
         elif node.node_type == "prim":
-            prim_info = PRIMITIVE_MAP.get(node.prim_res_id)
-            if prim_info:
-                name, desc, python_eq = prim_info
-                lines.append(f"  {ref} {name}: {desc}")
-                lines.append(f"       Python: {python_eq}")
-            else:
-                lines.append(f"  {ref} Unknown Primitive (primResID={node.prim_res_id})")
+            # Include primResID and terminal types - LLM infers meaning from context
+            type_info = ""
+            if node.input_types or node.output_types:
+                inputs = ", ".join(node.input_types) if node.input_types else "none"
+                outputs = ", ".join(node.output_types) if node.output_types else "none"
+                type_info = f" (inputs: [{inputs}], outputs: [{outputs}])"
+            lines.append(f"  {ref} Primitive #{node.prim_res_id}{type_info}")
         elif node.node_type == "whileLoop":
             lines.append(f"  {ref} While Loop: while condition:")
         elif node.node_type == "forLoop":
@@ -248,7 +304,7 @@ def summarize_vi(bd_xml_path: Path | str, main_xml_path: Path | str | None = Non
             node_refs[const.uid] = const_ref
 
             # Check if this is an enum value with known labels
-            enum_label = _get_enum_value_label(const, enum_labels)
+            enum_label = _get_enum_value_label(const, bd.enum_labels)
 
             if enum_label:
                 lines.append(f'  - {const_ref}: {enum_label}')
@@ -263,12 +319,9 @@ def summarize_vi(bd_xml_path: Path | str, main_xml_path: Path | str | None = Non
     lines.append("")
     lines.append("DATA FLOW:")
 
-    # Map terminal UIDs to their parent node/constant
-    term_to_parent = _build_terminal_map(root)
-
     for wire in bd.wires:
-        from_parent = term_to_parent.get(wire.from_term, wire.from_term)
-        to_parent = term_to_parent.get(wire.to_term, wire.to_term)
+        from_parent = bd.term_to_parent.get(wire.from_term, wire.from_term)
+        to_parent = bd.term_to_parent.get(wire.to_term, wire.to_term)
 
         from_desc = _describe_terminal(from_parent, node_refs, uid_to_node, uid_to_const)
         to_desc = _describe_terminal(to_parent, node_refs, uid_to_node, uid_to_const)
@@ -283,48 +336,6 @@ def summarize_vi(bd_xml_path: Path | str, main_xml_path: Path | str | None = Non
             lines.append(f"  - {ref}")
 
     return "\n".join(lines)
-
-
-def _extract_enum_labels(root: ET.Element) -> dict[str, list[str]]:
-    """Extract enum/ring labels from the XML."""
-    enums = {}
-    for multi_label in root.findall(".//*[@class='multiLabel']"):
-        buf = multi_label.find("buf")
-        if buf is not None and buf.text:
-            # Format: (count)"label1""label2"...
-            text = buf.text
-            labels = []
-            i = 0
-            # Skip the count prefix like "(13)"
-            if text.startswith("("):
-                i = text.find(")") + 1
-            # Parse quoted strings
-            while i < len(text):
-                if text[i] == '"':
-                    end = text.find('"', i + 1)
-                    if end > i:
-                        labels.append(text[i + 1:end])
-                        i = end + 1
-                    else:
-                        break
-                else:
-                    i += 1
-            if labels:
-                # Find parent UID
-                parent = multi_label
-                while parent is not None:
-                    uid = parent.get("uid")
-                    if uid:
-                        enums[uid] = labels
-                        break
-                    parent = parent.find("..")  # This won't work, need different approach
-                # Store by parent term UID if we can find it
-                term_parent = root.find(f".//*[@class='term']/*[@class='bDConstDCO']/../..")
-                if term_parent is not None:
-                    term_uid = term_parent.get("uid")
-                    if term_uid:
-                        enums[term_uid] = labels
-    return enums
 
 
 def _get_enum_value_label(const: Constant, enum_labels: dict[str, list[str]]) -> str | None:
@@ -349,33 +360,6 @@ def _get_enum_value_label(const: Constant, enum_labels: dict[str, list[str]]) ->
     return None
 
 
-def _build_terminal_map(root: ET.Element) -> dict[str, str]:
-    """Map terminal UIDs to their parent node/constant UID."""
-    term_map = {}
-
-    # Find all terminals and map to parent
-    for elem in root.iter():
-        elem_uid = elem.get("uid")
-        elem_class = elem.get("class", "")
-
-        if elem_uid:
-            # For prim and iUse nodes, map their terminals
-            if elem_class in ("prim", "iUse", "whileLoop", "forLoop", "select"):
-                for term in elem.findall("./termList/SL__arrayElement[@class='term']"):
-                    term_uid = term.get("uid")
-                    if term_uid:
-                        term_map[term_uid] = elem_uid
-
-            # For constant terminals (directly under term elements with bDConstDCO)
-            if elem_class == "term":
-                dco = elem.find("./dco[@class='bDConstDCO']")
-                if dco is not None:
-                    # This is a constant terminal - map it to itself
-                    term_map[elem_uid] = elem_uid
-
-    return term_map
-
-
 def _describe_terminal(parent_uid: str, node_refs: dict, uid_to_node: dict, uid_to_const: dict) -> str:
     """Create a human-readable description of a terminal."""
     if parent_uid in node_refs:
@@ -386,9 +370,7 @@ def _describe_terminal(parent_uid: str, node_refs: dict, uid_to_node: dict, uid_
         if node.node_type == "iUse" and node.name:
             return f'"{node.name}"'
         elif node.node_type == "prim" and node.prim_res_id:
-            prim_info = PRIMITIVE_MAP.get(node.prim_res_id)
-            if prim_info:
-                return prim_info[0]
+            return f"prim#{node.prim_res_id}"
         return f"node_{parent_uid}"
 
     if parent_uid in uid_to_const:
@@ -440,7 +422,7 @@ def _get_fp_terminal_names(bd_xml_path: Path) -> dict[str, str]:
                     names[uid] = label_elem.text.strip('"')
 
         return names
-    except Exception:
+    except (ET.ParseError, FileNotFoundError, OSError):
         return {}
 
 

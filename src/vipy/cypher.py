@@ -6,18 +6,14 @@ import subprocess
 import sys
 import xml.etree.ElementTree as ET
 from pathlib import Path
-from tempfile import TemporaryDirectory
 
-from .parser import parse_block_diagram, parse_vi_metadata
 from .blockdiagram import (
-    PRIMITIVE_MAP,
-    decode_constant,
-    _build_terminal_map,
-    _extract_enum_labels,
     _get_enum_value_label,
     _get_fp_terminal_names,
+    decode_constant,
 )
 from .frontpanel import FPControl, parse_front_panel
+from .parser import BlockDiagram, parse_block_diagram, parse_vi_metadata
 
 
 def from_blockdiagram(
@@ -35,11 +31,6 @@ def from_blockdiagram(
     """
     bd_xml_path = Path(bd_xml_path)
     bd = parse_block_diagram(bd_xml_path)
-
-    # Parse raw XML for additional context
-    tree = ET.parse(bd_xml_path)
-    root = tree.getroot()
-    enum_labels = _extract_enum_labels(root)
 
     # Try to get front panel terminal names
     fp_names = _get_fp_terminal_names(bd_xml_path)
@@ -59,15 +50,14 @@ def from_blockdiagram(
         "// Cypher graph representation of LabVIEW VI",
         f"// VI: {vi_name}",
         "",
-        f"// Create the VI node",
+        "// Create the VI node",
         f'CREATE ({vi_var}:VI {{name: "{vi_name}"}})',
         "",
         "// Constants",
     ]
 
     # Track node variables for edge creation
-    node_vars = {}
-    term_to_parent = _build_terminal_map(root)
+    node_vars: dict[str, str] = {}
 
     # Create constant nodes
     for const in bd.constants:
@@ -75,7 +65,7 @@ def from_blockdiagram(
         node_vars[const.uid] = const_var
 
         # Decode constant value
-        enum_label = _get_enum_value_label(const, enum_labels)
+        enum_label = _get_enum_value_label(const, bd.enum_labels)
         if enum_label:
             # Extract just the python hint if present
             value_desc = enum_label
@@ -115,21 +105,11 @@ def from_blockdiagram(
                 f'name: "{_escape(subvi_name)}"}})'
             )
         elif node.node_type == "prim":
-            # Primitive operation
-            prim_info = PRIMITIVE_MAP.get(node.prim_res_id)
-            if prim_info:
-                name, desc, python_eq = prim_info
-                lines.append(
-                    f'CREATE ({node_var}:Primitive {{id: "{node.uid}", '
-                    f'name: "{name}", '
-                    f'description: "{_escape(desc)}", '
-                    f'python: "{_escape(python_eq)}"}})'
-                )
-            else:
-                lines.append(
-                    f'CREATE ({node_var}:Primitive {{id: "{node.uid}", '
-                    f'primResID: {node.prim_res_id}}})'
-                )
+            # Store primitive with its ID - LLM infers meaning from context
+            lines.append(
+                f'CREATE ({node_var}:Primitive {{id: "{node.uid}", '
+                f'primResID: {node.prim_res_id}}})'
+            )
         elif node.node_type in ("whileLoop", "forLoop"):
             lines.append(
                 f'CREATE ({node_var}:Loop {{id: "{node.uid}", '
@@ -186,8 +166,8 @@ def from_blockdiagram(
 
     # Create edges for wires
     for wire in bd.wires:
-        from_parent = term_to_parent.get(wire.from_term, wire.from_term)
-        to_parent = term_to_parent.get(wire.to_term, wire.to_term)
+        from_parent = bd.term_to_parent.get(wire.from_term, wire.from_term)
+        to_parent = bd.term_to_parent.get(wire.to_term, wire.to_term)
 
         from_var = node_vars.get(from_parent)
         to_var = node_vars.get(to_parent)
@@ -201,6 +181,198 @@ def from_blockdiagram(
     lines.append("// End of VI graph")
 
     return "\n".join(lines)
+
+
+def _generate_constants(
+    bd: BlockDiagram,
+    vi_var: str,
+    node_vars: dict[str, str],
+    prefix: str,
+) -> list[str]:
+    """Generate Cypher statements for block diagram constants."""
+    lines = ["", "// === Block Diagram Constants ==="]
+
+    for const in bd.constants:
+        const_var = f"{prefix}c_{const.uid}"
+        node_vars[const.uid] = const_var
+
+        enum_label = _get_enum_value_label(const, bd.enum_labels)
+        if enum_label:
+            value_desc = enum_label
+            python_hint = ""
+            if " -> Python: " in enum_label:
+                parts = enum_label.split(" -> Python: ")
+                value_desc = parts[0]
+                python_hint = parts[1]
+            lines.append(
+                f'CREATE ({const_var}:Constant {{id: "{const.uid}", '
+                f'value: "{_escape(value_desc)}", python: "{_escape(python_hint)}"}})'
+            )
+        else:
+            val_type, val = decode_constant(const)
+            lines.append(
+                f'CREATE ({const_var}:Constant {{id: "{const.uid}", '
+                f'type: "{val_type}", value: "{_escape(val)}"}})'
+            )
+        lines.append(f"CREATE ({vi_var})-[:CONTAINS]->({const_var})")
+
+    return lines
+
+
+def _generate_operations(
+    bd: BlockDiagram,
+    vi_var: str,
+    node_vars: dict[str, str],
+    prefix: str,
+) -> list[str]:
+    """Generate Cypher statements for block diagram operations."""
+    lines = ["", "// === Block Diagram Operations ==="]
+
+    for node in bd.nodes:
+        node_var = f"{prefix}n_{node.uid}"
+        node_vars[node.uid] = node_var
+
+        if node.node_type == "iUse":
+            subvi_name = node.name or "Unknown SubVI"
+            lines.append(
+                f'CREATE ({node_var}:SubVI {{id: "{node.uid}", '
+                f'name: "{_escape(subvi_name)}"}})'
+            )
+        elif node.node_type == "prim":
+            lines.append(
+                f'CREATE ({node_var}:Primitive {{id: "{node.uid}", '
+                f'primResID: {node.prim_res_id}}})'
+            )
+        elif node.node_type in ("whileLoop", "forLoop"):
+            lines.append(
+                f'CREATE ({node_var}:Loop {{id: "{node.uid}", '
+                f'type: "{node.node_type}"}})'
+            )
+        elif node.node_type in ("select", "caseStruct"):
+            lines.append(
+                f'CREATE ({node_var}:Conditional {{id: "{node.uid}", '
+                f'type: "{node.node_type}"}})'
+            )
+        else:
+            lines.append(
+                f'CREATE ({node_var}:Node {{id: "{node.uid}", '
+                f'type: "{node.node_type}"}})'
+            )
+        lines.append(f"CREATE ({vi_var})-[:CONTAINS]->({node_var})")
+
+    return lines
+
+
+def _generate_terminals_fallback(
+    bd: BlockDiagram,
+    bd_xml_path: Path,
+    vi_var: str,
+    node_vars: dict[str, str],
+    prefix: str,
+) -> list[str]:
+    """Generate Cypher statements for terminals when no front panel XML exists."""
+    if not bd.fp_terminals:
+        return []
+
+    fp_names = _get_fp_terminal_names(bd_xml_path)
+    lines = ["", "// === VI Terminals (no front panel XML) ==="]
+
+    for i, fp_term in enumerate(bd.fp_terminals):
+        term_var = f"{prefix}fp_{fp_term.uid}"
+        node_vars[fp_term.uid] = term_var
+        name = fp_names.get(fp_term.fp_dco_uid) or fp_term.name or f"terminal_{i}"
+
+        if fp_term.is_indicator:
+            lines.append(
+                f'CREATE ({term_var}:Output {{id: "{fp_term.uid}", '
+                f'name: "{_escape(name)}"}})'
+            )
+            lines.append(f"CREATE ({vi_var})-[:RETURNS]->({term_var})")
+        else:
+            lines.append(
+                f'CREATE ({term_var}:Input {{id: "{fp_term.uid}", '
+                f'name: "{_escape(name)}"}})'
+            )
+            lines.append(f"CREATE ({term_var})-[:PARAMETER_OF]->({vi_var})")
+
+    return lines
+
+
+def _generate_dataflow(
+    bd: BlockDiagram,
+    node_vars: dict[str, str],
+) -> list[str]:
+    """Generate Cypher statements for data flow edges."""
+    lines = ["", "// === Data Flow ==="]
+
+    for wire in bd.wires:
+        from_parent = bd.term_to_parent.get(wire.from_term, wire.from_term)
+        to_parent = bd.term_to_parent.get(wire.to_term, wire.to_term)
+
+        from_var = node_vars.get(from_parent)
+        to_var = node_vars.get(to_parent)
+
+        if from_var and to_var:
+            lines.append(f"CREATE ({from_var})-[:FLOWS_TO]->({to_var})")
+
+    return lines
+
+
+def _expand_subvis(
+    bd: BlockDiagram,
+    node_vars: dict[str, str],
+    prefix: str,
+    _processed: set[str],
+    _search_paths: list[Path],
+) -> list[str]:
+    """Generate Cypher statements for expanded SubVI definitions."""
+    subvi_names = [
+        (node.uid, node.name)
+        for node in bd.nodes
+        if node.node_type == "iUse" and node.name
+    ]
+
+    if not subvi_names:
+        return []
+
+    lines = ["", "// === SubVI Definitions ==="]
+
+    for node_uid, subvi_name in subvi_names:
+        subvi_path = _find_subvi(subvi_name, _search_paths)
+
+        if subvi_path:
+            node_var = node_vars.get(node_uid, f"{prefix}n_{node_uid}")
+            subvi_var = _sanitize_name(
+                subvi_name.replace(".vi", "").replace(".VI", "")
+            )
+
+            lines.append("")
+            lines.append(f"// --- SubVI: {subvi_name} ---")
+
+            try:
+                subvi_bd_xml, subvi_fp_xml, subvi_main_xml = extract_vi_xml(
+                    subvi_path,
+                    output_dir=subvi_path.parent,
+                )
+
+                subvi_graph = from_vi(
+                    subvi_bd_xml,
+                    fp_xml_path=subvi_fp_xml,
+                    main_xml_path=subvi_main_xml,
+                    expand_subvis=True,
+                    _processed=_processed,
+                    _search_paths=_search_paths,
+                )
+
+                lines.append(subvi_graph)
+                lines.append(f"CREATE ({node_var})-[:CALLS]->({subvi_var})")
+
+            except (RuntimeError, ET.ParseError, OSError) as e:
+                lines.append(f"// Failed to extract SubVI: {subvi_name} - {e}")
+        else:
+            lines.append(f"// SubVI not found: {subvi_name}")
+
+    return lines
 
 
 def from_vi(
@@ -262,10 +434,6 @@ def from_vi(
 
     # Parse block diagram
     bd = parse_block_diagram(bd_xml_path)
-    tree = ET.parse(bd_xml_path)
-    root = tree.getroot()
-    enum_labels = _extract_enum_labels(root)
-    term_to_parent = _build_terminal_map(root)
 
     # Parse front panel if available
     fp = None
@@ -324,162 +492,19 @@ def from_vi(
                     node_vars[bd_term_uid] = node_vars[ctrl.uid]
 
     # === BLOCK DIAGRAM SECTION ===
-    lines.append("")
-    lines.append("// === Block Diagram Constants ===")
-
-    for const in bd.constants:
-        const_var = f"{prefix}c_{const.uid}"
-        node_vars[const.uid] = const_var
-
-        enum_label = _get_enum_value_label(const, enum_labels)
-        if enum_label:
-            value_desc = enum_label
-            python_hint = ""
-            if " -> Python: " in enum_label:
-                parts = enum_label.split(" -> Python: ")
-                value_desc = parts[0]
-                python_hint = parts[1]
-            lines.append(
-                f'CREATE ({const_var}:Constant {{id: "{const.uid}", '
-                f'value: "{_escape(value_desc)}", python: "{_escape(python_hint)}"}})'
-            )
-        else:
-            val_type, val = decode_constant(const)
-            lines.append(
-                f'CREATE ({const_var}:Constant {{id: "{const.uid}", '
-                f'type: "{val_type}", value: "{_escape(val)}"}})'
-            )
-        lines.append(f"CREATE ({vi_var})-[:CONTAINS]->({const_var})")
-
-    lines.append("")
-    lines.append("// === Block Diagram Operations ===")
-
-    for node in bd.nodes:
-        node_var = f"{prefix}n_{node.uid}"
-        node_vars[node.uid] = node_var
-
-        if node.node_type == "iUse":
-            subvi_name = node.name or "Unknown SubVI"
-            lines.append(
-                f'CREATE ({node_var}:SubVI {{id: "{node.uid}", '
-                f'name: "{_escape(subvi_name)}"}})'
-            )
-        elif node.node_type == "prim":
-            prim_info = PRIMITIVE_MAP.get(node.prim_res_id)
-            if prim_info:
-                name, desc, python_eq = prim_info
-                lines.append(
-                    f'CREATE ({node_var}:Primitive {{id: "{node.uid}", '
-                    f'name: "{name}", description: "{_escape(desc)}", '
-                    f'python: "{_escape(python_eq)}"}})'
-                )
-            else:
-                lines.append(
-                    f'CREATE ({node_var}:Primitive {{id: "{node.uid}", '
-                    f'primResID: {node.prim_res_id}}})'
-                )
-        elif node.node_type in ("whileLoop", "forLoop"):
-            lines.append(
-                f'CREATE ({node_var}:Loop {{id: "{node.uid}", type: "{node.node_type}"}})'
-            )
-        elif node.node_type in ("select", "caseStruct"):
-            lines.append(
-                f'CREATE ({node_var}:Conditional {{id: "{node.uid}", type: "{node.node_type}"}})'
-            )
-        else:
-            lines.append(
-                f'CREATE ({node_var}:Node {{id: "{node.uid}", type: "{node.node_type}"}})'
-            )
-        lines.append(f"CREATE ({vi_var})-[:CONTAINS]->({node_var})")
+    lines.extend(_generate_constants(bd, vi_var, node_vars, prefix))
+    lines.extend(_generate_operations(bd, vi_var, node_vars, prefix))
 
     # If we don't have front panel info, fall back to basic terminal representation
-    if not fp and bd.fp_terminals:
-        fp_names = _get_fp_terminal_names(bd_xml_path)
-        lines.append("")
-        lines.append("// === VI Terminals (no front panel XML) ===")
-        for i, fp_term in enumerate(bd.fp_terminals):
-            term_var = f"{prefix}fp_{fp_term.uid}"
-            node_vars[fp_term.uid] = term_var
-            name = fp_names.get(fp_term.fp_dco_uid) or fp_term.name or f"terminal_{i}"
-
-            if fp_term.is_indicator:
-                lines.append(
-                    f'CREATE ({term_var}:Output {{id: "{fp_term.uid}", name: "{_escape(name)}"}})'
-                )
-                lines.append(f"CREATE ({vi_var})-[:RETURNS]->({term_var})")
-            else:
-                lines.append(
-                    f'CREATE ({term_var}:Input {{id: "{fp_term.uid}", name: "{_escape(name)}"}})'
-                )
-                lines.append(f"CREATE ({term_var})-[:PARAMETER_OF]->({vi_var})")
+    if not fp:
+        lines.extend(_generate_terminals_fallback(bd, bd_xml_path, vi_var, node_vars, prefix))
 
     # === DATA FLOW ===
-    lines.append("")
-    lines.append("// === Data Flow ===")
-
-    for wire in bd.wires:
-        from_parent = term_to_parent.get(wire.from_term, wire.from_term)
-        to_parent = term_to_parent.get(wire.to_term, wire.to_term)
-
-        from_var = node_vars.get(from_parent)
-        to_var = node_vars.get(to_parent)
-
-        if from_var and to_var:
-            lines.append(f"CREATE ({from_var})-[:FLOWS_TO]->({to_var})")
+    lines.extend(_generate_dataflow(bd, node_vars))
 
     # === SUBVI EXPANSION ===
     if expand_subvis:
-        # Collect SubVI names from the nodes
-        subvi_names = []
-        for node in bd.nodes:
-            if node.node_type == "iUse" and node.name:
-                subvi_names.append((node.uid, node.name))
-
-        if subvi_names:
-            lines.append("")
-            lines.append("// === SubVI Definitions ===")
-
-            for node_uid, subvi_name in subvi_names:
-                # Try to find the SubVI .vi file
-                subvi_path = _find_subvi(subvi_name, _search_paths)
-
-                if subvi_path:
-                    node_var = node_vars.get(node_uid, f"{prefix}n_{node_uid}")
-                    subvi_var = _sanitize_name(subvi_name.replace(".vi", "").replace(".VI", ""))
-
-                    lines.append("")
-                    lines.append(f"// --- SubVI: {subvi_name} ---")
-
-                    try:
-                        # Extract the SubVI to XML
-                        subvi_bd_xml, subvi_fp_xml, subvi_main_xml = extract_vi_xml(
-                            subvi_path,
-                            output_dir=subvi_path.parent,
-                        )
-
-                        # Recursively generate the SubVI graph
-                        subvi_graph = from_vi(
-                            subvi_bd_xml,
-                            fp_xml_path=subvi_fp_xml,
-                            main_xml_path=subvi_main_xml,
-                            expand_subvis=True,
-                            _processed=_processed,
-                            _search_paths=_search_paths,
-                        )
-
-                        # Check if it was a cycle
-                        if subvi_graph.startswith("// Already processed"):
-                            lines.append(subvi_graph)
-                        else:
-                            lines.append(subvi_graph)
-
-                        # Link the call site to the SubVI definition
-                        lines.append(f"CREATE ({node_var})-[:CALLS]->({subvi_var})")
-
-                    except Exception as e:
-                        lines.append(f"// Failed to extract SubVI: {subvi_name} - {e}")
-                else:
-                    lines.append(f"// SubVI not found: {subvi_name}")
+        lines.extend(_expand_subvis(bd, node_vars, prefix, _processed, _search_paths))
 
     lines.append("")
     lines.append("// === End of VI Graph ===")
@@ -723,3 +748,383 @@ def _sanitize_name(name: str) -> str:
 def _escape(s: str) -> str:
     """Escape a string for use in Cypher."""
     return s.replace("\\", "\\\\").replace('"', '\\"').replace("'", "\\'")
+
+
+# === Higher-Level Discovery Functions ===
+
+
+def from_directory(
+    directory: Path | str,
+    recursive: bool = True,
+    expand_subvis: bool = True,
+) -> str:
+    """Generate Cypher graph for all VIs in a directory.
+
+    Discovers all .vi files and generates a unified graph with all VIs
+    and their dependencies.
+
+    Args:
+        directory: Directory to search for .vi files
+        recursive: Search subdirectories
+        expand_subvis: Expand SubVI definitions
+
+    Returns:
+        Cypher CREATE statements for all VIs
+    """
+    directory = Path(directory)
+
+    # Find all .vi files
+    pattern = "**/*.vi" if recursive else "*.vi"
+    vi_files = list(directory.glob(pattern))
+
+    if not vi_files:
+        return "// No VI files found"
+
+    return _generate_hierarchy_graph(vi_files, expand_subvis)
+
+
+def from_lvlib(
+    lvlib_path: Path | str,
+    expand_subvis: bool = True,
+) -> str:
+    """Generate Cypher graph for all VIs in a LabVIEW library.
+
+    The .lvlib file is parsed to find referenced VIs (they are sibling files).
+
+    Args:
+        lvlib_path: Path to the .lvlib file
+        expand_subvis: Expand SubVI definitions
+
+    Returns:
+        Cypher CREATE statements for all VIs in the library
+    """
+    lvlib_path = Path(lvlib_path)
+
+    if not lvlib_path.exists():
+        return f"// Library not found: {lvlib_path}"
+
+    # Parse the lvlib XML to find member VIs
+    vi_files = _parse_lvlib_members(lvlib_path)
+
+    if not vi_files:
+        # Fall back to finding VIs in the same directory
+        vi_files = list(lvlib_path.parent.glob("*.vi"))
+
+    if not vi_files:
+        return f"// No VI files found in library: {lvlib_path.name}"
+
+    lines = [
+        f"// LabVIEW Library: {lvlib_path.name}",
+        f'CREATE (lib:Library {{name: "{lvlib_path.stem}", path: "{_escape(str(lvlib_path))}"}})',
+        "",
+    ]
+
+    graph = _generate_hierarchy_graph(vi_files, expand_subvis)
+    lines.append(graph)
+
+    # Link VIs to the library
+    lines.append("")
+    lines.append("// Link VIs to library")
+    for vi_file in vi_files:
+        vi_var = _sanitize_name(vi_file.stem)
+        lines.append(f"CREATE (lib)-[:CONTAINS]->({vi_var})")
+
+    return "\n".join(lines)
+
+
+def from_lvclass(
+    lvclass_path: Path | str,
+    expand_subvis: bool = True,
+) -> str:
+    """Generate Cypher graph for all VIs in a LabVIEW class.
+
+    The .lvclass file is parsed to find methods and property VIs.
+
+    Args:
+        lvclass_path: Path to the .lvclass file
+        expand_subvis: Expand SubVI definitions
+
+    Returns:
+        Cypher CREATE statements for all VIs in the class
+    """
+    lvclass_path = Path(lvclass_path)
+
+    if not lvclass_path.exists():
+        return f"// Class not found: {lvclass_path}"
+
+    # Parse the lvclass XML to find member VIs
+    vi_files = _parse_lvclass_members(lvclass_path)
+
+    if not vi_files:
+        # Fall back to finding VIs in the same directory
+        vi_files = list(lvclass_path.parent.glob("*.vi"))
+
+    if not vi_files:
+        return f"// No VI files found in class: {lvclass_path.name}"
+
+    lines = [
+        f"// LabVIEW Class: {lvclass_path.name}",
+        f'CREATE (cls:Class {{name: "{lvclass_path.stem}", path: "{_escape(str(lvclass_path))}"}})',
+        "",
+    ]
+
+    graph = _generate_hierarchy_graph(vi_files, expand_subvis)
+    lines.append(graph)
+
+    # Link VIs to the class
+    lines.append("")
+    lines.append("// Link VIs to class")
+    for vi_file in vi_files:
+        vi_var = _sanitize_name(vi_file.stem)
+        lines.append(f"CREATE (cls)-[:HAS_METHOD]->({vi_var})")
+
+    return "\n".join(lines)
+
+
+def from_project(
+    lvproj_path: Path | str,
+    expand_subvis: bool = True,
+) -> str:
+    """Generate Cypher graph for all VIs in a LabVIEW project.
+
+    Args:
+        lvproj_path: Path to the .lvproj file
+        expand_subvis: Expand SubVI definitions
+
+    Returns:
+        Cypher CREATE statements for all VIs in the project
+    """
+    lvproj_path = Path(lvproj_path)
+
+    if not lvproj_path.exists():
+        return f"// Project not found: {lvproj_path}"
+
+    # Parse the project file to find all VIs
+    vi_files, libraries, classes = _parse_lvproj_members(lvproj_path)
+
+    lines = [
+        f"// LabVIEW Project: {lvproj_path.name}",
+        f'CREATE (proj:Project {{name: "{lvproj_path.stem}", path: "{_escape(str(lvproj_path))}"}})',
+        "",
+    ]
+
+    # Generate graphs for libraries
+    for lib_path in libraries:
+        lines.append(from_lvlib(lib_path, expand_subvis))
+        lib_var = f"lib_{_sanitize_name(lib_path.stem)}"
+        lines.append(f"CREATE (proj)-[:CONTAINS]->({lib_var})")
+        lines.append("")
+
+    # Generate graphs for classes
+    for cls_path in classes:
+        lines.append(from_lvclass(cls_path, expand_subvis))
+        cls_var = f"cls_{_sanitize_name(cls_path.stem)}"
+        lines.append(f"CREATE (proj)-[:CONTAINS]->({cls_var})")
+        lines.append("")
+
+    # Generate graphs for standalone VIs
+    if vi_files:
+        lines.append("// Standalone VIs")
+        graph = _generate_hierarchy_graph(vi_files, expand_subvis)
+        lines.append(graph)
+
+        # Link VIs to project
+        for vi_file in vi_files:
+            vi_var = _sanitize_name(vi_file.stem)
+            lines.append(f"CREATE (proj)-[:CONTAINS]->({vi_var})")
+
+    return "\n".join(lines)
+
+
+def _generate_hierarchy_graph(
+    vi_files: list[Path],
+    expand_subvis: bool = True,
+) -> str:
+    """Generate Cypher for a list of VI files.
+
+    Processes VIs in dependency order (leaves first).
+    """
+    if not vi_files:
+        return "// No VIs to process"
+
+    # Build dependency graph first (without full expansion)
+    dependencies: dict[str, set[str]] = {}
+    vi_by_name: dict[str, Path] = {}
+
+    for vi_path in vi_files:
+        vi_name = vi_path.stem
+        vi_by_name[vi_name] = vi_path
+        dependencies[vi_name] = set()
+
+        # Quick parse to find SubVI calls (without extracting)
+        try:
+            bd_xml, _, _ = extract_vi_xml(vi_path)
+            subvis = _find_subvi_calls(bd_xml)
+            for subvi_name in subvis:
+                # Only track dependencies on VIs in our set
+                clean_name = subvi_name.replace(".vi", "").replace(".VI", "")
+                if ":" in clean_name:
+                    clean_name = clean_name.split(":")[-1]
+                if clean_name in vi_by_name or clean_name + ".vi" in [v.name for v in vi_files]:
+                    dependencies[vi_name].add(clean_name)
+        except (RuntimeError, ET.ParseError, OSError):
+            pass  # Skip VIs that can't be parsed
+
+    # Topological sort (leaves first)
+    order = _topological_sort(dependencies)
+
+    # Generate graphs in order
+    processed: set[str] = set()
+    search_paths = list({vi.parent for vi in vi_files})
+    lines = []
+
+    for vi_name in order:
+        if vi_name not in vi_by_name:
+            continue
+
+        vi_path = vi_by_name[vi_name]
+        try:
+            bd_xml, fp_xml, main_xml = extract_vi_xml(vi_path)
+            graph = from_vi(
+                bd_xml,
+                fp_xml_path=fp_xml,
+                main_xml_path=main_xml,
+                expand_subvis=expand_subvis,
+                _processed=processed,
+                _search_paths=search_paths,
+            )
+            lines.append(graph)
+            lines.append("")
+            processed.add(vi_name)
+        except Exception as e:
+            lines.append(f"// Failed to process {vi_name}: {e}")
+
+    return "\n".join(lines)
+
+
+def _find_subvi_calls(bd_xml_path: Path) -> list[str]:
+    """Quick parse to find SubVI call names without full processing."""
+    try:
+        tree = ET.parse(bd_xml_path)
+        root = tree.getroot()
+
+        subvis = []
+        for elem in root.iter():
+            if elem.tag == "iUse":
+                name = elem.get("name") or elem.get("viName")
+                if name:
+                    subvis.append(name)
+        return subvis
+    except (ET.ParseError, OSError):
+        return []
+
+
+def _topological_sort(dependencies: dict[str, set[str]]) -> list[str]:
+    """Sort nodes so dependencies come before dependents."""
+    result = []
+    visited = set()
+    temp_mark = set()
+
+    def visit(node: str) -> None:
+        if node in temp_mark:
+            return  # Cycle detected, skip
+        if node in visited:
+            return
+
+        temp_mark.add(node)
+
+        for dep in dependencies.get(node, set()):
+            visit(dep)
+
+        temp_mark.remove(node)
+        visited.add(node)
+        result.append(node)
+
+    for node in dependencies:
+        if node not in visited:
+            visit(node)
+
+    return result
+
+
+def _parse_lvlib_members(lvlib_path: Path) -> list[Path]:
+    """Parse .lvlib XML to find member VI files."""
+    try:
+        tree = ET.parse(lvlib_path)
+        root = tree.getroot()
+
+        vi_files = []
+        parent_dir = lvlib_path.parent
+
+        # Look for Item elements with Type="VI"
+        for item in root.iter("Item"):
+            if item.get("Type") == "VI":
+                vi_name = item.get("Name", "")
+                if vi_name:
+                    vi_path = parent_dir / vi_name
+                    if vi_path.exists():
+                        vi_files.append(vi_path)
+
+        return vi_files
+    except (ET.ParseError, OSError):
+        return []
+
+
+def _parse_lvclass_members(lvclass_path: Path) -> list[Path]:
+    """Parse .lvclass XML to find member VI files."""
+    try:
+        tree = ET.parse(lvclass_path)
+        root = tree.getroot()
+
+        vi_files = []
+        parent_dir = lvclass_path.parent
+
+        # Look for Item elements with Type="VI" (methods)
+        for item in root.iter("Item"):
+            item_type = item.get("Type", "")
+            if item_type in ("VI", "Method"):
+                vi_name = item.get("Name", "")
+                if vi_name:
+                    vi_path = parent_dir / vi_name
+                    if vi_path.exists():
+                        vi_files.append(vi_path)
+
+        return vi_files
+    except (ET.ParseError, OSError):
+        return []
+
+
+def _parse_lvproj_members(lvproj_path: Path) -> tuple[list[Path], list[Path], list[Path]]:
+    """Parse .lvproj XML to find VIs, libraries, and classes.
+
+    Returns:
+        Tuple of (vi_files, library_files, class_files)
+    """
+    try:
+        tree = ET.parse(lvproj_path)
+        root = tree.getroot()
+
+        vi_files = []
+        libraries = []
+        classes = []
+        parent_dir = lvproj_path.parent
+
+        for item in root.iter("Item"):
+            item_type = item.get("Type", "")
+            name = item.get("Name", "")
+
+            if not name:
+                continue
+
+            path = parent_dir / name
+
+            if item_type == "VI" and path.exists():
+                vi_files.append(path)
+            elif item_type == "Library" and path.exists():
+                libraries.append(path)
+            elif item_type == "LVClass" and path.exists():
+                classes.append(path)
+
+        return vi_files, libraries, classes
+    except (ET.ParseError, OSError):
+        return [], [], []

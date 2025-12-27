@@ -8,6 +8,8 @@ from pathlib import Path
 
 from . import __version__, convert_vi, convert_xml, summarize_vi
 from .cypher import from_blockdiagram as summarize_vi_cypher
+from .cypher import from_directory, from_lvclass, from_lvlib, from_project, from_vi
+from .graph import GraphConfig, VIGraph
 from .llm import LLMConfig, check_ollama_available, list_models
 from .structure import (
     discover_project_structure,
@@ -67,6 +69,16 @@ def main() -> int:
     struct_parser.add_argument("--json", action="store_true", help="Output as JSON")
     struct_parser.add_argument("--plan", action="store_true", help="Generate Python structure plan")
 
+    # Graph command - load VIs into Neo4j
+    graph_parser = subparsers.add_parser("graph", help="Load VIs into Neo4j graph database")
+    graph_parser.add_argument("input", help="VI, directory, .lvlib, .lvclass, or .lvproj")
+    graph_parser.add_argument("--uri", default="bolt://localhost:7687", help="Neo4j URI")
+    graph_parser.add_argument("--user", default="neo4j", help="Neo4j username")
+    graph_parser.add_argument("--password", default="vipy-password", help="Neo4j password")
+    graph_parser.add_argument("--clear", action="store_true", help="Clear existing graph first")
+    graph_parser.add_argument("--no-expand", action="store_true", help="Don't expand SubVIs")
+    graph_parser.add_argument("--cypher", action="store_true", help="Output Cypher only, don't load to Neo4j")
+
     args = parser.parse_args()
 
     if args.command == "convert":
@@ -77,6 +89,8 @@ def main() -> int:
         return cmd_check(args)
     elif args.command == "structure":
         return cmd_structure(args)
+    elif args.command == "graph":
+        return cmd_graph(args)
     else:
         parser.print_help()
         return 0
@@ -280,6 +294,92 @@ def cmd_structure(args: argparse.Namespace) -> int:
             print(f"Error: Unsupported file type: {input_path}", file=sys.stderr)
             return 1
 
+        return 0
+
+    except Exception as e:
+        print(f"Error: {e}", file=sys.stderr)
+        return 1
+
+
+def cmd_graph(args: argparse.Namespace) -> int:
+    """Handle the graph command - load VIs into Neo4j."""
+    input_path = Path(args.input)
+
+    if not input_path.exists():
+        print(f"Error: Path not found: {input_path}", file=sys.stderr)
+        return 1
+
+    expand_subvis = not args.no_expand
+
+    try:
+        # Generate Cypher based on input type
+        suffix = input_path.suffix.lower()
+
+        if suffix == ".vi":
+            from .cypher import extract_vi_xml
+            bd_xml, fp_xml, main_xml = extract_vi_xml(input_path)
+            cypher = from_vi(bd_xml, fp_xml, main_xml, expand_subvis=expand_subvis)
+        elif suffix == ".lvlib":
+            cypher = from_lvlib(input_path, expand_subvis=expand_subvis)
+        elif suffix == ".lvclass":
+            cypher = from_lvclass(input_path, expand_subvis=expand_subvis)
+        elif suffix == ".lvproj":
+            cypher = from_project(input_path, expand_subvis=expand_subvis)
+        elif input_path.is_dir():
+            cypher = from_directory(input_path, expand_subvis=expand_subvis)
+        else:
+            print(f"Error: Unsupported file type: {suffix}", file=sys.stderr)
+            print("Supported: .vi, .lvlib, .lvclass, .lvproj, or directory", file=sys.stderr)
+            return 1
+
+        # Output Cypher only?
+        if args.cypher:
+            print(cypher)
+            return 0
+
+        # Load into Neo4j
+        config = GraphConfig(
+            uri=args.uri,
+            username=args.user,
+            password=args.password,
+        )
+
+        print(f"Connecting to Neo4j at {args.uri}...")
+        graph = VIGraph(config)
+        graph.connect()
+
+        if args.clear:
+            print("Clearing existing graph...")
+            graph.clear()
+
+        print("Loading VI graph...")
+        graph._load_cypher(cypher)
+
+        # Show summary
+        vis = graph.list_vis()
+        print(f"Loaded {len(vis)} VI(s) into Neo4j")
+        for vi in vis[:10]:
+            print(f"  - {vi}")
+        if len(vis) > 10:
+            print(f"  ... and {len(vis) - 10} more")
+
+        # Show conversion order
+        order = graph.get_conversion_order()
+        if order:
+            print("\nConversion order (leaves first):")
+            for i, vi in enumerate(order, 1):
+                print(f"  {i}. {vi}")
+
+        # Report unknown primitives discovered
+        from .blockdiagram import get_unknown_primitives
+        unknowns = get_unknown_primitives()
+        if unknowns:
+            print(f"\n⚠ Found {len(unknowns)} unknown primitive(s):")
+            for pid, info in unknowns.items():
+                vis = ", ".join(info["vi_names"][:3])
+                print(f"  {pid}: seen {info['count']}x in [{vis}]")
+
+        graph.close()
         return 0
 
     except Exception as e:

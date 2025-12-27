@@ -6,7 +6,7 @@ import xml.etree.ElementTree as ET
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from .parser import BlockDiagram, parse_block_diagram
+from .parser import parse_block_diagram
 
 
 @dataclass
@@ -20,7 +20,7 @@ class FPControl:
     type_desc: str | None = None
     default_value: str | None = None
     enum_values: list[str] = field(default_factory=list)
-    children: list["FPControl"] = field(default_factory=list)  # For clusters
+    children: list[FPControl] = field(default_factory=list)  # For clusters
 
 
 @dataclass
