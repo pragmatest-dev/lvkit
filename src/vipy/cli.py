@@ -428,6 +428,9 @@ def cmd_agent(args: argparse.Namespace) -> int:
         graph = VIGraph(graph_config)
         graph.connect()
 
+        # Clear existing graph data
+        graph.clear()
+
         # Load VIs into graph based on input type
         suffix = input_path.suffix.lower()
         print(f"Loading VIs from {input_path}...")

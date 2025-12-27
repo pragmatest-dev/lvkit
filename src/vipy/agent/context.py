@@ -45,6 +45,10 @@ The following primResID values map to these functions from `.primitives`:
 ## Available Imports
 {available_imports}
 
+Standard library imports you may need:
+- `from pathlib import Path` for path operations
+- `import os` for environment variables and OS operations
+
 ## Shared Types
 {shared_types}
 
@@ -53,9 +57,8 @@ The following primResID values map to these functions from `.primitives`:
 - Parameters from VI inputs: {inputs}
 - Return values from VI outputs: {outputs}
 - For each `:Primitive` node, use the corresponding function from `.primitives` based on its primResID
-- Import shared types from `.types` if needed
 - Follow the data flow: Input nodes → operations → Output nodes
-- The function must be pure (no side effects beyond its return value)
+- Include ALL necessary imports at the top of the code
 - Add proper type hints to all parameters and return value
 
 Output ONLY the Python code (with imports), no explanations.'''
