@@ -2,9 +2,7 @@
 
 from __future__ import annotations
 
-import json
 import xml.etree.ElementTree as ET
-from functools import lru_cache
 from pathlib import Path
 
 from .constants import SYSTEM_DIR_TYPES
@@ -15,163 +13,52 @@ from .parser import (
 )
 
 
-@lru_cache(maxsize=1)
-def _load_primitive_map() -> dict[int, tuple[str, str, str]]:
-    """Load primitive mappings from JSON file.
-
-    Returns:
-        Dict mapping primResID (int) -> (name, description, python_equivalent)
-    """
-    json_path = Path(__file__).parent / "primitives.json"
-    with open(json_path, encoding="utf-8") as f:
-        data = json.load(f)
-
-    # Convert string keys to int, skip comment entries
-    return {
-        int(k): tuple(v)
-        for k, v in data.items()
-        if not k.startswith("_")
-    }
+# === Primitive Tracking ===
+# Tracks primitives encountered during parsing (for analysis)
+_primitives_seen: dict[int, dict] = {}  # primResID -> {count, contexts, vi_names}
 
 
-# Module-level access to primitive map (lazy-loaded)
-def get_primitive_map() -> dict[int, tuple[str, str, str]]:
-    """Get the primitive ID to info mapping."""
-    return _load_primitive_map()
-
-
-# For backwards compatibility
-PRIMITIVE_MAP = property(lambda self: _load_primitive_map())
-
-
-class _PrimitiveMapProxy:
-    """Proxy class to provide dict-like access to lazy-loaded primitives."""
-
-    def get(self, key: int, default=None):
-        return _load_primitive_map().get(key, default)
-
-    def __getitem__(self, key: int):
-        return _load_primitive_map()[key]
-
-    def __contains__(self, key: int) -> bool:
-        return key in _load_primitive_map()
-
-    def items(self):
-        return _load_primitive_map().items()
-
-    def keys(self):
-        return _load_primitive_map().keys()
-
-    def values(self):
-        return _load_primitive_map().values()
-
-
-# Singleton instance for backwards compatibility
-PRIMITIVE_MAP = _PrimitiveMapProxy()
-
-
-# === Dynamic Primitive Discovery ===
-# Tracks unknown primitives encountered during parsing
-_unknown_primitives: dict[int, dict] = {}  # primResID -> {count, contexts, vi_names}
-
-
-def register_unknown_primitive(prim_res_id: int, vi_name: str = "", context: str = "") -> None:
-    """Register an unknown primitive for later mapping.
+def register_primitive(prim_res_id: int, vi_name: str = "", context: str = "") -> None:
+    """Register a primitive encountered during parsing.
 
     Args:
         prim_res_id: The primitive resource ID
         vi_name: Name of the VI where this primitive was found
-        context: Any contextual info (connected wires, labels, etc.)
+        context: Any contextual info (connected wires, types, etc.)
     """
-    if prim_res_id in PRIMITIVE_MAP:
-        return  # Already known
-
-    if prim_res_id not in _unknown_primitives:
-        _unknown_primitives[prim_res_id] = {
+    if prim_res_id not in _primitives_seen:
+        _primitives_seen[prim_res_id] = {
             "count": 0,
             "vi_names": set(),
             "contexts": set(),
         }
 
-    _unknown_primitives[prim_res_id]["count"] += 1
+    _primitives_seen[prim_res_id]["count"] += 1
     if vi_name:
-        _unknown_primitives[prim_res_id]["vi_names"].add(vi_name)
+        _primitives_seen[prim_res_id]["vi_names"].add(vi_name)
     if context:
-        _unknown_primitives[prim_res_id]["contexts"].add(context)
+        _primitives_seen[prim_res_id]["contexts"].add(context)
 
 
-def get_unknown_primitives() -> dict[int, dict]:
-    """Get all unknown primitives encountered.
+def get_primitives_seen() -> dict[int, dict]:
+    """Get all primitives encountered.
 
     Returns:
         Dict mapping primResID -> {count, vi_names, contexts}
     """
-    # Convert sets to lists for JSON serialization
     return {
         pid: {
             "count": info["count"],
             "vi_names": list(info["vi_names"]),
-            "contexts": list(info["contexts"])[:5],  # Limit contexts
+            "contexts": list(info["contexts"])[:5],
         }
-        for pid, info in sorted(_unknown_primitives.items())
+        for pid, info in sorted(_primitives_seen.items())
     }
 
 
-def clear_unknown_primitives() -> None:
-    """Clear the unknown primitives registry."""
-    _unknown_primitives.clear()
-
-
-def report_unknown_primitives() -> str:
-    """Generate a report of unknown primitives for adding to PRIMITIVE_MAP.
-
-    Returns:
-        Formatted string ready to paste into PRIMITIVE_MAP
-    """
-    if not _unknown_primitives:
-        return "# No unknown primitives found"
-
-    lines = ["# Unknown primitives discovered (add to PRIMITIVE_MAP):", ""]
-
-    for pid in sorted(_unknown_primitives.keys()):
-        info = _unknown_primitives[pid]
-        count = info["count"]
-        vis = ", ".join(list(info["vi_names"])[:3])
-        contexts = "; ".join(list(info["contexts"])[:2])
-
-        # Try to guess the category based on ID range
-        if 1000 <= pid < 1100:
-            category = "numeric"
-        elif 1100 <= pid < 1200:
-            category = "comparison"
-        elif 1200 <= pid < 1300:
-            category = "boolean"
-        elif 1300 <= pid < 1400:
-            category = "array"
-        elif 1400 <= pid < 1500:
-            category = "cluster"
-        elif 1500 <= pid < 1600:
-            category = "file/ref"
-        elif 1600 <= pid < 1700:
-            category = "timing"
-        elif 1700 <= pid < 1800:
-            category = "dialog"
-        elif 1800 <= pid < 2000:
-            category = "string/variant"
-        elif 8000 <= pid < 9000:
-            category = "vi_server"
-        elif pid >= 20000:
-            category = "oop/class"
-        else:
-            category = "unknown"
-
-        lines.append(f"    # {pid}: seen {count}x in [{vis}] - {category}")
-        if contexts:
-            lines.append(f"    #   context: {contexts[:80]}")
-        lines.append(f'    {pid}: ("Unknown_{pid}", "TODO: identify", "unknown()"),')
-        lines.append("")
-
-    return "\n".join(lines)
+def clear_primitives_seen() -> None:
+    """Clear the primitives registry."""
+    _primitives_seen.clear()
 
 
 def decode_labview_path(hex_value: str) -> str:

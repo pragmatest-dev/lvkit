@@ -387,14 +387,16 @@ def cmd_graph(args: argparse.Namespace) -> int:
             for i, vi in enumerate(order, 1):
                 print(f"  {i}. {vi}")
 
-        # Report unknown primitives discovered
-        from .blockdiagram import get_unknown_primitives
-        unknowns = get_unknown_primitives()
-        if unknowns:
-            print(f"\n⚠ Found {len(unknowns)} unknown primitive(s):")
-            for pid, info in unknowns.items():
+        # Report primitives discovered
+        from .blockdiagram import get_primitives_seen
+        prims = get_primitives_seen()
+        if prims:
+            print(f"\nPrimitives found ({len(prims)} unique):")
+            for pid, info in list(prims.items())[:10]:
                 vis = ", ".join(info["vi_names"][:3])
-                print(f"  {pid}: seen {info['count']}x in [{vis}]")
+                print(f"  #{pid}: {info['count']}x in [{vis}]")
+            if len(prims) > 10:
+                print(f"  ... and {len(prims) - 10} more")
 
         graph.close()
         return 0

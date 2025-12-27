@@ -35,23 +35,28 @@ def from_blockdiagram(
     # Try to get front panel terminal names
     fp_names = _get_fp_terminal_names(bd_xml_path)
 
-    # Get VI name
+    # Get VI name and qualified name from metadata
     vi_name = "Unknown VI"
+    qualified_name = None
     if main_xml_path:
         meta = parse_vi_metadata(main_xml_path)
         vi_name = meta.get("name", vi_name)
+        qualified_name = meta.get("qualified_name", vi_name)
     else:
         vi_name = bd_xml_path.stem.replace("_BDHb", "")
 
+    if qualified_name is None:
+        qualified_name = vi_name
+
     # Sanitize name for Cypher variable
-    vi_var = _sanitize_name(vi_name)
+    vi_var = _sanitize_name(qualified_name)
 
     lines = [
         "// Cypher graph representation of LabVIEW VI",
-        f"// VI: {vi_name}",
+        f"// VI: {qualified_name}",
         "",
         "// Create the VI node",
-        f'CREATE ({vi_var}:VI {{name: "{vi_name}"}})',
+        f'CREATE ({vi_var}:VI {{name: "{qualified_name}"}})',
         "",
         "// Constants",
     ]
@@ -63,6 +68,7 @@ def from_blockdiagram(
     for const in bd.constants:
         const_var = f"c_{const.uid}"
         node_vars[const.uid] = const_var
+        node_id = _make_node_id(qualified_name, const.uid)
 
         # Decode constant value
         enum_label = _get_enum_value_label(const, bd.enum_labels)
@@ -75,14 +81,14 @@ def from_blockdiagram(
                 value_desc = parts[0]
                 python_hint = parts[1]
             lines.append(
-                f'CREATE ({const_var}:Constant {{id: "{const.uid}", '
+                f'CREATE ({const_var}:Constant {{id: "{node_id}", '
                 f'value: "{_escape(value_desc)}", '
                 f'python: "{_escape(python_hint)}"}})'
             )
         else:
             val_type, val = decode_constant(const)
             lines.append(
-                f'CREATE ({const_var}:Constant {{id: "{const.uid}", '
+                f'CREATE ({const_var}:Constant {{id: "{node_id}", '
                 f'type: "{val_type}", value: "{_escape(val)}"}})'
             )
 
@@ -96,33 +102,34 @@ def from_blockdiagram(
     for node in bd.nodes:
         node_var = f"n_{node.uid}"
         node_vars[node.uid] = node_var
+        node_id = _make_node_id(qualified_name, node.uid)
 
         if node.node_type == "iUse":
             # SubVI call
             subvi_name = node.name or "Unknown SubVI"
             lines.append(
-                f'CREATE ({node_var}:SubVI {{id: "{node.uid}", '
+                f'CREATE ({node_var}:SubVI {{id: "{node_id}", '
                 f'name: "{_escape(subvi_name)}"}})'
             )
         elif node.node_type == "prim":
             # Store primitive with its ID - LLM infers meaning from context
             lines.append(
-                f'CREATE ({node_var}:Primitive {{id: "{node.uid}", '
+                f'CREATE ({node_var}:Primitive {{id: "{node_id}", '
                 f'primResID: {node.prim_res_id}}})'
             )
         elif node.node_type in ("whileLoop", "forLoop"):
             lines.append(
-                f'CREATE ({node_var}:Loop {{id: "{node.uid}", '
+                f'CREATE ({node_var}:Loop {{id: "{node_id}", '
                 f'type: "{node.node_type}"}})'
             )
         elif node.node_type in ("select", "caseStruct"):
             lines.append(
-                f'CREATE ({node_var}:Conditional {{id: "{node.uid}", '
+                f'CREATE ({node_var}:Conditional {{id: "{node_id}", '
                 f'type: "{node.node_type}"}})'
             )
         else:
             lines.append(
-                f'CREATE ({node_var}:Node {{id: "{node.uid}", '
+                f'CREATE ({node_var}:Node {{id: "{node_id}", '
                 f'type: "{node.node_type}"}})'
             )
 
@@ -136,6 +143,7 @@ def from_blockdiagram(
         for i, fp_term in enumerate(bd.fp_terminals):
             term_var = f"fp_{fp_term.uid}"
             node_vars[fp_term.uid] = term_var
+            node_id = _make_node_id(qualified_name, fp_term.uid)
 
             # Try to get name from front panel, fall back to generic name
             name = fp_names.get(fp_term.fp_dco_uid) or fp_term.name
@@ -145,7 +153,7 @@ def from_blockdiagram(
             if fp_term.is_indicator:
                 # Output indicator
                 lines.append(
-                    f'CREATE ({term_var}:Output {{id: "{fp_term.uid}", '
+                    f'CREATE ({term_var}:Output {{id: "{node_id}", '
                     f'name: "{_escape(name)}"}})'
                 )
                 lines.append(
@@ -154,7 +162,7 @@ def from_blockdiagram(
             else:
                 # Input control
                 lines.append(
-                    f'CREATE ({term_var}:Input {{id: "{fp_term.uid}", '
+                    f'CREATE ({term_var}:Input {{id: "{node_id}", '
                     f'name: "{_escape(name)}"}})'
                 )
                 lines.append(
@@ -189,6 +197,7 @@ def _generate_constants(
     vi_var: str,
     node_vars: dict[str, str],
     prefix: str,
+    qualified_name: str,
 ) -> list[str]:
     """Generate Cypher statements for block diagram constants."""
     lines = ["", "// === Block Diagram Constants ==="]
@@ -196,6 +205,7 @@ def _generate_constants(
     for const in bd.constants:
         const_var = f"{prefix}c_{const.uid}"
         node_vars[const.uid] = const_var
+        node_id = _make_node_id(qualified_name, const.uid)
 
         enum_label = _get_enum_value_label(const, bd.enum_labels)
         if enum_label:
@@ -206,13 +216,13 @@ def _generate_constants(
                 value_desc = parts[0]
                 python_hint = parts[1]
             lines.append(
-                f'CREATE ({const_var}:Constant {{id: "{const.uid}", '
+                f'CREATE ({const_var}:Constant {{id: "{node_id}", '
                 f'value: "{_escape(value_desc)}", python: "{_escape(python_hint)}"}})'
             )
         else:
             val_type, val = decode_constant(const)
             lines.append(
-                f'CREATE ({const_var}:Constant {{id: "{const.uid}", '
+                f'CREATE ({const_var}:Constant {{id: "{node_id}", '
                 f'type: "{val_type}", value: "{_escape(val)}"}})'
             )
         lines.append(f"CREATE ({vi_var})-[:CONTAINS]->({const_var})")
@@ -225,6 +235,7 @@ def _generate_operations(
     vi_var: str,
     node_vars: dict[str, str],
     prefix: str,
+    qualified_name: str,
 ) -> list[str]:
     """Generate Cypher statements for block diagram operations."""
     lines = ["", "// === Block Diagram Operations ==="]
@@ -232,31 +243,32 @@ def _generate_operations(
     for node in bd.nodes:
         node_var = f"{prefix}n_{node.uid}"
         node_vars[node.uid] = node_var
+        node_id = _make_node_id(qualified_name, node.uid)
 
         if node.node_type == "iUse":
             subvi_name = node.name or "Unknown SubVI"
             lines.append(
-                f'CREATE ({node_var}:SubVI {{id: "{node.uid}", '
+                f'CREATE ({node_var}:SubVI {{id: "{node_id}", '
                 f'name: "{_escape(subvi_name)}"}})'
             )
         elif node.node_type == "prim":
             lines.append(
-                f'CREATE ({node_var}:Primitive {{id: "{node.uid}", '
+                f'CREATE ({node_var}:Primitive {{id: "{node_id}", '
                 f'primResID: {node.prim_res_id}}})'
             )
         elif node.node_type in ("whileLoop", "forLoop"):
             lines.append(
-                f'CREATE ({node_var}:Loop {{id: "{node.uid}", '
+                f'CREATE ({node_var}:Loop {{id: "{node_id}", '
                 f'type: "{node.node_type}"}})'
             )
         elif node.node_type in ("select", "caseStruct"):
             lines.append(
-                f'CREATE ({node_var}:Conditional {{id: "{node.uid}", '
+                f'CREATE ({node_var}:Conditional {{id: "{node_id}", '
                 f'type: "{node.node_type}"}})'
             )
         else:
             lines.append(
-                f'CREATE ({node_var}:Node {{id: "{node.uid}", '
+                f'CREATE ({node_var}:Node {{id: "{node_id}", '
                 f'type: "{node.node_type}"}})'
             )
         lines.append(f"CREATE ({vi_var})-[:CONTAINS]->({node_var})")
@@ -270,6 +282,7 @@ def _generate_terminals_fallback(
     vi_var: str,
     node_vars: dict[str, str],
     prefix: str,
+    qualified_name: str,
 ) -> list[str]:
     """Generate Cypher statements for terminals when no front panel XML exists."""
     if not bd.fp_terminals:
@@ -281,17 +294,18 @@ def _generate_terminals_fallback(
     for i, fp_term in enumerate(bd.fp_terminals):
         term_var = f"{prefix}fp_{fp_term.uid}"
         node_vars[fp_term.uid] = term_var
+        node_id = _make_node_id(qualified_name, fp_term.uid)
         name = fp_names.get(fp_term.fp_dco_uid) or fp_term.name or f"terminal_{i}"
 
         if fp_term.is_indicator:
             lines.append(
-                f'CREATE ({term_var}:Output {{id: "{fp_term.uid}", '
+                f'CREATE ({term_var}:Output {{id: "{node_id}", '
                 f'name: "{_escape(name)}"}})'
             )
             lines.append(f"CREATE ({vi_var})-[:RETURNS]->({term_var})")
         else:
             lines.append(
-                f'CREATE ({term_var}:Input {{id: "{fp_term.uid}", '
+                f'CREATE ({term_var}:Input {{id: "{node_id}", '
                 f'name: "{_escape(name)}"}})'
             )
             lines.append(f"CREATE ({term_var})-[:PARAMETER_OF]->({vi_var})")
@@ -381,6 +395,7 @@ def from_vi(
     fp_xml_path: Path | str | None = None,
     main_xml_path: Path | str | None = None,
     expand_subvis: bool = False,
+    qualified_name: str | None = None,
     _processed: set[str] | None = None,
     _search_paths: list[Path] | None = None,
 ) -> str:
@@ -397,6 +412,8 @@ def from_vi(
         fp_xml_path: Path to the front panel XML (*_FPHb.xml), auto-detected if None
         main_xml_path: Path to the main VI XML (optional, for metadata)
         expand_subvis: If True, recursively expand SubVI definitions
+        qualified_name: Qualified VI name for composite IDs (e.g., "MyLib.lvlib/MyVI.vi").
+                        If None, defaults to the VI name from metadata or filename.
         _processed: Internal set to track processed VIs (cycle detection)
         _search_paths: Internal list of paths to search for SubVI files
 
@@ -441,25 +458,32 @@ def from_vi(
     if fp_xml_path and fp_xml_path.exists():
         fp = parse_front_panel(fp_xml_path, bd_xml_path)
 
-    # Get VI name
+    # Get VI name and qualified name from metadata
     vi_name = "Unknown VI"
     if main_xml_path:
         meta = parse_vi_metadata(main_xml_path)
         vi_name = meta.get("name", vi_name)
+        # Get qualified_name from VI's own metadata (it knows its library)
+        if qualified_name is None:
+            qualified_name = meta.get("qualified_name", vi_name)
     else:
         vi_name = bd_xml_path.stem.replace("_BDHb", "")
 
-    vi_var = _sanitize_name(vi_name)
+    # Fall back to vi_name if no qualified_name available
+    if qualified_name is None:
+        qualified_name = vi_name
+
+    vi_var = _sanitize_name(qualified_name)
     # Prefix for node variables to avoid collisions in hierarchy
     prefix = f"{vi_var}_" if len(_processed) > 1 else ""
     node_vars = {}
 
     lines = [
         "// Unified Cypher graph of LabVIEW VI (front panel + block diagram)",
-        f"// VI: {vi_name}",
+        f"// VI: {qualified_name}",
         "",
         "// === VI Container ===",
-        f'CREATE ({vi_var}:VI {{name: "{vi_name}"}})',
+        f'CREATE ({vi_var}:VI {{name: "{qualified_name}"}})',
     ]
 
     # Build mapping from front panel DCO uid to block diagram terminal uid
@@ -476,7 +500,8 @@ def from_vi(
             lines.append("")
             lines.append("// === Front Panel Inputs (Controls) ===")
             for ctrl in inputs:
-                _generate_control_nodes(lines, ctrl, vi_var, node_vars, is_input=True, prefix=prefix)
+                _generate_control_nodes(lines, ctrl, vi_var, node_vars, is_input=True,
+                                       qualified_name=qualified_name, prefix=prefix)
                 # Also map the BD terminal uid to this control for data flow
                 if ctrl.uid in fp_to_bd_terminal:
                     bd_term_uid = fp_to_bd_terminal[ctrl.uid]
@@ -486,19 +511,20 @@ def from_vi(
             lines.append("")
             lines.append("// === Front Panel Outputs (Indicators) ===")
             for ctrl in outputs:
-                _generate_control_nodes(lines, ctrl, vi_var, node_vars, is_input=False, prefix=prefix)
+                _generate_control_nodes(lines, ctrl, vi_var, node_vars, is_input=False,
+                                       qualified_name=qualified_name, prefix=prefix)
                 # Also map the BD terminal uid to this control for data flow
                 if ctrl.uid in fp_to_bd_terminal:
                     bd_term_uid = fp_to_bd_terminal[ctrl.uid]
                     node_vars[bd_term_uid] = node_vars[ctrl.uid]
 
     # === BLOCK DIAGRAM SECTION ===
-    lines.extend(_generate_constants(bd, vi_var, node_vars, prefix))
-    lines.extend(_generate_operations(bd, vi_var, node_vars, prefix))
+    lines.extend(_generate_constants(bd, vi_var, node_vars, prefix, qualified_name))
+    lines.extend(_generate_operations(bd, vi_var, node_vars, prefix, qualified_name))
 
     # If we don't have front panel info, fall back to basic terminal representation
     if not fp:
-        lines.extend(_generate_terminals_fallback(bd, bd_xml_path, vi_var, node_vars, prefix))
+        lines.extend(_generate_terminals_fallback(bd, bd_xml_path, vi_var, node_vars, prefix, qualified_name))
 
     # === DATA FLOW ===
     lines.extend(_generate_dataflow(bd, node_vars))
@@ -617,6 +643,7 @@ def _generate_control_nodes(
     vi_var: str,
     node_vars: dict[str, str],
     is_input: bool,
+    qualified_name: str,
     parent_var: str | None = None,
     prefix: str = "",
 ) -> str:
@@ -626,6 +653,7 @@ def _generate_control_nodes(
     """
     ctrl_var = f"{prefix}ctrl_{ctrl.uid}" if ctrl.uid else f"{prefix}ctrl_{_sanitize_name(ctrl.name)}"
     node_vars[ctrl.uid] = ctrl_var
+    node_id = _make_node_id(qualified_name, ctrl.uid)
 
     # Determine node label based on type
     base_label = "Input" if is_input else "Output"
@@ -634,20 +662,21 @@ def _generate_control_nodes(
     if ctrl.control_type == "stdClust" and ctrl.children:
         # Cluster with children
         lines.append(
-            f'CREATE ({ctrl_var}:{base_label}:Cluster {{id: "{ctrl.uid}", '
+            f'CREATE ({ctrl_var}:{base_label}:Cluster {{id: "{node_id}", '
             f'name: "{_escape(ctrl.name)}"}})'
         )
 
         # Generate child nodes
         for child in ctrl.children:
             child_var = _generate_control_nodes(
-                lines, child, vi_var, node_vars, is_input, parent_var=ctrl_var, prefix=prefix
+                lines, child, vi_var, node_vars, is_input, qualified_name,
+                parent_var=ctrl_var, prefix=prefix
             )
             lines.append(f"CREATE ({ctrl_var})-[:CONTAINS]->({child_var})")
     else:
         # Simple control
         lines.append(
-            f'CREATE ({ctrl_var}:{base_label}:{type_label} {{id: "{ctrl.uid}", '
+            f'CREATE ({ctrl_var}:{base_label}:{type_label} {{id: "{node_id}", '
             f'name: "{_escape(ctrl.name)}", type: "{ctrl.control_type}"}})'
         )
 
@@ -749,6 +778,39 @@ def _sanitize_name(name: str) -> str:
 def _escape(s: str) -> str:
     """Escape a string for use in Cypher."""
     return s.replace("\\", "\\\\").replace('"', '\\"').replace("'", "\\'")
+
+
+def _make_node_id(qualified_name: str, local_id: str) -> str:
+    """Create a globally unique node ID.
+
+    Combines qualified VI name with local ID to avoid collisions when
+    multiple VIs are loaded into the same graph.
+
+    Args:
+        qualified_name: Qualified name (e.g., "MyLib.lvlib/MyVI.vi" or "MyVI.vi")
+        local_id: Local UID from the VI's XML
+
+    Returns:
+        Composite ID like "MyLib.lvlib/MyVI.vi:129"
+    """
+    return f"{qualified_name}:{local_id}"
+
+
+def _build_qualified_name(vi_name: str, container: str | None) -> str:
+    """Build qualified name using LabVIEW's colon syntax.
+
+    Uses the same syntax as SubVI references so names match directly.
+
+    Args:
+        vi_name: VI name like "Helper.vi"
+        container: Container name like "MyLibrary.lvlib" or None
+
+    Returns:
+        Qualified name like "MyLibrary.lvlib:Helper.vi" or just "Helper.vi"
+    """
+    if container:
+        return f"{container}:{vi_name}"
+    return vi_name
 
 
 # === Higher-Level Discovery Functions ===

@@ -331,7 +331,7 @@ def parse_vi_metadata(xml_path: Path | str) -> dict[str, Any]:
         xml_path: Path to the main .xml file (not BDHb)
 
     Returns:
-        Dict with version info, SubVI names, type descriptors, etc.
+        Dict with version info, SubVI names, type descriptors, library info, etc.
     """
     tree = ET.parse(xml_path)
     root = tree.getroot()
@@ -343,13 +343,45 @@ def parse_vi_metadata(xml_path: Path | str) -> dict[str, Any]:
     if lvsr is not None:
         metadata["name"] = lvsr.get("Name", "unknown")
 
-    # Get SubVI references from LIds section
+    # Get library name from LIBN section
+    lib_elem = root.find(".//LIBN/Section/Library")
+    if lib_elem is not None and lib_elem.text:
+        metadata["library"] = lib_elem.text
+
+    # Get qualified name from LIvi section
+    # The LVIN element has Unk1 attribute with "Library.lvlib:VI.vi" format
+    lvin = root.find(".//LIvi/Section/LVIN")
+    if lvin is not None:
+        qualified = lvin.get("Unk1")
+        if qualified:
+            metadata["qualified_name"] = qualified
+
+    # Get SubVI references from LIvi section - these have the qualified names
     subvi_refs = []
-    for dsds in root.findall(".//LIds//DSDS"):
-        name_elem = dsds.find("LinkSaveQualName/String")
-        if name_elem is not None and name_elem.text:
-            subvi_refs.append(name_elem.text)
+    for vivi in root.findall(".//LIvi//VIVI/LinkSaveQualName/String"):
+        if vivi.text:
+            subvi_refs.append(vivi.text)
     metadata["subvi_refs"] = subvi_refs
+
+    # Fall back to name if no qualified_name found
+    if "qualified_name" not in metadata and "name" in metadata:
+        metadata["qualified_name"] = metadata["name"]
+
+    # Get help/documentation data (STRG, HLPP, HLPT sections)
+    # STRG contains VI description
+    strg = root.find(".//STRG/Section/String")
+    if strg is not None and strg.text:
+        metadata["description"] = strg.text
+
+    # DSTM may contain description strings
+    dstm = root.find(".//DSTM/Section/String")
+    if dstm is not None and dstm.text:
+        metadata["description"] = dstm.text
+
+    # HLPT contains help tags
+    hlpt = root.find(".//HLPT/Section/String")
+    if hlpt is not None and hlpt.text:
+        metadata["help_tag"] = hlpt.text
 
     return metadata
 

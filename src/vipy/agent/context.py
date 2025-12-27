@@ -52,6 +52,8 @@ The following primResID values map to these functions from `.primitives`:
 - Create a function named `{function_name}`
 - Parameters from VI inputs: {inputs}
 - Return values from VI outputs: {outputs}
+- MUST include type annotations on ALL function parameters and return type
+- MUST include `from __future__ import annotations` at the top
 
 CRITICAL: You MUST follow the Data Flow exactly:
 - Each line "A -> B" means the output of A is passed as input to B
