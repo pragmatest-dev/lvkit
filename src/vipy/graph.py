@@ -431,9 +431,8 @@ class VIGraph:
             "operations": self.query("""
                 MATCH (v:VI {name: $name})-[:CONTAINS]->(op)
                 WHERE op:Primitive OR op:SubVI OR op:Loop OR op:Conditional
-                RETURN labels(op) AS labels, op.name AS name, op.python AS python,
-                       op.description AS description, op.type AS type, op.id AS id,
-                       op.primResID AS primResID, op.primIndex AS primIndex
+                RETURN labels(op) AS labels, op.name AS name, op.type AS type,
+                       op.id AS id, op.primResID AS primResID
             """, {"name": vi_name}),
             "data_flow": self.query("""
                 MATCH (v:VI {name: $name})-[:CONTAINS|RETURNS|PARAMETER_OF*]-(n1)

@@ -68,12 +68,11 @@ class PrimitiveRegistry:
     def discover_from_graph(self, graph: VIGraph) -> None:
         """Discover all primitives used in the graph.
 
-        Queries for Primitive nodes and extracts their primResID and types.
+        Queries for Primitive nodes and extracts their primResID.
         """
         query = """
         MATCH (v:VI)-[:CONTAINS]->(p:Primitive)
-        RETURN v.name AS vi_name, p.primResID AS prim_id,
-               p.inputTypes AS input_types, p.outputTypes AS output_types
+        RETURN v.name AS vi_name, p.primResID AS prim_id
         """
 
         try:
@@ -82,16 +81,14 @@ class PrimitiveRegistry:
             for row in results:
                 vi_name = row.get("vi_name", "")
                 prim_id = row.get("prim_id")
-                input_types = row.get("input_types", []) or []
-                output_types = row.get("output_types", []) or []
 
                 if prim_id is None:
                     continue
 
                 self.register_primitive(
                     prim_res_id=prim_id,
-                    input_types=input_types,
-                    output_types=output_types,
+                    input_types=[],
+                    output_types=[],
                     source_vi=vi_name,
                 )
 
