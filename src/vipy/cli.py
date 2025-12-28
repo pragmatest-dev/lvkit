@@ -101,6 +101,31 @@ def main() -> int:
         help="Additional directories to search for SubVIs (can be repeated)",
     )
 
+    # Experiment command - compare conversion strategies
+    exp_parser = subparsers.add_parser(
+        "experiment",
+        help="Compare conversion strategies on VI(s)",
+    )
+    exp_parser.add_argument("input", help="VI file or directory")
+    exp_parser.add_argument("-o", "--output", default="/tmp/vipy-experiment", help="Output directory")
+    exp_parser.add_argument(
+        "--strategies",
+        default="all",
+        help="Strategies to run: 'all' or comma-separated (baseline,two_phase,constraint_fix)",
+    )
+    exp_parser.add_argument("--uri", default="bolt://localhost:7687", help="Neo4j URI")
+    exp_parser.add_argument("--user", default="neo4j", help="Neo4j username")
+    exp_parser.add_argument("--password", default="vipy-password", help="Neo4j password")
+    exp_parser.add_argument("--max-attempts", type=int, default=3, help="Max retry attempts per strategy")
+    exp_parser.add_argument("--model", default="qwen2.5-coder:7b", help="Ollama model")
+    exp_parser.add_argument(
+        "--search-path",
+        action="append",
+        dest="search_paths",
+        metavar="DIR",
+        help="Additional directories to search for SubVIs (can be repeated)",
+    )
+
     args = parser.parse_args()
 
     if args.command == "convert":
@@ -115,6 +140,8 @@ def main() -> int:
         return cmd_graph(args)
     elif args.command == "agent":
         return cmd_agent(args)
+    elif args.command == "experiment":
+        return cmd_experiment(args)
     else:
         parser.print_help()
         return 0
@@ -514,6 +541,75 @@ def cmd_agent(args: argparse.Namespace) -> int:
 
     except Exception as e:
         print(f"Error: {e}", file=sys.stderr)
+        return 1
+
+
+def cmd_experiment(args: argparse.Namespace) -> int:
+    """Handle the experiment command - compare conversion strategies."""
+    from .agent.experiment import run_experiment
+    from .agent.strategies import list_strategies
+
+    input_path = Path(args.input)
+    output_dir = Path(args.output)
+
+    if not input_path.exists():
+        print(f"Error: Path not found: {input_path}", file=sys.stderr)
+        return 1
+
+    # Parse strategies
+    if args.strategies == "all":
+        strategies = list_strategies()
+    else:
+        strategies = [s.strip() for s in args.strategies.split(",")]
+
+    # Validate strategies
+    available = list_strategies()
+    for s in strategies:
+        if s not in available:
+            print(f"Error: Unknown strategy '{s}'", file=sys.stderr)
+            print(f"Available: {', '.join(available)}", file=sys.stderr)
+            return 1
+
+    # Build search paths
+    search_paths: list[Path] = []
+    if args.search_paths:
+        for sp in args.search_paths:
+            p = Path(sp)
+            if p.exists():
+                search_paths.append(p)
+            else:
+                print(f"Warning: Search path does not exist: {sp}")
+
+    # Configure LLM
+    llm_config = LLMConfig(model=args.model)
+
+    print(f"Running experiment on: {input_path}")
+    print(f"Strategies: {', '.join(strategies)}")
+    print(f"Output: {output_dir}")
+    print()
+
+    try:
+        results = run_experiment(
+            vi_path=input_path,
+            strategies=strategies,
+            output_dir=output_dir,
+            llm_config=llm_config,
+            max_attempts=args.max_attempts,
+            search_paths=search_paths or None,
+        )
+
+        # Return success if any strategy succeeded
+        all_failed = all(
+            not r.success
+            for vi_result in results.vis
+            for r in vi_result.results.values()
+        )
+        return 1 if all_failed else 0
+
+    except Exception as e:
+        print(f"Error: {e}", file=sys.stderr)
+        import traceback
+        traceback.print_exc()
         return 1
 
 
