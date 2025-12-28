@@ -162,8 +162,11 @@ class CodeValidator:
 
         # Check SubVIs are handled (either called or commented as TODO)
         for subvi_name in expected_subvis:
-            # Convert to potential function name
-            func_name = subvi_name.replace(".vi", "").replace(" ", "_").lower()
+            # Convert to potential function name (same logic as context.py _to_function_name)
+            func_name = subvi_name.replace(".vi", "").replace(".VI", "")
+            func_name = func_name.replace(" ", "_").replace("-", "_").lower()
+            # Remove any non-alphanumeric chars except underscore
+            func_name = "".join(c for c in func_name if c.isalnum() or c == "_")
             # Check if it's called, defined, or mentioned in a comment
             if func_name not in code.lower() and subvi_name not in code:
                 errors.append(
