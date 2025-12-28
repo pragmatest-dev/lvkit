@@ -93,6 +93,13 @@ def main() -> int:
     agent_parser.add_argument("--model", default="qwen2.5-coder:7b", help="Ollama model")
     agent_parser.add_argument("--no-typecheck", action="store_true", help="Skip mypy type checking")
     agent_parser.add_argument("--generate-ui", action="store_true", help="Generate NiceGUI wrappers")
+    agent_parser.add_argument(
+        "--search-path",
+        action="append",
+        dest="search_paths",
+        metavar="DIR",
+        help="Additional directories to search for SubVIs (can be repeated)",
+    )
 
     args = parser.parse_args()
 
@@ -433,12 +440,23 @@ def cmd_agent(args: argparse.Namespace) -> int:
         # Clear existing graph data
         graph.clear()
 
+        # Build search paths
+        search_paths: list[Path] = []
+        if args.search_paths:
+            for sp in args.search_paths:
+                p = Path(sp)
+                if p.exists():
+                    search_paths.append(p)
+                    print(f"Added search path: {p}")
+                else:
+                    print(f"Warning: Search path does not exist: {sp}")
+
         # Load VIs into graph based on input type
         suffix = input_path.suffix.lower()
         print(f"Loading VIs from {input_path}...")
 
         if suffix == ".vi":
-            graph.load_vi(input_path, expand_subvis=True)
+            graph.load_vi(input_path, expand_subvis=True, search_paths=search_paths or None)
         elif suffix == ".lvlib":
             from .cypher import from_lvlib
             cypher = from_lvlib(input_path, expand_subvis=True)

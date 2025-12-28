@@ -941,6 +941,74 @@ def parse_type_chain(xml_path: Path | str) -> dict:
     }
 
 
+@dataclass
+class SubVIPathRef:
+    """A SubVI reference with path hints from the XML."""
+    name: str  # VI name, e.g., "Create Dir if Non-Existant__ogtk.vi"
+    path_tokens: list[str]  # Path components, e.g., ["<userlib>", "_OpenG.lib", "file", "file.llb"]
+    is_vilib: bool = False  # True if from <vilib>
+    is_userlib: bool = False  # True if from <userlib>
+
+    def get_relative_path(self) -> str:
+        """Get the relative path under vilib/userlib.
+
+        Returns path like "_OpenG.lib/file/file.llb/Create Dir if Non-Existant__ogtk.vi"
+        """
+        # Skip the first token (<vilib> or <userlib>)
+        if self.path_tokens and self.path_tokens[0] in ("<vilib>", "<userlib>"):
+            return "/".join(self.path_tokens[1:])
+        return "/".join(self.path_tokens)
+
+
+def parse_subvi_paths(xml_path: Path | str) -> list[SubVIPathRef]:
+    """Parse SubVI path references from the main VI XML.
+
+    The LIvi section contains VIVI elements with LinkSavePathRef that
+    specify where to find SubVIs relative to vilib or userlib.
+
+    Args:
+        xml_path: Path to the main .xml file (not BDHb)
+
+    Returns:
+        List of SubVIPathRef with path hints for each SubVI
+    """
+    tree = ET.parse(xml_path)
+    root = tree.getroot()
+
+    refs: list[SubVIPathRef] = []
+
+    # Find VIVI elements (SubVI references)
+    for vivi in root.findall(".//LIvi//VIVI"):
+        # Get SubVI name from LinkSaveQualName
+        qual_name = vivi.find("LinkSaveQualName/String")
+        if qual_name is None or not qual_name.text:
+            continue
+        name = qual_name.text
+
+        # Get path from LinkSavePathRef
+        path_ref = vivi.find("LinkSavePathRef")
+        if path_ref is None:
+            continue
+
+        # Extract path components
+        path_parts = [s.text for s in path_ref.findall("String") if s.text]
+        if not path_parts:
+            continue
+
+        # Determine path type
+        is_vilib = len(path_parts) > 0 and path_parts[0] == "<vilib>"
+        is_userlib = len(path_parts) > 0 and path_parts[0] == "<userlib>"
+
+        refs.append(SubVIPathRef(
+            name=name,
+            path_tokens=path_parts,
+            is_vilib=is_vilib,
+            is_userlib=is_userlib,
+        ))
+
+    return refs
+
+
 def resolve_type_to_typedef(type_ref: str, type_chain: dict) -> str | None:
     """Resolve a TypeID reference to its typedef name if applicable.
     
