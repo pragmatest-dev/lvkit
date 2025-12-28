@@ -8,10 +8,12 @@ from typing import TYPE_CHECKING
 
 from ..llm import LLMConfig, generate_code
 from ..vilib_resolver import get_resolver as get_vilib_resolver
+from .agentic import AgenticConfig, AgenticConverter, AgenticResult
 from .context import ContextBuilder, VISignature
 from .enums import EnumRegistry
 from .primitives import PrimitiveRegistry
 from .state import ConversionState, get_progress
+from .strategies import get_strategy
 from .types import SharedTypeRegistry
 from .validator import CodeValidator, ErrorFormatter, ValidatorConfig
 
@@ -33,6 +35,13 @@ class ConversionConfig:
     validate_syntax: bool = True
     validate_imports: bool = True
     validate_types: bool = True  # Run mypy
+
+    # Strategy setting - which conversion strategy to use
+    strategy: str = "baseline"  # baseline, two_phase, template_fill, etc.
+
+    # Agentic mode settings (deprecated - use strategy="tool_calling" instead)
+    use_agentic_fallback: bool = False
+    agentic_max_iterations: int = 10
 
 
 @dataclass
@@ -171,57 +180,67 @@ class ConversionAgent:
             if "SubVI" in op.get("labels", []) and op.get("name")
         ]
 
-        # Build initial context from structured graph data
-        context = ContextBuilder.build_vi_context(
-            vi_context=vi_context,
-            vi_name=vi_name,
-            converted_deps=subvi_sigs,
-            shared_types=types,
-            primitives_available=primitive_names,
-            primitive_mappings=primitive_mappings,
-            primitive_context=primitive_context,
-            enum_context=enum_context,
+        # Use strategy for conversion
+        strategy_cls = get_strategy(self.config.strategy)
+        if strategy_cls is None:
+            # Fallback to baseline if strategy not found
+            from .strategies import BaselineStrategy
+            strategy_cls = BaselineStrategy
+
+        strategy = strategy_cls(
+            validator=self.validator,
+            llm_config=self.config.llm_config,
+            output_dir=self.config.output_dir,
+            max_attempts=self.config.max_retries,
         )
 
-        code = ""
-        errors: list[str] = []
-        original_context = context  # Preserve for error feedback
+        # Run strategy conversion
+        result = strategy.convert(
+            vi_name=vi_name,
+            vi_context=vi_context,
+            converted_deps=subvi_sigs,
+            primitive_names=primitive_names,
+            primitive_context=primitive_context,
+        )
 
-        for attempt in range(1, self.config.max_retries + 1):
-            # Generate code
-            code = generate_code(context, self.config.llm_config)
-            code = self._extract_code(code)
+        if result.success:
+            # Success - write to file
+            output_path = self._write_vi_module(vi_name, result.code)
 
-            # Validate with completeness check (no expected primitives - LLM infers from context)
-            validation = self.validator.validate(
-                code, vi_name, [], expected_subvis
+            # Optionally generate UI wrapper
+            ui_path = None
+            if self.config.generate_ui and inputs:
+                ui_path = self._generate_ui_wrapper(vi_name, inputs, outputs)
+
+            return ConversionResult(
+                vi_name=vi_name,
+                python_code=result.code,
+                output_path=output_path,
+                success=True,
+                attempts=result.attempts,
+                ui_path=ui_path,
             )
 
-            if validation.is_valid:
-                # Success - write to file
-                output_path = self._write_vi_module(vi_name, code)
+        # Strategy failed
+        errors = result.errors
 
-                # Optionally generate UI wrapper
-                ui_path = None
-                if self.config.generate_ui and inputs:
-                    ui_path = self._generate_ui_wrapper(vi_name, inputs, outputs)
-
+        # Max retries exceeded - try agentic mode if enabled
+        if self.config.use_agentic_fallback:
+            print(f"    Standard conversion failed, trying agentic mode...")
+            agentic_result = self._try_agentic_conversion(
+                vi_name, vi_context, subvi_sigs, primitive_names, primitive_context
+            )
+            if agentic_result.success:
+                output_path = self._write_vi_module(vi_name, agentic_result.python_code)
                 return ConversionResult(
                     vi_name=vi_name,
-                    python_code=code,
+                    python_code=agentic_result.python_code,
                     output_path=output_path,
                     success=True,
-                    attempts=attempt,
-                    ui_path=ui_path,
+                    attempts=self.config.max_retries + agentic_result.attempts,
                 )
+            errors = agentic_result.errors
 
-            # Validation failed - build error context with original requirements
-            errors = [e.message for e in validation.errors]
-            context = ContextBuilder.build_error_context(
-                code, validation.errors, original_context
-            )
-
-        # Max retries exceeded
         return ConversionResult(
             vi_name=vi_name,
             python_code=code,
