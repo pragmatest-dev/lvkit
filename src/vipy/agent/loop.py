@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 
 from ..llm import LLMConfig, generate_code
 from .context import ContextBuilder, VISignature
+from .enums import EnumRegistry
 from .primitives import PrimitiveRegistry
 from .state import ConversionState, get_progress
 from .types import SharedTypeRegistry
@@ -44,6 +45,7 @@ class ConversionResult:
     errors: list[str] = field(default_factory=list)
     attempts: int = 1
     ui_path: Path | None = None  # Path to UI wrapper if generated
+    is_stub: bool = False  # True if this is a stub for a missing dependency
 
 
 class ConversionAgent:
@@ -76,6 +78,7 @@ class ConversionAgent:
         self.state = ConversionState()
         self.type_registry = SharedTypeRegistry()
         self.primitive_registry = PrimitiveRegistry()
+        self.enum_registry = EnumRegistry()
 
         # Initialize validator
         validator_config = ValidatorConfig(
@@ -138,44 +141,44 @@ class ConversionAgent:
         Returns:
             ConversionResult with success/failure info
         """
-        # Get VI context from graph
+        # Check if this is a stub VI (missing dependency)
+        if self.graph.is_stub_vi(vi_name):
+            return self._generate_stub_vi(vi_name)
+
+        # Get VI context from graph - structured data for LLM
         vi_context = self.graph.get_vi_context(vi_name)
 
-        # Get Cypher representation
-        cypher = self.graph.get_vi_cypher(vi_name)
-
-        # Extract inputs/outputs
+        # Extract inputs/outputs for validation
         inputs = self._extract_io(vi_context.get("inputs", []))
         outputs = self._extract_io(vi_context.get("outputs", []))
 
         # Get converted SubVI signatures
         subvi_sigs = self._get_subvi_signatures(vi_context)
 
-        # Get relevant types and primitives
+        # Get relevant types, primitives, and enums
         types = self.type_registry.get_types_for_vi(vi_name)
         primitive_names = self.primitive_registry.get_primitive_names(vi_name)
+        primitive_mappings = self.primitive_registry.get_primitive_id_mapping(vi_name)
+        primitive_context = self.primitive_registry.get_primitive_context(vi_name)
+        enum_context = self.enum_registry.get_enum_context(vi_name)
 
-        # Build primitive mappings (primResID -> function name)
-        primitive_mappings = self._get_primitive_mappings(vi_context)
-
-        # Extract expected primitives and SubVIs for completeness checking
-        expected_primitives = list(primitive_mappings.values())
+        # Extract expected SubVIs for completeness checking
         expected_subvis = [
             op["name"]
             for op in vi_context.get("operations", [])
             if "SubVI" in op.get("labels", []) and op.get("name")
         ]
 
-        # Build initial context
+        # Build initial context from structured graph data
         context = ContextBuilder.build_vi_context(
-            cypher_graph=cypher,
+            vi_context=vi_context,
             vi_name=vi_name,
-            inputs=inputs,
-            outputs=outputs,
             converted_deps=subvi_sigs,
             shared_types=types,
             primitives_available=primitive_names,
             primitive_mappings=primitive_mappings,
+            primitive_context=primitive_context,
+            enum_context=enum_context,
         )
 
         code = ""
@@ -187,9 +190,9 @@ class ConversionAgent:
             code = generate_code(context, self.config.llm_config)
             code = self._extract_code(code)
 
-            # Validate with completeness check
+            # Validate with completeness check (no expected primitives - LLM infers from context)
             validation = self.validator.validate(
-                code, vi_name, expected_primitives, expected_subvis
+                code, vi_name, [], expected_subvis
             )
 
             if validation.is_valid:
@@ -225,6 +228,119 @@ class ConversionAgent:
             errors=errors,
             attempts=self.config.max_retries,
         )
+
+    def _generate_stub_vi(self, vi_name: str) -> ConversionResult:
+        """Generate a stub function for a missing SubVI dependency.
+
+        Creates a function that raises NotImplementedError with the VI name,
+        using terminal types from the call site for the signature.
+        """
+        stub_info = self.graph.get_stub_vi_info(vi_name)
+        if not stub_info:
+            # Fallback if stub info isn't available
+            stub_info = {"input_types": [], "output_types": []}
+
+        func_name = self._to_function_name(vi_name)
+        input_types = stub_info.get("input_types", []) or []
+        output_types = stub_info.get("output_types", []) or []
+
+        # Filter out Void types and generate meaningful parameter names
+        params = []
+        type_counts: dict[str, int] = {}
+        for typ in input_types:
+            if typ == "Void":
+                continue
+            param_type = self._type_to_python(typ)
+            # Generate meaningful name based on type
+            base_name = self._type_to_param_name(typ)
+            count = type_counts.get(base_name, 0)
+            type_counts[base_name] = count + 1
+            param_name = base_name if count == 0 else f"{base_name}{count + 1}"
+            params.append(f"{param_name}: {param_type}")
+
+        # Filter Void from outputs and build return type
+        real_outputs = [t for t in output_types if t != "Void"]
+        if not real_outputs:
+            return_type = "None"
+        elif len(real_outputs) == 1:
+            return_type = self._type_to_python(real_outputs[0])
+        else:
+            types_str = ", ".join(self._type_to_python(t) for t in real_outputs)
+            return_type = f"tuple[{types_str}]"
+
+        # Generate stub code
+        params_str = ", ".join(params) if params else ""
+        code = f'''"""Stub for missing SubVI: {vi_name}."""
+
+from __future__ import annotations
+
+from pathlib import Path
+from typing import Any
+
+
+def {func_name}({params_str}) -> {return_type}:
+    """Stub for missing SubVI: {vi_name}.
+
+    This SubVI was not found during conversion.
+    Implement this function or provide the original VI.
+    """
+    raise NotImplementedError("Missing SubVI: {vi_name}")
+'''
+
+        # Write to file
+        output_path = self._write_vi_module(vi_name, code)
+
+        return ConversionResult(
+            vi_name=vi_name,
+            python_code=code,
+            output_path=output_path,
+            success=True,
+            errors=[],
+            attempts=1,
+            is_stub=True,
+        )
+
+    def _type_to_param_name(self, lv_type: str) -> str:
+        """Generate a meaningful parameter name from LabVIEW type."""
+        name_map = {
+            "Path": "path",
+            "String": "text",
+            "Boolean": "flag",
+            "NumInt32": "value",
+            "NumInt16": "value",
+            "NumInt8": "value",
+            "NumUInt32": "value",
+            "NumUInt16": "value",
+            "NumUInt8": "value",
+            "NumFloat64": "value",
+            "NumFloat32": "value",
+            "Array": "items",
+            "Cluster": "data",
+            "TypeDef": "config",
+        }
+        return name_map.get(lv_type, "arg")
+
+    def _type_to_python(self, lv_type: str) -> str:
+        """Convert LabVIEW type to Python type hint."""
+        type_map = {
+            "Path": "Path",
+            "String": "str",
+            "Boolean": "bool",
+            "NumInt32": "int",
+            "NumInt16": "int",
+            "NumInt8": "int",
+            "NumUInt32": "int",
+            "NumUInt16": "int",
+            "NumUInt8": "int",
+            "NumFloat64": "float",
+            "NumFloat32": "float",
+            "Array": "list",
+            "Cluster": "dict",
+            "Void": "None",  # Unwired terminal
+            "TypeDef": "Any",  # Custom type definition - use Any until resolved
+            "Function": "Any",  # Function reference
+        }
+        return type_map.get(lv_type, "Any")
 
     def convert_lvclass(self, lvclass: LVClass) -> ConversionResult:
         """Convert a LabVIEW class to a Python class.
@@ -332,12 +448,13 @@ class ConversionAgent:
         return results
 
     def _run_pre_analysis(self) -> None:
-        """Run pre-analysis pass to discover types and primitives."""
+        """Run pre-analysis pass to discover types, primitives, and enums."""
         print("Running pre-analysis...")
 
         # Discover from graph
         self.type_registry.discover_from_graph(self.graph)
         self.primitive_registry.discover_from_graph(self.graph)
+        self.enum_registry.discover_from_graph(self.graph)
 
         # Generate types.py files
         types_files = self.type_registry.generate_all_types_files(self.config.output_dir)
@@ -352,6 +469,11 @@ class ConversionAgent:
                 self.config.llm_config,
             )
             print(f"  Generated primitives/ package ({len(prims)} primitives)")
+
+        # Report discovered enums
+        enum_stats = self.enum_registry.stats()
+        if enum_stats["enum_count"] > 0:
+            print(f"  Discovered {enum_stats['enum_count']} enum(s) in {enum_stats['vis_with_enums']} VI(s)")
 
     def _extract_io(
         self,
@@ -373,7 +495,8 @@ class ConversionAgent:
         signatures = {}
 
         for subvi in vi_context.get("subvi_calls", []):
-            subvi_name = subvi.get("name", "")
+            # subvi_calls uses "vi_name" key (the target VI name)
+            subvi_name = subvi.get("vi_name", "")
             if self.state.is_converted(subvi_name):
                 module = self.state.get_module(subvi_name)
                 if module:
@@ -390,21 +513,11 @@ class ConversionAgent:
     def _get_primitive_mappings(self, vi_context: dict) -> dict[int, str]:
         """Get primResID -> function name mappings for a VI.
 
-        Looks up known primitives from the operations in the VI context.
+        Returns empty dict - primitive behavior is inferred by LLM from graph context
+        (terminal types, connections, data flow). No hardcoded mappings.
         """
-        from .primitives import KNOWN_PRIMITIVES
-
-        mappings = {}
-        operations = vi_context.get("operations", [])
-
-        for op in operations:
-            if "Primitive" in op.get("labels", []):
-                prim_id = op.get("primResID")
-                if prim_id is not None and prim_id in KNOWN_PRIMITIVES:
-                    func_name, _ = KNOWN_PRIMITIVES[prim_id]
-                    mappings[prim_id] = func_name
-
-        return mappings
+        # Previously used KNOWN_PRIMITIVES, now LLM infers from context
+        return {}
 
     def _write_vi_module(self, vi_name: str, code: str) -> Path:
         """Write VI code to a module file."""
@@ -508,16 +621,15 @@ class ConversionAgent:
 
     def _convert_method(self, lvclass: LVClass, method) -> list[str]:
         """Convert a single class method."""
-        # Get VI context from graph
+        # Get VI context from graph - structured data for LLM
         vi_context = self.graph.get_vi_context(method.name)
-        cypher = self.graph.get_vi_cypher(method.name)
 
         # Get types
         types = self.type_registry.get_types_for_vi(method.name)
 
-        # Build context
+        # Build context from structured graph data
         context = ContextBuilder.build_method_context(
-            cypher_graph=cypher,
+            vi_context=vi_context,
             method_name=method.name,
             class_name=self._to_class_name(lvclass.name),
             visibility=method.scope,

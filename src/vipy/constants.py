@@ -41,8 +41,8 @@ FP_DCO_CLASS = "fPDCO"
 MULTI_LABEL_CLASS = "multiLabel"
 
 # === Terminal Flags ===
-# When objFlags has this bit set, the terminal is an output
-TERMINAL_OUTPUT_FLAG = 0x8000  # 32768
+# When objFlags has this bit set, the terminal receives data (input to the node)
+TERMINAL_INPUT_FLAG = 0x8000  # 32768 - indicates terminal RECEIVES data (input to node)
 
 
 # === File Extensions and Patterns ===

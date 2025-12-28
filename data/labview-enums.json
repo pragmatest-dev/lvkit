@@ -1,0 +1,194 @@
+{
+  "metadata": {
+    "description": "LabVIEW enum/typedef definitions with Python equivalents",
+    "sources": [
+      "NI LabVIEW API Reference PDF",
+      "Microsoft KNOWNFOLDERID documentation",
+      "XDG Base Directory Specification"
+    ]
+  },
+  "typedefs": {
+    "File I/O:File Operation.ctl": {
+      "name": "File Operation",
+      "source": "NI LabVIEW File I/O VIs",
+      "control_file": "File Operation.ctl",
+      "vilib_path": "File I/O",
+      "values": {
+        "0": {"name": "open or create", "python": "'x' or 'w'"},
+        "1": {"name": "open", "python": "'r'"},
+        "2": {"name": "create", "python": "'x'"},
+        "3": {"name": "open or create (overwrite)", "python": "'w'"},
+        "4": {"name": "create or replace", "python": "'w'"}
+      }
+    },
+    "File I/O:File Access.ctl": {
+      "name": "File Access",
+      "source": "NI LabVIEW File I/O VIs",
+      "control_file": "File Access.ctl",
+      "vilib_path": "File I/O",
+      "values": {
+        "0": {"name": "read-write", "python": "'r+'"},
+        "1": {"name": "read-only", "python": "'r'"},
+        "2": {"name": "write-only", "python": "'w'"}
+      }
+    },
+    "File I/O:Line Ending.ctl": {
+      "name": "Line Ending",
+      "source": "NI LabVIEW File I/O VIs",
+      "control_file": "Line Ending.ctl",
+      "vilib_path": "File I/O",
+      "values": {
+        "0": {"name": "Native", "python": "os.linesep"},
+        "1": {"name": "Windows (CR LF)", "python": "'\\r\\n'"},
+        "2": {"name": "Unix (LF)", "python": "'\\n'"},
+        "3": {"name": "Mac (CR)", "python": "'\\r'"}
+      }
+    },
+    "Comparison:Comparison Mode.ctl": {
+      "name": "Comparison Mode",
+      "source": "NI LabVIEW Comparison Functions",
+      "control_file": "Comparison Mode.ctl",
+      "vilib_path": "Comparison",
+      "values": {
+        "0": {"name": "Equal", "python": "=="},
+        "1": {"name": "Not Equal", "python": "!="},
+        "2": {"name": "Less Than", "python": "<"},
+        "3": {"name": "Less Than or Equal", "python": "<="},
+        "4": {"name": "Greater Than", "python": ">"},
+        "5": {"name": "Greater Than or Equal", "python": ">="}
+      }
+    },
+    "String:Format String Type.ctl": {
+      "name": "Format String Type",
+      "source": "NI LabVIEW String Functions",
+      "control_file": "Format String Type.ctl",
+      "vilib_path": "String",
+      "values": {
+        "0": {"name": "Decimal Integer", "python": "'%d'"},
+        "1": {"name": "Hex Integer", "python": "'%x'"},
+        "2": {"name": "Octal Integer", "python": "'%o'"},
+        "3": {"name": "Binary Integer", "python": "'%b'"},
+        "4": {"name": "Floating Point", "python": "'%f'"},
+        "5": {"name": "Scientific", "python": "'%e'"},
+        "6": {"name": "Engineering", "python": "'%g'"},
+        "7": {"name": "String", "python": "'%s'"}
+      }
+    },
+    "Dialog:Button Type.ctl": {
+      "name": "Button Type",
+      "source": "NI LabVIEW Dialog VIs",
+      "control_file": "Button Type.ctl",
+      "vilib_path": "Dialog",
+      "values": {
+        "0": {"name": "OK", "python": "['OK']"},
+        "1": {"name": "OK Cancel", "python": "['OK', 'Cancel']"},
+        "2": {"name": "Yes No", "python": "['Yes', 'No']"},
+        "3": {"name": "Yes No Cancel", "python": "['Yes', 'No', 'Cancel']"}
+      }
+    },
+    "Error:Error Action.ctl": {
+      "name": "Error Action",
+      "source": "NI LabVIEW Error Handling",
+      "control_file": "Error Action.ctl",
+      "vilib_path": "Error",
+      "values": {
+        "0": {"name": "No action", "python": "pass"},
+        "1": {"name": "Display warning", "python": "warnings.warn()"},
+        "2": {"name": "Display dialog", "python": "messagebox.showerror()"},
+        "3": {"name": "Stop", "python": "raise"}
+      }
+    },
+    "Utility/sysdir.llb:System Directory Type.ctl": {
+      "name": "System Directory Type",
+      "source": "NI LabVIEW API Reference PDF, page 1494",
+      "control_file": "System Directory Type.ctl",
+      "vilib_path": "Utility/sysdir.llb",
+      "values": {
+        "0": {
+          "name": "User Home",
+          "description": "Directory that contains the personal files of the current user",
+          "windows": "%USERPROFILE%",
+          "unix": "$HOME"
+        },
+        "1": {
+          "name": "User Desktop",
+          "description": "Directory that contains files located on the desktop of the current user",
+          "windows": "%USERPROFILE%\\Desktop",
+          "unix": "$HOME/Desktop"
+        },
+        "2": {
+          "name": "User Documents",
+          "description": "Default directory for saving the documents of the current user",
+          "windows": "%USERPROFILE%\\Documents",
+          "unix": "$HOME/Documents"
+        },
+        "3": {
+          "name": "User Application Data",
+          "description": "Directory that contains data for the system applications of the current user",
+          "windows": "%APPDATA%",
+          "unix": "$HOME/.config"
+        },
+        "4": {
+          "name": "User Preferences",
+          "description": "Directory that contains the preferences for the current user",
+          "windows": "%APPDATA%",
+          "unix": "$HOME/.config"
+        },
+        "5": {
+          "name": "User Temporary",
+          "description": "Directory that holds temporary files for the current user",
+          "windows": "%TEMP%",
+          "unix": "/tmp"
+        },
+        "6": {
+          "name": "Public Documents",
+          "description": "Directory that contains documents accessible to all users of the system",
+          "windows": "%PUBLIC%\\Documents",
+          "unix": "/usr/share"
+        },
+        "7": {
+          "name": "Public Application Data",
+          "description": "Directory that contains data for system applications accessible to all users",
+          "windows": "%PROGRAMDATA%",
+          "unix": "/usr/local/share"
+        },
+        "8": {
+          "name": "Public Preferences",
+          "description": "Directory that contains preferences common to all users of the system",
+          "windows": "%PROGRAMDATA%",
+          "unix": "/etc"
+        },
+        "9": {
+          "name": "System Core Libraries",
+          "description": "Directory that contains the libraries that come with the operating system",
+          "windows": "%SYSTEMROOT%\\System32",
+          "unix": "/usr/lib"
+        },
+        "10": {
+          "name": "System Installed Libraries",
+          "description": "Directory that contains libraries a user installs on the system",
+          "windows": "%PROGRAMFILES%",
+          "unix": "/usr/local/lib"
+        },
+        "11": {
+          "name": "Application Files",
+          "description": "Directory that contains files of applications installed on the system",
+          "windows": "%PROGRAMFILES%",
+          "unix": "/opt"
+        },
+        "12": {
+          "name": "Boot Volume Root",
+          "description": "Top-level directory used to start the system",
+          "windows": "%SYSTEMDRIVE%",
+          "unix": "/"
+        },
+        "13": {
+          "name": "Public Cache",
+          "description": "Directory that stores files the MathScript RT Module installs and shares among all users",
+          "windows": "%PROGRAMDATA%\\MathScript",
+          "unix": "/var/cache"
+        }
+      }
+    }
+  }
+}

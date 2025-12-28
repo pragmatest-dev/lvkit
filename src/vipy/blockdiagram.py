@@ -84,6 +84,23 @@ def decode_labview_path(hex_value: str) -> str:
         return hex_value
 
 
+def decode_labview_string(hex_value: str) -> str | None:
+    """Decode a LabVIEW string constant from hex.
+
+    LabVIEW strings have a 4-byte big-endian length prefix followed by data.
+    """
+    try:
+        data = bytes.fromhex(hex_value)
+        if len(data) < 4:
+            return None
+        length = int.from_bytes(data[:4], 'big')
+        if len(data) >= 4 + length:
+            return data[4:4 + length].decode('latin-1')
+        return None
+    except (ValueError, UnicodeDecodeError):
+        return None
+
+
 def decode_constant(const: Constant, context_hint: str | None = None) -> tuple[str, str]:
     """Decode a constant value to (type, human-readable value).
 
@@ -100,7 +117,15 @@ def decode_constant(const: Constant, context_hint: str | None = None) -> tuple[s
     if value.startswith('50544830'):  # 'PTH0' in hex
         return ("path", decode_labview_path(value))
 
-    # Check for small integer (enum/numeric)
+    # Check for boolean (single byte)
+    if len(value) == 2:
+        try:
+            int_val = int(value, 16)
+            return ("bool", "True" if int_val else "False")
+        except ValueError:
+            pass
+
+    # Check for small integer (4 bytes = 8 hex chars)
     if len(value) == 8:
         try:
             int_val = int(value, 16)
@@ -115,6 +140,13 @@ def decode_constant(const: Constant, context_hint: str | None = None) -> tuple[s
             return ("int", str(int_val))
         except ValueError:
             pass
+
+    # Try to decode as LabVIEW string (4-byte length prefix + data)
+    decoded_str = decode_labview_string(value)
+    if decoded_str is not None:
+        # Escape for safe storage
+        escaped = decoded_str.replace('\\', '\\\\').replace('"', '\\"')
+        return ("string", f'"{escaped}"')
 
     return ("raw", value)
 
