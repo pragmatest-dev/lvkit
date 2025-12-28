@@ -78,6 +78,13 @@ def main() -> int:
     graph_parser.add_argument("--clear", action="store_true", help="Clear existing graph first")
     graph_parser.add_argument("--no-expand", action="store_true", help="Don't expand SubVIs")
     graph_parser.add_argument("--cypher", action="store_true", help="Output Cypher only, don't load to Neo4j")
+    graph_parser.add_argument(
+        "--search-path",
+        action="append",
+        dest="search_paths",
+        metavar="DIR",
+        help="Additional directories to search for SubVIs (can be repeated)",
+    )
 
     # Agent command - convert with validation loop
     agent_parser = subparsers.add_parser(
@@ -126,6 +133,26 @@ def main() -> int:
         help="Additional directories to search for SubVIs (can be repeated)",
     )
 
+    # Claude agent command - convert using Anthropic API
+    claude_parser = subparsers.add_parser(
+        "claude",
+        help="Convert VIs using Claude API (Anthropic)",
+    )
+    claude_parser.add_argument("input", help="VI file or directory")
+    claude_parser.add_argument("-o", "--output", required=True, help="Output directory")
+    claude_parser.add_argument("--uri", default="bolt://localhost:7687", help="Neo4j URI")
+    claude_parser.add_argument("--user", default="neo4j", help="Neo4j username")
+    claude_parser.add_argument("--password", default="vipy-password", help="Neo4j password")
+    claude_parser.add_argument("--max-attempts", type=int, default=3, help="Max retry attempts")
+    claude_parser.add_argument("--model", default="claude-sonnet-4-20250514", help="Claude model")
+    claude_parser.add_argument(
+        "--search-path",
+        action="append",
+        dest="search_paths",
+        metavar="DIR",
+        help="Additional directories to search for SubVIs (can be repeated)",
+    )
+
     args = parser.parse_args()
 
     if args.command == "convert":
@@ -142,6 +169,8 @@ def main() -> int:
         return cmd_agent(args)
     elif args.command == "experiment":
         return cmd_experiment(args)
+    elif args.command == "claude":
+        return cmd_claude(args)
     else:
         parser.print_help()
         return 0
@@ -362,29 +391,36 @@ def cmd_graph(args: argparse.Namespace) -> int:
 
     expand_subvis = not args.no_expand
 
+    # Build search paths
+    search_paths: list[Path] = []
+    if args.search_paths:
+        for sp in args.search_paths:
+            p = Path(sp)
+            if p.exists():
+                search_paths.append(p)
+                print(f"Added search path: {p}")
+            else:
+                print(f"Warning: Search path does not exist: {sp}")
+
     try:
-        # Generate Cypher based on input type
-        suffix = input_path.suffix.lower()
-
-        if suffix == ".vi":
-            from .cypher import extract_vi_xml
-            bd_xml, fp_xml, main_xml = extract_vi_xml(input_path)
-            cypher = from_vi(bd_xml, fp_xml, main_xml, expand_subvis=expand_subvis)
-        elif suffix == ".lvlib":
-            cypher = from_lvlib(input_path, expand_subvis=expand_subvis)
-        elif suffix == ".lvclass":
-            cypher = from_lvclass(input_path, expand_subvis=expand_subvis)
-        elif suffix == ".lvproj":
-            cypher = from_project(input_path, expand_subvis=expand_subvis)
-        elif input_path.is_dir():
-            cypher = from_directory(input_path, expand_subvis=expand_subvis)
-        else:
-            print(f"Error: Unsupported file type: {suffix}", file=sys.stderr)
-            print("Supported: .vi, .lvlib, .lvclass, .lvproj, or directory", file=sys.stderr)
-            return 1
-
-        # Output Cypher only?
+        # For --cypher mode, generate Cypher without loading
         if args.cypher:
+            suffix = input_path.suffix.lower()
+            if suffix == ".vi":
+                from .cypher import extract_vi_xml
+                bd_xml, fp_xml, main_xml = extract_vi_xml(input_path)
+                cypher = from_vi(bd_xml, fp_xml, main_xml, expand_subvis=expand_subvis)
+            elif suffix == ".lvlib":
+                cypher = from_lvlib(input_path, expand_subvis=expand_subvis)
+            elif suffix == ".lvclass":
+                cypher = from_lvclass(input_path, expand_subvis=expand_subvis)
+            elif suffix == ".lvproj":
+                cypher = from_project(input_path, expand_subvis=expand_subvis)
+            elif input_path.is_dir():
+                cypher = from_directory(input_path, expand_subvis=expand_subvis)
+            else:
+                print(f"Error: Unsupported file type: {suffix}", file=sys.stderr)
+                return 1
             print(cypher)
             return 0
 
@@ -403,8 +439,28 @@ def cmd_graph(args: argparse.Namespace) -> int:
             print("Clearing existing graph...")
             graph.clear()
 
+        # Load based on input type
+        suffix = input_path.suffix.lower()
         print("Loading VI graph...")
-        graph._load_cypher(cypher)
+
+        if suffix == ".vi":
+            graph.load_vi(input_path, expand_subvis=expand_subvis, search_paths=search_paths or None)
+        elif suffix == ".lvlib":
+            cypher = from_lvlib(input_path, expand_subvis=expand_subvis)
+            graph._load_cypher(cypher)
+        elif suffix == ".lvclass":
+            cypher = from_lvclass(input_path, expand_subvis=expand_subvis)
+            graph._load_cypher(cypher)
+        elif suffix == ".lvproj":
+            cypher = from_project(input_path, expand_subvis=expand_subvis)
+            graph._load_cypher(cypher)
+        elif input_path.is_dir():
+            cypher = from_directory(input_path, expand_subvis=expand_subvis)
+            graph._load_cypher(cypher)
+        else:
+            print(f"Error: Unsupported file type: {suffix}", file=sys.stderr)
+            print("Supported: .vi, .lvlib, .lvclass, .lvproj, or directory", file=sys.stderr)
+            return 1
 
         # Show summary
         vis = graph.list_vis()
@@ -605,6 +661,191 @@ def cmd_experiment(args: argparse.Namespace) -> int:
             for r in vi_result.results.values()
         )
         return 1 if all_failed else 0
+
+    except Exception as e:
+        print(f"Error: {e}", file=sys.stderr)
+        import traceback
+        traceback.print_exc()
+        return 1
+
+
+def cmd_claude(args: argparse.Namespace) -> int:
+    """Handle the claude command - convert using Anthropic Claude API."""
+    from .agent.claude_agent import convert_with_retry, ConversionResult
+    from .agent.context import ContextBuilder, VISignature
+    from .agent.validator import CodeValidator
+
+    input_path = Path(args.input)
+    output_dir = Path(args.output)
+
+    if not input_path.exists():
+        print(f"Error: Path not found: {input_path}", file=sys.stderr)
+        return 1
+
+    try:
+        # Connect to Neo4j
+        graph_config = GraphConfig(
+            uri=args.uri,
+            username=args.user,
+            password=args.password,
+        )
+
+        print(f"Connecting to Neo4j at {args.uri}...")
+        graph = VIGraph(graph_config)
+        graph.connect()
+
+        # Clear existing graph data
+        graph.clear()
+
+        # Build search paths
+        search_paths: list[Path] = []
+        if args.search_paths:
+            for sp in args.search_paths:
+                p = Path(sp)
+                if p.exists():
+                    search_paths.append(p)
+                    print(f"Added search path: {p}")
+                else:
+                    print(f"Warning: Search path does not exist: {sp}")
+
+        # Load VIs into graph based on input type
+        suffix = input_path.suffix.lower()
+        print(f"Loading VIs from {input_path}...")
+
+        if suffix == ".vi":
+            graph.load_vi(input_path, expand_subvis=True, search_paths=search_paths or None)
+        elif suffix == ".lvlib":
+            from .cypher import from_lvlib
+            cypher = from_lvlib(input_path, expand_subvis=True)
+            graph._load_cypher(cypher)
+        elif suffix == ".lvclass":
+            from .cypher import from_lvclass
+            cypher = from_lvclass(input_path, expand_subvis=True)
+            graph._load_cypher(cypher)
+        elif suffix == ".lvproj":
+            from .cypher import from_project
+            cypher = from_project(input_path, expand_subvis=True)
+            graph._load_cypher(cypher)
+        elif input_path.is_dir():
+            from .cypher import from_directory
+            cypher = from_directory(input_path, expand_subvis=True)
+            graph._load_cypher(cypher)
+        else:
+            print(f"Error: Unsupported file type: {suffix}", file=sys.stderr)
+            return 1
+
+        # Get conversion order (leaves first)
+        order = graph.get_conversion_order()
+        print(f"Found {len(order)} VI(s) to convert")
+        print("\nConversion order (leaves first):")
+        for i, vi in enumerate(order, 1):
+            print(f"  {i}. {vi}")
+        print()
+
+        # Create output directory
+        output_dir.mkdir(parents=True, exist_ok=True)
+
+        # Create validator
+        validator = CodeValidator(check_types=True)
+
+        # Track converted SubVIs for imports
+        converted: dict[str, VISignature] = {}
+        results: list[ConversionResult] = []
+
+        # Get available primitive names (stub for now)
+        primitive_names: list[str] = []
+
+        # Convert each VI in dependency order
+        for i, vi_name in enumerate(order, 1):
+            print(f"[{i}/{len(order)}] Converting {vi_name}...")
+
+            # Get VI context from graph
+            vi_context = graph.get_vi_context(vi_name)
+
+            # Build import statements for already-converted SubVIs
+            subvi_imports: list[str] = []
+            for op in vi_context.get("operations", []):
+                if "SubVI" in op.get("labels", []):
+                    subvi_name = op.get("name", "")
+                    if subvi_name in converted:
+                        sig = converted[subvi_name]
+                        subvi_imports.append(sig.import_statement)
+
+            # Build primitive imports
+            primitive_imports: list[str] = []
+            if primitive_names:
+                primitive_imports.append(f"from .primitives import {', '.join(primitive_names)}")
+
+            # Convert using Claude API
+            result = convert_with_retry(
+                vi_name=vi_name,
+                vi_context=vi_context,
+                subvi_imports=subvi_imports,
+                primitive_imports=primitive_imports,
+                validator=validator,
+                max_attempts=args.max_attempts,
+                model=args.model,
+            )
+
+            results.append(result)
+
+            if result.success:
+                # Generate module name and save
+                module_name = ContextBuilder._to_function_name(vi_name)
+                func_name = module_name
+                output_file = output_dir / f"{module_name}.py"
+                output_file.write_text(result.code)
+
+                # Record signature for future imports
+                # Extract signature from generated code (simple heuristic)
+                sig_line = ""
+                for line in result.code.split("\n"):
+                    if line.startswith("def "):
+                        sig_line = line.split(":")[0] + ":"
+                        break
+
+                converted[vi_name] = VISignature(
+                    name=vi_name,
+                    module_name=module_name,
+                    function_name=func_name,
+                    signature=sig_line or f"def {func_name}(...) -> Any:",
+                    import_statement=f"from .{module_name} import {func_name}",
+                )
+
+                print(f"  ✓ Saved to {output_file}")
+                print(f"    Time: {result.time_seconds:.2f}s, Tokens: {result.input_tokens}+{result.output_tokens}")
+            else:
+                print(f"  ✗ Failed: {result.error}")
+
+        # Generate __init__.py
+        init_file = output_dir / "__init__.py"
+        init_lines = ['"""Generated by vipy claude."""', ""]
+        for sig in converted.values():
+            init_lines.append(f"from .{sig.module_name} import {sig.function_name}")
+        init_file.write_text("\n".join(init_lines) + "\n")
+
+        # Summary
+        succeeded = sum(1 for r in results if r.success)
+        failed = sum(1 for r in results if not r.success)
+        total_time = sum(r.time_seconds for r in results)
+        total_input_tokens = sum(r.input_tokens for r in results)
+        total_output_tokens = sum(r.output_tokens for r in results)
+
+        print(f"\n=== Summary ===")
+        print(f"Output: {output_dir}")
+        print(f"Succeeded: {succeeded}/{len(results)}")
+        print(f"Failed: {failed}")
+        print(f"Total time: {total_time:.2f}s")
+        print(f"Total tokens: {total_input_tokens} input + {total_output_tokens} output")
+
+        if failed > 0:
+            print("\nFailed VIs:")
+            for vi_name, result in zip(order, results):
+                if not result.success:
+                    print(f"  - {vi_name}: {result.error}")
+
+        graph.close()
+        return 0 if failed == 0 else 1
 
     except Exception as e:
         print(f"Error: {e}", file=sys.stderr)
