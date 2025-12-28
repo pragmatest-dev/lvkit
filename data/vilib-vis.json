@@ -1,0 +1,157 @@
+{
+  "metadata": {
+    "description": "vilib VI to Python mapping (runtime version)",
+    "doc_base_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/",
+    "total_vis": 6,
+    "note": "See vilib-vis-full.json for count/vis metadata"
+  },
+  "vis": {
+    "Utility/sysdir.llb/Get System Directory.vi": {
+      "name": "Get System Directory",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/sysdir-llb/get-system-directory-vi.html",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "system directory",
+          "type": "System Directory Type (enum)"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "system directory path",
+          "type": "Path"
+        }
+      ],
+      "python": "get_system_directory(directory_type)",
+      "python_impl": "def get_system_directory(directory_type: int) -> Path:\n    paths = {0: Path.home(), 1: Path.home()/'Desktop', 2: Path.home()/'Documents', 3: Path(os.environ.get('APPDATA', Path.home()/'.config')), 5: Path(os.environ.get('TEMP', '/tmp'))}\n    return paths.get(directory_type, Path.home())",
+      "imports": [
+        "from pathlib import Path",
+        "import os"
+      ]
+    },
+    "Utility/error.llb/Error Cluster From Error Code.vi": {
+      "name": "Error Cluster From Error Code",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "error code",
+          "type": "I32"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "source",
+          "type": "String"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "error out",
+          "type": "Error Cluster"
+        }
+      ],
+      "python": "error_cluster_from_code(code, source)",
+      "python_impl": "def error_cluster_from_code(code: int, source: str = '') -> dict:\n    return {'status': code != 0, 'code': code, 'source': source}"
+    },
+    "Utility/error.llb/Clear Errors.vi": {
+      "name": "Clear Errors",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "error in",
+          "type": "Error Cluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "error out",
+          "type": "Error Cluster"
+        }
+      ],
+      "python": "clear_errors(error_in)",
+      "python_impl": "def clear_errors(error_in: dict = None) -> dict:\n    return {'status': False, 'code': 0, 'source': ''}"
+    },
+    "dialog/Three Button Dialog.vi": {
+      "name": "Three Button Dialog",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "message",
+          "type": "String"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "button 1 name",
+          "type": "String"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "button 2 name",
+          "type": "String"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "button 3 name",
+          "type": "String"
+        },
+        {
+          "index": 4,
+          "direction": "out",
+          "name": "button pressed",
+          "type": "I32"
+        }
+      ],
+      "python": "three_button_dialog(message, btn1, btn2, btn3)"
+    },
+    "dialog/One Button Dialog.vi": {
+      "name": "One Button Dialog",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "message",
+          "type": "String"
+        }
+      ],
+      "python": "one_button_dialog(message)",
+      "python_impl": "def one_button_dialog(message: str) -> None:\n    print(message)"
+    },
+    "dialog/Two Button Dialog.vi": {
+      "name": "Two Button Dialog",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "message",
+          "type": "String"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "T button name",
+          "type": "String"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "F button name",
+          "type": "String"
+        },
+        {
+          "index": 3,
+          "direction": "out",
+          "name": "T or F?",
+          "type": "Boolean"
+        }
+      ],
+      "python": "two_button_dialog(message, t_btn, f_btn)"
+    }
+  }
+}

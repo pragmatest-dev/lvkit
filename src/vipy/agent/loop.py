@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from ..llm import LLMConfig, generate_code
+from ..vilib_resolver import get_resolver as get_vilib_resolver
 from .context import ContextBuilder, VISignature
 from .enums import EnumRegistry
 from .primitives import PrimitiveRegistry
@@ -79,6 +80,7 @@ class ConversionAgent:
         self.type_registry = SharedTypeRegistry()
         self.primitive_registry = PrimitiveRegistry()
         self.enum_registry = EnumRegistry()
+        self.vilib_resolver = get_vilib_resolver()
 
         # Initialize validator
         validator_config = ValidatorConfig(
@@ -232,9 +234,23 @@ class ConversionAgent:
     def _generate_stub_vi(self, vi_name: str) -> ConversionResult:
         """Generate a stub function for a missing SubVI dependency.
 
-        Creates a function that raises NotImplementedError with the VI name,
-        using terminal types from the call site for the signature.
+        If the VI is a known vilib VI with an implementation, use that.
+        Otherwise creates a function that raises NotImplementedError.
         """
+        # Check if this is a known vilib VI with implementation
+        if self.vilib_resolver.has_implementation(vi_name):
+            code = self.vilib_resolver.get_implementation(vi_name)
+            output_path = self._write_vi_module(vi_name, code)
+            return ConversionResult(
+                vi_name=vi_name,
+                python_code=code,
+                output_path=output_path,
+                success=True,
+                errors=[],
+                attempts=1,
+                is_stub=False,  # Not a stub - real implementation
+            )
+
         stub_info = self.graph.get_stub_vi_info(vi_name)
         if not stub_info:
             # Fallback if stub info isn't available

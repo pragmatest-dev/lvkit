@@ -16,8 +16,10 @@ from .frontpanel import FPControl, parse_front_panel
 from .parser import (
     BlockDiagram,
     ConnectorPane,
+    SubVIPathRef,
     parse_block_diagram,
     parse_connector_pane,
+    parse_subvi_paths,
     parse_type_map,
     parse_vi_metadata,
     resolve_type,
@@ -511,6 +513,7 @@ def _expand_subvis(
     _processed: set[str],
     _search_paths: list[Path],
     type_map: dict[int, str] | None = None,
+    path_hints: dict[str, SubVIPathRef] | None = None,
 ) -> list[str]:
     """Generate Cypher statements for expanded SubVI definitions."""
     subvi_names = [
@@ -526,13 +529,12 @@ def _expand_subvis(
     lines = ["", "// === SubVI Definitions ==="]
 
     for node_uid, subvi_name in subvi_names:
-        subvi_path = _find_subvi(subvi_name, _search_paths)
+        subvi_path = _find_subvi(subvi_name, _search_paths, path_hints)
 
         if subvi_path:
             node_var = node_vars.get(node_uid, f"{prefix}n_{node_uid}")
-            subvi_var = _sanitize_name(
-                subvi_name.replace(".vi", "").replace(".VI", "")
-            )
+            # Variable name must match what from_vi creates (uses qualified_name)
+            subvi_var = _sanitize_name(subvi_name)
 
             lines.append("")
             lines.append(f"// --- SubVI: {subvi_name} ---")
@@ -584,7 +586,7 @@ def _create_stub_vi(
     can generate a NotImplementedError stub with the correct signature.
     """
     lines = []
-    subvi_var = _sanitize_name(subvi_name.replace(".vi", "").replace(".VI", ""))
+    subvi_var = _sanitize_name(subvi_name)
     node_var = node_vars.get(node_uid, f"{prefix}n_{node_uid}")
     type_map = type_map or {}
 
@@ -690,9 +692,10 @@ def from_vi(
         fp = parse_front_panel(fp_xml_path, bd_xml_path)
         connector_pane = parse_connector_pane(fp_xml_path)
 
-    # Get VI name, qualified name, and type mappings from metadata
+    # Get VI name, qualified name, type mappings, and SubVI path hints from metadata
     vi_name = "Unknown VI"
     type_map: dict[int, str] = {}
+    path_hints: dict[str, SubVIPathRef] = {}
     if main_xml_path:
         meta = parse_vi_metadata(main_xml_path)
         vi_name = meta.get("name", vi_name)
@@ -701,6 +704,9 @@ def from_vi(
             qualified_name = meta.get("qualified_name", vi_name)
         # Parse type mappings to resolve TypeID references
         type_map = parse_type_map(main_xml_path)
+        # Parse SubVI path hints from LinkSavePathRef elements
+        subvi_path_refs = parse_subvi_paths(main_xml_path)
+        path_hints = {ref.name: ref for ref in subvi_path_refs}
     else:
         vi_name = bd_xml_path.stem.replace("_BDHb", "")
 
@@ -776,7 +782,7 @@ def from_vi(
 
     # === SUBVI EXPANSION ===
     if expand_subvis:
-        lines.extend(_expand_subvis(bd, node_vars, prefix, _processed, _search_paths, type_map))
+        lines.extend(_expand_subvis(bd, node_vars, prefix, _processed, _search_paths, type_map, path_hints))
 
     lines.append("")
     lines.append("// === End of VI Graph ===")
@@ -831,13 +837,18 @@ def extract_vi_xml(
     )
 
 
-def _find_subvi(subvi_name: str, search_paths: list[Path]) -> Path | None:
+def _find_subvi(
+    subvi_name: str,
+    search_paths: list[Path],
+    path_hints: dict[str, SubVIPathRef] | None = None,
+) -> Path | None:
     """Find a SubVI file (.vi).
 
     Args:
         subvi_name: Name of the SubVI (e.g., "Calculate Test Coverage.vi" or
                     "Library.lvlib:SubVI.vi")
         search_paths: List of directories to search
+        path_hints: Optional dict mapping SubVI names to path hints from XML
 
     Returns:
         Path to the .vi file, or None if not found
@@ -850,7 +861,33 @@ def _find_subvi(subvi_name: str, search_paths: list[Path]) -> Path | None:
     else:
         vi_name = subvi_name
 
-    # Search for the .vi file
+    # First, try using path hints if available
+    if path_hints and subvi_name in path_hints:
+        hint = path_hints[subvi_name]
+        relative_path = hint.get_relative_path()
+
+        for search_path in search_paths:
+            # Try user.lib path (OpenG, etc.)
+            if hint.is_userlib:
+                candidate = search_path / "user.lib" / relative_path
+                if candidate.exists():
+                    return candidate
+                # Also try without user.lib prefix (if search path is already user.lib)
+                candidate = search_path / relative_path
+                if candidate.exists():
+                    return candidate
+
+            # Try vi.lib path (LabVIEW built-ins)
+            if hint.is_vilib:
+                candidate = search_path / "vi.lib" / relative_path
+                if candidate.exists():
+                    return candidate
+                # Also try without vi.lib prefix
+                candidate = search_path / relative_path
+                if candidate.exists():
+                    return candidate
+
+    # Fall back to standard search
     for search_path in search_paths:
         # Direct match in search path
         candidate = search_path / vi_name

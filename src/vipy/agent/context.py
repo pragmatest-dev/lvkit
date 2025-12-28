@@ -67,11 +67,16 @@ Operations with "Primitive" label have been resolved:
 Example: If an operation has `"python_hint": "element = array[index]"` and `"python_function": "index_array"`,
 call it as: `result = index_array(my_array, my_index)`
 
-## SubVIs
-Operations with "SubVI" label are already converted:
-- `python_function`: The function to call
-- `python_signature`: The full function signature
-Import and call them directly.
+## SubVIs - IMPORTANT
+Operations with "SubVI" label are ALREADY CONVERTED Python functions.
+Each SubVI operation in the JSON has:
+- `python_function`: The exact function name to call
+- `python_signature`: The function signature showing parameters
+
+YOU MUST:
+1. Import them using the imports shown in "Available Imports" above
+2. Call them in your code where the data flow indicates
+3. DO NOT raise NotImplementedError for SubVIs - they are already implemented!
 
 ## Enums
 {enum_context}
@@ -212,7 +217,8 @@ def create() -> {class_name}UI:
             type_names = ", ".join(t.name for t in shared_types)
             import_lines.append(f"from .types import {type_names}")
 
-        # Always add common typing imports (harmless if unused)
+        # Always add common imports (harmless if unused)
+        import_lines.append("from pathlib import Path  # Use for file paths")
         import_lines.append("from typing import Any  # Use if needed for type annotations")
 
         available_imports = "\n".join(import_lines) if import_lines else "# No special imports needed"
