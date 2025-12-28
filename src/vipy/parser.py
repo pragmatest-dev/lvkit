@@ -13,7 +13,7 @@ from .constants import (
     MULTI_LABEL_CLASS,
     OPERATION_NODE_CLASSES,
     TERMINAL_CLASS,
-    TERMINAL_OUTPUT_FLAG,
+    TERMINAL_INPUT_FLAG,
 )
 
 
@@ -58,6 +58,35 @@ class FPTerminal:
 
 
 @dataclass
+class TerminalInfo:
+    """Detailed info about a terminal for graph-native representation."""
+    uid: str
+    parent_uid: str
+    index: int  # Position in parent's termList
+    is_output: bool  # True if output terminal (data flows out)
+    type_id: str | None = None  # e.g., "TypeID(5)" or resolved type name
+    name: str | None = None  # Terminal name (from FP, primitive ref, or SubVI)
+
+
+@dataclass
+class ConnectorPaneSlot:
+    """A slot on the connector pane."""
+    index: int  # Slot position (0-based)
+    fp_dco_uid: str | None = None  # UID of the connected fPDCO (control/indicator)
+
+
+@dataclass
+class ConnectorPane:
+    """The VI's connector pane - defines its external interface."""
+    pattern_id: int  # conId - identifies the connector pane pattern
+    slots: list[ConnectorPaneSlot] = field(default_factory=list)
+
+    def get_connected_uids(self) -> list[str]:
+        """Get UIDs of all controls/indicators connected to the pane."""
+        return [s.fp_dco_uid for s in self.slots if s.fp_dco_uid]
+
+
+@dataclass
 class BlockDiagram:
     """Parsed block diagram representation."""
     nodes: list[Node]
@@ -65,7 +94,7 @@ class BlockDiagram:
     wires: list[Wire]
     fp_terminals: list[FPTerminal] = field(default_factory=list)
     enum_labels: dict[str, list[str]] = field(default_factory=dict)  # uid -> labels
-    term_to_parent: dict[str, str] = field(default_factory=dict)  # terminal uid -> parent uid
+    terminal_info: dict[str, TerminalInfo] = field(default_factory=dict)  # terminal uid -> info
 
     def get_node(self, uid: str) -> Node | None:
         """Get a node by UID."""
@@ -73,6 +102,11 @@ class BlockDiagram:
             if node.uid == uid:
                 return node
         return None
+
+    def get_parent_uid(self, terminal_uid: str) -> str | None:
+        """Get parent node UID for a terminal."""
+        info = self.terminal_info.get(terminal_uid)
+        return info.parent_uid if info else None
 
 
 def parse_block_diagram(xml_path: Path | str) -> BlockDiagram:
@@ -92,7 +126,7 @@ def parse_block_diagram(xml_path: Path | str) -> BlockDiagram:
     wires = _extract_wires(root)
     fp_terminals = _extract_fp_terminals(root)
     enum_labels = _extract_enum_labels(root)
-    term_to_parent = _build_terminal_map(root, constants)
+    terminal_info = _extract_terminal_info(root, constants, fp_terminals)
 
     return BlockDiagram(
         nodes=nodes,
@@ -100,7 +134,7 @@ def parse_block_diagram(xml_path: Path | str) -> BlockDiagram:
         wires=wires,
         fp_terminals=fp_terminals,
         enum_labels=enum_labels,
-        term_to_parent=term_to_parent,
+        terminal_info=terminal_info,
     )
 
 
@@ -131,10 +165,10 @@ def _extract_nodes(root: ET.Element) -> list[Node]:
                 type_str = type_desc.text if type_desc is not None and type_desc.text else None
                 if type_str:
                     flags = int(obj_flags.text) if obj_flags is not None and obj_flags.text else 0
-                    if flags & TERMINAL_OUTPUT_FLAG:
-                        output_types.append(type_str)
-                    else:
+                    if flags & TERMINAL_INPUT_FLAG:
                         input_types.append(type_str)
+                    else:
+                        output_types.append(type_str)
 
             node = Node(
                 uid=uid,
@@ -267,6 +301,55 @@ def _extract_fp_terminals(root: ET.Element) -> list[FPTerminal]:
     return terminals
 
 
+def parse_connector_pane(fp_xml_path: Path | str) -> ConnectorPane | None:
+    """Parse the connector pane from a front panel XML file.
+
+    The connector pane defines which front panel controls/indicators
+    are exposed as VI terminals and their slot positions.
+
+    Args:
+        fp_xml_path: Path to the *_FPHb.xml file
+
+    Returns:
+        ConnectorPane with slot assignments, or None if not found
+    """
+    tree = ET.parse(fp_xml_path)
+    root = tree.getroot()
+
+    # Find the conPane element
+    con_pane = root.find(".//conPane[@class='conPane']")
+    if con_pane is None:
+        return None
+
+    # Get the pattern ID
+    con_id_elem = con_pane.find("conId")
+    pattern_id = int(con_id_elem.text) if con_id_elem is not None and con_id_elem.text else 0
+
+    # Parse the slots (cons array)
+    slots: list[ConnectorPaneSlot] = []
+    cons = con_pane.find("cons")
+    if cons is not None:
+        current_index = 0
+        for elem in cons.findall("SL__arrayElement[@class='ConpaneConnection']"):
+            # Check for explicit index attribute (sparse array)
+            index_attr = elem.get("index")
+            if index_attr is not None:
+                current_index = int(index_attr)
+
+            # Get the connected fPDCO UID
+            conn_dco = elem.find("ConnectionDCO")
+            fp_dco_uid = conn_dco.get("uid") if conn_dco is not None else None
+
+            slots.append(ConnectorPaneSlot(
+                index=current_index,
+                fp_dco_uid=fp_dco_uid,
+            ))
+
+            current_index += 1
+
+    return ConnectorPane(pattern_id=pattern_id, slots=slots)
+
+
 def parse_type_map(xml_path: Path | str) -> dict[int, str]:
     """Parse TypeID mappings from main XML comments.
 
@@ -383,7 +466,128 @@ def parse_vi_metadata(xml_path: Path | str) -> dict[str, Any]:
     if hlpt is not None and hlpt.text:
         metadata["help_tag"] = hlpt.text
 
+    # Parse typedef references from VICC elements
+    metadata["typedef_refs"] = parse_typedef_refs(root)
+
     return metadata
+
+
+@dataclass
+class TypeDefRef:
+    """A reference to a vilib TypeDef/custom control."""
+    type_id: int
+    name: str  # e.g., "System Directory Type.ctl"
+    vilib_path: str  # e.g., "Utility/sysdir.llb"
+
+
+def parse_typedef_refs(root: ET.Element) -> list[TypeDefRef]:
+    """Parse VICC elements to find typedef references.
+
+    VICC elements reference custom controls (.ctl files) from vilib.
+    These define enums and other type definitions.
+
+    Args:
+        root: Root element of the main VI XML
+
+    Returns:
+        List of TypeDefRef with vilib path and control name
+    """
+    refs = []
+
+    for vicc in root.findall(".//LIvi//VICC"):
+        # Get TypeID
+        type_desc = vicc.find("TypeDesc")
+        if type_desc is None:
+            continue
+        type_id_str = type_desc.get("TypeID")
+        if not type_id_str:
+            continue
+        type_id = int(type_id_str)
+
+        # Get control name
+        qual_name = vicc.find("LinkSaveQualName/String")
+        if qual_name is None or not qual_name.text:
+            continue
+        name = qual_name.text
+
+        # Get vilib path from LinkSavePathRef
+        path_ref = vicc.find("LinkSavePathRef")
+        if path_ref is None:
+            continue
+
+        # Check if it's from vilib
+        path_parts = [s.text for s in path_ref.findall("String") if s.text]
+        if not path_parts or path_parts[0] != "<vilib>":
+            continue
+
+        # Build vilib path (skip the <vilib> prefix)
+        vilib_path = "/".join(path_parts[1:-1])  # Exclude control name at end
+
+        refs.append(TypeDefRef(type_id=type_id, name=name, vilib_path=vilib_path))
+
+    return refs
+
+
+def load_enum_reference() -> dict:
+    """Load the labview-enums.json reference file.
+
+    Returns:
+        Dict with typedef definitions, or empty dict if not found
+    """
+    import json
+
+    # Find the data directory relative to this module
+    data_dir = Path(__file__).parent.parent.parent / "data"
+    enums_path = data_dir / "labview-enums.json"
+
+    if not enums_path.exists():
+        return {}
+
+    with open(enums_path) as f:
+        return json.load(f)
+
+
+@dataclass
+class ResolvedTypeDefValue:
+    """A resolved typedef enum value with OS paths."""
+    name: str
+    description: str
+    windows_path: str | None = None
+    unix_path: str | None = None
+
+
+def resolve_typedef_value(typedef_ref: TypeDefRef, value: int) -> ResolvedTypeDefValue | None:
+    """Resolve a typedef enum value to its description and OS paths.
+
+    Args:
+        typedef_ref: The typedef reference (from parse_typedef_refs)
+        value: The integer enum value
+
+    Returns:
+        ResolvedTypeDefValue with name, description, and OS paths, or None if not found
+    """
+    enums = load_enum_reference()
+    typedefs = enums.get("typedefs", {})
+
+    # Build lookup key
+    key = f"{typedef_ref.vilib_path}:{typedef_ref.name}"
+
+    typedef_info = typedefs.get(key)
+    if not typedef_info:
+        return None
+
+    values = typedef_info.get("values", {})
+    # JSON keys are strings, so convert
+    value_info = values.get(str(value)) or values.get(value)
+    if value_info:
+        return ResolvedTypeDefValue(
+            name=value_info.get("name", ""),
+            description=value_info.get("description", ""),
+            windows_path=value_info.get("windows"),
+            unix_path=value_info.get("unix"),
+        )
+
+    return None
 
 
 @dataclass
@@ -584,3 +788,189 @@ def _build_terminal_map(root: ET.Element, constants: list[Constant]) -> dict[str
                 term_map[elem_uid] = elem_uid
 
     return term_map
+
+
+def _extract_terminal_info(
+    root: ET.Element,
+    constants: list[Constant],
+    fp_terminals: list[FPTerminal],
+) -> dict[str, TerminalInfo]:
+    """Extract detailed terminal info for graph-native representation.
+
+    Captures:
+    - Terminal position (index) in parent's termList
+    - Input vs output direction (from objFlags)
+    - Type information
+
+    Args:
+        root: XML root element
+        constants: List of parsed constants
+        fp_terminals: List of front panel terminals
+
+    Returns:
+        Dict mapping terminal UID to TerminalInfo
+    """
+    terminal_info: dict[str, TerminalInfo] = {}
+    const_uids = {c.uid for c in constants}
+    fp_term_map = {fp.uid: fp for fp in fp_terminals}
+
+    # Extract terminals from operation nodes (primitives, SubVIs)
+    for elem in root.iter():
+        elem_uid = elem.get("uid")
+        elem_class = elem.get("class", "")
+
+        if not elem_uid:
+            continue
+
+        # Operation nodes have termList with indexed terminals
+        if elem_class in OPERATION_NODE_CLASSES:
+            term_list = elem.findall(f"./termList/SL__arrayElement[@class='{TERMINAL_CLASS}']")
+
+            for index, term in enumerate(term_list):
+                term_uid = term.get("uid")
+                if not term_uid:
+                    continue
+
+                # Get objFlags to determine input vs output
+                # TERMINAL_INPUT_FLAG (0x8000) means terminal receives data (input to node)
+                obj_flags_elem = term.find("objFlags")
+                obj_flags = int(obj_flags_elem.text) if obj_flags_elem is not None and obj_flags_elem.text else 0
+                is_output = not bool(obj_flags & TERMINAL_INPUT_FLAG)
+
+                # Get type from typeDesc
+                type_desc_elem = term.find(".//typeDesc")
+                type_id = type_desc_elem.text if type_desc_elem is not None else None
+
+                terminal_info[term_uid] = TerminalInfo(
+                    uid=term_uid,
+                    parent_uid=elem_uid,
+                    index=index,
+                    is_output=is_output,
+                    type_id=type_id,
+                )
+
+    # Constants have a single output terminal (the constant itself)
+    for const in constants:
+        if const.uid not in terminal_info:
+            terminal_info[const.uid] = TerminalInfo(
+                uid=const.uid,
+                parent_uid=const.uid,  # Constant is its own parent
+                index=0,
+                is_output=True,  # Constants output their value
+                type_id=const.type_desc,
+            )
+
+    # Front panel terminals
+    for fp_term in fp_terminals:
+        if fp_term.uid not in terminal_info:
+            terminal_info[fp_term.uid] = TerminalInfo(
+                uid=fp_term.uid,
+                parent_uid=fp_term.uid,  # FP terminal is its own parent for now
+                index=0,
+                is_output=not fp_term.is_indicator,  # Controls output to diagram, indicators receive
+                type_id=None,  # Type comes from front panel XML
+            )
+
+    return terminal_info
+
+
+def parse_type_chain(xml_path: Path | str) -> dict:
+    """Parse the complete type resolution chain from main XML.
+    
+    Builds mappings to resolve TypeID(N) to actual type info including:
+    - Heap TypeID -> Consolidated TypeID
+    - Consolidated TypeID -> FlatTypeID
+    - FlatTypeID -> Type descriptor (name, underlying type, typedef name)
+    
+    Returns:
+        Dict with 'heap_to_consolidated', 'consolidated_to_flat', 'flat_types'
+    """
+    import re
+    
+    heap_to_consolidated: dict[int, tuple[int, str]] = {}  # heap_id -> (consolidated_id, type_name)
+    consolidated_to_flat: dict[int, int] = {}  # consolidated_id -> flat_id
+    flat_types: dict[int, dict] = {}  # flat_id -> {type, label, typedef_name, ...}
+    
+    tree = ET.parse(xml_path)
+    root = tree.getroot()
+    
+    # Parse Heap TypeID comments
+    # Format: <!-- Heap TypeID N = Consolidated TypeID M: TypeName -->
+    xml_text = Path(xml_path).read_text(encoding='utf-8', errors='replace')
+    for match in re.finditer(r'Heap TypeID\s+(\d+)\s*=\s*Consolidated TypeID\s+(\d+):\s*(\w+)', xml_text):
+        heap_id = int(match.group(1))
+        consolidated_id = int(match.group(2))
+        type_name = match.group(3)
+        heap_to_consolidated[heap_id] = (consolidated_id, type_name)
+    
+    # Parse VCTP section for Consolidated -> FlatTypeID mapping
+    for type_desc in root.findall(".//VCTP//TopLevel/TypeDesc"):
+        index = type_desc.get("Index")
+        flat_id = type_desc.get("FlatTypeID")
+        if index and flat_id:
+            consolidated_to_flat[int(index)] = int(flat_id)
+    
+    # Parse FlatTypeID comments and TypeDesc elements
+    for match in re.finditer(r'FlatTypeID (\d+):\s*([^\n<]+)', xml_text):
+        flat_id = int(match.group(1))
+        description = match.group(2).strip()
+        flat_types[flat_id] = {"description": description}
+    
+    # Find actual TypeDef definitions with labels
+    for type_desc in root.findall(".//VCTP//TypeDesc[@Type='TypeDef']"):
+        # Find the Label child with typedef name
+        label = type_desc.find("Label")
+        if label is not None:
+            typedef_name = label.get("Text", "")
+            # Find parent index to get flat_id
+            # This is tricky - we need to match by position
+            # For now, store by typedef name
+            flat_types[0] = flat_types.get(0, {})
+            flat_types[0]["typedef_name"] = typedef_name
+            flat_types[0]["type"] = "TypeDef"
+            # Get nested type
+            nested = type_desc.find("TypeDesc[@Nested='True']")
+            if nested is not None:
+                flat_types[0]["underlying_type"] = nested.get("Type", "")
+                flat_types[0]["label"] = nested.get("Label", "")
+    
+    return {
+        "heap_to_consolidated": heap_to_consolidated,
+        "consolidated_to_flat": consolidated_to_flat,
+        "flat_types": flat_types,
+    }
+
+
+def resolve_type_to_typedef(type_ref: str, type_chain: dict) -> str | None:
+    """Resolve a TypeID reference to its typedef name if applicable.
+    
+    Args:
+        type_ref: String like "TypeID(36)"
+        type_chain: Result from parse_type_chain()
+        
+    Returns:
+        TypeDef name like "System Directory Type.ctl" or None
+    """
+    import re
+    match = re.match(r'TypeID\((\d+)\)', type_ref)
+    if not match:
+        return None
+    
+    heap_id = int(match.group(1))
+    
+    # Step 1: Heap -> Consolidated
+    if heap_id not in type_chain["heap_to_consolidated"]:
+        return None
+    consolidated_id, type_name = type_chain["heap_to_consolidated"][heap_id]
+    
+    if type_name != "TypeDef":
+        return None  # Not a typedef
+    
+    # Step 2: Consolidated -> Flat
+    flat_id = type_chain["consolidated_to_flat"].get(consolidated_id)
+    if flat_id is None:
+        return None
+    
+    # Step 3: Flat -> TypeDef name
+    flat_info = type_chain["flat_types"].get(flat_id, {})
+    return flat_info.get("typedef_name")

@@ -14,7 +14,16 @@ from .frontpanel import FPControl, FrontPanel, generate_nicegui_code, parse_fron
 from .graph import GraphConfig, VIGraph
 from .graph import connect as connect_graph
 from .llm import LLMConfig
-from .parser import BlockDiagram, Constant, Node, Wire, parse_block_diagram
+from .parser import (
+    BlockDiagram,
+    ConnectorPane,
+    ConnectorPaneSlot,
+    Constant,
+    Node,
+    Wire,
+    parse_block_diagram,
+    parse_connector_pane,
+)
 from .structure import (
     LVClass,
     LVLibrary,
@@ -38,7 +47,10 @@ __all__ = [
     "cypher_from_lvclass",
     "cypher_from_project",
     "parse_block_diagram",
+    "parse_connector_pane",
     "BlockDiagram",
+    "ConnectorPane",
+    "ConnectorPaneSlot",
     "Node",
     "Wire",
     "Constant",

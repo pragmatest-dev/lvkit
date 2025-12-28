@@ -7,8 +7,33 @@ import importlib.util
 import re
 import subprocess
 import sys
+from collections import OrderedDict
 from dataclasses import dataclass, field
 from pathlib import Path
+
+
+def deduplicate_imports(code: str) -> str:
+    """Remove duplicate import statements from Python code.
+
+    LLMs often generate duplicate imports. This cleans them up while
+    preserving order and handling both 'import X' and 'from X import Y'.
+    """
+    lines = code.split("\n")
+    seen_imports: set[str] = set()
+    result_lines: list[str] = []
+
+    for line in lines:
+        stripped = line.strip()
+        # Check if this is an import line
+        if stripped.startswith("import ") or stripped.startswith("from "):
+            # Normalize for comparison (remove extra spaces)
+            normalized = " ".join(stripped.split())
+            if normalized in seen_imports:
+                continue  # Skip duplicate
+            seen_imports.add(normalized)
+        result_lines.append(line)
+
+    return "\n".join(result_lines)
 
 
 @dataclass
@@ -253,6 +278,8 @@ class CodeValidator:
                     "--ignore-missing-imports",
                     "--no-error-summary",
                     "--no-color",
+                    "--disable-error-code=no-any-return",  # Stubs may return Any
+                    "--disable-error-code=type-arg",  # Allow dict without type params
                     str(temp_path),
                 ],
                 capture_output=True,

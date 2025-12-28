@@ -6,9 +6,39 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from ..primitive_resolver import PrimitiveResolver, ResolvedPrimitive, get_resolver
+
 if TYPE_CHECKING:
     from ..graph import VIGraph
     from ..llm import LLMConfig
+
+
+def lookup_primitive(prim_id: int | str) -> dict | None:
+    """Look up primitive by ID using the unified resolver."""
+    resolved = get_resolver().resolve(prim_id=prim_id)
+    if resolved and resolved.confidence != "unknown":
+        return {
+            "name": resolved.name,
+            "python_hint": resolved.python_hint,
+            "description": resolved.description,
+            "terminals": resolved.terminals,
+            "confidence": resolved.confidence,
+        }
+    return None
+
+
+def lookup_primitive_by_types(input_types: list[str], output_types: list[str]) -> dict | None:
+    """Fallback lookup by type signature."""
+    resolved = get_resolver().resolve(input_types=input_types, output_types=output_types)
+    if resolved and resolved.confidence != "unknown":
+        return {
+            "name": resolved.name,
+            "python_hint": resolved.python_hint,
+            "description": resolved.description,
+            "terminals": resolved.terminals,
+            "confidence": resolved.confidence,
+        }
+    return None
 
 
 @dataclass
@@ -20,38 +50,11 @@ class PrimitiveUsage:
     output_types: list[str] = field(default_factory=list)
     source_vis: set[str] = field(default_factory=set)
     generated_name: str | None = None  # Python function name once generated
-
-
-# Known primitives with Python implementations
-# These don't need LLM generation
-KNOWN_PRIMITIVES: dict[int, tuple[str, str]] = {
-    # (primResID): (function_name, implementation)
-    1419: ("build_path", '''def build_path(base: Path | str, *parts: str) -> Path:
-    """LabVIEW Build Path primitive."""
-    return Path(base).joinpath(*parts)
-'''),
-    1420: ("strip_path", '''def strip_path(path: Path | str) -> tuple[Path, str]:
-    """LabVIEW Strip Path primitive."""
-    p = Path(path)
-    return p.parent, p.name
-'''),
-    1001: ("add", '''def add(a: float, b: float) -> float:
-    """LabVIEW Add primitive."""
-    return a + b
-'''),
-    1002: ("subtract", '''def subtract(a: float, b: float) -> float:
-    """LabVIEW Subtract primitive."""
-    return a - b
-'''),
-    1003: ("multiply", '''def multiply(a: float, b: float) -> float:
-    """LabVIEW Multiply primitive."""
-    return a * b
-'''),
-    1004: ("divide", '''def divide(a: float, b: float) -> float:
-    """LabVIEW Divide primitive."""
-    return a / b if b != 0 else float('inf')
-'''),
-}
+    # Resolved info from PrimitiveResolver
+    resolved_name: str | None = None
+    python_hint: str | None = None
+    terminals: list[dict] = field(default_factory=list)
+    confidence: str = "unknown"  # exact_id, exact_name, exact_type, compatible_type, unknown
 
 
 class PrimitiveRegistry:
@@ -68,11 +71,17 @@ class PrimitiveRegistry:
     def discover_from_graph(self, graph: VIGraph) -> None:
         """Discover all primitives used in the graph.
 
-        Queries for Primitive nodes and extracts their primResID.
+        Queries for Primitive nodes and extracts their primResID and terminal types.
         """
         query = """
         MATCH (v:VI)-[:CONTAINS]->(p:Primitive)
-        RETURN v.name AS vi_name, p.primResID AS prim_id
+        OPTIONAL MATCH (p)-[:HAS_TERMINAL]->(t:Terminal)
+        WITH v.name AS vi_name, p.primResID AS prim_id,
+             collect(CASE WHEN 'Input' IN labels(t) THEN t.type END) AS inputs,
+             collect(CASE WHEN 'Output' IN labels(t) THEN t.type END) AS outputs
+        RETURN vi_name, prim_id,
+               [x IN inputs WHERE x IS NOT NULL] AS input_types,
+               [x IN outputs WHERE x IS NOT NULL] AS output_types
         """
 
         try:
@@ -81,14 +90,16 @@ class PrimitiveRegistry:
             for row in results:
                 vi_name = row.get("vi_name", "")
                 prim_id = row.get("prim_id")
+                input_types = row.get("input_types", [])
+                output_types = row.get("output_types", [])
 
                 if prim_id is None:
                     continue
 
                 self.register_primitive(
                     prim_res_id=prim_id,
-                    input_types=[],
-                    output_types=[],
+                    input_types=input_types,
+                    output_types=output_types,
                     source_vi=vi_name,
                 )
 
@@ -117,12 +128,28 @@ class PrimitiveRegistry:
         if prim_res_id in self._primitives:
             self._primitives[prim_res_id].source_vis.add(source_vi)
         else:
-            self._primitives[prim_res_id] = PrimitiveUsage(
+            # Resolve primitive using our database
+            resolver = get_resolver()
+            resolved = resolver.resolve(
+                prim_id=prim_res_id,
+                input_types=input_types,
+                output_types=output_types,
+            )
+
+            usage = PrimitiveUsage(
                 prim_res_id=prim_res_id,
                 input_types=input_types,
                 output_types=output_types,
                 source_vis={source_vi},
             )
+
+            if resolved:
+                usage.resolved_name = resolved.name
+                usage.python_hint = resolved.python_hint
+                usage.terminals = resolved.terminals
+                usage.confidence = resolved.confidence
+
+            self._primitives[prim_res_id] = usage
 
         self._vi_primitives.setdefault(source_vi, set()).add(prim_res_id)
         return self._primitives[prim_res_id]
@@ -145,8 +172,6 @@ class PrimitiveRegistry:
         for prim in self.get_primitives_for_vi(vi_name):
             if prim.generated_name:
                 names.append(prim.generated_name)
-            elif prim.prim_res_id in KNOWN_PRIMITIVES:
-                names.append(KNOWN_PRIMITIVES[prim.prim_res_id][0])
         return names
 
     def generate_primitives_package(
@@ -156,12 +181,12 @@ class PrimitiveRegistry:
     ) -> Path:
         """Generate the primitives/ package with all implementations.
 
-        Known primitives use predefined implementations.
-        Unknown primitives are generated by LLM if config provided.
+        All primitives are generated by LLM based on context (terminal types,
+        connections, etc.). The LLM infers primitive behavior from the graph.
 
         Args:
             output_dir: Output directory
-            llm_config: LLM config for generating unknown primitives
+            llm_config: LLM config for generating primitives
 
         Returns:
             Path to primitives/ directory
@@ -171,24 +196,16 @@ class PrimitiveRegistry:
 
         generated_names: list[str] = []
 
-        # Generate known primitives
-        for prim_id, (func_name, impl) in KNOWN_PRIMITIVES.items():
-            if prim_id in self._primitives:
-                self._write_primitive_file(primitives_dir, func_name, impl)
-                self._primitives[prim_id].generated_name = func_name
-                generated_names.append(func_name)
-
-        # Generate unknown primitives with LLM
+        # Generate all primitives with LLM
         if llm_config:
             for prim_id, usage in self._primitives.items():
-                if prim_id not in KNOWN_PRIMITIVES:
-                    func_name, impl = self._generate_primitive_with_llm(
-                        usage, llm_config
-                    )
-                    if func_name and impl:
-                        self._write_primitive_file(primitives_dir, func_name, impl)
-                        usage.generated_name = func_name
-                        generated_names.append(func_name)
+                func_name, impl = self._generate_primitive_with_llm(
+                    usage, llm_config
+                )
+                if func_name and impl:
+                    self._write_primitive_file(primitives_dir, func_name, impl)
+                    usage.generated_name = func_name
+                    generated_names.append(func_name)
 
         # Generate __init__.py
         self._write_init_file(primitives_dir, generated_names)
@@ -202,6 +219,8 @@ class PrimitiveRegistry:
         implementation: str,
     ) -> None:
         """Write a single primitive implementation file."""
+        from .validator import deduplicate_imports
+
         file_path = primitives_dir / f"{func_name}.py"
 
         content = f'''"""Primitive: {func_name}."""
@@ -213,6 +232,8 @@ from typing import Any
 
 {implementation}
 '''
+        # LLM may include duplicate imports - deduplicate them
+        content = deduplicate_imports(content)
         file_path.write_text(content)
 
     def _write_init_file(
@@ -244,6 +265,11 @@ from typing import Any
     ) -> tuple[str | None, str | None]:
         """Generate a primitive implementation using LLM.
 
+        Uses the resolved primitive info from our database:
+        1. If we have a known Python hint, use it directly
+        2. If we have a known name but no hint, ask LLM to implement it
+        3. If unknown, fall back to LLM inference from types
+
         Args:
             usage: The primitive usage info
             llm_config: LLM configuration
@@ -253,14 +279,81 @@ from typing import Any
         """
         from ..llm import generate_code
 
-        # Build prompt for LLM
-        input_types = ", ".join(usage.input_types) if usage.input_types else "unknown"
-        output_types = ", ".join(usage.output_types) if usage.output_types else "unknown"
+        # Filter out Void types
+        input_types = [t for t in usage.input_types if t and t != "Void"]
+        output_types = [t for t in usage.output_types if t and t != "Void"]
+        input_str = ", ".join(input_types) if input_types else "None"
+        output_str = ", ".join(output_types) if output_types else "None"
 
-        prompt = f"""Generate a Python function for LabVIEW primitive #{usage.prim_res_id}.
+        # Use resolved info from our database
+        known_name = usage.resolved_name
+        python_hint = usage.python_hint
+        confidence = usage.confidence
+        terminals = usage.terminals
 
-Input types: {input_types}
-Output types: {output_types}
+        # Generate function name
+        if known_name:
+            func_name = self._to_python_name(known_name)
+        else:
+            func_name = f"primitive_{usage.prim_res_id}"
+
+        # Build terminal info for context
+        terminal_info = ""
+        if terminals:
+            term_lines = []
+            for t in terminals:
+                direction = t.get("direction", "?")
+                name = t.get("name", f"term_{t.get('index', 0)}")
+                term_lines.append(f"  - {name} ({direction})")
+            terminal_info = "\n".join(term_lines)
+
+        # Strategy 1: We have a Python hint - use it to guide the LLM
+        if python_hint and python_hint.strip() and not python_hint.startswith("#"):
+            prompt = f"""Generate a Python function implementing LabVIEW's "{known_name or f'primitive {usage.prim_res_id}'}".
+
+Function name: {func_name}
+Python equivalent: {python_hint}
+
+Input types: {input_str}
+Output types: {output_str}
+{f"Terminal names:{chr(10)}{terminal_info}" if terminal_info else ""}
+
+Requirements:
+- Function must be named `{func_name}`
+- The Python hint shows the core operation - wrap it in a proper function
+- Use type hints matching the LabVIEW types
+- Include a docstring
+- Use standard library only (pathlib, os, etc.)
+
+Output ONLY the function definition, no explanations.
+"""
+        # Strategy 2: We have a name but no usable hint
+        elif known_name and confidence in ("exact_id", "exact_name"):
+            prompt = f"""Generate a Python function implementing LabVIEW's "{known_name}".
+
+Function name: {func_name}
+primResID: {usage.prim_res_id}
+
+Input types: {input_str}
+Output types: {output_str}
+{f"Terminal names:{chr(10)}{terminal_info}" if terminal_info else ""}
+
+Requirements:
+- Function must be named `{func_name}`
+- This is the LabVIEW "{known_name}" function
+- Use type hints
+- Include a docstring
+- Use standard library only (pathlib, os, etc.)
+
+Output ONLY the function definition, no explanations.
+"""
+        # Strategy 3: Unknown primitive - LLM must infer
+        else:
+            prompt = f"""Generate a Python function for LabVIEW primitive #{usage.prim_res_id}.
+
+Input types: {input_str}
+Output types: {output_str}
+{f"Terminal names:{chr(10)}{terminal_info}" if terminal_info else ""}
 
 Context: This is a LabVIEW built-in operation. Based on the primitive ID and types,
 infer what operation this performs and implement it in Python.
@@ -282,20 +375,30 @@ Output ONLY the function definition, no explanations.
             tree = ast.parse(code)
             for node in ast.iter_child_nodes(tree):
                 if isinstance(node, ast.FunctionDef):
-                    return node.name, code
+                    # Prefer our chosen name
+                    return func_name, code
 
-            # Fallback: generate generic name
-            func_name = f"primitive_{usage.prim_res_id}"
             return func_name, code
 
         except Exception:
-            # LLM generation failed - create stub
-            func_name = f"primitive_{usage.prim_res_id}"
+            # LLM generation failed - create stub with any known info
+            desc = f'LabVIEW "{known_name}"' if known_name else f"primitive #{usage.prim_res_id}"
+            hint_comment = f"\n    # Hint: {python_hint}" if python_hint else ""
             stub = f'''def {func_name}(*args, **kwargs):
-    """LabVIEW primitive #{usage.prim_res_id} - implementation needed."""
-    raise NotImplementedError("Primitive #{usage.prim_res_id} not implemented")
+    """{desc} - implementation needed."""{hint_comment}
+    raise NotImplementedError("{desc} not implemented")
 '''
             return func_name, stub
+
+    @staticmethod
+    def _to_python_name(name: str) -> str:
+        """Convert primitive name to Python function name."""
+        # Remove common suffixes
+        name = name.replace(" Function", "").replace(" VI", "")
+        # Convert to snake_case
+        result = name.lower().replace(" ", "_").replace("-", "_")
+        result = "".join(c for c in result if c.isalnum() or c == "_")
+        return result or "unknown_primitive"
 
     def get_import_statement(self) -> str:
         """Get the import statement for primitives package."""
@@ -303,8 +406,6 @@ Output ONLY the function definition, no explanations.
         for usage in self._primitives.values():
             if usage.generated_name:
                 names.append(usage.generated_name)
-            elif usage.prim_res_id in KNOWN_PRIMITIVES:
-                names.append(KNOWN_PRIMITIVES[usage.prim_res_id][0])
 
         if not names:
             return ""
@@ -317,3 +418,48 @@ Output ONLY the function definition, no explanations.
         if not names:
             return ""
         return f"from .primitives import {', '.join(sorted(set(names)))}"
+
+    def get_primitive_id_mapping(self, vi_name: str) -> dict[int, str]:
+        """Get mapping of primResID -> generated function name for a VI.
+
+        Args:
+            vi_name: Name of the VI
+
+        Returns:
+            Dict mapping primitive resource IDs to their generated function names
+        """
+        mapping: dict[int, str] = {}
+        for prim in self.get_primitives_for_vi(vi_name):
+            if prim.generated_name:
+                mapping[prim.prim_res_id] = prim.generated_name
+        return mapping
+
+    def get_primitive_context(self, vi_name: str) -> dict[int, dict]:
+        """Get rich primitive context for VI conversion.
+
+        Returns all known info about primitives used in this VI,
+        including names, Python hints, terminal info, and confidence.
+
+        Args:
+            vi_name: Name of the VI
+
+        Returns:
+            Dict mapping primResID -> {name, python_function, python_hint, terminals, confidence}
+        """
+        context: dict[int, dict] = {}
+        for prim in self.get_primitives_for_vi(vi_name):
+            func_name = prim.generated_name or (
+                self._to_python_name(prim.resolved_name)
+                if prim.resolved_name
+                else f"primitive_{prim.prim_res_id}"
+            )
+            context[prim.prim_res_id] = {
+                "name": prim.resolved_name or f"primitive_{prim.prim_res_id}",
+                "python_function": func_name,
+                "python_hint": prim.python_hint or "",
+                "terminals": prim.terminals,
+                "confidence": prim.confidence,
+                "input_types": prim.input_types,
+                "output_types": prim.output_types,
+            }
+        return context
