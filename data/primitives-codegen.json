@@ -1,10 +1,10 @@
 {
   "metadata": {
-    "description": "Primitive ID to terminal mapping with Python hints",
+    "description": "Primitive ID to Python mapping (runtime version)",
     "source": "OpenG + JKI VI Tester",
     "total_primitives": 172,
-    "total_usages": 9309,
-    "identified": 91
+    "identified": 91,
+    "note": "See primitives-codegen-full.json for count/vis metadata"
   },
   "primitives": {
     "1809": {
@@ -27,15 +27,6 @@
         }
       ],
       "python": "element = array[index]",
-      "count": 716,
-      "vis": [
-        "Empty 2D Array (Variant)",
-        "MD5 Message Digest (Binary String)",
-        "Calculate Test Coverage",
-        "Reverse 2D Array (I16)",
-        "Fit VI window to Content",
-        "Delete Elements from 2D Array (Variant)"
-      ],
       "guess_reason": "Expandable indexing - can return multiple elements"
     },
     "1516": {
@@ -63,23 +54,10 @@
         }
       ],
       "python": "subset = array[start:start+length]",
-      "count": 649,
-      "vis": [
-        "Slice 1D Array (CXT)",
-        "limitDecendantsTo1Level",
-        "Get LV Class Members from Path",
-        "Create TestCase Template Instance",
-        "Periodic Trigger",
-        "Get Project Members from Path - SM",
-        "Slice 1D Array (CSG)",
-        "Number to Proper Engl Text"
-      ],
       "guess_reason": "3in: array, start, length -> subset. Heavily used in 'Slice 1D Array' VIs"
     },
     "1050": {
       "name": "Build Array",
-      "guess_reason": "Expandable array construction. 2+in/1out",
-      "python": "result = [*arr1, *arr2, elem]  # expandable",
       "terminals": [
         {
           "index": 0,
@@ -92,45 +70,13 @@
           "name": "array or element (expandable)"
         }
       ],
-      "count": 454,
-      "vis": [
-        "MultiD Array to 1D Array of VArrays",
-        "MD5 Message Digest (Binary String)",
-        "Slice 1D Array (CXT)",
-        "OpenG",
-        "Fit VI window to Content",
-        "Get Collection Subtype"
-      ]
+      "python": "result = [*arr1, *arr2, elem]  # expandable",
+      "guess_reason": "Expandable array construction. 2+in/1out"
     },
     "1902": {
       "name": "Transpose 2D Array",
       "terminals": [],
       "python": "np.transpose(array)  # or list(zip(*array))",
-      "count": 444,
-      "vis": [
-        "Reverse 2D Array (LVObject)",
-        "Reorder 2D Array2 (CDB)",
-        "Reverse 2D Array (U32)",
-        "Delete Elements from 2D Array (I32)",
-        "Sort 2D Array (U64)",
-        "Sort 2D Array (U8)",
-        "Sort 2D Array (String)",
-        "Reverse 2D Array (I16)",
-        "Reverse 2D Array (EXT)",
-        "Delete Elements from 2D Array (Variant)"
-      ],
-      "terminal_patterns": [
-        {
-          "inputs": 1,
-          "outputs": 1,
-          "input_types": [
-            null
-          ],
-          "output_types": [
-            null
-          ]
-        }
-      ],
       "guess_reason": "Used in 'Reverse 2D Array', 'Delete Elements' VIs"
     },
     "1057": {
@@ -148,15 +94,6 @@
         }
       ],
       "python": "size = len(array)",
-      "count": 370,
-      "vis": [
-        "Search 1D Array (I8)",
-        "MD5 Message Digest (Binary String)",
-        "Slice 1D Array (CXT)",
-        "Conditional Auto-Indexing Tunnel (Variant)",
-        "extractObjectPrivateDataValues",
-        "Build VI Tester Project Provider"
-      ],
       "guess_reason": "Used in all 'Slice 1D Array' VIs"
     },
     "1118": {
@@ -174,62 +111,12 @@
         }
       ],
       "python": "result = n - 1",
-      "count": 303,
-      "vis": [
-        "Slice 1D Array (CXT)",
-        "Slice 1D Array (U32)",
-        "limitDecendantsTo1Level",
-        "String to 1D Array",
-        "Slice 1D Array (xxx)",
-        "Slice 1D Array (CSG)",
-        "Slice 1D Array (LVObject)",
-        "Slice 1D Array (ENUM)",
-        "Slice 1D Array (FILE-REF)",
-        "Slice 1D Array (MENU-REF)"
-      ],
-      "terminal_patterns": [
-        {
-          "inputs": 1,
-          "outputs": 1,
-          "input_types": [
-            null
-          ],
-          "output_types": [
-            null
-          ]
-        }
-      ],
       "guess_reason": "1in/1out numeric. Used in Slice VIs for index calculation"
     },
     "1112": {
       "name": "Unbundle By Name",
       "terminals": [],
       "python": "field = cluster.field_name",
-      "count": 297,
-      "vis": [
-        "Read GIF File (Animated)",
-        "Slice 1D Array (CXT)",
-        "limitDecendantsTo1Level",
-        "Slice 1D Array (xxx)",
-        "Slice 1D Array (CSG)",
-        "Create Dir if Non-Existant",
-        "extractObjectPrivateDataValues",
-        "Slice 1D Array (LVObject)",
-        "Slice 1D Array (ENUM)",
-        "Number to Proper Engl Text"
-      ],
-      "terminal_patterns": [
-        {
-          "inputs": 1,
-          "outputs": 1,
-          "input_types": [
-            null
-          ],
-          "output_types": [
-            null
-          ]
-        }
-      ],
       "guess_reason": "1in/1out. Extracts named field from cluster"
     },
     "1051": {
@@ -247,17 +134,6 @@
         }
       ],
       "python": "result = str1 + str2  # or [*arr1, *arr2]",
-      "count": 283,
-      "vis": [
-        "Reverse 2D Array (LVObject)",
-        "Slice 1D Array (CXT)",
-        "Get Platform Path Separator",
-        "Periodic Trigger",
-        "Calculate Test Coverage",
-        "Reverse 2D Array (I16)",
-        "VI Tester Menu Launch",
-        "Fit VI window to Content"
-      ],
       "guess_reason": "Polymorphic - works on strings and arrays"
     },
     "1901": {
@@ -290,45 +166,6 @@
         }
       ],
       "python": "deleted, remaining = array.pop(index), array",
-      "count": 267,
-      "vis": [
-        "Conditional Auto-Indexing Tunnel (U8)",
-        "Remove Duplicates from 1D Array (U32)",
-        "Search 1D Array (I8)",
-        "Conditional Auto-Indexing Tunnel (Variant)",
-        "limitDecendantsTo1Level",
-        "Search 1D Array (DBL)",
-        "Remove Duplicates from 1D Array (Boolean)",
-        "Search 1D Array (EXT)",
-        "Remove Duplicates from 1D Array (DBL)",
-        "Remove Duplicates from 1D Array (CXT)"
-      ],
-      "terminal_patterns": [
-        {
-          "inputs": 2,
-          "outputs": 2,
-          "input_types": [
-            null,
-            null
-          ],
-          "output_types": [
-            null,
-            null
-          ]
-        },
-        {
-          "inputs": 3,
-          "outputs": 1,
-          "input_types": [
-            null,
-            null,
-            null
-          ],
-          "output_types": [
-            null
-          ]
-        }
-      ],
       "guess_reason": "Used in 'Remove Duplicates' and 'Search 1D Array'"
     },
     "8003": {
@@ -361,15 +198,6 @@
         }
       ],
       "python": "file_handle = open(path, mode)",
-      "count": 238,
-      "vis": [
-        "MultiD Array to 1D Array of VArrays",
-        "Dictionary Example",
-        "Cluster to LabVIEW Object",
-        "VI Tester Menu Launch",
-        "Write Key (Variant)",
-        "Array to Array of VData"
-      ],
       "guess_reason": "8xxx are often compound nodes. Multiple file-related I/O"
     },
     "1105": {
@@ -392,17 +220,6 @@
         }
       ],
       "python": "result = x != y",
-      "count": 210,
-      "vis": [
-        "1D I16 Array Changed",
-        "Estimate Test Coverage",
-        "Get Test Members from Path",
-        "I32 Changed",
-        "2D U32 Array Changed",
-        "Calculate Test Coverage",
-        "U32 Changed",
-        "Number to Proper Engl Text"
-      ],
       "guess_reason": "Similar to 1102, different comparison"
     },
     "1166": {
@@ -430,90 +247,19 @@
         }
       ],
       "python": "substring = string[offset:offset+length]",
-      "count": 198,
-      "vis": [
-        "Get Text Label Decs from VI",
-        "Get Last PString",
-        "Append Path to Root if Relative - Scalar",
-        "MD5 Message Digest (Binary String)",
-        "Get Data TD from Datalog Ref",
-        "Set Data Name",
-        "extractObjectPrivateDataValues",
-        "Cast Queue to Msg Queue",
-        "LFU Create File Handle",
-        "Set Enum String Value"
-      ],
-      "terminal_patterns": [
-        {
-          "inputs": 2,
-          "outputs": 1,
-          "input_types": [
-            null,
-            null
-          ],
-          "output_types": [
-            null
-          ]
-        },
-        {
-          "inputs": 1,
-          "outputs": 2,
-          "input_types": [
-            null
-          ],
-          "output_types": [
-            null,
-            null
-          ]
-        }
-      ],
       "guess_reason": "Used in 'Get Last PString', substring ops"
     },
     "1145": {
       "name": "To More Specific Class",
       "terminals": [],
       "python": "specific = cast(data, SpecificType)",
-      "count": 180,
-      "vis": [
-        "Conditional Auto-Indexing Tunnel (U8)",
-        "Cluster to VArray",
-        "MultiD Array to 1D Array of VArrays",
-        "GIF.Read.Unpack",
-        "LF Read File (I16)",
-        "LF Write File (I32)",
-        "Conditional Auto-Indexing Tunnel (Variant)",
-        "LF Write File (STR)",
-        "Copy with Options",
-        "Set Enum String Value"
-      ],
-      "terminal_patterns": [
-        {
-          "inputs": 1,
-          "outputs": 1,
-          "input_types": [
-            null
-          ],
-          "output_types": [
-            null
-          ]
-        }
-      ],
       "guess_reason": "Type coercion in array VIs"
     },
     "1058": {
       "name": "Array To Cluster",
-      "guess_reason": "Converts array to cluster (from OpenG)",
-      "python": "cluster = tuple(array)",
       "terminals": [],
-      "count": 163,
-      "vis": [
-        "Reverse 2D Array (LVObject)",
-        "Reverse 2D Array (U32)",
-        "Sort 2D Array (U64)",
-        "OpenG",
-        "Reverse 2D Array (I16)",
-        "Reverse 2D Array (EXT)"
-      ]
+      "python": "cluster = tuple(array)",
+      "guess_reason": "Converts array to cluster (from OpenG)"
     },
     "1083": {
       "name": "Not A Path?",
@@ -524,21 +270,10 @@
         }
       ],
       "python": "Path(__file__).parent  # or sys.executable parent",
-      "count": 160,
-      "vis": [
-        "1D I16 Array Changed",
-        "I32 Changed",
-        "2D U32 Array Changed",
-        "VITester_Provider_Startup",
-        "Periodic Trigger",
-        "U32 Changed"
-      ],
       "guess_reason": "No inputs, single output - returns app dir. Used in Provider_Startup"
     },
     "1113": {
       "name": "Initialize Array",
-      "guess_reason": "Changes array dimensions (from OpenG)",
-      "python": "array = [default_value] * size",
       "terminals": [
         {
           "index": 0,
@@ -551,15 +286,8 @@
           "name": null
         }
       ],
-      "count": 160,
-      "vis": [
-        "Empty 2D Array (Variant)",
-        "Empty 1D Array (U16)",
-        "Empty 1D Array (Variant)",
-        "OpenG",
-        "Empty 1D Array (I64)",
-        "Empty 1D Array (Boolean)"
-      ]
+      "python": "array = [default_value] * size",
+      "guess_reason": "Changes array dimensions (from OpenG)"
     },
     "1535": {
       "name": "Match Pattern",
@@ -601,15 +329,6 @@
         }
       ],
       "python": "match, before, after = re.match(pattern, string).groups()",
-      "count": 157,
-      "vis": [
-        "Get Menu Launch Info__jki_lib_application_control -- VI Tester",
-        "Get Last PString",
-        "Slice 1D Array (CXT)",
-        "Slice 1D Array (xxx)",
-        "Slice 1D Array (CSG)",
-        "Slice 1D Array (LVObject)"
-      ],
       "guess_reason": "Pattern matching with offsets"
     },
     "1102": {
@@ -632,18 +351,6 @@
         }
       ],
       "python": "result = x == y",
-      "count": 156,
-      "vis": [
-        "Get Menu Launch Info__jki_lib_application_control -- VI Tester",
-        "Get Last PString",
-        "is OpenG",
-        "GIF.Read.Unpack",
-        "VI Tester Menu Launch",
-        "Get Project Members from Path - SM",
-        "Calculate Test Coverage",
-        "extractObjectPrivateDataValues",
-        "Number to Proper Engl Text"
-      ],
       "guess_reason": "Two inputs, one output - comparison operation"
     },
     "8201": {
@@ -661,39 +368,6 @@
         }
       ],
       "python": "data = variant.value",
-      "count": 144,
-      "vis": [
-        "Strip Units",
-        "Adapt To Type (Core)",
-        "Cluster to LabVIEW Object",
-        "convertObjectToCluster",
-        "Coerce to Enum",
-        "Scan Variant from String",
-        "Hierarchical VArray to MultiD Array",
-        "Null VVariant Constant",
-        "Read Key (Variant)"
-      ],
-      "terminal_patterns": [
-        {
-          "inputs": 1,
-          "outputs": 1,
-          "input_types": [
-            null
-          ],
-          "output_types": [
-            null
-          ]
-        },
-        {
-          "inputs": 0,
-          "outputs": 2,
-          "input_types": [],
-          "output_types": [
-            null,
-            null
-          ]
-        }
-      ],
       "guess_reason": "Used in 'Cluster to LabVIEW Object'"
     },
     "1900": {
@@ -711,31 +385,6 @@
         }
       ],
       "python": "sorted_array = sorted(array)",
-      "count": 135,
-      "vis": [
-        "Sort 1D Array (SGL)",
-        "Sort 2D Array (EXT)",
-        "Sort 2D Array (CDB)",
-        "Sort 1D Array (I32)",
-        "Sort 2D Array (U64)",
-        "Sort 2D Array (String)",
-        "Sort 2D Array (U8)",
-        "Sort 1D Array (EXT)",
-        "extractObjectPrivateDataValues",
-        "Number to Proper Engl Text"
-      ],
-      "terminal_patterns": [
-        {
-          "inputs": 1,
-          "outputs": 1,
-          "input_types": [
-            null
-          ],
-          "output_types": [
-            null
-          ]
-        }
-      ],
       "guess_reason": "Used in Sort VIs"
     },
     "1110": {
@@ -758,21 +407,10 @@
         }
       ],
       "python": "result = x > y",
-      "count": 133,
-      "vis": [
-        "Sort 2D Array (U64)",
-        "limitDecendantsTo1Level",
-        "Sort 2D Array (String)",
-        "Sort 2D Array (U8)",
-        "VI Tester Menu Launch",
-        "Periodic Trigger"
-      ],
       "guess_reason": "Comparison for sorting"
     },
     "1056": {
       "name": "Split Array",
-      "guess_reason": "1 array in, 2 arrays out - splitting (from OpenG)",
-      "python": "# TODO",
       "terminals": [
         {
           "index": 0,
@@ -795,15 +433,8 @@
           "name": null
         }
       ],
-      "count": 127,
-      "vis": [
-        "GIF.Read.Unpack",
-        "MD5 Message Digest (Binary String)",
-        "Get Data TD from Datalog Ref",
-        "OpenG",
-        "extractObjectPrivateDataValues",
-        "Get Collection Subtype"
-      ]
+      "python": "# TODO",
+      "guess_reason": "1 array in, 2 arrays out - splitting (from OpenG)"
     },
     "1052": {
       "name": "Variant To Data",
@@ -822,15 +453,6 @@
         }
       ],
       "python": "data = variant.value",
-      "count": 124,
-      "vis": [
-        "GIF.Read.Unpack",
-        "Calculate Test Coverage",
-        "extractObjectPrivateDataValues",
-        "Fit VI window to Content",
-        "Array to Set",
-        "Array of Clusters to VMap"
-      ],
       "guess_reason": "Used in 'Array to Set', variant operations"
     },
     "8011": {
@@ -850,19 +472,6 @@
         }
       ],
       "python": "path.write_text(text)",
-      "count": 121,
-      "vis": [
-        "Get Text Label Decs from VI",
-        "Close Generic Object Refnum (Array VI)",
-        "Get LV Class Members from Path",
-        "New Test Suite",
-        "VI Tester Menu Launch",
-        "EXE Test",
-        "Write Key (Variant)",
-        "New Test Case",
-        "Fit VI window to Content",
-        "Fit VI window to Largest Dec"
-      ],
       "guess_reason": "Very common (25 uses). File + data inputs"
     },
     "8202": {
@@ -895,47 +504,6 @@
         }
       ],
       "python": "variant = Variant(data)",
-      "count": 117,
-      "vis": [
-        "Cluster to VArray",
-        "determineClassVersion",
-        "Array of VData to VCluster",
-        "Map to VArray of Clusters",
-        "Set Data Name",
-        "Array to Set",
-        "extractObjectPrivateDataValues",
-        "Remove Typedefs from Variant",
-        "Set Enum String Value",
-        "Array of Clusters to VMap"
-      ],
-      "terminal_patterns": [
-        {
-          "inputs": 3,
-          "outputs": 2,
-          "input_types": [
-            null,
-            null,
-            null
-          ],
-          "output_types": [
-            null,
-            null
-          ]
-        },
-        {
-          "inputs": 2,
-          "outputs": 3,
-          "input_types": [
-            null,
-            null
-          ],
-          "output_types": [
-            null,
-            null,
-            null
-          ]
-        }
-      ],
       "guess_reason": "Used in variant VIs"
     },
     "1503": {
@@ -963,45 +531,6 @@
         }
       ],
       "python": "result = string[:offset] + replacement + string[offset+length:]",
-      "count": 114,
-      "vis": [
-        "String to Character Array",
-        "Get Last PString",
-        "Get Strings from Enum",
-        "String to 1D Array",
-        "Get PString",
-        "Reshape Array to 1D VArray",
-        "Trim Whitespace (String)",
-        "LVOOP Return Class Name",
-        "Parse String with TDs",
-        "Number to Proper Engl Text"
-      ],
-      "terminal_patterns": [
-        {
-          "inputs": 3,
-          "outputs": 1,
-          "input_types": [
-            null,
-            null,
-            null
-          ],
-          "output_types": [
-            null
-          ]
-        },
-        {
-          "inputs": 2,
-          "outputs": 2,
-          "input_types": [
-            null,
-            null
-          ],
-          "output_types": [
-            null,
-            null
-          ]
-        }
-      ],
       "guess_reason": "String manipulation"
     },
     "1114": {
@@ -1017,46 +546,12 @@
         }
       ],
       "python": "array[~mask]",
-      "count": 112,
-      "vis": [
-        "Get Menu Launch Info__jki_lib_application_control -- VI Tester",
-        "Search 1D Array (I8)",
-        "limitDecendantsTo1Level",
-        "Search 1D Array (DBL)",
-        "Search 1D Array (Path)",
-        "Search 1D Array (EXT)"
-      ],
       "guess_reason": "Conditional delete"
     },
     "1120": {
       "name": "Rotate Array",
       "terminals": [],
       "python": "array[n:] + array[:n]",
-      "count": 102,
-      "vis": [
-        "Sort 1D Array (SGL)",
-        "Sort 2D Array (EXT)",
-        "Sort 2D Array (CSG)",
-        "Sort 2D Array (CDB)",
-        "Sort 1D Array (I32)",
-        "Sort 2D Array (U64)",
-        "Sort 2D Array (String)",
-        "Sort 2D Array (U8)",
-        "Sort 1D Array (EXT)",
-        "Sort 1D Array (CXT)"
-      ],
-      "terminal_patterns": [
-        {
-          "inputs": 1,
-          "outputs": 1,
-          "input_types": [
-            null
-          ],
-          "output_types": [
-            null
-          ]
-        }
-      ],
       "guess_reason": "Used in Sort VIs"
     },
     "1419": {
@@ -1078,19 +573,7 @@
           "name": "base path"
         }
       ],
-      "python": "appended_path = base_path / name_or_relative_path  # pathlib",
-      "count": 99,
-      "vis": [
-        "Default Directory",
-        "build",
-        "VITester Toolbar Icon Paths",
-        "Build Path - Traditional - path",
-        "VI Tester Menu Launch",
-        "Copy with Options",
-        "Build Path - File Names Array",
-        "OpenG Library",
-        "Get Settings Path"
-      ]
+      "python": "appended_path = base_path / name_or_relative_path  # pathlib"
     },
     "1167": {
       "name": "Auto-Indexing Tunnel",
@@ -1107,31 +590,6 @@
         }
       ],
       "python": "for item in array",
-      "count": 99,
-      "vis": [
-        "Conditional Auto-Indexing Tunnel (U8)",
-        "Conditional Auto-Indexing Tunnel (GEN-REF)",
-        "File Info",
-        "Conditional Auto-Indexing Tunnel (VI-REF)",
-        "Conditional Auto-Indexing Tunnel (DBL)",
-        "Conditional Auto-Indexing Tunnel (Variant)",
-        "Conditional Auto-Indexing Tunnel (U16)",
-        "Conditional Auto-Indexing Tunnel (I32)",
-        "Conditional Auto-Indexing Tunnel (SGL)",
-        "Trim Whitespace (String)"
-      ],
-      "terminal_patterns": [
-        {
-          "inputs": 1,
-          "outputs": 1,
-          "input_types": [
-            null
-          ],
-          "output_types": [
-            null
-          ]
-        }
-      ],
       "guess_reason": "Loop iteration"
     },
     "8203": {
@@ -1154,38 +612,10 @@
         }
       ],
       "python": "type(value)",
-      "count": 96,
-      "vis": [
-        "Get Waveform Type Enum from Data",
-        "determineClassVersion",
-        "Get Data Name",
-        "Map to VArray of Clusters",
-        "Array to Set",
-        "extractObjectPrivateDataValues",
-        "Write Key (Variant)",
-        "Remove Typedefs from Variant",
-        "Array of Clusters to VMap",
-        "Get Cluster Elements TDs"
-      ],
-      "terminal_patterns": [
-        {
-          "inputs": 1,
-          "outputs": 2,
-          "input_types": [
-            null
-          ],
-          "output_types": [
-            null,
-            null
-          ]
-        }
-      ],
       "guess_reason": "Gets type descriptor"
     },
     "1062": {
       "name": "Decimate Array",
-      "guess_reason": "Used in GIF reader for frame extraction (from OpenG)",
-      "python": "# TODO",
       "terminals": [
         {
           "index": 0,
@@ -1203,15 +633,8 @@
           "name": null
         }
       ],
-      "count": 94,
-      "vis": [
-        "Get Last PString",
-        "GIF.Read.Unpack",
-        "OpenG",
-        "String to 1D Array",
-        "Force File Move",
-        "Periodic Trigger"
-      ]
+      "python": "# TODO",
+      "guess_reason": "Used in GIF reader for frame extraction (from OpenG)"
     },
     "1141": {
       "name": "To More Generic Class",
@@ -1228,31 +651,6 @@
         }
       ],
       "python": "generic = cast(data, GenericType)",
-      "count": 93,
-      "vis": [
-        "Cluster to VArray",
-        "GIF.Read.Unpack",
-        "Array of VData to VCluster",
-        "Map to VArray of Clusters",
-        "Get Array TD from Element TD",
-        "Reshape Array to 1D VArray",
-        "Fit VI window to Content",
-        "Array to Set",
-        "Array of Clusters to VMap",
-        "Fit VI window to Largest Dec"
-      ],
-      "terminal_patterns": [
-        {
-          "inputs": 1,
-          "outputs": 1,
-          "input_types": [
-            null
-          ],
-          "output_types": [
-            null
-          ]
-        }
-      ],
       "guess_reason": "Type coercion"
     },
     "1910": {
@@ -1270,15 +668,6 @@
         }
       ],
       "python": "len(array) == 0",
-      "count": 92,
-      "vis": [
-        "Empty 2D Array (Variant)",
-        "Empty 2D Array (DBL)",
-        "Get Menu Launch Info__jki_lib_application_control -- VI Tester",
-        "Empty 2D Array (xxx)",
-        "Empty 2D Array (CSG)",
-        "Read INI Cluster"
-      ],
       "guess_reason": "Array input, boolean output"
     },
     "8010": {
@@ -1326,50 +715,12 @@
         }
       ],
       "python": "text = path.read_text()",
-      "count": 82,
-      "vis": [
-        "Current VIs Parent Directory",
-        "Current VIs Parents Ref",
-        "VITester_Provider_Startup",
-        "New Test Suite",
-        "VI Tester Menu Launch",
-        "EXE Test",
-        "Write Key (Variant)",
-        "New Test Case",
-        "Current VIs Reference",
-        "Open Untitled VI"
-      ],
       "guess_reason": "File operation, multiple outputs (data, error)"
     },
     "1142": {
       "name": "Build Array (polymorphic)",
       "terminals": [],
       "python": "# flexible array building",
-      "count": 81,
-      "vis": [
-        "LF Read File (STR)",
-        "MultiD Array to 1D Array of VArrays",
-        "Get UTC Offset",
-        "Read GIF File (Animated)",
-        "LF Read File (I16)",
-        "LFU Set File Pointer",
-        "Split Cluster TD",
-        "Trim Whitespace (String)",
-        "LF Read File (U32)",
-        "LF Read File (DBL)"
-      ],
-      "terminal_patterns": [
-        {
-          "inputs": 1,
-          "outputs": 1,
-          "input_types": [
-            null
-          ],
-          "output_types": [
-            null
-          ]
-        }
-      ],
       "guess_reason": "Multi-type array build"
     },
     "1903": {
@@ -1385,15 +736,6 @@
         }
       ],
       "python": "array[start:end]",
-      "count": 79,
-      "vis": [
-        "Conditional Auto-Indexing Tunnel (U8)",
-        "Conditional Auto-Indexing Tunnel (VI-REF)",
-        "Conditional Auto-Indexing Tunnel (DBL)",
-        "Conditional Auto-Indexing Tunnel (Variant)",
-        "Conditional Auto-Indexing Tunnel (I32)",
-        "Calculate Test Coverage"
-      ],
       "guess_reason": "Gets portion of array"
     },
     "1061": {
@@ -1416,32 +758,6 @@
         }
       ],
       "python": "a + b",
-      "count": 72,
-      "vis": [
-        "Get Data Name from TD",
-        "Compare Two Paths - Scalar",
-        "MD5 F function",
-        "To Camel Case (String)",
-        "Strip Path Extension - String",
-        "GIF.Read.Unpack",
-        "MD5 G function",
-        "GIF.Read.Unpack.State",
-        "extractObjectPrivateDataValues",
-        "Number to Proper Engl Text"
-      ],
-      "terminal_patterns": [
-        {
-          "inputs": 2,
-          "outputs": 1,
-          "input_types": [
-            null,
-            null
-          ],
-          "output_types": [
-            null
-          ]
-        }
-      ],
       "guess_reason": "Numeric add"
     },
     "1165": {
@@ -1489,37 +805,6 @@
         }
       ],
       "python": "pickle.dumps() or struct.pack()",
-      "count": 72,
-      "vis": [
-        "Dictionary Open Object Reference",
-        "Strip Units",
-        "Dictionary Not a Dictionary",
-        "Array Size(s)",
-        "Get Strings from Enum",
-        "List VI Hierarchy",
-        "Dictionary Close Object Reference",
-        "Dictionary Data Core",
-        "Cast Msg to Msg Cluster",
-        "Dictionary Get Instance Semaphore RefNum"
-      ],
-      "terminal_patterns": [
-        {
-          "inputs": 2,
-          "outputs": 6,
-          "input_types": [
-            null,
-            null
-          ],
-          "output_types": [
-            null,
-            null,
-            null,
-            null,
-            null,
-            null
-          ]
-        }
-      ],
       "guess_reason": "Serialization"
     },
     "1502": {
@@ -1537,15 +822,6 @@
         }
       ],
       "python": "length = len(string)",
-      "count": 63,
-      "vis": [
-        "String to Character Array",
-        "Get Last PString",
-        "String to 1D Array",
-        "Get Platform Path Separator",
-        "Set Enum String Value",
-        "Number to Proper Engl Text"
-      ],
       "guess_reason": "Numeric to string conversion in Get Platform Path Separator"
     },
     "1164": {
@@ -1588,36 +864,6 @@
         }
       ],
       "python": "pickle.loads() or struct.unpack()",
-      "count": 63,
-      "vis": [
-        "Dictionary Open Object Reference",
-        "Dictionary Not a Dictionary",
-        "Cluster to VArray",
-        "Insert Msg Queue Element",
-        "extractObjectPrivateDataValues",
-        "LVOOP Return Class Name",
-        "Dictionary Close Object Reference",
-        "Set Enum String Value",
-        "Dictionary Data Core",
-        "Read Key (Variant)"
-      ],
-      "terminal_patterns": [
-        {
-          "inputs": 1,
-          "outputs": 6,
-          "input_types": [
-            null
-          ],
-          "output_types": [
-            null,
-            null,
-            null,
-            null,
-            null,
-            null
-          ]
-        }
-      ],
       "guess_reason": "Deserialization"
     },
     "1608": {
@@ -1635,63 +881,12 @@
         }
       ],
       "python": "# binary serialization",
-      "count": 60,
-      "vis": [
-        "LF Read File (STR)",
-        "GIF.Write.Pack",
-        "determineClassVersion",
-        "File Info",
-        "Read GIF File (Animated)",
-        "Get PString",
-        "Trim Whitespace (String)",
-        "extractObjectPrivateDataValues",
-        "MD5 Message Digest (Hexadecimal String)",
-        "LF Write File (STR)"
-      ],
-      "terminal_patterns": [
-        {
-          "inputs": 1,
-          "outputs": 1,
-          "input_types": [
-            null
-          ],
-          "output_types": [
-            null
-          ]
-        }
-      ],
       "guess_reason": "Stream operations"
     },
     "1081": {
       "name": "Multiply",
       "terminals": [],
       "python": "a * b",
-      "count": 51,
-      "vis": [
-        "LF Read File (SGL)",
-        "GIF.Read.Unpack",
-        "LF Read File (I16)",
-        "LF Write File (I32)",
-        "LF Write File (U32)",
-        "LF Read File (DBL)",
-        "LF Read File (U32)",
-        "LF Read File (I32)",
-        "Util.Cmprs.LZW.CU.BitStream",
-        "LF Write File (DBL)"
-      ],
-      "terminal_patterns": [
-        {
-          "inputs": 2,
-          "outputs": 1,
-          "input_types": [
-            null,
-            null
-          ],
-          "output_types": [
-            null
-          ]
-        }
-      ],
       "guess_reason": "Numeric multiply"
     },
     "1170": {
@@ -1714,29 +909,6 @@
         }
       ],
       "python": "# introspection",
-      "count": 48,
-      "vis": [
-        "GIF.Write.Pack.Data",
-        "Get Refnum Type Enum from TD",
-        "Get TDEnum from TD",
-        "Get Waveform Type Enum from TD",
-        "Get Header from TD",
-        "GIF.Write.Pack.LogicalScreen",
-        "Util.Cmprs.LZW.CU.BitStream"
-      ],
-      "terminal_patterns": [
-        {
-          "inputs": 1,
-          "outputs": 2,
-          "input_types": [
-            null
-          ],
-          "output_types": [
-            null,
-            null
-          ]
-        }
-      ],
       "guess_reason": "Type introspection"
     },
     "1064": {
@@ -1754,49 +926,12 @@
         }
       ],
       "python": "path = Path(string)",
-      "count": 46,
-      "vis": [
-        "LVOOP Is Same Or Descendant Class",
-        "MD5 F function",
-        "Dictionary Example",
-        "MD5 I function",
-        "Get Menu Launch Info__jki_lib_application_control -- VI Tester",
-        "Find VI with Focus",
-        "New Test Suite",
-        "Create TestCase Template Instance",
-        "New Test Case"
-      ],
       "guess_reason": "Inverse of Path To String, used when creating paths from user input"
     },
     "1143": {
       "name": "Coerce To Type",
       "terminals": [],
       "python": "# type coercion",
-      "count": 45,
-      "vis": [
-        "GIF.Write.Pack.Data",
-        "Trim Whitespace Lookup Table",
-        "determineClassVersion",
-        "File Info",
-        "Adapt To Type (Core)",
-        "Set Data Name",
-        "Util.Cmprs.LZW.CU.StringsTable",
-        "Set Enum String Value",
-        "GIF.Write.Pack.LogicalScreen",
-        "Read Key (Variant)"
-      ],
-      "terminal_patterns": [
-        {
-          "inputs": 1,
-          "outputs": 1,
-          "input_types": [
-            null
-          ],
-          "output_types": [
-            null
-          ]
-        }
-      ],
       "guess_reason": "Type operations"
     },
     "1117": {
@@ -1814,15 +949,6 @@
         }
       ],
       "python": "# 2D rotation",
-      "count": 43,
-      "vis": [
-        "GIF.Write.Pack.Data",
-        "GIF.Read.Unpack",
-        "Read GIF File (Animated)",
-        "LF End Of File",
-        "Build VI Tester Project Provider",
-        "Util.Cmprs.LZW.CU.BitStream"
-      ],
       "guess_reason": "2D array rotation"
     },
     "1537": {
@@ -1840,201 +966,36 @@
         }
       ],
       "python": "formatted = f'{value:format}'",
-      "count": 42,
-      "vis": [
-        "determineClassPrivateDataDefaultValue",
-        "Strip Path Extension - String",
-        "Place Number to Proper Engl Text",
-        "UnMangle VI Name (String)",
-        "Number to Proper Engl Text"
-      ],
-      "terminal_patterns": [
-        {
-          "inputs": 1,
-          "outputs": 1,
-          "input_types": [
-            null
-          ],
-          "output_types": [
-            null
-          ]
-        }
-      ],
       "guess_reason": "Number formatting"
     },
     "1111": {
       "name": "Index 2D Array",
       "terminals": [],
       "python": "array_2d[row][col]",
-      "count": 42,
-      "vis": [
-        "LF Read File (STR)",
-        "LF Read File (SGL)",
-        "Strip Path Extension - String",
-        "Merge Array Sizes",
-        "LF Read File (I16)",
-        "Util.Cmprs.LZW.CU.StringsTable",
-        "LF Read File (U32)",
-        "LF Read File (I32)",
-        "Util.Cmprs.LZW.CU.BitStream",
-        "LF Read File (DBL)"
-      ],
-      "terminal_patterns": [
-        {
-          "inputs": 2,
-          "outputs": 1,
-          "input_types": [
-            null,
-            null
-          ],
-          "output_types": [
-            null
-          ]
-        }
-      ],
       "guess_reason": "2D indexing"
     },
     "1609": {
       "name": "Unflatten From Stream",
       "terminals": [],
       "python": "# binary deserialization",
-      "count": 39,
-      "vis": [
-        "LF Read File (STR)",
-        "Trim Whitespace Lookup Table",
-        "determineClassVersion",
-        "GIF.Read.Unpack",
-        "LFU Convert End Of Line",
-        "File Info",
-        "MatchEnumIndexToString",
-        "setObjectPrivateData",
-        "extractObjectPrivateDataValues",
-        "Write GIF File (Animated)"
-      ],
-      "terminal_patterns": [
-        {
-          "inputs": 1,
-          "outputs": 1,
-          "input_types": [
-            null
-          ],
-          "output_types": [
-            null
-          ]
-        }
-      ],
       "guess_reason": "Stream operations"
     },
     "8082": {
       "name": "File/Directory Info",
       "terminals": [],
       "python": "info = os.stat(path)",
-      "count": 36,
-      "vis": [
-        "File Exists - Scalar",
-        "Current VIs Parent Directory",
-        "Compare File Binary",
-        "List Directory Recursive",
-        "Merge Directories",
-        "Create Dir if Non-Existant",
-        "Copy with Options",
-        "Delete Recursive"
-      ],
-      "terminal_patterns": [
-        {
-          "inputs": 1,
-          "outputs": 8,
-          "input_types": [
-            null
-          ],
-          "output_types": [
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null
-          ]
-        },
-        {
-          "inputs": 2,
-          "outputs": 7,
-          "input_types": [
-            null,
-            null
-          ],
-          "output_types": [
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null
-          ]
-        }
-      ],
       "guess_reason": "Returns file info (1in/8out) for 'Create Dir if Non-Existant'"
     },
     "1044": {
       "name": "Split 1D Array",
       "terminals": [],
       "python": "array[:n], array[n:]",
-      "count": 36,
-      "vis": [
-        "Sort 2D Array (CXT)",
-        "Sort 1D Array (CDB)",
-        "Sort 2D Array (CSG)",
-        "Sort 2D Array (CDB)",
-        "Sort 1D Array (CSG)",
-        "Sort 1D Array (CXT)"
-      ],
-      "terminal_patterns": [
-        {
-          "inputs": 1,
-          "outputs": 2,
-          "input_types": [
-            null
-          ],
-          "output_types": [
-            null,
-            null
-          ]
-        }
-      ],
       "guess_reason": "Used in Sort array VIs"
     },
     "1144": {
       "name": "Set Type Descriptor",
       "terminals": [],
       "python": "# type manipulation",
-      "count": 36,
-      "vis": [
-        "GIF.Write.Pack.Data",
-        "Array of VData to VCluster",
-        "Append Path to Root if Relative - Scalar",
-        "Adapt To Type (Core)",
-        "Get Array TD from Element TD",
-        "Reshape Array to 1D VArray",
-        "Split Cluster TD",
-        "Set Enum String Value",
-        "Read Key (Variant)",
-        "Util.Cmprs.LZW.CU.BitStream"
-      ],
-      "terminal_patterns": [
-        {
-          "inputs": 1,
-          "outputs": 1,
-          "input_types": [
-            null
-          ],
-          "output_types": [
-            null
-          ]
-        }
-      ],
       "guess_reason": "Used in 'Set Enum String Value'"
     },
     "1147": {
@@ -2052,30 +1013,6 @@
         }
       ],
       "python": "struct.pack/unpack",
-      "count": 36,
-      "vis": [
-        "LF Read File (STR)",
-        "LF Read File (U32)",
-        "LF Read File (SGL)",
-        "Random Number Within Range - I32",
-        "LF Read File (I16)",
-        "MD5 ti",
-        "LF Read File (I32)",
-        "Read Key (Variant)",
-        "LF Read File (DBL)"
-      ],
-      "terminal_patterns": [
-        {
-          "inputs": 1,
-          "outputs": 1,
-          "input_types": [
-            null
-          ],
-          "output_types": [
-            null
-          ]
-        }
-      ],
       "guess_reason": "Used in 'LF Read File' VIs"
     },
     "1128": {
@@ -2093,45 +1030,12 @@
         }
       ],
       "python": "path = refnum.path",
-      "count": 33,
-      "vis": [
-        "Get Menu Launch Info__jki_lib_application_control -- VI Tester",
-        "Get LV Class Members from Path",
-        "Find VI with Focus",
-        "New Test Suite",
-        "Create TestCase Template Instance",
-        "Create Dir if Non-Existant",
-        "Valid Path - Traditional",
-        "Fit VI window to Content",
-        "New Test Case",
-        "Fit VI window to Largest Dec"
-      ],
       "guess_reason": "Used with file/VI references, converts refnum to path"
     },
     "1510": {
       "name": "Quotient & Remainder",
       "terminals": [],
       "python": "divmod(a, b)",
-      "count": 33,
-      "vis": [
-        "Save VI ConPane Image",
-        "Place Number to Proper Engl Text",
-        "Number to Proper Engl Text"
-      ],
-      "terminal_patterns": [
-        {
-          "inputs": 2,
-          "outputs": 2,
-          "input_types": [
-            null,
-            null
-          ],
-          "output_types": [
-            null,
-            null
-          ]
-        }
-      ],
       "guess_reason": "Used in 'Number to Proper Engl Text'"
     },
     "1420": {
@@ -2153,41 +1057,12 @@
           "name": "name"
         }
       ],
-      "python": "stripped_path, name = path.parent, path.name  # pathlib",
-      "count": 30,
-      "vis": [
-        "Strip Path - Traditional",
-        "Strip Path - Arrays",
-        "Mangle VI Name (Path)",
-        "Rename LVClass",
-        "Get Settings Path",
-        "Calculate Test Coverage",
-        "Copy with Options",
-        "Write GIF File Example"
-      ]
+      "python": "stripped_path, name = path.parent, path.name  # pathlib"
     },
     "1171": {
       "name": "Logical Shift",
       "terminals": [],
       "python": "x << n or x >> n",
-      "count": 30,
-      "vis": [
-        "Util.Cmprs.LZW.CU.BitStream",
-        "GIF.Read.Unpack"
-      ],
-      "terminal_patterns": [
-        {
-          "inputs": 2,
-          "outputs": 1,
-          "input_types": [
-            null,
-            null
-          ],
-          "output_types": [
-            null
-          ]
-        }
-      ],
       "guess_reason": "Bit operations in GIF/compression"
     },
     "1423": {
@@ -2207,14 +1082,6 @@
         }
       ],
       "python": "string.split(pattern) or string.find(pattern)",
-      "count": 28,
-      "vis": [
-        "Compare Two Paths - Scalar",
-        "is OpenG",
-        "Get Platform Path Separator",
-        "Merge Directories",
-        "Is VI-LIB"
-      ],
       "guess_reason": "Used in Get Platform Path Separator, splits on pattern"
     },
     "8056": {
@@ -2262,15 +1129,6 @@
         }
       ],
       "python": "shutil.move(src, dst)",
-      "count": 28,
-      "vis": [
-        "Copy with Options",
-        "Open VI Clone Reference",
-        "Force File Move",
-        "Build VI Tester Project Provider",
-        "Delete Recursive",
-        "Write GIF File Example"
-      ],
       "guess_reason": "File move in 'Force File Move'"
     },
     "1223": {
@@ -2288,26 +1146,6 @@
         }
       ],
       "python": "~x",
-      "count": 27,
-      "vis": [
-        "GIF.Read.Unpack",
-        "Flatten Pixmap - GIF",
-        "Util.Cmprs.LZW.CU.BitStream.Width",
-        "Util.Cmprs.LZW.CU.StringsTable",
-        "Util.Cmprs.LZW.CU.BitStream"
-      ],
-      "terminal_patterns": [
-        {
-          "inputs": 1,
-          "outputs": 1,
-          "input_types": [
-            null
-          ],
-          "output_types": [
-            null
-          ]
-        }
-      ],
       "guess_reason": "Bit operations in LZW compression"
     },
     "1911": {
@@ -2323,99 +1161,24 @@
         }
       ],
       "python": "len(array)",
-      "count": 25,
-      "vis": [
-        "Close Generic Object Refnum (Array VI)",
-        "Merge Directories",
-        "Size of Data from TD",
-        "Read INI Cluster",
-        "Read Key (Variant)",
-        "Get Test Members from Path"
-      ],
       "guess_reason": "Array input, numeric output - similar to 1189"
     },
     "1904": {
       "name": "Reshape Array (to 1D)",
       "terminals": [],
       "python": "array.flatten()",
-      "count": 24,
-      "vis": [
-        "Util.Pic.GIF.Block.PackUnpack",
-        "MultiD Array to 1D Array of VArrays",
-        "1D Array of VArrays to MultiD Array",
-        "Flatten Pixmap - GIF",
-        "GIF.Read.Unpack.Interlace",
-        "Reshape Array to 1D VArray",
-        "Read Key (Variant)"
-      ],
-      "terminal_patterns": [
-        {
-          "inputs": 1,
-          "outputs": 1,
-          "input_types": [
-            null
-          ],
-          "output_types": [
-            null
-          ]
-        }
-      ],
       "guess_reason": "Used in 'MultiD Array to 1D'"
     },
     "1054": {
       "name": "Reverse 1D Array",
       "terminals": [],
       "python": "array[::-1]",
-      "count": 24,
-      "vis": [
-        "Sort 2D Array (CXT)",
-        "Get UTC Offset",
-        "Sort 2D Array (CSG)",
-        "Sort 2D Array (CDB)",
-        "Sort 1D Array (CDB)",
-        "Sort 1D Array (CSG)",
-        "Sort 1D Array (CXT)",
-        "MD5 ti"
-      ],
-      "terminal_patterns": [
-        {
-          "inputs": 1,
-          "outputs": 1,
-          "input_types": [
-            null
-          ],
-          "output_types": [
-            null
-          ]
-        }
-      ],
       "guess_reason": "Used in Sort array VIs"
     },
     "1999": {
       "name": "Not A Path",
       "terminals": [],
       "python": "None  # empty/invalid path",
-      "count": 24,
-      "vis": [
-        "Current VIs Parent Directory",
-        "Current VIs Parents Ref",
-        "Current VI's Path",
-        "Find VI with Focus",
-        "Build Error Cluster",
-        "Util.Error.Build",
-        "Current VIs Namespace",
-        "Current VIs Reference"
-      ],
-      "terminal_patterns": [
-        {
-          "inputs": 0,
-          "outputs": 1,
-          "input_types": [],
-          "output_types": [
-            null
-          ]
-        }
-      ],
       "guess_reason": "Constant used in error building"
     },
     "8205": {
@@ -2463,66 +1226,6 @@
         }
       ],
       "python": "variant.get_attr(name)",
-      "count": 24,
-      "vis": [
-        "getClassHierarchyVersions",
-        "Get Variant Attributes",
-        "getClassHierarchy",
-        "Format Variant Into String",
-        "Scan Variant from String",
-        "createClassDataAndVersionsLUT",
-        "getObjectPrivateData"
-      ],
-      "terminal_patterns": [
-        {
-          "inputs": 3,
-          "outputs": 5,
-          "input_types": [
-            null,
-            null,
-            null
-          ],
-          "output_types": [
-            null,
-            null,
-            null,
-            null,
-            null
-          ]
-        },
-        {
-          "inputs": 4,
-          "outputs": 4,
-          "input_types": [
-            null,
-            null,
-            null,
-            null
-          ],
-          "output_types": [
-            null,
-            null,
-            null,
-            null
-          ]
-        },
-        {
-          "inputs": 2,
-          "outputs": 6,
-          "input_types": [
-            null,
-            null
-          ],
-          "output_types": [
-            null,
-            null,
-            null,
-            null,
-            null,
-            null
-          ]
-        }
-      ],
       "guess_reason": "Used in 'Format Variant Into String'"
     },
     "3914": {
@@ -2590,33 +1293,6 @@
         }
       ],
       "python": "format or parse",
-      "count": 24,
-      "vis": [
-        "Encode Section and Key Names",
-        "Convert EOLs (String)"
-      ],
-      "terminal_patterns": [
-        {
-          "inputs": 4,
-          "outputs": 8,
-          "input_types": [
-            null,
-            null,
-            null,
-            null
-          ],
-          "output_types": [
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null
-          ]
-        }
-      ],
       "guess_reason": "Used in 'Encode Section and Key Names'"
     },
     "1189": {
@@ -2634,113 +1310,24 @@
         }
       ],
       "python": "len(array)",
-      "count": 23,
-      "vis": [
-        "Compare Two Paths - Scalar",
-        "To Proper Case (String)",
-        "MD5 Message Digest (Hexadecimal String)",
-        "loadClass",
-        "Draw Image from File",
-        "Get Test Members from Path"
-      ],
       "guess_reason": "Single array input, numeric output"
     },
     "1907": {
       "name": "Array Max & Min",
       "terminals": [],
       "python": "max(array), min(array)",
-      "count": 21,
-      "vis": [
-        "Fit VI window to Content",
-        "limitDecendantsTo1Level",
-        "Fit VI window to Largest Dec"
-      ],
-      "terminal_patterns": [
-        {
-          "inputs": 1,
-          "outputs": 4,
-          "input_types": [
-            null
-          ],
-          "output_types": [
-            null,
-            null,
-            null,
-            null
-          ]
-        }
-      ],
       "guess_reason": "Used in 'Fit VI window'"
     },
     "8076": {
       "name": "Check If File/Dir Exists",
       "terminals": [],
       "python": "os.path.exists(path)",
-      "count": 21,
-      "vis": [
-        "Force File Move",
-        "Create Dir if Non-Existant",
-        "Delete Recursive"
-      ],
-      "terminal_patterns": [
-        {
-          "inputs": 2,
-          "outputs": 5,
-          "input_types": [
-            null,
-            null
-          ],
-          "output_types": [
-            null,
-            null,
-            null,
-            null,
-            null
-          ]
-        },
-        {
-          "inputs": 3,
-          "outputs": 4,
-          "input_types": [
-            null,
-            null,
-            null
-          ],
-          "output_types": [
-            null,
-            null,
-            null,
-            null
-          ]
-        }
-      ],
       "guess_reason": "File existence check"
     },
     "1103": {
       "name": "Greater Or Equal?",
       "terminals": [],
       "python": "result = x >= y",
-      "count": 21,
-      "vis": [
-        "Close Generic Object Refnum (Array VI)",
-        "Place Number to Proper Engl Text",
-        "Wait on VIs Unloaded from Memory",
-        "Raise Error for Sets Before 2024",
-        "Number to Proper Engl Text"
-      ],
-      "terminal_patterns": [
-        {
-          "inputs": 2,
-          "outputs": 1,
-          "input_types": [
-            null,
-            null
-          ],
-          "output_types": [
-            null
-          ]
-        }
-      ],
       "guess_reason": "Comparison in 'Number to Proper Engl Text'"
     },
     "1116": {
@@ -2758,27 +1345,6 @@
         }
       ],
       "python": "# refnum introspection",
-      "count": 21,
-      "vis": [
-        "Util.Pic.GIF.Block.PackUnpack",
-        "Get Data Name from TD",
-        "LFU Retrieve File Handle",
-        "File Info",
-        "Find VI with Focus",
-        "LFU Create File Handle"
-      ],
-      "terminal_patterns": [
-        {
-          "inputs": 1,
-          "outputs": 1,
-          "input_types": [
-            null
-          ],
-          "output_types": [
-            null
-          ]
-        }
-      ],
       "guess_reason": "Used in 'File Info', 'Find VI'"
     },
     "1538": {
@@ -2816,15 +1382,6 @@
         }
       ],
       "python": "values = sscanf(string, format)",
-      "count": 20,
-      "vis": [
-        "MD5 Padding",
-        "To Proper Case (String)",
-        "Search or Split String",
-        "Place Number to Proper Engl Text",
-        "Get Platform Path Separator",
-        "Number to Proper Engl Text"
-      ],
       "guess_reason": "Used in 'Search or Split String'"
     },
     "1300": {
@@ -2837,55 +1394,12 @@
         }
       ],
       "python": "ms = int(time.time() * 1000)",
-      "count": 18,
-      "vis": [
-        "Close Generic Object Refnum (Array VI)",
-        "Tick Count (ms)",
-        "Wait on VIs Unloaded from Memory",
-        "Periodic Trigger",
-        "Wait (ms)",
-        "Wait Until Next ms Multiple"
-      ],
-      "terminal_patterns": [
-        {
-          "inputs": 0,
-          "outputs": 1,
-          "input_types": [],
-          "output_types": [
-            null
-          ]
-        }
-      ],
       "guess_reason": "Timing constant in 'Periodic Trigger'"
     },
     "8053": {
       "name": "Copy File",
       "terminals": [],
       "python": "shutil.copy(src, dst)",
-      "count": 18,
-      "vis": [
-        "Save VI ConPane Image",
-        "Merge Directories",
-        "Copy with Options"
-      ],
-      "terminal_patterns": [
-        {
-          "inputs": 3,
-          "outputs": 5,
-          "input_types": [
-            null,
-            null,
-            null
-          ],
-          "output_types": [
-            null,
-            null,
-            null,
-            null,
-            null
-          ]
-        }
-      ],
       "guess_reason": "File copy operation"
     },
     "8050": {
@@ -2929,14 +1443,6 @@
         }
       ],
       "python": "data = file.read(num_bytes)",
-      "count": 17,
-      "vis": [
-        "Read GIF File (Animated)",
-        "Compare File Binary",
-        "Build VI Tester Project Provider",
-        "Large File - Simple Example",
-        "Write GIF File (Animated)"
-      ],
       "guess_reason": "Binary file read"
     },
     "8052": {
@@ -2960,14 +1466,6 @@
         }
       ],
       "python": "file.write(data)",
-      "count": 17,
-      "vis": [
-        "Read GIF File (Animated)",
-        "Compare File Binary",
-        "Build VI Tester Project Provider",
-        "Large File - Simple Example",
-        "Write GIF File (Animated)"
-      ],
       "guess_reason": "Binary file write"
     },
     "1340": {
@@ -2987,11 +1485,6 @@
         }
       ],
       "python": "# Destructure tuple/dataclass",
-      "count": 16,
-      "vis": [
-        "VITester_Item_OnCommand",
-        "Dictionary Example"
-      ],
       "guess_reason": "One input, two outputs - extracts cluster fields"
     },
     "1302": {
@@ -3007,100 +1500,24 @@
         }
       ],
       "python": "# Create tuple/dataclass",
-      "count": 16,
-      "vis": [
-        "Close Generic Object Refnum (Array VI)",
-        "Animated GIF Reader Example",
-        "Wait on VIs Unloaded from Memory",
-        "List Directory Recursive",
-        "VI Tester Menu Launch",
-        "Wait (ms)"
-      ],
       "guess_reason": "Creates cluster from components"
     },
     "1163": {
       "name": "String To Byte Array",
       "terminals": [],
       "python": "string.encode()",
-      "count": 15,
-      "vis": [
-        "File Info",
-        "MD5 Padding",
-        "MD5 Message Digest (Binary String)"
-      ],
-      "terminal_patterns": [
-        {
-          "inputs": 1,
-          "outputs": 1,
-          "input_types": [
-            null
-          ],
-          "output_types": [
-            null
-          ]
-        }
-      ],
       "guess_reason": "Used in MD5 VIs"
     },
     "1162": {
       "name": "Byte Array To String",
       "terminals": [],
       "python": "bytes.decode()",
-      "count": 15,
-      "vis": [
-        "File Info",
-        "MD5 Padding",
-        "MD5 Message Digest (Binary String)"
-      ],
-      "terminal_patterns": [
-        {
-          "inputs": 1,
-          "outputs": 1,
-          "input_types": [
-            null
-          ],
-          "output_types": [
-            null
-          ]
-        }
-      ],
       "guess_reason": "Used in MD5 VIs"
     },
     "1422": {
       "name": "Path To Array Of Strings",
       "terminals": [],
       "python": "str(path).split(os.sep)",
-      "count": 15,
-      "vis": [
-        "Compare Two Paths - Scalar",
-        "is OpenG",
-        "Is VI-LIB",
-        "Util.Error.Build"
-      ],
-      "terminal_patterns": [
-        {
-          "inputs": 1,
-          "outputs": 2,
-          "input_types": [
-            null
-          ],
-          "output_types": [
-            null,
-            null
-          ]
-        },
-        {
-          "inputs": 2,
-          "outputs": 1,
-          "input_types": [
-            null,
-            null
-          ],
-          "output_types": [
-            null
-          ]
-        }
-      ],
       "guess_reason": "Path decomposition"
     },
     "1540": {
@@ -3128,55 +1545,12 @@
         }
       ],
       "python": "str(value)  # with format",
-      "count": 15,
-      "vis": [
-        "GIF.Read.Unpack",
-        "Format Numeric Array",
-        "Build Error Cluster",
-        "End of Line Constant (bug fix)",
-        "1D Array to String"
-      ],
-      "terminal_patterns": [
-        {
-          "inputs": 3,
-          "outputs": 1,
-          "input_types": [
-            null,
-            null,
-            null
-          ],
-          "output_types": [
-            null
-          ]
-        }
-      ],
       "guess_reason": "Used in 'Build Error Cluster'"
     },
     "1539": {
       "name": "Scan Value",
       "terminals": [],
       "python": "parse(string)",
-      "count": 15,
-      "vis": [
-        "String to 1D Array",
-        "To Camel Case (String)",
-        "Read Key (Variant)"
-      ],
-      "terminal_patterns": [
-        {
-          "inputs": 4,
-          "outputs": 1,
-          "input_types": [
-            null,
-            null,
-            null,
-            null
-          ],
-          "output_types": [
-            null
-          ]
-        }
-      ],
       "guess_reason": "Used in 'String to 1D Array'"
     },
     "8083": {
@@ -3224,48 +1598,6 @@
         }
       ],
       "python": "files, folders = os.listdir(path)",
-      "count": 15,
-      "vis": [
-        "List Top Level VIs",
-        "Merge Directories",
-        "Temporary Filename",
-        "Delete Recursive",
-        "List Directory"
-      ],
-      "terminal_patterns": [
-        {
-          "inputs": 2,
-          "outputs": 6,
-          "input_types": [
-            null,
-            null
-          ],
-          "output_types": [
-            null,
-            null,
-            null,
-            null,
-            null,
-            null
-          ]
-        },
-        {
-          "inputs": 3,
-          "outputs": 5,
-          "input_types": [
-            null,
-            null,
-            null
-          ],
-          "output_types": [
-            null,
-            null,
-            null,
-            null,
-            null
-          ]
-        }
-      ],
       "guess_reason": "Directory listing"
     },
     "1108": {
@@ -3293,72 +1625,12 @@
         }
       ],
       "python": "result = x <= y",
-      "count": 15,
-      "vis": [
-        "Compare Two Paths - Scalar",
-        "Random Number Within Range - I32",
-        "Merge Array Sizes",
-        "Compare File Binary",
-        "GIF.Write.Pack.LogicalScreen"
-      ],
-      "terminal_patterns": [
-        {
-          "inputs": 2,
-          "outputs": 2,
-          "input_types": [
-            null,
-            null
-          ],
-          "output_types": [
-            null,
-            null
-          ]
-        }
-      ],
       "guess_reason": "Comparison in 'Merge Array Sizes'"
     },
     "8204": {
       "name": "Unknown_8204",
       "terminals": [],
-      "python": "# TODO: identify this primitive",
-      "count": 15,
-      "vis": [
-        "createClassHierarchyLUT",
-        "createClassDataAndVersionsLUT",
-        "Set Data Name"
-      ],
-      "terminal_patterns": [
-        {
-          "inputs": 4,
-          "outputs": 3,
-          "input_types": [
-            null,
-            null,
-            null,
-            null
-          ],
-          "output_types": [
-            null,
-            null,
-            null
-          ]
-        },
-        {
-          "inputs": 3,
-          "outputs": 4,
-          "input_types": [
-            null,
-            null,
-            null
-          ],
-          "output_types": [
-            null,
-            null,
-            null,
-            null
-          ]
-        }
-      ]
+      "python": "# TODO: identify this primitive"
     },
     "1077": {
       "name": "Path Type",
@@ -3375,89 +1647,22 @@
         }
       ],
       "python": "# Returns path type (absolute, relative, etc.)",
-      "count": 13,
-      "vis": [
-        "Strip Path Extension - 1D Array of Paths",
-        "Open VI Clone Reference",
-        "LF Open File",
-        "Get Platform Path Separator",
-        "Strip Path Extension - Path"
-      ],
       "guess_reason": "Single input path, single output - likely returns path type info"
     },
     "8065": {
       "name": "Unknown_8065",
       "terminals": [],
-      "python": "# TODO: identify this primitive",
-      "count": 12,
-      "vis": [
-        "Force File Move",
-        "Delete Recursive"
-      ],
-      "terminal_patterns": [
-        {
-          "inputs": 2,
-          "outputs": 5,
-          "input_types": [
-            null,
-            null
-          ],
-          "output_types": [
-            null,
-            null,
-            null,
-            null,
-            null
-          ]
-        }
-      ]
+      "python": "# TODO: identify this primitive"
     },
     "1425": {
       "name": "Unknown_1425",
       "terminals": [],
-      "python": "# TODO: identify this primitive",
-      "count": 12,
-      "vis": [
-        "Instrument Library",
-        "VI Library",
-        "Is VI-LIB",
-        "User Library"
-      ],
-      "terminal_patterns": [
-        {
-          "inputs": 0,
-          "outputs": 1,
-          "input_types": [],
-          "output_types": [
-            null
-          ]
-        }
-      ]
+      "python": "# TODO: identify this primitive"
     },
     "1104": {
       "name": "Unknown_1104",
       "terminals": [],
-      "python": "# TODO: identify this primitive",
-      "count": 12,
-      "vis": [
-        "GIF.Write.Pack.Data",
-        "To Camel Case (String)",
-        "Is One Frontmost",
-        "Util.Cmprs.LZW.CU.BitStream"
-      ],
-      "terminal_patterns": [
-        {
-          "inputs": 2,
-          "outputs": 1,
-          "input_types": [
-            null,
-            null
-          ],
-          "output_types": [
-            null
-          ]
-        }
-      ]
+      "python": "# TODO: identify this primitive"
     },
     "1426": {
       "name": "Empty Path Constant",
@@ -3468,14 +1673,6 @@
         }
       ],
       "python": "Path()",
-      "count": 11,
-      "vis": [
-        "VI Tester Menu Launch",
-        "build",
-        "Read GIF File (Animated)",
-        "Write GIF File (Animated) Example",
-        "Write GIF File Example"
-      ],
       "guess_reason": "No inputs, path output - empty or default path"
     },
     "1078": {
@@ -3491,12 +1688,6 @@
         }
       ],
       "python": "string = str(path)",
-      "count": 10,
-      "vis": [
-        "Open VI Clone Reference",
-        "Adapt To Type (Core)",
-        "VITester Toolbar Icon Paths"
-      ],
       "guess_reason": "Used in 'VITester Toolbar Icon Paths', path->string conversion common"
     },
     "8058": {
@@ -3547,157 +1738,37 @@
           "direction": "in"
         }
       ],
-      "python": "# TODO: identify this primitive",
-      "count": 10,
-      "vis": [
-        "Create TestCase Template Instance",
-        "Read GIF File (Animated)",
-        "Large File - Simple Example",
-        "Write GIF File (Animated)"
-      ]
+      "python": "# TODO: identify this primitive"
     },
     "8018": {
       "name": "Unknown_8018",
       "terminals": [],
-      "python": "# TODO: identify this primitive",
-      "count": 9,
-      "vis": [
-        "LVOOP Is Same Or Descendant Class",
-        "LVOOP Get Default Object",
-        "determineClassHierarchy"
-      ],
-      "terminal_patterns": [
-        {
-          "inputs": 2,
-          "outputs": 3,
-          "input_types": [
-            null,
-            null
-          ],
-          "output_types": [
-            null,
-            null,
-            null
-          ]
-        }
-      ]
+      "python": "# TODO: identify this primitive"
     },
     "1076": {
       "name": "Unknown_1076",
       "terminals": [],
-      "python": "# TODO: identify this primitive",
-      "count": 9,
-      "vis": [
-        "GIF.Write.Pack.LogicalScreen",
-        "Place Number to Proper Engl Text",
-        "Number to Proper Engl Text"
-      ],
-      "terminal_patterns": [
-        {
-          "inputs": 1,
-          "outputs": 1,
-          "input_types": [
-            null
-          ],
-          "output_types": [
-            null
-          ]
-        }
-      ]
+      "python": "# TODO: identify this primitive"
     },
     "8051": {
       "name": "Unknown_8051",
       "terminals": [],
-      "python": "# TODO: identify this primitive",
-      "count": 9,
-      "vis": [
-        "Read GIF File (Animated)",
-        "Compare File Binary"
-      ],
-      "terminal_patterns": [
-        {
-          "inputs": 3,
-          "outputs": 7,
-          "input_types": [
-            null,
-            null,
-            null
-          ],
-          "output_types": [
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null
-          ]
-        }
-      ]
+      "python": "# TODO: identify this primitive"
     },
     "1155": {
       "name": "Unknown_1155",
       "terminals": [],
-      "python": "# TODO: identify this primitive",
-      "count": 9,
-      "vis": [
-        "ISO String To Timestamp",
-        "Read Key (Variant)"
-      ],
-      "terminal_patterns": [
-        {
-          "inputs": 1,
-          "outputs": 1,
-          "input_types": [
-            null
-          ],
-          "output_types": [
-            null
-          ]
-        }
-      ]
+      "python": "# TODO: identify this primitive"
     },
     "1146": {
       "name": "Unknown_1146",
       "terminals": [],
-      "python": "# TODO: identify this primitive",
-      "count": 9,
-      "vis": [
-        "Read Key (Variant)"
-      ],
-      "terminal_patterns": [
-        {
-          "inputs": 1,
-          "outputs": 1,
-          "input_types": [
-            null
-          ],
-          "output_types": [
-            null
-          ]
-        }
-      ]
+      "python": "# TODO: identify this primitive"
     },
     "1149": {
       "name": "Unknown_1149",
       "terminals": [],
-      "python": "# TODO: identify this primitive",
-      "count": 9,
-      "vis": [
-        "Read Key (Variant)"
-      ],
-      "terminal_patterns": [
-        {
-          "inputs": 1,
-          "outputs": 1,
-          "input_types": [
-            null
-          ],
-          "output_types": [
-            null
-          ]
-        }
-      ]
+      "python": "# TODO: identify this primitive"
     },
     "1053": {
       "name": "Unknown_1053",
@@ -3715,403 +1786,98 @@
           "direction": "in"
         }
       ],
-      "python": "# TODO: identify this primitive",
-      "count": 7,
-      "vis": [
-        "Calculate Test Coverage",
-        "Place Number to Proper Engl Text",
-        "Number to Proper Engl Text"
-      ]
+      "python": "# TODO: identify this primitive"
     },
     "1906": {
       "name": "Unknown_1906",
       "terminals": [],
-      "python": "# TODO: identify this primitive",
-      "count": 6,
-      "vis": [
-        "MD5 Padding",
-        "MD5 Message Digest (Binary String)"
-      ],
-      "terminal_patterns": [
-        {
-          "inputs": 2,
-          "outputs": 1,
-          "input_types": [
-            null,
-            null
-          ],
-          "output_types": [
-            null
-          ]
-        }
-      ]
+      "python": "# TODO: identify this primitive"
     },
     "8068": {
       "name": "Unknown_8068",
       "terminals": [],
-      "python": "# TODO: identify this primitive",
-      "count": 6,
-      "vis": [
-        "Force File Move",
-        "Convert Dirs to VI Libraries (proxy)"
-      ],
-      "terminal_patterns": [
-        {
-          "inputs": 3,
-          "outputs": 5,
-          "input_types": [
-            null,
-            null,
-            null
-          ],
-          "output_types": [
-            null,
-            null,
-            null,
-            null,
-            null
-          ]
-        }
-      ]
+      "python": "# TODO: identify this primitive"
     },
     "1188": {
       "name": "Unknown_1188",
       "terminals": [],
-      "python": "# TODO: identify this primitive",
-      "count": 6,
-      "vis": [
-        "To Proper Case (String)",
-        "GIF.Read.Unpack"
-      ],
-      "terminal_patterns": [
-        {
-          "inputs": 1,
-          "outputs": 1,
-          "input_types": [
-            null
-          ],
-          "output_types": [
-            null
-          ]
-        }
-      ]
+      "python": "# TODO: identify this primitive"
     },
     "1063": {
       "name": "Unknown_1063",
       "terminals": [],
-      "python": "# TODO: identify this primitive",
-      "count": 6,
-      "vis": [
-        "MD5 I function",
-        "GIF.Read.Unpack"
-      ],
-      "terminal_patterns": [
-        {
-          "inputs": 2,
-          "outputs": 1,
-          "input_types": [
-            null,
-            null
-          ],
-          "output_types": [
-            null
-          ]
-        }
-      ]
+      "python": "# TODO: identify this primitive"
     },
     "1070": {
       "name": "Unknown_1070",
       "terminals": [],
-      "python": "# TODO: identify this primitive",
-      "count": 6,
-      "vis": [
-        "Random Number - Within Range",
-        "Temporary Filename"
-      ],
-      "terminal_patterns": [
-        {
-          "inputs": 0,
-          "outputs": 1,
-          "input_types": [],
-          "output_types": [
-            null
-          ]
-        }
-      ]
+      "python": "# TODO: identify this primitive"
     },
     "1115": {
       "name": "Unknown_1115",
       "terminals": [],
-      "python": "# TODO: identify this primitive",
-      "count": 6,
-      "vis": [
-        "Compare File Binary",
-        "LVOOP Return Class Name"
-      ],
-      "terminal_patterns": [
-        {
-          "inputs": 1,
-          "outputs": 1,
-          "input_types": [
-            null
-          ],
-          "output_types": [
-            null
-          ]
-        }
-      ]
+      "python": "# TODO: identify this primitive"
     },
     "1069": {
       "name": "Unknown_1069",
       "terminals": [],
-      "python": "# TODO: identify this primitive",
-      "count": 6,
-      "vis": [
-        "Util.Cmprs.LZW.CU.BitStream",
-        "Get UTC Offset"
-      ],
-      "terminal_patterns": [
-        {
-          "inputs": 1,
-          "outputs": 1,
-          "input_types": [
-            null
-          ],
-          "output_types": [
-            null
-          ]
-        }
-      ]
+      "python": "# TODO: identify this primitive"
     },
     "1075": {
       "name": "Unknown_1075",
       "terminals": [],
-      "python": "# TODO: identify this primitive",
-      "count": 6,
-      "vis": [
-        "GIF.Write.Pack.Data",
-        "Random Number Within Range - I32"
-      ],
-      "terminal_patterns": [
-        {
-          "inputs": 1,
-          "outputs": 1,
-          "input_types": [
-            null
-          ],
-          "output_types": [
-            null
-          ]
-        }
-      ]
+      "python": "# TODO: identify this primitive"
     },
     "1225": {
       "name": "Unknown_1225",
       "terminals": [],
-      "python": "# TODO: identify this primitive",
-      "count": 6,
-      "vis": [
-        "GIF.Write.Pack.Data",
-        "GIF.Write.Pack.LogicalScreen"
-      ],
-      "terminal_patterns": [
-        {
-          "inputs": 1,
-          "outputs": 1,
-          "input_types": [
-            null
-          ],
-          "output_types": [
-            null
-          ]
-        }
-      ]
+      "python": "# TODO: identify this primitive"
     },
     "1140": {
       "name": "Unknown_1140",
       "terminals": [],
-      "python": "# TODO: identify this primitive",
-      "count": 6,
-      "vis": [
-        "Read Key (Variant)"
-      ],
-      "terminal_patterns": [
-        {
-          "inputs": 1,
-          "outputs": 1,
-          "input_types": [
-            null
-          ],
-          "output_types": [
-            null
-          ]
-        }
-      ]
+      "python": "# TODO: identify this primitive"
     },
     "1156": {
       "name": "Unknown_1156",
       "terminals": [],
-      "python": "# TODO: identify this primitive",
-      "count": 6,
-      "vis": [
-        "Read Key (Variant)"
-      ],
-      "terminal_patterns": [
-        {
-          "inputs": 1,
-          "outputs": 1,
-          "input_types": [
-            null
-          ],
-          "output_types": [
-            null
-          ]
-        }
-      ]
+      "python": "# TODO: identify this primitive"
     },
     "1151": {
       "name": "Unknown_1151",
       "terminals": [],
-      "python": "# TODO: identify this primitive",
-      "count": 6,
-      "vis": [
-        "Read Key (Variant)"
-      ],
-      "terminal_patterns": [
-        {
-          "inputs": 1,
-          "outputs": 1,
-          "input_types": [
-            null
-          ],
-          "output_types": [
-            null
-          ]
-        }
-      ]
+      "python": "# TODO: identify this primitive"
     },
     "1154": {
       "name": "Unknown_1154",
       "terminals": [],
-      "python": "# TODO: identify this primitive",
-      "count": 6,
-      "vis": [
-        "Read Key (Variant)"
-      ],
-      "terminal_patterns": [
-        {
-          "inputs": 1,
-          "outputs": 1,
-          "input_types": [
-            null
-          ],
-          "output_types": [
-            null
-          ]
-        }
-      ]
+      "python": "# TODO: identify this primitive"
     },
     "8073": {
       "name": "Unknown_8073",
       "terminals": [],
-      "python": "# TODO: identify this primitive",
-      "count": 6,
-      "vis": [
-        "Compare File Binary"
-      ],
-      "terminal_patterns": [
-        {
-          "inputs": 3,
-          "outputs": 3,
-          "input_types": [
-            null,
-            null,
-            null
-          ],
-          "output_types": [
-            null,
-            null,
-            null
-          ]
-        }
-      ]
+      "python": "# TODO: identify this primitive"
     },
     "1815": {
       "name": "Unknown_1815",
       "terminals": [],
-      "python": "# TODO: identify this primitive",
-      "count": 6,
-      "vis": [
-        "MD5 Padding"
-      ],
-      "terminal_patterns": [
-        {
-          "inputs": 1,
-          "outputs": 1,
-          "input_types": [
-            null
-          ],
-          "output_types": [
-            null
-          ]
-        }
-      ]
+      "python": "# TODO: identify this primitive"
     },
     "1814": {
       "name": "Unknown_1814",
       "terminals": [],
-      "python": "# TODO: identify this primitive",
-      "count": 6,
-      "vis": [
-        "MD5 Padding"
-      ],
-      "terminal_patterns": [
-        {
-          "inputs": 1,
-          "outputs": 1,
-          "input_types": [
-            null
-          ],
-          "output_types": [
-            null
-          ]
-        }
-      ]
+      "python": "# TODO: identify this primitive"
     },
     "1184": {
       "name": "Unknown_1184",
       "terminals": [],
-      "python": "# TODO: identify this primitive",
-      "count": 6,
-      "vis": [
-        "Parse Timezone"
-      ],
-      "terminal_patterns": [
-        {
-          "inputs": 1,
-          "outputs": 4,
-          "input_types": [
-            null
-          ],
-          "output_types": [
-            null,
-            null,
-            null,
-            null
-          ]
-        }
-      ]
+      "python": "# TODO: identify this primitive"
     },
     "1341": {
       "name": "Bundle By Name",
-      "guess_reason": "3 inputs, 1 cluster output (from OpenG)",
-      "python": "# TODO",
       "terminals": [],
-      "count": 4,
-      "vis": [
-        "Dictionary Example",
-        "OpenG"
-      ]
+      "python": "# TODO",
+      "guess_reason": "3 inputs, 1 cluster output (from OpenG)"
     },
     "8055": {
       "name": "Create Folder",
@@ -4138,548 +1904,127 @@
         }
       ],
       "python": "Path(path).mkdir(parents=True, exist_ok=True)",
-      "count": 3,
-      "vis": [
-        "Create Dir if Non-Existant"
-      ],
       "guess_reason": "Creates folder, returns if it already existed"
     },
     "8063": {
       "name": "Unknown_8063",
       "terminals": [],
-      "python": "# TODO: identify this primitive",
-      "count": 3,
-      "vis": [
-        "Read GIF File (Animated)"
-      ],
-      "terminal_patterns": [
-        {
-          "inputs": 2,
-          "outputs": 3,
-          "input_types": [
-            null,
-            null
-          ],
-          "output_types": [
-            null,
-            null,
-            null
-          ]
-        }
-      ]
+      "python": "# TODO: identify this primitive"
     },
     "1126": {
       "name": "Unknown_1126",
       "terminals": [],
-      "python": "# TODO: identify this primitive",
-      "count": 3,
-      "vis": [
-        "Trim Whitespace Lookup Table"
-      ],
-      "terminal_patterns": [
-        {
-          "inputs": 1,
-          "outputs": 1,
-          "input_types": [
-            null
-          ],
-          "output_types": [
-            null
-          ]
-        }
-      ]
+      "python": "# TODO: identify this primitive"
     },
     "1427": {
       "name": "Unknown_1427",
       "terminals": [],
-      "python": "# TODO: identify this primitive",
-      "count": 3,
-      "vis": [
-        "Default Directory"
-      ],
-      "terminal_patterns": [
-        {
-          "inputs": 0,
-          "outputs": 1,
-          "input_types": [],
-          "output_types": [
-            null
-          ]
-        }
-      ]
+      "python": "# TODO: identify this primitive"
     },
     "1082": {
       "name": "Unknown_1082",
       "terminals": [],
-      "python": "# TODO: identify this primitive",
-      "count": 3,
-      "vis": [
-        "MD5 FGHI functions"
-      ],
-      "terminal_patterns": [
-        {
-          "inputs": 2,
-          "outputs": 1,
-          "input_types": [
-            null,
-            null
-          ],
-          "output_types": [
-            null
-          ]
-        }
-      ]
+      "python": "# TODO: identify this primitive"
     },
     "8016": {
       "name": "Unknown_8016",
       "terminals": [],
-      "python": "# TODO: identify this primitive",
-      "count": 3,
-      "vis": [
-        "Get Text Label Decs from VI"
-      ],
-      "terminal_patterns": [
-        {
-          "inputs": 3,
-          "outputs": 2,
-          "input_types": [
-            null,
-            null,
-            null
-          ],
-          "output_types": [
-            null,
-            null
-          ]
-        }
-      ]
+      "python": "# TODO: identify this primitive"
     },
     "1421": {
       "name": "Unknown_1421",
       "terminals": [],
-      "python": "# TODO: identify this primitive",
-      "count": 3,
-      "vis": [
-        "Append Path to Root if Relative - Scalar"
-      ],
-      "terminal_patterns": [
-        {
-          "inputs": 1,
-          "outputs": 1,
-          "input_types": [
-            null
-          ],
-          "output_types": [
-            null
-          ]
-        }
-      ]
+      "python": "# TODO: identify this primitive"
     },
     "2401": {
       "name": "Unknown_2401",
       "terminals": [],
-      "python": "# TODO: identify this primitive",
-      "count": 3,
-      "vis": [
-        "Merge Array Sizes"
-      ],
-      "terminal_patterns": [
-        {
-          "inputs": 3,
-          "outputs": 2,
-          "input_types": [
-            null,
-            null,
-            null
-          ],
-          "output_types": [
-            null,
-            null
-          ]
-        }
-      ]
+      "python": "# TODO: identify this primitive"
     },
     "1181": {
       "name": "Unknown_1181",
       "terminals": [],
-      "python": "# TODO: identify this primitive",
-      "count": 3,
-      "vis": [
-        "MD5 Message Digest (Hexadecimal String)"
-      ],
-      "terminal_patterns": [
-        {
-          "inputs": 2,
-          "outputs": 1,
-          "input_types": [
-            null,
-            null
-          ],
-          "output_types": [
-            null
-          ]
-        }
-      ]
+      "python": "# TODO: identify this primitive"
     },
     "1072": {
       "name": "Unknown_1072",
       "terminals": [],
-      "python": "# TODO: identify this primitive",
-      "count": 3,
-      "vis": [
-        "Valid Path - Traditional"
-      ],
-      "terminal_patterns": [
-        {
-          "inputs": 2,
-          "outputs": 1,
-          "input_types": [
-            null,
-            null
-          ],
-          "output_types": [
-            null
-          ]
-        }
-      ]
+      "python": "# TODO: identify this primitive"
     },
     "1127": {
       "name": "Unknown_1127",
       "terminals": [],
-      "python": "# TODO: identify this primitive",
-      "count": 3,
-      "vis": [
-        "Util.Cmprs.LZW.CU.StringsTable"
-      ],
-      "terminal_patterns": [
-        {
-          "inputs": 3,
-          "outputs": 2,
-          "input_types": [
-            null,
-            null,
-            null
-          ],
-          "output_types": [
-            null,
-            null
-          ]
-        }
-      ]
+      "python": "# TODO: identify this primitive"
     },
     "1308": {
       "name": "Unknown_1308",
       "terminals": [],
-      "python": "# TODO: identify this primitive",
-      "count": 3,
-      "vis": [
-        "ISO String To Timestamp"
-      ],
-      "terminal_patterns": [
-        {
-          "inputs": 2,
-          "outputs": 1,
-          "input_types": [
-            null,
-            null
-          ],
-          "output_types": [
-            null
-          ]
-        }
-      ]
+      "python": "# TODO: identify this primitive"
     },
     "1152": {
       "name": "Unknown_1152",
       "terminals": [],
-      "python": "# TODO: identify this primitive",
-      "count": 3,
-      "vis": [
-        "Read Key (Variant)"
-      ],
-      "terminal_patterns": [
-        {
-          "inputs": 1,
-          "outputs": 1,
-          "input_types": [
-            null
-          ],
-          "output_types": [
-            null
-          ]
-        }
-      ]
+      "python": "# TODO: identify this primitive"
     },
     "1074": {
       "name": "Unknown_1074",
       "terminals": [],
-      "python": "# TODO: identify this primitive",
-      "count": 3,
-      "vis": [
-        "MD5 ti"
-      ],
-      "terminal_patterns": [
-        {
-          "inputs": 2,
-          "outputs": 1,
-          "input_types": [
-            null,
-            null
-          ],
-          "output_types": [
-            null
-          ]
-        }
-      ]
+      "python": "# TODO: identify this primitive"
     },
     "1200": {
       "name": "Unknown_1200",
       "terminals": [],
-      "python": "# TODO: identify this primitive",
-      "count": 3,
-      "vis": [
-        "MD5 ti"
-      ],
-      "terminal_patterns": [
-        {
-          "inputs": 1,
-          "outputs": 1,
-          "input_types": [
-            null
-          ],
-          "output_types": [
-            null
-          ]
-        }
-      ]
+      "python": "# TODO: identify this primitive"
     },
     "1701": {
       "name": "Unknown_1701",
       "terminals": [],
-      "python": "# TODO: identify this primitive",
-      "count": 3,
-      "vis": [
-        "Wait (ms)"
-      ],
-      "terminal_patterns": [
-        {
-          "inputs": 2,
-          "outputs": 2,
-          "input_types": [
-            null,
-            null
-          ],
-          "output_types": [
-            null,
-            null
-          ]
-        }
-      ]
+      "python": "# TODO: identify this primitive"
     },
     "1073": {
       "name": "Unknown_1073",
       "terminals": [],
-      "python": "# TODO: identify this primitive",
-      "count": 3,
-      "vis": [
-        "Compare Two Paths - Scalar"
-      ],
-      "terminal_patterns": [
-        {
-          "inputs": 2,
-          "outputs": 1,
-          "input_types": [
-            null,
-            null
-          ],
-          "output_types": [
-            null
-          ]
-        }
-      ]
+      "python": "# TODO: identify this primitive"
     },
     "8062": {
       "name": "Unknown_8062",
       "terminals": [],
-      "python": "# TODO: identify this primitive",
-      "count": 3,
-      "vis": [
-        "Compare File Binary"
-      ],
-      "terminal_patterns": [
-        {
-          "inputs": 2,
-          "outputs": 3,
-          "input_types": [
-            null,
-            null
-          ],
-          "output_types": [
-            null,
-            null,
-            null
-          ]
-        }
-      ]
+      "python": "# TODO: identify this primitive"
     },
     "1327": {
       "name": "Unknown_1327",
       "terminals": [],
-      "python": "# TODO: identify this primitive",
-      "count": 3,
-      "vis": [
-        "Wait Until Next ms Multiple"
-      ],
-      "terminal_patterns": [
-        {
-          "inputs": 1,
-          "outputs": 1,
-          "input_types": [
-            null
-          ],
-          "output_types": [
-            null
-          ]
-        }
-      ]
+      "python": "# TODO: identify this primitive"
     },
     "1435": {
       "name": "Unknown_1435",
       "terminals": [],
-      "python": "# TODO: identify this primitive",
-      "count": 3,
-      "vis": [
-        "Temporary Directory"
-      ],
-      "terminal_patterns": [
-        {
-          "inputs": 0,
-          "outputs": 1,
-          "input_types": [],
-          "output_types": [
-            null
-          ]
-        }
-      ]
+      "python": "# TODO: identify this primitive"
     },
     "1908": {
       "name": "Unknown_1908",
       "terminals": [],
-      "python": "# TODO: identify this primitive",
-      "count": 3,
-      "vis": [
-        "MD5 Padding"
-      ],
-      "terminal_patterns": [
-        {
-          "inputs": 2,
-          "outputs": 2,
-          "input_types": [
-            null,
-            null
-          ],
-          "output_types": [
-            null,
-            null
-          ]
-        }
-      ]
+      "python": "# TODO: identify this primitive"
     },
     "8078": {
       "name": "Unknown_8078",
       "terminals": [],
-      "python": "# TODO: identify this primitive",
-      "count": 3,
-      "vis": [
-        "Write GIF File (Animated)"
-      ],
-      "terminal_patterns": [
-        {
-          "inputs": 4,
-          "outputs": 5,
-          "input_types": [
-            null,
-            null,
-            null,
-            null
-          ],
-          "output_types": [
-            null,
-            null,
-            null,
-            null,
-            null
-          ]
-        }
-      ]
+      "python": "# TODO: identify this primitive"
     },
     "1309": {
       "name": "Unknown_1309",
       "terminals": [],
-      "python": "# TODO: identify this primitive",
-      "count": 3,
-      "vis": [
-        "Parse Timezone"
-      ],
-      "terminal_patterns": [
-        {
-          "inputs": 2,
-          "outputs": 1,
-          "input_types": [
-            null,
-            null
-          ],
-          "output_types": [
-            null
-          ]
-        }
-      ]
+      "python": "# TODO: identify this primitive"
     },
     "8069": {
       "name": "Unknown_8069",
       "terminals": [],
-      "python": "# TODO: identify this primitive",
-      "count": 3,
-      "vis": [
-        "Dictionary Get Instance Semaphore RefNum"
-      ],
-      "terminal_patterns": [
-        {
-          "inputs": 1,
-          "outputs": 5,
-          "input_types": [
-            null
-          ],
-          "output_types": [
-            null,
-            null,
-            null,
-            null,
-            null
-          ]
-        }
-      ]
+      "python": "# TODO: identify this primitive"
     },
     "1119": {
       "name": "Unknown_1119",
       "terminals": [],
-      "python": "# TODO: identify this primitive",
-      "count": 3,
-      "vis": [
-        "Get ClassID Name"
-      ],
-      "terminal_patterns": [
-        {
-          "inputs": 1,
-          "outputs": 1,
-          "input_types": [
-            null
-          ],
-          "output_types": [
-            null
-          ]
-        }
-      ]
+      "python": "# TODO: identify this primitive"
     },
     "1303": {
       "name": "Empty String Constant",
@@ -4690,10 +2035,6 @@
         }
       ],
       "python": "''",
-      "count": 2,
-      "vis": [
-        "VI Tester Menu Launch"
-      ],
       "guess_reason": "No inputs, string output - likely empty string"
     },
     "8080": {
@@ -4728,11 +2069,7 @@
           "direction": "in"
         }
       ],
-      "python": "# TODO: identify this primitive",
-      "count": 1,
-      "vis": [
-        "Build VI Tester Project Provider"
-      ]
+      "python": "# TODO: identify this primitive"
     },
     "8070": {
       "name": "Unknown_8070",
@@ -4770,11 +2107,7 @@
           "direction": "in"
         }
       ],
-      "python": "# TODO: identify this primitive",
-      "count": 1,
-      "vis": [
-        "Build VI Tester Project Provider"
-      ]
+      "python": "# TODO: identify this primitive"
     },
     "23063": {
       "name": "Unknown_23063",
@@ -4788,295 +2121,151 @@
           "direction": "in"
         }
       ],
-      "python": "# TODO: identify this primitive",
-      "count": 1,
-      "vis": [
-        "Get Menu Launch Info__jki_lib_application_control -- VI Tester"
-      ]
+      "python": "# TODO: identify this primitive"
     },
     "2073": {
       "name": "Get Error Info",
-      "python": "error.code, error.source, error.description",
-      "guess_reason": "1in/3out - error cluster parsing",
-      "count": 5,
-      "vis": [
-        "Graphical Test Runner - Main UI - "
-      ],
       "terminals": [],
-      "source": "JKI VI Tester"
+      "python": "error.code, error.source, error.description",
+      "guess_reason": "1in/3out - error cluster parsing"
     },
     "2074": {
       "name": "Set Error Info",
-      "python": "Error(code, source, description)",
-      "guess_reason": "2in/4out - error cluster building",
-      "count": 9,
-      "vis": [
-        "Load and Execute Tests Process__core",
-        "Graphical Test Runner - Main UI - "
-      ],
       "terminals": [],
-      "source": "JKI VI Tester"
+      "python": "Error(code, source, description)",
+      "guess_reason": "2in/4out - error cluster building"
     },
     "2075": {
       "name": "Merge Errors",
-      "python": "error1 or error2",
-      "guess_reason": "2in/1out - combines errors",
-      "count": 4,
-      "vis": [
-        "Graphical Test Runner - Main UI - "
-      ],
       "terminals": [],
-      "source": "JKI VI Tester"
+      "python": "error1 or error2",
+      "guess_reason": "2in/1out - combines errors"
     },
     "2076": {
       "name": "Clear Error",
-      "python": "None  # no error",
-      "guess_reason": "1in/2out - clears error",
-      "count": 1,
-      "vis": [
-        "Graphical Test Runner - Main UI - "
-      ],
       "terminals": [],
-      "source": "JKI VI Tester"
+      "python": "None  # no error",
+      "guess_reason": "1in/2out - clears error"
     },
     "9000": {
       "name": "This VI's Path",
-      "python": "Path(__file__)",
-      "guess_reason": "0in/1out - returns current VI path",
-      "count": 2,
-      "vis": [
-        "Load and Execute Tests Process__core",
-        "Graphical Test Runner - Main UI - "
-      ],
       "terminals": [],
-      "source": "JKI VI Tester"
+      "python": "Path(__file__)",
+      "guess_reason": "0in/1out - returns current VI path"
     },
     "9101": {
       "name": "Open VI Reference",
-      "python": "vi_ref = open_vi(path)",
-      "guess_reason": "2in/5out - opens VI reference",
-      "count": 4,
-      "vis": [
-        "openHookViReference",
-        "openMethodViReference"
-      ],
       "terminals": [],
-      "source": "JKI VI Tester"
+      "python": "vi_ref = open_vi(path)",
+      "guess_reason": "2in/5out - opens VI reference"
     },
     "9102": {
       "name": "Close VI Reference",
-      "python": "vi_ref.close()",
-      "guess_reason": "2in/4out - closes VI reference",
-      "count": 2,
-      "vis": [
-        "closeMethodViReference",
-        "closeHookViReference"
-      ],
       "terminals": [],
-      "source": "JKI VI Tester"
+      "python": "vi_ref.close()",
+      "guess_reason": "2in/4out - closes VI reference"
     },
     "9104": {
       "name": "Close Reference",
-      "python": "ref.close()",
-      "guess_reason": "3in/2out - closes generic reference",
-      "count": 3,
-      "vis": [
-        "closeMethodViReference",
-        "WaitOnTestComplete",
-        "closeHookViReference"
-      ],
       "terminals": [],
-      "source": "JKI VI Tester"
+      "python": "ref.close()",
+      "guess_reason": "3in/2out - closes generic reference"
     },
     "9105": {
       "name": "Call By Reference",
-      "python": "result = vi_ref.call(*args)",
-      "guess_reason": "2in/6out - calls VI by reference",
-      "count": 3,
-      "vis": [
-        "WaitOnTestComplete",
-        "CallTestMethod",
-        "CallTestSuiteMethod"
-      ],
       "terminals": [],
-      "source": "JKI VI Tester"
+      "python": "result = vi_ref.call(*args)",
+      "guess_reason": "2in/6out - calls VI by reference"
     },
     "9108": {
       "name": "Property Node (read)",
-      "python": "value = obj.property",
-      "guess_reason": "1in/7out - reads properties",
-      "count": 5,
-      "vis": [
-        "Framework Test",
-        "Run Tests (Test Object Array)",
-        "Method1",
-        "setUp",
-        "Graphical Test Runner - Main UI - "
-      ],
       "terminals": [],
-      "source": "JKI VI Tester"
+      "python": "value = obj.property",
+      "guess_reason": "1in/7out - reads properties"
     },
     "9109": {
       "name": "Property Node (multi-read)",
-      "python": "values = [obj.prop1, obj.prop2, ...]",
-      "guess_reason": "1in/5out - reads multiple properties",
-      "count": 6,
-      "vis": [
-        "Framework Test",
-        "Run Tests (Test Object Array)",
-        "tearDown",
-        "createTestCaseXMLReport",
-        "Graphical Test Runner - Main UI - "
-      ],
       "terminals": [],
-      "source": "JKI VI Tester"
+      "python": "values = [obj.prop1, obj.prop2, ...]",
+      "guess_reason": "1in/5out - reads multiple properties"
     },
     "9110": {
       "name": "Invoke Node",
-      "python": "result = obj.method(*args)",
-      "guess_reason": "0in/11out - invokes method",
-      "count": 4,
-      "vis": [
-        "test Queue Size is Zero",
-        "Graphical Test Runner - Main UI - "
-      ],
       "terminals": [],
-      "source": "JKI VI Tester"
+      "python": "result = obj.method(*args)",
+      "guess_reason": "0in/11out - invokes method"
     },
     "9111": {
       "name": "Format Into String (VI Server)",
-      "python": "formatted = f'{value}'",
-      "guess_reason": "3in/4out - string formatting for VI Server",
-      "count": 3,
-      "vis": [
-        "streamWrite",
-        "createTestCaseXML",
-        "Method1"
-      ],
       "terminals": [],
-      "source": "JKI VI Tester"
+      "python": "formatted = f'{value}'",
+      "guess_reason": "3in/4out - string formatting for VI Server"
     },
     "9112": {
       "name": "Get LV Class Name",
-      "python": "class_name = obj.__class__.__name__",
-      "guess_reason": "0in/7out - gets class name",
-      "count": 1,
-      "vis": [
-        "Test Load Class"
-      ],
       "terminals": [],
-      "source": "JKI VI Tester"
+      "python": "class_name = obj.__class__.__name__",
+      "guess_reason": "0in/7out - gets class name"
     },
     "9113": {
       "name": "Get LV Class Path",
-      "python": "class_path = obj.__class__.__file__",
-      "guess_reason": "1in/6out - gets class path",
-      "count": 1,
-      "vis": [
-        "Framework Test"
-      ],
       "terminals": [],
-      "source": "JKI VI Tester"
+      "python": "class_path = obj.__class__.__file__",
+      "guess_reason": "1in/6out - gets class path"
     },
     "9114": {
       "name": "To More Specific Class",
-      "python": "specific = cast(obj, SpecificClass)",
-      "guess_reason": "1in/4out - class casting",
-      "count": 2,
-      "vis": [
-        "Graphical Test Runner - Main UI - "
-      ],
       "terminals": [],
-      "source": "JKI VI Tester"
+      "python": "specific = cast(obj, SpecificClass)",
+      "guess_reason": "1in/4out - class casting"
     },
     "1180": {
       "name": "Coerce To Type",
-      "python": "coerced = type(value)",
-      "guess_reason": "1in/2out - type coercion",
-      "count": 3,
-      "vis": [
-        "Results Status Update Process__core"
-      ],
       "terminals": [],
-      "source": "JKI VI Tester"
+      "python": "coerced = type(value)",
+      "guess_reason": "1in/2out - type coercion"
     },
     "8014": {
       "name": "Read From Config File",
-      "python": "config.get(section, key)",
-      "guess_reason": "3in/6out - config file read",
-      "count": 1,
-      "vis": [
-        "Create Test Method"
-      ],
       "terminals": [],
-      "source": "JKI VI Tester"
+      "python": "config.get(section, key)",
+      "guess_reason": "3in/6out - config file read"
     },
     "8017": {
       "name": "Write To Config File",
-      "python": "config.set(section, key, value)",
-      "guess_reason": "2in/1out - config file write",
-      "count": 1,
-      "vis": [
-        "Create"
-      ],
       "terminals": [],
-      "source": "JKI VI Tester"
+      "python": "config.set(section, key, value)",
+      "guess_reason": "2in/1out - config file write"
     },
     "8100": {
       "name": "Get VI Info",
-      "python": "vi.name, vi.path, vi.description",
-      "guess_reason": "2in/2out - gets VI metadata",
-      "count": 2,
-      "vis": [
-        "VI Tester About",
-        "Graphical Test Runner - Main UI - "
-      ],
       "terminals": [],
-      "source": "JKI VI Tester"
+      "python": "vi.name, vi.path, vi.description",
+      "guess_reason": "2in/2out - gets VI metadata"
     },
     "8101": {
       "name": "Get VI Properties",
-      "python": "vi.properties",
-      "guess_reason": "0in/10out - reads VI properties",
-      "count": 1,
-      "vis": [
-        "String to 1D Array__ogtk__JKI_RIGHT_CLICK_BUILD_SUPPORT"
-      ],
       "terminals": [],
-      "source": "JKI VI Tester"
+      "python": "vi.properties",
+      "guess_reason": "0in/10out - reads VI properties"
     },
     "9003": {
       "name": "Set Control Value By Index",
-      "python": "controls[index].value = value",
-      "guess_reason": "5in/4out - sets control value",
-      "count": 1,
-      "vis": [
-        "Graphical Test Runner - Main UI - "
-      ],
       "terminals": [],
-      "source": "JKI VI Tester"
+      "python": "controls[index].value = value",
+      "guess_reason": "5in/4out - sets control value"
     },
     "9004": {
       "name": "Get Control Value By Index",
-      "python": "value = controls[index].value",
-      "guess_reason": "4in/2out - gets control value",
-      "count": 1,
-      "vis": [
-        "Graphical Test Runner - Main UI - "
-      ],
       "terminals": [],
-      "source": "JKI VI Tester"
+      "python": "value = controls[index].value",
+      "guess_reason": "4in/2out - gets control value"
     },
     "9005": {
       "name": "Scripting: Get VI Objects",
-      "python": "objects = vi.get_objects()",
-      "guess_reason": "3in/7out - VI scripting operation",
-      "count": 1,
-      "vis": [
-        "Graphical Test Runner - Main UI - "
-      ],
       "terminals": [],
-      "source": "JKI VI Tester"
+      "python": "objects = vi.get_objects()",
+      "guess_reason": "3in/7out - VI scripting operation"
     }
   }
 }
