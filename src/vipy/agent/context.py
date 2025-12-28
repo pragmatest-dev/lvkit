@@ -42,6 +42,9 @@ class ContextBuilder:
 {vi_context_json}
 ```
 
+## Key Constants - IMPORTANT
+{key_constants}
+
 ## Available Imports
 {available_imports}
 
@@ -55,7 +58,7 @@ class ContextBuilder:
 - MUST include type annotations on ALL parameters and return type
 - Use `inputs` as function parameters, `outputs` as return values
 - Use `data_flow` to understand execution order and wire connections (source → destination)
-- Constants have actual values in "value" or "python" fields - use them directly
+- Use the Key Constants section above - it shows the Python equivalent for each constant
 
 ## Primitives
 Operations with "Primitive" label have been resolved:
@@ -232,12 +235,18 @@ def create() -> {class_name}UI:
         # Format enum context
         enum_section = ContextBuilder._format_enum_context(enum_context)
 
+        # Format key constants prominently
+        key_constants = ContextBuilder._format_key_constants(
+            vi_context.get("constants", [])
+        )
+
         return ContextBuilder.FUNCTION_TEMPLATE.format(
             function_name=function_name,
             vi_context_json=json.dumps(cleaned, indent=2),
             available_imports=available_imports,
             shared_types=types_section,
             enum_context=enum_section,
+            key_constants=key_constants,
         )
 
     @staticmethod
@@ -704,6 +713,63 @@ Output ONLY the corrected Python code, no explanations."""
                 lines.append(f"    {field_name}: {field_type}")
             lines.append("")
         lines.append("```")
+        return "\n".join(lines)
+
+    @staticmethod
+    def _format_key_constants(constants: list[dict]) -> str:
+        """Format key constants with their Python equivalents prominently.
+
+        This extracts constants that have python hints or meaningful values
+        and presents them in a way that's easy for the LLM to use.
+
+        Args:
+            constants: List of constant dicts from vi_context
+
+        Returns:
+            Formatted string highlighting key constants
+        """
+        if not constants:
+            return "No constants in this VI."
+
+        lines = []
+        has_hints = False
+
+        for const in constants:
+            value = const.get("value", "")
+            python_hint = const.get("python")
+            const_type = const.get("type", "")
+
+            if python_hint:
+                # This constant has a Python equivalent - highlight it!
+                has_hints = True
+                lines.append(f"- **{value}**")
+                lines.append(f"  Python: `{python_hint}`")
+                if const_type:
+                    lines.append(f"  Type: {const_type}")
+            elif value:
+                # Regular constant - show value
+                # Try to interpret enum-like values (e.g., "Public Application Data (type 7)")
+                if "type" in value.lower() and any(c.isdigit() for c in value):
+                    # Looks like a LabVIEW enum/ring value - extract the number
+                    import re
+                    match = re.search(r'\(type\s*(\d+)\)', value, re.IGNORECASE)
+                    if match:
+                        type_num = match.group(1)
+                        lines.append(f"- **{value}** → use value `{type_num}` when calling functions")
+                        has_hints = True
+                        continue
+                # Show as-is
+                type_info = f" ({const_type})" if const_type else ""
+                lines.append(f"- `{value}`{type_info}")
+
+        if not lines:
+            return "No constants with special handling needed."
+
+        if has_hints:
+            lines.insert(0, "These constants have Python equivalents - USE THEM:")
+        else:
+            lines.insert(0, "Constants used in this VI:")
+
         return "\n".join(lines)
 
     @staticmethod
