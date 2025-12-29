@@ -17,6 +17,7 @@ class ConvertedModule:
     exports: list[str]  # Function/class names exported
     signature: str  # Primary function/class signature
     imports: list[str]  # Required import statements
+    library_name: str | None = None  # Library this module belongs to (None for root)
 
 
 class ConversionState:
@@ -30,10 +31,15 @@ class ConversionState:
         self._converted: dict[str, ConvertedModule] = {}
         self._failed: set[str] = set()
 
-    def mark_converted(self, name: str, output_path: Path) -> None:
+    def mark_converted(self, name: str, output_path: Path, library_name: str | None = None) -> None:
         """Mark a VI as successfully converted.
 
         Parses the generated file to extract signature and exports.
+
+        Args:
+            name: Qualified VI name
+            output_path: Path to the generated module
+            library_name: Library this VI belongs to (None for root-level)
         """
         code = output_path.read_text()
         exports = self._extract_exports(code)
@@ -47,6 +53,7 @@ class ConversionState:
             exports=exports,
             signature=signature,
             imports=imports,
+            library_name=library_name,
         )
 
     def mark_failed(self, name: str) -> None:
@@ -70,26 +77,48 @@ class ConversionState:
         module = self._converted.get(name)
         return module.signature if module else ""
 
-    def get_import_statement(self, name: str, from_module: str | None = None) -> str:
+    def get_import_statement(
+        self,
+        name: str,
+        from_library: str | None = None,
+    ) -> str:
         """Get import statement for a converted VI.
 
         Args:
-            name: Name of the converted VI
-            from_module: Module requesting the import (for relative imports)
+            name: Name of the converted VI to import
+            from_library: Library of the module doing the import (None for root)
 
         Returns:
-            Import statement like 'from .module import function'
+            Import statement with proper relative path
         """
         module = self._converted.get(name)
         if not module:
             return ""
 
-        # Build relative import
-        if module.exports:
-            primary_export = module.exports[0]
-            return f"from .{module.module_name} import {primary_export}"
+        target_lib = module.library_name
+        primary_export = module.exports[0] if module.exports else None
 
-        return f"from . import {module.module_name}"
+        # Build relative import based on library locations
+        if from_library == target_lib:
+            # Same library: from .module import func
+            if primary_export:
+                return f"from .{module.module_name} import {primary_export}"
+            return f"from . import {module.module_name}"
+        elif from_library is None and target_lib is not None:
+            # Root importing from library: from .library.module import func
+            if primary_export:
+                return f"from .{target_lib}.{module.module_name} import {primary_export}"
+            return f"from .{target_lib} import {module.module_name}"
+        elif from_library is not None and target_lib is None:
+            # Library importing from root: from ..module import func
+            if primary_export:
+                return f"from ..{module.module_name} import {primary_export}"
+            return f"from .. import {module.module_name}"
+        else:
+            # Different libraries: from ..other_lib.module import func
+            if primary_export:
+                return f"from ..{target_lib}.{module.module_name} import {primary_export}"
+            return f"from ..{target_lib} import {module.module_name}"
 
     def get_all_converted(self) -> list[ConvertedModule]:
         """Get all successfully converted modules."""

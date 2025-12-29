@@ -117,3 +117,20 @@ class ConversionStrategy(ABC):
             for op in vi_context.get("operations", [])
             if "SubVI" in op.get("labels", []) and op.get("name")
         ]
+
+    def _get_library_name(self, vi_name: str) -> str | None:
+        """Extract library name from qualified VI name.
+
+        Args:
+            vi_name: Qualified name like "Library.lvlib:SubVI.vi" or just "SubVI.vi"
+
+        Returns:
+            Library name (lowercase, underscored) or None if not in a library
+        """
+        if ":" not in vi_name:
+            return None
+        library = vi_name.split(":", 1)[0]
+        library = library.replace(".lvlib", "").replace(".lvclass", "")
+        result = library.lower().replace(" ", "_").replace("-", "_")
+        result = "".join(c for c in result if c.isalnum() or c == "_")
+        return result or None

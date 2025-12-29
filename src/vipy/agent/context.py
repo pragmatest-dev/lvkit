@@ -110,21 +110,23 @@ Visibility: {visibility}
 
 Output ONLY the Python method code (with proper indentation), no explanations.'''
 
-    # UI wrapper template - consistent NiceGUI pattern for each VI
+    # UI wrapper template - responsive layout: inputs left, outputs right on desktop
     UI_WRAPPER_TEMPLATE = '''"""NiceGUI wrapper for {vi_name}."""
+
+from pathlib import Path
 
 from nicegui import ui
 
-from .{module_name} import {function_name}
+from {module_name} import {function_name}
 
 
 class {class_name}UI:
     """UI wrapper for {vi_name}.
 
     Provides NiceGUI interface with:
-    - Input widgets for each control
-    - Execute button
-    - Output display for indicators
+    - Run button at top with title
+    - Input widgets on left (top on mobile)
+    - Output display on right (bottom on mobile)
     """
 
     def __init__(self) -> None:
@@ -136,19 +138,22 @@ class {class_name}UI:
 
     def build(self) -> None:
         """Build the UI components."""
-        with ui.card().classes("p-4"):
-            ui.label("{vi_name}").classes("text-lg font-bold")
+        with ui.card().classes("p-4 w-full max-w-4xl"):
+            # Header with title and run button
+            with ui.row().classes("w-full items-center gap-4 mb-4"):
+                ui.button("Run", on_click=self._execute)
+                ui.label("{vi_name}").classes("text-lg font-bold")
 
-            # Inputs
-            with ui.column().classes("gap-2"):
+            # Responsive row: horizontal on md+, vertical on mobile
+            with ui.element("div").classes("flex flex-col md:flex-row gap-4 w-full"):
+                # Inputs panel (left side)
+                with ui.column().classes("flex-1 gap-2"):
+                    ui.label("Inputs").classes("font-medium text-gray-600")
 {input_widgets}
 
-            # Execute button
-            ui.button("Run", on_click=self._execute).classes("mt-4")
-
-            # Outputs
-            with ui.column().classes("gap-2 mt-4"):
-                ui.label("Results").classes("font-medium")
+                # Outputs panel (right side)
+                with ui.column().classes("flex-1 gap-2"):
+                    ui.label("Outputs").classes("font-medium text-gray-600")
 {output_widgets}
 
     async def _execute(self) -> None:
@@ -177,6 +182,7 @@ def create() -> {class_name}UI:
         primitive_mappings: dict[int, str] | None = None,
         primitive_context: dict[int, dict] | None = None,
         enum_context: dict[str, dict] | None = None,
+        from_library: str | None = None,
     ) -> str:
         """Build context for converting a standalone VI.
 
@@ -192,6 +198,7 @@ def create() -> {class_name}UI:
             primitive_mappings: Mapping of primResID -> generated function name
             primitive_context: Rich primitive context with Python hints and terminals
             enum_context: Rich enum context with values and Python hints
+            from_library: Library the VI belongs to (for relative imports)
 
         Returns:
             Complete prompt for LLM
@@ -204,20 +211,22 @@ def create() -> {class_name}UI:
         # Build available imports section
         import_lines = []
 
-        # Add SubVI imports
+        # Add SubVI imports (already library-relative from converted_deps)
         for sig in converted_deps.values():
             import_lines.append(f"# {sig.signature}")
             import_lines.append(sig.import_statement)
 
-        # Add primitive imports
+        # Add primitive imports (relative depth depends on library)
         if primitives_available:
             prims = ", ".join(primitives_available)
-            import_lines.append(f"from .primitives import {prims}")
+            prefix = ".." if from_library else "."
+            import_lines.append(f"from {prefix}primitives import {prims}")
 
-        # Add type imports
+        # Add type imports (relative depth depends on library)
         if shared_types:
             type_names = ", ".join(t.name for t in shared_types)
-            import_lines.append(f"from .types import {type_names}")
+            prefix = ".." if from_library else "."
+            import_lines.append(f"from {prefix}types import {type_names}")
 
         # Always add common imports (harmless if unused)
         import_lines.append("from pathlib import Path  # Use for file paths")
@@ -545,7 +554,7 @@ def create() -> {class_name}UI:
 
         if shared_types:
             type_names = ", ".join(t.name for t in shared_types)
-            import_lines.append(f"from .types import {type_names}")
+            import_lines.append(f"from types import {type_names}")
 
         available_imports = "\n".join(import_lines) if import_lines else "# No special imports"
 
@@ -617,9 +626,11 @@ Output ONLY the corrected Python code, no explanations."""
     @staticmethod
     def build_ui_wrapper(
         vi_name: str,
+        module_name: str,
         function_name: str,
         inputs: list[tuple[str, str]],  # [(name, type), ...]
         outputs: list[tuple[str, str]],
+        enums: dict[str, list[tuple[int, str]]] | None = None,
     ) -> str:
         """Generate NiceGUI wrapper for a VI.
 
@@ -630,14 +641,16 @@ Output ONLY the corrected Python code, no explanations."""
 
         Args:
             vi_name: Original VI name
+            module_name: Python module name (for imports)
             function_name: Python function name
             inputs: List of (name, type) tuples
             outputs: List of (name, type) tuples
+            enums: Dict mapping param name to list of (value, label) for dropdowns
 
         Returns:
             Complete UI wrapper Python code
         """
-        module_name = ContextBuilder._to_function_name(vi_name)
+        enums = enums or {}
         class_name = ContextBuilder._to_class_name(vi_name)
 
         # Generate input attributes
@@ -654,19 +667,21 @@ Output ONLY the corrected Python code, no explanations."""
             default = ContextBuilder._get_default(typ)
             output_attrs.append(f"        self.{py_name} = {default}")
 
-        # Generate input widgets
+        # Generate input widgets (5 levels of indentation: class > def > with card > with div > with column)
         input_widgets = []
         for name, typ in inputs:
             py_name = ContextBuilder._to_var_name(name)
-            widget = ContextBuilder._get_input_widget(name, typ, py_name)
-            input_widgets.append(f"                {widget}")
+            # Check if this parameter has enum options
+            enum_options = enums.get(name)
+            widget = ContextBuilder._get_input_widget(name, typ, py_name, enum_options)
+            input_widgets.append(f"                    {widget}")
 
-        # Generate output widgets
+        # Generate output widgets (5 levels of indentation)
         output_widgets = []
         for name, typ in outputs:
             py_name = ContextBuilder._to_var_name(name)
             widget = ContextBuilder._get_output_widget(name, typ, py_name)
-            output_widgets.append(f"                {widget}")
+            output_widgets.append(f"                    {widget}")
 
         # Generate function call
         args = ", ".join(f"self.{ContextBuilder._to_var_name(n)}" for n, _ in inputs)
@@ -840,8 +855,22 @@ Output ONLY the corrected Python code, no explanations."""
     def _to_class_name(name: str) -> str:
         """Convert VI name to Python class name (PascalCase)."""
         name = name.replace(".vi", "").replace(".VI", "")
-        words = name.replace("-", " ").replace("_", " ").split()
-        return "".join(word.capitalize() for word in words) or "VIClass"
+        # Remove lvlib prefix (e.g., "MyLib.lvlib:Function Name" -> "Function Name")
+        if ":" in name:
+            name = name.split(":")[-1]
+        # Remove .lvlib suffix
+        name = name.replace(".lvlib", "")
+        # Replace special characters with spaces for word splitting
+        for char in "-_.:":
+            name = name.replace(char, " ")
+        words = name.split()
+        # Filter out non-alphanumeric characters from each word
+        clean_words = []
+        for word in words:
+            clean = "".join(c for c in word if c.isalnum())
+            if clean:
+                clean_words.append(clean)
+        return "".join(word.capitalize() for word in clean_words) or "VIClass"
 
     @staticmethod
     def _to_var_name(name: str) -> str:
@@ -871,8 +900,25 @@ Output ONLY the corrected Python code, no explanations."""
         return "None"
 
     @staticmethod
-    def _get_input_widget(label: str, type_str: str, var_name: str) -> str:
-        """Get NiceGUI input widget for a type."""
+    def _get_input_widget(
+        label: str,
+        type_str: str,
+        var_name: str,
+        enum_options: list[tuple[int, str]] | None = None,
+    ) -> str:
+        """Get NiceGUI input widget for a type.
+
+        Args:
+            label: Display label for the widget
+            type_str: Python type string
+            var_name: Variable name for binding
+            enum_options: Optional list of (value, label) tuples for dropdown
+        """
+        # If enum options provided, use a select dropdown
+        if enum_options:
+            options_dict = {v: f"{v}: {lbl}" for v, lbl in enum_options}
+            return f"ui.select({options_dict}, label='{label}').bind_value(self, '{var_name}')"
+
         type_lower = type_str.lower()
         if "bool" in type_lower:
             return f"ui.switch('{label}').bind_value(self, '{var_name}')"

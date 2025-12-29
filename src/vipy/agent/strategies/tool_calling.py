@@ -62,7 +62,8 @@ class ToolCallingStrategy(ConversionStrategy):
             output_dir=self.output_dir,
         )
 
-        # Build initial context with tool descriptions
+        # Build initial context with tool descriptions (library-aware imports)
+        from_library = self._get_library_name(vi_name)
         base_context = ContextBuilder.build_vi_context(
             vi_context=vi_context,
             vi_name=vi_name,
@@ -70,6 +71,7 @@ class ToolCallingStrategy(ConversionStrategy):
             shared_types=[],
             primitives_available=primitive_names,
             primitive_context=primitive_context,
+            from_library=from_library,
         )
 
         tools_prompt = format_tools_for_prompt(tools)

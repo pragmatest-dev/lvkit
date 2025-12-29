@@ -36,7 +36,8 @@ class BaselineStrategy(ConversionStrategy):
         """Generate code with retry on validation errors."""
         start_time = time.time()
 
-        # Build initial context
+        # Build initial context (with library-aware imports)
+        from_library = self._get_library_name(vi_name)
         context = ContextBuilder.build_vi_context(
             vi_context=vi_context,
             vi_name=vi_name,
@@ -44,6 +45,7 @@ class BaselineStrategy(ConversionStrategy):
             shared_types=[],
             primitives_available=primitive_names,
             primitive_context=primitive_context,
+            from_library=from_library,
         )
 
         expected_subvis = self._get_expected_subvis(vi_context)

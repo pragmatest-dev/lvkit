@@ -38,7 +38,8 @@ class RichFeedbackStrategy(ConversionStrategy):
         """Generate code with rich error context."""
         start_time = time.time()
 
-        # Build initial context
+        # Build initial context (with library-aware imports)
+        from_library = self._get_library_name(vi_name)
         context = ContextBuilder.build_vi_context(
             vi_context=vi_context,
             vi_name=vi_name,
@@ -46,6 +47,7 @@ class RichFeedbackStrategy(ConversionStrategy):
             shared_types=[],
             primitives_available=primitive_names,
             primitive_context=primitive_context,
+            from_library=from_library,
         )
 
         expected_subvis = self._get_expected_subvis(vi_context)
@@ -135,7 +137,7 @@ The function `{name}` is defined in this already-converted SubVI:
 {subvi_code}
 ```
 
-Make sure to import it: `from .{dep_info.module_name} import {name}`
+Make sure to import it: `from {dep_info.module_name} import {name}`
 """)
                         break
 
@@ -145,7 +147,7 @@ Make sure to import it: `from .{dep_info.module_name} import {name}`
 ## Primitive: {name}
 
 The function `{name}` is available from primitives.
-Import it: `from .primitives import {name}`
+Import it: `from primitives import {name}`
 """)
 
             # Look for import errors
@@ -156,8 +158,8 @@ Import it: `from .primitives import {name}`
 Standard imports available:
 - `from pathlib import Path`
 - `from typing import Any`
-- `from .primitives import <function_name>`
-- `from .<subvi_module> import <function_name>`
+- `from primitives import <function_name>`
+- `from <subvi_module> import <function_name>`
 """)
 
         # Build final context

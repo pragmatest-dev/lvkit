@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import ast
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -125,7 +126,8 @@ class ConversionAgent:
             results.append(result)
 
             if result.success:
-                self.state.mark_converted(vi_name, result.output_path)
+                library_name = self._to_library_name(vi_name)
+                self.state.mark_converted(vi_name, result.output_path, library_name)
                 print(f"  ✓ Success ({result.attempts} attempt(s))")
             else:
                 self.state.mark_failed(vi_name)
@@ -135,6 +137,11 @@ class ConversionAgent:
 
         # Generate package __init__.py
         self._generate_package_init(results)
+
+        # Generate UI package __init__.py if UI generation is enabled
+        if self.config.generate_ui:
+            self._generate_ui_package_init(results)
+            self._generate_ui_app(results)
 
         # Print summary
         progress = get_progress(self.state, len(order))
@@ -163,8 +170,8 @@ class ConversionAgent:
         inputs = self._extract_io(vi_context.get("inputs", []))
         outputs = self._extract_io(vi_context.get("outputs", []))
 
-        # Get converted SubVI signatures
-        subvi_sigs = self._get_subvi_signatures(vi_context)
+        # Get converted SubVI signatures (with library-relative imports)
+        subvi_sigs = self._get_subvi_signatures(vi_context, vi_name)
 
         # Get relevant types, primitives, and enums
         types = self.type_registry.get_types_for_vi(vi_name)
@@ -209,8 +216,11 @@ class ConversionAgent:
 
             # Optionally generate UI wrapper
             ui_path = None
-            if self.config.generate_ui and inputs:
-                ui_path = self._generate_ui_wrapper(vi_name, inputs, outputs)
+            if self.config.generate_ui:
+                # Extract function signature from generated code
+                func_name, func_inputs, func_outputs, func_enums = self._extract_function_signature(result.code)
+                if func_name is not None:  # Valid function found
+                    ui_path = self._generate_ui_wrapper(vi_name, func_name, func_inputs, func_outputs, func_enums)
 
             return ConversionResult(
                 vi_name=vi_name,
@@ -260,6 +270,14 @@ class ConversionAgent:
         if self.vilib_resolver.has_implementation(vi_name):
             code = self.vilib_resolver.get_implementation(vi_name)
             output_path = self._write_vi_module(vi_name, code)
+
+            # Generate UI wrapper if enabled
+            ui_path = None
+            if self.config.generate_ui:
+                func_name, func_inputs, func_outputs, func_enums = self._extract_function_signature(code)
+                if func_name is not None:
+                    ui_path = self._generate_ui_wrapper(vi_name, func_name, func_inputs, func_outputs, func_enums)
+
             return ConversionResult(
                 vi_name=vi_name,
                 python_code=code,
@@ -268,6 +286,7 @@ class ConversionAgent:
                 errors=[],
                 attempts=1,
                 is_stub=False,  # Not a stub - real implementation
+                ui_path=ui_path,
             )
 
         stub_info = self.graph.get_stub_vi_info(vi_name)
@@ -325,6 +344,13 @@ def {func_name}({params_str}) -> {return_type}:
         # Write to file
         output_path = self._write_vi_module(vi_name, code)
 
+        # Generate UI wrapper if enabled
+        ui_path = None
+        if self.config.generate_ui:
+            func_name_parsed, func_inputs, func_outputs, func_enums = self._extract_function_signature(code)
+            if func_name_parsed is not None:
+                ui_path = self._generate_ui_wrapper(vi_name, func_name_parsed, func_inputs, func_outputs, func_enums)
+
         return ConversionResult(
             vi_name=vi_name,
             python_code=code,
@@ -333,6 +359,7 @@ def {func_name}({params_str}) -> {return_type}:
             errors=[],
             attempts=1,
             is_stub=True,
+            ui_path=ui_path,
         )
 
     def _type_to_param_name(self, lv_type: str) -> str:
@@ -404,7 +431,7 @@ def {func_name}({params_str}) -> {return_type}:
         types = self.type_registry.get_types_for_vi(lvclass.name)
         if types:
             type_names = ", ".join(t.name for t in types)
-            lines.append(f"from .types import {type_names}")
+            lines.append(f"from types import {type_names}")
             lines.append("")
 
         # Generate class definition
@@ -525,9 +552,16 @@ def {func_name}({params_str}) -> {return_type}:
     def _get_subvi_signatures(
         self,
         vi_context: dict,
+        from_vi_name: str,
     ) -> dict[str, VISignature]:
-        """Get signatures for already-converted SubVIs."""
+        """Get signatures for already-converted SubVIs.
+
+        Args:
+            vi_context: VI context dict with subvi_calls
+            from_vi_name: Name of the VI doing the importing (for relative imports)
+        """
         signatures = {}
+        from_library = self._to_library_name(from_vi_name)
 
         for subvi in vi_context.get("subvi_calls", []):
             # subvi_calls uses "vi_name" key (the target VI name)
@@ -540,7 +574,9 @@ def {func_name}({params_str}) -> {return_type}:
                         module_name=module.module_name,
                         function_name=module.exports[0] if module.exports else "",
                         signature=module.signature,
-                        import_statement=self.state.get_import_statement(subvi_name),
+                        import_statement=self.state.get_import_statement(
+                            subvi_name, from_library=from_library
+                        ),
                     )
 
         return signatures
@@ -555,36 +591,193 @@ def {func_name}({params_str}) -> {return_type}:
         return {}
 
     def _write_vi_module(self, vi_name: str, code: str) -> Path:
-        """Write VI code to a module file."""
-        module_name = self._to_module_name(vi_name)
-        output_path = self.config.output_dir / f"{module_name}.py"
+        """Write VI code to a module file in the appropriate library folder."""
+        output_path, library_name = self._get_module_path(vi_name)
+
+        # Ensure library __init__.py exists
+        if library_name:
+            init_path = output_path.parent / "__init__.py"
+            if not init_path.exists():
+                init_path.write_text(f'"""Package for {library_name} library."""\n')
+
         output_path.write_text(code)
         return output_path
 
     def _generate_ui_wrapper(
         self,
         vi_name: str,
+        function_name: str,
         inputs: list[tuple[str, str]],
         outputs: list[tuple[str, str]],
+        enums: dict[str, list[tuple[int, str]]] | None = None,
     ) -> Path:
-        """Generate NiceGUI wrapper for a VI."""
-        function_name = self._to_function_name(vi_name)
+        """Generate NiceGUI wrapper for a VI in the appropriate library folder."""
+        module_name = self._to_module_name(vi_name)
+        library_name = self._to_library_name(vi_name)
         ui_code = ContextBuilder.build_ui_wrapper(
             vi_name=vi_name,
+            module_name=module_name,
             function_name=function_name,
             inputs=inputs,
             outputs=outputs,
+            enums=enums or {},
         )
 
-        # Ensure ui/ directory exists
-        ui_dir = self.config.output_dir / "ui"
-        ui_dir.mkdir(parents=True, exist_ok=True)
+        # Write UI file next to the module in the same library folder
+        if library_name:
+            lib_dir = self.config.output_dir / library_name
+            lib_dir.mkdir(parents=True, exist_ok=True)
+            ui_path = lib_dir / f"{module_name}_ui.py"
+        else:
+            ui_path = self.config.output_dir / f"{module_name}_ui.py"
 
-        module_name = self._to_module_name(vi_name)
-        ui_path = ui_dir / f"{module_name}_ui.py"
         ui_path.write_text(ui_code)
-
         return ui_path
+
+    def _extract_function_signature(
+        self,
+        code: str,
+    ) -> tuple[str | None, list[tuple[str, str]], list[tuple[str, str]], dict[str, list[tuple[int, str]]]]:
+        """Extract function signature from generated Python code.
+
+        Parses the AST to find the main function and extract its
+        name, parameters, return type, and any enum-like dict mappings.
+
+        Args:
+            code: Generated Python code
+
+        Returns:
+            Tuple of (function_name, inputs, outputs, enums) where:
+            - function_name: Name of the function, or None if parsing failed
+            - inputs: List of (name, type) for parameters
+            - outputs: List of (name, type) for return values
+            - enums: Dict mapping param name to list of (value, label) tuples
+        """
+        try:
+            tree = ast.parse(code)
+        except SyntaxError:
+            return None, [], [], {}
+
+        # Find the first function definition (the main VI function)
+        for node in ast.walk(tree):
+            if isinstance(node, ast.FunctionDef):
+                func_name = node.name
+                inputs = self._extract_params(node)
+                outputs = self._extract_returns(node)
+                enums = self._extract_enums(node, inputs)
+                return func_name, inputs, outputs, enums
+
+        return None, [], [], {}
+
+    def _extract_enums(
+        self,
+        func: ast.FunctionDef,
+        params: list[tuple[str, str]],
+    ) -> dict[str, list[tuple[int, str]]]:
+        """Extract enum-like dict mappings from function body.
+
+        Looks for dict literals with integer keys that might represent
+        enum values for function parameters.
+
+        Args:
+            func: Function AST node
+            params: List of (name, type) for parameters
+
+        Returns:
+            Dict mapping parameter name to list of (value, label) tuples
+        """
+        enums: dict[str, list[tuple[int, str]]] = {}
+
+        # Get parameter names that are int type (potential enums)
+        int_params = {name for name, typ in params if typ in ("int", "int32", "integer")}
+        if not int_params:
+            return enums
+
+        # Walk the function body looking for dict literals with int keys
+        for node in ast.walk(func):
+            if isinstance(node, ast.Dict):
+                # Check if all keys are integer constants
+                if not node.keys or not all(isinstance(k, ast.Constant) and isinstance(k.value, int) for k in node.keys if k is not None):
+                    continue
+
+                # Extract key-value pairs
+                options: list[tuple[int, str]] = []
+                for key, value in zip(node.keys, node.values):
+                    if key is None:
+                        continue
+                    int_key = key.value  # type: ignore
+                    # Try to get a meaningful label from the value
+                    label = self._value_to_label(value, int_key)
+                    options.append((int_key, label))
+
+                if options:
+                    # Sort by key value
+                    options.sort(key=lambda x: x[0])
+                    # Try to match this dict to a parameter
+                    # For now, assign to the first int param we find
+                    for param in int_params:
+                        if param not in enums:
+                            enums[param] = options
+                            break
+
+        return enums
+
+    def _value_to_label(self, node: ast.expr, key: int) -> str:
+        """Convert an AST value node to a human-readable label."""
+        if isinstance(node, ast.Constant):
+            return str(node.value)
+        elif isinstance(node, ast.Call):
+            # e.g., Path.home() -> "Home"
+            if isinstance(node.func, ast.Attribute):
+                return node.func.attr.replace("_", " ").title()
+            elif isinstance(node.func, ast.Name):
+                return node.func.id.replace("_", " ").title()
+        elif isinstance(node, ast.BinOp):
+            # e.g., Path.home() / 'Desktop' -> extract string part
+            if isinstance(node.right, ast.Constant):
+                return str(node.right.value)
+        elif isinstance(node, ast.Subscript):
+            # e.g., paths[0] -> use key
+            pass
+        # Fallback to key number
+        return f"Option {key}"
+
+    def _extract_params(self, func: ast.FunctionDef) -> list[tuple[str, str]]:
+        """Extract parameter names and types from function definition."""
+        params = []
+        for arg in func.args.args:
+            name = arg.arg
+            if arg.annotation:
+                type_str = ast.unparse(arg.annotation)
+            else:
+                type_str = "Any"
+            params.append((name, type_str))
+        return params
+
+    def _extract_returns(self, func: ast.FunctionDef) -> list[tuple[str, str]]:
+        """Extract return type from function definition.
+
+        For tuple returns, creates multiple output entries.
+        """
+        if not func.returns:
+            return []
+
+        return_annotation = ast.unparse(func.returns)
+
+        # Check for tuple return (multiple outputs)
+        if return_annotation.startswith("tuple["):
+            # Parse tuple elements
+            # tuple[int, str, Path] -> [("result_0", "int"), ("result_1", "str"), ...]
+            inner = return_annotation[6:-1]  # Remove "tuple[" and "]"
+            # Simple split - handles basic cases
+            types = [t.strip() for t in inner.split(",")]
+            return [(f"result_{i}", t) for i, t in enumerate(types)]
+
+        if return_annotation == "None":
+            return []
+
+        # Single return value
+        return [("result", return_annotation)]
 
     def _generate_package_init(self, results: list[ConversionResult]) -> None:
         """Generate the main package __init__.py."""
@@ -595,17 +788,22 @@ def {func_name}({params_str}) -> {return_type}:
             "",
         ]
 
-        # Import successful conversions
+        # Import successful conversions - use relative imports with library paths
         exports = []
         for result in results:
             if result.success and result.output_path:
                 module = result.output_path.stem
 
-                # Get exported names from state
+                # Get exported names and library from state
                 converted = self.state.get_module(result.vi_name)
                 if converted and converted.exports:
+                    library = converted.library_name
                     for export in converted.exports:
-                        lines.append(f"from .{module} import {export}")
+                        # Use library path if applicable
+                        if library:
+                            lines.append(f"from .{library}.{module} import {export}")
+                        else:
+                            lines.append(f"from .{module} import {export}")
                         exports.append(export)
 
         lines.append("")
@@ -613,6 +811,103 @@ def {func_name}({params_str}) -> {return_type}:
 
         init_path = self.config.output_dir / "__init__.py"
         init_path.write_text("\n".join(lines))
+
+    def _generate_ui_package_init(self, results: list[ConversionResult]) -> None:
+        """Generate exports for UI wrappers in main __init__.py.
+
+        Since UI files are now next to modules, we don't need a separate ui/ package.
+        This is kept for backwards compatibility but could be removed.
+        """
+        # UI files are now in the main package, no separate ui/ init needed
+        pass
+
+    def _generate_ui_app(self, results: list[ConversionResult]) -> None:
+        """Generate app.py entry point for running the UI."""
+        ui_results = [r for r in results if r.success and r.ui_path]
+        if not ui_results:
+            return
+
+        lines = [
+            '"""Auto-generated NiceGUI app for converted VIs.',
+            '',
+            'Run with: python app.py',
+            '"""',
+            'import sys',
+            'from pathlib import Path',
+            '',
+            '# Add package to path for imports',
+            'sys.path.insert(0, str(Path(__file__).parent))',
+            '',
+            'from nicegui import ui',
+            '',
+        ]
+
+        # Import VI functions - use library-aware paths
+        ui_classes = []
+        for result in ui_results:
+            module_name = self._to_module_name(result.vi_name)
+            library_name = self._to_library_name(result.vi_name)
+            class_name = ContextBuilder._to_class_name(result.vi_name) + "UI"
+            func_name, _, _, _ = self._extract_function_signature(result.python_code)
+            if func_name:
+                # Use library path if applicable
+                if library_name:
+                    lines.append(f"from {library_name}.{module_name} import {func_name}")
+                else:
+                    lines.append(f"from {module_name} import {func_name}")
+            ui_classes.append((result.vi_name, class_name, module_name, library_name))
+
+        lines.append("")
+
+        # Generate inline UI classes
+        lines.append("# UI Classes")
+        for vi_name, class_name, module_name, library_name in ui_classes:
+            # Look for UI file in library folder if applicable
+            if library_name:
+                ui_path = self.config.output_dir / library_name / f"{module_name}_ui.py"
+            else:
+                ui_path = self.config.output_dir / f"{module_name}_ui.py"
+            if ui_path.exists():
+                ui_code = ui_path.read_text()
+                class_start = ui_code.find(f"class {class_name}:")
+                if class_start != -1:
+                    class_end = ui_code.find("\ndef create()", class_start)
+                    if class_end == -1:
+                        class_end = len(ui_code)
+                    class_code = ui_code[class_start:class_end].rstrip()
+                    lines.append("")
+                    lines.append(class_code)
+
+        # Generate main app with tabs
+        lines.extend([
+            "",
+            "",
+            "# Create tabbed interface",
+            "with ui.tabs().classes('w-full') as tabs:",
+        ])
+
+        for vi_name, class_name, _, _ in ui_classes:
+            tab_label = vi_name.replace(".vi", "").split(":")[-1]
+            lines.append(f"    ui.tab('{tab_label}')")
+
+        lines.extend([
+            "",
+            "with ui.tab_panels(tabs, value=tabs._props['model-value']).classes('w-full'):",
+        ])
+
+        for vi_name, class_name, _, _ in ui_classes:
+            tab_label = vi_name.replace(".vi", "").split(":")[-1]
+            lines.append(f"    with ui.tab_panel('{tab_label}'):")
+            lines.append(f"        {class_name}().build()")
+
+        lines.extend([
+            "",
+            "ui.run(port=8080, title='LabVIEW Conversion UI')",
+        ])
+
+        app_path = self.config.output_dir / "app.py"
+        app_path.write_text("\n".join(lines))
+        print(f"  Generated app.py - run with: python {app_path}")
 
     def _generate_library_init(
         self,
@@ -632,6 +927,7 @@ def {func_name}({params_str}) -> {return_type}:
                 converted = self.state.get_module(result.vi_name)
                 if converted and converted.exports:
                     for export in converted.exports:
+                        # Use relative imports within the library package
                         lines.append(f"from .{module} import {export}")
                         exports.append(export)
 
@@ -724,13 +1020,65 @@ def {func_name}({params_str}) -> {return_type}:
         words = name.replace("-", " ").replace("_", " ").split()
         return "".join(word.capitalize() for word in words) or "VIClass"
 
+    def _parse_qualified_name(self, name: str) -> tuple[str | None, str]:
+        """Parse qualified VI name into (library, vi_name).
+
+        Args:
+            name: Qualified name like "Library.lvlib:SubVI.vi" or just "SubVI.vi"
+
+        Returns:
+            Tuple of (library_name or None, vi_name)
+        """
+        # Handle qualified names like "Library.lvlib:SubVI.vi"
+        if ":" in name:
+            parts = name.split(":", 1)
+            library = parts[0].replace(".lvlib", "").replace(".lvclass", "")
+            vi_name = parts[1]
+            return (library, vi_name)
+        return (None, name)
+
     def _to_module_name(self, name: str) -> str:
-        """Convert name to valid Python module name."""
-        name = name.replace(".vi", "").replace(".VI", "")
-        name = name.replace(".lvclass", "").replace(".lvlib", "")
-        result = name.lower().replace(" ", "_").replace("-", "_")
+        """Convert name to valid Python module name (without library prefix)."""
+        # Extract just the VI name part
+        _, vi_name = self._parse_qualified_name(name)
+        vi_name = vi_name.replace(".vi", "").replace(".VI", "")
+        vi_name = vi_name.replace(".lvclass", "").replace(".lvlib", "")
+        result = vi_name.lower().replace(" ", "_").replace("-", "_")
         result = "".join(c for c in result if c.isalnum() or c == "_")
         return result or "module"
+
+    def _to_library_name(self, name: str) -> str | None:
+        """Extract library name from qualified VI name.
+
+        Returns None if VI is not in a library.
+        """
+        library, _ = self._parse_qualified_name(name)
+        if library:
+            result = library.lower().replace(" ", "_").replace("-", "_")
+            result = "".join(c for c in result if c.isalnum() or c == "_")
+            return result or None
+        return None
+
+    def _get_module_path(self, vi_name: str) -> tuple[Path, str | None]:
+        """Get the output path and library name for a VI.
+
+        Args:
+            vi_name: Qualified VI name
+
+        Returns:
+            Tuple of (output_path, library_name)
+        """
+        module_name = self._to_module_name(vi_name)
+        library_name = self._to_library_name(vi_name)
+
+        if library_name:
+            # Create library directory
+            lib_dir = self.config.output_dir / library_name
+            lib_dir.mkdir(parents=True, exist_ok=True)
+            return (lib_dir / f"{module_name}.py", library_name)
+        else:
+            # Root-level module
+            return (self.config.output_dir / f"{module_name}.py", None)
 
     def _map_type(self, lv_type: str) -> str:
         """Map LabVIEW type to Python type."""
