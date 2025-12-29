@@ -43,7 +43,8 @@ class TemplateFillStrategy(ConversionStrategy):
 
         expected_subvis = self._get_expected_subvis(vi_context)
 
-        # Build context for LLM
+        # Build context for LLM (with library-aware imports)
+        from_library = self._get_library_name(vi_name)
         base_context = ContextBuilder.build_vi_context(
             vi_context=vi_context,
             vi_name=vi_name,
@@ -51,6 +52,7 @@ class TemplateFillStrategy(ConversionStrategy):
             shared_types=[],
             primitives_available=primitive_names,
             primitive_context=primitive_context,
+            from_library=from_library,
         )
 
         code = ""
@@ -160,7 +162,7 @@ Fix the errors and output the complete corrected code.
 
         # Add primitive imports
         if primitive_names:
-            imports.append(f"from .primitives import {', '.join(primitive_names)}")
+            imports.append(f"from primitives import {', '.join(primitive_names)}")
 
         # Build parameter list
         params = []

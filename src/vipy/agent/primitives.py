@@ -249,7 +249,7 @@ from typing import Any
             "",
         ]
 
-        # Import all primitives
+        # Import all primitives using relative imports
         for name in sorted(set(func_names)):
             lines.append(f"from .{name} import {name}")
 
@@ -400,8 +400,12 @@ Output ONLY the function definition, no explanations.
         result = "".join(c for c in result if c.isalnum() or c == "_")
         return result or "unknown_primitive"
 
-    def get_import_statement(self) -> str:
-        """Get the import statement for primitives package."""
+    def get_import_statement(self, from_library: str | None = None) -> str:
+        """Get the import statement for primitives package.
+
+        Args:
+            from_library: Library of the importing module (None for root-level)
+        """
         names = []
         for usage in self._primitives.values():
             if usage.generated_name:
@@ -410,14 +414,23 @@ Output ONLY the function definition, no explanations.
         if not names:
             return ""
 
-        return f"from .primitives import {', '.join(sorted(set(names)))}"
+        # Use relative import depth based on whether in library
+        prefix = ".." if from_library else "."
+        return f"from {prefix}primitives import {', '.join(sorted(set(names)))}"
 
-    def get_import_for_vi(self, vi_name: str) -> str:
-        """Get import statement for primitives used by a specific VI."""
+    def get_import_for_vi(self, vi_name: str, from_library: str | None = None) -> str:
+        """Get import statement for primitives used by a specific VI.
+
+        Args:
+            vi_name: Name of the VI
+            from_library: Library of the importing module (None for root-level)
+        """
         names = self.get_primitive_names(vi_name)
         if not names:
             return ""
-        return f"from .primitives import {', '.join(sorted(set(names)))}"
+        # Use relative import depth based on whether in library
+        prefix = ".." if from_library else "."
+        return f"from {prefix}primitives import {', '.join(sorted(set(names)))}"
 
     def get_primitive_id_mapping(self, vi_name: str) -> dict[int, str]:
         """Get mapping of primResID -> generated function name for a VI.

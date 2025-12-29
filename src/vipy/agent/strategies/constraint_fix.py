@@ -39,7 +39,8 @@ class ConstraintFixStrategy(ConversionStrategy):
         """Generate code with post-processing fixes."""
         start_time = time.time()
 
-        # Build initial context
+        # Build initial context (with library-aware imports)
+        from_library = self._get_library_name(vi_name)
         context = ContextBuilder.build_vi_context(
             vi_context=vi_context,
             vi_name=vi_name,
@@ -47,6 +48,7 @@ class ConstraintFixStrategy(ConversionStrategy):
             shared_types=[],
             primitives_available=primitive_names,
             primitive_context=primitive_context,
+            from_library=from_library,
         )
 
         expected_subvis = self._get_expected_subvis(vi_context)
@@ -137,7 +139,7 @@ class ConstraintFixStrategy(ConversionStrategy):
             if func_name and module_name:
                 # Check if function is used but not imported
                 if func_name in code and f"import {func_name}" not in code:
-                    import_stmt = f"from .{module_name} import {func_name}"
+                    import_stmt = f"from {module_name} import {func_name}"
                     if import_stmt not in code:
                         # Add import after the first import block
                         code = self._add_import(code, import_stmt)
@@ -147,12 +149,12 @@ class ConstraintFixStrategy(ConversionStrategy):
         for prim_name in primitive_names:
             if prim_name in code and f"import {prim_name}" not in code:
                 # Check if primitives import exists
-                if "from .primitives import" in code:
+                if "from primitives import" in code:
                     # Add to existing import
                     code = self._add_to_primitives_import(code, prim_name)
                     fixes.append(f"added {prim_name} to primitives import")
                 else:
-                    code = self._add_import(code, f"from .primitives import {prim_name}")
+                    code = self._add_import(code, f"from primitives import {prim_name}")
                     fixes.append(f"added primitives import for {prim_name}")
 
         # Fix 4: Add missing standard library imports
@@ -164,20 +166,20 @@ class ConstraintFixStrategy(ConversionStrategy):
             code = self._add_import(code, "from typing import Any")
             fixes.append("added typing import")
 
-        # Fix 5: Convert absolute SubVI imports to relative imports
-        # LLM sometimes generates "from module import func" instead of "from .module import func"
+        # Fix 5: Convert relative imports to absolute imports
+        # LLM sometimes generates "from .module import func" instead of "from module import func"
         for dep_name, dep_info in converted_deps.items():
             func_name = getattr(dep_info, 'function_name', '')
             module_name = getattr(dep_info, 'module_name', '')
 
             if func_name and module_name:
-                # Pattern: from module_name import ... (without leading dot)
-                abs_pattern = f"from {module_name} import"
-                rel_import = f"from .{module_name} import"
+                # Pattern: from .module_name import ... (with leading dot)
+                rel_pattern = f"from .{module_name} import"
+                abs_import = f"from {module_name} import"
 
-                if abs_pattern in code and rel_import not in code:
-                    code = code.replace(abs_pattern, rel_import)
-                    fixes.append(f"fixed relative import for {module_name}")
+                if rel_pattern in code:
+                    code = code.replace(rel_pattern, abs_import)
+                    fixes.append(f"fixed absolute import for {module_name}")
 
         # Fix 6: Fix expected SubVIs that aren't in converted_deps
         # These might be stub VIs that the LLM referenced
@@ -185,13 +187,13 @@ class ConstraintFixStrategy(ConversionStrategy):
             # Convert SubVI name to module/function name
             func_name = self._to_function_name(subvi_name)
 
-            # Pattern: from func_name import ... (without leading dot)
-            abs_pattern = f"from {func_name} import"
-            rel_import = f"from .{func_name} import"
+            # Pattern: from .func_name import ... (with leading dot)
+            rel_pattern = f"from .{func_name} import"
+            abs_import = f"from {func_name} import"
 
-            if abs_pattern in code and rel_import not in code:
-                code = code.replace(abs_pattern, rel_import)
-                fixes.append(f"fixed relative import for {func_name}")
+            if rel_pattern in code:
+                code = code.replace(rel_pattern, abs_import)
+                fixes.append(f"fixed absolute import for {func_name}")
 
         return code, fixes
 
@@ -229,14 +231,14 @@ class ConstraintFixStrategy(ConversionStrategy):
 
     def _add_to_primitives_import(self, code: str, name: str) -> str:
         """Add a name to existing primitives import."""
-        # Find and modify the primitives import line
-        pattern = r"from \.primitives import ([^\n]+)"
+        # Find and modify the primitives import line (handles both with/without leading dot)
+        pattern = r"from \.?primitives import ([^\n]+)"
         match = re.search(pattern, code)
         if match:
             current_imports = match.group(1)
             if name not in current_imports:
                 new_imports = f"{current_imports}, {name}"
-                code = code.replace(match.group(0), f"from .primitives import {new_imports}")
+                code = code.replace(match.group(0), f"from primitives import {new_imports}")
         return code
 
     def _is_fixable_error(self, error: str) -> bool:

@@ -35,7 +35,8 @@ class TwoPhaseStrategy(ConversionStrategy):
         """Generate code in two phases: plan then implement."""
         start_time = time.time()
 
-        # Build base context
+        # Build base context (with library-aware imports)
+        from_library = self._get_library_name(vi_name)
         base_context = ContextBuilder.build_vi_context(
             vi_context=vi_context,
             vi_name=vi_name,
@@ -43,6 +44,7 @@ class TwoPhaseStrategy(ConversionStrategy):
             shared_types=[],
             primitives_available=primitive_names,
             primitive_context=primitive_context,
+            from_library=from_library,
         )
 
         expected_subvis = self._get_expected_subvis(vi_context)

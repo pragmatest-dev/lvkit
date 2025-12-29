@@ -106,7 +106,8 @@ class AgenticConverter:
         Returns:
             AgenticResult with success/failure and generated code
         """
-        # Build initial context (same as standard conversion)
+        # Build initial context (with library-aware imports)
+        from_library = self._get_library_name(vi_name)
         base_context = ContextBuilder.build_vi_context(
             vi_context=vi_context,
             vi_name=vi_name,
@@ -114,6 +115,7 @@ class AgenticConverter:
             shared_types=[],
             primitives_available=primitive_names,
             primitive_context=primitive_context,
+            from_library=from_library,
         )
 
         tools_prompt = format_tools_for_prompt(self.tools)
@@ -267,3 +269,13 @@ Use tools to investigate and fix. Submit when ready.
                 return response[start:end].strip()
 
         return response.strip()
+
+    def _get_library_name(self, vi_name: str) -> str | None:
+        """Extract library name from qualified VI name."""
+        if ":" not in vi_name:
+            return None
+        library = vi_name.split(":", 1)[0]
+        library = library.replace(".lvlib", "").replace(".lvclass", "")
+        result = library.lower().replace(" ", "_").replace("-", "_")
+        result = "".join(c for c in result if c.isalnum() or c == "_")
+        return result or None

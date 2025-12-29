@@ -247,7 +247,7 @@ class SharedTypeRegistry:
             from_module: Module requesting the import
 
         Returns:
-            Import statement like 'from .types import MyType'
+            Import statement like 'from types import MyType'
         """
         if type_name not in self._types:
             return ""
@@ -255,15 +255,15 @@ class SharedTypeRegistry:
         shared_type = self._types[type_name]
 
         if shared_type.scope == "root":
-            return f"from .types import {type_name}"
+            return f"from types import {type_name}"
         elif shared_type.scope.startswith("library:"):
             lib_name = shared_type.scope.split(":", 1)[1]
             lib_module = self._to_module_name(lib_name)
             # Check if from_module is in the same library
             if from_module.startswith(lib_module):
-                return f"from .types import {type_name}"
+                return f"from types import {type_name}"
             else:
-                return f"from .{lib_module}.types import {type_name}"
+                return f"from {lib_module}.types import {type_name}"
         else:
             # Inline type - no import needed
             return ""
