@@ -33,7 +33,7 @@ def main() -> int:
     convert_parser = subparsers.add_parser("convert", help="Convert a VI to Python")
     convert_parser.add_argument("input", help="VI file (.vi) or block diagram XML (*_BDHb.xml)")
     convert_parser.add_argument("-o", "--output", help="Output Python file")
-    convert_parser.add_argument("--model", default="qwen2.5-coder:7b", help="Ollama model to use")
+    convert_parser.add_argument("--model", default="qwen2.5-coder:14b", help="Ollama model to use")
     convert_parser.add_argument("--main-xml", help="Main VI XML file (if using BDHb input)")
     convert_parser.add_argument("--fp-xml", help="Front panel XML file (if using BDHb input)")
     convert_parser.add_argument(
@@ -97,7 +97,7 @@ def main() -> int:
     agent_parser.add_argument("--user", default="neo4j", help="Neo4j username")
     agent_parser.add_argument("--password", default="vipy-password", help="Neo4j password")
     agent_parser.add_argument("--max-retries", type=int, default=3, help="Max LLM retries per VI")
-    agent_parser.add_argument("--model", default="qwen2.5-coder:7b", help="Ollama model")
+    agent_parser.add_argument("--model", default="qwen2.5-coder:14b", help="Ollama model")
     agent_parser.add_argument("--no-typecheck", action="store_true", help="Skip mypy type checking")
     agent_parser.add_argument("--generate-ui", action="store_true", help="Generate NiceGUI wrappers")
     agent_parser.add_argument(
@@ -124,7 +124,7 @@ def main() -> int:
     exp_parser.add_argument("--user", default="neo4j", help="Neo4j username")
     exp_parser.add_argument("--password", default="vipy-password", help="Neo4j password")
     exp_parser.add_argument("--max-attempts", type=int, default=3, help="Max retry attempts per strategy")
-    exp_parser.add_argument("--model", default="qwen2.5-coder:7b", help="Ollama model")
+    exp_parser.add_argument("--model", default="qwen2.5-coder:14b", help="Ollama model")
     exp_parser.add_argument(
         "--search-path",
         action="append",
@@ -269,7 +269,7 @@ def cmd_check(args: argparse.Namespace) -> int:
         if models:
             print(f"  Available models: {', '.join(models)}")
         else:
-            print("  No models installed. Run: ollama pull qwen2.5-coder:7b")
+            print("  No models installed. Run: ollama pull qwen2.5-coder:14b")
     else:
         print("✗ Ollama not found. Install from https://ollama.com")
 

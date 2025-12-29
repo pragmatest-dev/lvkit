@@ -9,7 +9,7 @@ from dataclasses import dataclass
 @dataclass
 class LLMConfig:
     """Configuration for the LLM."""
-    model: str = "qwen2.5-coder:7b"
+    model: str = "qwen2.5-coder:14b"
     timeout: int = 120  # seconds
 
 
