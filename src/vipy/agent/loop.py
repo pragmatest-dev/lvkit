@@ -243,7 +243,7 @@ class ConversionAgent:
 
         return ConversionResult(
             vi_name=vi_name,
-            python_code=code,
+            python_code=result.code,  # Use the code from failed strategy attempt
             output_path=None,
             success=False,
             errors=errors,
