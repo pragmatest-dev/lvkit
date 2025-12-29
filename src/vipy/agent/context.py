@@ -7,7 +7,6 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from .state import ConvertedModule
     from .types import SharedType
     from .validator import ValidationError
 
@@ -45,9 +44,6 @@ class ContextBuilder:
 ## Key Constants - IMPORTANT
 {key_constants}
 
-## Execution Flow - FOLLOW THIS ORDER
-{execution_flow}
-
 ## Available Imports
 {available_imports}
 
@@ -60,7 +56,7 @@ class ContextBuilder:
 - MUST include `from typing import Any` if you use Any in type annotations
 - MUST include type annotations on ALL parameters and return type
 - Use `inputs` as function parameters, `outputs` as return values
-- Use `data_flow` to understand execution order and wire connections (source → destination)
+- Use `data_flow` to understand execution order and wire connections (source -> destination)
 - Use the Key Constants section above - it shows the Python equivalent for each constant
 
 ## Primitives
@@ -243,11 +239,6 @@ def create() -> {class_name}UI:
             vi_context.get("constants", [])
         )
 
-        # Format execution flow as pseudo-code
-        execution_flow = ContextBuilder._format_execution_flow(
-            vi_context, primitive_context
-        )
-
         return ContextBuilder.FUNCTION_TEMPLATE.format(
             function_name=function_name,
             vi_context_json=json.dumps(cleaned, indent=2),
@@ -255,7 +246,6 @@ def create() -> {class_name}UI:
             shared_types=types_section,
             enum_context=enum_section,
             key_constants=key_constants,
-            execution_flow=execution_flow,
         )
 
     @staticmethod
@@ -428,7 +418,7 @@ def create() -> {class_name}UI:
                 func_name = ContextBuilder._to_function_name(name)
                 sig = f"({', '.join(in_types)}) -> {ret_type}"
                 lines.append(f"  - {func_name}{sig}  # SubVI: {name}")
-            elif "Primitive" in labels:
+            elif "Primitive" in labels and prim_id is not None:
                 # Use generated name if available, otherwise fall back to primitive_ID
                 func_name = primitive_mappings.get(prim_id, f"primitive_{prim_id}")
                 sig = f"({', '.join(in_types)}) -> {ret_type}"
@@ -491,7 +481,7 @@ def create() -> {class_name}UI:
             elif "SubVI" in from_labels and from_name:
                 func_name = ContextBuilder._to_function_name(from_name)
                 from_desc = f"{func_name}()[{from_idx}]" if from_idx > 0 else f"{func_name}()"
-            elif "Primitive" in from_labels:
+            elif "Primitive" in from_labels and from_prim is not None:
                 # Use generated name if available
                 func_name = primitive_mappings.get(from_prim, f"primitive_{from_prim}")
                 from_desc = f"{func_name}()[{from_idx}]" if from_idx > 0 else f"{func_name}()"
@@ -509,14 +499,14 @@ def create() -> {class_name}UI:
             elif "SubVI" in to_labels and to_name:
                 func_name = ContextBuilder._to_function_name(to_name)
                 to_desc = f"{func_name}.input[{to_idx}]"
-            elif "Primitive" in to_labels:
+            elif "Primitive" in to_labels and to_prim is not None:
                 # Use generated name if available
                 func_name = primitive_mappings.get(to_prim, f"primitive_{to_prim}")
                 to_desc = f"{func_name}.input[{to_idx}]"
             else:
                 to_desc = to_name or "?"
 
-            lines.append(f"  {from_desc} → {to_desc}")
+            lines.append(f"  {from_desc} -> {to_desc}")
         return "\n".join(lines)
 
     @staticmethod
@@ -764,7 +754,7 @@ Output ONLY the corrected Python code, no explanations."""
                     match = re.search(r'\(type\s*(\d+)\)', value, re.IGNORECASE)
                     if match:
                         type_num = match.group(1)
-                        lines.append(f"- **{value}** → use value `{type_num}` when calling functions")
+                        lines.append(f"- **{value}** -> use value `{type_num}` when calling functions")
                         has_hints = True
                         continue
                 # Show as-is
@@ -780,219 +770,6 @@ Output ONLY the corrected Python code, no explanations."""
             lines.insert(0, "Constants used in this VI:")
 
         return "\n".join(lines)
-
-    @staticmethod
-    def _format_execution_flow(
-        vi_context: dict,
-        primitive_context: dict[int, dict] | None = None,
-    ) -> str:
-        """Format execution flow as readable pseudo-code.
-
-        Traces the data flow graph and produces ordered steps that
-        look like Python code, making it easy for the LLM to translate.
-
-        Args:
-            vi_context: The VI context dict with operations, data_flow, etc.
-            primitive_context: Primitive metadata with python_hint
-
-        Returns:
-            Pseudo-code showing execution order and data flow
-        """
-        operations = vi_context.get("operations", [])
-        data_flow = vi_context.get("data_flow", [])
-        constants = vi_context.get("constants", [])
-        inputs = vi_context.get("inputs", [])
-        outputs = vi_context.get("outputs", [])
-
-        if not operations:
-            return "No operations - this VI may be a simple passthrough or stub."
-
-        # Build lookup maps
-        # terminal_id -> (parent_name, parent_labels, terminal_index, direction)
-        terminal_map: dict[str, tuple] = {}
-        for op in operations:
-            op_name = op.get("name", "unknown")
-            op_labels = op.get("labels", [])
-            prim_id = op.get("primResID")
-            for term in op.get("terminals", []):
-                tid = term.get("id")
-                if tid:
-                    terminal_map[tid] = (op_name, op_labels, term.get("index"), term.get("direction"), prim_id)
-
-        # Also map constant terminals
-        for const in constants:
-            cid = const.get("id")
-            if cid:
-                terminal_map[cid] = (const.get("value", "CONST"), ["Constant"], 0, "output", None)
-
-        # Also map input terminals
-        for inp in inputs:
-            iid = inp.get("id")
-            if iid:
-                terminal_map[iid] = (inp.get("name", "input"), ["Input"], 0, "output", None)
-
-        # Build dependency graph: which operations depend on which
-        # op_id -> set of op_ids it depends on
-        op_deps: dict[str, set] = {op.get("id", ""): set() for op in operations}
-        op_by_id: dict[str, dict] = {op.get("id", ""): op for op in operations}
-
-        # Track wire assignments: to_terminal_id -> from description
-        wire_source: dict[str, str] = {}
-
-        # Map constant IDs to their values for readable output
-        const_values: dict[str, str] = {}
-        for const in constants:
-            cid = const.get("id")
-            val = const.get("value", "")
-            python_hint = const.get("python")
-            if cid:
-                # Use short form of value
-                if python_hint:
-                    const_values[cid] = f'"{val[:20]}..."' if len(val) > 20 else f'"{val}"'
-                else:
-                    const_values[cid] = f'"{val[:30]}..."' if len(val) > 30 else f'"{val}"'
-
-        for flow in data_flow:
-            from_tid = flow.get("from_terminal_id")
-            to_tid = flow.get("to_terminal_id")
-            from_parent = flow.get("from_parent_id")
-            to_parent = flow.get("to_parent_id")
-            from_labels = flow.get("from_parent_labels", [])
-            from_name = flow.get("from_parent_name") or "unknown"
-
-            # Use better source names
-            if "Constant" in from_labels:
-                # Use the constant value
-                source_name = const_values.get(from_tid, f'CONST')
-            elif "Input" in from_labels:
-                source_name = from_name.replace(" ", "_").lower()
-            else:
-                # Use cleaned operation name as variable reference
-                clean = from_name.lower().replace(" ", "_").replace("-", "_")
-                clean = clean.replace(".vi", "").replace("__ogtk", "")
-                clean = ''.join(c for c in clean if c.isalnum() or c == '_')
-                source_name = f"{clean}_out" if clean else "prev_out"
-
-            # Record dependency
-            if to_parent in op_deps and from_parent and from_parent != to_parent:
-                op_deps[to_parent].add(from_parent)
-
-            # Record wire source for readable output
-            wire_source[to_tid] = source_name
-
-        # Topological sort operations
-        sorted_ops = []
-        visited = set()
-        temp_visited = set()
-
-        def visit(op_id: str) -> None:
-            if op_id in temp_visited:
-                return  # Cycle, skip
-            if op_id in visited:
-                return
-            temp_visited.add(op_id)
-            for dep_id in op_deps.get(op_id, set()):
-                visit(dep_id)
-            temp_visited.discard(op_id)
-            visited.add(op_id)
-            if op_id in op_by_id:
-                sorted_ops.append(op_by_id[op_id])
-
-        for op_id in op_deps:
-            visit(op_id)
-
-        # Generate pseudo-code
-        lines = []
-        var_counter = 0
-
-        def get_var_name(op_name: str) -> str:
-            nonlocal var_counter
-            var_counter += 1
-            # Clean up name for variable
-            clean = op_name.lower().replace(" ", "_").replace("-", "_")
-            clean = clean.replace(".vi", "").replace("__ogtk", "")
-            clean = ''.join(c for c in clean if c.isalnum() or c == '_')
-            return f"{clean}_result" if clean else f"result_{var_counter}"
-
-        for op in sorted_ops:
-            op_name = op.get("name", "unknown")
-            op_labels = op.get("labels", [])
-            prim_id = op.get("primResID")
-
-            # Get inputs to this operation
-            in_terms = [t for t in op.get("terminals", [])
-                       if t.get("direction") == "input" and t.get("type") != "Void"]
-            out_terms = [t for t in op.get("terminals", [])
-                        if t.get("direction") == "output" and t.get("type") != "Void"]
-
-            # Build input descriptions
-            input_sources = []
-            for term in in_terms:
-                tid = term.get("id")
-                source = wire_source.get(tid, "?")
-                input_sources.append(source)
-
-            # Get primitive hint if available
-            hint = ""
-            if prim_id and primitive_context and prim_id in primitive_context:
-                pctx = primitive_context[prim_id]
-                hint = pctx.get("python_hint", "")
-                prim_name = pctx.get("primitive_name", op_name)
-                op_name = prim_name
-
-            # Format the operation
-            var_name = get_var_name(op_name)
-            inputs_str = ", ".join(input_sources) if input_sources else ""
-
-            if "SubVI" in op_labels:
-                func_name = op.get("python_function", op_name.replace(".vi", "").replace(" ", "_").lower())
-                func_name = func_name.replace("-", "_")
-                lines.append(f"{var_name} = {func_name}({inputs_str})")
-            elif "Primitive" in op_labels:
-                # Use python_function if available, else clean op_name
-                func_name = op.get("python_function", op_name)
-                if hint:
-                    # Show the hint as a comment explaining what to do
-                    lines.append(f"{var_name} = {func_name}({inputs_str})  # {hint}")
-                else:
-                    lines.append(f"{var_name} = {func_name}({inputs_str})")
-            elif "Loop" in op_labels:
-                loop_type = op.get("type", "loop")
-                lines.append(f"# {loop_type}: process {inputs_str}")
-            else:
-                lines.append(f"{var_name} = {op_name}({inputs_str})")
-
-        # Add output assignment
-        for out in outputs:
-            out_name = out.get("name", "output")
-            lines.append(f"return {out_name}")
-
-        if not lines:
-            return "Unable to trace execution flow - see data_flow in JSON above."
-
-        # If too many unknowns, just describe operations simply
-        unknown_count = sum(1 for line in lines if "?" in line)
-        if unknown_count > len(lines) / 2:
-            # Fallback to simple operation list
-            simple_lines = []
-            for op in operations:
-                op_name = op.get("name", "unknown")
-                op_labels = op.get("labels", [])
-                if "SubVI" in op_labels:
-                    simple_lines.append(f"- Call SubVI: {op_name}")
-                elif "Primitive" in op_labels:
-                    prim_id = op.get("primResID")
-                    if prim_id and primitive_context and prim_id in primitive_context:
-                        hint = primitive_context[prim_id].get("python_hint", "")
-                        if hint:
-                            simple_lines.append(f"- {op_name}: {hint}")
-                            continue
-                    simple_lines.append(f"- {op_name}")
-                elif "Loop" in op_labels:
-                    simple_lines.append(f"- {op.get('type', 'Loop')}")
-            return "Operations (see data_flow for connections):\n" + "\n".join(simple_lines)
-
-        return "```\n" + "\n".join(lines) + "\n```"
 
     @staticmethod
     def _format_enum_context(enum_context: dict[str, dict] | None) -> str:
