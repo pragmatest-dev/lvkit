@@ -514,6 +514,7 @@ def _expand_subvis(
     _search_paths: list[Path],
     type_map: dict[int, str] | None = None,
     path_hints: dict[str, SubVIPathRef] | None = None,
+    _created_stubs: set[str] | None = None,
 ) -> list[str]:
     """Generate Cypher statements for expanded SubVI definitions."""
     subvi_names = [
@@ -526,6 +527,8 @@ def _expand_subvis(
         return []
 
     type_map = type_map or {}
+    if _created_stubs is None:
+        _created_stubs = set()
     lines = ["", "// === SubVI Definitions ==="]
 
     for node_uid, subvi_name in subvi_names:
@@ -552,6 +555,7 @@ def _expand_subvis(
                     expand_subvis=True,
                     _processed=_processed,
                     _search_paths=_search_paths,
+                    _created_stubs=_created_stubs,
                 )
 
                 lines.append(subvi_graph)
@@ -561,12 +565,12 @@ def _expand_subvis(
                 lines.append(f"// Failed to extract SubVI: {subvi_name} - {e}")
                 # Create stub for failed extraction
                 lines.extend(
-                    _create_stub_vi(subvi_name, node_uid, node_vars, prefix, bd, type_map)
+                    _create_stub_vi(subvi_name, node_uid, node_vars, prefix, bd, type_map, _created_stubs)
                 )
         else:
             # SubVI not found - create a stub VI node
             lines.extend(
-                _create_stub_vi(subvi_name, node_uid, node_vars, prefix, bd, type_map)
+                _create_stub_vi(subvi_name, node_uid, node_vars, prefix, bd, type_map, _created_stubs)
             )
 
     return lines
@@ -579,6 +583,7 @@ def _create_stub_vi(
     prefix: str,
     bd: BlockDiagram,
     type_map: dict[int, str] | None = None,
+    _created_stubs: set[str] | None = None,
 ) -> list[str]:
     """Create a stub VI node for a missing SubVI.
 
@@ -589,6 +594,8 @@ def _create_stub_vi(
     subvi_var = _sanitize_name(subvi_name)
     node_var = node_vars.get(node_uid, f"{prefix}n_{node_uid}")
     type_map = type_map or {}
+    if _created_stubs is None:
+        _created_stubs = set()
 
     # Collect terminal types from the SubVI node in the calling VI
     # Filter out Void (unwired) terminals
@@ -607,16 +614,18 @@ def _create_stub_vi(
             else:
                 input_types.append(term_type)
 
-    # Create the stub VI node
-    lines.append(f"// Stub VI: {subvi_name} (not found)")
-    lines.append(
-        f'CREATE ({subvi_var}:VI:Stub {{'
-        f'name: "{subvi_name}", '
-        f'is_stub: true, '
-        f'input_types: {input_types!r}, '
-        f'output_types: {output_types!r}'
-        f'}})'
-    )
+    # Create the stub VI node only if not already created
+    if subvi_var not in _created_stubs:
+        lines.append(f"// Stub VI: {subvi_name} (not found)")
+        lines.append(
+            f'CREATE ({subvi_var}:VI:Stub {{'
+            f'name: "{subvi_name}", '
+            f'is_stub: true, '
+            f'input_types: {input_types!r}, '
+            f'output_types: {output_types!r}'
+            f'}})'
+        )
+        _created_stubs.add(subvi_var)
     lines.append(f"CREATE ({node_var})-[:CALLS]->({subvi_var})")
 
     return lines
@@ -630,6 +639,7 @@ def from_vi(
     qualified_name: str | None = None,
     _processed: set[str] | None = None,
     _search_paths: list[Path] | None = None,
+    _created_stubs: set[str] | None = None,
 ) -> str:
     """Generate a unified Cypher graph of both front panel and block diagram.
 
@@ -782,7 +792,9 @@ def from_vi(
 
     # === SUBVI EXPANSION ===
     if expand_subvis:
-        lines.extend(_expand_subvis(bd, node_vars, prefix, _processed, _search_paths, type_map, path_hints))
+        if _created_stubs is None:
+            _created_stubs = set()
+        lines.extend(_expand_subvis(bd, node_vars, prefix, _processed, _search_paths, type_map, path_hints, _created_stubs))
 
     lines.append("")
     lines.append("// === End of VI Graph ===")
