@@ -822,13 +822,28 @@ def {func_name}({params_str}) -> {return_type}:
         pass
 
     def _generate_ui_app(self, results: list[ConversionResult]) -> None:
-        """Generate app.py entry point for running the UI."""
+        """Generate app.py with tree-based project explorer UI."""
         ui_results = [r for r in results if r.success and r.ui_path]
         if not ui_results:
             return
 
+        # Collect VI info: (vi_name, class_name, module_name, library_name)
+        vi_info: list[tuple[str, str, str, str | None]] = []
+        for result in ui_results:
+            module_name = self._to_module_name(result.vi_name)
+            library_name = self._to_library_name(result.vi_name)
+            class_name = ContextBuilder._to_class_name(result.vi_name) + "UI"
+            vi_info.append((result.vi_name, class_name, module_name, library_name))
+
+        # Build tree data structure
+        tree_data = self._build_tree_data(vi_info)
+
+        # Build VI registry
+        registry_entries = self._build_vi_registry(vi_info)
+
+        # Start generating app.py
         lines = [
-            '"""Auto-generated NiceGUI app for converted VIs.',
+            '"""LabVIEW Project Explorer - Auto-generated NiceGUI app.',
             '',
             'Run with: python app.py',
             '"""',
@@ -842,27 +857,18 @@ def {func_name}({params_str}) -> {return_type}:
             '',
         ]
 
-        # Import VI functions - use library-aware paths
-        ui_classes = []
-        for result in ui_results:
-            module_name = self._to_module_name(result.vi_name)
-            library_name = self._to_library_name(result.vi_name)
-            class_name = ContextBuilder._to_class_name(result.vi_name) + "UI"
-            func_name, _, _, _ = self._extract_function_signature(result.python_code)
-            if func_name:
-                # Use library path if applicable
-                if library_name:
-                    lines.append(f"from {library_name}.{module_name} import {func_name}")
-                else:
-                    lines.append(f"from {module_name} import {func_name}")
-            ui_classes.append((result.vi_name, class_name, module_name, library_name))
+        # Import VI functions
+        for vi_name, class_name, module_name, library_name in vi_info:
+            if library_name:
+                lines.append(f"from {library_name}.{module_name} import *")
+            else:
+                lines.append(f"from {module_name} import *")
 
         lines.append("")
 
-        # Generate inline UI classes
+        # Embed UI classes
         lines.append("# UI Classes")
-        for vi_name, class_name, module_name, library_name in ui_classes:
-            # Look for UI file in library folder if applicable
+        for vi_name, class_name, module_name, library_name in vi_info:
             if library_name:
                 ui_path = self.config.output_dir / library_name / f"{module_name}_ui.py"
             else:
@@ -878,36 +884,187 @@ def {func_name}({params_str}) -> {return_type}:
                     lines.append("")
                     lines.append(class_code)
 
-        # Generate main app with tabs
+        # Add tree data and registry
         lines.extend([
             "",
             "",
-            "# Create tabbed interface",
-            "with ui.tabs().classes('w-full') as tabs:",
+            "# Tree data for project explorer",
+            f"TREE_DATA = {tree_data!r}",
+            "",
+            "# VI Registry: maps vi_id to (label, ui_class)",
+            f"VI_REGISTRY = {registry_entries}",
+            "",
         ])
 
-        for vi_name, class_name, _, _ in ui_classes:
-            tab_label = vi_name.replace(".vi", "").split(":")[-1]
-            lines.append(f"    ui.tab('{tab_label}')")
+        # Add ProjectExplorer class
+        lines.extend(self._generate_project_explorer_class())
 
+        # Main entry point
         lines.extend([
             "",
-            "with ui.tab_panels(tabs, value=tabs._props['model-value']).classes('w-full'):",
-        ])
-
-        for vi_name, class_name, _, _ in ui_classes:
-            tab_label = vi_name.replace(".vi", "").split(":")[-1]
-            lines.append(f"    with ui.tab_panel('{tab_label}'):")
-            lines.append(f"        {class_name}().build()")
-
-        lines.extend([
             "",
-            "ui.run(port=8080, title='LabVIEW Conversion UI')",
+            "# Create and run the app",
+            "explorer = ProjectExplorer()",
+            "explorer.build()",
+            "ui.run(port=8080, title='LabVIEW Project Explorer')",
         ])
 
         app_path = self.config.output_dir / "app.py"
         app_path.write_text("\n".join(lines))
         print(f"  Generated app.py - run with: python {app_path}")
+
+    def _build_tree_data(
+        self, vi_info: list[tuple[str, str, str, str | None]]
+    ) -> list[dict]:
+        """Build tree data structure from VI info.
+
+        Root-level VIs are placed directly at tree root.
+        Library VIs are grouped under expandable library folders.
+        """
+        # Group by library
+        libraries: dict[str | None, list[tuple[str, str, str]]] = {}
+        for vi_name, class_name, module_name, library_name in vi_info:
+            libraries.setdefault(library_name, []).append(
+                (vi_name, class_name, module_name)
+            )
+
+        tree_items = []
+
+        # Add root-level VIs directly at tree root
+        if None in libraries:
+            for vi_name, class_name, module_name in libraries[None]:
+                label = vi_name.replace(".vi", "").replace(".VI", "")
+                if ":" in label:
+                    label = label.split(":")[-1]
+                tree_items.append({
+                    "id": module_name,
+                    "label": f"{label}.vi",
+                })
+
+        # Add library folders with their VIs as children
+        for lib_name, vis in sorted(
+            (k, v) for k, v in libraries.items() if k is not None
+        ):
+            lib_children = []
+            for vi_name, class_name, module_name in vis:
+                label = vi_name.replace(".vi", "").replace(".VI", "")
+                if ":" in label:
+                    label = label.split(":")[-1]
+                lib_children.append({
+                    "id": f"{lib_name}/{module_name}",
+                    "label": f"{label}.vi",
+                })
+            tree_items.append({
+                "id": lib_name,
+                "label": f"{lib_name}/",
+                "children": lib_children,
+            })
+
+        return tree_items
+
+    def _build_vi_registry(
+        self, vi_info: list[tuple[str, str, str, str | None]]
+    ) -> str:
+        """Build VI registry mapping IDs to (label, class).
+
+        Returns a string representation to embed in generated code.
+        """
+        entries = []
+        for vi_name, class_name, module_name, library_name in vi_info:
+            if library_name:
+                vi_id = f"{library_name}/{module_name}"
+            else:
+                vi_id = module_name
+            label = vi_name.replace(".vi", "").replace(".VI", "")
+            if ":" in label:
+                label = label.split(":")[-1]
+            entries.append(f'    "{vi_id}": ("{label}.vi", {class_name})')
+
+        return "{\n" + ",\n".join(entries) + "\n}"
+
+    def _generate_project_explorer_class(self) -> list[str]:
+        """Generate the ProjectExplorer class code."""
+        return [
+            "",
+            "class ProjectExplorer:",
+            '    """Main application with tree explorer and tabbed documents."""',
+            "",
+            "    def __init__(self) -> None:",
+            "        self.open_tabs: dict[str, str] = {}  # vi_id -> label",
+            "        self.tabs = None",
+            "        self.panels = None",
+            "",
+            "    def build(self) -> None:",
+            '        """Build the main UI layout."""',
+            "        with ui.splitter(value=20).classes('w-full h-screen') as splitter:",
+            "            with splitter.before:",
+            "                with ui.column().classes('p-2 h-full'):",
+            "                    ui.label('Project Explorer').classes('text-lg font-bold mb-2')",
+            "                    ui.tree(",
+            "                        TREE_DATA,",
+            "                        label_key='label',",
+            "                        on_select=lambda e: self.on_tree_select(e),",
+            "                    ).classes('w-full')",
+            "",
+            "            with splitter.after:",
+            "                with ui.column().classes('w-full h-full'):",
+            "                    self.tabs = ui.tabs().classes('w-full')",
+            "                    self.panels = ui.tab_panels(self.tabs).classes('w-full flex-grow')",
+            "",
+            "    def on_tree_select(self, e) -> None:",
+            '        """Handle tree node selection."""',
+            "        vi_id = e.value",
+            "        if vi_id and vi_id in VI_REGISTRY:",
+            "            self.open_tab(vi_id)",
+            "",
+            "    def open_tab(self, vi_id: str) -> None:",
+            '        """Open a VI in a new tab or switch to existing."""',
+            "        if vi_id in self.open_tabs:",
+            "            # Switch to existing tab",
+            "            self.tabs.value = vi_id",
+            "            return",
+            "",
+            "        label, ui_class = VI_REGISTRY[vi_id]",
+            "",
+            "        # Create new tab with close button",
+            "        with self.tabs:",
+            "            with ui.tab(vi_id).classes('pr-0'):",
+            "                ui.label(label).classes('mr-1')",
+            "                ui.button(",
+            "                    icon='close',",
+            "                    on_click=lambda _, vid=vi_id: self.close_tab(vid),",
+            "                ).props('flat dense round size=xs').classes('ml-1')",
+            "",
+            "        # Create panel with VI's UI",
+            "        with self.panels:",
+            "            with ui.tab_panel(vi_id).classes('p-4'):",
+            "                ui_class().build()",
+            "",
+            "        self.open_tabs[vi_id] = label",
+            "        self.tabs.value = vi_id",
+            "",
+            "    def close_tab(self, vi_id: str) -> None:",
+            '        """Close a tab and remove from open tabs."""',
+            "        if vi_id not in self.open_tabs:",
+            "            return",
+            "",
+            "        del self.open_tabs[vi_id]",
+            "",
+            "        # Find and remove the tab and panel elements",
+            "        for tab in list(self.tabs):",
+            "            if hasattr(tab, '_props') and tab._props.get('name') == vi_id:",
+            "                tab.delete()",
+            "                break",
+            "",
+            "        for panel in list(self.panels):",
+            "            if hasattr(panel, '_props') and panel._props.get('name') == vi_id:",
+            "                panel.delete()",
+            "                break",
+            "",
+            "        # Switch to another tab if any remain",
+            "        if self.open_tabs:",
+            "            self.tabs.value = next(iter(self.open_tabs))",
+        ]
 
     def _generate_library_init(
         self,
