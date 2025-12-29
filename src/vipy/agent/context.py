@@ -117,7 +117,7 @@ from pathlib import Path
 
 from nicegui import ui
 
-from {module_name} import {function_name}
+from .{module_name} import {function_name}
 
 
 class {class_name}UI:
