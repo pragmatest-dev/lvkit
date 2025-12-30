@@ -100,7 +100,13 @@ def parse_front_panel(
         if ddo is None:
             continue
 
-        control = _parse_ddo(ddo, uid, indicator_dco_uids)
+        # Extract default data from fPDCO
+        default_data = None
+        default_elem = fpdco.find("DefaultData")
+        if default_elem is not None and default_elem.text:
+            default_data = default_elem.text.strip('"')
+
+        control = _parse_ddo(ddo, uid, indicator_dco_uids, default_data)
         if control:
             controls.append(control)
 
@@ -114,10 +120,17 @@ def _parse_ddo(
     ddo: ET.Element,
     uid: str,
     indicator_dco_uids: set[str],
+    default_data: str | None = None,
 ) -> FPControl | None:
     """Parse a data display object (ddo) into an FPControl.
 
     Handles nested structures like clusters and typeDefs recursively.
+
+    Args:
+        ddo: The data display object XML element
+        uid: Control UID
+        indicator_dco_uids: Set of UIDs that are indicators
+        default_data: Default value data (may be complex for clusters)
     """
     control_type = ddo.get("class", "unknown")
 
@@ -133,7 +146,7 @@ def _parse_ddo(
         if inner_ddo is not None:
             # Get the typeDef's label but parse the inner control
             name = _extract_label(ddo) or f"control_{uid}"
-            inner_control = _parse_ddo(inner_ddo, uid, indicator_dco_uids)
+            inner_control = _parse_ddo(inner_ddo, uid, indicator_dco_uids, default_data)
             if inner_control:
                 inner_control.name = name  # Use typeDef's name
                 return inner_control
@@ -167,13 +180,14 @@ def _parse_ddo(
     children = []
     if control_type == "stdClust":
         # Find all child controls within the cluster
+        # TODO: Parse cluster default_data structure to get child defaults
         for child_elem in ddo.findall(".//*"):
             child_class = child_elem.get("class", "")
             if child_class.startswith("std") and child_class != "stdClust":
                 # Skip if this is a nested element we already processed
                 child_uid = child_elem.get("uid", "")
                 if child_uid:
-                    child_control = _parse_ddo(child_elem, child_uid, set())
+                    child_control = _parse_ddo(child_elem, child_uid, set(), None)
                     if child_control:
                         children.append(child_control)
 
@@ -183,6 +197,7 @@ def _parse_ddo(
         control_type=control_type,
         bounds=bounds,
         is_indicator=is_indicator,
+        default_value=default_data,
         children=children,
     )
 
