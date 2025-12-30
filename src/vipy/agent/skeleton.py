@@ -621,8 +621,10 @@ class SkeletonGenerator:
         words = name.replace("-", " ").replace("_", " ").split()
         return "".join(w.capitalize() for w in words) or "VI"
 
-    def _to_var_name(self, name: str) -> str:
+    def _to_var_name(self, name: str | None) -> str:
         """Convert terminal name to Python variable name."""
+        if not name:
+            return "value"
         result = name.lower().replace(" ", "_").replace("-", "_")
         result = "".join(c for c in result if c.isalnum() or c == "_")
         if result and not result[0].isalpha():
