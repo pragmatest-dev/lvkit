@@ -42,6 +42,7 @@ class TemplateFillStrategy(ConversionStrategy):
         )
 
         expected_subvis = self._get_expected_subvis(vi_context)
+        expected_output_count = len(vi_context.get("outputs", []))
 
         # Build context for LLM (with library-aware imports)
         from_library = self._get_library_name(vi_name)
@@ -101,7 +102,8 @@ Fix the errors and output the complete corrected code.
 
             # Validate
             validation = self.validator.validate(
-                code, vi_name, [], expected_subvis
+                code, vi_name, [], expected_subvis,
+                expected_output_count=expected_output_count,
             )
 
             if validation.is_valid:
