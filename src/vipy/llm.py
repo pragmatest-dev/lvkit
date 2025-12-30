@@ -10,7 +10,7 @@ from dataclasses import dataclass
 class LLMConfig:
     """Configuration for the LLM."""
     model: str = "qwen2.5-coder:14b"
-    timeout: int = 120  # seconds
+    timeout: int = 300  # seconds (5 min for larger models)
 
 
 def generate_code(prompt: str, config: LLMConfig | None = None) -> str:

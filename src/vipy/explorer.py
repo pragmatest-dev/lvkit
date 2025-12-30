@@ -214,5 +214,33 @@ def main_page():
     explorer.build()
 
 
+def run_explorer(directory: str, port: int = 8080) -> None:
+    """Run the explorer UI for a given directory.
+
+    Args:
+        directory: Path to the converted VI directory
+        port: Port to run the server on
+    """
+    global _pkg_dir, _pkg_name
+
+    root_dir = Path(directory).resolve()
+
+    # Update global package info to point to the target directory
+    _pkg_dir = root_dir
+    _pkg_name = root_dir.name
+
+    # Add parent to sys.path so imports work
+    parent = str(root_dir.parent)
+    if parent not in sys.path:
+        sys.path.insert(0, parent)
+
+    @ui.page("/")
+    def explorer_page():
+        explorer = ProjectExplorer(root_dir)
+        explorer.build()
+
+    ui.run(port=port, title="LabVIEW Explorer", reload=False)
+
+
 if __name__ in {"__main__", "__mp_main__"}:
     ui.run(port=8080, title="LabVIEW Explorer", reload=False)

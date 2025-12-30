@@ -132,8 +132,8 @@ class VIGraph:
             if not line or line.startswith("//"):
                 continue
 
-            # Accumulate CREATE statements
-            if line.startswith("CREATE"):
+            # Accumulate CREATE/MERGE statements
+            if line.startswith("CREATE") or line.startswith("MERGE"):
                 if current:
                     statements.append(" ".join(current))
                 current = [line]
@@ -268,7 +268,7 @@ class VIGraph:
         if not vi:
             return f"// VI not found: {vi_name}"
 
-        lines.append(f'CREATE (vi:VI {{name: "{vi_name}"}})')
+        lines.append(f'MERGE (vi:VI {{name: "{vi_name}"}})')
         lines.append("")
 
         # Inputs

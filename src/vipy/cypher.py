@@ -69,7 +69,7 @@ def from_blockdiagram(
         f"// VI: {qualified_name}",
         "",
         "// Create the VI node",
-        f'CREATE ({vi_var}:VI {{name: "{qualified_name}"}})',
+        f'MERGE ({vi_var}:VI {{name: "{qualified_name}"}})',
         "",
         "// Constants",
     ]
@@ -614,19 +614,17 @@ def _create_stub_vi(
             else:
                 input_types.append(term_type)
 
-    # Create the stub VI node only if not already created
-    if subvi_var not in _created_stubs:
-        lines.append(f"// Stub VI: {subvi_name} (not found)")
-        lines.append(
-            f'CREATE ({subvi_var}:VI:Stub {{'
-            f'name: "{subvi_name}", '
-            f'is_stub: true, '
-            f'input_types: {input_types!r}, '
-            f'output_types: {output_types!r}'
-            f'}})'
-        )
-        _created_stubs.add(subvi_var)
-    lines.append(f"CREATE ({node_var})-[:CALLS]->({subvi_var})")
+    # Create the stub VI node (MERGE to dedupe by name)
+    lines.append(f"// Stub VI: {subvi_name} (not found)")
+    lines.append(
+        f'MERGE ({subvi_var}:VI:Stub {{'
+        f'name: "{subvi_name}"'
+        f'}}) '
+        f'ON CREATE SET {subvi_var}.is_stub = true, '
+        f'{subvi_var}.input_types = {input_types!r}, '
+        f'{subvi_var}.output_types = {output_types!r}'
+    )
+    lines.append(f"MERGE ({node_var})-[:CALLS]->({subvi_var})")
 
     return lines
 
@@ -735,7 +733,7 @@ def from_vi(
         f"// VI: {qualified_name}",
         "",
         "// === VI Container ===",
-        f'CREATE ({vi_var}:VI {{name: "{qualified_name}"}})',
+        f'MERGE ({vi_var}:VI {{name: "{qualified_name}"}})',
     ]
 
     # Build mapping from front panel DCO uid to block diagram terminal uid
