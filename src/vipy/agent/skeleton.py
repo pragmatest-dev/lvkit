@@ -52,6 +52,41 @@ PRIMITIVE_OPS: dict[int, str] = {
     1332: "{0} + [{1}]",  # Build Array (append)
 }
 
+# Primitive ID -> Terminal names for better variable naming
+# Extend as we encounter more primitives
+PRIMITIVE_TERMINALS: dict[int, dict[str, list[str]]] = {
+    # Path operations
+    1419: {"inputs": ["base_path", "name"], "outputs": ["new_path"]},  # Build Path
+    1420: {"inputs": ["path"], "outputs": ["directory", "filename"]},  # Strip Path
+
+    # String operations
+    1446: {"inputs": ["str1", "str2"], "outputs": ["result"]},  # Concatenate
+    1447: {"inputs": ["string"], "outputs": ["length"]},  # String Length
+    1448: {"inputs": ["string", "start", "length"], "outputs": ["substring"]},  # Subset
+
+    # Numeric operations
+    1284: {"inputs": ["x", "y"], "outputs": ["sum"]},  # Add
+    1285: {"inputs": ["x", "y"], "outputs": ["difference"]},  # Subtract
+    1286: {"inputs": ["x", "y"], "outputs": ["product"]},  # Multiply
+    1287: {"inputs": ["x", "y"], "outputs": ["quotient"]},  # Divide
+
+    # Comparison
+    1297: {"inputs": ["x", "y"], "outputs": ["equal"]},  # Equal
+    1298: {"inputs": ["x", "y"], "outputs": ["not_equal"]},  # Not Equal
+    1299: {"inputs": ["x", "y"], "outputs": ["greater"]},  # Greater Than
+    1300: {"inputs": ["x", "y"], "outputs": ["less"]},  # Less Than
+
+    # Boolean
+    1301: {"inputs": ["x", "y"], "outputs": ["result"]},  # And
+    1302: {"inputs": ["x", "y"], "outputs": ["result"]},  # Or
+    1303: {"inputs": ["x"], "outputs": ["result"]},  # Not
+
+    # Array operations
+    1330: {"inputs": ["array", "index"], "outputs": ["element"]},  # Index Array
+    1331: {"inputs": ["array"], "outputs": ["size"]},  # Array Size
+    1332: {"inputs": ["array", "element"], "outputs": ["new_array"]},  # Build Array
+}
+
 
 @dataclass
 class SkeletonVar:
@@ -83,6 +118,7 @@ class Skeleton:
     constants: list[tuple[str, str, str]]  # (var_name, value, type)
     operations: list[SkeletonOp]
     unknowns: list[int]  # primitive IDs we don't know
+    output_sources: dict[str, str] = field(default_factory=dict)  # output_name -> source_var
 
 
 class SkeletonGenerator:
@@ -141,21 +177,12 @@ class SkeletonGenerator:
         constants = []
         for const in vi_context.get("constants", []):
             var_name = f"c_{len(constants)}"
-            raw_value = const.get("python") or const.get("value", "None")
+            raw_value = const.get("value", "")
+            python_hint = const.get("python", "")
             type_hint = self._map_type(const.get("type", ""))
 
             # Format value properly for Python
-            if const.get("python"):
-                # Already has Python hint - use as-is but may need wrapping
-                value = raw_value
-            elif type_hint == "str" or const.get("type") == "String":
-                # Quote strings
-                value = repr(raw_value)
-            elif type_hint == "Path" or "path" in raw_value.lower():
-                # Path constants
-                value = f"Path({repr(raw_value)})"
-            else:
-                value = raw_value
+            value = self._format_constant(raw_value, python_hint, type_hint, const.get("type", ""))
 
             constants.append((var_name, value, type_hint))
             self._vars[const.get("id", "")] = SkeletonVar(var_name, type_hint, "constant")
@@ -165,26 +192,38 @@ class SkeletonGenerator:
                     self._terminal_to_var[term.get("id", "")] = var_name
 
         # Build execution order from data flow
-        # First pass: register all operation output terminals with short var names
+        # First pass: register all operation output terminals with semantic var names
         op_counter = 0
         for op in vi_context.get("operations", []):
             op_id = op.get("id", "")
             labels = op.get("labels", [])
+            prim_id = op.get("primResID")
 
-            # Create a short prefix based on operation type
-            if "SubVI" in labels:
-                prefix = self._to_var_name(op.get("name", "subvi"))[:8]
-            elif "Primitive" in labels:
-                prim_id = op.get("primResID", 0)
-                prefix = f"p{prim_id}"
-            else:
-                prefix = f"op{op_counter}"
+            # Get output terminals sorted by index
+            output_terms = sorted(
+                [t for t in op.get("terminals", [])
+                 if t.get("direction") == "output" and t.get("type") != "Void"],
+                key=lambda t: t.get("index", 0)
+            )
 
-            for term in op.get("terminals", []):
-                if term.get("direction") == "output" and term.get("type") != "Void":
-                    term_id = term.get("id", "")
-                    out_var = f"{prefix}_{term.get('index', 0)}"
-                    self._terminal_to_var[term_id] = out_var
+            # Try to get semantic names from PRIMITIVE_TERMINALS
+            term_names = []
+            if "Primitive" in labels and prim_id in PRIMITIVE_TERMINALS:
+                term_names = PRIMITIVE_TERMINALS[prim_id].get("outputs", [])
+
+            for i, term in enumerate(output_terms):
+                term_id = term.get("id", "")
+                # Use semantic name if available, otherwise fall back to prefix_index
+                if i < len(term_names):
+                    out_var = term_names[i]
+                elif "SubVI" in labels:
+                    prefix = self._to_var_name(op.get("name", "subvi"))[:8]
+                    out_var = f"{prefix}_{i}"
+                elif "Primitive" in labels:
+                    out_var = f"p{prim_id}_{i}"
+                else:
+                    out_var = f"op{op_counter}_{i}"
+                self._terminal_to_var[term_id] = out_var
 
             op_counter += 1
 
@@ -286,6 +325,22 @@ class SkeletonGenerator:
                     python_expr=f"# ??? {cond_type} structure",
                 ))
 
+        # Trace which operation outputs connect to VI outputs
+        output_sources: dict[str, str] = {}
+        for out in vi_context.get("outputs", []):
+            out_name = self._to_var_name(out.get("name", "output"))
+            out_id = out.get("id")
+            # Find terminal for this output
+            for term in vi_context.get("terminals", []):
+                if term.get("parent_id") == out_id:
+                    term_id = term.get("id", "")
+                    # Find what connects to this terminal
+                    if term_id in self._flow_map:
+                        src_term = self._flow_map[term_id]["src_terminal"]
+                        if src_term in self._terminal_to_var:
+                            output_sources[out_name] = self._terminal_to_var[src_term]
+                    break
+
         return Skeleton(
             function_name=function_name,
             inputs=inputs,
@@ -294,6 +349,7 @@ class SkeletonGenerator:
             constants=constants,
             operations=operations,
             unknowns=list(set(unknowns)),
+            output_sources=output_sources,
         )
 
     def to_python(self, skeleton: Skeleton) -> str:
@@ -355,10 +411,14 @@ class SkeletonGenerator:
             else:
                 lines.append(f"    {op.python_expr}")
 
-        # Return statement
+        # Return statement - use traced output sources
         lines.append("")
         if skeleton.outputs:
-            output_vars = ", ".join(f"{n}=???" for n, _ in skeleton.outputs)
+            output_parts = []
+            for name, _ in skeleton.outputs:
+                source_var = skeleton.output_sources.get(name, "???")
+                output_parts.append(f"{name}={source_var}")
+            output_vars = ", ".join(output_parts)
             lines.append(f"    return {skeleton.namedtuple_name}({output_vars})")
         else:
             lines.append("    return None")
@@ -468,6 +528,71 @@ class SkeletonGenerator:
                 return self._to_var_name(src_name)
 
         return None
+
+    def _format_constant(
+        self,
+        raw_value: str,
+        python_hint: str,
+        type_hint: str,
+        lv_type: str,
+    ) -> str:
+        """Format a constant value as valid Python.
+
+        Args:
+            raw_value: The raw value from the graph
+            python_hint: Optional Python hint (may be description, not code)
+            type_hint: Mapped Python type hint
+            lv_type: Original LabVIEW type
+
+        Returns:
+            Valid Python expression as string
+        """
+        # Check if python_hint is actual Python code (not a description)
+        if python_hint:
+            # Descriptions often contain "on Windows" or "on Unix"
+            if " on Windows" in python_hint or " on Unix" in python_hint:
+                # This is a description, not code - extract the concept
+                # e.g., "os.environ['PROGRAMDATA'] on Windows, '/usr/local/share' on Unix"
+                return f"None  # TODO: {python_hint}"
+            # Check if it looks like valid Python (starts with quote, number, or identifier)
+            stripped = python_hint.strip()
+            if stripped and (
+                stripped[0] in "\"'0123456789-" or
+                stripped.startswith("Path(") or
+                stripped.startswith("[") or
+                stripped.startswith("{") or
+                stripped.startswith("True") or
+                stripped.startswith("False") or
+                stripped.startswith("None")
+            ):
+                return python_hint
+
+        # String constants - always quote
+        if lv_type == "String" or type_hint == "str":
+            return repr(raw_value)
+
+        # Path constants
+        if lv_type == "Path" or type_hint == "Path":
+            return f"Path({repr(raw_value)})"
+
+        # Numeric constants
+        if type_hint in ("int", "float"):
+            try:
+                # Try to parse as number
+                if "." in raw_value:
+                    return str(float(raw_value))
+                return str(int(raw_value))
+            except (ValueError, TypeError):
+                return repr(raw_value)
+
+        # Boolean
+        if type_hint == "bool" or lv_type == "Boolean":
+            return "True" if raw_value.lower() in ("true", "1") else "False"
+
+        # Default: quote it as string
+        if raw_value:
+            return repr(raw_value)
+        return "None"
 
     def _new_var(self, prefix: str) -> str:
         """Generate a new variable name."""
