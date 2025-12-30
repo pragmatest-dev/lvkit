@@ -380,13 +380,19 @@ Output ONLY the function definition, no explanations.
 
             return func_name, code
 
-        except Exception:
-            # LLM generation failed - create stub with any known info
-            desc = f'LabVIEW "{known_name}"' if known_name else f"primitive #{usage.prim_res_id}"
+        except Exception as e:
+            # LLM generation failed - log and create passthrough stub
+            import sys
+            print(f"  Warning: Failed to generate {func_name}: {e}", file=sys.stderr)
+
+            desc = f"LabVIEW '{known_name}'" if known_name else f"primitive #{usage.prim_res_id}"
             hint_comment = f"\n    # Hint: {python_hint}" if python_hint else ""
+
+            # Return passthrough stub that doesn't crash - returns first arg or None
             stub = f'''def {func_name}(*args, **kwargs):
-    """{desc} - implementation needed."""{hint_comment}
-    raise NotImplementedError("{desc} not implemented")
+    """{desc} - passthrough stub."""{hint_comment}
+    # TODO: Implement {desc}
+    return args[0] if args else None
 '''
             return func_name, stub
 

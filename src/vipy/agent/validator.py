@@ -85,6 +85,7 @@ class CodeValidator:
         module_name: str,
         expected_primitives: list[str] | None = None,
         expected_subvis: list[str] | None = None,
+        expected_input_count: int | None = None,
     ) -> ValidationResult:
         """Run full validation pipeline.
 
@@ -93,6 +94,7 @@ class CodeValidator:
             module_name: Name for the module (used in temp files)
             expected_primitives: Primitive function names that should be used
             expected_subvis: SubVI names that should be called or stubbed
+            expected_input_count: Number of inputs the function should have
 
         Returns:
             ValidationResult with is_valid flag and any errors
@@ -107,18 +109,22 @@ class CodeValidator:
                 # No point continuing if syntax is broken
                 return ValidationResult(is_valid=False, errors=syntax_errors)
 
-        # 2. Import resolution (medium cost)
+        # 2. Signature check - reject dict-wrapper anti-pattern
+        signature_errors = self._check_signature(code, expected_input_count)
+        errors.extend(signature_errors)
+
+        # 3. Import resolution (medium cost)
         if self.config.check_imports:
             import_errors = self._check_imports(code)
             errors.extend(import_errors)
 
-        # 3. Type checking with mypy (slowest, run last)
+        # 4. Type checking with mypy (slowest, run last)
         if self.config.check_types and not errors:
             type_result = self._check_types(code, module_name)
             errors.extend(type_result.errors)
             warnings.extend(type_result.warnings)
 
-        # 4. Completeness check - verify primitives and SubVIs are handled
+        # 5. Completeness check - verify primitives and SubVIs are handled
         if not errors:
             completeness_errors = self._check_completeness(
                 code, expected_primitives or [], expected_subvis or []
@@ -130,6 +136,58 @@ class CodeValidator:
             errors=errors,
             warnings=warnings,
         )
+
+    def _check_signature(
+        self,
+        code: str,
+        expected_input_count: int | None,
+    ) -> list[ValidationError]:
+        """Check function signature for anti-patterns.
+
+        Rejects:
+        - Single `inputs: dict` parameter when multiple inputs expected
+        - Return type of `dict[str, Any]` (should use tuple or named values)
+        """
+        import ast
+
+        errors: list[ValidationError] = []
+
+        try:
+            tree = ast.parse(code)
+        except SyntaxError:
+            return []  # Syntax errors caught elsewhere
+
+        for node in ast.walk(tree):
+            if isinstance(node, ast.FunctionDef):
+                # Check for dict-wrapper input anti-pattern
+                params = node.args.args
+                if len(params) == 1:
+                    param = params[0]
+                    if param.annotation:
+                        ann = ast.unparse(param.annotation)
+                        if "dict" in ann.lower() and param.arg in ("inputs", "input"):
+                            if expected_input_count is None or expected_input_count > 1:
+                                errors.append(
+                                    ValidationError(
+                                        category="signature",
+                                        message=f"Do not wrap inputs in a dict. Use named parameters instead of '{param.arg}: {ann}'",
+                                    )
+                                )
+
+                # Check for dict-wrapper output anti-pattern
+                if node.returns:
+                    ret_ann = ast.unparse(node.returns)
+                    if ret_ann.startswith("dict[") or ret_ann == "dict":
+                        errors.append(
+                            ValidationError(
+                                category="signature",
+                                message=f"Do not return dict. Use tuple or direct values instead of '-> {ret_ann}'",
+                            )
+                        )
+
+                break  # Only check first function
+
+        return errors
 
     def _check_completeness(
         self,

@@ -74,3 +74,23 @@ This table needs expansion as more VIs are encountered.
 - Ruff for linting (rules: E, F, I, UP)
 - mypy with strict mode for type checking
 - Line length: 88 characters
+
+## Bash Commands
+
+**NEVER use combined commands.** Always use single commands, one per Bash call.
+
+Bad:
+```bash
+cd /tmp && python app.py
+rm -rf /tmp/foo; python script.py
+```
+
+Good:
+```bash
+# First call
+rm -rf /tmp/foo
+# Second call
+python script.py
+```
+
+This ensures permission patterns match correctly.
