@@ -697,27 +697,18 @@ Output ONLY the corrected Python code, no explanations."""
         args = ", ".join(f"self.{ContextBuilder._to_var_name(n)}" for n, _ in inputs)
         function_call = f"{function_name}({args})"
 
-        # Generate result assignment (convert to JSON-serializable types)
+        # Generate result assignment - all outputs converted to strings for display
+        # NiceGUI bindings need JSON-serializable values
         if len(outputs) == 0:
             result_assignment = "pass  # No outputs"
         elif len(outputs) == 1:
             py_name = ContextBuilder._to_var_name(outputs[0][0])
-            typ = outputs[0][1].lower()
-            # Convert Path to string for JSON serialization
-            # Note: functions return tuples, so unpack with result[0]
-            if "path" in typ:
-                result_assignment = f"self.{py_name} = str(result[0]) if result[0] else ''"
-            else:
-                result_assignment = f"self.{py_name} = result[0]"
+            result_assignment = f"self.{py_name} = str(result[0])"
         else:
             assignments = []
-            for i, (name, typ) in enumerate(outputs):
+            for i, (name, _) in enumerate(outputs):
                 py_name = ContextBuilder._to_var_name(name)
-                # Convert Path to string for JSON serialization
-                if "path" in typ.lower():
-                    assignments.append(f"self.{py_name} = str(result[{i}]) if result[{i}] else ''")
-                else:
-                    assignments.append(f"self.{py_name} = result[{i}]")
+                assignments.append(f"self.{py_name} = str(result[{i}])")
             result_assignment = "\n            ".join(assignments)
 
         return ContextBuilder.UI_WRAPPER_TEMPLATE.format(
@@ -903,11 +894,7 @@ Output ONLY the corrected Python code, no explanations."""
 
     @staticmethod
     def _get_default(type_str: str) -> str:
-        """Get default value for a type.
-
-        Returns JSON-serializable defaults for NiceGUI binding.
-        Path types use strings since NiceGUI can't serialize Path objects.
-        """
+        """Get default value for a type (JSON-serializable for NiceGUI)."""
         type_lower = type_str.lower()
         if "int" in type_lower or "i32" in type_lower or "i16" in type_lower:
             return "0"
@@ -916,11 +903,11 @@ Output ONLY the corrected Python code, no explanations."""
         if "bool" in type_lower:
             return "False"
         if "str" in type_lower or "path" in type_lower:
-            # Paths stored as strings for JSON serialization
             return "''"
         if "list" in type_lower or "array" in type_lower:
             return "[]"
-        return "None"
+        # Everything else displays as string in UI
+        return "''"
 
     @staticmethod
     def _get_input_widget(
