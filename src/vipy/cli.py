@@ -153,6 +153,24 @@ def main() -> int:
         help="Additional directories to search for SubVIs (can be repeated)",
     )
 
+    # Explore command - run NiceGUI project explorer
+    explore_parser = subparsers.add_parser(
+        "explore",
+        help="Run NiceGUI project explorer for converted VIs",
+    )
+    explore_parser.add_argument(
+        "directory",
+        nargs="?",
+        default=".",
+        help="Directory containing converted VIs (default: current directory)",
+    )
+    explore_parser.add_argument(
+        "--port",
+        type=int,
+        default=8080,
+        help="Port to run the server on (default: 8080)",
+    )
+
     args = parser.parse_args()
 
     if args.command == "convert":
@@ -171,6 +189,8 @@ def main() -> int:
         return cmd_experiment(args)
     elif args.command == "claude":
         return cmd_claude(args)
+    elif args.command == "explore":
+        return cmd_explore(args)
     else:
         parser.print_help()
         return 0
@@ -851,6 +871,18 @@ def cmd_claude(args: argparse.Namespace) -> int:
         print(f"Error: {e}", file=sys.stderr)
         import traceback
         traceback.print_exc()
+        return 1
+
+
+def cmd_explore(args: argparse.Namespace) -> int:
+    """Handle the explore command - run NiceGUI project explorer."""
+    from .explorer import run_explorer
+
+    try:
+        run_explorer(args.directory, args.port)
+        return 0
+    except Exception as e:
+        print(f"Error: {e}", file=sys.stderr)
         return 1
 
 

@@ -55,9 +55,19 @@ class ContextBuilder:
 - MUST include `from __future__ import annotations` at the top
 - MUST include `from typing import Any` if you use Any in type annotations
 - MUST include type annotations on ALL parameters and return type
-- Use `inputs` as function parameters, `outputs` as return values
+- Each VI input becomes a NAMED function parameter (e.g., `def func(path: str, count: int)`)
+- Do NOT wrap inputs in a dict - use individual named parameters
+- Return outputs directly (use tuple for multiple outputs, e.g., `return (result, error)`)
+- Do NOT wrap outputs in a dict - return values directly
 - Use `data_flow` to understand execution order and wire connections (source -> destination)
 - Use the Key Constants section above - it shows the Python equivalent for each constant
+
+## Clusters (IMPORTANT)
+- Cluster types (`stdClust`) are Python dicts
+- The `children` field in the JSON shows the cluster's fields and their types
+- Return clusters as dicts with the field names from `children`
+- Example: if children = [{{"name": "x", "type": "stdNum"}}, {{"name": "y", "type": "stdNum"}}]
+  then return: `{{"x": 1.0, "y": 2.0}}`
 
 ## Primitives
 Operations with "Primitive" label have been resolved:
