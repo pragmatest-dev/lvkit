@@ -86,6 +86,7 @@ class CodeValidator:
         expected_primitives: list[str] | None = None,
         expected_subvis: list[str] | None = None,
         expected_input_count: int | None = None,
+        expected_output_count: int | None = None,
     ) -> ValidationResult:
         """Run full validation pipeline.
 
@@ -95,6 +96,7 @@ class CodeValidator:
             expected_primitives: Primitive function names that should be used
             expected_subvis: SubVI names that should be called or stubbed
             expected_input_count: Number of inputs the function should have
+            expected_output_count: Number of outputs the function should return
 
         Returns:
             ValidationResult with is_valid flag and any errors
@@ -110,7 +112,7 @@ class CodeValidator:
                 return ValidationResult(is_valid=False, errors=syntax_errors)
 
         # 2. Signature check - reject dict-wrapper anti-pattern
-        signature_errors = self._check_signature(code, expected_input_count)
+        signature_errors = self._check_signature(code, expected_input_count, expected_output_count)
         errors.extend(signature_errors)
 
         # 3. Import resolution (medium cost)
@@ -141,15 +143,15 @@ class CodeValidator:
         self,
         code: str,
         expected_input_count: int | None,
+        expected_output_count: int | None = None,
     ) -> list[ValidationError]:
         """Check function signature for anti-patterns.
 
         Rejects:
         - Single `inputs: dict` parameter when multiple inputs expected
         - Return type of `dict[str, Any]` (should use tuple or named values)
+        - Wrong number of return values vs expected outputs
         """
-        import ast
-
         errors: list[ValidationError] = []
 
         try:
@@ -185,9 +187,34 @@ class CodeValidator:
                             )
                         )
 
+                # Check output count matches expected
+                if expected_output_count is not None:
+                    actual_count = self._count_return_elements(node)
+                    if actual_count is not None and actual_count != expected_output_count:
+                        errors.append(
+                            ValidationError(
+                                category="signature",
+                                message=f"Function returns {actual_count} values but VI has {expected_output_count} outputs. Return all outputs.",
+                            )
+                        )
+
                 break  # Only check first function
 
         return errors
+
+    def _count_return_elements(self, func_node: ast.FunctionDef) -> int | None:
+        """Count number of elements in return statement.
+
+        Returns None if can't determine (no return, complex expression, etc.)
+        """
+        for node in ast.walk(func_node):
+            if isinstance(node, ast.Return) and node.value is not None:
+                # Check if it's a tuple
+                if isinstance(node.value, ast.Tuple):
+                    return len(node.value.elts)
+                # Single value return
+                return 1
+        return None
 
     def _check_completeness(
         self,

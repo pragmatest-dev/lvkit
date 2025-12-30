@@ -49,6 +49,7 @@ class BaselineStrategy(ConversionStrategy):
         )
 
         expected_subvis = self._get_expected_subvis(vi_context)
+        expected_output_count = len(vi_context.get("outputs", []))
         original_context = context
 
         code = ""
@@ -61,7 +62,8 @@ class BaselineStrategy(ConversionStrategy):
 
             # Validate
             validation = self.validator.validate(
-                code, vi_name, [], expected_subvis
+                code, vi_name, [], expected_subvis,
+                expected_output_count=expected_output_count,
             )
 
             if validation.is_valid:

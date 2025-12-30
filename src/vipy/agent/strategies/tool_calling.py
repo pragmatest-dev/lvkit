@@ -90,6 +90,7 @@ When ready, submit your final code with `submit_code`.
 """
 
         expected_subvis = self._get_expected_subvis(vi_context)
+        expected_output_count = len(vi_context.get("outputs", []))
         tool_calls: list[str] = []
         code = ""
         errors: list[str] = []
@@ -110,7 +111,8 @@ When ready, submit your final code with `submit_code`.
 
                     # Validate
                     validation = self.validator.validate(
-                        code, vi_name, [], expected_subvis
+                        code, vi_name, [], expected_subvis,
+                        expected_output_count=expected_output_count,
                     )
 
                     if validation.is_valid:
@@ -154,7 +156,8 @@ Try a different approach.
                     tool_calls.append("submit_code (implicit)")
 
                     validation = self.validator.validate(
-                        code, vi_name, [], expected_subvis
+                        code, vi_name, [], expected_subvis,
+                        expected_output_count=expected_output_count,
                     )
 
                     if validation.is_valid:
