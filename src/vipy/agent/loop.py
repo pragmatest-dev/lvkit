@@ -551,18 +551,23 @@ def {func_name}({params_str}) -> {return_type}:
             result.append((name, self._map_type(typ)))
         return result
 
-    def _get_vi_outputs(self, vi_context: dict) -> list[tuple[str, str]]:
-        """Get output names and types from VI context.
+    def _get_vi_outputs(self, vi_context: dict) -> list[tuple[str, str, str]]:
+        """Get output names, types, and display names from VI context.
 
         Uses the actual output names from the VI (e.g., "Settings Path", "error out")
         rather than generic names like "result_0", "result_1".
+
+        Returns: List of (code_name, type, display_name) tuples
         """
         outputs = vi_context.get("outputs", [])
         result = []
         for out in outputs:
-            name = out.get("name", "result")
+            display_name = out.get("name", "result")
             typ = out.get("type", "Any")
-            result.append((name, self._map_type(typ)))
+            # Convert display name to code name (snake_case)
+            code_name = display_name.lower().replace(" ", "_").replace("-", "_")
+            code_name = "".join(c for c in code_name if c.isalnum() or c == "_")
+            result.append((code_name, self._map_type(typ), display_name))
         return result
 
     def _get_subvi_signatures(

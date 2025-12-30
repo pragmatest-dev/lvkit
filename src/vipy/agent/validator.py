@@ -274,7 +274,9 @@ class CodeValidator:
                 # Check if return type is a NamedTuple we defined
                 if return_type in namedtuple_classes:
                     field_count = namedtuple_classes[return_type]
-                    if field_count != expected_output_count:
+                    # Only error if fewer fields than expected (missing outputs)
+                    # Extra fields (like error out) are allowed
+                    if field_count < expected_output_count:
                         errors.append(
                             ValidationError(
                                 category="return_type",
