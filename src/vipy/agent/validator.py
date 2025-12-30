@@ -282,11 +282,16 @@ class CodeValidator:
         """Check that all imports can be resolved."""
         errors: list[ValidationError] = []
 
+        # Check for known bad import patterns FIRST
+        bad_patterns = self._check_bad_import_patterns(code)
+        if bad_patterns:
+            errors.extend(bad_patterns)
+
         try:
             tree = ast.parse(code)
         except SyntaxError:
             # Already caught by syntax check
-            return []
+            return errors
 
         for node in ast.walk(tree):
             if isinstance(node, ast.Import):
@@ -347,6 +352,43 @@ class CodeValidator:
             return True
 
         return self._can_import(module)
+
+    def _check_bad_import_patterns(self, code: str) -> list[ValidationError]:
+        """Check for known incorrect import patterns.
+
+        Common LLM mistakes:
+        - `from typing import Path` (Path is from pathlib)
+        - `from pathlib import Optional` (Optional is from typing)
+        - `from typing import tuple, dict` (these are builtins)
+        """
+        errors: list[ValidationError] = []
+
+        # Path should be from pathlib, not typing
+        if re.search(r'from\s+typing\s+import\s+[^#\n]*\bPath\b', code):
+            errors.append(ValidationError(
+                category="import",
+                message="Invalid import: Path should be from pathlib, not typing",
+            ))
+
+        # typing names imported from pathlib
+        typing_names = ['Optional', 'Any', 'List', 'Dict', 'Tuple', 'Union', 'Callable']
+        for name in typing_names:
+            if re.search(rf'from\s+pathlib\s+import\s+[^#\n]*\b{name}\b', code):
+                errors.append(ValidationError(
+                    category="import",
+                    message=f"Invalid import: {name} should be from typing, not pathlib",
+                ))
+
+        # Built-in types imported from typing (Python 3.9+)
+        builtin_types = ['tuple', 'list', 'dict', 'set', 'frozenset']
+        for name in builtin_types:
+            if re.search(rf'from\s+typing\s+import\s+[^#\n]*\b{name}\b', code):
+                errors.append(ValidationError(
+                    category="import",
+                    message=f"Invalid import: {name} is a builtin, not from typing",
+                ))
+
+        return errors
 
     def _check_types(self, code: str, module_name: str) -> ValidationResult:
         """Run mypy type checking."""

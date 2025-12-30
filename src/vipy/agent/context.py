@@ -57,27 +57,27 @@ class ContextBuilder:
 - MUST include type annotations on ALL parameters and return type
 - Each VI input becomes a NAMED function parameter (e.g., `def func(path: str, count: int)`)
 - Do NOT wrap inputs in a dict - use individual named parameters
-- Return outputs directly (use tuple for multiple outputs, e.g., `return (result, error)`)
-- Do NOT wrap outputs in a dict - return values directly
 - Use `data_flow` to understand execution order and wire connections (source -> destination)
 - Use the Key Constants section above - it shows the Python equivalent for each constant
 
-## Clusters (IMPORTANT)
-- Cluster types (`stdClust`) are Python dicts
-- The `children` field in the JSON shows the cluster's fields and their types
-- Return clusters as dicts with the field names from `children`
-- Example: if children = [{{"name": "x", "type": "stdNum"}}, {{"name": "y", "type": "stdNum"}}]
-  then return: `{{"x": 1.0, "y": 2.0}}`
+## Return Values (CRITICAL)
+Your return statement MUST match the Outputs section EXACTLY:
+- Return a tuple with one value per output, in the same order as listed in Outputs
+- Example: If Outputs are "Settings Path" and "error out", return `(settings_path, error_out)`
+- For cluster outputs (shown with parentheses like `error out: Cluster (status, code, source)`), return a dict: `{{"status": False, "code": 0, "source": ""}}`
+- Include a docstring documenting what each return value is
 
-## Primitives
-Operations with "Primitive" label have been resolved:
-- `python_function`: The function to call (already imported from .primitives)
-- `python_hint`: Shows the Python equivalent operation (USE THIS as a guide)
+WRONG: Returning fewer values than outputs, or returning unpacked cluster fields
+RIGHT: Returning exactly one value per output, clusters as dicts
+
+## Primitives (IMPORTANT)
+Operations with "Primitive" label are LabVIEW built-in operations. Use them INLINE:
+- `python_hint`: The Python equivalent - USE THIS DIRECTLY in your code
 - `primitive_name`: The official LabVIEW primitive name
 - `terminal_names`: Input/output terminal names for parameter mapping
 
-Example: If an operation has `"python_hint": "element = array[index]"` and `"python_function": "index_array"`,
-call it as: `result = index_array(my_array, my_index)`
+Example: If python_hint is "array[index]", write `result = my_array[i]` directly.
+DO NOT call wrapper functions for simple operations - use the Python equivalent inline.
 
 ## SubVIs - IMPORTANT
 Operations with "SubVI" label are ALREADY CONVERTED Python functions.
@@ -697,17 +697,27 @@ Output ONLY the corrected Python code, no explanations."""
         args = ", ".join(f"self.{ContextBuilder._to_var_name(n)}" for n, _ in inputs)
         function_call = f"{function_name}({args})"
 
-        # Generate result assignment
+        # Generate result assignment (convert to JSON-serializable types)
         if len(outputs) == 0:
             result_assignment = "pass  # No outputs"
         elif len(outputs) == 1:
             py_name = ContextBuilder._to_var_name(outputs[0][0])
-            result_assignment = f"self.{py_name} = result"
+            typ = outputs[0][1].lower()
+            # Convert Path to string for JSON serialization
+            # Note: functions return tuples, so unpack with result[0]
+            if "path" in typ:
+                result_assignment = f"self.{py_name} = str(result[0]) if result[0] else ''"
+            else:
+                result_assignment = f"self.{py_name} = result[0]"
         else:
             assignments = []
-            for i, (name, _) in enumerate(outputs):
+            for i, (name, typ) in enumerate(outputs):
                 py_name = ContextBuilder._to_var_name(name)
-                assignments.append(f"self.{py_name} = result[{i}]")
+                # Convert Path to string for JSON serialization
+                if "path" in typ.lower():
+                    assignments.append(f"self.{py_name} = str(result[{i}]) if result[{i}] else ''")
+                else:
+                    assignments.append(f"self.{py_name} = result[{i}]")
             result_assignment = "\n            ".join(assignments)
 
         return ContextBuilder.UI_WRAPPER_TEMPLATE.format(
@@ -893,7 +903,11 @@ Output ONLY the corrected Python code, no explanations."""
 
     @staticmethod
     def _get_default(type_str: str) -> str:
-        """Get default value for a type."""
+        """Get default value for a type.
+
+        Returns JSON-serializable defaults for NiceGUI binding.
+        Path types use strings since NiceGUI can't serialize Path objects.
+        """
         type_lower = type_str.lower()
         if "int" in type_lower or "i32" in type_lower or "i16" in type_lower:
             return "0"
@@ -901,10 +915,9 @@ Output ONLY the corrected Python code, no explanations."""
             return "0.0"
         if "bool" in type_lower:
             return "False"
-        if "str" in type_lower:
+        if "str" in type_lower or "path" in type_lower:
+            # Paths stored as strings for JSON serialization
             return "''"
-        if "path" in type_lower:
-            return "Path('.')"
         if "list" in type_lower or "array" in type_lower:
             return "[]"
         return "None"

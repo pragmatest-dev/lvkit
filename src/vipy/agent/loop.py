@@ -526,14 +526,13 @@ def {func_name}({params_str}) -> {return_type}:
         if types_files:
             print(f"  Generated {len(types_files)} types.py file(s)")
 
-        # Generate primitives package
+        # Generate primitives package (only for non-inline primitives)
         prims = self.primitive_registry.get_all_primitives()
         if prims:
             self.primitive_registry.generate_primitives_package(
                 self.config.output_dir,
                 self.config.llm_config,
             )
-            print(f"  Generated primitives/ package ({len(prims)} primitives)")
 
         # Report discovered enums
         enum_stats = self.enum_registry.stats()
