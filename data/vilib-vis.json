@@ -24,9 +24,10 @@
         }
       ],
       "python": "get_system_directory(directory_type)",
-      "python_impl": "def get_system_directory(directory_type: int) -> Path:\n    paths = {0: Path.home(), 1: Path.home()/'Desktop', 2: Path.home()/'Documents', 3: Path(os.environ.get('APPDATA', Path.home()/'.config')), 5: Path(os.environ.get('TEMP', '/tmp'))}\n    return paths.get(directory_type, Path.home())",
+      "python_impl": "from typing import NamedTuple\n\nclass GetSystemDirectoryResult(NamedTuple):\n    system_directory_path: Path\n\ndef get_system_directory(directory_type: int) -> GetSystemDirectoryResult:\n    \"\"\"Get the system directory path.\"\"\"\n    paths = {0: Path.home(), 1: Path.home()/'Desktop', 2: Path.home()/'Documents', 3: Path(os.environ.get('APPDATA', Path.home()/'.config')), 5: Path(os.environ.get('TEMP', '/tmp'))}\n    return GetSystemDirectoryResult(system_directory_path=paths.get(directory_type, Path.home()))",
       "imports": [
         "from pathlib import Path",
+        "from typing import NamedTuple",
         "import os"
       ]
     },
@@ -53,7 +54,7 @@
         }
       ],
       "python": "error_cluster_from_code(code, source)",
-      "python_impl": "def error_cluster_from_code(code: int, source: str = '') -> dict:\n    return {'status': code != 0, 'code': code, 'source': source}"
+      "python_impl": "from typing import NamedTuple\n\nclass ErrorClusterFromCodeResult(NamedTuple):\n    error_out: dict\n\ndef error_cluster_from_code(code: int, source: str = '') -> ErrorClusterFromCodeResult:\n    \"\"\"Create error cluster from error code.\"\"\"\n    return ErrorClusterFromCodeResult(error_out={'status': code != 0, 'code': code, 'source': source})"
     },
     "Utility/error.llb/Clear Errors.vi": {
       "name": "Clear Errors",
@@ -72,7 +73,7 @@
         }
       ],
       "python": "clear_errors(error_in)",
-      "python_impl": "def clear_errors(error_in: dict = None) -> dict:\n    return {'status': False, 'code': 0, 'source': ''}"
+      "python_impl": "from typing import NamedTuple\n\nclass ClearErrorsResult(NamedTuple):\n    error_out: dict\n\ndef clear_errors(error_in: dict = None) -> ClearErrorsResult:\n    \"\"\"Clear any errors, returning a clean error cluster.\"\"\"\n    return ClearErrorsResult(error_out={'status': False, 'code': 0, 'source': ''})"
     },
     "dialog/Three Button Dialog.vi": {
       "name": "Three Button Dialog",

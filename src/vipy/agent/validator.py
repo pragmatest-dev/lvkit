@@ -115,7 +115,12 @@ class CodeValidator:
         signature_errors = self._check_signature(code, expected_input_count, expected_output_count)
         errors.extend(signature_errors)
 
-        # 3. Import resolution (medium cost)
+        # 3. NamedTuple check - must use NamedTuple for returns
+        if expected_output_count and expected_output_count > 0:
+            namedtuple_errors = self._check_namedtuple_return(code, expected_output_count)
+            errors.extend(namedtuple_errors)
+
+        # 4. Import resolution (medium cost)
         if self.config.check_imports:
             import_errors = self._check_imports(code)
             errors.extend(import_errors)
@@ -215,6 +220,80 @@ class CodeValidator:
                 # Single value return
                 return 1
         return None
+
+    def _check_namedtuple_return(
+        self,
+        code: str,
+        expected_output_count: int,
+    ) -> list[ValidationError]:
+        """Check that function returns a NamedTuple with correct field count.
+
+        Args:
+            code: Generated Python code
+            expected_output_count: Number of outputs expected
+
+        Returns:
+            List of validation errors
+        """
+        errors: list[ValidationError] = []
+
+        try:
+            tree = ast.parse(code)
+        except SyntaxError:
+            return errors  # Handled by syntax check
+
+        # Find NamedTuple class definitions
+        namedtuple_classes: dict[str, int] = {}  # name -> field count
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ClassDef):
+                # Check if it inherits from NamedTuple
+                for base in node.bases:
+                    if isinstance(base, ast.Name) and base.id == "NamedTuple":
+                        # Count annotated fields
+                        field_count = sum(
+                            1 for item in node.body
+                            if isinstance(item, ast.AnnAssign) and isinstance(item.target, ast.Name)
+                        )
+                        namedtuple_classes[node.name] = field_count
+                        break
+
+        # Find the main function and check its return type
+        for node in ast.walk(tree):
+            if isinstance(node, ast.FunctionDef):
+                if not node.returns:
+                    errors.append(
+                        ValidationError(
+                            category="return_type",
+                            message="Function must have a return type annotation using a NamedTuple",
+                        )
+                    )
+                    break
+
+                return_type = ast.unparse(node.returns)
+
+                # Check if return type is a NamedTuple we defined
+                if return_type in namedtuple_classes:
+                    field_count = namedtuple_classes[return_type]
+                    if field_count != expected_output_count:
+                        errors.append(
+                            ValidationError(
+                                category="return_type",
+                                message=f"NamedTuple {return_type} has {field_count} fields but expected {expected_output_count} outputs",
+                            )
+                        )
+                elif return_type.startswith("tuple["):
+                    # Plain tuple - should use NamedTuple instead
+                    errors.append(
+                        ValidationError(
+                            category="return_type",
+                            message=f"Use NamedTuple instead of plain tuple for return type. Define a class like 'class FuncResult(NamedTuple): ...'",
+                        )
+                    )
+                # else: might be a single value or None, which is fine
+
+                break  # Only check first function
+
+        return errors
 
     def _check_completeness(
         self,

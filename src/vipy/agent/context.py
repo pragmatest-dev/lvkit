@@ -60,15 +60,31 @@ class ContextBuilder:
 - Use `data_flow` to understand execution order and wire connections (source -> destination)
 - Use the Key Constants section above - it shows the Python equivalent for each constant
 
-## Return Values (CRITICAL)
-Your return statement MUST match the Outputs section EXACTLY:
-- Return a tuple with one value per output, in the same order as listed in Outputs
-- Example: If Outputs are "Settings Path" and "error out", return `(settings_path, error_out)`
-- For cluster outputs (shown with parentheses like `error out: Cluster (status, code, source)`), return a dict: `{{"status": False, "code": 0, "source": ""}}`
-- Include a docstring documenting what each return value is
+## Return Values (CRITICAL - USE NAMEDTUPLE)
+Define a NamedTuple class for outputs, then return an instance:
+```python
+from typing import NamedTuple
 
-WRONG: Returning fewer values than outputs, or returning unpacked cluster fields
-RIGHT: Returning exactly one value per output, clusters as dicts
+class MyFuncResult(NamedTuple):
+    settings_path: Path
+    error_out: dict
+
+def my_func(input1: str) -> MyFuncResult:
+    \"\"\"Description of what this VI does.
+
+    :param input1: "Original Input Name" - description
+    :return: ("Settings Path", "error out")
+    \"\"\"
+    return MyFuncResult(settings_path=path, error_out=err)
+```
+
+Rules:
+- NamedTuple class name: CamelCase function name + "Result" (e.g., `GetSettingsPathResult`)
+- Field names from Outputs section, converted to snake_case
+- For cluster outputs (like `error out: Cluster (status, code, source)`), use dict: `{{"status": False, "code": 0, "source": ""}}`
+- ALWAYS use keyword arguments in the return: `return Result(field1=val1, field2=val2)`
+- Docstring MUST include `:param name: "Original Name"` for each input
+- Docstring MUST include `:return: ("Original Name 1", "Original Name 2")` listing original output names
 
 ## Primitives (IMPORTANT)
 Operations with "Primitive" label are LabVIEW built-in operations. Use them INLINE:
@@ -638,8 +654,8 @@ Output ONLY the corrected Python code, no explanations."""
         vi_name: str,
         module_name: str,
         function_name: str,
-        inputs: list[tuple[str, str]],  # [(name, type), ...]
-        outputs: list[tuple[str, str]],
+        inputs: list[tuple[str, str, str]],  # [(code_name, type, display_name), ...]
+        outputs: list[tuple[str, str, str]],
         enums: dict[str, list[tuple[int, str]]] | None = None,
     ) -> str:
         """Generate NiceGUI wrapper for a VI.
@@ -653,8 +669,8 @@ Output ONLY the corrected Python code, no explanations."""
             vi_name: Original VI name
             module_name: Python module name (for imports)
             function_name: Python function name
-            inputs: List of (name, type) tuples
-            outputs: List of (name, type) tuples
+            inputs: List of (code_name, type, display_name) tuples
+            outputs: List of (code_name, type, display_name) tuples
             enums: Dict mapping param name to list of (value, label) for dropdowns
 
         Returns:
@@ -665,36 +681,36 @@ Output ONLY the corrected Python code, no explanations."""
 
         # Generate input attributes
         input_attrs = []
-        for name, typ in inputs:
-            py_name = ContextBuilder._to_var_name(name)
+        for code_name, typ, _ in inputs:
+            py_name = ContextBuilder._to_var_name(code_name)
             default = ContextBuilder._get_default(typ)
             input_attrs.append(f"        self.{py_name} = {default}")
 
         # Generate output attributes
         output_attrs = []
-        for name, typ in outputs:
-            py_name = ContextBuilder._to_var_name(name)
+        for code_name, typ, _ in outputs:
+            py_name = ContextBuilder._to_var_name(code_name)
             default = ContextBuilder._get_default(typ)
             output_attrs.append(f"        self.{py_name} = {default}")
 
         # Generate input widgets (5 levels of indentation: class > def > with card > with div > with column)
         input_widgets = []
-        for name, typ in inputs:
-            py_name = ContextBuilder._to_var_name(name)
+        for code_name, typ, display_name in inputs:
+            py_name = ContextBuilder._to_var_name(code_name)
             # Check if this parameter has enum options
-            enum_options = enums.get(name)
-            widget = ContextBuilder._get_input_widget(name, typ, py_name, enum_options)
+            enum_options = enums.get(code_name)
+            widget = ContextBuilder._get_input_widget(display_name, typ, py_name, enum_options)
             input_widgets.append(f"                    {widget}")
 
         # Generate output widgets (5 levels of indentation)
         output_widgets = []
-        for name, typ in outputs:
-            py_name = ContextBuilder._to_var_name(name)
-            widget = ContextBuilder._get_output_widget(name, typ, py_name)
+        for code_name, typ, display_name in outputs:
+            py_name = ContextBuilder._to_var_name(code_name)
+            widget = ContextBuilder._get_output_widget(display_name, typ, py_name)
             output_widgets.append(f"                    {widget}")
 
         # Generate function call
-        args = ", ".join(f"self.{ContextBuilder._to_var_name(n)}" for n, _ in inputs)
+        args = ", ".join(f"self.{ContextBuilder._to_var_name(n)}" for n, _, _ in inputs)
         function_call = f"{function_name}({args})"
 
         # Generate result assignment - all outputs converted to strings for display
@@ -706,8 +722,8 @@ Output ONLY the corrected Python code, no explanations."""
             result_assignment = f"self.{py_name} = str(result[0])"
         else:
             assignments = []
-            for i, (name, _) in enumerate(outputs):
-                py_name = ContextBuilder._to_var_name(name)
+            for i, (code_name, _, _) in enumerate(outputs):
+                py_name = ContextBuilder._to_var_name(code_name)
                 assignments.append(f"self.{py_name} = str(result[{i}])")
             result_assignment = "\n            ".join(assignments)
 
