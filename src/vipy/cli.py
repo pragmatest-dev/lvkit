@@ -427,7 +427,7 @@ def cmd_graph(args: argparse.Namespace) -> int:
         if args.cypher:
             suffix = input_path.suffix.lower()
             if suffix == ".vi":
-                from .cypher import extract_vi_xml
+                from .extractor import extract_vi_xml
                 bd_xml, fp_xml, main_xml = extract_vi_xml(input_path)
                 cypher = from_vi(bd_xml, fp_xml, main_xml, expand_subvis=expand_subvis)
             elif suffix == ".lvlib":
@@ -519,7 +519,7 @@ def cmd_graph(args: argparse.Namespace) -> int:
 def cmd_agent(args: argparse.Namespace) -> int:
     """Handle the agent command - convert with validation loop."""
     from .agent import ConversionAgent, ConversionConfig
-    from .cypher import extract_vi_xml
+    from .extractor import extract_vi_xml
 
     input_path = Path(args.input)
     output_dir = Path(args.output)
