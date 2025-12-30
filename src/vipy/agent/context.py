@@ -934,34 +934,79 @@ Output ONLY the corrected Python code, no explanations."""
     ) -> str:
         """Get NiceGUI input widget for a type.
 
+        Uses consistent row layout: label on left, widget on right.
+        Clusters render as expandable visual groups.
+
         Args:
             label: Display label for the widget
             type_str: Python type string
             var_name: Variable name for binding
             enum_options: Optional list of (value, label) tuples for dropdown
         """
+        # Check for cluster type - render as visual group
+        if "cluster" in type_str.lower() or "dict" in type_str.lower():
+            return ContextBuilder._get_cluster_input(label, var_name)
+
+        # Column layout: label above widget
+        widget_code = ContextBuilder._get_input_widget_inner(type_str, var_name, enum_options)
+        return f"with ui.column().classes('gap-1 w-full'):\n                        ui.label('{label}').classes('text-sm text-gray-600')\n                        {widget_code}"
+
+    @staticmethod
+    def _get_input_widget_inner(
+        type_str: str,
+        var_name: str,
+        enum_options: list[tuple[int, str]] | None = None,
+    ) -> str:
+        """Get the inner widget without label wrapper."""
         # If enum options provided, use a select dropdown
         if enum_options:
             options_dict = {v: f"{v}: {lbl}" for v, lbl in enum_options}
-            return f"ui.select({options_dict}, label='{label}').bind_value(self, '{var_name}')"
+            return f"ui.select({options_dict}).bind_value(self, '{var_name}').classes('flex-1')"
 
         type_lower = type_str.lower()
         if "bool" in type_lower:
-            return f"ui.switch('{label}').bind_value(self, '{var_name}')"
+            return f"ui.switch().bind_value(self, '{var_name}')"
         if "int" in type_lower or "float" in type_lower or "num" in type_lower or "dbl" in type_lower:
-            return f"ui.number('{label}').bind_value(self, '{var_name}')"
+            return f"ui.number().bind_value(self, '{var_name}').classes('flex-1')"
         if "path" in type_lower:
-            return f"ui.input('{label}').bind_value(self, '{var_name}').classes('w-full')"
+            return f"ui.input().bind_value(self, '{var_name}').classes('flex-1')"
         # Default to text input
-        return f"ui.input('{label}').bind_value(self, '{var_name}')"
+        return f"ui.input().bind_value(self, '{var_name}').classes('flex-1')"
+
+    @staticmethod
+    def _get_cluster_input(label: str, var_name: str) -> str:
+        """Get cluster input as expandable visual group."""
+        return f"""with ui.expansion('{label}').classes('w-full'):
+                        ui.textarea().bind_value(self, '{var_name}').classes('w-full font-mono text-xs')"""
 
     @staticmethod
     def _get_output_widget(label: str, type_str: str, var_name: str) -> str:
-        """Get NiceGUI output widget for a type."""
+        """Get NiceGUI output widget for a type.
+
+        Uses consistent row layout: label on left, value on right.
+        Clusters render as expandable visual groups.
+        """
+        # Check for cluster type - render as visual group
+        if "cluster" in type_str.lower() or "dict" in type_str.lower():
+            return ContextBuilder._get_cluster_output(label, var_name)
+
+        # Column layout: label above widget (matches input style)
+        widget_code = ContextBuilder._get_output_widget_inner(type_str, var_name)
+        return f"with ui.column().classes('gap-1 w-full'):\n                        ui.label('{label}').classes('text-sm text-gray-600')\n                        {widget_code}"
+
+    @staticmethod
+    def _get_output_widget_inner(type_str: str, var_name: str) -> str:
+        """Get the inner output widget without label wrapper."""
         type_lower = type_str.lower()
         if "bool" in type_lower:
-            return f"ui.switch('{label}', value=False).bind_value_from(self, '{var_name}').props('disable')"
+            return f"ui.switch().bind_value_from(self, '{var_name}').props('disable')"
         if "int" in type_lower or "float" in type_lower or "num" in type_lower:
-            return f"ui.number('{label}', value=0).bind_value_from(self, '{var_name}').props('readonly')"
-        # Default to label display
-        return f"ui.label().bind_text_from(self, '{var_name}', backward=lambda x: f'{label}: {{x}}')"
+            return f"ui.number().bind_value_from(self, '{var_name}').props('readonly').classes('flex-1')"
+        # Default to text display with background for output styling
+        return f"ui.label().bind_text_from(self, '{var_name}').classes('flex-1 p-2 bg-gray-100 rounded')"
+
+    @staticmethod
+    def _get_cluster_output(label: str, var_name: str) -> str:
+        """Get cluster output as expandable visual group."""
+        return f"""with ui.expansion('{label}').classes('w-full'):
+                        ui.label().bind_text_from(self, '{var_name}').classes('w-full font-mono text-xs whitespace-pre-wrap')"""
