@@ -60,6 +60,88 @@ class InMemoryVIGraph:
         self._stubs.clear()
         self._bindings.clear()
 
+    def query(self, cypher: str, params: dict | None = None) -> list[dict]:
+        """Cypher query compatibility - routes to native methods.
+
+        Detects query intent and calls appropriate native method.
+        """
+        cypher_lower = cypher.lower()
+
+        # Route to native methods based on query pattern
+        if "constant" in cypher_lower:
+            return self.get_all_constants()
+        elif "primitive" in cypher_lower:
+            return self.get_all_primitives()
+        elif "cluster" in cypher_lower:
+            return self.get_all_clusters()
+
+        return []
+
+    def query_single(self, cypher: str, params: dict | None = None) -> dict | None:
+        """Single-result Cypher query compatibility."""
+        results = self.query(cypher, params)
+        return results[0] if results else None
+
+    def get_all_constants(self) -> list[dict[str, Any]]:
+        """Get all constants across all VIs for enum discovery."""
+        results = []
+        for vi_name, g in self._dataflow.items():
+            for node_id, data in g.nodes(data=True):
+                if data.get("kind") == "constant":
+                    results.append({
+                        "vi_name": vi_name,
+                        "value": data.get("raw_value", data.get("value", "")),
+                        "label": data.get("label"),
+                        "type": data.get("type"),
+                        "python": data.get("value"),  # Decoded value
+                    })
+        return results
+
+    def get_all_primitives(self) -> list[dict[str, Any]]:
+        """Get all primitives across all VIs for primitive discovery."""
+        results = []
+        for vi_name, g in self._dataflow.items():
+            for node_id, data in g.nodes(data=True):
+                if data.get("kind") == "primitive":
+                    terminals = data.get("terminals", [])
+                    input_types = [
+                        t.get("type", "Any")
+                        for t in terminals
+                        if t.get("direction") == "input"
+                    ]
+                    output_types = [
+                        t.get("type", "Any")
+                        for t in terminals
+                        if t.get("direction") == "output"
+                    ]
+                    results.append({
+                        "vi_name": vi_name,
+                        "prim_id": data.get("prim_id"),
+                        "input_types": input_types,
+                        "output_types": output_types,
+                    })
+        return results
+
+    def get_all_clusters(self) -> list[dict[str, Any]]:
+        """Get all cluster types across all VIs for shared type discovery."""
+        # Collect clusters by name, tracking which VIs use them
+        clusters: dict[str, set[str]] = {}
+
+        for vi_name, g in self._dataflow.items():
+            for node_id, data in g.nodes(data=True):
+                if data.get("kind") in ("input", "output"):
+                    control_type = data.get("control_type", "")
+                    if control_type == "stdClust":
+                        name = data.get("name", "UnnamedCluster")
+                        if name not in clusters:
+                            clusters[name] = set()
+                        clusters[name].add(vi_name)
+
+        return [
+            {"name": name, "id": name, "vis": list(vis)}
+            for name, vis in clusters.items()
+        ]
+
     # === Loading ===
 
     def load_vi(
@@ -374,6 +456,40 @@ class InMemoryVIGraph:
     def is_stub_vi(self, vi_name: str) -> bool:
         """Check if a VI is a stub (missing dependency)."""
         return vi_name in self._stubs
+
+    def get_stub_vi_info(self, vi_name: str) -> dict[str, Any] | None:
+        """Get stub VI info including terminal types from call site.
+
+        For stubs, we don't have the actual VI, but we can infer types
+        from how it's called in the parent VI.
+        """
+        if vi_name not in self._stubs:
+            return None
+
+        # Find callers of this stub and extract terminal types
+        input_types: list[str] = []
+        output_types: list[str] = []
+
+        for caller_vi in self._dataflow:
+            g = self._dataflow[caller_vi]
+            for node_id, data in g.nodes(data=True):
+                if data.get("kind") == "subvi" and data.get("name") == vi_name:
+                    # Extract terminal types from the SubVI node
+                    for term in data.get("terminals", []):
+                        term_type = term.get("type", "Any")
+                        if term_type == "unknown":
+                            term_type = "Any"
+                        if term.get("direction") == "input":
+                            input_types.append(term_type)
+                        else:
+                            output_types.append(term_type)
+                    break  # Found caller, stop searching
+
+        return {
+            "name": vi_name,
+            "input_types": input_types,
+            "output_types": output_types,
+        }
 
     def get_vi_dependencies(self, vi_name: str) -> list[str]:
         """Get VIs that this VI depends on (SubVIs it calls)."""
