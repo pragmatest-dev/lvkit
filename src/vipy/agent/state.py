@@ -89,35 +89,36 @@ class ConversionState:
             from_library: Library of the module doing the import (None for root)
 
         Returns:
-            Import statement with proper relative path
+            Import statement with proper relative path (imports ALL exports)
         """
         module = self._converted.get(name)
         if not module:
             return ""
 
         target_lib = module.library_name
-        primary_export = module.exports[0] if module.exports else None
+        # Import ALL exports, not just the first one
+        all_exports = ", ".join(module.exports) if module.exports else None
 
         # Build relative import based on library locations
         if from_library == target_lib:
-            # Same library: from .module import func
-            if primary_export:
-                return f"from .{module.module_name} import {primary_export}"
+            # Same library: from .module import func, Class, ...
+            if all_exports:
+                return f"from .{module.module_name} import {all_exports}"
             return f"from . import {module.module_name}"
         elif from_library is None and target_lib is not None:
-            # Root importing from library: from .library.module import func
-            if primary_export:
-                return f"from .{target_lib}.{module.module_name} import {primary_export}"
+            # Root importing from library: from .library.module import func, ...
+            if all_exports:
+                return f"from .{target_lib}.{module.module_name} import {all_exports}"
             return f"from .{target_lib} import {module.module_name}"
         elif from_library is not None and target_lib is None:
-            # Library importing from root: from ..module import func
-            if primary_export:
-                return f"from ..{module.module_name} import {primary_export}"
+            # Library importing from root: from ..module import func, ...
+            if all_exports:
+                return f"from ..{module.module_name} import {all_exports}"
             return f"from .. import {module.module_name}"
         else:
-            # Different libraries: from ..other_lib.module import func
-            if primary_export:
-                return f"from ..{target_lib}.{module.module_name} import {primary_export}"
+            # Different libraries: from ..other_lib.module import func, ...
+            if all_exports:
+                return f"from ..{target_lib}.{module.module_name} import {all_exports}"
             return f"from ..{target_lib} import {module.module_name}"
 
     def get_all_converted(self) -> list[ConvertedModule]:

@@ -60,31 +60,49 @@ class ContextBuilder:
 - Use `data_flow` to understand execution order and wire connections (source -> destination)
 - Use the Key Constants section above - it shows the Python equivalent for each constant
 
-## Return Values (CRITICAL - USE NAMEDTUPLE)
-Define a NamedTuple class for outputs, then return an instance:
+## Return Values (CRITICAL)
+Your function MUST:
+1. Define a NamedTuple class for the return type with field names matching output terminal names
+2. Return an instance of that NamedTuple
+
+Example for outputs "config path" and "error out":
 ```python
 from typing import NamedTuple
 
-class MyFuncResult(NamedTuple):
-    settings_path: Path
-    error_out: dict
+class GetSettingsPathResult(NamedTuple):
+    config_path: Path  # config path
+    error_out: dict  # error out
 
-def my_func(input1: str) -> MyFuncResult:
-    \"\"\"Description of what this VI does.
-
-    :param input1: "Original Input Name" - description
-    :return: ("Settings Path", "error out")
-    \"\"\"
-    return MyFuncResult(settings_path=path, error_out=err)
+def get_settings_path(...) -> GetSettingsPathResult:
+    ...
+    return GetSettingsPathResult(config_path=path, error_out=error)
 ```
 
-Rules:
-- NamedTuple class name: CamelCase function name + "Result" (e.g., `GetSettingsPathResult`)
-- Field names from Outputs section, converted to snake_case
-- For cluster outputs (like `error out: Cluster (status, code, source)`), use dict: `{{"status": False, "code": 0, "source": ""}}`
-- ALWAYS use keyword arguments in the return: `return Result(field1=val1, field2=val2)`
-- Docstring MUST include `:param name: "Original Name"` for each input
-- Docstring MUST include `:return: ("Original Name 1", "Original Name 2")` listing original output names
+- Field names: Convert terminal names to snake_case (e.g., "system directory path" -> system_directory_path)
+- Add comment with original terminal name after each field
+- For cluster outputs, use dict type
+- For VIs with NO outputs, return None (no NamedTuple needed)
+
+## Docstrings (REQUIRED)
+Every function MUST have a Google-style docstring with:
+1. Brief description of what the VI does
+2. Args section listing each parameter with type and description
+3. Returns section describing the NamedTuple and its fields
+
+Example:
+```python
+def get_settings_path(system_directory: int) -> GetSettingsPathResult:
+    \"\"\"Get the settings path for the application.
+
+    Args:
+        system_directory: The system directory type (0=Home, 1=Desktop, etc.)
+
+    Returns:
+        GetSettingsPathResult with:
+            config_path: Path to the configuration file
+            error_out: Error cluster with status, code, source
+    \"\"\"
+```
 
 ## Primitives (IMPORTANT)
 Operations with "Primitive" label are LabVIEW built-in operations. Use them INLINE:
@@ -654,8 +672,8 @@ Output ONLY the corrected Python code, no explanations."""
         vi_name: str,
         module_name: str,
         function_name: str,
-        inputs: list[tuple[str, str, str]],  # [(code_name, type, display_name), ...]
-        outputs: list[tuple[str, str, str]],
+        inputs: list[tuple[str, str]],  # [(name, type), ...]
+        outputs: list[tuple[str, str]],
         enums: dict[str, list[tuple[int, str]]] | None = None,
     ) -> str:
         """Generate NiceGUI wrapper for a VI.
@@ -669,8 +687,8 @@ Output ONLY the corrected Python code, no explanations."""
             vi_name: Original VI name
             module_name: Python module name (for imports)
             function_name: Python function name
-            inputs: List of (code_name, type, display_name) tuples
-            outputs: List of (code_name, type, display_name) tuples
+            inputs: List of (name, type) tuples
+            outputs: List of (name, type) tuples
             enums: Dict mapping param name to list of (value, label) for dropdowns
 
         Returns:
@@ -681,36 +699,36 @@ Output ONLY the corrected Python code, no explanations."""
 
         # Generate input attributes
         input_attrs = []
-        for code_name, typ, _ in inputs:
-            py_name = ContextBuilder._to_var_name(code_name)
+        for name, typ in inputs:
+            py_name = ContextBuilder._to_var_name(name)
             default = ContextBuilder._get_default(typ)
             input_attrs.append(f"        self.{py_name} = {default}")
 
         # Generate output attributes
         output_attrs = []
-        for code_name, typ, _ in outputs:
-            py_name = ContextBuilder._to_var_name(code_name)
+        for name, typ in outputs:
+            py_name = ContextBuilder._to_var_name(name)
             default = ContextBuilder._get_default(typ)
             output_attrs.append(f"        self.{py_name} = {default}")
 
         # Generate input widgets (5 levels of indentation: class > def > with card > with div > with column)
         input_widgets = []
-        for code_name, typ, display_name in inputs:
-            py_name = ContextBuilder._to_var_name(code_name)
+        for name, typ in inputs:
+            py_name = ContextBuilder._to_var_name(name)
             # Check if this parameter has enum options
-            enum_options = enums.get(code_name)
-            widget = ContextBuilder._get_input_widget(display_name, typ, py_name, enum_options)
+            enum_options = enums.get(name)
+            widget = ContextBuilder._get_input_widget(name, typ, py_name, enum_options)
             input_widgets.append(f"                    {widget}")
 
         # Generate output widgets (5 levels of indentation)
         output_widgets = []
-        for code_name, typ, display_name in outputs:
-            py_name = ContextBuilder._to_var_name(code_name)
-            widget = ContextBuilder._get_output_widget(display_name, typ, py_name)
+        for name, typ in outputs:
+            py_name = ContextBuilder._to_var_name(name)
+            widget = ContextBuilder._get_output_widget(name, typ, py_name)
             output_widgets.append(f"                    {widget}")
 
         # Generate function call
-        args = ", ".join(f"self.{ContextBuilder._to_var_name(n)}" for n, _, _ in inputs)
+        args = ", ".join(f"self.{ContextBuilder._to_var_name(n)}" for n, _ in inputs)
         function_call = f"{function_name}({args})"
 
         # Generate result assignment - all outputs converted to strings for display
@@ -722,8 +740,8 @@ Output ONLY the corrected Python code, no explanations."""
             result_assignment = f"self.{py_name} = str(result[0])"
         else:
             assignments = []
-            for i, (code_name, _, _) in enumerate(outputs):
-                py_name = ContextBuilder._to_var_name(code_name)
+            for i, (name, _) in enumerate(outputs):
+                py_name = ContextBuilder._to_var_name(name)
                 assignments.append(f"self.{py_name} = str(result[{i}])")
             result_assignment = "\n            ".join(assignments)
 

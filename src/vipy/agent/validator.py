@@ -115,12 +115,7 @@ class CodeValidator:
         signature_errors = self._check_signature(code, expected_input_count, expected_output_count)
         errors.extend(signature_errors)
 
-        # 3. NamedTuple check - must use NamedTuple for returns
-        if expected_output_count and expected_output_count > 0:
-            namedtuple_errors = self._check_namedtuple_return(code, expected_output_count)
-            errors.extend(namedtuple_errors)
-
-        # 4. Import resolution (medium cost)
+        # 3. Import resolution (medium cost)
         if self.config.check_imports:
             import_errors = self._check_imports(code)
             errors.extend(import_errors)
@@ -137,6 +132,15 @@ class CodeValidator:
                 code, expected_primitives or [], expected_subvis or []
             )
             errors.extend(completeness_errors)
+
+        # 6. NamedTuple check - verify return type uses NamedTuple
+        if expected_output_count and expected_output_count > 0:
+            namedtuple_errors = self._check_namedtuple(code, expected_output_count)
+            errors.extend(namedtuple_errors)
+
+        # 7. Docstring check - verify function has proper docstring
+        docstring_warnings = self._check_docstring(code)
+        warnings.extend(docstring_warnings)
 
         return ValidationResult(
             is_valid=len(errors) == 0,
@@ -192,16 +196,8 @@ class CodeValidator:
                             )
                         )
 
-                # Check output count matches expected
-                if expected_output_count is not None:
-                    actual_count = self._count_return_elements(node)
-                    if actual_count is not None and actual_count != expected_output_count:
-                        errors.append(
-                            ValidationError(
-                                category="signature",
-                                message=f"Function returns {actual_count} values but VI has {expected_output_count} outputs. Return all outputs.",
-                            )
-                        )
+                # NOTE: Output count is checked via NamedTuple field count in _check_namedtuple
+                # Don't check return elements here - NamedTuple returns ONE value containing N fields
 
                 break  # Only check first function
 
@@ -220,82 +216,6 @@ class CodeValidator:
                 # Single value return
                 return 1
         return None
-
-    def _check_namedtuple_return(
-        self,
-        code: str,
-        expected_output_count: int,
-    ) -> list[ValidationError]:
-        """Check that function returns a NamedTuple with correct field count.
-
-        Args:
-            code: Generated Python code
-            expected_output_count: Number of outputs expected
-
-        Returns:
-            List of validation errors
-        """
-        errors: list[ValidationError] = []
-
-        try:
-            tree = ast.parse(code)
-        except SyntaxError:
-            return errors  # Handled by syntax check
-
-        # Find NamedTuple class definitions
-        namedtuple_classes: dict[str, int] = {}  # name -> field count
-        for node in ast.walk(tree):
-            if isinstance(node, ast.ClassDef):
-                # Check if it inherits from NamedTuple
-                for base in node.bases:
-                    if isinstance(base, ast.Name) and base.id == "NamedTuple":
-                        # Count annotated fields
-                        field_count = sum(
-                            1 for item in node.body
-                            if isinstance(item, ast.AnnAssign) and isinstance(item.target, ast.Name)
-                        )
-                        namedtuple_classes[node.name] = field_count
-                        break
-
-        # Find the main function and check its return type
-        for node in ast.walk(tree):
-            if isinstance(node, ast.FunctionDef):
-                if not node.returns:
-                    errors.append(
-                        ValidationError(
-                            category="return_type",
-                            message="Function must have a return type annotation using a NamedTuple",
-                        )
-                    )
-                    break
-
-                return_type = ast.unparse(node.returns)
-
-                # Check if return type is a NamedTuple we defined
-                if return_type in namedtuple_classes:
-                    field_count = namedtuple_classes[return_type]
-                    # Only error if fewer fields than expected (missing outputs)
-                    # Extra fields (like error out) are allowed
-                    if field_count < expected_output_count:
-                        errors.append(
-                            ValidationError(
-                                category="return_type",
-                                message=f"NamedTuple {return_type} has {field_count} fields but expected {expected_output_count} outputs",
-                            )
-                        )
-                elif return_type.startswith("tuple["):
-                    # Plain tuple - should use NamedTuple instead
-                    errors.append(
-                        ValidationError(
-                            category="return_type",
-                            message=f"Use NamedTuple instead of plain tuple for return type. Define a class like 'class FuncResult(NamedTuple): ...'",
-                        )
-                    )
-                # else: might be a single value or None, which is fine
-
-                break  # Only check first function
-
-        return errors
 
     def _check_completeness(
         self,
@@ -551,6 +471,102 @@ class CodeValidator:
                 line=int(match.group(1)),
             )
         return None
+
+    def _check_namedtuple(self, code: str, expected_output_count: int) -> list[ValidationError]:
+        """Check that function returns a NamedTuple with correct field count.
+
+        Args:
+            code: Python source code
+            expected_output_count: Number of fields expected in NamedTuple
+
+        Returns:
+            List of validation errors
+        """
+        errors: list[ValidationError] = []
+
+        try:
+            tree = ast.parse(code)
+        except SyntaxError:
+            return []
+
+        # Find NamedTuple class definition
+        namedtuple_class = None
+        namedtuple_fields = []
+
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ClassDef):
+                # Check if it's a NamedTuple
+                for base in node.bases:
+                    if isinstance(base, ast.Name) and base.id == "NamedTuple":
+                        namedtuple_class = node.name
+                        # Count fields (class body with AnnAssign)
+                        for item in node.body:
+                            if isinstance(item, ast.AnnAssign) and isinstance(item.target, ast.Name):
+                                namedtuple_fields.append(item.target.id)
+                        break
+
+        if not namedtuple_class:
+            errors.append(ValidationError(
+                category="namedtuple",
+                message=f"Missing NamedTuple class for return type. Define a class like 'class FuncResult(NamedTuple):' with {expected_output_count} fields.",
+            ))
+            return errors
+
+        # Check field count (allow extra fields like error_out)
+        if len(namedtuple_fields) < expected_output_count:
+            errors.append(ValidationError(
+                category="namedtuple",
+                message=f"NamedTuple '{namedtuple_class}' has {len(namedtuple_fields)} fields but expected at least {expected_output_count}.",
+            ))
+
+        return errors
+
+    def _check_docstring(self, code: str) -> list[ValidationError]:
+        """Check that function has proper docstring with Args and Returns.
+
+        Args:
+            code: Python source code
+
+        Returns:
+            List of validation warnings (not errors)
+        """
+        warnings: list[ValidationError] = []
+
+        try:
+            tree = ast.parse(code)
+        except SyntaxError:
+            return []
+
+        for node in ast.walk(tree):
+            if isinstance(node, ast.FunctionDef) and not node.name.startswith("_"):
+                docstring = ast.get_docstring(node)
+                if not docstring:
+                    warnings.append(ValidationError(
+                        category="docstring",
+                        message=f"Function '{node.name}' is missing a docstring.",
+                    ))
+                    continue
+
+                # Check for Args section
+                if "Args:" not in docstring and "args:" not in docstring.lower():
+                    if len(node.args.args) > 0:
+                        warnings.append(ValidationError(
+                            category="docstring",
+                            message=f"Function '{node.name}' docstring is missing Args section.",
+                        ))
+
+                # Check for Returns section
+                if node.returns:
+                    ret_type = ast.unparse(node.returns)
+                    if ret_type != "None" and "Returns:" not in docstring and "returns:" not in docstring.lower():
+                        warnings.append(ValidationError(
+                            category="docstring",
+                            message=f"Function '{node.name}' docstring is missing Returns section.",
+                        ))
+
+                break  # Only check first public function
+
+        return warnings
 
 
 class ErrorFormatter:
