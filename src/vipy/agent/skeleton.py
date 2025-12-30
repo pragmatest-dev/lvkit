@@ -199,10 +199,11 @@ class SkeletonGenerator:
             labels = op.get("labels", [])
             prim_id = op.get("primResID")
 
-            # Get output terminals sorted by index
+            # Get output terminals sorted by index (only wired ones)
             output_terms = sorted(
                 [t for t in op.get("terminals", [])
-                 if t.get("direction") == "output" and t.get("type") != "Void"],
+                 if t.get("direction") == "output"
+                 and self._is_terminal_wired(t.get("id", ""))],
                 key=lambda t: t.get("index", 0)
             )
 
@@ -249,11 +250,14 @@ class SkeletonGenerator:
 
             for term in terminals:
                 term_id = term.get("id", "")
-                if term.get("direction") == "input" and term.get("type") != "Void":
+                # Only include wired terminals
+                if not self._is_terminal_wired(term_id):
+                    continue
+                if term.get("direction") == "input":
                     # Find source variable from data flow
                     source_var = self._find_source_var(term_id, vi_context)
                     op_inputs.append(source_var or "???")
-                elif term.get("direction") == "output" and term.get("type") != "Void":
+                elif term.get("direction") == "output":
                     out_var = self._terminal_to_var.get(term_id, f"v_{op_id}_{term.get('index', 0)}")
                     op_outputs.append(out_var)
 
@@ -494,7 +498,8 @@ class SkeletonGenerator:
 
     def _build_data_flow_map(self, vi_context: dict) -> None:
         """Build mapping from destination terminals to source terminals."""
-        self._flow_map = {}  # dest_terminal_id -> source_terminal_id
+        self._flow_map = {}  # dest_terminal_id -> source info
+        self._wired_terminals: set[str] = set()  # All terminals with wires
         for flow in vi_context.get("data_flow", []):
             dest_id = flow.get("to_terminal_id")
             src_id = flow.get("from_terminal_id")
@@ -505,6 +510,13 @@ class SkeletonGenerator:
                     "src_parent_name": flow.get("from_parent_name"),
                     "src_parent_labels": flow.get("from_parent_labels", []),
                 }
+                # Track both ends as wired
+                self._wired_terminals.add(src_id)
+                self._wired_terminals.add(dest_id)
+
+    def _is_terminal_wired(self, term_id: str) -> bool:
+        """Check if a terminal has any wire connected."""
+        return term_id in self._wired_terminals
 
     def _find_source_var(self, term_id: str, vi_context: dict) -> str | None:
         """Find the source variable for a terminal from data flow."""
