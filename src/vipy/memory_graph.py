@@ -16,7 +16,7 @@ from typing import Any
 import networkx as nx
 
 from .blockdiagram import decode_constant
-from .cypher import extract_vi_xml
+from .extractor import extract_vi_xml
 from .frontpanel import FrontPanel, parse_front_panel
 from .parser import (
     BlockDiagram,

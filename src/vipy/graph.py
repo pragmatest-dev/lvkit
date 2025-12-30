@@ -1,4 +1,8 @@
-"""Neo4j graph database integration for VI hierarchy."""
+"""Neo4j graph database integration for VI hierarchy.
+
+Requires the 'neo4j' optional dependency:
+    pip install vipy[neo4j]
+"""
 
 from __future__ import annotations
 
@@ -6,11 +10,21 @@ from collections.abc import Generator
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from neo4j import Driver, GraphDatabase
+try:
+    from neo4j import Driver, GraphDatabase
+    HAS_NEO4J = True
+except ImportError:
+    HAS_NEO4J = False
+    Driver = None  # type: ignore[misc, assignment]
+    GraphDatabase = None  # type: ignore[misc, assignment]
 
-from .cypher import extract_vi_xml, from_vi
+if TYPE_CHECKING:
+    from neo4j import Driver
+
+from .cypher import from_vi
+from .extractor import extract_vi_xml
 
 
 @dataclass
@@ -49,6 +63,10 @@ class VIGraph:
 
     def connect(self) -> None:
         """Connect to Neo4j database."""
+        if not HAS_NEO4J:
+            raise ImportError(
+                "Neo4j is required for VIGraph. Install with: pip install vipy[neo4j]"
+            )
         self._driver = GraphDatabase.driver(
             self.config.uri,
             auth=(self.config.username, self.config.password),
