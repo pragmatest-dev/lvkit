@@ -621,12 +621,12 @@ class VIGraph:
                 WHERE op:Primitive OR op:SubVI OR op:Loop OR op:Conditional
                 RETURN labels(op) AS labels, op.name AS name, op.type AS type,
                        op.id AS id, op.primResID AS primResID,
-                       [(op)-[:HAS_TERMINAL]->(t) | {id: t.id, index: t.index, type: t.type, direction: CASE WHEN 'Output' IN labels(t) THEN 'output' ELSE 'input' END}] AS terminals
+                       [(op)-[:HAS_TERMINAL]->(t) | {id: t.id, index: t.index, type: t.type, name: t.name, direction: CASE WHEN 'Output' IN labels(t) THEN 'output' ELSE 'input' END}] AS terminals
             """, {"name": vi_name}),
             "terminals": self.query("""
                 MATCH (v:VI {name: $name})-[:CONTAINS|RETURNS|PARAMETER_OF*]-(parent)
                 MATCH (parent)-[:HAS_TERMINAL]->(t:Terminal)
-                RETURN t.id AS id, t.index AS index, t.type AS type,
+                RETURN t.id AS id, t.index AS index, t.type AS type, t.name AS name,
                        CASE WHEN 'Output' IN labels(t) THEN 'output' ELSE 'input' END AS direction,
                        parent.id AS parent_id, labels(parent) AS parent_labels,
                        parent.name AS parent_name, parent.primResID AS parent_prim

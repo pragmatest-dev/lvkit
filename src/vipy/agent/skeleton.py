@@ -206,16 +206,19 @@ class SkeletonGenerator:
                 key=lambda t: t.get("index", 0)
             )
 
-            # Try to get semantic names from PRIMITIVE_TERMINALS
-            term_names = []
+            # Try to get semantic names from graph first, then fall back to PRIMITIVE_TERMINALS
+            lookup_names = []
             if "Primitive" in labels and prim_id in PRIMITIVE_TERMINALS:
-                term_names = PRIMITIVE_TERMINALS[prim_id].get("outputs", [])
+                lookup_names = PRIMITIVE_TERMINALS[prim_id].get("outputs", [])
 
             for i, term in enumerate(output_terms):
                 term_id = term.get("id", "")
-                # Use semantic name if available, otherwise fall back to prefix_index
-                if i < len(term_names):
-                    out_var = term_names[i]
+                # Priority: 1) Graph terminal name, 2) Lookup table, 3) Fallback prefix_index
+                graph_name = term.get("name")
+                if graph_name:
+                    out_var = self._to_var_name(graph_name)
+                elif i < len(lookup_names):
+                    out_var = lookup_names[i]
                 elif "SubVI" in labels:
                     prefix = self._to_var_name(op.get("name", "subvi"))[:8]
                     out_var = f"{prefix}_{i}"

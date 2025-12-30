@@ -869,6 +869,7 @@ def _extract_terminal_info(
                 index=0,
                 is_output=not fp_term.is_indicator,  # Controls output to diagram, indicators receive
                 type_id=None,  # Type comes from front panel XML
+                name=fp_term.name,  # Use FP control/indicator name
             )
 
     return terminal_info
