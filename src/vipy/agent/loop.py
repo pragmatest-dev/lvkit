@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import ast
 import shutil
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -13,6 +12,7 @@ from ..vilib_resolver import get_resolver as get_vilib_resolver
 from .agentic import AgenticConfig, AgenticConverter, AgenticResult
 from .context import ContextBuilder, VISignature
 from .enums import EnumRegistry
+from .parsing import extract_function_signature
 from .primitives import PrimitiveRegistry
 from .state import ConversionState, get_progress
 from .strategies import get_strategy
@@ -219,7 +219,7 @@ class ConversionAgent:
             ui_path = None
             if self.config.generate_ui:
                 # Extract function signature from generated code
-                func_name, func_inputs, _, func_enums = self._extract_function_signature(result.code)
+                func_name, func_inputs, _, func_enums = extract_function_signature(result.code)
                 # Use output names from VI context (not generic result_0, result_1)
                 func_outputs = self._get_vi_outputs(vi_context)
                 if func_name is not None:  # Valid function found
@@ -277,7 +277,7 @@ class ConversionAgent:
             # Generate UI wrapper if enabled
             ui_path = None
             if self.config.generate_ui:
-                func_name, func_inputs, func_outputs, func_enums = self._extract_function_signature(code)
+                func_name, func_inputs, func_outputs, func_enums = extract_function_signature(code)
                 if func_name is not None:
                     ui_path = self._generate_ui_wrapper(vi_name, func_name, func_inputs, func_outputs, func_enums)
 
@@ -350,7 +350,7 @@ def {func_name}({params_str}) -> {return_type}:
         # Generate UI wrapper if enabled
         ui_path = None
         if self.config.generate_ui:
-            func_name_parsed, func_inputs, func_outputs, func_enums = self._extract_function_signature(code)
+            func_name_parsed, func_inputs, func_outputs, func_enums = extract_function_signature(code)
             if func_name_parsed is not None:
                 ui_path = self._generate_ui_wrapper(vi_name, func_name_parsed, func_inputs, func_outputs, func_enums)
 
@@ -649,151 +649,6 @@ def {func_name}({params_str}) -> {return_type}:
 
         ui_path.write_text(ui_code)
         return ui_path
-
-    def _extract_function_signature(
-        self,
-        code: str,
-    ) -> tuple[str | None, list[tuple[str, str]], list[tuple[str, str]], dict[str, list[tuple[int, str]]]]:
-        """Extract function signature from generated Python code.
-
-        Parses the AST to find the main function and extract its
-        name, parameters, return type, and any enum-like dict mappings.
-
-        Args:
-            code: Generated Python code
-
-        Returns:
-            Tuple of (function_name, inputs, outputs, enums) where:
-            - function_name: Name of the function, or None if parsing failed
-            - inputs: List of (name, type) for parameters
-            - outputs: List of (name, type) for return values
-            - enums: Dict mapping param name to list of (value, label) tuples
-        """
-        try:
-            tree = ast.parse(code)
-        except SyntaxError:
-            return None, [], [], {}
-
-        # Find the first function definition (the main VI function)
-        for node in ast.walk(tree):
-            if isinstance(node, ast.FunctionDef):
-                func_name = node.name
-                inputs = self._extract_params(node)
-                outputs = self._extract_returns(node)
-                enums = self._extract_enums(node, inputs)
-                return func_name, inputs, outputs, enums
-
-        return None, [], [], {}
-
-    def _extract_enums(
-        self,
-        func: ast.FunctionDef,
-        params: list[tuple[str, str]],
-    ) -> dict[str, list[tuple[int, str]]]:
-        """Extract enum-like dict mappings from function body.
-
-        Looks for dict literals with integer keys that might represent
-        enum values for function parameters.
-
-        Args:
-            func: Function AST node
-            params: List of (name, type) for parameters
-
-        Returns:
-            Dict mapping parameter name to list of (value, label) tuples
-        """
-        enums: dict[str, list[tuple[int, str]]] = {}
-
-        # Get parameter names that are int type (potential enums)
-        int_params = {name for name, typ in params if typ in ("int", "int32", "integer")}
-        if not int_params:
-            return enums
-
-        # Walk the function body looking for dict literals with int keys
-        for node in ast.walk(func):
-            if isinstance(node, ast.Dict):
-                # Check if all keys are integer constants
-                if not node.keys or not all(isinstance(k, ast.Constant) and isinstance(k.value, int) for k in node.keys if k is not None):
-                    continue
-
-                # Extract key-value pairs
-                options: list[tuple[int, str]] = []
-                for key, value in zip(node.keys, node.values):
-                    if key is None:
-                        continue
-                    int_key = key.value  # type: ignore
-                    # Try to get a meaningful label from the value
-                    label = self._value_to_label(value, int_key)
-                    options.append((int_key, label))
-
-                if options:
-                    # Sort by key value
-                    options.sort(key=lambda x: x[0])
-                    # Try to match this dict to a parameter
-                    # For now, assign to the first int param we find
-                    for param in int_params:
-                        if param not in enums:
-                            enums[param] = options
-                            break
-
-        return enums
-
-    def _value_to_label(self, node: ast.expr, key: int) -> str:
-        """Convert an AST value node to a human-readable label."""
-        if isinstance(node, ast.Constant):
-            return str(node.value)
-        elif isinstance(node, ast.Call):
-            # e.g., Path.home() -> "Home"
-            if isinstance(node.func, ast.Attribute):
-                return node.func.attr.replace("_", " ").title()
-            elif isinstance(node.func, ast.Name):
-                return node.func.id.replace("_", " ").title()
-        elif isinstance(node, ast.BinOp):
-            # e.g., Path.home() / 'Desktop' -> extract string part
-            if isinstance(node.right, ast.Constant):
-                return str(node.right.value)
-        elif isinstance(node, ast.Subscript):
-            # e.g., paths[0] -> use key
-            pass
-        # Fallback to key number
-        return f"Option {key}"
-
-    def _extract_params(self, func: ast.FunctionDef) -> list[tuple[str, str]]:
-        """Extract parameter names and types from function definition."""
-        params = []
-        for arg in func.args.args:
-            name = arg.arg
-            if arg.annotation:
-                type_str = ast.unparse(arg.annotation)
-            else:
-                type_str = "Any"
-            params.append((name, type_str))
-        return params
-
-    def _extract_returns(self, func: ast.FunctionDef) -> list[tuple[str, str]]:
-        """Extract return type from function definition.
-
-        For tuple returns, creates multiple output entries.
-        """
-        if not func.returns:
-            return []
-
-        return_annotation = ast.unparse(func.returns)
-
-        # Check for tuple return (multiple outputs)
-        if return_annotation.startswith("tuple["):
-            # Parse tuple elements
-            # tuple[int, str, Path] -> [("result_0", "int"), ("result_1", "str"), ...]
-            inner = return_annotation[6:-1]  # Remove "tuple[" and "]"
-            # Simple split - handles basic cases
-            types = [t.strip() for t in inner.split(",")]
-            return [(f"result_{i}", t) for i, t in enumerate(types)]
-
-        if return_annotation == "None":
-            return []
-
-        # Single return value
-        return [("result", return_annotation)]
 
     def _generate_package_init(self, results: list[ConversionResult]) -> None:
         """Generate the main package __init__.py."""
