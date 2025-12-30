@@ -458,15 +458,39 @@ class InMemoryVIGraph:
         return vi_name in self._stubs
 
     def get_stub_vi_info(self, vi_name: str) -> dict[str, Any] | None:
-        """Get stub VI info including terminal types from call site.
+        """Get stub VI info from vilib reference or call site inference.
 
-        For stubs, we don't have the actual VI, but we can infer types
-        from how it's called in the parent VI.
+        Priority:
+        1. Check vilib resolver for known VI signatures (vi.lib VIs)
+        2. Fall back to inferring from call site in parent VI
         """
         if vi_name not in self._stubs:
             return None
 
-        # Find callers of this stub and extract terminal types
+        # First, check vilib resolver for known VIs
+        from .vilib_resolver import get_resolver
+        resolver = get_resolver()
+        vilib_info = resolver.get_context(vi_name)
+        if vilib_info:
+            inputs = []
+            outputs = []
+            for t in vilib_info.get("terminals", []):
+                term_type = t.get("type") or "Any"
+                if t.get("direction") == "in":
+                    inputs.append({"name": t["name"], "type": term_type})
+                else:
+                    outputs.append({"name": t["name"], "type": term_type})
+            return {
+                "name": vi_name,
+                "vilib_path": vilib_info.get("vilib_path"),
+                "python_hint": vilib_info.get("python"),
+                "inputs": inputs,
+                "outputs": outputs,
+                "input_types": [i["type"] for i in inputs],
+                "output_types": [o["type"] for o in outputs],
+            }
+
+        # Fall back to inferring from call site
         input_types: list[str] = []
         output_types: list[str] = []
 
