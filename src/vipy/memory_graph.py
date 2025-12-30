@@ -15,8 +15,16 @@ from typing import Any
 
 import networkx as nx
 
+from .blockdiagram import decode_constant
 from .cypher import extract_vi_xml
-from .parser import BlockDiagram, parse_block_diagram, parse_subvi_paths
+from .frontpanel import FrontPanel, parse_front_panel
+from .parser import (
+    BlockDiagram,
+    ConnectorPane,
+    parse_block_diagram,
+    parse_connector_pane,
+    parse_subvi_paths,
+)
 
 
 class InMemoryVIGraph:
@@ -42,12 +50,15 @@ class InMemoryVIGraph:
         self._dataflow: dict[str, nx.DiGraph] = {}
         # Stub VIs (missing dependencies)
         self._stubs: set[str] = set()
+        # Cross-VI bindings: (caller_vi, term_uid) -> (subvi_name, subvi_term_uid)
+        self._bindings: dict[tuple[str, str], tuple[str, str]] = {}
 
     def clear(self) -> None:
         """Clear all loaded data."""
         self._dep_graph.clear()
         self._dataflow.clear()
         self._stubs.clear()
+        self._bindings.clear()
 
     # === Loading ===
 
@@ -73,10 +84,13 @@ class InMemoryVIGraph:
 
         # Handle .vi files by extracting first
         if vi_path.suffix.lower() == ".vi":
-            bd_xml, _, main_xml = extract_vi_xml(vi_path)
+            bd_xml, fp_xml, main_xml = extract_vi_xml(vi_path)
         elif vi_path.name.endswith("_BDHb.xml"):
             bd_xml = vi_path
-            # Try to find main XML
+            # Try to find FP XML and main XML
+            fp_xml = vi_path.with_name(vi_path.name.replace("_BDHb.xml", "_FPHb.xml"))
+            if not fp_xml.exists():
+                fp_xml = None
             main_xml = vi_path.with_name(vi_path.name.replace("_BDHb.xml", ".xml"))
             if not main_xml.exists():
                 main_xml = None
@@ -90,15 +104,21 @@ class InMemoryVIGraph:
         # Parse the VI hierarchy
         self._load_vi_recursive(
             bd_xml,
+            fp_xml,
             main_xml,
             expand_subvis=expand_subvis,
             search_paths=search_paths,
             visited=set(),
         )
 
+        # Build cross-VI bindings after all VIs are loaded
+        if expand_subvis:
+            self._build_cross_vi_bindings()
+
     def _load_vi_recursive(
         self,
         bd_xml: Path,
+        fp_xml: Path | None,
         main_xml: Path | None,
         expand_subvis: bool,
         search_paths: list[Path],
@@ -114,11 +134,18 @@ class InMemoryVIGraph:
             return None
         visited.add(vi_name)
 
-        # Parse the block diagram
+        # Parse block diagram, front panel, and connector pane
         bd = parse_block_diagram(bd_xml)
+        fp: FrontPanel | None = None
+        conpane: ConnectorPane | None = None
+        if fp_xml and fp_xml.exists():
+            fp = parse_front_panel(fp_xml, bd_xml)
+            conpane = parse_connector_pane(fp_xml)
 
         # Build dataflow graph for this VI
-        self._dataflow[vi_name] = self._build_dataflow_graph(bd, vi_name)
+        self._dataflow[vi_name] = self._build_dataflow_graph(
+            bd, fp, conpane, vi_name
+        )
 
         # Add to dependency graph
         self._dep_graph.add_node(vi_name)
@@ -130,16 +157,25 @@ class InMemoryVIGraph:
                 subvi_path = self._find_subvi(ref.name, search_paths)
                 if subvi_path:
                     # Recursively load SubVI
-                    subvi_bd_xml, _, subvi_main_xml = extract_vi_xml(subvi_path)
-                    loaded_name = self._load_vi_recursive(
-                        subvi_bd_xml,
-                        subvi_main_xml,
-                        expand_subvis=True,
-                        search_paths=search_paths,
-                        visited=visited,
-                    )
-                    if loaded_name:
-                        self._dep_graph.add_edge(vi_name, loaded_name)
+                    try:
+                        subvi_bd_xml, subvi_fp_xml, subvi_main_xml = extract_vi_xml(
+                            subvi_path
+                        )
+                        loaded_name = self._load_vi_recursive(
+                            subvi_bd_xml,
+                            subvi_fp_xml,
+                            subvi_main_xml,
+                            expand_subvis=True,
+                            search_paths=search_paths,
+                            visited=visited,
+                        )
+                        if loaded_name:
+                            self._dep_graph.add_edge(vi_name, loaded_name)
+                    except (RuntimeError, OSError):
+                        # SubVI extraction failed (corrupt file) - treat as stub
+                        self._stubs.add(ref.name)
+                        self._dep_graph.add_node(ref.name)
+                        self._dep_graph.add_edge(vi_name, ref.name)
                 else:
                     # Mark as stub
                     self._stubs.add(ref.name)
@@ -161,31 +197,109 @@ class InMemoryVIGraph:
                 return found
         return None
 
-    def _build_dataflow_graph(self, bd: BlockDiagram, vi_name: str) -> nx.DiGraph:
+    def _build_cross_vi_bindings(self) -> None:
+        """Build explicit bindings between caller terminals and SubVI parameters.
+
+        For each SubVI call, maps caller terminal[index=N] to SubVI FP terminal[slot=N].
+        This makes cross-VI data flow explicit in the graph.
+        """
+        for caller_vi in self._dataflow:
+            g = self._dataflow[caller_vi]
+
+            # Find SubVI nodes in this VI
+            for node_id, data in g.nodes(data=True):
+                if data.get("kind") != "subvi":
+                    continue
+
+                subvi_name = data.get("name")
+                if not subvi_name or subvi_name not in self._dataflow:
+                    continue  # SubVI not loaded (stub)
+
+                # Get SubVI's FP terminals indexed by slot
+                subvi_g = self._dataflow[subvi_name]
+                slot_to_term: dict[int, str] = {}
+                for term_id, term_data in subvi_g.nodes(data=True):
+                    slot = term_data.get("slot_index")
+                    if slot is not None and term_data.get("kind") in (
+                        "input",
+                        "output",
+                    ):
+                        slot_to_term[slot] = term_id
+
+                # Get terminals on the SubVI node in caller
+                terminals = data.get("terminals", [])
+                for term in terminals:
+                    term_uid = term.get("id")
+                    term_index = term.get("index")
+                    if term_uid is None or term_index is None:
+                        continue
+
+                    # Match caller terminal index to SubVI slot
+                    subvi_term_uid = slot_to_term.get(term_index)
+                    if subvi_term_uid:
+                        self._bindings[(caller_vi, term_uid)] = (
+                            subvi_name,
+                            subvi_term_uid,
+                        )
+
+    def _build_dataflow_graph(
+        self,
+        bd: BlockDiagram,
+        fp: FrontPanel | None,
+        conpane: ConnectorPane | None,
+        vi_name: str,
+    ) -> nx.DiGraph:
         """Build a dataflow graph from a BlockDiagram.
 
         Nodes: operations, constants, FP terminals (inputs/outputs)
         Edges: wires (data connections)
+
+        Only includes FP terminals that are on the connector pane (public interface).
         """
         g = nx.DiGraph()
 
-        # Add FP terminals (inputs/outputs)
+        # Build FP control lookup by UID for merging names/types/defaults
+        fp_by_uid: dict[str, Any] = {}
+        if fp:
+            for ctrl in fp.controls:
+                fp_by_uid[ctrl.uid] = ctrl
+
+        # Build connector pane lookup: fp_dco_uid -> slot index
+        conpane_slots: dict[str, int] = {}
+        if conpane:
+            for slot in conpane.slots:
+                if slot.fp_dco_uid:
+                    conpane_slots[slot.fp_dco_uid] = slot.index
+
+        # Add ALL FP terminals (for dataflow), marking public vs internal
         for fp_term in bd.fp_terminals:
+            slot_index = conpane_slots.get(fp_term.fp_dco_uid)
+            is_public = slot_index is not None or not conpane_slots
             kind = "output" if fp_term.is_indicator else "input"
+            # Look up front panel control by DCO UID
+            ctrl = fp_by_uid.get(fp_term.fp_dco_uid)
             g.add_node(
                 fp_term.uid,
                 kind=kind,
-                name=fp_term.name,
+                name=ctrl.name if ctrl else fp_term.name,
                 is_indicator=fp_term.is_indicator,
+                is_public=is_public,  # On connector pane = public interface
+                slot_index=slot_index,  # Position on connector pane
+                type_desc=ctrl.type_desc if ctrl else None,
+                control_type=ctrl.control_type if ctrl else None,
+                default_value=ctrl.default_value if ctrl else None,
+                enum_values=ctrl.enum_values if ctrl else [],
             )
 
-        # Add constants
+        # Add constants WITH DECODED VALUES
         for const in bd.constants:
+            val_type, decoded_value = decode_constant(const)
             g.add_node(
                 const.uid,
                 kind="constant",
-                value=const.value,
-                type=const.type_desc,
+                value=decoded_value,
+                type=val_type,
+                raw_value=const.value,
                 label=const.label,
             )
 
@@ -275,7 +389,9 @@ class InMemoryVIGraph:
 
     def get_leaf_vis(self) -> list[str]:
         """Get VIs that don't call any SubVIs (leaves of dependency tree)."""
-        return [n for n in self._dep_graph.nodes() if self._dep_graph.out_degree(n) == 0]
+        return [
+            n for n in self._dep_graph.nodes() if self._dep_graph.out_degree(n) == 0
+        ]
 
     def has_cycles(self) -> bool:
         """Check if the dependency graph contains any cycles (recursive VIs)."""
@@ -333,8 +449,16 @@ class InMemoryVIGraph:
             return None
         return dict(g.nodes[node_id])
 
-    def get_inputs(self, vi_name: str) -> list[dict[str, Any]]:
-        """Get VI input terminals."""
+    def get_inputs(
+        self, vi_name: str, *, public_only: bool = True
+    ) -> list[dict[str, Any]]:
+        """Get VI input terminals.
+
+        Args:
+            vi_name: Name of the VI
+            public_only: If True, only return connector pane inputs (default).
+                        If False, include internal controls too.
+        """
         g = self._dataflow.get(vi_name)
         if g is None:
             return []
@@ -342,10 +466,19 @@ class InMemoryVIGraph:
             {"id": n, **d}
             for n, d in g.nodes(data=True)
             if d.get("kind") == "input"
+            and (not public_only or d.get("is_public", True))
         ]
 
-    def get_outputs(self, vi_name: str) -> list[dict[str, Any]]:
-        """Get VI output terminals."""
+    def get_outputs(
+        self, vi_name: str, *, public_only: bool = True
+    ) -> list[dict[str, Any]]:
+        """Get VI output terminals.
+
+        Args:
+            vi_name: Name of the VI
+            public_only: If True, only return connector pane outputs (default).
+                        If False, include internal indicators too.
+        """
         g = self._dataflow.get(vi_name)
         if g is None:
             return []
@@ -353,6 +486,7 @@ class InMemoryVIGraph:
             {"id": n, **d}
             for n, d in g.nodes(data=True)
             if d.get("kind") == "output"
+            and (not public_only or d.get("is_public", True))
         ]
 
     def get_constants(self, vi_name: str) -> list[dict[str, Any]]:
@@ -434,7 +568,7 @@ class InMemoryVIGraph:
                     terminal_to_op[n] = parent
 
         # Build operation-level dependency graph
-        # Operation A depends on B if any wire goes from B's output terminal to A's input terminal
+        # Operation A depends on B if a wire goes from B's output to A's input
         op_deps = nx.DiGraph()
         op_deps.add_nodes_from(op_ids)
 
@@ -443,7 +577,7 @@ class InMemoryVIGraph:
             src_op = terminal_to_op.get(u)
             dst_op = terminal_to_op.get(v)
 
-            # Add edge if both terminals belong to operations (not constants/FP terminals)
+            # Add edge if both terminals belong to operations (not FP/constants)
             if src_op in op_ids and dst_op in op_ids and src_op != dst_op:
                 op_deps.add_edge(src_op, dst_op)
 
@@ -507,6 +641,81 @@ class InMemoryVIGraph:
             }
             for u, v, d in g.edges(data=True)
         ]
+
+    # === Cross-VI Bindings ===
+
+    def get_binding(
+        self, caller_vi: str, caller_term_uid: str
+    ) -> tuple[str, str] | None:
+        """Get the SubVI terminal that a caller terminal binds to.
+
+        Args:
+            caller_vi: Name of the calling VI
+            caller_term_uid: UID of the terminal on the SubVI node in caller
+
+        Returns:
+            Tuple of (subvi_name, subvi_term_uid) or None if not bound
+        """
+        return self._bindings.get((caller_vi, caller_term_uid))
+
+    def get_bindings_for_vi(self, vi_name: str) -> list[dict[str, Any]]:
+        """Get all cross-VI bindings where this VI is the caller.
+
+        Returns list of binding dicts with caller and target info.
+        """
+        result = []
+        for (caller, term_uid), (subvi, subvi_term) in self._bindings.items():
+            if caller == vi_name:
+                result.append({
+                    "caller_vi": caller,
+                    "caller_term": term_uid,
+                    "subvi_name": subvi,
+                    "subvi_term": subvi_term,
+                })
+        return result
+
+    def trace_data_flow(
+        self, vi_name: str, term_uid: str, *, cross_vi: bool = True
+    ) -> list[dict[str, Any]]:
+        """Trace data flow from a terminal, optionally crossing VI boundaries.
+
+        Args:
+            vi_name: Starting VI
+            term_uid: Starting terminal UID
+            cross_vi: If True, follow bindings into SubVIs
+
+        Returns:
+            List of nodes in data flow order, with VI context
+        """
+        result = []
+        visited = set()
+
+        def trace(vi: str, uid: str) -> None:
+            if (vi, uid) in visited:
+                return
+            visited.add((vi, uid))
+
+            g = self._dataflow.get(vi)
+            if g is None or uid not in g:
+                return
+
+            node_data = dict(g.nodes[uid])
+            result.append({"vi": vi, "id": uid, **node_data})
+
+            # Follow outgoing edges (downstream data flow)
+            for succ in g.successors(uid):
+                trace(vi, succ)
+
+            # If this is a SubVI node terminal and cross_vi is enabled,
+            # follow binding into the SubVI
+            if cross_vi:
+                binding = self._bindings.get((vi, uid))
+                if binding:
+                    subvi_name, subvi_term = binding
+                    trace(subvi_name, subvi_term)
+
+        trace(vi_name, term_uid)
+        return result
 
     # === Legacy API (for backward compatibility) ===
 
