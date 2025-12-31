@@ -1,8 +1,8 @@
-"""Baseline strategy: Single-shot generation with error retry.
+"""Baseline strategy: Skeleton-based generation with error retry.
 
-This is the original approach:
-1. Build context from VI graph
-2. Generate code with LLM
+This approach:
+1. Generate deterministic skeleton from VI graph (topological order, known primitives)
+2. Ask LLM to fix/complete the skeleton (types, wiring, unknowns)
 3. Validate (syntax, imports, types, completeness)
 4. On failure, feed errors back and retry
 """
@@ -14,16 +14,17 @@ from typing import Any
 
 from ...llm import generate_code
 from ..context import ContextBuilder
+from ..skeleton import generate_skeleton
 from . import register_strategy
 from .base import ConversionStrategy, StrategyResult
 
 
 @register_strategy
 class BaselineStrategy(ConversionStrategy):
-    """Single-shot code generation with error-based retry."""
+    """Skeleton-based code generation with error-based retry."""
 
     name = "baseline"
-    description = "Single-shot generation with error retry (current approach)"
+    description = "Skeleton-based generation with error retry"
 
     def convert(
         self,
@@ -33,12 +34,15 @@ class BaselineStrategy(ConversionStrategy):
         primitive_names: list[str],
         primitive_context: dict[int, dict[str, Any]],
     ) -> StrategyResult:
-        """Generate code with retry on validation errors."""
+        """Generate code from skeleton with retry on validation errors."""
         start_time = time.time()
 
-        # Build initial context (with library-aware imports)
+        # Generate deterministic skeleton from VI graph
+        skeleton = generate_skeleton(vi_context, vi_name, converted_deps)
+
+        # Build JSON context for reference (with library-aware imports)
         from_library = self._get_library_name(vi_name)
-        context = ContextBuilder.build_vi_context(
+        base_context = ContextBuilder.build_vi_context(
             vi_context=vi_context,
             vi_name=vi_name,
             converted_deps=converted_deps,
@@ -48,9 +52,11 @@ class BaselineStrategy(ConversionStrategy):
             from_library=from_library,
         )
 
+        # Build skeleton-based prompt
+        context = self._build_skeleton_prompt(base_context, skeleton)
+
         expected_subvis = self._get_expected_subvis(vi_context)
         expected_output_count = len(vi_context.get("outputs", []))
-        original_context = context
 
         code = ""
         errors: list[str] = []
@@ -72,13 +78,13 @@ class BaselineStrategy(ConversionStrategy):
                     code=code,
                     attempts=attempt,
                     time_seconds=time.time() - start_time,
-                    metadata={"strategy": self.name},
+                    metadata={"strategy": self.name, "skeleton": skeleton},
                 )
 
             # Build error context for retry
             errors = [e.message for e in validation.errors]
             context = ContextBuilder.build_error_context(
-                code, validation.errors, original_context
+                code, validation.errors, self._build_skeleton_prompt(base_context, skeleton)
             )
 
         # Max attempts exceeded
@@ -88,5 +94,29 @@ class BaselineStrategy(ConversionStrategy):
             attempts=self.max_attempts,
             time_seconds=time.time() - start_time,
             errors=errors,
-            metadata={"strategy": self.name},
+            metadata={"strategy": self.name, "skeleton": skeleton},
         )
+
+    def _build_skeleton_prompt(self, base_context: str, skeleton: str) -> str:
+        """Build prompt that includes skeleton for LLM to fix/complete."""
+        return f"""{base_context}
+
+## Code Skeleton
+
+Here's a starting skeleton generated from the VI structure with operations in data-flow order:
+
+```python
+{skeleton}
+```
+
+## Your Task
+
+Fix and complete this skeleton:
+1. **Fix constant types** - strings that should be ints (e.g., enum values), paths, etc.
+2. **Access NamedTuple fields** - SubVI calls return NamedTuples, access `.field_name`
+3. **Fix argument order/wiring** - verify inputs match the VI's data flow
+4. **Replace `???` placeholders** - fill in correct variable names and values
+5. **Implement `PRIMITIVE_xxx` calls** - replace with correct Python code
+
+Output the COMPLETE corrected Python code.
+"""

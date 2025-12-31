@@ -55,7 +55,7 @@ vipy convert path/to/vi_BDHb.xml --main-xml path/to/vi.xml -o output.py
 
 # Agent conversion (uses in-memory graph, no Neo4j required)
 # THE STANDARD TEST COMMAND - use this for testing/evaluating strategies:
-vipy agent "samples/JKI-VI-Tester/source/User Interfaces/Graphical Test Runner/Graphical Test Runner Support/Get Settings Path.vi" -o /tmp/vipy-test --search-path samples/OpenG/extracted
+vipy agent "samples/JKI-VI-Tester/source/User Interfaces/Graphical Test Runner/Graphical Test Runner Support/Get Settings Path.vi" -o outputs --search-path samples/OpenG/extracted --generate-ui
 ```
 
 ### Key Data Structures

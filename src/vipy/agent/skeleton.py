@@ -673,6 +673,7 @@ class SkeletonGenerator:
     def _map_type(self, lv_type: str) -> str:
         """Map LabVIEW type to Python type."""
         type_map = {
+            # Standard LabVIEW type names
             "Path": "Path",
             "String": "str",
             "Boolean": "bool",
@@ -683,6 +684,14 @@ class SkeletonGenerator:
             "Array": "list",
             "Cluster": "dict",
             "Void": "None",
+            # Lowercase variants from graph
+            "path": "Path",
+            "string": "str",
+            "str": "str",
+            "bool": "bool",
+            "boolean": "bool",
+            "int": "int",
+            "float": "float",
         }
         return type_map.get(lv_type, "Any")
 

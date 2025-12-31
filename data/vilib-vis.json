@@ -8,13 +8,23 @@
   "enums": {
     "SystemDirectoryType": {
       "description": "System directory type for Get System Directory.vi",
+      "control_file": "System Directory Type.ctl",
+      "vilib_path": "Utility/sysdir.llb",
       "values": {
-        "HOME": {"value": 0, "description": "User's home directory"},
-        "DESKTOP": {"value": 1, "description": "User's desktop"},
-        "DOCUMENTS": {"value": 2, "description": "User's documents folder"},
-        "APP_DATA": {"value": 3, "description": "Application data (roaming)"},
-        "TEMP": {"value": 5, "description": "Temporary files directory"},
-        "PUBLIC_APP_DATA": {"value": 7, "description": "Public application data"}
+        "USER_HOME": {"value": 0, "description": "User's home directory"},
+        "USER_DESKTOP": {"value": 1, "description": "User's desktop"},
+        "USER_DOCUMENTS": {"value": 2, "description": "User's documents folder"},
+        "USER_APP_DATA": {"value": 3, "description": "User application data (roaming)"},
+        "USER_PREFERENCES": {"value": 4, "description": "User preferences"},
+        "USER_TEMP": {"value": 5, "description": "User temporary files"},
+        "PUBLIC_DOCUMENTS": {"value": 6, "description": "Public documents"},
+        "PUBLIC_APP_DATA": {"value": 7, "description": "Public application data"},
+        "PUBLIC_PREFERENCES": {"value": 8, "description": "Public preferences"},
+        "SYSTEM_CORE_LIBS": {"value": 9, "description": "System core libraries"},
+        "SYSTEM_INSTALLED_LIBS": {"value": 10, "description": "System installed libraries"},
+        "APPLICATION_FILES": {"value": 11, "description": "Application files"},
+        "BOOT_VOLUME_ROOT": {"value": 12, "description": "Boot volume root"},
+        "PUBLIC_CACHE": {"value": 13, "description": "Public cache"}
       }
     }
   },
@@ -38,7 +48,7 @@
         }
       ],
       "python": "get_system_directory(directory_type)",
-      "python_impl": "from enum import IntEnum\nfrom typing import NamedTuple\n\nclass SystemDirectoryType(IntEnum):\n    \"\"\"System directory type enumeration.\"\"\"\n    HOME = 0  # User's home directory\n    DESKTOP = 1  # User's desktop\n    DOCUMENTS = 2  # User's documents folder\n    APP_DATA = 3  # Application data (roaming)\n    TEMP = 5  # Temporary files directory\n    PUBLIC_APP_DATA = 7  # Public application data\n\nclass GetSystemDirectoryResult(NamedTuple):\n    \"\"\"Result of get_system_directory.\"\"\"\n    system_directory_path: Path  # The resolved system directory path\n\ndef get_system_directory(directory_type: SystemDirectoryType) -> GetSystemDirectoryResult:\n    \"\"\"Get the system directory path.\n    \n    Args:\n        directory_type: The type of system directory to retrieve.\n    \n    Returns:\n        GetSystemDirectoryResult with the resolved path.\n    \"\"\"\n    paths = {\n        SystemDirectoryType.HOME: Path.home(),\n        SystemDirectoryType.DESKTOP: Path.home() / 'Desktop',\n        SystemDirectoryType.DOCUMENTS: Path.home() / 'Documents',\n        SystemDirectoryType.APP_DATA: Path(os.environ.get('APPDATA', Path.home() / '.config')),\n        SystemDirectoryType.TEMP: Path(os.environ.get('TEMP', '/tmp')),\n        SystemDirectoryType.PUBLIC_APP_DATA: Path(os.environ.get('PROGRAMDATA', '/usr/local/share')),\n    }\n    return GetSystemDirectoryResult(system_directory_path=paths.get(directory_type, Path.home()))",
+      "python_impl": "from enum import IntEnum\nfrom typing import NamedTuple\n\nclass SystemDirectoryType(IntEnum):\n    \"\"\"System directory type enumeration.\"\"\"\n    USER_HOME = 0  # User's home directory\n    USER_DESKTOP = 1  # User's desktop\n    USER_DOCUMENTS = 2  # User's documents folder\n    USER_APP_DATA = 3  # User application data (roaming)\n    USER_PREFERENCES = 4  # User preferences\n    USER_TEMP = 5  # User temporary files\n    PUBLIC_DOCUMENTS = 6  # Public documents\n    PUBLIC_APP_DATA = 7  # Public application data\n    PUBLIC_PREFERENCES = 8  # Public preferences\n    SYSTEM_CORE_LIBS = 9  # System core libraries\n    SYSTEM_INSTALLED_LIBS = 10  # System installed libraries\n    APPLICATION_FILES = 11  # Application files\n    BOOT_VOLUME_ROOT = 12  # Boot volume root\n    PUBLIC_CACHE = 13  # Public cache\n\nclass GetSystemDirectoryResult(NamedTuple):\n    \"\"\"Result of get_system_directory.\"\"\"\n    system_directory_path: Path  # The resolved system directory path\n\ndef get_system_directory(directory_type: SystemDirectoryType) -> GetSystemDirectoryResult:\n    \"\"\"Get the system directory path.\n    \n    Args:\n        directory_type: The type of system directory to retrieve.\n    \n    Returns:\n        GetSystemDirectoryResult with the resolved path.\n    \"\"\"\n    paths = {\n        SystemDirectoryType.USER_HOME: Path.home(),\n        SystemDirectoryType.USER_DESKTOP: Path.home() / 'Desktop',\n        SystemDirectoryType.USER_DOCUMENTS: Path.home() / 'Documents',\n        SystemDirectoryType.USER_APP_DATA: Path(os.environ.get('APPDATA', Path.home() / '.config')),\n        SystemDirectoryType.USER_PREFERENCES: Path(os.environ.get('APPDATA', Path.home() / '.config')),\n        SystemDirectoryType.USER_TEMP: Path(os.environ.get('TEMP', '/tmp')),\n        SystemDirectoryType.PUBLIC_DOCUMENTS: Path(os.environ.get('PUBLIC', '/usr/share')) / 'Documents',\n        SystemDirectoryType.PUBLIC_APP_DATA: Path(os.environ.get('PROGRAMDATA', '/usr/local/share')),\n        SystemDirectoryType.PUBLIC_PREFERENCES: Path(os.environ.get('PROGRAMDATA', '/etc')),\n        SystemDirectoryType.SYSTEM_CORE_LIBS: Path(os.environ.get('SYSTEMROOT', '/usr')) / 'System32' if os.name == 'nt' else Path('/usr/lib'),\n        SystemDirectoryType.SYSTEM_INSTALLED_LIBS: Path(os.environ.get('PROGRAMFILES', '/usr/local/lib')),\n        SystemDirectoryType.APPLICATION_FILES: Path(os.environ.get('PROGRAMFILES', '/opt')),\n        SystemDirectoryType.BOOT_VOLUME_ROOT: Path(os.environ.get('SYSTEMDRIVE', '/')),\n        SystemDirectoryType.PUBLIC_CACHE: Path(os.environ.get('PROGRAMDATA', '/var/cache')),\n    }\n    return GetSystemDirectoryResult(system_directory_path=paths.get(directory_type, Path.home()))",
       "imports": [
         "from enum import IntEnum",
         "from pathlib import Path",

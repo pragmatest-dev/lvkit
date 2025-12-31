@@ -15,6 +15,7 @@ class VILibTerminal:
     direction: str  # "in" or "out"
     name: str
     type: str | None = None
+    enum: str | None = None  # Enum type name if this terminal uses an enum
 
 
 @dataclass
@@ -47,6 +48,7 @@ class VILibResolver:
 
         self._vis: dict[str, VILibVI] = {}
         self._by_name: dict[str, VILibVI] = {}  # Lookup by VI name only
+        self._enums: dict[str, dict] = {}  # Enum definitions
 
         if data_path.exists():
             self._load(data_path)
@@ -56,6 +58,9 @@ class VILibResolver:
         with open(path) as f:
             data = json.load(f)
 
+        # Load enum definitions
+        self._enums = data.get("enums", {})
+
         for vilib_path, info in data.get("vis", {}).items():
             terminals = [
                 VILibTerminal(
@@ -63,6 +68,7 @@ class VILibResolver:
                     direction=t["direction"],
                     name=t["name"],
                     type=t.get("type"),
+                    enum=t.get("enum"),  # Load enum reference
                 )
                 for t in info.get("terminals", [])
             ]
@@ -81,6 +87,14 @@ class VILibResolver:
             # Also index by VI name for easier lookup
             vi_name = vilib_path.split("/")[-1]
             self._by_name[vi_name] = vi
+
+    def get_enums(self) -> dict[str, dict]:
+        """Get all enum definitions.
+
+        Returns:
+            Dict mapping enum name -> {description, values: {name: {value, description}}}
+        """
+        return self._enums
 
     def resolve(self, vilib_path: str) -> VILibVI | None:
         """Resolve a vilib path to its VI mapping.
@@ -147,7 +161,13 @@ class VILibResolver:
             "name": vi.name,
             "vilib_path": vi.vilib_path,
             "terminals": [
-                {"index": t.index, "direction": t.direction, "name": t.name, "type": t.type}
+                {
+                    "index": t.index,
+                    "direction": t.direction,
+                    "name": t.name,
+                    "type": t.type,
+                    "enum": t.enum,
+                }
                 for t in vi.terminals
             ],
             "python": vi.python,

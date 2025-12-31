@@ -62,8 +62,9 @@ class ContextBuilder:
 
 ## Return Values (CRITICAL)
 Your function MUST:
-1. Define a NamedTuple class for the return type with field names matching output terminal names
-2. Return an instance of that NamedTuple
+1. Check the "outputs" array in the JSON context above
+2. Create a NamedTuple with EXACTLY one field for EACH output (check the count!)
+3. Return an instance of that NamedTuple with ALL fields populated
 
 Example for outputs "config path" and "error out":
 ```python
@@ -78,10 +79,19 @@ def get_settings_path(...) -> GetSettingsPathResult:
     return GetSettingsPathResult(config_path=path, error_out=error)
 ```
 
+- Count the outputs in JSON carefully - your NamedTuple MUST have that exact number of fields
 - Field names: Convert terminal names to snake_case (e.g., "system directory path" -> system_directory_path)
 - Add comment with original terminal name after each field
-- For cluster outputs, use dict type
+- For cluster outputs (stdClust), use dict type
+- For array outputs (indArr), use list type
 - For VIs with NO outputs, return None (no NamedTuple needed)
+
+## Common Imports
+When using file/path operations, remember to import:
+```python
+import os  # for os.makedirs, os.path, etc.
+from pathlib import Path  # for Path operations
+```
 
 ## Docstrings (REQUIRED)
 Every function MUST have a Google-style docstring with:
