@@ -14,6 +14,7 @@ class CodeGenContext:
     - Variable bindings (terminal_id → variable_name)
     - Data flow connections for resolving sources
     - Imports accumulated during generation
+    - Optional lookup for callee VI contexts (for SubVI parameter names)
     """
 
     bindings: dict[str, str] = field(default_factory=dict)
@@ -22,6 +23,10 @@ class CodeGenContext:
 
     # Flow map for quick lookup: dest_terminal → source info
     _flow_map: dict[str, dict] = field(default_factory=dict, repr=False)
+
+    # Optional: callable to look up callee VI contexts for parameter names
+    # Signature: (vi_name: str) -> dict | None
+    vi_context_lookup: Any = field(default=None, repr=False)
 
     def __post_init__(self):
         """Build flow map from data flow."""
@@ -94,7 +99,93 @@ class CodeGenContext:
             data_flow=self.data_flow,  # Share (read-only)
             imports=self.imports,  # Share (accumulate)
             _flow_map=self._flow_map,  # Share (read-only)
+            vi_context_lookup=self.vi_context_lookup,  # Share
         )
+
+    def get_callee_param_name(self, vi_name: str, slot_index: int) -> str | None:
+        """Look up parameter name from callee VI context.
+
+        Handles polymorphic VIs by checking variants when wrapper has no inputs.
+
+        Args:
+            vi_name: Name of the callee VI
+            slot_index: Terminal slot index to look up
+
+        Returns:
+            Parameter name or None if not found
+        """
+        if not self.vi_context_lookup:
+            return None
+
+        callee_ctx = self.vi_context_lookup(vi_name)
+        if not callee_ctx:
+            return None
+
+        # Look in inputs for matching slot_index
+        for inp in callee_ctx.get("inputs", []):
+            if inp.get("slot_index") == slot_index:
+                return inp.get("name")
+
+        # If no inputs found, check if this is a polymorphic wrapper
+        # and look for variant VIs (named "Base - Variant.vi")
+        if not callee_ctx.get("inputs"):
+            base_name = vi_name.replace(".vi", "").replace(".VI", "")
+            # Try common variant patterns
+            for variant_suffix in [" - Traditional", " - Arrays"]:
+                variant_vi = f"{base_name}{variant_suffix}.vi"
+                # Handle __ogtk suffix
+                if "__ogtk" in base_name:
+                    parts = base_name.split("__")
+                    variant_vi = f"{parts[0]}{variant_suffix}__{parts[1]}.vi"
+
+                variant_ctx = self.vi_context_lookup(variant_vi)
+                if variant_ctx and variant_ctx.get("inputs"):
+                    for inp in variant_ctx.get("inputs", []):
+                        if inp.get("slot_index") == slot_index:
+                            return inp.get("name")
+
+        return None
+
+    def get_callee_output_name(self, vi_name: str, slot_index: int) -> str | None:
+        """Look up output name from callee VI context.
+
+        Handles polymorphic VIs by checking variants when wrapper has no outputs.
+
+        Args:
+            vi_name: Name of the callee VI
+            slot_index: Terminal slot index to look up
+
+        Returns:
+            Output field name or None if not found
+        """
+        if not self.vi_context_lookup:
+            return None
+
+        callee_ctx = self.vi_context_lookup(vi_name)
+        if not callee_ctx:
+            return None
+
+        # Look in outputs for matching slot_index
+        for out in callee_ctx.get("outputs", []):
+            if out.get("slot_index") == slot_index:
+                return out.get("name")
+
+        # If no outputs found, check if this is a polymorphic wrapper
+        if not callee_ctx.get("outputs"):
+            base_name = vi_name.replace(".vi", "").replace(".VI", "")
+            for variant_suffix in [" - Traditional", " - Arrays"]:
+                variant_vi = f"{base_name}{variant_suffix}.vi"
+                if "__ogtk" in base_name:
+                    parts = base_name.split("__")
+                    variant_vi = f"{parts[0]}{variant_suffix}__{parts[1]}.vi"
+
+                variant_ctx = self.vi_context_lookup(variant_vi)
+                if variant_ctx and variant_ctx.get("outputs"):
+                    for out in variant_ctx.get("outputs", []):
+                        if out.get("slot_index") == slot_index:
+                            return out.get("name")
+
+        return None
 
     def add_import(self, import_stmt: str) -> None:
         """Add an import statement."""
@@ -156,6 +247,14 @@ def _format_constant(const: dict[str, Any]) -> str:
 
     # Handle string values that look like numbers
     if isinstance(value, str):
+        # Handle LabVIEW empty string (represented as "" in XML)
+        if value == '""':
+            return "''"  # Empty string in Python
+
+        # Strip surrounding quotes if present (LabVIEW string encoding)
+        if len(value) >= 2 and value.startswith('"') and value.endswith('"'):
+            value = value[1:-1]
+
         # Try to parse as int
         try:
             int_val = int(value)

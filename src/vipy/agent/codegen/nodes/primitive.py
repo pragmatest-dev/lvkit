@@ -58,11 +58,11 @@ class PrimitiveCodeGen(NodeCodeGen):
         # Build code based on hint type
         if isinstance(resolved.python_hint, dict):
             return self._build_dict_hint(
-                resolved.python_hint, input_map, wired_outputs, ctx
+                resolved.python_hint, input_map, wired_outputs, ctx, resolved
             )
         else:
             return self._build_string_hint(
-                resolved.python_hint, input_map, wired_outputs, ctx
+                resolved.python_hint, input_map, wired_outputs, ctx, resolved
             )
 
     def _build_input_map(
@@ -93,12 +93,14 @@ class PrimitiveCodeGen(NodeCodeGen):
             if not term_name and term_index in resolved_inputs:
                 term_name = resolved_inputs[term_index]
 
-            # Resolve from context
+            # Resolve from context - None means unwired
             value = ctx.resolve(term_id)
-            if value and term_name:
+            if term_name:
+                # Use resolved value, or "None" for unwired terminals
+                resolved_value = value if value else "None"
                 # Add both original and normalized names
-                input_map[term_name] = value
-                input_map[to_var_name(term_name)] = value
+                input_map[term_name] = resolved_value
+                input_map[to_var_name(term_name)] = resolved_value
 
         return input_map
 
@@ -140,6 +142,7 @@ class PrimitiveCodeGen(NodeCodeGen):
         input_map: dict[str, str],
         wired_outputs: list[tuple[str, str, str]],
         ctx: CodeGenContext,
+        resolved: Any,
     ) -> CodeFragment:
         """Build code from dict-format hint.
 
@@ -154,7 +157,7 @@ class PrimitiveCodeGen(NodeCodeGen):
         # Handle _body (side effect statement)
         body = hint.get("_body")
         if body:
-            body_substituted = self._substitute_template(body, input_map)
+            body_substituted = self._substitute_template(body, input_map, resolved)
             statements.append(parse_stmt(body_substituted))
 
         # Handle each output
@@ -163,7 +166,7 @@ class PrimitiveCodeGen(NodeCodeGen):
             expr = self._find_output_expr(hint, term_name)
 
             if expr:
-                expr_substituted = self._substitute_template(expr, input_map)
+                expr_substituted = self._substitute_template(expr, input_map, resolved)
                 expr_ast = parse_expr(expr_substituted)
                 statements.append(build_assign(var_name, expr_ast))
                 bindings[term_id] = var_name
@@ -182,6 +185,7 @@ class PrimitiveCodeGen(NodeCodeGen):
         input_map: dict[str, str],
         wired_outputs: list[tuple[str, str, str]],
         ctx: CodeGenContext,
+        resolved: Any,
     ) -> CodeFragment:
         """Build code from string-format hint."""
         statements: list[ast.stmt] = []
@@ -199,7 +203,7 @@ class PrimitiveCodeGen(NodeCodeGen):
             expr = expr[: expr.find("#")].strip()
 
         # Substitute inputs
-        expr_substituted = self._substitute_template(expr, input_map)
+        expr_substituted = self._substitute_template(expr, input_map, resolved)
         expr_ast = parse_expr(expr_substituted)
 
         # Assign to output variables
@@ -253,7 +257,11 @@ class PrimitiveCodeGen(NodeCodeGen):
     ) -> str:
         """Substitute variable names in template string.
 
-        Any terminal names that aren't in input_map (unwired) get replaced with None.
+        input_map contains all terminal names mapped to either their resolved
+        variable name (if wired) or "None" (if unwired).
+
+        Note: Case-sensitive matching to avoid replacing Python builtins
+        like Path when template has variables named 'path'.
         """
         import re
 
@@ -263,22 +271,8 @@ class PrimitiveCodeGen(NodeCodeGen):
         for name, value in sorted(input_map.items(), key=lambda x: -len(x[0])):
             if name:
                 pattern = r"\b" + re.escape(name) + r"\b"
-                result = re.sub(pattern, value, result, flags=re.IGNORECASE)
-
-        # Replace any remaining terminal names (unwired inputs) with None
-        if resolved and resolved.terminals:
-            for term in resolved.terminals:
-                if term.get("direction") == "in":
-                    term_name = term.get("name", "")
-                    if term_name and term_name not in input_map:
-                        # This terminal wasn't wired - replace with None
-                        pattern = r"\b" + re.escape(term_name) + r"\b"
-                        result = re.sub(pattern, "None", result, flags=re.IGNORECASE)
-                        # Also try normalized name
-                        norm_name = to_var_name(term_name)
-                        if norm_name != term_name:
-                            pattern = r"\b" + re.escape(norm_name) + r"\b"
-                            result = re.sub(pattern, "None", result, flags=re.IGNORECASE)
+                # Case-sensitive to avoid replacing Path with path's value
+                result = re.sub(pattern, value, result)
 
         return result
 

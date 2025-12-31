@@ -113,7 +113,10 @@ class ConversionAgent:
         Returns:
             List of ConversionResult for each VI
         """
-        # Ensure output directory exists
+        # Clean output directory before starting
+        if self.config.output_dir.exists():
+            print(f"Cleaning output directory: {self.config.output_dir}", flush=True)
+            shutil.rmtree(self.config.output_dir)
         self.config.output_dir.mkdir(parents=True, exist_ok=True)
 
         # Pre-analysis: discover types and primitives

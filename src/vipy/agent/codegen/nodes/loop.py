@@ -66,10 +66,20 @@ class LoopCodeGen(NodeCodeGen):
                 # Check if input tunnel (outer has a source)
                 outer_var = ctx.resolve(outer_term)
                 if outer_var:
-                    inner_ctx.bind(inner_term, outer_var)
+                    # For loops: auto-index using array[i]
+                    # While loops: pass the whole value through
+                    if loop_type == "forLoop":
+                        inner_ctx.bind(inner_term, f"{outer_var}[i]")
+                    else:
+                        inner_ctx.bind(inner_term, outer_var)
 
         # 2. Process OUTPUT tunnels - set up accumulators for lMax
+        # Note: lMax can be either:
+        # - The N terminal (iteration count) - outer has input, inner has no input
+        # - Auto-indexed output (accumulator) - inner receives values from loop body
         accum_tunnels: list[tuple[dict, str]] = []  # (tunnel, accum_var)
+        n_terminal_var: str | None = None  # For loop count
+
         for tunnel in tunnels:
             tunnel_type = tunnel.get("tunnel_type")
             outer_term = tunnel.get("outer_terminal_uid")
@@ -79,15 +89,24 @@ class LoopCodeGen(NodeCodeGen):
                 continue
 
             if tunnel_type == "lMax":
-                # Accumulator: init empty list before loop
-                accum_var = f"accum_{self._make_var_name(tunnel)}"
-                pre_loop_stmts.append(
-                    build_assign(accum_var, ast.List(elts=[], ctx=ast.Load()))
-                )
-                # Note: Don't bind inner_term to accum_var yet - inner_term
-                # will be bound to the value to append, not the list itself
-                accum_tunnels.append((tunnel, accum_var))
-                bindings[outer_term] = accum_var
+                # Check if something flows INTO the inner terminal (accumulator)
+                # vs nothing flows in (N terminal for iteration count)
+                inner_has_source = self._has_incoming_flow(inner_term, ctx)
+
+                if inner_has_source:
+                    # Accumulator: init empty list before loop
+                    accum_var = f"accum_{self._make_var_name(tunnel)}"
+                    pre_loop_stmts.append(
+                        build_assign(accum_var, ast.List(elts=[], ctx=ast.Load()))
+                    )
+                    accum_tunnels.append((tunnel, accum_var))
+                    bindings[outer_term] = accum_var
+                else:
+                    # N terminal: try to get count from outer terminal
+                    outer_var = ctx.resolve(outer_term)
+                    if outer_var:
+                        # len() if array, direct use if integer
+                        n_terminal_var = f"len({outer_var})"
 
         # 3. Generate inner node code
         inner_stmts = self._generate_inner(inner_nodes, inner_ctx)
@@ -146,7 +165,9 @@ class LoopCodeGen(NodeCodeGen):
         if loop_type == "whileLoop":
             loop_ast = self._build_while_loop(node, inner_stmts, inner_ctx)
         else:
-            loop_ast = self._build_for_loop(node, inner_stmts, inner_ctx, tunnels)
+            loop_ast = self._build_for_loop(
+                node, inner_stmts, inner_ctx, tunnels, n_terminal_var
+            )
 
         # 7. Handle lpTun outputs (last value)
         for tunnel in tunnels:
@@ -189,6 +210,7 @@ class LoopCodeGen(NodeCodeGen):
 
             statements.extend(fragment.statements)
             ctx.merge(fragment.bindings)
+            ctx.imports.update(fragment.imports)
 
         return statements
 
@@ -198,15 +220,18 @@ class LoopCodeGen(NodeCodeGen):
         """Build a while loop AST node.
 
         While loops run until stop condition is True.
-        We generate: while True: ... if stop: break
+        We generate: while True: ... break (run once for now)
+
+        TODO: Parse actual stop condition from loop structure
         """
         # Ensure non-empty body
         if not body:
             body = [ast.Pass()]
 
-        # TODO: Find and add stop condition
-        # For now, just use while True with the body
-        # A proper implementation would find the stop terminal and add break logic
+        # Add break at end to prevent infinite loop
+        # This makes the loop run exactly once
+        # TODO: Add proper stop condition detection
+        body.append(ast.Break())
 
         return ast.While(
             test=ast.Constant(value=True),
@@ -220,21 +245,22 @@ class LoopCodeGen(NodeCodeGen):
         body: list[ast.stmt],
         ctx: CodeGenContext,
         tunnels: list[dict],
+        n_terminal_var: str | None = None,
     ) -> ast.For:
         """Build a for loop AST node.
 
         For loops can iterate:
         1. Over a range (N terminal via lMax input)
         2. Over array elements (autoindexing via lpTun input)
+
+        Args:
+            n_terminal_var: Explicit count source (e.g., "len(array)")
         """
         # Ensure non-empty body
         if not body:
             body = [ast.Pass()]
 
-        # Check for count source from input tunnels
-        count_source = self._find_count_source(tunnels, ctx)
-
-        # Check for array autoindexing
+        # Check for array autoindexing first (using first lpTun input as array)
         array_info = self._find_autoindex_array(tunnels, ctx)
 
         if array_info:
@@ -250,18 +276,48 @@ class LoopCodeGen(NodeCodeGen):
                 orelse=[],
             )
 
-        # Fall back to range(count)
-        iter_var = "i"
-        if count_source:
-            count_ast = parse_expr(count_source)
-        else:
-            count_ast = ast.Constant(value=10)  # Default
+        # Use explicit N terminal count if provided
+        if n_terminal_var:
+            return ast.For(
+                target=ast.Name(id="i", ctx=ast.Store()),
+                iter=ast.Call(
+                    func=ast.Name(id="range", ctx=ast.Load()),
+                    args=[parse_expr(n_terminal_var)],
+                    keywords=[],
+                ),
+                body=body,
+                orelse=[],
+            )
 
+        # Try to find count from first lpTun input's length
+        for tunnel in tunnels:
+            if tunnel.get("tunnel_type") == "lpTun":
+                outer_var = ctx.resolve(tunnel.get("outer_terminal_uid"))
+                if outer_var:
+                    # Use len(first_input) as iteration count
+                    return ast.For(
+                        target=ast.Name(id="i", ctx=ast.Store()),
+                        iter=ast.Call(
+                            func=ast.Name(id="range", ctx=ast.Load()),
+                            args=[
+                                ast.Call(
+                                    func=ast.Name(id="len", ctx=ast.Load()),
+                                    args=[parse_expr(outer_var)],
+                                    keywords=[],
+                                )
+                            ],
+                            keywords=[],
+                        ),
+                        body=body,
+                        orelse=[],
+                    )
+
+        # Absolute fallback
         return ast.For(
-            target=ast.Name(id=iter_var, ctx=ast.Store()),
+            target=ast.Name(id="i", ctx=ast.Store()),
             iter=ast.Call(
                 func=ast.Name(id="range", ctx=ast.Load()),
-                args=[count_ast],
+                args=[ast.Constant(value=10)],
                 keywords=[],
             ),
             body=body,
@@ -310,3 +366,13 @@ class LoopCodeGen(NodeCodeGen):
                     pass
 
         return None  # Conservative: don't autoindex without type info
+
+    def _has_incoming_flow(self, terminal_uid: str, ctx: CodeGenContext) -> bool:
+        """Check if a terminal has any incoming data flow.
+
+        Used to distinguish:
+        - lMax as N terminal (no incoming flow to inner terminal)
+        - lMax as accumulator (has incoming flow from loop body)
+        """
+        # Check if this terminal is the destination of any flow
+        return terminal_uid in ctx._flow_map

@@ -713,18 +713,30 @@ class InMemoryVIGraph:
         """Get all operations (SubVIs, primitives) in a VI.
 
         Returns operations in dataflow execution order with backward-compatible format.
+        Only returns top-level operations - inner loop operations are nested in
+        the loop's inner_nodes list.
         """
         g = self._dataflow.get(vi_name)
         if g is None:
             return []
 
-        # Get operations in dataflow order
-        ordered_ids = self.get_operation_order(vi_name)
+        # Collect all inner node UIDs from loops - these should NOT appear at top level
+        inner_node_uids: set[str] = set()
+        for loop_struct in self._loop_structures.get(vi_name, {}).values():
+            inner_node_uids.update(loop_struct.inner_node_uids)
+
+        # Get operations in dataflow order, excluding inner loop nodes
+        ordered_ids = [
+            uid for uid in self.get_operation_order(vi_name)
+            if uid not in inner_node_uids
+        ]
         op_set = set(ordered_ids)
 
-        # Add any ops not in the sorted order (disconnected)
+        # Add any ops not in the sorted order (disconnected), excluding inner nodes
         for n, d in g.nodes(data=True):
-            if d.get("kind") in ("subvi", "primitive", "operation") and n not in op_set:
+            if (d.get("kind") in ("subvi", "primitive", "operation")
+                and n not in op_set
+                and n not in inner_node_uids):
                 ordered_ids.append(n)
 
         result = []
@@ -741,12 +753,17 @@ class InMemoryVIGraph:
             else:
                 labels = ["Operation"]
 
+            # Enrich terminals with callee parameter names for SubVIs
+            terminals = d.get("terminals", [])
+            if kind == "subvi":
+                terminals = self._enrich_subvi_terminals(terminals, d.get("name"), vi_name)
+
             op_dict: dict[str, Any] = {
                 "id": n,
                 "name": d.get("name"),
                 "labels": labels,
                 "primResID": d.get("prim_id"),
-                "terminals": d.get("terminals", []),
+                "terminals": terminals,
             }
 
             # Add loop_type for loop structures
@@ -772,6 +789,42 @@ class InMemoryVIGraph:
 
             result.append(op_dict)
         return result
+
+    def _enrich_subvi_terminals(
+        self,
+        terminals: list[dict[str, Any]],
+        subvi_name: str | None,
+        caller_vi: str,
+    ) -> list[dict[str, Any]]:
+        """Add callee parameter names to SubVI terminals.
+
+        Uses cross-VI bindings to map caller terminal index → callee FP terminal name.
+        """
+        if not subvi_name or subvi_name not in self._dataflow:
+            return terminals
+
+        # Get callee FP terminals with slot indices
+        subvi_g = self._dataflow[subvi_name]
+        slot_to_name: dict[int, str] = {}
+        for term_id, term_data in subvi_g.nodes(data=True):
+            slot = term_data.get("slot_index")
+            name = term_data.get("name")
+            if slot is not None and name and term_data.get("kind") in (
+                "input",
+                "output",
+            ):
+                slot_to_name[slot] = name
+
+        # Enrich terminals with callee parameter names
+        enriched = []
+        for term in terminals:
+            term_copy = dict(term)
+            term_index = term.get("index")
+            if term_index is not None and term_index in slot_to_name:
+                term_copy["callee_param_name"] = slot_to_name[term_index]
+            enriched.append(term_copy)
+
+        return enriched
 
     def _build_inner_nodes(
         self, uids: list[str], g: nx.DiGraph, vi_name: str

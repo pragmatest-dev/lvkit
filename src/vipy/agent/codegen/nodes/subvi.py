@@ -63,7 +63,7 @@ class SubVICodeGen(NodeCodeGen):
         )
 
         # Build output bindings using vilib terminal names
-        bindings = self._build_output_bindings(node, result_var, vilib_vi)
+        bindings = self._build_output_bindings(node, result_var, vilib_vi, ctx)
 
         # Build import
         imports = {f"from .{func_name} import {func_name}"}
@@ -90,12 +90,15 @@ class SubVICodeGen(NodeCodeGen):
         vilib_vi: Any | None,
     ) -> tuple[list[str], dict[str, str]]:
         """Build input arguments, using vilib names if available."""
+        subvi_name = node.get("name", "")
+
         # Build index → vilib terminal name mapping
+        # Prefer python_param if available, otherwise use terminal name
         vilib_inputs: dict[int, str] = {}
         if vilib_vi:
             for vt in vilib_vi.terminals:
                 if vt.direction == "in":
-                    vilib_inputs[vt.index] = vt.name
+                    vilib_inputs[vt.index] = vt.python_param or vt.name
 
         args = []
         keywords: dict[str, str] = {}
@@ -106,14 +109,44 @@ class SubVICodeGen(NodeCodeGen):
 
             term_id = term.get("id")
             term_index = term.get("index", 0)
-            value = ctx.resolve(term_id) or "None"
+            term_name = term.get("name", "")
+            callee_param = term.get("callee_param_name", "")
+            value = ctx.resolve(term_id)
 
-            # If we have vilib info, use keyword arguments
+            # Skip unwired terminals - they'll use default values
+            if value is None:
+                continue
+
+            # Determine parameter name with priority:
+            # 1. vilib python_param name
+            # 2. Callee parameter name from connector pane mapping
+            # 3. Terminal name from node
+            # 4. Look up from callee VI context
+            param_name = None
+
             if vilib_inputs and term_index in vilib_inputs:
+                # vilib knows the correct parameter name
                 param_name = to_var_name(vilib_inputs[term_index])
-                keywords[param_name] = value
+            elif callee_param:
+                # Use callee parameter name from connector pane
+                param_name = to_var_name(callee_param)
+            elif term_name:
+                # Use terminal name from node
+                param_name = to_var_name(term_name)
             else:
-                args.append(value)
+                # Try looking up from callee VI context
+                callee_name = ctx.get_callee_param_name(subvi_name, term_index)
+                if callee_name:
+                    param_name = to_var_name(callee_name)
+
+            if not param_name:
+                raise ValueError(
+                    f"Cannot resolve parameter name for SubVI '{subvi_name}' "
+                    f"terminal index={term_index}. "
+                    f"No vilib, callee_param, term_name, or context lookup available."
+                )
+
+            keywords[param_name] = value
 
         return args, keywords
 
@@ -122,14 +155,18 @@ class SubVICodeGen(NodeCodeGen):
         node: dict[str, Any],
         result_var: str,
         vilib_vi: Any | None,
+        ctx: "CodeGenContext",
     ) -> dict[str, str]:
         """Build output terminal bindings using vilib names."""
+        subvi_name = node.get("name", "")
+
         # Build index → vilib terminal name mapping
+        # Prefer python_param if available, otherwise use terminal name
         vilib_outputs: dict[int, str] = {}
         if vilib_vi:
             for vt in vilib_vi.terminals:
                 if vt.direction == "out":
-                    vilib_outputs[vt.index] = vt.name
+                    vilib_outputs[vt.index] = vt.python_param or vt.name
 
         bindings = {}
         for term in node.get("terminals", []):
@@ -140,13 +177,25 @@ class SubVICodeGen(NodeCodeGen):
             term_index = term.get("index", 0)
             term_name = term.get("name", "")
 
-            # Priority: vilib name > terminal name > index
+            # Priority: vilib name > terminal name > callee context lookup
+            field = None
+
             if vilib_outputs and term_index in vilib_outputs:
                 field = to_var_name(vilib_outputs[term_index])
             elif term_name:
                 field = to_var_name(term_name)
             else:
-                field = f"output_{term_index}"
+                # Try looking up from callee VI context
+                callee_name = ctx.get_callee_output_name(subvi_name, term_index)
+                if callee_name:
+                    field = to_var_name(callee_name)
+
+            if not field:
+                raise ValueError(
+                    f"Cannot resolve output field name for SubVI '{subvi_name}' "
+                    f"terminal index={term_index}. "
+                    f"No vilib, term_name, or context lookup available."
+                )
 
             bindings[term_id] = f"{result_var}.{field}"
 

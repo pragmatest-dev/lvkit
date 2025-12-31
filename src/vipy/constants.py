@@ -63,8 +63,10 @@ FP_DCO_CLASS = "fPDCO"
 MULTI_LABEL_CLASS = "multiLabel"
 
 # === Terminal Flags ===
-# When objFlags has this bit set, the terminal receives data (input to the node)
-TERMINAL_INPUT_FLAG = 0x8000  # 32768 - indicates terminal RECEIVES data (input to node)
+# From pylabview LVparts.py OBJ_FLAGS:
+# Bit 0 (isIndicator) = 0x1 - when set, terminal is an OUTPUT (indicator)
+# When bit 0 is NOT set, terminal is an INPUT (control)
+TERMINAL_OUTPUT_FLAG = 0x1  # Bit 0 - isIndicator - terminal outputs data
 
 
 # === File Extensions and Patterns ===
