@@ -52,6 +52,17 @@ class SkeletonInput:
 
 
 @dataclass
+class SkeletonDep:
+    """A dependency for import generation."""
+    vi_name: str  # Original VI name
+    func_name: str  # Python function name
+    is_vilib: bool  # From vi.lib
+    is_converted: bool  # Already converted
+    result_class: str | None = None  # Result NamedTuple name
+    enums: list[str] = field(default_factory=list)  # Enum types to import
+
+
+@dataclass
 class Skeleton:
     """Complete skeleton for a VI."""
     function_name: str
@@ -62,6 +73,7 @@ class Skeleton:
     operations: list[SkeletonOp]
     unknowns: list[int]  # primitive IDs we don't know
     output_sources: dict[str, str] = field(default_factory=dict)  # output_name -> source_var
+    dependencies: list[SkeletonDep] = field(default_factory=list)  # SubVI dependencies
 
 
 class SkeletonGenerator:
@@ -98,6 +110,35 @@ class SkeletonGenerator:
         # Extract function name
         function_name = self._to_function_name(vi_name)
         namedtuple_name = self._to_class_name(vi_name) + "Result"
+
+        # Build dependencies from subvi_calls
+        dependencies: list[SkeletonDep] = []
+        seen_deps: set[str] = set()
+        for call in vi_context.get("subvi_calls", []):
+            subvi_name = call.get("vi_name", "")
+            if subvi_name in seen_deps:
+                continue
+            seen_deps.add(subvi_name)
+
+            func_name = self._to_function_name(subvi_name)
+            result_class = self._to_class_name(subvi_name) + "Result"
+            vilib_vi = self.vilib_resolver.resolve_by_name(subvi_name)
+
+            # Collect enums used by this SubVI
+            enums = []
+            if vilib_vi:
+                for term in vilib_vi.terminals:
+                    if term.enum and term.enum not in enums:
+                        enums.append(term.enum)
+
+            dependencies.append(SkeletonDep(
+                vi_name=subvi_name,
+                func_name=func_name,
+                is_vilib=vilib_vi is not None and vilib_vi.python_impl is not None,
+                is_converted=subvi_name in self.converted_deps,
+                result_class=result_class,
+                enums=enums,
+            ))
 
         # Process inputs - these become function parameters
         inputs: list[SkeletonInput] = []
@@ -295,16 +336,15 @@ class SkeletonGenerator:
 
                 # Check if we have vilib implementation
                 vilib_vi = self.vilib_resolver.resolve_by_name(subvi_name)
+                func_name = self._to_function_name(subvi_name)
 
                 if subvi_name in self.converted_deps:
                     sig = self.converted_deps[subvi_name]
                     python_expr = f"{sig.function_name}({', '.join(op_inputs)})"
                 elif vilib_vi and vilib_vi.python_impl:
                     # vilib VI with implementation
-                    func_name = self._to_function_name(subvi_name)
                     python_expr = f"{func_name}({', '.join(op_inputs)})"
                 else:
-                    func_name = self._to_function_name(subvi_name)
                     python_expr = f"{func_name}({', '.join(op_inputs)})  # ??? not converted"
 
                 # SubVI has single result variable (fields accessed via _terminal_to_var)
@@ -395,11 +435,18 @@ class SkeletonGenerator:
         for out in vi_context.get("outputs", []):
             out_name = self._to_var_name(out.get("name", "output"))
             out_id = out.get("id")
-            # Find terminal for this output
+
+            # First try: output ID itself is the terminal (FP terminal)
+            if out_id in self._flow_map:
+                src_term = self._flow_map[out_id]["src_terminal"]
+                if src_term in self._terminal_to_var:
+                    output_sources[out_name] = self._terminal_to_var[src_term]
+                    continue
+
+            # Second try: find child terminal with parent_id == out_id
             for term in vi_context.get("terminals", []):
                 if term.get("parent_id") == out_id:
                     term_id = term.get("id", "")
-                    # Find what connects to this terminal
                     if term_id in self._flow_map:
                         src_term = self._flow_map[term_id]["src_terminal"]
                         if src_term in self._terminal_to_var:
@@ -415,6 +462,7 @@ class SkeletonGenerator:
             operations=operations,
             unknowns=list(set(unknowns)),
             output_sources=output_sources,
+            dependencies=dependencies,
         )
 
     def to_python(self, skeleton: Skeleton) -> str:
@@ -436,15 +484,14 @@ class SkeletonGenerator:
             "",
         ]
 
-        # Add SubVI imports (includes enum types)
-        for sig in self.converted_deps.values():
-            lines.append(sig.import_statement)
-        # Add enum imports for resolved constants
-        for enum_name in sorted(self._enum_imports):
-            # Import from the SubVI module that defines this enum
-            # For now, assume it's imported alongside the SubVI
-            pass  # Enum comes with SubVI import
-        if self.converted_deps:
+        # Generate imports from dependencies
+        if skeleton.dependencies:
+            for dep in skeleton.dependencies:
+                # Build import names: function, result class, enums
+                names = [dep.func_name, dep.result_class]
+                names.extend(dep.enums)
+                names_str = ", ".join(n for n in names if n)
+                lines.append(f"from .{dep.func_name} import {names_str}")
             lines.append("")
 
         # NamedTuple for outputs
