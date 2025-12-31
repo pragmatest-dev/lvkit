@@ -8,6 +8,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from ..enum_resolver import get_enum_resolver
 from ..llm import LLMConfig, generate_code
 from ..vilib_resolver import get_resolver as get_vilib_resolver
 from .agentic import AgenticConfig, AgenticConverter, AgenticResult
@@ -139,6 +140,9 @@ class ConversionAgent:
                 print(f"  ✗ Failed after {result.attempts} attempts")
                 for error in result.errors[:3]:
                     print(f"    - {error}")
+                # Stop on failure - dependent VIs will also fail
+                print("  Stopping due to failed conversion.")
+                break
 
         # Generate package __init__.py
         self._generate_package_init(results)
@@ -282,6 +286,9 @@ class ConversionAgent:
             ui_path = None
             if self.config.generate_ui:
                 func_name, func_inputs, func_outputs, func_enums = self._extract_function_signature(code)
+                # Also get enum info from vilib context - match by type annotation
+                vilib_enums = self._get_vilib_enums_by_type(vi_name, func_inputs)
+                func_enums.update(vilib_enums)
                 if func_name is not None:
                     ui_path = self._generate_ui_wrapper(vi_name, func_name, func_inputs, func_outputs, func_enums)
 
@@ -673,6 +680,56 @@ def {func_name}({params_str}) -> {return_type}:
         ui_path.write_text(ui_code)
         return ui_path
 
+    def _get_vilib_enums_by_type(
+        self,
+        vi_name: str,
+        func_inputs: list[tuple[str, str]],
+    ) -> dict[str, list[tuple[int, str]]]:
+        """Get enum values for vilib VI by matching type annotations.
+
+        Matches Python parameter type annotations to vilib enum names.
+        E.g., if param type is 'SystemDirectoryType', looks up that enum.
+
+        Args:
+            vi_name: Name of the vilib VI
+            func_inputs: List of (param_name, type_annotation) from AST
+
+        Returns:
+            Dict mapping parameter name -> list of (value, display_name) tuples
+        """
+        result: dict[str, list[tuple[int, str]]] = {}
+
+        # Get enums from vilib data
+        vilib_enums = self.vilib_resolver.get_enums()
+        if not vilib_enums:
+            return result
+
+        # Match parameter type annotations to enum names
+        for param_name, type_ann in func_inputs:
+            # Check if type annotation matches an enum name
+            if type_ann in vilib_enums:
+                enum_data = vilib_enums[type_ann]
+                values: list[tuple[int, str]] = []
+                for name, val_info in enum_data.get("values", {}).items():
+                    value = val_info.get("value", 0)
+                    # Use description as display name, fallback to enum member name
+                    display = val_info.get("description", name.replace("_", " ").title())
+                    values.append((value, display))
+
+                # Sort by value
+                values.sort(key=lambda x: x[0])
+                result[param_name] = values
+
+        return result
+
+    def _to_var_name(self, name: str) -> str:
+        """Convert a name to a valid Python variable name."""
+        result = name.lower().replace(" ", "_").replace("-", "_")
+        result = "".join(c for c in result if c.isalnum() or c == "_")
+        if result and result[0].isdigit():
+            result = "_" + result
+        return result
+
     def _extract_function_signature(
         self,
         code: str,
@@ -702,7 +759,8 @@ def {func_name}({params_str}) -> {return_type}:
             if isinstance(node, ast.FunctionDef):
                 func_name = node.name
                 inputs = self._extract_params(node)
-                outputs = self._extract_returns(node)
+                outputs = self._extract_returns(node, tree)
+                # Look for dict-based enums in function body (fallback)
                 enums = self._extract_enums(node, inputs)
                 return func_name, inputs, outputs, enums
 
@@ -793,10 +851,14 @@ def {func_name}({params_str}) -> {return_type}:
             params.append((name, type_str))
         return params
 
-    def _extract_returns(self, func: ast.FunctionDef) -> list[tuple[str, str]]:
+    def _extract_returns(
+        self,
+        func: ast.FunctionDef,
+        tree: ast.Module | None = None,
+    ) -> list[tuple[str, str]]:
         """Extract return type from function definition.
 
-        For tuple returns, creates multiple output entries.
+        For tuple/NamedTuple returns, creates multiple output entries.
         """
         if not func.returns:
             return []
@@ -815,8 +877,43 @@ def {func_name}({params_str}) -> {return_type}:
         if return_annotation == "None":
             return []
 
+        # Check if return type is a NamedTuple defined in the module
+        if tree:
+            namedtuple_fields = self._find_namedtuple_fields(tree, return_annotation)
+            if namedtuple_fields:
+                return namedtuple_fields
+
         # Single return value
         return [("result", return_annotation)]
+
+    def _find_namedtuple_fields(
+        self,
+        tree: ast.Module,
+        class_name: str,
+    ) -> list[tuple[str, str]] | None:
+        """Find fields of a NamedTuple class by name.
+
+        Args:
+            tree: AST module
+            class_name: Name of the NamedTuple class
+
+        Returns:
+            List of (field_name, field_type) tuples, or None if not found
+        """
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ClassDef) and node.name == class_name:
+                # Check if it inherits from NamedTuple
+                for base in node.bases:
+                    if isinstance(base, ast.Name) and base.id == "NamedTuple":
+                        # Extract annotated fields
+                        fields = []
+                        for item in node.body:
+                            if isinstance(item, ast.AnnAssign) and isinstance(item.target, ast.Name):
+                                field_name = item.target.id
+                                field_type = ast.unparse(item.annotation) if item.annotation else "Any"
+                                fields.append((field_name, field_type))
+                        return fields if fields else None
+        return None
 
     def _generate_package_init(self, results: list[ConversionResult]) -> None:
         """Generate the main package __init__.py."""

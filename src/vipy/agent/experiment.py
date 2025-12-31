@@ -114,7 +114,7 @@ def run_experiment(
 
     # Clean output directory before starting
     if output_dir.exists():
-        print(f"Cleaning output directory: {output_dir}")
+        print(f"Cleaning output directory: {output_dir}", flush=True)
         shutil.rmtree(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
