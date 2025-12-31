@@ -20,7 +20,7 @@ class ResolvedPrimitive:
     """Resolved primitive with full info."""
     prim_id: str | None  # primResID if known
     name: str  # Official or inferred name
-    python_hint: str  # Python equivalent code
+    python_hint: str | dict[str, str]  # Python code or {output_name: expr} for multi-output
     terminals: list[dict]  # [{index, direction, name}, ...]
     confidence: str  # "exact_id", "exact_type", "compatible_type", "unknown"
     description: str = ""

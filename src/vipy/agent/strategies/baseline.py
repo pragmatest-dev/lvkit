@@ -10,6 +10,7 @@ This approach:
 from __future__ import annotations
 
 import time
+from pathlib import Path
 from typing import Any
 
 from ...llm import generate_code
@@ -39,6 +40,9 @@ class BaselineStrategy(ConversionStrategy):
 
         # Generate deterministic skeleton from VI graph
         skeleton = generate_skeleton(vi_context, vi_name, converted_deps)
+
+        # Save skeleton for review
+        self._save_skeleton(vi_name, skeleton)
 
         # Build JSON context for reference (with library-aware imports)
         from_library = self._get_library_name(vi_name)
@@ -96,6 +100,19 @@ class BaselineStrategy(ConversionStrategy):
             errors=errors,
             metadata={"strategy": self.name, "skeleton": skeleton},
         )
+
+    def _save_skeleton(self, vi_name: str, skeleton: str) -> None:
+        """Save skeleton to outputs/skeletons for review."""
+        skeleton_dir = Path("outputs/skeletons")
+        skeleton_dir.mkdir(parents=True, exist_ok=True)
+
+        # Convert VI name to filename
+        base_name = vi_name.replace(".vi", "").replace(".VI", "")
+        base_name = base_name.lower().replace(" ", "_").replace("-", "_")
+        base_name = "".join(c for c in base_name if c.isalnum() or c == "_")
+
+        skeleton_path = skeleton_dir / f"{base_name}.skeleton.py"
+        skeleton_path.write_text(skeleton)
 
     def _build_skeleton_prompt(self, base_context: str, skeleton: str) -> str:
         """Build prompt that includes skeleton for LLM to fix/complete."""

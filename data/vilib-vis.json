@@ -34,14 +34,14 @@
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/sysdir-llb/get-system-directory-vi.html",
       "terminals": [
         {
-          "index": 0,
+          "index": 11,
           "direction": "in",
           "name": "system directory",
           "type": "SystemDirectoryType",
           "enum": "SystemDirectoryType"
         },
         {
-          "index": 1,
+          "index": 2,
           "direction": "out",
           "name": "system directory path",
           "type": "Path"

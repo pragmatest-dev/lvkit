@@ -1,10 +1,10 @@
 """Deterministic skeleton generator from VI graph.
 
-Generates Python AST from Neo4j graph data, with placeholders for
-unknown primitives that the LLM fills in.
+Generates Python code from VI graph data using direct data flow connections.
+The graph tells us exactly how values flow between nodes - we use this to
+generate correct Python with proper types, enum members, and NamedTuple access.
 
-The key insight: we have enough information to generate ~80% of the code
-deterministically. The LLM's job shrinks to filling gaps.
+The LLM only fills in truly unknown parts (unmapped primitives).
 """
 
 from __future__ import annotations
@@ -13,79 +13,13 @@ import ast
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
+from ..vilib_resolver import VILibResolver
+
 if TYPE_CHECKING:
     from .context import VISignature
 
 
-# Primitive ID -> Python operation mapping
-# Built from observation - extend as we encounter more
-PRIMITIVE_OPS: dict[int, str] = {
-    # Path operations
-    1419: "Path({0}) / {1}",  # Build Path
-    1420: "{0}.parent, {0}.name",  # Strip Path
-
-    # String operations
-    1446: "{0} + {1}",  # Concatenate Strings
-    1447: "len({0})",  # String Length
-    1448: "{0}[{1}:{2}]",  # String Subset
-
-    # Numeric operations
-    1284: "{0} + {1}",  # Add
-    1285: "{0} - {1}",  # Subtract
-    1286: "{0} * {1}",  # Multiply
-    1287: "{0} / {1}",  # Divide
-
-    # Comparison
-    1297: "{0} == {1}",  # Equal
-    1298: "{0} != {1}",  # Not Equal
-    1299: "{0} > {1}",  # Greater Than
-    1300: "{0} < {1}",  # Less Than
-
-    # Boolean
-    1301: "{0} and {1}",  # And
-    1302: "{0} or {1}",  # Or
-    1303: "not {0}",  # Not
-
-    # Array operations
-    1330: "{0}[{1}]",  # Index Array
-    1331: "len({0})",  # Array Size
-    1332: "{0} + [{1}]",  # Build Array (append)
-}
-
-# Primitive ID -> Terminal names for better variable naming
-# Extend as we encounter more primitives
-PRIMITIVE_TERMINALS: dict[int, dict[str, list[str]]] = {
-    # Path operations
-    1419: {"inputs": ["base_path", "name"], "outputs": ["new_path"]},  # Build Path
-    1420: {"inputs": ["path"], "outputs": ["directory", "filename"]},  # Strip Path
-
-    # String operations
-    1446: {"inputs": ["str1", "str2"], "outputs": ["result"]},  # Concatenate
-    1447: {"inputs": ["string"], "outputs": ["length"]},  # String Length
-    1448: {"inputs": ["string", "start", "length"], "outputs": ["substring"]},  # Subset
-
-    # Numeric operations
-    1284: {"inputs": ["x", "y"], "outputs": ["sum"]},  # Add
-    1285: {"inputs": ["x", "y"], "outputs": ["difference"]},  # Subtract
-    1286: {"inputs": ["x", "y"], "outputs": ["product"]},  # Multiply
-    1287: {"inputs": ["x", "y"], "outputs": ["quotient"]},  # Divide
-
-    # Comparison
-    1297: {"inputs": ["x", "y"], "outputs": ["equal"]},  # Equal
-    1298: {"inputs": ["x", "y"], "outputs": ["not_equal"]},  # Not Equal
-    1299: {"inputs": ["x", "y"], "outputs": ["greater"]},  # Greater Than
-    1300: {"inputs": ["x", "y"], "outputs": ["less"]},  # Less Than
-
-    # Boolean
-    1301: {"inputs": ["x", "y"], "outputs": ["result"]},  # And
-    1302: {"inputs": ["x", "y"], "outputs": ["result"]},  # Or
-    1303: {"inputs": ["x"], "outputs": ["result"]},  # Not
-
-    # Array operations
-    1330: {"inputs": ["array", "index"], "outputs": ["element"]},  # Index Array
-    1331: {"inputs": ["array"], "outputs": ["size"]},  # Array Size
-    1332: {"inputs": ["array", "element"], "outputs": ["new_array"]},  # Build Array
-}
+from ..primitive_resolver import get_resolver as get_primitive_resolver
 
 
 @dataclass
@@ -136,10 +70,13 @@ class SkeletonGenerator:
     def __init__(
         self,
         converted_deps: dict[str, VISignature] | None = None,
+        vilib_resolver: VILibResolver | None = None,
     ):
         self.converted_deps = converted_deps or {}
+        self.vilib_resolver = vilib_resolver or VILibResolver()
         self._var_counter = 0
         self._vars: dict[str, SkeletonVar] = {}
+        self._enum_imports: set[str] = set()  # Track enum types to import
 
     def generate(self, vi_context: dict, vi_name: str) -> Skeleton:
         """Generate skeleton from VI context.
@@ -190,22 +127,38 @@ class SkeletonGenerator:
             type_hint = self._map_type(out.get("type", "Any"))
             outputs.append((name, type_hint))
 
-        # Process constants - these become local variables
+        # Build operation lookup for enum resolution
+        ops_by_id = {op.get("id"): op for op in vi_context.get("operations", [])}
+
+        # Process constants - resolve enums via data flow
         constants = []
+        self._enum_imports = set()
         for const in vi_context.get("constants", []):
-            var_name = f"c_{len(constants)}"
+            const_id = const.get("id", "")
             raw_value = const.get("value", "")
             python_hint = const.get("python", "")
-            type_hint = self._map_type(const.get("type", ""))
+            lv_type = const.get("type", "")
+            type_hint = self._map_type(lv_type)
 
-            # Format value properly for Python
-            value = self._format_constant(raw_value, python_hint, type_hint, const.get("type", ""))
+            # Try to resolve enum via data flow connection
+            enum_value = self._resolve_constant_enum(
+                const_id, raw_value, vi_context.get("data_flow", []), ops_by_id
+            )
+
+            if enum_value:
+                # Enum resolved - use it directly
+                value = enum_value
+                var_name = self._to_var_name(enum_value.split(".")[-1].lower())
+            else:
+                # Format value based on type
+                value = self._format_constant(raw_value, python_hint, type_hint, lv_type)
+                var_name = f"c_{len(constants)}"
 
             constants.append((var_name, value, type_hint))
-            self._vars[const.get("id", "")] = SkeletonVar(var_name, type_hint, "constant")
+            self._vars[const_id] = SkeletonVar(var_name, type_hint, "constant")
             # Register constant terminals
             for term in vi_context.get("terminals", []):
-                if term.get("parent_id") == const.get("id"):
+                if term.get("parent_id") == const_id:
                     self._terminal_to_var[term.get("id", "")] = var_name
 
         # Build execution order from data flow
@@ -224,27 +177,63 @@ class SkeletonGenerator:
                 key=lambda t: t.get("index", 0)
             )
 
-            # Try to get semantic names from graph first, then fall back to PRIMITIVE_TERMINALS
-            lookup_names = []
-            if "Primitive" in labels and prim_id in PRIMITIVE_TERMINALS:
-                lookup_names = PRIMITIVE_TERMINALS[prim_id].get("outputs", [])
+            # For SubVIs, look up vilib terminal names for output field access
+            if "SubVI" in labels:
+                subvi_name = op.get("name", "")
+                vilib_vi = self.vilib_resolver.resolve_by_name(subvi_name)
+                result_var = self._to_var_name(subvi_name.replace(".vi", "")) + "_result"
 
-            for i, term in enumerate(output_terms):
-                term_id = term.get("id", "")
-                # Priority: 1) Graph terminal name, 2) Lookup table, 3) Fallback prefix_index
-                graph_name = term.get("name")
-                if graph_name:
-                    out_var = self._to_var_name(graph_name)
-                elif i < len(lookup_names):
-                    out_var = lookup_names[i]
-                elif "SubVI" in labels:
-                    prefix = self._to_var_name(op.get("name", "subvi"))[:8]
-                    out_var = f"{prefix}_{i}"
-                elif "Primitive" in labels:
-                    out_var = f"p{prim_id}_{i}"
-                else:
-                    out_var = f"op{op_counter}_{i}"
-                self._terminal_to_var[term_id] = out_var
+                for term in output_terms:
+                    term_id = term.get("id", "")
+                    term_index = term.get("index")
+
+                    # Look up field name from vilib
+                    field_name = None
+                    if vilib_vi:
+                        for vt in vilib_vi.terminals:
+                            if vt.index == term_index and vt.direction == "out":
+                                field_name = self._to_var_name(vt.name)
+                                break
+
+                    if field_name:
+                        # SubVI output accessed as result.field
+                        self._terminal_to_var[term_id] = f"{result_var}.{field_name}"
+                    else:
+                        # Fallback for non-vilib SubVIs
+                        self._terminal_to_var[term_id] = f"{result_var}.output_{term_index}"
+
+            elif "Primitive" in labels:
+                # Get output terminal names from primitive resolver
+                prim_resolver = get_primitive_resolver()
+                resolved = prim_resolver.resolve(prim_id=prim_id)
+                terminal_names: dict[int, str] = {}
+                if resolved:
+                    for t in resolved.terminals:
+                        if t.get("direction") == "out":
+                            terminal_names[t.get("index")] = self._to_var_name(t.get("name", ""))
+
+                for term in output_terms:
+                    term_id = term.get("id", "")
+                    term_index = term.get("index")
+                    graph_name = term.get("name")
+                    if graph_name:
+                        out_var = self._to_var_name(graph_name)
+                    elif term_index in terminal_names:
+                        out_var = terminal_names[term_index]
+                    else:
+                        out_var = f"p{prim_id}_{term_index}"
+                    self._terminal_to_var[term_id] = out_var
+
+            else:
+                # Generic operation
+                for i, term in enumerate(output_terms):
+                    term_id = term.get("id", "")
+                    graph_name = term.get("name")
+                    if graph_name:
+                        out_var = self._to_var_name(graph_name)
+                    else:
+                        out_var = f"op{op_counter}_{i}"
+                    self._terminal_to_var[term_id] = out_var
 
             op_counter += 1
 
@@ -279,36 +268,67 @@ class SkeletonGenerator:
                     op_outputs.append(out_var)
 
             if "SubVI" in labels:
-                # SubVI call - deterministic if converted
+                # SubVI call returns a NamedTuple result
                 subvi_name = op.get("name", "")
+                result_var = self._to_var_name(subvi_name.replace(".vi", "")) + "_result"
+
+                # Check if we have vilib implementation
+                vilib_vi = self.vilib_resolver.resolve_by_name(subvi_name)
+
                 if subvi_name in self.converted_deps:
                     sig = self.converted_deps[subvi_name]
                     python_expr = f"{sig.function_name}({', '.join(op_inputs)})"
+                elif vilib_vi and vilib_vi.python_impl:
+                    # vilib VI with implementation
+                    func_name = self._to_function_name(subvi_name)
+                    python_expr = f"{func_name}({', '.join(op_inputs)})"
                 else:
                     func_name = self._to_function_name(subvi_name)
                     python_expr = f"{func_name}({', '.join(op_inputs)})  # ??? not converted"
 
+                # SubVI has single result variable (fields accessed via _terminal_to_var)
                 operations.append(SkeletonOp(
                     op_id=op_id,
                     op_type="subvi",
                     prim_id=None,
                     name=subvi_name,
                     inputs=op_inputs,
-                    outputs=op_outputs,
+                    outputs=[result_var],  # Single result var, fields tracked separately
                     python_expr=python_expr,
                 ))
 
             elif "Primitive" in labels:
                 prim_id = op.get("primResID")
+                prim_resolver = get_primitive_resolver()
+                resolved = prim_resolver.resolve(prim_id=prim_id)
 
-                if prim_id in PRIMITIVE_OPS:
-                    # Known primitive - generate deterministic code
-                    template = PRIMITIVE_OPS[prim_id]
-                    try:
-                        python_expr = template.format(*op_inputs)
-                    except (IndexError, KeyError):
-                        python_expr = f"PRIMITIVE_{prim_id}({', '.join(op_inputs)})  # ???"
-                        unknowns.append(prim_id)
+                if resolved and resolved.python_hint:
+                    # Build input map: terminal name -> value from data flow
+                    input_map = self._build_primitive_input_map(
+                        op, op_inputs, resolved.terminals, vi_context
+                    )
+
+                    if isinstance(resolved.python_hint, dict):
+                        # Dict format: {output_name: expr, ...}
+                        python_expr, generated_outputs = self._handle_dict_primitive_hint(
+                            resolved.python_hint, input_map, op, resolved.terminals
+                        )
+                        # Override op_outputs with generated ones
+                        if generated_outputs:
+                            op_outputs = generated_outputs
+                    else:
+                        # String format: single expression
+                        python_expr = self._substitute_primitive_hint(
+                            resolved.python_hint, input_map
+                        )
+
+                    if "???" in python_expr or (
+                        isinstance(resolved.python_hint, str) and
+                        python_expr == resolved.python_hint
+                    ):
+                        # Couldn't substitute - mark as unknown
+                        if prim_id:
+                            unknowns.append(prim_id)
                 else:
                     # Unknown primitive - placeholder
                     python_expr = f"PRIMITIVE_{prim_id}({', '.join(op_inputs)})  # ???"
@@ -319,7 +339,7 @@ class SkeletonGenerator:
                     op_id=op_id,
                     op_type="primitive",
                     prim_id=prim_id,
-                    name=op.get("name"),
+                    name=resolved.name if resolved else op.get("name"),
                     inputs=op_inputs,
                     outputs=op_outputs,
                     python_expr=python_expr,
@@ -395,9 +415,14 @@ class SkeletonGenerator:
             "",
         ]
 
-        # Add SubVI imports
+        # Add SubVI imports (includes enum types)
         for sig in self.converted_deps.values():
             lines.append(sig.import_statement)
+        # Add enum imports for resolved constants
+        for enum_name in sorted(self._enum_imports):
+            # Import from the SubVI module that defines this enum
+            # For now, assume it's imported alongside the SubVI
+            pass  # Enum comes with SubVI import
         if self.converted_deps:
             lines.append("")
 
@@ -523,6 +548,173 @@ class SkeletonGenerator:
 
         return result
 
+    def _build_primitive_input_map(
+        self,
+        op: dict,
+        op_inputs: list[str],
+        prim_terminals: list[dict],
+        vi_context: dict,
+    ) -> dict[str, str]:
+        """Build map from primitive terminal names to actual input values.
+
+        Uses data flow to match wired terminals to their values.
+        Matches by POSITION among wired inputs, not by index value,
+        since primitive terminal indices in graph may differ from definition.
+
+        Args:
+            op: The operation dict from vi_context
+            op_inputs: Input values in wired order
+            prim_terminals: Terminal definitions from primitive resolver
+            vi_context: Full VI context
+
+        Returns:
+            Dict mapping terminal name -> value (e.g., {"path": "directory_path"})
+        """
+        result: dict[str, str] = {}
+
+        # Get input terminals from primitive definition, sorted by index
+        input_terminals = [t for t in prim_terminals if t.get("direction") == "in"]
+        input_terminals.sort(key=lambda t: t.get("index", 0))
+
+        # Match by position: 1st wired input -> 1st defined input terminal
+        for i, value in enumerate(op_inputs):
+            if i < len(input_terminals):
+                name = input_terminals[i].get("name", "")
+                # Normalize name for substitution
+                key = self._to_var_name(name)
+                result[key] = value
+                # Also store with spaces/original form
+                result[name.lower().replace(" ", "_")] = value
+
+        return result
+
+    def _substitute_primitive_hint(
+        self,
+        python_hint: str,
+        input_map: dict[str, str],
+    ) -> str:
+        """Substitute terminal names in python hint with actual values.
+
+        Args:
+            python_hint: Template like "appended_path = base_path / name"
+            input_map: Terminal name -> value mapping
+
+        Returns:
+            Substituted expression like "dir_result.path / suffix"
+        """
+        import re
+
+        result = python_hint
+
+        # Strip assignment if present (we generate our own output var)
+        if "=" in result and not any(op in result for op in ["==", "!=", "<=", ">="]):
+            # Find first = that's not part of comparison
+            eq_pos = result.find("=")
+            if eq_pos > 0 and result[eq_pos-1] not in "!<>" and result[eq_pos+1] != "=":
+                result = result[eq_pos + 1:].strip()
+
+        # Strip trailing comment
+        if "#" in result:
+            result = result[:result.find("#")].strip()
+
+        # Sort by length (longest first) to avoid partial replacements
+        for name, value in sorted(input_map.items(), key=lambda x: -len(x[0])):
+            if not name:
+                continue
+            # Replace word-bounded occurrences
+            pattern = r'\b' + re.escape(name) + r'\b'
+            result = re.sub(pattern, value, result, flags=re.IGNORECASE)
+
+        return result
+
+    def _handle_dict_primitive_hint(
+        self,
+        hint_dict: dict[str, str],
+        input_map: dict[str, str],
+        op: dict,
+        prim_terminals: list[dict],
+    ) -> tuple[str, list[str]]:
+        """Handle dict-format primitive hints for multi-output primitives.
+
+        Args:
+            hint_dict: {output_name: expression, "_body": optional side effect}
+            input_map: Input terminal name -> value mapping
+            op: The operation dict
+            prim_terminals: Terminal definitions from primitive
+
+        Returns:
+            (python_expression, [output_var_names])
+        """
+        import re
+
+        # Get wired output terminals from the operation
+        wired_outputs = []
+        for term in op.get("terminals", []):
+            if term.get("direction") == "output" and self._is_terminal_wired(term.get("id", "")):
+                term_index = term.get("index")
+                # Find matching primitive terminal by index
+                for pt in prim_terminals:
+                    if pt.get("index") == term_index and pt.get("direction") == "out":
+                        output_name = self._to_var_name(pt.get("name", ""))
+                        wired_outputs.append((term_index, output_name, term.get("id")))
+                        break
+
+        # Sort by index for consistent ordering
+        wired_outputs.sort(key=lambda x: x[0])
+
+        # Build expressions for wired outputs
+        expressions = []
+        output_vars = []
+
+        for idx, output_name, term_id in wired_outputs:
+            # Look up expression in hint dict
+            expr = hint_dict.get(output_name)
+            if not expr:
+                # Try with underscores/spaces normalized
+                for key in hint_dict:
+                    if self._to_var_name(key) == output_name:
+                        expr = hint_dict[key]
+                        break
+
+            if expr:
+                # Substitute input variables
+                substituted = expr
+                for name, value in sorted(input_map.items(), key=lambda x: -len(x[0])):
+                    if name:
+                        pattern = r'\b' + re.escape(name) + r'\b'
+                        substituted = re.sub(pattern, value, substituted, flags=re.IGNORECASE)
+                expressions.append(substituted)
+                output_vars.append(output_name)
+                # Register in terminal_to_var for downstream use
+                self._terminal_to_var[term_id] = output_name
+            else:
+                expressions.append(f"???  # no hint for {output_name}")
+                output_vars.append(output_name)
+
+        # Handle _body (side effect that runs but doesn't produce output)
+        body = hint_dict.get("_body")
+        if body:
+            # Substitute inputs in body
+            for name, value in sorted(input_map.items(), key=lambda x: -len(x[0])):
+                if name:
+                    pattern = r'\b' + re.escape(name) + r'\b'
+                    body = re.sub(pattern, value, body, flags=re.IGNORECASE)
+
+        # Generate the expression
+        if len(expressions) == 0:
+            # No outputs wired, just body
+            return body or "pass  # no outputs wired", []
+        elif len(expressions) == 1:
+            if body:
+                # Body + single output (body runs first)
+                return f"{body}; {expressions[0]}", output_vars
+            return expressions[0], output_vars
+        else:
+            # Multiple outputs - tuple expression
+            if body:
+                return f"{body}; {', '.join(expressions)}", output_vars
+            return ", ".join(expressions), output_vars
+
     def _build_data_flow_map(self, vi_context: dict) -> None:
         """Build mapping from destination terminals to source terminals."""
         self._flow_map = {}  # dest_terminal_id -> source info
@@ -568,6 +760,79 @@ class SkeletonGenerator:
             src_name = flow.get("src_parent_name", "")
             if src_name:
                 return self._to_var_name(src_name)
+
+        return None
+
+    def _resolve_constant_enum(
+        self,
+        const_id: str,
+        raw_value: str,
+        data_flow: list[dict],
+        ops_by_id: dict[str, dict],
+    ) -> str | None:
+        """Resolve a constant to an enum member via data flow.
+
+        Traces where this constant flows to. If it connects to a SubVI terminal
+        that has an enum type, resolves the numeric value to the enum member.
+
+        Args:
+            const_id: ID of the constant node
+            raw_value: Raw value of the constant (e.g., "7")
+            data_flow: List of data flow connections
+            ops_by_id: Operations indexed by ID
+
+        Returns:
+            Enum expression like "SystemDirectoryType.PUBLIC_APP_DATA" or None
+        """
+        # Find where this constant flows to
+        for flow in data_flow:
+            if flow.get("from_parent_id") != const_id:
+                continue
+
+            dest_op_id = flow.get("to_parent_id")
+            dest_term_id = flow.get("to_terminal_id")
+            dest_op = ops_by_id.get(dest_op_id)
+
+            if not dest_op:
+                continue
+
+            # Only handle SubVI calls
+            if "SubVI" not in dest_op.get("labels", []):
+                continue
+
+            subvi_name = dest_op.get("name", "")
+            vilib_vi = self.vilib_resolver.resolve_by_name(subvi_name)
+            if not vilib_vi:
+                continue
+
+            # Find the destination terminal index
+            dest_term_index = None
+            for term in dest_op.get("terminals", []):
+                if term.get("id") == dest_term_id:
+                    dest_term_index = term.get("index")
+                    break
+
+            if dest_term_index is None:
+                continue
+
+            # Find vilib terminal with matching index
+            for vilib_term in vilib_vi.terminals:
+                if vilib_term.index == dest_term_index and vilib_term.enum:
+                    # Found enum terminal - resolve value to member
+                    enum_name = vilib_term.enum
+                    enums = self.vilib_resolver.get_enums()
+                    enum_def = enums.get(enum_name, {})
+
+                    # Find member with matching value
+                    try:
+                        int_value = int(raw_value)
+                    except (ValueError, TypeError):
+                        continue
+
+                    for member_name, member_info in enum_def.get("values", {}).items():
+                        if member_info.get("value") == int_value:
+                            self._enum_imports.add(enum_name)
+                            return f"{enum_name}.{member_name}"
 
         return None
 
