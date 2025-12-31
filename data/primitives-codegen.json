@@ -197,7 +197,10 @@
           "name": "error in"
         }
       ],
-      "python": "file_handle = open(path, mode)",
+      "python": {
+        "refnum_out": "open(file_path, operation)",
+        "error_out": "{'status': False, 'code': 0, 'source': ''}"
+      },
       "guess_reason": "8xxx are often compound nodes. Multiple file-related I/O"
     },
     "1105": {
@@ -1057,7 +1060,10 @@
           "name": "name"
         }
       ],
-      "python": "stripped_path, name = path.parent, path.name  # pathlib"
+      "python": {
+        "stripped_path": "path.parent",
+        "name": "path.name"
+      }
     },
     "1171": {
       "name": "Logical Shift",
@@ -1903,7 +1909,11 @@
           "name": "error in"
         }
       ],
-      "python": "Path(path).mkdir(parents=True, exist_ok=True)",
+      "python": {
+        "_body": "Path(path).mkdir(parents=True, exist_ok=True)",
+        "new_path": "Path(path)",
+        "already_existed": "path.exists()"
+      },
       "guess_reason": "Creates folder, returns if it already existed"
     },
     "8063": {
