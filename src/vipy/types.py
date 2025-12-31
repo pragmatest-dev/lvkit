@@ -297,8 +297,8 @@ def from_labview_type(lv_type: str, control_type: str | None = None) -> TypeInfo
     if control_type in control_map:
         return control_map[control_type]
 
-    # Array types
-    if lv_type == "Array" or control_type == "stdArray":
+    # Array types (stdArray = control, indArr = indicator array)
+    if lv_type == "Array" or control_type in ("stdArray", "indArr"):
         return ArrayType(element_type=ANY)
 
     # Cluster types

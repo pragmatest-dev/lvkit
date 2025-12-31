@@ -124,9 +124,13 @@ class SkeletonGenerator:
         outputs = []
         for out in vi_context.get("outputs", []):
             name = self._to_var_name(out.get("name", "output"))
-            # Try type, then control_type, then default to Any
-            lv_type = out.get("type") or self._map_control_type(out.get("control_type"))
-            type_hint = self._map_type(lv_type) if lv_type else "Any"
+            # Use TypeInfo if available, otherwise fall back to manual mapping
+            type_info = out.get("type_info")
+            if type_info:
+                type_hint = type_info.to_python()
+            else:
+                lv_type = out.get("type") or self._map_control_type(out.get("control_type"))
+                type_hint = self._map_type(lv_type) if lv_type else "Any"
             outputs.append((name, type_hint))
 
         # Build operation lookup for enum resolution
