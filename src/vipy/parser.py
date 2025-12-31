@@ -15,7 +15,6 @@ from .constants import (
     OPERATION_NODE_CLASSES,
     TERMINAL_CLASS,
     TERMINAL_CONTAINER_CLASSES,
-    TERMINAL_INPUT_FLAG,
     TUNNEL_DCO_CLASSES,
 )
 
@@ -233,10 +232,11 @@ def _extract_nodes(root: ET.Element) -> list[Node]:
                 type_str = type_desc.text if type_desc is not None and type_desc.text else None
                 if type_str:
                     flags = int(obj_flags.text) if obj_flags is not None and obj_flags.text else 0
-                    if flags & TERMINAL_INPUT_FLAG:
-                        input_types.append(type_str)
-                    else:
+                    # Bit 0 (isIndicator) = output, bit 0 clear = input
+                    if flags & 0x1:
                         output_types.append(type_str)
+                    else:
+                        input_types.append(type_str)
 
             node = Node(
                 uid=uid,
@@ -693,7 +693,59 @@ def parse_vi_metadata(xml_path: Path | str) -> dict[str, Any]:
     # Parse typedef references from VICC elements
     metadata["typedef_refs"] = parse_typedef_refs(root)
 
+    # Check if this is a polymorphic VI
+    poly_info = parse_polymorphic_info(root)
+    if poly_info["is_polymorphic"]:
+        metadata["is_polymorphic"] = True
+        metadata["poly_variants"] = poly_info["variants"]
+        metadata["poly_selectors"] = poly_info["selectors"]
+
     return metadata
+
+
+def parse_polymorphic_info(root: ET.Element) -> dict[str, Any]:
+    """Parse polymorphic VI information from VCTP and CPST sections.
+
+    A polymorphic VI has:
+    - Type="PolyVI" in VCTP section
+    - CPST section with variant selector strings
+    - Multiple SubVI references (variants) in LIvi section
+
+    Args:
+        root: Root element of the main VI XML
+
+    Returns:
+        Dict with:
+        - is_polymorphic: bool
+        - variants: list of variant VI names
+        - selectors: list of selector strings (e.g., "Scalar:String", "1D Array:All:Path")
+    """
+    result: dict[str, Any] = {
+        "is_polymorphic": False,
+        "variants": [],
+        "selectors": [],
+    }
+
+    # Check for PolyVI type in VCTP section
+    poly_type = root.find(".//VCTP//TypeDesc[@Type='PolyVI']")
+    if poly_type is None:
+        return result
+
+    result["is_polymorphic"] = True
+
+    # Extract selector strings from CPST section
+    cpst_section = root.find(".//CPST/Section")
+    if cpst_section is not None:
+        for string_elem in cpst_section.findall("String"):
+            if string_elem.text and string_elem.text.strip():
+                result["selectors"].append(string_elem.text.strip())
+
+    # Extract variant VI names from LIvi VIVI elements
+    for vivi in root.findall(".//LIvi//VIVI/LinkSaveQualName/String"):
+        if vivi.text:
+            result["variants"].append(vivi.text)
+
+    return result
 
 
 @dataclass
@@ -1051,16 +1103,35 @@ def _extract_terminal_info(
         if elem_class in TERMINAL_CONTAINER_CLASSES:
             term_list = elem.findall(f"./termList/SL__arrayElement[@class='{TERMINAL_CLASS}']")
 
-            for index, term in enumerate(term_list):
+            for list_position, term in enumerate(term_list):
                 term_uid = term.get("uid")
                 if not term_uid:
                     continue
 
+                # Get nested dco element (contains parmIndex and sometimes objFlags)
+                dco = term.find("dco")
+
+                # Get parmIndex from dco if present, otherwise use list position
+                # parmIndex is the actual parameter index from LabVIEW
+                parm_index = list_position
+                if dco is not None:
+                    parm_index_elem = dco.find("parmIndex")
+                    if parm_index_elem is not None and parm_index_elem.text:
+                        parm_index = int(parm_index_elem.text)
+
                 # Get objFlags to determine input vs output
-                # TERMINAL_INPUT_FLAG (0x8000) means terminal receives data (input to node)
-                obj_flags_elem = term.find("objFlags")
-                obj_flags = int(obj_flags_elem.text) if obj_flags_elem is not None and obj_flags_elem.text else 0
-                is_output = not bool(obj_flags & TERMINAL_INPUT_FLAG)
+                # Bit 0 (isIndicator) = output terminal (from pylabview LVparts.py OBJ_FLAGS)
+                # Combine flags from both term element and dco element
+                term_flags_elem = term.find("objFlags")
+                term_flags = int(term_flags_elem.text) if term_flags_elem is not None and term_flags_elem.text else 0
+                dco_flags = 0
+                if dco is not None:
+                    dco_flags_elem = dco.find("objFlags")
+                    dco_flags = int(dco_flags_elem.text) if dco_flags_elem is not None and dco_flags_elem.text else 0
+
+                # Bit 0 set = output (isIndicator), bit 0 clear = input
+                combined_flags = term_flags | dco_flags
+                is_output = bool(combined_flags & 0x1)
 
                 # Get type from typeDesc
                 type_desc_elem = term.find(".//typeDesc")
@@ -1069,7 +1140,7 @@ def _extract_terminal_info(
                 terminal_info[term_uid] = TerminalInfo(
                     uid=term_uid,
                     parent_uid=elem_uid,
-                    index=index,
+                    index=parm_index,
                     is_output=is_output,
                     type_id=type_id,
                 )

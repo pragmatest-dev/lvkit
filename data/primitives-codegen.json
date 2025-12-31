@@ -114,14 +114,13 @@
       "guess_reason": "1in/1out numeric. Used in Slice VIs for index calculation"
     },
     "1112": {
-      "name": "Unbundle By Name",
+      "name": "Not A Path?",
       "terminals": [
-        {"index": 0, "direction": "out", "name": "element"},
-        {"index": 1, "direction": "in", "name": "cluster"}
+        {"index": 0, "direction": "out", "name": "not a path?"},
+        {"index": 1, "direction": "in", "name": "path"}
       ],
-      "python": {"element": "cluster.field_name"},
-      "expandable": true,
-      "guess_reason": "Extracts named field from cluster. Field name comes from VI diagram."
+      "python": {"not_a_path_": "not bool(path)"},
+      "guess_reason": "Checks if path is empty/invalid. Returns True if path is empty or not set."
     },
     "1051": {
       "name": "Concatenate Strings",
@@ -993,24 +992,27 @@
         {"index": 0, "direction": "out", "name": "size"},
         {"index": 1, "direction": "out", "name": "last modification"},
         {"index": 2, "direction": "out", "name": "is folder?"},
-        {"index": 3, "direction": "out", "name": "error out"},
+        {"index": 3, "direction": "out", "name": "path"},
         {"index": 4, "direction": "out", "name": "shortcut?"},
         {"index": 5, "direction": "out", "name": "resolved path"},
         {"index": 6, "direction": "out", "name": "creation date"},
-        {"index": 8, "direction": "in", "name": "path"},
-        {"index": 11, "direction": "in", "name": "error in"}
+        {"index": 8, "direction": "in", "name": "type"},
+        {"index": 11, "direction": "in", "name": "path"},
+        {"index": 12, "direction": "in", "name": "error in"},
+        {"index": 13, "direction": "out", "name": "error out"}
       ],
       "python": {
-        "_body": "_stat = Path(path).stat() if Path(path).exists() else None",
+        "_body": "_stat = Path(path).stat() if (path and Path(path).exists()) else None",
         "size": "_stat.st_size if _stat else 0",
         "last_modification": "_stat.st_mtime if _stat else 0.0",
-        "is_folder_": "Path(path).is_dir()",
-        "shortcut_": "Path(path).is_symlink()",
-        "resolved_path": "Path(path).resolve()",
+        "is_folder_": "Path(path).is_dir() if path else False",
+        "path": "path",
+        "shortcut_": "Path(path).is_symlink() if path else False",
+        "resolved_path": "Path(path).resolve() if path else None",
         "creation_date": "_stat.st_ctime if _stat else 0.0",
         "error_out": "error_in"
       },
-      "guess_reason": "Returns file/directory metadata including size, timestamps, type info"
+      "guess_reason": "Returns file/directory metadata including size, timestamps, type info. idx=11 is path input, idx=3 is path passthrough output."
     },
     "1044": {
       "name": "Split 1D Array",
@@ -1044,19 +1046,11 @@
     "1128": {
       "name": "Refnum To Path",
       "terminals": [
-        {
-          "index": 0,
-          "direction": "out",
-          "name": null
-        },
-        {
-          "index": 1,
-          "direction": "in",
-          "name": "VI Ref (calling VI)"
-        }
+        {"index": 0, "direction": "out", "name": "path"},
+        {"index": 1, "direction": "in", "name": "refnum"}
       ],
-      "python": "path = refnum.path",
-      "guess_reason": "Used with file/VI references, converts refnum to path"
+      "python": {"path": "Path(refnum) if refnum else None"},
+      "guess_reason": "Converts refnum to path. If input is already a path, passes through."
     },
     "1510": {
       "name": "Quotient & Remainder",
@@ -1353,19 +1347,16 @@
         {"index": 0, "direction": "out", "name": "exists?"},
         {"index": 3, "direction": "out", "name": "error out"},
         {"index": 7, "direction": "in", "name": "path"},
-        {"index": 8, "direction": "out", "name": "path out"},
-        {"index": 9, "direction": "out", "name": "is folder?"},
-        {"index": 10, "direction": "out", "name": "is shortcut?"},
+        {"index": 8, "direction": "in", "name": "path_dup"},
+        {"index": 9, "direction": "in", "name": "unused_9"},
+        {"index": 10, "direction": "in", "name": "unused_10"},
         {"index": 11, "direction": "in", "name": "error in"}
       ],
       "python": {
-        "exists_": "Path(path).exists()",
-        "is_folder_": "Path(path).is_dir()",
-        "is_shortcut_": "Path(path).is_symlink()",
-        "path_out": "path",
+        "exists_": "Path(path).exists() if path else False",
         "error_out": "error_in"
       },
-      "guess_reason": "File/folder existence check. Returns existence, folder/shortcut flags"
+      "guess_reason": "File/folder existence check - alternate connector pane with all inputs"
     },
     "1103": {
       "name": "Greater Or Equal?",
@@ -1925,33 +1916,20 @@
     "8055": {
       "name": "Create Folder",
       "terminals": [
-        {
-          "index": 0,
-          "direction": "out",
-          "name": "new path"
-        },
-        {
-          "index": 1,
-          "direction": "out",
-          "name": "already existed?"
-        },
-        {
-          "index": 2,
-          "direction": "in",
-          "name": "path"
-        },
-        {
-          "index": 3,
-          "direction": "in",
-          "name": "error in"
-        }
+        {"index": 0, "direction": "out", "name": "new path"},
+        {"index": 1, "direction": "out", "name": "already existed?"},
+        {"index": 3, "direction": "out", "name": "error out"},
+        {"index": 7, "direction": "in", "name": "path"},
+        {"index": 8, "direction": "in", "name": "error in"},
+        {"index": 11, "direction": "in", "name": "path"}
       ],
       "python": {
         "_body": "Path(path).mkdir(parents=True, exist_ok=True)",
         "new_path": "Path(path)",
-        "already_existed": "path.exists()"
+        "already_existed_": "path.exists() if path else False",
+        "error_out": "error_in"
       },
-      "guess_reason": "Creates folder, returns if it already existed"
+      "guess_reason": "Creates folder. idx=7 OR idx=11 can be path input (connector pane variant)."
     },
     "8063": {
       "name": "Unknown_8063",

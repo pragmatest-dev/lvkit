@@ -10,18 +10,25 @@ from .context import CodeGenContext
 from .nodes import get_codegen
 
 
-def build_module(vi_context: dict[str, Any], vi_name: str) -> str:
+def build_module(
+    vi_context: dict[str, Any],
+    vi_name: str,
+    vi_context_lookup: Any = None,
+) -> str:
     """Build complete Python module from VI context.
 
     Args:
         vi_context: VI context dict with operations, inputs, outputs, etc.
         vi_name: Name of the VI (used for function name)
+        vi_context_lookup: Optional callable (vi_name) -> context for looking up
+                          callee VI parameter names
 
     Returns:
         Python source code as string
     """
     # Initialize context with inputs and constants
     ctx = CodeGenContext.from_vi_context(vi_context)
+    ctx.vi_context_lookup = vi_context_lookup
 
     # Generate function body
     body = generate_body(vi_context.get("operations", []), ctx)
