@@ -747,8 +747,12 @@ class SkeletonGenerator:
             expr = hint_dict.get(output_name)
             if not expr:
                 # Try with underscores/spaces normalized
+                # Also strip trailing underscores - hint keys use them to avoid
+                # Python keywords (e.g., "is_" for terminal "is?")
                 for key in hint_dict:
-                    if self._to_var_name(key) == output_name:
+                    normalized_key = self._to_var_name(key).rstrip("_")
+                    normalized_output = output_name.rstrip("_")
+                    if normalized_key == normalized_output:
                         expr = hint_dict[key]
                         break
 
