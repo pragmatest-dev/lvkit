@@ -6,6 +6,8 @@ import json
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
+from .claude_agent import TypeInfoEncoder
+
 if TYPE_CHECKING:
     from .types import SharedType
     from .validator import ValidationError
@@ -304,7 +306,7 @@ def create() -> {class_name}UI:
 
         return ContextBuilder.FUNCTION_TEMPLATE.format(
             function_name=function_name,
-            vi_context_json=json.dumps(cleaned, indent=2),
+            vi_context_json=json.dumps(cleaned, indent=2, cls=TypeInfoEncoder),
             available_imports=available_imports,
             shared_types=types_section,
             enum_context=enum_section,
@@ -623,7 +625,7 @@ def create() -> {class_name}UI:
         static_decorator = "@staticmethod" if is_static else ""
 
         return ContextBuilder.METHOD_TEMPLATE.format(
-            vi_context_json=json.dumps(cleaned, indent=2),
+            vi_context_json=json.dumps(cleaned, indent=2, cls=TypeInfoEncoder),
             class_name=class_name,
             visibility=visibility,
             static_decorator=static_decorator,

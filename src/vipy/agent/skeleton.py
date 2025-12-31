@@ -39,6 +39,7 @@ class SkeletonOp:
     inputs: list[str]  # variable names
     outputs: list[str]  # variable names
     python_expr: str | None  # deterministic expression or None for ???
+    pre_statements: list[str] = field(default_factory=list)  # statements to emit before assignment
 
 
 @dataclass
@@ -368,9 +369,10 @@ class SkeletonGenerator:
                         op, op_inputs, resolved.terminals, vi_context
                     )
 
+                    pre_statements: list[str] = []
                     if isinstance(resolved.python_hint, dict):
                         # Dict format: {output_name: expr, ...}
-                        python_expr, generated_outputs = self._handle_dict_primitive_hint(
+                        python_expr, generated_outputs, pre_statements = self._handle_dict_primitive_hint(
                             resolved.python_hint, input_map, op, resolved.terminals
                         )
                         # Override op_outputs with generated ones
@@ -392,6 +394,7 @@ class SkeletonGenerator:
                 else:
                     # Unknown primitive - placeholder
                     python_expr = f"PRIMITIVE_{prim_id}({', '.join(op_inputs)})  # ???"
+                    pre_statements = []
                     if prim_id:
                         unknowns.append(prim_id)
 
@@ -403,6 +406,7 @@ class SkeletonGenerator:
                     inputs=op_inputs,
                     outputs=op_outputs,
                     python_expr=python_expr,
+                    pre_statements=pre_statements,
                 ))
 
             elif "Loop" in labels:
@@ -528,6 +532,10 @@ class SkeletonGenerator:
         # Operations
         lines.append("    # Operations (in data flow order)")
         for op in skeleton.operations:
+            # Emit pre-statements first (e.g., _body from dict hints)
+            for stmt in op.pre_statements:
+                lines.append(f"    {stmt}")
+            # Then emit the assignment
             if op.outputs:
                 if len(op.outputs) == 1:
                     lines.append(f"    {op.outputs[0]} = {op.python_expr}")
@@ -701,7 +709,7 @@ class SkeletonGenerator:
         input_map: dict[str, str],
         op: dict,
         prim_terminals: list[dict],
-    ) -> tuple[str, list[str]]:
+    ) -> tuple[str, list[str], list[str]]:
         """Handle dict-format primitive hints for multi-output primitives.
 
         Args:
@@ -711,7 +719,7 @@ class SkeletonGenerator:
             prim_terminals: Terminal definitions from primitive
 
         Returns:
-            (python_expression, [output_var_names])
+            (python_expression, [output_var_names], [pre_statements])
         """
         import re
 
@@ -759,7 +767,8 @@ class SkeletonGenerator:
                 expressions.append(f"???  # no hint for {output_name}")
                 output_vars.append(output_name)
 
-        # Handle _body (side effect that runs but doesn't produce output)
+        # Handle _body (side effect) - emit as separate pre-statement
+        pre_statements = []
         body = hint_dict.get("_body")
         if body:
             # Substitute inputs in body (case-sensitive)
@@ -767,21 +776,15 @@ class SkeletonGenerator:
                 if name:
                     pattern = r'\b' + re.escape(name) + r'\b'
                     body = re.sub(pattern, value, body)
+            pre_statements.append(body)
 
-        # Generate the expression
+        # Generate the expression (without body - that's in pre_statements)
         if len(expressions) == 0:
-            # No outputs wired, just body
-            return body or "pass  # no outputs wired", []
+            return "pass  # no outputs wired", [], pre_statements
         elif len(expressions) == 1:
-            if body:
-                # Body + single output (body runs first)
-                return f"{body}; {expressions[0]}", output_vars
-            return expressions[0], output_vars
+            return expressions[0], output_vars, pre_statements
         else:
-            # Multiple outputs - tuple expression
-            if body:
-                return f"{body}; {', '.join(expressions)}", output_vars
-            return ", ".join(expressions), output_vars
+            return ", ".join(expressions), output_vars, pre_statements
 
     def _build_data_flow_map(self, vi_context: dict) -> None:
         """Build mapping from destination terminals to source terminals."""
