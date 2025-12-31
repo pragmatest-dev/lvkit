@@ -363,8 +363,8 @@ def test_build_module_real_vi():
     # Should have operations
     assert len(ctx.get("operations", [])) > 0
 
-    # Build module
-    result = build_module(ctx, vi_name)
+    # Build module (pass graph.get_vi_context for SubVI parameter resolution)
+    result = build_module(ctx, vi_name, vi_context_lookup=graph.get_vi_context)
 
     # Should be valid Python
     ast.parse(result)

@@ -71,12 +71,14 @@ def get_codegen(node: dict[str, Any], strict: bool = False) -> NodeCodeGen:
         UnknownNodeError: If strict=True and node type is not recognized
     """
     # Import here to avoid circular imports
+    from .compound import ArrayBuildCodeGen, CompoundArithCodeGen
     from .constant import ConstantCodeGen
     from .loop import LoopCodeGen
     from .primitive import PrimitiveCodeGen
     from .subvi import SubVICodeGen
 
     labels = node.get("labels", [])
+    node_type = node.get("node_type", "")
 
     # Check for loop structures
     if node.get("loop_type") in ("whileLoop", "forLoop"):
@@ -93,6 +95,14 @@ def get_codegen(node: dict[str, Any], strict: bool = False) -> NodeCodeGen:
     # Check for Constant
     if "Constant" in labels:
         return ConstantCodeGen()
+
+    # Check for compound arithmetic (OR of multiple booleans)
+    if node_type == "cpdArith":
+        return CompoundArithCodeGen()
+
+    # Check for array build
+    if node_type == "aBuild":
+        return ArrayBuildCodeGen()
 
     # Unknown node type
     if strict:
