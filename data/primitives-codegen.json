@@ -115,9 +115,13 @@
     },
     "1112": {
       "name": "Unbundle By Name",
-      "terminals": [],
-      "python": "field = cluster.field_name",
-      "guess_reason": "1in/1out. Extracts named field from cluster"
+      "terminals": [
+        {"index": 0, "direction": "out", "name": "element"},
+        {"index": 1, "direction": "in", "name": "cluster"}
+      ],
+      "python": {"element": "cluster.field_name"},
+      "expandable": true,
+      "guess_reason": "Extracts named field from cluster. Field name comes from VI diagram."
     },
     "1051": {
       "name": "Concatenate Strings",
@@ -985,9 +989,28 @@
     },
     "8082": {
       "name": "File/Directory Info",
-      "terminals": [],
-      "python": "info = os.stat(path)",
-      "guess_reason": "Returns file info (1in/8out) for 'Create Dir if Non-Existant'"
+      "terminals": [
+        {"index": 0, "direction": "out", "name": "size"},
+        {"index": 1, "direction": "out", "name": "last modification"},
+        {"index": 2, "direction": "out", "name": "is folder?"},
+        {"index": 3, "direction": "out", "name": "error out"},
+        {"index": 4, "direction": "out", "name": "shortcut?"},
+        {"index": 5, "direction": "out", "name": "resolved path"},
+        {"index": 6, "direction": "out", "name": "creation date"},
+        {"index": 8, "direction": "in", "name": "path"},
+        {"index": 11, "direction": "in", "name": "error in"}
+      ],
+      "python": {
+        "_body": "_stat = Path(path).stat() if Path(path).exists() else None",
+        "size": "_stat.st_size if _stat else 0",
+        "last_modification": "_stat.st_mtime if _stat else 0.0",
+        "is_folder_": "Path(path).is_dir()",
+        "shortcut_": "Path(path).is_symlink()",
+        "resolved_path": "Path(path).resolve()",
+        "creation_date": "_stat.st_ctime if _stat else 0.0",
+        "error_out": "error_in"
+      },
+      "guess_reason": "Returns file/directory metadata including size, timestamps, type info"
     },
     "1044": {
       "name": "Split 1D Array",
@@ -1325,10 +1348,24 @@
       "guess_reason": "Used in 'Fit VI window'"
     },
     "8076": {
-      "name": "Check If File/Dir Exists",
-      "terminals": [],
-      "python": "os.path.exists(path)",
-      "guess_reason": "File existence check"
+      "name": "Check If File or Folder Exists",
+      "terminals": [
+        {"index": 0, "direction": "out", "name": "exists?"},
+        {"index": 3, "direction": "out", "name": "error out"},
+        {"index": 7, "direction": "in", "name": "path"},
+        {"index": 8, "direction": "out", "name": "path out"},
+        {"index": 9, "direction": "out", "name": "is folder?"},
+        {"index": 10, "direction": "out", "name": "is shortcut?"},
+        {"index": 11, "direction": "in", "name": "error in"}
+      ],
+      "python": {
+        "exists_": "Path(path).exists()",
+        "is_folder_": "Path(path).is_dir()",
+        "is_shortcut_": "Path(path).is_symlink()",
+        "path_out": "path",
+        "error_out": "error_in"
+      },
+      "guess_reason": "File/folder existence check. Returns existence, folder/shortcut flags"
     },
     "1103": {
       "name": "Greater Or Equal?",
