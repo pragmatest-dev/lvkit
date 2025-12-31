@@ -55,6 +55,8 @@ class InMemoryVIGraph:
         self._stubs: set[str] = set()
         # Cross-VI bindings: (caller_vi, term_uid) -> (subvi_name, subvi_term_uid)
         self._bindings: dict[tuple[str, str], tuple[str, str]] = {}
+        # Loop structures: vi_name -> {loop_uid -> LoopStructure}
+        self._loop_structures: dict[str, dict[str, Any]] = {}
 
     def clear(self) -> None:
         """Clear all loaded data."""
@@ -62,6 +64,7 @@ class InMemoryVIGraph:
         self._dataflow.clear()
         self._stubs.clear()
         self._bindings.clear()
+        self._loop_structures.clear()
 
     def query(self, cypher: str, params: dict | None = None) -> list[dict]:
         """Cypher query compatibility - routes to native methods.
@@ -236,14 +239,20 @@ class InMemoryVIGraph:
             bd, fp, conpane, wiring_rules, vi_name
         )
 
+        # Store loop structures for later lookup
+        self._loop_structures[vi_name] = {loop.uid: loop for loop in bd.loops}
+
         # Add to dependency graph
         self._dep_graph.add_node(vi_name)
 
-        # Process SubVIs - only those actually CALLED in the block diagram (iUse nodes)
-        # NOT from parse_subvi_paths which includes stale/unused references
+        # Process SubVIs - only those actually CALLED in the block diagram
+        # Both iUse and polyIUse are SubVI calls
         if expand_subvis and main_xml and main_xml.exists():
-            # Get names of SubVIs actually called (from iUse nodes)
-            called_subvis = {node.name for node in bd.nodes if node.node_type == "iUse" and node.name}
+            # Get names of SubVIs actually called (iUse and polyIUse nodes)
+            called_subvis = {
+                node.name for node in bd.nodes
+                if node.node_type in ("iUse", "polyIUse") and node.name
+            }
 
             # Get path hints from main XML for resolving locations
             subvi_refs = parse_subvi_paths(main_xml)
@@ -408,7 +417,7 @@ class InMemoryVIGraph:
 
         # Add operations (SubVIs and primitives)
         for node in bd.nodes:
-            if node.node_type == "iUse":
+            if node.node_type in ("iUse", "polyIUse"):
                 node_kind = "subvi"
             elif node.node_type == "prim" or node.prim_index:
                 node_kind = "primitive"
@@ -470,6 +479,12 @@ class InMemoryVIGraph:
         # These create implicit data flow through loop boundaries
         for loop in bd.loops:
             for tunnel in loop.tunnels:
+                # Get parent info for tunnel terminals
+                outer_parent = bd.terminal_info.get(tunnel.outer_terminal_uid)
+                inner_parent = bd.terminal_info.get(tunnel.inner_terminal_uid)
+                outer_parent_id = outer_parent.parent_uid if outer_parent else loop.uid
+                inner_parent_id = inner_parent.parent_uid if inner_parent else loop.uid
+
                 # lSR (left shift register) and lpTun: data flows INTO the loop
                 # outer -> inner
                 if tunnel.tunnel_type in ("lSR", "lpTun"):
@@ -478,6 +493,8 @@ class InMemoryVIGraph:
                         tunnel.inner_terminal_uid,
                         tunnel_type=tunnel.tunnel_type,
                         loop_uid=loop.uid,
+                        from_parent=outer_parent_id,
+                        to_parent=inner_parent_id,
                     )
                 # rSR (right shift register) and lMax: data flows OUT of the loop
                 # inner -> outer
@@ -487,6 +504,8 @@ class InMemoryVIGraph:
                         tunnel.outer_terminal_uid,
                         tunnel_type=tunnel.tunnel_type,
                         loop_uid=loop.uid,
+                        from_parent=inner_parent_id,
+                        to_parent=outer_parent_id,
                     )
 
         return g
@@ -712,6 +731,7 @@ class InMemoryVIGraph:
         for n in ordered_ids:
             d = dict(g.nodes[n])
             kind = d.get("kind", "operation")
+            node_type = d.get("node_type", "")
 
             # Convert kind to labels for backward compatibility
             if kind == "subvi":
@@ -721,14 +741,90 @@ class InMemoryVIGraph:
             else:
                 labels = ["Operation"]
 
-            result.append({
+            op_dict: dict[str, Any] = {
                 "id": n,
                 "name": d.get("name"),
                 "labels": labels,
                 "primResID": d.get("prim_id"),
                 "terminals": d.get("terminals", []),
-            })
+            }
+
+            # Add loop_type for loop structures
+            if node_type in ("whileLoop", "forLoop"):
+                op_dict["loop_type"] = node_type
+                op_dict["labels"] = ["Loop"]  # Override label for loops
+
+                # Get LoopStructure data
+                loop_struct = self._loop_structures.get(vi_name, {}).get(n)
+                if loop_struct:
+                    op_dict["tunnels"] = [
+                        {
+                            "outer_terminal_uid": t.outer_terminal_uid,
+                            "inner_terminal_uid": t.inner_terminal_uid,
+                            "tunnel_type": t.tunnel_type,
+                            "paired_terminal_uid": t.paired_terminal_uid,
+                        }
+                        for t in loop_struct.tunnels
+                    ]
+                    op_dict["inner_nodes"] = self._build_inner_nodes(
+                        loop_struct.inner_node_uids, g, vi_name
+                    )
+
+            result.append(op_dict)
         return result
+
+    def _build_inner_nodes(
+        self, uids: list[str], g: nx.DiGraph, vi_name: str
+    ) -> list[dict[str, Any]]:
+        """Build operation dicts for nodes inside a loop.
+
+        Recursively handles nested loops.
+        """
+        inner_ops = []
+        for uid in uids:
+            if uid not in g.nodes:
+                continue
+            d = dict(g.nodes[uid])
+            kind = d.get("kind", "operation")
+            node_type = d.get("node_type", "")
+
+            # Same labeling logic as get_operations
+            if kind == "subvi":
+                labels = ["SubVI"]
+            elif kind == "primitive":
+                labels = ["Primitive"]
+            else:
+                labels = ["Operation"]
+
+            inner_op: dict[str, Any] = {
+                "id": uid,
+                "name": d.get("name"),
+                "labels": labels,
+                "primResID": d.get("prim_id"),
+                "terminals": d.get("terminals", []),
+            }
+
+            # Handle nested loops recursively
+            if node_type in ("whileLoop", "forLoop"):
+                inner_op["loop_type"] = node_type
+                inner_op["labels"] = ["Loop"]
+                nested_struct = self._loop_structures.get(vi_name, {}).get(uid)
+                if nested_struct:
+                    inner_op["tunnels"] = [
+                        {
+                            "outer_terminal_uid": t.outer_terminal_uid,
+                            "inner_terminal_uid": t.inner_terminal_uid,
+                            "tunnel_type": t.tunnel_type,
+                            "paired_terminal_uid": t.paired_terminal_uid,
+                        }
+                        for t in nested_struct.tunnels
+                    ]
+                    inner_op["inner_nodes"] = self._build_inner_nodes(
+                        nested_struct.inner_node_uids, g, vi_name
+                    )
+
+            inner_ops.append(inner_op)
+        return inner_ops
 
     def get_operation_order(self, vi_name: str) -> list[str]:
         """Get operations in dataflow execution order.
@@ -822,15 +918,49 @@ class InMemoryVIGraph:
         g = self._dataflow.get(vi_name)
         if g is None:
             return []
-        return [
-            {
+
+        result = []
+        for u, v, d in g.edges(data=True):
+            from_parent_id = d.get("from_parent")
+            to_parent_id = d.get("to_parent")
+
+            # Look up parent node data for labels and names
+            from_node = g.nodes.get(from_parent_id, {}) if from_parent_id else {}
+            to_node = g.nodes.get(to_parent_id, {}) if to_parent_id else {}
+
+            # Get labels from node kind
+            from_kind = from_node.get("kind", "")
+            to_kind = to_node.get("kind", "")
+            from_labels = self._kind_to_labels(from_kind)
+            to_labels = self._kind_to_labels(to_kind)
+
+            result.append({
                 "from_terminal_id": u,
                 "to_terminal_id": v,
-                "from_parent_id": d.get("from_parent"),
-                "to_parent_id": d.get("to_parent"),
-            }
-            for u, v, d in g.edges(data=True)
-        ]
+                "from_parent_id": from_parent_id,
+                "to_parent_id": to_parent_id,
+                "from_parent_name": from_node.get("name"),
+                "to_parent_name": to_node.get("name"),
+                "from_parent_labels": from_labels,
+                "to_parent_labels": to_labels,
+            })
+        return result
+
+    def _kind_to_labels(self, kind: str) -> list[str]:
+        """Convert internal kind to labels list."""
+        if kind == "subvi":
+            return ["SubVI"]
+        elif kind == "primitive":
+            return ["Primitive"]
+        elif kind == "operation":
+            return ["Operation"]
+        elif kind == "constant":
+            return ["Constant"]
+        elif kind == "input":
+            return ["Control", "Input"]
+        elif kind == "output":
+            return ["Indicator", "Output"]
+        return []
 
     # === Cross-VI Bindings ===
 

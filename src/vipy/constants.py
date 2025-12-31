@@ -6,6 +6,7 @@ from __future__ import annotations
 # Node types on the block diagram
 NODE_CLASS_PRIM = "prim"
 NODE_CLASS_SUBVI = "iUse"
+NODE_CLASS_POLY_SUBVI = "polyIUse"  # Polymorphic SubVI call
 NODE_CLASS_WHILE_LOOP = "whileLoop"
 NODE_CLASS_FOR_LOOP = "forLoop"
 NODE_CLASS_SELECT = "select"
@@ -18,6 +19,7 @@ NODE_CLASS_PROP_NODE = "propNode"
 OPERATION_NODE_CLASSES = (
     NODE_CLASS_PRIM,
     NODE_CLASS_SUBVI,
+    NODE_CLASS_POLY_SUBVI,
     NODE_CLASS_WHILE_LOOP,
     NODE_CLASS_FOR_LOOP,
     NODE_CLASS_SELECT,
@@ -39,6 +41,9 @@ TUNNEL_CLASS_RIGHT_SR = "rSR"  # Right shift register (output, persists across i
 TUNNEL_CLASS_LOOP_TUNNEL = "lpTun"  # Loop tunnel (simple pass-through)
 TUNNEL_CLASS_LMAX = "lMax"  # Accumulator/max output
 
+# Shift register node (contains inner tunnel terminals)
+NODE_CLASS_SHIFT_REG = "sRN"  # Shift register node - holds inner ends of tunnels
+
 # All tunnel types that create outer↔inner terminal mappings
 TUNNEL_DCO_CLASSES = (
     TUNNEL_CLASS_LEFT_SR,
@@ -46,6 +51,9 @@ TUNNEL_DCO_CLASSES = (
     TUNNEL_CLASS_LOOP_TUNNEL,
     TUNNEL_CLASS_LMAX,
 )
+
+# Node classes that have terminals (for terminal extraction)
+TERMINAL_CONTAINER_CLASSES = OPERATION_NODE_CLASSES + (NODE_CLASS_SHIFT_REG,)
 
 # Terminal-related classes
 TERMINAL_CLASS = "term"
