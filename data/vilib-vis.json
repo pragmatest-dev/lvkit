@@ -37,6 +37,7 @@
           "index": 11,
           "direction": "in",
           "name": "system directory",
+          "python_param": "directory_type",
           "type": "SystemDirectoryType",
           "enum": "SystemDirectoryType"
         },
@@ -44,6 +45,7 @@
           "index": 2,
           "direction": "out",
           "name": "system directory path",
+          "python_param": "system_directory_path",
           "type": "Path"
         }
       ],
