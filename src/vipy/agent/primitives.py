@@ -64,6 +64,9 @@ class PrimitiveUsage:
         """
         if not self.python_hint:
             return False
+        # Dict hints are for multi-output - can still be inline
+        if isinstance(self.python_hint, dict):
+            return True
         hint = self.python_hint.strip()
         # If it starts with def, needs a wrapper
         if hint.startswith("def "):

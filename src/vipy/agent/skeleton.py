@@ -124,7 +124,9 @@ class SkeletonGenerator:
         outputs = []
         for out in vi_context.get("outputs", []):
             name = self._to_var_name(out.get("name", "output"))
-            type_hint = self._map_type(out.get("type", "Any"))
+            # Try type, then control_type, then default to Any
+            lv_type = out.get("type") or self._map_control_type(out.get("control_type"))
+            type_hint = self._map_type(lv_type) if lv_type else "Any"
             outputs.append((name, type_hint))
 
         # Build operation lookup for enum resolution
@@ -133,11 +135,14 @@ class SkeletonGenerator:
         # Process constants - resolve enums via data flow
         constants = []
         self._enum_imports = set()
+        used_const_names: set[str] = set()  # Track used names to avoid collisions
+
         for const in vi_context.get("constants", []):
             const_id = const.get("id", "")
             raw_value = const.get("value", "")
             python_hint = const.get("python", "")
             lv_type = const.get("type", "")
+            const_label = const.get("label")
             type_hint = self._map_type(lv_type)
 
             # Try to resolve enum via data flow connection
@@ -152,7 +157,19 @@ class SkeletonGenerator:
             else:
                 # Format value based on type
                 value = self._format_constant(raw_value, python_hint, type_hint, lv_type)
-                var_name = f"c_{len(constants)}"
+
+                # Derive name from: label > destination terminal > type-based fallback
+                var_name = self._derive_constant_name(
+                    const_id, const_label, type_hint, vi_context, ops_by_id
+                )
+
+            # Ensure unique name
+            base_name = var_name
+            counter = 1
+            while var_name in used_const_names:
+                var_name = f"{base_name}_{counter}"
+                counter += 1
+            used_const_names.add(var_name)
 
             constants.append((var_name, value, type_hint))
             self._vars[const_id] = SkeletonVar(var_name, type_hint, "constant")
@@ -836,6 +853,93 @@ class SkeletonGenerator:
 
         return None
 
+    def _derive_constant_name(
+        self,
+        const_id: str,
+        label: str | None,
+        type_hint: str,
+        vi_context: dict,
+        ops_by_id: dict[str, dict],
+    ) -> str:
+        """Derive a meaningful name for a constant.
+
+        Priority:
+        1. Use label if present
+        2. Use destination terminal name (from vilib or primitive resolver)
+        3. Fall back to type-based naming
+
+        Args:
+            const_id: ID of the constant node
+            label: Label from the constant (if any)
+            type_hint: Python type hint
+            vi_context: Full VI context
+            ops_by_id: Operations indexed by ID
+
+        Returns:
+            A meaningful variable name
+        """
+        # 1. Use label if present
+        if label:
+            return self._to_var_name(label)
+
+        # 2. Find destination terminal name via data flow
+        for flow in vi_context.get("data_flow", []):
+            if flow.get("from_parent_id") != const_id:
+                continue
+
+            dest_op_id = flow.get("to_parent_id")
+            dest_term_id = flow.get("to_terminal_id")
+            dest_op = ops_by_id.get(dest_op_id)
+
+            if not dest_op:
+                continue
+
+            # Find destination terminal index
+            dest_term_index = None
+            for term in dest_op.get("terminals", []):
+                if term.get("id") == dest_term_id:
+                    dest_term_index = term.get("index")
+                    break
+
+            if dest_term_index is None:
+                continue
+
+            labels = dest_op.get("labels", [])
+
+            # Try vilib for SubVI terminal names
+            if "SubVI" in labels:
+                subvi_name = dest_op.get("name", "")
+                vilib_vi = self.vilib_resolver.resolve_by_name(subvi_name)
+                if vilib_vi:
+                    for vt in vilib_vi.terminals:
+                        if vt.index == dest_term_index and vt.direction == "in":
+                            return self._to_var_name(vt.name)
+
+            # Try primitive resolver for primitive terminal names
+            if "Primitive" in labels:
+                prim_id = dest_op.get("primResID")
+                if prim_id:
+                    prim_resolver = get_primitive_resolver()
+                    resolved = prim_resolver.resolve(prim_id=prim_id)
+                    if resolved:
+                        for t in resolved.terminals:
+                            if t.get("index") == dest_term_index and t.get("direction") == "in":
+                                term_name = t.get("name")
+                                if term_name:
+                                    return self._to_var_name(term_name)
+
+        # 3. Fall back to type-based naming
+        type_prefix = {
+            "Path": "path",
+            "str": "text",
+            "int": "num",
+            "float": "value",
+            "bool": "flag",
+            "list": "items",
+            "dict": "data",
+        }
+        return type_prefix.get(type_hint, "const")
+
     def _format_constant(
         self,
         raw_value: str,
@@ -934,6 +1038,27 @@ class SkeletonGenerator:
         if result and not result[0].isalpha():
             result = "var_" + result
         return result or "value"
+
+    def _map_control_type(self, control_type: str | None) -> str | None:
+        """Map LabVIEW control type to a type string that _map_type understands.
+
+        control_type values come from the front panel control definitions.
+        """
+        if not control_type:
+            return None
+        control_map = {
+            "stdPath": "Path",
+            "stdString": "String",
+            "stdBool": "Boolean",
+            "stdNum": "NumFloat64",  # Default to float for numeric
+            "stdInt32": "NumInt32",
+            "stdInt16": "NumInt16",
+            "stdFloat64": "NumFloat64",
+            "stdFloat32": "NumFloat32",
+            "stdArray": "Array",
+            "stdClust": "Cluster",
+        }
+        return control_map.get(control_type)
 
     def _map_type(self, lv_type: str) -> str:
         """Map LabVIEW type to Python type."""
