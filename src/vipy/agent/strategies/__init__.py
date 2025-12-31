@@ -1,6 +1,7 @@
 """Conversion strategies for VI→Python translation.
 
 Each strategy represents a different approach to LLM-based code generation:
+- ast: AST-based deterministic code generation (syntax always valid)
 - baseline: Single-shot generation with error retry
 - tool_calling: LLM can call tools to gather information
 - rich_feedback: Auto-include relevant code on errors
@@ -32,6 +33,7 @@ def list_strategies() -> list[str]:
 
 
 # Import strategies to register them
+from .ast_based import ASTBasedStrategy
 from .baseline import BaselineStrategy
 from .tool_calling import ToolCallingStrategy
 from .rich_feedback import RichFeedbackStrategy
@@ -46,6 +48,7 @@ __all__ = [
     "register_strategy",
     "get_strategy",
     "list_strategies",
+    "ASTBasedStrategy",
     "BaselineStrategy",
     "ToolCallingStrategy",
     "RichFeedbackStrategy",

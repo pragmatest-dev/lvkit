@@ -14,6 +14,7 @@ from .constants import (
     MULTI_LABEL_CLASS,
     OPERATION_NODE_CLASSES,
     TERMINAL_CLASS,
+    TERMINAL_CONTAINER_CLASSES,
     TERMINAL_INPUT_FLAG,
     TUNNEL_DCO_CLASSES,
 )
@@ -1045,8 +1046,9 @@ def _extract_terminal_info(
         if not elem_uid:
             continue
 
-        # Operation nodes have termList with indexed terminals
-        if elem_class in OPERATION_NODE_CLASSES:
+        # Terminal container nodes have termList with indexed terminals
+        # This includes operations (prims, SubVIs) and shift register nodes
+        if elem_class in TERMINAL_CONTAINER_CLASSES:
             term_list = elem.findall(f"./termList/SL__arrayElement[@class='{TERMINAL_CLASS}']")
 
             for index, term in enumerate(term_list):
