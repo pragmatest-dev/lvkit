@@ -92,10 +92,15 @@ class ExpressionBuilder:
             expr = hint_dict.get(output_name)
             if not expr:
                 # Try normalized name
+                # Strip trailing underscores - hint keys use them to avoid
+                # Python keywords (e.g., "is_" for terminal "is?")
                 for key in hint_dict:
-                    if key != "_body" and self._to_var_name(key) == output_name:
-                        expr = hint_dict[key]
-                        break
+                    if key != "_body":
+                        normalized_key = self._to_var_name(key).rstrip("_")
+                        normalized_output = output_name.rstrip("_")
+                        if normalized_key == normalized_output:
+                            expr = hint_dict[key]
+                            break
 
             if expr:
                 substituted = self._substitute(expr, input_map)
