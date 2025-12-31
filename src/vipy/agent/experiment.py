@@ -8,13 +8,13 @@ Usage:
 
 from __future__ import annotations
 
+import shutil
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
 
-from ..graph import GraphConfig, VIGraph
 from ..llm import LLMConfig
+from ..memory_graph import InMemoryVIGraph
 from .loop import ConversionAgent, ConversionConfig
 from .strategies import list_strategies
 
@@ -95,6 +95,7 @@ def run_experiment(
     llm_config: LLMConfig | None = None,
     max_attempts: int = 3,
     search_paths: list[Path] | None = None,
+    generate_ui: bool = False,
 ) -> ExperimentResults:
     """Run experiment comparing strategies on a VI.
 
@@ -111,10 +112,15 @@ def run_experiment(
     else:
         output_dir = Path(output_dir)
 
+    # Clean output directory before starting
+    if output_dir.exists():
+        print(f"Cleaning output directory: {output_dir}")
+        shutil.rmtree(output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+
     if llm_config is None:
         llm_config = LLMConfig()
 
-    graph_config = GraphConfig()
     start_time = time.time()
     vi_results: list[VIResult] = []
 
@@ -122,7 +128,7 @@ def run_experiment(
     strategy_results: dict[str, StrategyResult] = {}
 
     for strategy_name in strategies:
-        print(f"Running strategy: {strategy_name}")
+        print(f"Running strategy: {strategy_name}", flush=True)
 
         # Create fresh output dir for this strategy
         strat_output = output_dir / strategy_name
@@ -131,62 +137,63 @@ def run_experiment(
         # Fresh graph load for each strategy
         strat_start = time.time()
 
-        with VIGraph(graph_config) as graph:
-            graph.clear()
-            graph.load_vi(
-                vi_path,
-                expand_subvis=True,
-                search_paths=search_paths,
+        graph = InMemoryVIGraph()
+        graph.load_vi(
+            vi_path,
+            expand_subvis=True,
+            search_paths=search_paths,
+        )
+
+        # Configure agent with this strategy
+        config = ConversionConfig(
+            output_dir=strat_output,
+            max_retries=max_attempts,
+            llm_config=llm_config,
+            strategy=strategy_name,
+            generate_ui=generate_ui,
+        )
+
+        agent = ConversionAgent(graph, config)
+
+        # Convert all VIs in dependency order
+        results = agent.convert_all()
+
+        # Find the main VI result
+        main_vi_name = None
+        for name in graph.get_conversion_order():
+            if vi_path.stem in name:
+                main_vi_name = name
+                break
+        if main_vi_name is None:
+            order = graph.get_conversion_order()
+            main_vi_name = order[-1] if order else vi_path.stem
+
+        # Get result for main VI
+        main_result = None
+        total_attempts = 0
+        for r in results:
+            total_attempts += r.attempts
+            if r.vi_name == main_vi_name:
+                main_result = r
+
+        strat_time = time.time() - strat_start
+
+        if main_result:
+            strategy_results[strategy_name] = StrategyResult(
+                strategy_name=strategy_name,
+                success=main_result.success,
+                attempts=main_result.attempts,
+                time_seconds=strat_time,
+                errors=main_result.errors,
             )
-
-            # Configure agent with this strategy
-            config = ConversionConfig(
-                output_dir=strat_output,
-                max_retries=max_attempts,
-                llm_config=llm_config,
-                strategy=strategy_name,
+        else:
+            strategy_results[strategy_name] = StrategyResult(
+                strategy_name=strategy_name,
+                success=False,
+                attempts=0,
+                time_seconds=strat_time,
+                errors=["Main VI not found in results"],
             )
-
-            agent = ConversionAgent(graph, config)
-
-            # Convert all VIs in dependency order
-            results = agent.convert_all()
-
-            # Find the main VI result
-            main_vi_name = None
-            for name in graph.get_conversion_order():
-                if vi_path.stem in name:
-                    main_vi_name = name
-                    break
-            if main_vi_name is None:
-                main_vi_name = graph.get_conversion_order()[-1]
-
-            # Get result for main VI
-            main_result = None
-            total_attempts = 0
-            for r in results:
-                total_attempts += r.attempts
-                if r.vi_name == main_vi_name:
-                    main_result = r
-
-            strat_time = time.time() - strat_start
-
-            if main_result:
-                strategy_results[strategy_name] = StrategyResult(
-                    strategy_name=strategy_name,
-                    success=main_result.success,
-                    attempts=main_result.attempts,
-                    time_seconds=strat_time,
-                    errors=main_result.errors,
-                )
-            else:
-                strategy_results[strategy_name] = StrategyResult(
-                    strategy_name=strategy_name,
-                    success=False,
-                    attempts=0,
-                    time_seconds=strat_time,
-                    errors=["Main VI not found in results"],
-                )
 
     # Build VI result
     main_vi_name = vi_path.stem

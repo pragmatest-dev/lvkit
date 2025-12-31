@@ -243,4 +243,8 @@ def run_explorer(directory: str, port: int = 8080) -> None:
 
 
 if __name__ in {"__main__", "__mp_main__"}:
-    ui.run(port=8080, title="LabVIEW Explorer", reload=False)
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--port", "-p", type=int, default=8080)
+    args = parser.parse_args()
+    ui.run(port=args.port, title="LabVIEW Explorer", reload=False)

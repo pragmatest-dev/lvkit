@@ -10,6 +10,7 @@ from . import __version__, convert_vi, convert_xml, summarize_vi
 from .cypher import from_blockdiagram as summarize_vi_cypher
 from .cypher import from_directory, from_lvclass, from_lvlib, from_project, from_vi
 from .graph import GraphConfig, VIGraph
+from .memory_graph import InMemoryVIGraph
 from .llm import LLMConfig, check_ollama_available, list_models
 from .structure import (
     discover_project_structure,
@@ -114,7 +115,7 @@ def main() -> int:
         help="Compare conversion strategies on VI(s)",
     )
     exp_parser.add_argument("input", help="VI file or directory")
-    exp_parser.add_argument("-o", "--output", default="/tmp/vipy-experiment", help="Output directory")
+    exp_parser.add_argument("-o", "--output", default="outputs", help="Output directory (default: outputs/)")
     exp_parser.add_argument(
         "--strategies",
         default="all",
@@ -131,6 +132,11 @@ def main() -> int:
         dest="search_paths",
         metavar="DIR",
         help="Additional directories to search for SubVIs (can be repeated)",
+    )
+    exp_parser.add_argument(
+        "--generate-ui",
+        action="store_true",
+        help="Generate NiceGUI wrappers for each VI",
     )
 
     # Claude agent command - convert using Anthropic API
@@ -529,20 +535,6 @@ def cmd_agent(args: argparse.Namespace) -> int:
         return 1
 
     try:
-        # Connect to Neo4j
-        graph_config = GraphConfig(
-            uri=args.uri,
-            username=args.user,
-            password=args.password,
-        )
-
-        print(f"Connecting to Neo4j at {args.uri}...")
-        graph = VIGraph(graph_config)
-        graph.connect()
-
-        # Clear existing graph data
-        graph.clear()
-
         # Build search paths
         search_paths: list[Path] = []
         if args.search_paths:
@@ -554,28 +546,31 @@ def cmd_agent(args: argparse.Namespace) -> int:
                 else:
                     print(f"Warning: Search path does not exist: {sp}")
 
+        # Use in-memory graph (no Neo4j required)
+        graph = InMemoryVIGraph()
+
         # Load VIs into graph based on input type
         suffix = input_path.suffix.lower()
         print(f"Loading VIs from {input_path}...")
 
-        if suffix == ".vi":
+        if suffix == ".vi" or suffix == ".xml":
             graph.load_vi(input_path, expand_subvis=True, search_paths=search_paths or None)
         elif suffix == ".lvlib":
-            from .cypher import from_lvlib
-            cypher = from_lvlib(input_path, expand_subvis=True)
-            graph._load_cypher(cypher)
+            # TODO: Implement lvlib support for InMemoryVIGraph
+            print(f"Error: .lvlib not yet supported with in-memory graph", file=sys.stderr)
+            return 1
         elif suffix == ".lvclass":
-            from .cypher import from_lvclass
-            cypher = from_lvclass(input_path, expand_subvis=True)
-            graph._load_cypher(cypher)
+            # TODO: Implement lvclass support for InMemoryVIGraph
+            print(f"Error: .lvclass not yet supported with in-memory graph", file=sys.stderr)
+            return 1
         elif suffix == ".lvproj":
-            from .cypher import from_project
-            cypher = from_project(input_path, expand_subvis=True)
-            graph._load_cypher(cypher)
+            # TODO: Implement lvproj support for InMemoryVIGraph
+            print(f"Error: .lvproj not yet supported with in-memory graph", file=sys.stderr)
+            return 1
         elif input_path.is_dir():
-            from .cypher import from_directory
-            cypher = from_directory(input_path, expand_subvis=True)
-            graph._load_cypher(cypher)
+            # TODO: Implement directory support for InMemoryVIGraph
+            print(f"Error: Directory loading not yet supported with in-memory graph", file=sys.stderr)
+            return 1
         else:
             print(f"Error: Unsupported file type: {suffix}", file=sys.stderr)
             return 1
@@ -612,7 +607,6 @@ def cmd_agent(args: argparse.Namespace) -> int:
                 if not r.success:
                     print(f"  - {r.vi_name}: {r.errors[0] if r.errors else 'Unknown error'}")
 
-        graph.close()
         return 0 if failed == 0 else 1
 
     except Exception as e:
@@ -662,6 +656,7 @@ def cmd_experiment(args: argparse.Namespace) -> int:
     print(f"Running experiment on: {input_path}")
     print(f"Strategies: {', '.join(strategies)}")
     print(f"Output: {output_dir}")
+    print(f"Generate UI: {args.generate_ui}")
     print()
 
     try:
@@ -672,6 +667,7 @@ def cmd_experiment(args: argparse.Namespace) -> int:
             llm_config=llm_config,
             max_attempts=args.max_attempts,
             search_paths=search_paths or None,
+            generate_ui=args.generate_ui,
         )
 
         # Return success if any strategy succeeded

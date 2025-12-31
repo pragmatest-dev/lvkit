@@ -23,8 +23,10 @@ from .parser import (
     ConnectorPane,
     parse_block_diagram,
     parse_connector_pane,
+    parse_connector_pane_types,
     parse_subvi_paths,
 )
+from .vilib_resolver import get_resolver as get_vilib_resolver
 
 
 class InMemoryVIGraph:
@@ -220,23 +222,37 @@ class InMemoryVIGraph:
         bd = parse_block_diagram(bd_xml)
         fp: FrontPanel | None = None
         conpane: ConnectorPane | None = None
+        wiring_rules: dict[int, int] = {}
         if fp_xml and fp_xml.exists():
             fp = parse_front_panel(fp_xml, bd_xml)
             conpane = parse_connector_pane(fp_xml)
+            # Parse wiring rules from main XML if available
+            if main_xml and main_xml.exists() and conpane:
+                wiring_rules = parse_connector_pane_types(main_xml, conpane)
 
         # Build dataflow graph for this VI
         self._dataflow[vi_name] = self._build_dataflow_graph(
-            bd, fp, conpane, vi_name
+            bd, fp, conpane, wiring_rules, vi_name
         )
 
         # Add to dependency graph
         self._dep_graph.add_node(vi_name)
 
-        # Process SubVIs using parse_subvi_paths (needs main XML, not BDHb)
+        # Process SubVIs - only those actually CALLED in the block diagram (iUse nodes)
+        # NOT from parse_subvi_paths which includes stale/unused references
         if expand_subvis and main_xml and main_xml.exists():
+            # Get names of SubVIs actually called (from iUse nodes)
+            called_subvis = {node.name for node in bd.nodes if node.node_type == "iUse" and node.name}
+
+            # Get path hints from main XML for resolving locations
             subvi_refs = parse_subvi_paths(main_xml)
-            for ref in subvi_refs:
-                subvi_path = self._find_subvi(ref.name, search_paths)
+            subvi_ref_map = {ref.name: ref for ref in subvi_refs}
+
+            for subvi_name in called_subvis:
+                ref = subvi_ref_map.get(subvi_name)
+                # Use ref.name if available, otherwise use the raw subvi_name
+                lookup_name = ref.name if ref else subvi_name
+                subvi_path = self._find_subvi(lookup_name, search_paths)
                 if subvi_path:
                     # Recursively load SubVI
                     try:
@@ -255,14 +271,14 @@ class InMemoryVIGraph:
                             self._dep_graph.add_edge(vi_name, loaded_name)
                     except (RuntimeError, OSError):
                         # SubVI extraction failed (corrupt file) - treat as stub
-                        self._stubs.add(ref.name)
-                        self._dep_graph.add_node(ref.name)
-                        self._dep_graph.add_edge(vi_name, ref.name)
+                        self._stubs.add(subvi_name)
+                        self._dep_graph.add_node(subvi_name)
+                        self._dep_graph.add_edge(vi_name, subvi_name)
                 else:
                     # Mark as stub
-                    self._stubs.add(ref.name)
-                    self._dep_graph.add_node(ref.name)
-                    self._dep_graph.add_edge(vi_name, ref.name)
+                    self._stubs.add(subvi_name)
+                    self._dep_graph.add_node(subvi_name)
+                    self._dep_graph.add_edge(vi_name, subvi_name)
 
         return vi_name
 
@@ -329,6 +345,7 @@ class InMemoryVIGraph:
         bd: BlockDiagram,
         fp: FrontPanel | None,
         conpane: ConnectorPane | None,
+        wiring_rules: dict[int, int],
         vi_name: str,
     ) -> nx.DiGraph:
         """Build a dataflow graph from a BlockDiagram.
@@ -360,6 +377,8 @@ class InMemoryVIGraph:
             kind = "output" if fp_term.is_indicator else "input"
             # Look up front panel control by DCO UID
             ctrl = fp_by_uid.get(fp_term.fp_dco_uid)
+            # Get wiring rule for this slot (default to 0 = Invalid/optional)
+            wiring_rule = wiring_rules.get(slot_index, 0) if slot_index else 0
             g.add_node(
                 fp_term.uid,
                 kind=kind,
@@ -367,6 +386,7 @@ class InMemoryVIGraph:
                 is_indicator=fp_term.is_indicator,
                 is_public=is_public,  # On connector pane = public interface
                 slot_index=slot_index,  # Position on connector pane
+                wiring_rule=wiring_rule,  # 0=Invalid, 1=Required, 2=Recommended, 3=Optional
                 type_desc=ctrl.type_desc if ctrl else None,
                 control_type=ctrl.control_type if ctrl else None,
                 default_value=ctrl.default_value if ctrl else None,
@@ -558,12 +578,18 @@ class InMemoryVIGraph:
         # Reverse because we want dependencies first
         scc_order = list(reversed(list(nx.topological_sort(condensation))))
 
+        # vilib VIs have implementations, so include them in conversion order
+        vilib_resolver = get_vilib_resolver()
+
         for scc_id in scc_order:
             members = condensation.nodes[scc_id]["members"]
-            # Filter out stubs
-            real_vis = {m for m in members if m not in self._stubs}
-            if real_vis:
-                yield real_vis
+            # Include real VIs and stubs that have vilib implementations
+            convertible_vis = {
+                m for m in members
+                if m not in self._stubs or vilib_resolver.has_implementation(m)
+            }
+            if convertible_vis:
+                yield convertible_vis
 
     def get_conversion_order(self) -> list[str]:
         """Get VIs in topological order for bottom-up conversion.

@@ -9,6 +9,141 @@ from pathlib import Path
 from .parser import parse_block_diagram
 
 
+def _decode_xml_entities_to_bytes(data: str) -> bytes:
+    """Convert a string with XML character entities to raw bytes.
+
+    Handles &#xNN; (hex) and &#NNN; (decimal) entities plus literal chars.
+    """
+    result = bytearray()
+    i = 0
+    while i < len(data):
+        if data[i:i+3] == '&#x':
+            # Hex entity: &#xNN;
+            end = data.find(';', i)
+            if end != -1:
+                hex_val = data[i+3:end]
+                result.append(int(hex_val, 16))
+                i = end + 1
+                continue
+        elif data[i:i+2] == '&#':
+            # Decimal entity: &#NNN;
+            end = data.find(';', i)
+            if end != -1:
+                dec_val = data[i+2:end]
+                result.append(int(dec_val))
+                i = end + 1
+                continue
+        # Regular character
+        result.append(ord(data[i]) & 0xFF)
+        i += 1
+    return bytes(result)
+
+
+def decode_default_data(raw_data: str, control_type: str) -> str | None:
+    """Decode DefaultData from FPHb XML to a Python literal.
+
+    DefaultData uses XML character entities (&#xNN;) for binary data.
+
+    Args:
+        raw_data: Raw DefaultData string from XML
+        control_type: The control type (stdString, stdPath, stdNumeric, etc.)
+
+    Returns:
+        Python literal string or None if can't decode
+    """
+    if not raw_data:
+        return None
+
+    # Convert XML entities (&#xNN;) to raw bytes
+    try:
+        raw_bytes = _decode_xml_entities_to_bytes(raw_data)
+    except (ValueError, UnicodeError):
+        return None
+
+    # Path: starts with PTH0
+    if raw_bytes.startswith(b'PTH0'):
+        return _decode_path_default(raw_bytes)
+
+    # String: has length prefix
+    if control_type == "stdString" and len(raw_bytes) >= 4:
+        return _decode_string_default(raw_bytes)
+
+    # Numeric: typically 4 or 8 bytes
+    if control_type in ("stdNumeric", "stdNum"):
+        return _decode_numeric_default(raw_bytes)
+
+    # Boolean: single byte
+    if control_type == "stdBool" and len(raw_bytes) == 1:
+        return "True" if raw_bytes[0] else "False"
+
+    # Cluster: concatenated child values - return as dict placeholder
+    # Full parsing requires knowing child types from the cluster definition
+    if control_type == "stdClust":
+        # For now, return None - cluster defaults need child type info
+        return None
+
+    return None
+
+
+def _decode_path_default(data: bytes) -> str | None:
+    """Decode a LabVIEW path from DefaultData bytes."""
+    try:
+        # Skip PTH0 header (4 bytes) + length (4 bytes) + flags (4 bytes)
+        idx = 12
+        parts = []
+        while idx < len(data):
+            str_len = data[idx]
+            idx += 1
+            if str_len > 0 and idx + str_len <= len(data):
+                part = data[idx:idx + str_len].decode('latin-1', errors='replace')
+                parts.append(part)
+                idx += str_len
+            else:
+                break
+        if parts:
+            path_str = '/'.join(parts)
+            return f'Path("{path_str}")'
+    except (IndexError, ValueError):
+        pass
+    return None
+
+
+def _decode_string_default(data: bytes) -> str | None:
+    """Decode a LabVIEW string from DefaultData bytes."""
+    try:
+        if len(data) < 4:
+            return None
+        length = int.from_bytes(data[:4], 'big')
+        if len(data) >= 4 + length:
+            string_val = data[4:4 + length].decode('latin-1')
+            escaped = string_val.replace('\\', '\\\\').replace('"', '\\"')
+            return f'"{escaped}"'
+    except (ValueError, UnicodeDecodeError):
+        pass
+    return None
+
+
+def _decode_numeric_default(data: bytes) -> str | None:
+    """Decode a numeric value from DefaultData bytes."""
+    try:
+        if len(data) == 4:
+            # 32-bit integer (big-endian)
+            return str(int.from_bytes(data, 'big', signed=True))
+        elif len(data) == 8:
+            # Could be 64-bit int or float
+            import struct
+            try:
+                float_val = struct.unpack('>d', data)[0]
+                if float_val == int(float_val):
+                    return str(int(float_val))
+                return str(float_val)
+            except struct.error:
+                return str(int.from_bytes(data, 'big', signed=True))
+    except (ValueError, struct.error):
+        pass
+    return None
+
+
 @dataclass
 class FPControl:
     """A control or indicator on the front panel."""
@@ -100,13 +235,15 @@ def parse_front_panel(
         if ddo is None:
             continue
 
-        # Extract default data from fPDCO
-        default_data = None
+        # Extract and decode default data from fPDCO
+        default_value = None
         default_elem = fpdco.find("DefaultData")
         if default_elem is not None and default_elem.text:
-            default_data = default_elem.text.strip('"')
+            raw_data = default_elem.text.strip('"')
+            control_type = ddo.get("class", "unknown")
+            default_value = decode_default_data(raw_data, control_type)
 
-        control = _parse_ddo(ddo, uid, indicator_dco_uids, default_data)
+        control = _parse_ddo(ddo, uid, indicator_dco_uids, default_value)
         if control:
             controls.append(control)
 
