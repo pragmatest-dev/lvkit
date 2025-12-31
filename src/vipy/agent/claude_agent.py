@@ -13,6 +13,17 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from ..types import TypeInfo
+
+
+class TypeInfoEncoder(json.JSONEncoder):
+    """JSON encoder that handles TypeInfo objects."""
+
+    def default(self, obj):
+        if isinstance(obj, TypeInfo):
+            return obj.to_dict()
+        return super().default(obj)
+
 try:
     import anthropic
 except ImportError:
@@ -84,7 +95,7 @@ def build_prompt(
 
 ## VI Context (from graph database)
 ```json
-{json.dumps(vi_context, indent=2)}
+{json.dumps(vi_context, indent=2, cls=TypeInfoEncoder)}
 ```
 
 ## Instructions

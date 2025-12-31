@@ -510,9 +510,14 @@ class ModuleBuilder:
             output_info,
         )
 
+        # Emit pre-statements (e.g., _body from dict hints)
+        if expr.pre_statements:
+            self._operations.extend(expr.pre_statements)
+
         # Generate assignment
         if len(expr.output_vars) == 0:
-            self._operations.append(expr.code)
+            if expr.code:  # Only emit if there's code (body-only case handled above)
+                self._operations.append(expr.code)
         elif len(expr.output_vars) == 1:
             self._operations.append(f"{expr.output_vars[0]} = {expr.code}")
         else:

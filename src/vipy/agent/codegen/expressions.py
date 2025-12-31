@@ -19,10 +19,13 @@ class Expression:
     code: str
     output_vars: list[str]
     needs_import: list[str] = None  # Additional imports needed
+    pre_statements: list[str] = None  # Statements to emit before the assignment
 
     def __post_init__(self):
         if self.needs_import is None:
             self.needs_import = []
+        if self.pre_statements is None:
+            self.pre_statements = []
 
 
 class ExpressionBuilder:
@@ -107,27 +110,21 @@ class ExpressionBuilder:
                 output_vars.append(output_name)
                 self.tracer.register_variable(term_id, output_name)
 
-        # Handle _body (side effect)
+        # Handle _body (side effect) - emit as separate statement before outputs
+        pre_statements = []
         body = hint_dict.get("_body")
         if body:
-            body = self._substitute(body, input_map)
+            pre_statements.append(self._substitute(body, input_map))
 
         # Build final expression
         if len(expressions) == 0:
-            code = body if body else "pass"
+            code = "pass" if not body else ""
         elif len(expressions) == 1:
-            if body:
-                code = f"{body}; {expressions[0]}"
-            else:
-                code = expressions[0]
+            code = expressions[0]
         else:
-            expr_str = ", ".join(expressions)
-            if body:
-                code = f"{body}; {expr_str}"
-            else:
-                code = expr_str
+            code = ", ".join(expressions)
 
-        return Expression(code=code, output_vars=output_vars)
+        return Expression(code=code, output_vars=output_vars, pre_statements=pre_statements)
 
     def _build_string_hint(
         self,
