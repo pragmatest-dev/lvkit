@@ -162,7 +162,12 @@ class FunctionBuilder:
 
         for inp in inputs:
             name = self._to_var_name(inp.get("name", "input"))
-            type_hint = self._map_type(inp.get("type", "Any"))
+            # Use TypeInfo if available, otherwise fall back to manual mapping
+            type_info = inp.get("type_info")
+            if type_info:
+                type_hint = type_info.to_python()
+            else:
+                type_hint = self._map_type(inp.get("type", "Any"))
             wiring_rule = inp.get("wiring_rule", 0)
             default = inp.get("default_value")
 
@@ -189,12 +194,16 @@ class FunctionBuilder:
 
         for out in outputs:
             name = self._to_var_name(out.get("name", "output"))
-            # Try type, then control_type, then default to Any
-            lv_type = out.get("type")
-            if not lv_type:
-                control_type = out.get("control_type")
-                lv_type = self.CONTROL_TYPE_MAP.get(control_type, "Any") if control_type else "Any"
-            type_hint = self._map_type(lv_type)
+            # Use TypeInfo if available, otherwise fall back to manual mapping
+            type_info = out.get("type_info")
+            if type_info:
+                type_hint = type_info.to_python()
+            else:
+                lv_type = out.get("type")
+                if not lv_type:
+                    control_type = out.get("control_type")
+                    lv_type = self.CONTROL_TYPE_MAP.get(control_type, "Any") if control_type else "Any"
+                type_hint = self._map_type(lv_type)
             out_id = out.get("id")
 
             # Find the terminal for this output and trace its source

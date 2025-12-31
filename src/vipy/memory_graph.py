@@ -27,6 +27,7 @@ from .parser import (
     parse_subvi_paths,
 )
 from .vilib_resolver import get_resolver as get_vilib_resolver
+from .types import TypeInfo, from_labview_type
 
 
 class InMemoryVIGraph:
@@ -889,7 +890,7 @@ class InMemoryVIGraph:
         """Get complete VI context for code generation.
 
         Returns a dict with inputs, outputs, constants, operations, etc.
-        This is for backward compatibility with the old dict-based API.
+        Includes TypeInfo objects for structured type handling.
         """
         g = self._dataflow.get(vi_name)
         if g is None:
@@ -917,16 +918,32 @@ class InMemoryVIGraph:
                     "direction": d.get("direction"),
                 })
 
+        # Get inputs/outputs with TypeInfo enrichment
+        inputs = self._enrich_with_type_info(self.get_inputs(vi_name))
+        outputs = self._enrich_with_type_info(self.get_outputs(vi_name))
+        constants = self._enrich_with_type_info(self.get_constants(vi_name))
+
         return {
             "name": vi_name,
-            "inputs": self.get_inputs(vi_name),
-            "outputs": self.get_outputs(vi_name),
-            "constants": self.get_constants(vi_name),
+            "inputs": inputs,
+            "outputs": outputs,
+            "constants": constants,
             "operations": self.get_operations(vi_name),
             "terminals": terminals,
             "data_flow": self.get_wires(vi_name),
             "subvi_calls": subvi_calls,
         }
+
+    def _enrich_with_type_info(self, items: list[dict]) -> list[dict]:
+        """Add TypeInfo objects to context items.
+
+        Adds 'type_info' field based on 'type' and 'control_type' fields.
+        """
+        for item in items:
+            lv_type = item.get("type", "")
+            control_type = item.get("control_type", "")
+            item["type_info"] = from_labview_type(lv_type, control_type)
+        return items
 
     def get_subvi_calls(self, vi_name: str) -> list[dict]:
         """Get SubVIs called by a VI."""
