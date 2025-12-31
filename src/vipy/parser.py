@@ -10,10 +10,12 @@ from typing import Any
 from .constants import (
     CONSTANT_DCO_CLASS,
     FP_TERMINAL_CLASS,
+    LOOP_NODE_CLASSES,
     MULTI_LABEL_CLASS,
     OPERATION_NODE_CLASSES,
     TERMINAL_CLASS,
     TERMINAL_INPUT_FLAG,
+    TUNNEL_DCO_CLASSES,
 )
 
 
@@ -78,6 +80,39 @@ class WiringRule:
 
 
 @dataclass
+class TunnelMapping:
+    """Maps outer loop terminal to inner terminal.
+
+    In LabVIEW loops, data enters/exits via tunnels:
+    - lSR (left shift register): Input tunnel, value persists across iterations
+    - rSR (right shift register): Output tunnel, value persists across iterations
+    - lpTun (loop tunnel): Simple pass-through, same value each iteration
+    - lMax: Accumulator/max output
+    """
+    outer_terminal_uid: str  # Terminal on loop boundary (outside)
+    inner_terminal_uid: str  # Terminal inside the loop diagram
+    tunnel_type: str  # "lSR", "rSR", "lpTun", "lMax"
+    paired_terminal_uid: str | None = None  # For shift registers: the other side
+
+
+@dataclass
+class LoopStructure:
+    """A loop structure (while or for) on the block diagram.
+
+    Contains:
+    - Loop boundary terminals that connect to tunnels
+    - Tunnel mappings linking outer↔inner terminals
+    - Reference to inner diagram containing loop body operations
+    """
+    uid: str
+    loop_type: str  # "whileLoop" or "forLoop"
+    boundary_terminal_uids: list[str] = field(default_factory=list)  # Terminals on loop border
+    tunnels: list[TunnelMapping] = field(default_factory=list)  # Outer↔inner mappings
+    inner_diagram_uid: str | None = None  # UID of the inner diagram (diag element)
+    inner_node_uids: list[str] = field(default_factory=list)  # Operations inside this loop
+
+
+@dataclass
 class ConnectorPaneSlot:
     """A slot on the connector pane."""
     index: int  # Slot position (0-based)
@@ -107,6 +142,7 @@ class BlockDiagram:
     fp_terminals: list[FPTerminal] = field(default_factory=list)
     enum_labels: dict[str, list[str]] = field(default_factory=dict)  # uid -> labels
     terminal_info: dict[str, TerminalInfo] = field(default_factory=dict)  # terminal uid -> info
+    loops: list[LoopStructure] = field(default_factory=list)  # Loop structures with tunnels
 
     def get_node(self, uid: str) -> Node | None:
         """Get a node by UID."""
@@ -119,6 +155,23 @@ class BlockDiagram:
         """Get parent node UID for a terminal."""
         info = self.terminal_info.get(terminal_uid)
         return info.parent_uid if info else None
+
+    def get_loop(self, uid: str) -> LoopStructure | None:
+        """Get a loop by UID."""
+        for loop in self.loops:
+            if loop.uid == uid:
+                return loop
+        return None
+
+    def get_tunnel_mapping(self, terminal_uid: str) -> TunnelMapping | None:
+        """Find tunnel mapping for a terminal (either outer or inner)."""
+        for loop in self.loops:
+            for tunnel in loop.tunnels:
+                if tunnel.outer_terminal_uid == terminal_uid:
+                    return tunnel
+                if tunnel.inner_terminal_uid == terminal_uid:
+                    return tunnel
+        return None
 
 
 def parse_block_diagram(xml_path: Path | str) -> BlockDiagram:
@@ -139,6 +192,7 @@ def parse_block_diagram(xml_path: Path | str) -> BlockDiagram:
     fp_terminals = _extract_fp_terminals(root)
     enum_labels = _extract_enum_labels(root)
     terminal_info = _extract_terminal_info(root, constants, fp_terminals)
+    loops = _extract_loops(root)
 
     return BlockDiagram(
         nodes=nodes,
@@ -147,6 +201,7 @@ def parse_block_diagram(xml_path: Path | str) -> BlockDiagram:
         fp_terminals=fp_terminals,
         enum_labels=enum_labels,
         terminal_info=terminal_info,
+        loops=loops,
     )
 
 
@@ -252,6 +307,99 @@ def _extract_wires(root: ET.Element) -> list[Wire]:
                 ))
 
     return wires
+
+
+def _extract_loops(root: ET.Element) -> list[LoopStructure]:
+    """Extract loop structures (while, for) with tunnel mappings.
+
+    Loops in LabVIEW have:
+    - Boundary terminals on the loop border
+    - Tunnels that connect outer terminals to inner terminals
+    - An inner diagram containing operations
+
+    The tunnel mappings are found in the terminal's dco (data connection object):
+    - dco class="lSR" (left shift register): input tunnel
+    - dco class="rSR" (right shift register): output tunnel
+    - dco class="lpTun" (loop tunnel): simple pass-through
+    - The dco's termList contains [inner_uid, outer_uid]
+
+    Args:
+        root: XML root element
+
+    Returns:
+        List of LoopStructure with tunnel mappings
+    """
+    loops: list[LoopStructure] = []
+
+    # Find all loop elements in zPlaneList
+    for loop_class in LOOP_NODE_CLASSES:
+        for loop_elem in root.findall(f".//*[@class='{loop_class}']"):
+            loop_uid = loop_elem.get("uid")
+            if not loop_uid:
+                continue
+
+            boundary_terminals: list[str] = []
+            tunnels: list[TunnelMapping] = []
+            inner_diagram_uid: str | None = None
+            inner_node_uids: list[str] = []
+
+            # Find boundary terminals in the loop's termList
+            term_list_elem = loop_elem.find("termList")
+            if term_list_elem is not None:
+                for term_elem in term_list_elem.findall(
+                    f"SL__arrayElement[@class='{TERMINAL_CLASS}']"
+                ):
+                    term_uid = term_elem.get("uid")
+                    if term_uid:
+                        boundary_terminals.append(term_uid)
+
+                    # Check for tunnel dco inside this terminal
+                    dco = term_elem.find("dco")
+                    if dco is not None:
+                        dco_class = dco.get("class", "")
+                        if dco_class in TUNNEL_DCO_CLASSES:
+                            # Extract termList to get inner/outer mapping
+                            dco_term_list = dco.find("termList")
+                            if dco_term_list is not None:
+                                term_refs = [
+                                    e.get("uid")
+                                    for e in dco_term_list.findall("SL__arrayElement")
+                                    if e.get("uid")
+                                ]
+                                # Format is [inner_uid, outer_uid]
+                                if len(term_refs) >= 2:
+                                    inner_uid = term_refs[0]
+                                    outer_uid = term_refs[1]
+                                    tunnels.append(TunnelMapping(
+                                        outer_terminal_uid=outer_uid,
+                                        inner_terminal_uid=inner_uid,
+                                        tunnel_type=dco_class,
+                                    ))
+
+            # Find inner diagram
+            diag_list = loop_elem.find("diagramList")
+            if diag_list is not None:
+                inner_diag = diag_list.find("SL__arrayElement[@class='diag']")
+                if inner_diag is not None:
+                    inner_diagram_uid = inner_diag.get("uid")
+
+                    # Find operations inside the inner diagram
+                    for node_list in inner_diag.findall(".//nodeList"):
+                        for node_elem in node_list.findall("SL__arrayElement"):
+                            node_uid = node_elem.get("uid")
+                            if node_uid:
+                                inner_node_uids.append(node_uid)
+
+            loops.append(LoopStructure(
+                uid=loop_uid,
+                loop_type=loop_class,
+                boundary_terminal_uids=boundary_terminals,
+                tunnels=tunnels,
+                inner_diagram_uid=inner_diagram_uid,
+                inner_node_uids=inner_node_uids,
+            ))
+
+    return loops
 
 
 def _extract_fp_terminals(root: ET.Element) -> list[FPTerminal]:
