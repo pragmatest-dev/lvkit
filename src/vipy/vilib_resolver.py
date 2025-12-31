@@ -16,6 +16,7 @@ class VILibTerminal:
     name: str
     type: str | None = None
     enum: str | None = None  # Enum type name if this terminal uses an enum
+    python_param: str | None = None  # Python parameter name if different from name
 
 
 @dataclass
@@ -69,6 +70,7 @@ class VILibResolver:
                     name=t["name"],
                     type=t.get("type"),
                     enum=t.get("enum"),  # Load enum reference
+                    python_param=t.get("python_param"),  # Python parameter name
                 )
                 for t in info.get("terminals", [])
             ]
