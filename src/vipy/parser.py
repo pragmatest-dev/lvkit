@@ -103,6 +103,7 @@ class LoopStructure:
     - Loop boundary terminals that connect to tunnels
     - Tunnel mappings linking outer↔inner terminals
     - Reference to inner diagram containing loop body operations
+    - Stop condition terminal (for while loops)
     """
     uid: str
     loop_type: str  # "whileLoop" or "forLoop"
@@ -110,6 +111,7 @@ class LoopStructure:
     tunnels: list[TunnelMapping] = field(default_factory=list)  # Outer↔inner mappings
     inner_diagram_uid: str | None = None  # UID of the inner diagram (diag element)
     inner_node_uids: list[str] = field(default_factory=list)  # Operations inside this loop
+    stop_condition_terminal_uid: str | None = None  # While loop stop condition input (lTst)
 
 
 @dataclass
@@ -391,6 +393,17 @@ def _extract_loops(root: ET.Element) -> list[LoopStructure]:
                             if node_uid:
                                 inner_node_uids.append(node_uid)
 
+            # Find stop condition terminal for while loops (loopTestDCO class="lTst")
+            stop_condition_uid: str | None = None
+            loop_test_dco = loop_elem.find("loopTestDCO[@class='lTst']")
+            if loop_test_dco is not None:
+                # The termList inside contains the terminal that receives the stop boolean
+                term_list = loop_test_dco.find("termList")
+                if term_list is not None:
+                    first_term = term_list.find("SL__arrayElement")
+                    if first_term is not None:
+                        stop_condition_uid = first_term.get("uid")
+
             loops.append(LoopStructure(
                 uid=loop_uid,
                 loop_type=loop_class,
@@ -398,6 +411,7 @@ def _extract_loops(root: ET.Element) -> list[LoopStructure]:
                 tunnels=tunnels,
                 inner_diagram_uid=inner_diagram_uid,
                 inner_node_uids=inner_node_uids,
+                stop_condition_terminal_uid=stop_condition_uid,
             ))
 
     return loops

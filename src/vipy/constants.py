@@ -14,6 +14,8 @@ NODE_CLASS_CASE_STRUCT = "caseStruct"
 NODE_CLASS_SEQ = "seq"
 NODE_CLASS_EVENT_STRUCT = "eventStruct"
 NODE_CLASS_PROP_NODE = "propNode"
+NODE_CLASS_CPD_ARITH = "cpdArith"  # Compound arithmetic (e.g., Or of multiple booleans)
+NODE_CLASS_ARRAY_BUILD = "aBuild"  # Array builder node
 
 # All node classes that contain operations
 OPERATION_NODE_CLASSES = (
@@ -27,6 +29,8 @@ OPERATION_NODE_CLASSES = (
     NODE_CLASS_SEQ,
     NODE_CLASS_EVENT_STRUCT,
     NODE_CLASS_PROP_NODE,
+    NODE_CLASS_CPD_ARITH,
+    NODE_CLASS_ARRAY_BUILD,
 )
 
 # Loop node classes

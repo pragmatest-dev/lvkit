@@ -162,8 +162,9 @@ class LoopCodeGen(NodeCodeGen):
                 bindings[outer_term] = shift_var
 
         # 6. Build the loop
+        stop_condition_var = None
         if loop_type == "whileLoop":
-            loop_ast = self._build_while_loop(node, inner_stmts, inner_ctx)
+            loop_ast, stop_condition_var = self._build_while_loop(node, inner_stmts, inner_ctx)
         else:
             loop_ast = self._build_for_loop(
                 node, inner_stmts, inner_ctx, tunnels, n_terminal_var
@@ -183,6 +184,13 @@ class LoopCodeGen(NodeCodeGen):
                 inner_val = inner_ctx.resolve(inner_term)
                 if inner_val:
                     bindings[outer_term] = inner_val
+
+        # Add initialization for while loop stop condition
+        # (condition is computed inside loop, so we init to False before)
+        if stop_condition_var:
+            pre_loop_stmts.append(
+                build_assign(stop_condition_var, ast.Constant(value=False))
+            )
 
         all_stmts = pre_loop_stmts + [loop_ast]
         return CodeFragment(
@@ -219,25 +227,45 @@ class LoopCodeGen(NodeCodeGen):
     ) -> ast.While:
         """Build a while loop AST node.
 
-        While loops run until stop condition is True.
-        We generate: while True: ... break (run once for now)
+        LabVIEW while loops run until stop condition is True.
+        We generate: <condition> = False; while not <condition>: ... <condition> = ...
 
-        TODO: Parse actual stop condition from loop structure
+        If no stop condition can be resolved, falls back to while True with break.
         """
         # Ensure non-empty body
         if not body:
             body = [ast.Pass()]
 
-        # Add break at end to prevent infinite loop
-        # This makes the loop run exactly once
-        # TODO: Add proper stop condition detection
-        body.append(ast.Break())
+        # Get stop condition from the lTst terminal
+        stop_terminal = node.get("stop_condition_terminal")
+        stop_condition = None
 
-        return ast.While(
-            test=ast.Constant(value=True),
-            body=body,
-            orelse=[],
-        )
+        if stop_terminal:
+            # Resolve what value flows into the stop terminal
+            stop_condition = ctx.resolve(stop_terminal)
+
+        if stop_condition:
+            # LabVIEW stops when condition is True
+            # Python: while not stop_condition
+            # The condition is computed inside the loop, so we return:
+            # 1. An initialization statement (condition = False)
+            # 2. The while loop
+            return ast.While(
+                test=ast.UnaryOp(
+                    op=ast.Not(),
+                    operand=parse_expr(stop_condition),
+                ),
+                body=body,
+                orelse=[],
+            ), stop_condition
+        else:
+            # Fallback: no stop condition found, use break to prevent infinite loop
+            body.append(ast.Break())
+            return ast.While(
+                test=ast.Constant(value=True),
+                body=body,
+                orelse=[],
+            ), None
 
     def _build_for_loop(
         self,

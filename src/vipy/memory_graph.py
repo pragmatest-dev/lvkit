@@ -786,6 +786,9 @@ class InMemoryVIGraph:
                     op_dict["inner_nodes"] = self._build_inner_nodes(
                         loop_struct.inner_node_uids, g, vi_name
                     )
+                    # Add stop condition terminal for while loops
+                    if loop_struct.stop_condition_terminal_uid:
+                        op_dict["stop_condition_terminal"] = loop_struct.stop_condition_terminal_uid
 
             result.append(op_dict)
         return result
@@ -854,6 +857,7 @@ class InMemoryVIGraph:
                 "name": d.get("name"),
                 "labels": labels,
                 "primResID": d.get("prim_id"),
+                "node_type": node_type,  # For cpdArith, aBuild, etc.
                 "terminals": d.get("terminals", []),
             }
 
