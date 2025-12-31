@@ -68,11 +68,23 @@ class TerminalInfo:
     name: str | None = None  # Terminal name (from FP, primitive ref, or SubVI)
 
 
+class WiringRule:
+    """Terminal wiring rule - controls required/recommended/optional status."""
+    INVALID = 0
+    REQUIRED = 1
+    RECOMMENDED = 2
+    OPTIONAL = 3
+    DYNAMIC_DISPATCH = 4
+
+
 @dataclass
 class ConnectorPaneSlot:
     """A slot on the connector pane."""
     index: int  # Slot position (0-based)
     fp_dco_uid: str | None = None  # UID of the connected fPDCO (control/indicator)
+    is_output: bool = False  # True if output terminal
+    wiring_rule: int = 0  # WiringRule value (0-4)
+    type_id: str | None = None  # TypeID reference
 
 
 @dataclass
@@ -348,6 +360,69 @@ def parse_connector_pane(fp_xml_path: Path | str) -> ConnectorPane | None:
             current_index += 1
 
     return ConnectorPane(pattern_id=pattern_id, slots=slots)
+
+
+def parse_connector_pane_types(
+    main_xml_path: Path | str,
+    fp_conpane: ConnectorPane,
+) -> dict[int, int]:
+    """Get wiring rules for connected connector pane terminals.
+
+    Finds the VI's connector pane Function TypeDesc by matching connected
+    slot indices from the FPHb conpane, then extracts wiring rules.
+
+    Wiring rule encoding in TypeDesc Flags bits 8-9:
+    - 0 = Invalid Wire Rule (default/unset)
+    - 1 = Required
+    - 2 = Recommended
+    - 3 = Optional
+    (Value 4 = Dynamic Dispatch, may use additional bits)
+
+    Args:
+        main_xml_path: Path to the main .xml file (not BDHb/FPHb)
+        fp_conpane: ConnectorPane from FPHb with connected slot indices
+
+    Returns:
+        Dict mapping slot index → wiring rule (0-3)
+    """
+    # Get connected slot indices from FP conpane
+    connected_indices = {s.index for s in fp_conpane.slots if s.fp_dco_uid}
+    if not connected_indices:
+        return {}
+
+    max_index = max(connected_indices)
+
+    tree = ET.parse(main_xml_path)
+    root = tree.getroot()
+
+    # Find the Function TypeDesc that covers all connected indices
+    # and has non-void flags at those positions
+    for func_td in root.findall(".//TypeDesc[@Type='Function']"):
+        children = func_td.findall("TypeDesc")
+        if len(children) <= max_index:
+            continue
+
+        # Check if connected indices have non-void flags
+        matches = all(
+            children[i].get("Flags", "0x0000") != "0x0000"
+            for i in connected_indices
+        )
+        if not matches:
+            continue
+
+        # Extract wiring rules for connected slots
+        rules: dict[int, int] = {}
+        for idx in connected_indices:
+            flags_str = children[idx].get("Flags", "0x0000")
+            try:
+                flags = int(flags_str, 16)
+            except ValueError:
+                flags = 0
+            rules[idx] = (flags >> 8) & 0x03
+
+        return rules
+
+    return {}
 
 
 def parse_type_map(xml_path: Path | str) -> dict[int, str]:

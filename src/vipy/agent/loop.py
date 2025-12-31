@@ -21,7 +21,11 @@ from .validator import CodeValidator, ErrorFormatter, ValidatorConfig
 
 if TYPE_CHECKING:
     from ..graph import VIGraph
+    from ..memory_graph import InMemoryVIGraph
     from ..structure import LVClass, LVLibrary
+
+# Type alias for graph - accepts either Neo4j or in-memory graph
+GraphType = "VIGraph | InMemoryVIGraph"
 
 
 @dataclass
@@ -82,7 +86,7 @@ class ConversionAgent:
 
     def __init__(
         self,
-        graph: VIGraph,
+        graph: "VIGraph | InMemoryVIGraph",
         config: ConversionConfig,
     ) -> None:
         self.graph = graph
@@ -118,10 +122,10 @@ class ConversionAgent:
         order = self.graph.get_conversion_order()
         results: list[ConversionResult] = []
 
-        print(f"Converting {len(order)} VIs in dependency order...")
+        print(f"Converting {len(order)} VIs in dependency order...", flush=True)
 
         for i, vi_name in enumerate(order, 1):
-            print(f"[{i}/{len(order)}] Converting: {vi_name}")
+            print(f"[{i}/{len(order)}] Converting: {vi_name}", flush=True)
 
             result = self.convert_vi(vi_name)
             results.append(result)

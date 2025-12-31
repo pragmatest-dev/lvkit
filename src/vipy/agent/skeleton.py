@@ -109,10 +109,19 @@ class SkeletonOp:
 
 
 @dataclass
+class SkeletonInput:
+    """An input parameter for the skeleton."""
+    name: str
+    type_hint: str
+    wiring_rule: int = 0  # 0=Invalid, 1=Required, 2=Recommended, 3=Optional
+    default_value: str | None = None  # Python literal for default
+
+
+@dataclass
 class Skeleton:
     """Complete skeleton for a VI."""
     function_name: str
-    inputs: list[tuple[str, str]]  # (name, type)
+    inputs: list[SkeletonInput]
     outputs: list[tuple[str, str]]  # (name, type)
     namedtuple_name: str
     constants: list[tuple[str, str, str]]  # (var_name, value, type)
@@ -154,11 +163,19 @@ class SkeletonGenerator:
         namedtuple_name = self._to_class_name(vi_name) + "Result"
 
         # Process inputs - these become function parameters
-        inputs = []
+        inputs: list[SkeletonInput] = []
         for inp in vi_context.get("inputs", []):
             name = self._to_var_name(inp.get("name", "input"))
             type_hint = self._map_type(inp.get("type", "Any"))
-            inputs.append((name, type_hint))
+            wiring_rule = inp.get("wiring_rule", 0)
+            default_value = inp.get("default_value")
+
+            inputs.append(SkeletonInput(
+                name=name,
+                type_hint=type_hint,
+                wiring_rule=wiring_rule,
+                default_value=default_value,
+            ))
             # Register input node and its terminals
             self._vars[inp.get("id", "")] = SkeletonVar(name, type_hint, "input")
             # Find terminals for this input
@@ -391,10 +408,20 @@ class SkeletonGenerator:
                 lines.append(f"    {name}: {type_hint}")
             lines.append("")
 
-        # Function signature
-        params = ", ".join(f"{n}: {t}" for n, t in skeleton.inputs)
+        # Function signature - required inputs first, then optional with defaults
+        required = [inp for inp in skeleton.inputs if inp.wiring_rule == 1]
+        optional = [inp for inp in skeleton.inputs if inp.wiring_rule != 1]
+
+        params = []
+        for inp in required:
+            params.append(f"{inp.name}: {inp.type_hint}")
+        for inp in optional:
+            default = inp.default_value or self._default_for_type(inp.type_hint)
+            params.append(f"{inp.name}: {inp.type_hint} = {default}")
+
+        params_str = ", ".join(params)
         return_type = skeleton.namedtuple_name if skeleton.outputs else "None"
-        lines.append(f"def {skeleton.function_name}({params}) -> {return_type}:")
+        lines.append(f"def {skeleton.function_name}({params_str}) -> {return_type}:")
 
         # Docstring placeholder
         lines.append(f'    """??? Add docstring."""')
@@ -658,6 +685,21 @@ class SkeletonGenerator:
             "Void": "None",
         }
         return type_map.get(lv_type, "Any")
+
+    def _default_for_type(self, type_hint: str) -> str:
+        """Get default value literal for a Python type."""
+        defaults = {
+            "str": '""',
+            "int": "0",
+            "float": "0.0",
+            "bool": "False",
+            "list": "[]",
+            "dict": "{}",
+            "Path": 'Path(".")',
+            "None": "None",
+            "Any": "None",
+        }
+        return defaults.get(type_hint, "None")
 
 
 def generate_skeleton(
