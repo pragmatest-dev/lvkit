@@ -26,8 +26,8 @@ from .parser import (
     parse_connector_pane_types,
     parse_subvi_paths,
 )
+from .types import from_labview_type
 from .vilib_resolver import get_resolver as get_vilib_resolver
-from .types import TypeInfo, from_labview_type
 
 
 class InMemoryVIGraph:
@@ -465,6 +465,29 @@ class InMemoryVIGraph:
                 from_parent=from_parent,
                 to_parent=to_parent,
             )
+
+        # Add tunnel edges from loop structures
+        # These create implicit data flow through loop boundaries
+        for loop in bd.loops:
+            for tunnel in loop.tunnels:
+                # lSR (left shift register) and lpTun: data flows INTO the loop
+                # outer -> inner
+                if tunnel.tunnel_type in ("lSR", "lpTun"):
+                    g.add_edge(
+                        tunnel.outer_terminal_uid,
+                        tunnel.inner_terminal_uid,
+                        tunnel_type=tunnel.tunnel_type,
+                        loop_uid=loop.uid,
+                    )
+                # rSR (right shift register) and lMax: data flows OUT of the loop
+                # inner -> outer
+                elif tunnel.tunnel_type in ("rSR", "lMax"):
+                    g.add_edge(
+                        tunnel.inner_terminal_uid,
+                        tunnel.outer_terminal_uid,
+                        tunnel_type=tunnel.tunnel_type,
+                        loop_uid=loop.uid,
+                    )
 
         return g
 

@@ -9,7 +9,6 @@ The LLM only fills in truly unknown parts (unmapped primitives).
 
 from __future__ import annotations
 
-import ast
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
@@ -517,7 +516,7 @@ class SkeletonGenerator:
         lines.append(f"def {skeleton.function_name}({params_str}) -> {return_type}:")
 
         # Docstring placeholder
-        lines.append(f'    """??? Add docstring."""')
+        lines.append('    """??? Add docstring."""')
 
         # Constants
         if skeleton.constants:
@@ -689,9 +688,10 @@ class SkeletonGenerator:
         for name, value in sorted(input_map.items(), key=lambda x: -len(x[0])):
             if not name:
                 continue
-            # Replace word-bounded occurrences
+            # Replace word-bounded occurrences (case-sensitive to avoid replacing
+            # Python builtins like 'Path' when substituting terminal name 'path')
             pattern = r'\b' + re.escape(name) + r'\b'
-            result = re.sub(pattern, value, result, flags=re.IGNORECASE)
+            result = re.sub(pattern, value, result)
 
         return result
 
@@ -745,12 +745,12 @@ class SkeletonGenerator:
                         break
 
             if expr:
-                # Substitute input variables
+                # Substitute input variables (case-sensitive)
                 substituted = expr
                 for name, value in sorted(input_map.items(), key=lambda x: -len(x[0])):
                     if name:
                         pattern = r'\b' + re.escape(name) + r'\b'
-                        substituted = re.sub(pattern, value, substituted, flags=re.IGNORECASE)
+                        substituted = re.sub(pattern, value, substituted)
                 expressions.append(substituted)
                 output_vars.append(output_name)
                 # Register in terminal_to_var for downstream use
@@ -762,11 +762,11 @@ class SkeletonGenerator:
         # Handle _body (side effect that runs but doesn't produce output)
         body = hint_dict.get("_body")
         if body:
-            # Substitute inputs in body
+            # Substitute inputs in body (case-sensitive)
             for name, value in sorted(input_map.items(), key=lambda x: -len(x[0])):
                 if name:
                     pattern = r'\b' + re.escape(name) + r'\b'
-                    body = re.sub(pattern, value, body, flags=re.IGNORECASE)
+                    body = re.sub(pattern, value, body)
 
         # Generate the expression
         if len(expressions) == 0:
@@ -805,8 +805,20 @@ class SkeletonGenerator:
         """Check if a terminal has any wire connected."""
         return term_id in self._wired_terminals
 
-    def _find_source_var(self, term_id: str, vi_context: dict) -> str | None:
-        """Find the source variable for a terminal from data flow."""
+    def _find_source_var(
+        self, term_id: str, vi_context: dict, visited: set[str] | None = None
+    ) -> str | None:
+        """Find the source variable for a terminal from data flow.
+
+        Recursively traces through tunnel connections to find the original source.
+        """
+        # Prevent infinite loops
+        if visited is None:
+            visited = set()
+        if term_id in visited:
+            return None
+        visited.add(term_id)
+
         if term_id not in self._flow_map:
             return None
 
@@ -828,6 +840,12 @@ class SkeletonGenerator:
             src_name = flow.get("src_parent_name", "")
             if src_name:
                 return self._to_var_name(src_name)
+
+        # Recursively trace through tunnels and other connections
+        # This handles cases like: input -> tunnel_outer -> tunnel_inner -> primitive
+        result = self._find_source_var(src_term, vi_context, visited)
+        if result:
+            return result
 
         return None
 

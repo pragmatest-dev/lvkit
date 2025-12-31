@@ -33,6 +33,20 @@ LOOP_NODE_CLASSES = (NODE_CLASS_WHILE_LOOP, NODE_CLASS_FOR_LOOP)
 # Conditional/case node classes
 CONDITIONAL_NODE_CLASSES = (NODE_CLASS_SELECT, NODE_CLASS_CASE_STRUCT)
 
+# Tunnel/shift register DCO classes (inside loop terminal dco elements)
+TUNNEL_CLASS_LEFT_SR = "lSR"  # Left shift register (input, persists across iterations)
+TUNNEL_CLASS_RIGHT_SR = "rSR"  # Right shift register (output, persists across iterations)
+TUNNEL_CLASS_LOOP_TUNNEL = "lpTun"  # Loop tunnel (simple pass-through)
+TUNNEL_CLASS_LMAX = "lMax"  # Accumulator/max output
+
+# All tunnel types that create outer↔inner terminal mappings
+TUNNEL_DCO_CLASSES = (
+    TUNNEL_CLASS_LEFT_SR,
+    TUNNEL_CLASS_RIGHT_SR,
+    TUNNEL_CLASS_LOOP_TUNNEL,
+    TUNNEL_CLASS_LMAX,
+)
+
 # Terminal-related classes
 TERMINAL_CLASS = "term"
 FP_TERMINAL_CLASS = "fPTerm"
