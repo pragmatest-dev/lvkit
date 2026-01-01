@@ -1,20 +1,683 @@
 {
   "category": "openg/file",
   "source_path": "user.lib/_OpenG.lib/file/file.llb",
-  "count": 1,
+  "count": 17,
   "entries": [
+    {
+      "name": "File Exists - Scalar__ogtk",
+      "vi_path": "user.lib/_OpenG.lib/file/file.llb/File Exists - Scalar__ogtk.vi",
+      "category": "openg/file",
+      "description": "Check if a file or directory exists",
+      "terminals": [
+        {
+          "name": "file path",
+          "index": 2,
+          "direction": "in",
+          "type": "stdPath",
+          "python_param": "file_path"
+        },
+        {
+          "name": "exists",
+          "index": 7,
+          "direction": "out",
+          "type": "stdBool",
+          "python_param": "exists"
+        },
+        {
+          "name": "is directory",
+          "index": 6,
+          "direction": "out",
+          "type": "stdBool",
+          "python_param": "is_directory"
+        }
+      ],
+      "python_inline": "{exists} = Path({file_path}).exists(); {is_directory} = Path({file_path}).is_dir()",
+      "inline_imports": [
+        "from pathlib import Path"
+      ],
+      "status": "complete"
+    },
+    {
+      "name": "Delete Recursive__ogtk",
+      "vi_path": "user.lib/_OpenG.lib/file/file.llb/Delete Recursive__ogtk.vi",
+      "category": "openg/file",
+      "description": "Recursively delete a directory and all contents",
+      "terminals": [
+        {
+          "name": "error in (no error)",
+          "index": 8,
+          "direction": "in",
+          "type": "stdClust",
+          "python_param": "error_in_no_error"
+        },
+        {
+          "name": "Recursive? (FALSE)",
+          "index": 10,
+          "direction": "in",
+          "type": "stdBool",
+          "python_param": "recursive_false"
+        },
+        {
+          "name": "Path",
+          "index": 11,
+          "direction": "in",
+          "type": "stdPath",
+          "python_param": "path"
+        },
+        {
+          "name": "Ignore Read-Only? (FALSE)",
+          "index": 9,
+          "direction": "in",
+          "type": "stdBool",
+          "python_param": "ignore_read_only_false"
+        },
+        {
+          "name": "error out",
+          "index": 0,
+          "direction": "out",
+          "type": "stdClust",
+          "python_param": "error_out"
+        },
+        {
+          "name": "dup Path",
+          "index": 3,
+          "direction": "out",
+          "type": "stdPath",
+          "python_param": "dup_path"
+        }
+      ],
+      "python_inline": "shutil.rmtree(str({path}), ignore_errors={ignore_read_only_false}); {dup_path} = {path}",
+      "inline_imports": [
+        "import shutil"
+      ],
+      "status": "complete"
+    },
     {
       "name": "Create Dir if Non-Existant__ogtk",
       "vi_path": "user.lib/_OpenG.lib/file/file.llb/Create Dir if Non-Existant__ogtk.vi",
       "category": "openg/file",
-      "description": "Creates a directory and all parent directories if they don't exist. Unlike LabVIEW's Create Folder, this works recursively and doesn't error if the folder already exists.",
+      "description": "Create directory and parents if needed",
       "terminals": [
-        {"name": "Path", "index": 0, "direction": "in", "type": "Path", "python_param": "path"},
-        {"name": "error in (no error)", "index": 1, "direction": "in", "type": "Error", "python_param": "error_in"},
-        {"name": "error out", "index": 2, "direction": "out", "type": "Error", "python_param": "error_out"}
+        {
+          "name": "Directory Path",
+          "index": 11,
+          "direction": "in",
+          "type": "stdPath",
+          "python_param": "directory_path"
+        },
+        {
+          "name": "error in (no error)",
+          "index": 8,
+          "direction": "in",
+          "type": "stdClust",
+          "python_param": "error_in_no_error"
+        },
+        {
+          "name": "permissions (0755)",
+          "index": 9,
+          "direction": "in",
+          "type": "stdNum",
+          "python_param": "permissions_0755"
+        },
+        {
+          "name": "dup Directory Path",
+          "index": 3,
+          "direction": "out",
+          "type": "stdPath",
+          "python_param": "dup_directory_path"
+        },
+        {
+          "name": "error out",
+          "index": 0,
+          "direction": "out",
+          "type": "stdClust",
+          "python_param": "error_out"
+        },
+        {
+          "name": "Created Directories",
+          "index": 2,
+          "direction": "out",
+          "type": "indArr",
+          "python_param": "created_directories"
+        }
       ],
-      "python_inline": "os.makedirs({path}, exist_ok=True)",
-      "inline_imports": ["import os"],
+      "python_inline": "Path({directory_path}).mkdir(mode={permissions_0755}, parents=True, exist_ok=True); {dup_directory_path} = {directory_path}; {created_directories} = []",
+      "inline_imports": [
+        "from pathlib import Path"
+      ],
+      "status": "complete"
+    },
+    {
+      "name": "Temporary Directory__ogtk",
+      "vi_path": "user.lib/_OpenG.lib/file/file.llb/Temporary Directory__ogtk.vi",
+      "category": "openg/file",
+      "description": "Get system temp directory with optional relative path",
+      "terminals": [
+        {
+          "name": "Relative path (.)",
+          "index": 1,
+          "direction": "in",
+          "type": "stdPath",
+          "python_param": "relative_path_"
+        },
+        {
+          "name": "Temporary Directory (+ Relative)",
+          "index": 0,
+          "direction": "out",
+          "type": "stdPath",
+          "python_param": "temporary_directory___relative"
+        }
+      ],
+      "python_inline": "{temporary_directory__relative} = Path(tempfile.gettempdir()) / str({relative_path_} or '.')",
+      "inline_imports": [
+        "import tempfile",
+        "from pathlib import Path"
+      ],
+      "status": "complete"
+    },
+    {
+      "name": "Application Directory__ogtk",
+      "vi_path": "user.lib/_OpenG.lib/file/file.llb/Application Directory__ogtk.vi",
+      "category": "openg/file",
+      "description": "Get application directory (parent of current file)",
+      "terminals": [
+        {
+          "name": "Relative path (.)",
+          "index": 1,
+          "direction": "in",
+          "type": "stdPath",
+          "python_param": "relative_path_"
+        },
+        {
+          "name": "Application Directory (+ Relative)",
+          "index": 0,
+          "direction": "out",
+          "type": "stdPath",
+          "python_param": "application_directory___relative"
+        }
+      ],
+      "python_inline": "{application_directory__relative} = Path(__file__).resolve().parent / str({relative_path_} or '.')",
+      "inline_imports": [
+        "from pathlib import Path"
+      ],
+      "status": "complete"
+    },
+    {
+      "name": "Current VI's Path__ogtk",
+      "vi_path": "user.lib/_OpenG.lib/file/file.llb/Current VI's Path__ogtk.vi",
+      "category": "openg/file",
+      "description": "Get current file's path with optional relative",
+      "terminals": [
+        {
+          "name": "Relative path (.)",
+          "index": 1,
+          "direction": "in",
+          "type": "stdPath",
+          "python_param": "relative_path_"
+        },
+        {
+          "name": "Current VI's Path (+ Relative)",
+          "index": 0,
+          "direction": "out",
+          "type": "stdPath",
+          "python_param": "current_vis_path___relative"
+        }
+      ],
+      "python_inline": "{current_vis_path__relative} = Path(__file__).resolve().parent / str({relative_path_} or '.')",
+      "inline_imports": [
+        "from pathlib import Path"
+      ],
+      "status": "complete"
+    },
+    {
+      "name": "Current VIs Parent Directory__ogtk",
+      "vi_path": "user.lib/_OpenG.lib/file/file.llb/Current VIs Parent Directory__ogtk.vi",
+      "category": "openg/file",
+      "description": "Get parent directory of current file",
+      "terminals": [
+        {
+          "name": "Relative path (.)",
+          "index": 4,
+          "direction": "in",
+          "type": "stdPath",
+          "python_param": "relative_path_"
+        },
+        {
+          "name": "Parent Directory (+ Relative)",
+          "index": 1,
+          "direction": "out",
+          "type": "stdPath",
+          "python_param": "parent_directory___relative"
+        }
+      ],
+      "python_inline": "{parent_directory__relative} = Path(__file__).resolve().parent / str({relative_path_} or '.')",
+      "inline_imports": [
+        "from pathlib import Path"
+      ],
+      "status": "complete"
+    },
+    {
+      "name": "Default Directory__ogtk",
+      "vi_path": "user.lib/_OpenG.lib/file/file.llb/Default Directory__ogtk.vi",
+      "category": "openg/file",
+      "description": "Get current working directory",
+      "terminals": [
+        {
+          "name": "Relative path (.)",
+          "index": 1,
+          "direction": "in",
+          "type": "stdPath",
+          "python_param": "relative_path_"
+        },
+        {
+          "name": "Default Directory (+ Relative)",
+          "index": 0,
+          "direction": "out",
+          "type": "stdPath",
+          "python_param": "default_directory___relative"
+        }
+      ],
+      "python_inline": "{default_directory__relative} = Path.cwd() / str({relative_path_} or '.')",
+      "inline_imports": [
+        "from pathlib import Path"
+      ],
+      "status": "complete"
+    },
+    {
+      "name": "Build Path - Traditional__ogtk",
+      "vi_path": "user.lib/_OpenG.lib/file/file.llb/Build Path - Traditional__ogtk.vi",
+      "category": "openg/file",
+      "description": "Append name or relative path to base path",
+      "terminals": [
+        {
+          "name": "base path",
+          "index": 2,
+          "direction": "in",
+          "type": "stdPath",
+          "python_param": "base_path"
+        },
+        {
+          "name": "name or relative path",
+          "index": 1,
+          "direction": "in",
+          "type": "stdString",
+          "python_param": "name_or_relative_path"
+        },
+        {
+          "name": "appended path",
+          "index": 0,
+          "direction": "out",
+          "type": "stdPath",
+          "python_param": "appended_path"
+        }
+      ],
+      "python_inline": "{appended_path} = Path({base_path}) / str({name_or_relative_path})",
+      "inline_imports": [
+        "from pathlib import Path"
+      ],
+      "status": "complete"
+    },
+    {
+      "name": "Build Path - Traditional - path__ogtk",
+      "vi_path": "user.lib/_OpenG.lib/file/file.llb/Build Path - Traditional - path__ogtk.vi",
+      "category": "openg/file",
+      "description": "Append path to base path",
+      "terminals": [
+        {
+          "name": "base path",
+          "index": 2,
+          "direction": "in",
+          "type": "stdPath",
+          "python_param": "base_path"
+        },
+        {
+          "name": "name or relative path",
+          "index": 1,
+          "direction": "in",
+          "type": "stdPath",
+          "python_param": "name_or_relative_path"
+        },
+        {
+          "name": "appended path",
+          "index": 0,
+          "direction": "out",
+          "type": "stdPath",
+          "python_param": "appended_path"
+        }
+      ],
+      "python_inline": "{appended_path} = Path({base_path}) / Path({name_or_relative_path})",
+      "inline_imports": [
+        "from pathlib import Path"
+      ],
+      "status": "complete"
+    },
+    {
+      "name": "Strip Path - Traditional__ogtk",
+      "vi_path": "user.lib/_OpenG.lib/file/file.llb/Strip Path - Traditional__ogtk.vi",
+      "category": "openg/file",
+      "description": "Split path into parent and name",
+      "terminals": [
+        {
+          "name": "path",
+          "index": 0,
+          "direction": "in",
+          "type": "stdPath",
+          "python_param": "path"
+        },
+        {
+          "name": "name",
+          "index": 2,
+          "direction": "out",
+          "type": "stdString",
+          "python_param": "name"
+        },
+        {
+          "name": "stripped path",
+          "index": 1,
+          "direction": "out",
+          "type": "stdPath",
+          "python_param": "stripped_path"
+        }
+      ],
+      "python_inline": "{stripped_path} = Path({path}).parent; {name} = Path({path}).name",
+      "inline_imports": [
+        "from pathlib import Path"
+      ],
+      "status": "complete"
+    },
+    {
+      "name": "List Directory__ogtk",
+      "vi_path": "user.lib/_OpenG.lib/file/file.llb/List Directory__ogtk.vi",
+      "category": "openg/file",
+      "description": "List files and directories matching pattern",
+      "terminals": [
+        {
+          "name": "directory path",
+          "index": 7,
+          "direction": "in",
+          "type": "stdPath",
+          "python_param": "directory_path"
+        },
+        {
+          "name": "error in (no error)",
+          "index": 4,
+          "direction": "in",
+          "type": "stdClust",
+          "python_param": "error_in_no_error"
+        },
+        {
+          "name": "pattern",
+          "index": 6,
+          "direction": "in",
+          "type": "stdString",
+          "python_param": "pattern"
+        },
+        {
+          "name": "error out",
+          "index": 0,
+          "direction": "out",
+          "type": "stdClust",
+          "python_param": "error_out"
+        },
+        {
+          "name": "file names",
+          "index": 2,
+          "direction": "out",
+          "type": "indArr",
+          "python_param": "file_names"
+        },
+        {
+          "name": "directory names",
+          "index": 1,
+          "direction": "out",
+          "type": "indArr",
+          "python_param": "directory_names"
+        },
+        {
+          "name": "dup directory path",
+          "index": 3,
+          "direction": "out",
+          "type": "stdPath",
+          "python_param": "dup_directory_path"
+        }
+      ],
+      "python_inline": "_items = list(Path({directory_path}).glob({pattern} or '*')); {file_names} = [f.name for f in _items if f.is_file()]; {directory_names} = [d.name for d in _items if d.is_dir()]; {dup_directory_path} = {directory_path}",
+      "inline_imports": [
+        "from pathlib import Path"
+      ],
+      "status": "complete"
+    },
+    {
+      "name": "List Directory Recursive__ogtk",
+      "vi_path": "user.lib/_OpenG.lib/file/file.llb/List Directory Recursive__ogtk.vi",
+      "category": "openg/file",
+      "description": "Recursively list all files and directories",
+      "terminals": [
+        {
+          "name": "error in (no error)",
+          "index": 8,
+          "direction": "in",
+          "type": "stdClust",
+          "python_param": "error_in_no_error"
+        },
+        {
+          "name": "Path",
+          "index": 11,
+          "direction": "in",
+          "type": "stdPath",
+          "python_param": "path"
+        },
+        {
+          "name": "pattern",
+          "index": 10,
+          "direction": "in",
+          "type": "stdString",
+          "python_param": "pattern"
+        },
+        {
+          "name": "Treat llb files as directories? (FALSE)",
+          "index": 9,
+          "direction": "in",
+          "type": "stdBool",
+          "python_param": "treat_llb_files_as_directories_false"
+        },
+        {
+          "name": "List only Top-Level files in llbs? (FALSE)",
+          "index": 6,
+          "direction": "in",
+          "type": "stdBool",
+          "python_param": "list_only_top_level_files_in_llbs_false"
+        },
+        {
+          "name": "error out",
+          "index": 0,
+          "direction": "out",
+          "type": "stdClust",
+          "python_param": "error_out"
+        },
+        {
+          "name": "dup Path",
+          "index": 3,
+          "direction": "out",
+          "type": "stdPath",
+          "python_param": "dup_path"
+        },
+        {
+          "name": "file paths",
+          "index": 2,
+          "direction": "out",
+          "type": "indArr",
+          "python_param": "file_paths"
+        },
+        {
+          "name": "dir paths",
+          "index": 1,
+          "direction": "out",
+          "type": "indArr",
+          "python_param": "dir_paths"
+        }
+      ],
+      "python_inline": "_items = list(Path({path}).rglob({pattern} or '*')); {file_paths} = [f for f in _items if f.is_file()]; {dir_paths} = [d for d in _items if d.is_dir()]; {dup_path} = {path}",
+      "inline_imports": [
+        "from pathlib import Path"
+      ],
+      "status": "complete"
+    },
+    {
+      "name": "Compare File Binary__ogtk",
+      "vi_path": "user.lib/_OpenG.lib/file/file.llb/Compare File Binary__ogtk.vi",
+      "category": "openg/file",
+      "description": "Compare two files byte-by-byte",
+      "terminals": [
+        {
+          "name": "block size (100000)",
+          "index": 5,
+          "direction": "in",
+          "type": "stdNum",
+          "python_param": "block_size_100000"
+        },
+        {
+          "name": "copy file",
+          "index": 6,
+          "direction": "in",
+          "type": "stdPath",
+          "python_param": "copy_file"
+        },
+        {
+          "name": "original file",
+          "index": 7,
+          "direction": "in",
+          "type": "stdPath",
+          "python_param": "original_file"
+        },
+        {
+          "name": "error in (no error)",
+          "index": 4,
+          "direction": "in",
+          "type": "stdClust",
+          "python_param": "error_in_no_error"
+        },
+        {
+          "name": "error out",
+          "index": 0,
+          "direction": "out",
+          "type": "stdClust",
+          "python_param": "error_out"
+        },
+        {
+          "name": "not equal",
+          "index": 3,
+          "direction": "out",
+          "type": "stdBool",
+          "python_param": "not_equal"
+        }
+      ],
+      "python_inline": "{not_equal} = not filecmp.cmp(str({original_file}), str({copy_file}), shallow=False)",
+      "inline_imports": [
+        "import filecmp"
+      ],
+      "status": "complete"
+    },
+    {
+      "name": "Valid Path - Traditional__ogtk",
+      "vi_path": "user.lib/_OpenG.lib/file/file.llb/Valid Path - Traditional__ogtk.vi",
+      "category": "openg/file",
+      "description": "Return valid path or current directory",
+      "terminals": [
+        {
+          "name": "path",
+          "index": 1,
+          "direction": "in",
+          "type": "stdPath",
+          "python_param": "path"
+        },
+        {
+          "name": "valid",
+          "index": 0,
+          "direction": "out",
+          "type": "stdBool",
+          "python_param": "valid"
+        }
+      ],
+      "python_inline": "{valid} = Path({path}) if {path} and str({path}).strip() else Path('.')",
+      "inline_imports": [
+        "from pathlib import Path"
+      ],
+      "status": "complete"
+    },
+    {
+      "name": "Convert File Extension (Path)__ogtk",
+      "vi_path": "user.lib/_OpenG.lib/file/file.llb/Convert File Extension (Path)__ogtk.vi",
+      "category": "openg/file",
+      "description": "Change file extension",
+      "terminals": [
+        {
+          "name": "file name",
+          "index": 3,
+          "direction": "in",
+          "type": "stdPath",
+          "python_param": "file_name"
+        },
+        {
+          "name": "new ending (none)",
+          "index": 2,
+          "direction": "in",
+          "type": "stdString",
+          "python_param": "new_ending_none"
+        },
+        {
+          "name": "new filename",
+          "index": 1,
+          "direction": "out",
+          "type": "stdPath",
+          "python_param": "new_filename"
+        },
+        {
+          "name": "prev ending",
+          "index": 0,
+          "direction": "out",
+          "type": "stdString",
+          "python_param": "prev_ending"
+        }
+      ],
+      "python_inline": "{prev_ending} = Path({file_name}).suffix; {new_filename} = Path({file_name}).with_suffix({new_ending_none} or '')",
+      "inline_imports": [
+        "from pathlib import Path"
+      ],
+      "status": "complete"
+    },
+    {
+      "name": "Append Path to Root if Relative - Scalar__ogtk",
+      "vi_path": "user.lib/_OpenG.lib/file/file.llb/Append Path to Root if Relative - Scalar__ogtk.vi",
+      "category": "openg/file",
+      "description": "Make relative path absolute by prepending root",
+      "terminals": [
+        {
+          "name": "Root Path",
+          "index": 2,
+          "direction": "in",
+          "type": "stdPath",
+          "python_param": "root_path"
+        },
+        {
+          "name": "Absolute or Relative Path",
+          "index": 1,
+          "direction": "in",
+          "type": "stdPath",
+          "python_param": "absolute_or_relative_path"
+        },
+        {
+          "name": "Absolute or Appended Path",
+          "index": 0,
+          "direction": "out",
+          "type": "stdPath",
+          "python_param": "absolute_or_appended_path"
+        }
+      ],
+      "python_inline": "{absolute_or_appended_path} = Path({absolute_or_relative_path}) if Path({absolute_or_relative_path}).is_absolute() else Path({root_path}) / {absolute_or_relative_path}",
+      "inline_imports": [
+        "from pathlib import Path"
+      ],
       "status": "complete"
     }
   ]
