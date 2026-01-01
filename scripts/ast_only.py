@@ -201,6 +201,8 @@ def main():
     parser.add_argument("--search-path", action="append", dest="search_paths",
                         default=[], help="Additional search paths")
     parser.add_argument("--generate-ui", action="store_true", help="Generate NiceGUI wrappers")
+    parser.add_argument("--ui-vilib", action="store_true", help="Generate UI for vilib VIs")
+    parser.add_argument("--ui-primitives", action="store_true", help="Generate UI for primitives")
     args = parser.parse_args()
 
     output_dir = Path(args.output)
@@ -343,37 +345,80 @@ def {func_name}(*args, **kwargs) -> Any:
         print("\nGenerating UI wrappers...")
         ui_count = 0
         for vi_name, path, status in generated:
-            if path and status in ("vilib", "ast"):
-                vi_context = graph.get_vi_context(vi_name)
-                inputs = vi_context.get("inputs", [])
-                outputs = vi_context.get("outputs", [])
+            if not path:
+                continue
 
-                # Build input/output specs for UI - format: (display_name, type)
-                ui_inputs = []
-                for inp in inputs:
+            # Filter by status based on flags
+            if status == "vilib" and not args.ui_vilib:
+                continue
+            if status not in ("vilib", "ast"):
+                continue
+
+            # Get inputs/outputs - use vilib resolver for vilib VIs
+            ui_inputs = []
+            ui_outputs = []
+
+            if status == "vilib":
+                # Get terminal info from vilib resolver
+                vilib_ctx = vilib_resolver.get_context(vi_name)
+                if vilib_ctx:
+                    for term in vilib_ctx.get("terminals", []):
+                        name = term.get("name", "")
+                        term_type = term.get("type") or "Any"
+                        if term.get("direction") == "in":
+                            ui_inputs.append((name, term_type))
+                        elif term.get("direction") == "out":
+                            ui_outputs.append((name, term_type))
+            else:
+                # Get from graph context for AST-generated VIs
+                vi_context = graph.get_vi_context(vi_name)
+                for inp in vi_context.get("inputs", []):
                     name = inp.get("name", "input")
                     ctrl_type = inp.get("control_type", "Any")
                     ui_inputs.append((name, ctrl_type))
 
-                ui_outputs = []
-                for out in outputs:
+                for out in vi_context.get("outputs", []):
                     name = out.get("name", "output")
                     ctrl_type = out.get("control_type", "Any")
                     ui_outputs.append((name, ctrl_type))
 
-                if ui_inputs or ui_outputs:
-                    module_name = to_module_name(vi_name)
-                    func_name = to_function_name(vi_name)
-                    ui_code = ContextBuilder.build_ui_wrapper(
-                        vi_name=vi_name,
-                        module_name=module_name,
-                        function_name=func_name,
-                        inputs=ui_inputs,
-                        outputs=ui_outputs,
-                    )
-                    ui_path = output_dir / f"{module_name}_ui.py"
-                    ui_path.write_text(ui_code)
-                    ui_count += 1
+            if ui_inputs or ui_outputs:
+                module_name = to_module_name(vi_name)
+                func_name = to_function_name(vi_name)
+                # Get enum definitions for vilib VIs
+                enums = {}
+                if status == "vilib":
+                    vilib_ctx = vilib_resolver.get_context(vi_name)
+                    if vilib_ctx:
+                        for term in vilib_ctx.get("terminals", []):
+                            # Check for inline enum_values first
+                            if term.get("enum_values"):
+                                # Use display name as key (ContextBuilder._to_var_name will convert it)
+                                display_name = term.get("name", "")
+                                enums[display_name] = term.get("enum_values")
+                            # Fall back to named enum reference
+                            elif term.get("enum"):
+                                enum_name = term.get("enum")
+                                all_enums = vilib_resolver.get_enums()
+                                if enum_name in all_enums:
+                                    enum_def = all_enums[enum_name]
+                                    display_name = term.get("name", "")
+                                    enums[display_name] = [
+                                        (v["value"], name)
+                                        for name, v in enum_def.get("values", {}).items()
+                                    ]
+
+                ui_code = ContextBuilder.build_ui_wrapper(
+                    vi_name=vi_name,
+                    module_name=module_name,
+                    function_name=func_name,
+                    inputs=ui_inputs,
+                    outputs=ui_outputs,
+                    enums=enums,
+                )
+                ui_path = output_dir / f"{module_name}_ui.py"
+                ui_path.write_text(ui_code)
+                ui_count += 1
 
         print(f"  Generated {ui_count} UI wrappers")
 

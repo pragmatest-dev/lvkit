@@ -240,6 +240,8 @@ class VILibResolver:
                     "name": t.name,
                     "type": t.type,
                     "enum": t.enum,
+                    "enum_values": t.enum_values,
+                    "python_param": t.python_param,
                 }
                 for t in vi.terminals
             ],

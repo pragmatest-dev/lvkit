@@ -727,8 +727,8 @@ Output ONLY the corrected Python code, no explanations."""
         input_widgets = []
         for name, typ in inputs:
             py_name = ContextBuilder._to_var_name(name)
-            # Check if this parameter has enum options
-            enum_options = enums.get(name)
+            # Check if this parameter has enum options (try both py_name and display name)
+            enum_options = enums.get(py_name) or enums.get(name)
             widget = ContextBuilder._get_input_widget(name, typ, py_name, enum_options)
             input_widgets.append(f"                    {widget}")
 
