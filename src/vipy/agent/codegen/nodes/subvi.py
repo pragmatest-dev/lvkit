@@ -28,12 +28,16 @@ class SubVICodeGen(NodeCodeGen):
         if not subvi_name:
             return CodeFragment.empty()
 
-        func_name = to_function_name(subvi_name)
-        result_var = f"{func_name}_result"
-
         # Look up vilib info for this SubVI
         # Raises VILibResolutionNeeded if indices are missing
         vilib_vi = self._get_vilib_vi(subvi_name, node)
+
+        # Check for inline replacement first
+        if vilib_vi and vilib_vi.python_inline:
+            return self._generate_inline(node, ctx, vilib_vi)
+
+        func_name = to_function_name(subvi_name)
+        result_var = f"{func_name}_result"
 
         # Gather input arguments with proper names
         args, keywords = self._build_arguments(node, ctx, vilib_vi)
@@ -75,14 +79,101 @@ class SubVICodeGen(NodeCodeGen):
             imports=imports,
         )
 
-    def _get_vilib_vi(self, subvi_name: str, node: dict[str, Any] | None = None) -> Any | None:
+    def _generate_inline(
+        self, node: dict[str, Any], ctx: CodeGenContext, vilib_vi: Any
+    ) -> CodeFragment:
+        """Generate inline Python code instead of function call.
+
+        Uses {placeholder} syntax for both inputs and outputs:
+        - Inputs: {param} replaced with wired value expression
+        - Outputs: {param} replaced with unique variable name, then bound
+
+        Example template: "{size} = len({array})"
+        Becomes: "get_array_size_0_size = len(my_array)"
+        With binding: size_terminal_id -> "get_array_size_0_size"
+        """
+        template = vilib_vi.python_inline
+        func_name = to_function_name(node.get("name", "inline"))
+
+        # Build index → param name mappings for inputs and outputs
+        vilib_inputs: dict[int, str] = {}
+        vilib_outputs: dict[int, str] = {}
+        for vt in vilib_vi.terminals:
+            param_key = vt.python_param or to_var_name(vt.name)
+            if vt.direction == "in":
+                vilib_inputs[vt.index] = param_key
+            elif vt.direction == "out":
+                vilib_outputs[vt.index] = param_key
+
+        # Substitute input placeholders with wired values
+        for term in node.get("terminals", []):
+            if term.get("direction") != "input":
+                continue
+
+            term_index = term.get("index", 0)
+            term_id = term.get("id")
+            value = ctx.resolve(term_id)
+
+            if term_index in vilib_inputs:
+                param_key = vilib_inputs[term_index]
+                placeholder = "{" + param_key + "}"
+                template = template.replace(placeholder, value or "None")
+
+        # Substitute output placeholders with unique variable names
+        # and build bindings
+        bindings = {}
+        output_var_map: dict[str, str] = {}  # param_key -> generated var name
+
+        for term in node.get("terminals", []):
+            if term.get("direction") != "output":
+                continue
+
+            term_index = term.get("index", 0)
+            term_id = term.get("id")
+
+            if term_index in vilib_outputs:
+                param_key = vilib_outputs[term_index]
+                # Generate unique variable name
+                var_name = f"{func_name}_{param_key}"
+                output_var_map[param_key] = var_name
+                bindings[term_id] = var_name
+            else:
+                # Output not in vilib definition - bind to None
+                bindings[term_id] = "None"
+
+        # Replace output placeholders in template
+        for param_key, var_name in output_var_map.items():
+            placeholder = "{" + param_key + "}"
+            template = template.replace(placeholder, var_name)
+
+        # Parse as statement(s) - supports multi-line
+        try:
+            parsed = ast.parse(template, mode="exec")
+            statements = parsed.body
+        except SyntaxError:
+            # Fallback: wrap as expression statement
+            parsed = ast.parse(template, mode="eval")
+            statements = [ast.Expr(value=parsed.body)]
+
+        # Build imports from inline_imports
+        imports = set(vilib_vi.inline_imports) if vilib_vi.inline_imports else set()
+
+        return CodeFragment(
+            statements=statements,
+            bindings=bindings,
+            imports=imports,
+        )
+
+    def _get_vilib_vi(
+        self, subvi_name: str, node: dict[str, Any] | None = None
+    ) -> Any | None:
         """Look up SubVI in vilib resolver.
 
         If the VI is found but has no terminal indices, raises VILibResolutionNeeded
         with context to help resolve the indices.
         """
         try:
-            from ....vilib_resolver import get_resolver, VILibResolutionNeeded
+            from ....vilib_resolver import VILibResolutionNeeded, get_resolver
             resolver = get_resolver()
             vi = resolver.resolve_by_name(subvi_name)
 
@@ -91,7 +182,11 @@ class SubVICodeGen(NodeCodeGen):
 
             # Check if we have terminals but missing indices
             has_terminals = bool(vi.terminals)
-            missing_indices = any(t.index is None for t in vi.terminals) if has_terminals else False
+            missing_indices = (
+                any(t.index is None for t in vi.terminals)
+                if has_terminals
+                else False
+            )
 
             if missing_indices:
                 # Build context from the node for resolution
@@ -199,7 +294,7 @@ class SubVICodeGen(NodeCodeGen):
         node: dict[str, Any],
         result_var: str,
         vilib_vi: Any | None,
-        ctx: "CodeGenContext",
+        ctx: CodeGenContext,
     ) -> dict[str, str]:
         """Build output terminal bindings using vilib names."""
         subvi_name = node.get("name", "")

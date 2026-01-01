@@ -69,9 +69,11 @@ class VILibVI:
     terminals: list[VILibTerminal] = field(default_factory=list)
     python: str = ""  # Usage hint like "get_system_directory(directory_type)"
     python_impl: str | None = None  # Full implementation if available
+    python_inline: str | None = None  # Inline template like "os.makedirs({path}, exist_ok=True)"
     imports: list[str] = field(default_factory=list)
+    inline_imports: list[str] = field(default_factory=list)  # Imports for inline code
     doc_url: str | None = None
-    category: str | None = None  # Category from PDF extraction
+    category: str | None = None  # Category like "openg/file" - used as output folder
     status: str = "needs_review"  # needs_review, needs_terminals, complete
     pdf_page: int | None = None  # Page number in PDF reference
 
@@ -105,6 +107,11 @@ class VILibResolver:
         vilib_dir = data_dir / "vilib"
         if vilib_dir.exists():
             self._load_vilib_data(vilib_dir)
+
+        # Load OpenG data (same format as vilib)
+        openg_dir = data_dir / "openg"
+        if openg_dir.exists():
+            self._load_vilib_data(openg_dir)
 
         # Load enums
         enums_path = vilib_dir / "_enums.json"
@@ -160,8 +167,10 @@ class VILibResolver:
                     terminals=terminals,
                     python=entry.get("python", ""),
                     python_impl=entry.get("python_impl"),
+                    python_inline=entry.get("python_inline"),
                     imports=entry.get("imports", []),
-                    category=category,
+                    inline_imports=entry.get("inline_imports", []),
+                    category=entry.get("category") or category,  # Entry can override
                     status=entry.get("status", "needs_review"),
                     pdf_page=entry.get("page"),
                 )
