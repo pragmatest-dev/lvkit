@@ -1,6 +1,20 @@
-"""Generate Cypher graph representation of LabVIEW VIs."""
+"""Generate Cypher graph representation of LabVIEW VIs.
+
+.. deprecated::
+    This module is deprecated. Use vipy.memory_graph for in-memory graph
+    operations instead. Neo4j support may be removed in a future version.
+"""
 
 from __future__ import annotations
+
+import warnings
+
+warnings.warn(
+    "vipy.cypher is deprecated. Use vipy.memory_graph for graph operations. "
+    "Neo4j support may be removed in a future version.",
+    DeprecationWarning,
+    stacklevel=2,
+)
 
 import xml.etree.ElementTree as ET
 from pathlib import Path
