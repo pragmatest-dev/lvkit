@@ -2,9 +2,22 @@
 
 Requires the 'neo4j' optional dependency:
     pip install vipy[neo4j]
+
+.. deprecated::
+    This module is deprecated. Use vipy.memory_graph for in-memory graph
+    operations instead. Neo4j support may be removed in a future version.
 """
 
 from __future__ import annotations
+
+import warnings
+
+warnings.warn(
+    "vipy.graph is deprecated. Use vipy.memory_graph for graph operations. "
+    "Neo4j support may be removed in a future version.",
+    DeprecationWarning,
+    stacklevel=2,
+)
 
 from collections.abc import Generator
 from contextlib import contextmanager

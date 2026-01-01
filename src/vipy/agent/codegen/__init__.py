@@ -12,7 +12,6 @@ from .expressions import ExpressionBuilder
 from .fragment import CodeFragment
 from .function import FunctionBuilder
 from .imports import ImportBuilder
-from .module import ModuleBuilder
 from .nodes import CodeGenError, MissingDependencyError, UnknownNodeError
 from .stubs import StubGenerator
 
@@ -21,7 +20,6 @@ __all__ = [
     "ImportBuilder",
     "ExpressionBuilder",
     "FunctionBuilder",
-    "ModuleBuilder",
     "StubGenerator",
     # New API
     "build_module",
