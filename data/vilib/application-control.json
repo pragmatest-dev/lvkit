@@ -1095,9 +1095,10 @@
           "python_param": "true"
         }
       ],
-      "python_impl": "def one_button_dialog(message: str) -> None:\n    print(message)",
       "imports": [],
-      "python": "one_button_dialog(message)"
+      "python": "one_button_dialog(message)",
+      "python_code": "def one_button_dialog(message: str) -> None:\n    print(message)",
+      "inline": false
     },
     {
       "name": "Two Button Dialog Function",
@@ -1525,9 +1526,10 @@
           "index": 1
         }
       ],
-      "python_impl": "from typing import NamedTuple\n\nclass ClearErrorsResult(NamedTuple):\n    error_out: dict\n\ndef clear_errors(error_in: dict = None) -> ClearErrorsResult:\n    \"\"\"Clear any errors, returning a clean error cluster.\"\"\"\n    return ClearErrorsResult(error_out={'status': False, 'code': 0, 'source': ''})",
       "imports": [],
-      "python": "clear_errors(error_in)"
+      "python": "clear_errors(error_in)",
+      "python_code": "from typing import NamedTuple\n\nclass ClearErrorsResult(NamedTuple):\n    error_out: dict\n\ndef clear_errors(error_in: dict = None) -> ClearErrorsResult:\n    \"\"\"Clear any errors, returning a clean error cluster.\"\"\"\n    return ClearErrorsResult(error_out={'status': False, 'code': 0, 'source': ''})",
+      "inline": false
     },
     {
       "name": "Error Ring",
@@ -1655,9 +1657,10 @@
           "index": 2
         }
       ],
-      "python_impl": "from typing import NamedTuple\n\nclass ErrorClusterFromCodeResult(NamedTuple):\n    error_out: dict\n\ndef error_cluster_from_code(code: int, source: str = '') -> ErrorClusterFromCodeResult:\n    \"\"\"Create error cluster from error code.\"\"\"\n    return ErrorClusterFromCodeResult(error_out={'status': code != 0, 'code': code, 'source': source})",
       "imports": [],
-      "python": "error_cluster_from_code(code, source)"
+      "python": "error_cluster_from_code(code, source)",
+      "python_code": "from typing import NamedTuple\n\nclass ErrorClusterFromCodeResult(NamedTuple):\n    error_out: dict\n\ndef error_cluster_from_code(code: int, source: str = '') -> ErrorClusterFromCodeResult:\n    \"\"\"Create error cluster from error code.\"\"\"\n    return ErrorClusterFromCodeResult(error_out={'status': code != 0, 'code': code, 'source': source})",
+      "inline": false
     },
     {
       "name": "Find First Error",

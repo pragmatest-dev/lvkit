@@ -10,18 +10,35 @@ Lookup order:
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass
 from pathlib import Path
 
+from pydantic import BaseModel, Field
 
-@dataclass
-class ResolvedPrimitive:
+
+class PrimitiveTerminal(BaseModel):
+    """A terminal on a primitive."""
+    index: int
+    direction: str  # "in" or "out"
+    name: str = ""
+
+
+class PrimitiveEntry(BaseModel):
+    """A primitive entry from JSON."""
+    name: str = ""
+    python_code: str | dict[str, str] | None = None
+    inline: bool = True
+    terminals: list[PrimitiveTerminal] = Field(default_factory=list)
+    guess_reason: str | None = None
+
+
+class ResolvedPrimitive(BaseModel):
     """Resolved primitive with full info."""
-    prim_id: str | None  # primResID if known
-    name: str  # Official or inferred name
-    python_hint: str | dict[str, str]  # Python code or {output_name: expr} for multi-output
-    terminals: list[dict]  # [{index, direction, name}, ...]
-    confidence: str  # "exact_id", "exact_type", "compatible_type", "unknown"
+    prim_id: str | None = None
+    name: str = ""
+    python_code: str | dict[str, str] | None = None
+    inline: bool = True
+    terminals: list[PrimitiveTerminal] = Field(default_factory=list)
+    confidence: str = "unknown"
     description: str = ""
 
 
@@ -181,8 +198,9 @@ class PrimitiveResolver:
                 return ResolvedPrimitive(
                     prim_id=prim_id_str,
                     name=prim.get("name", f"primitive_{prim_id}"),
-                    python_hint=prim.get("python", ""),
-                    terminals=prim.get("terminals", []),
+                    python_code=prim.get("python_code", ""),
+                    inline=prim.get("inline", True),
+                    terminals=[PrimitiveTerminal.model_validate(t) for t in prim.get("terminals", [])],
                     confidence="exact_id",
                     description=prim.get("guess_reason", ""),
                 )
@@ -204,7 +222,7 @@ class PrimitiveResolver:
             return ResolvedPrimitive(
                 prim_id=str(prim_id),
                 name=f"unknown_primitive_{prim_id}",
-                python_hint="# TODO: unknown primitive",
+                python_code="# TODO: unknown primitive",
                 terminals=[],
                 confidence="unknown",
             )
@@ -226,8 +244,9 @@ class PrimitiveResolver:
             return ResolvedPrimitive(
                 prim_id=prim.get("id") or prim.get("prim_id"),
                 name=prim.get("name", name),
-                python_hint=prim.get("python", ""),
-                terminals=prim.get("terminals", []),
+                python_code=prim.get("python_code", ""),
+                inline=prim.get("inline", True),
+                terminals=[PrimitiveTerminal.model_validate(t) for t in prim.get("terminals", [])],
                 confidence="exact_name",
                 description=prim.get("guess_reason", prim.get("category", "")),
             )
@@ -249,8 +268,9 @@ class PrimitiveResolver:
             return ResolvedPrimitive(
                 prim_id=prim.get("id"),
                 name=prim.get("name", "unknown"),
-                python_hint=prim.get("python", ""),
-                terminals=prim.get("terminals", []),
+                python_code=prim.get("python_code", ""),
+                inline=prim.get("inline", True),
+                terminals=[PrimitiveTerminal.model_validate(t) for t in prim.get("terminals", [])],
                 confidence="exact_type",
             )
 
@@ -268,8 +288,9 @@ class PrimitiveResolver:
             return ResolvedPrimitive(
                 prim_id=best_match.get("id"),
                 name=best_match.get("name", "unknown"),
-                python_hint=best_match.get("python", ""),
-                terminals=best_match.get("terminals", []),
+                python_code=best_match.get("python_code", ""),
+                inline=best_match.get("inline", True),
+                terminals=[PrimitiveTerminal.model_validate(t) for t in best_match.get("terminals", [])],
                 confidence="compatible_type",
             )
 
@@ -322,11 +343,11 @@ class PrimitiveResolver:
             "type_signatures": len(self._by_signature),
         }
 
-    def get_python_hint(self, prim_id: int | str) -> str:
-        """Get Python code hint for a primitive."""
+    def get_python_code(self, prim_id: int | str) -> str:
+        """Get Python code for a primitive."""
         prim = self.get_by_id(prim_id)
         if prim:
-            return prim.get("python", "")
+            return prim.get("python_code", "")
         return ""
 
     def get_terminal_names(self, prim_id: int | str) -> tuple[list[str], list[str]]:

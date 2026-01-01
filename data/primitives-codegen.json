@@ -26,8 +26,9 @@
           "name": "index"
         }
       ],
-      "python": "element = array[index]",
-      "guess_reason": "Expandable indexing - can return multiple elements"
+      "guess_reason": "Expandable indexing - can return multiple elements",
+      "python_code": "element = array[index]",
+      "inline": true
     },
     "1516": {
       "name": "Array Subset",
@@ -53,8 +54,9 @@
           "name": "length"
         }
       ],
-      "python": "subset = array[start:start+length]",
-      "guess_reason": "3in: array, start, length -> subset. Heavily used in 'Slice 1D Array' VIs"
+      "guess_reason": "3in: array, start, length -> subset. Heavily used in 'Slice 1D Array' VIs",
+      "python_code": "subset = array[start:start+length]",
+      "inline": true
     },
     "1050": {
       "name": "Build Array",
@@ -70,14 +72,16 @@
           "name": "array or element (expandable)"
         }
       ],
-      "python": "result = [*arr1, *arr2, elem]  # expandable",
-      "guess_reason": "Expandable array construction. 2+in/1out"
+      "guess_reason": "Expandable array construction. 2+in/1out",
+      "python_code": "result = [*arr1, *arr2, elem]  # expandable",
+      "inline": true
     },
     "1902": {
       "name": "Transpose 2D Array",
       "terminals": [],
-      "python": "np.transpose(array)  # or list(zip(*array))",
-      "guess_reason": "Used in 'Reverse 2D Array', 'Delete Elements' VIs"
+      "guess_reason": "Used in 'Reverse 2D Array', 'Delete Elements' VIs",
+      "python_code": "np.transpose(array)  # or list(zip(*array))",
+      "inline": true
     },
     "1057": {
       "name": "Array Size",
@@ -93,8 +97,9 @@
           "name": "array"
         }
       ],
-      "python": "size = len(array)",
-      "guess_reason": "Used in all 'Slice 1D Array' VIs"
+      "guess_reason": "Used in all 'Slice 1D Array' VIs",
+      "python_code": "size = len(array)",
+      "inline": true
     },
     "1118": {
       "name": "Decrement",
@@ -110,17 +115,29 @@
           "name": "x"
         }
       ],
-      "python": "result = n - 1",
-      "guess_reason": "1in/1out numeric. Used in Slice VIs for index calculation"
+      "guess_reason": "1in/1out numeric. Used in Slice VIs for index calculation",
+      "python_code": "result = n - 1",
+      "inline": true
     },
     "1112": {
       "name": "Not A Path?",
       "terminals": [
-        {"index": 0, "direction": "out", "name": "not a path?"},
-        {"index": 1, "direction": "in", "name": "path"}
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "not a path?"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "path"
+        }
       ],
-      "python": {"not_a_path_": "not bool(path)"},
-      "guess_reason": "Checks if path is empty/invalid. Returns True if path is empty or not set."
+      "guess_reason": "Checks if path is empty/invalid. Returns True if path is empty or not set.",
+      "python_code": {
+        "not_a_path_": "not bool(path)"
+      },
+      "inline": true
     },
     "1051": {
       "name": "Concatenate Strings",
@@ -136,8 +153,9 @@
           "name": "string (expandable)"
         }
       ],
-      "python": "result = str1 + str2  # or [*arr1, *arr2]",
-      "guess_reason": "Polymorphic - works on strings and arrays"
+      "guess_reason": "Polymorphic - works on strings and arrays",
+      "python_code": "result = str1 + str2  # or [*arr1, *arr2]",
+      "inline": true
     },
     "1901": {
       "name": "Delete From Array",
@@ -168,8 +186,9 @@
           "name": "length"
         }
       ],
-      "python": "deleted, remaining = array.pop(index), array",
-      "guess_reason": "Used in 'Remove Duplicates' and 'Search 1D Array'"
+      "guess_reason": "Used in 'Remove Duplicates' and 'Search 1D Array'",
+      "python_code": "deleted, remaining = array.pop(index), array",
+      "inline": true
     },
     "8003": {
       "name": "Open/Create/Replace File",
@@ -200,11 +219,12 @@
           "name": "error in"
         }
       ],
-      "python": {
+      "guess_reason": "8xxx are often compound nodes. Multiple file-related I/O",
+      "python_code": {
         "refnum_out": "open(file_path, operation)",
         "error_out": "{'status': False, 'code': 0, 'source': ''}"
       },
-      "guess_reason": "8xxx are often compound nodes. Multiple file-related I/O"
+      "inline": true
     },
     "1105": {
       "name": "Not Equal?",
@@ -225,8 +245,9 @@
           "name": "y"
         }
       ],
-      "python": "result = x != y",
-      "guess_reason": "Similar to 1102, different comparison"
+      "guess_reason": "Similar to 1102, different comparison",
+      "python_code": "result = x != y",
+      "inline": true
     },
     "1166": {
       "name": "String Subset",
@@ -252,20 +273,23 @@
           "name": "length"
         }
       ],
-      "python": "substring = string[offset:offset+length]",
-      "guess_reason": "Used in 'Get Last PString', substring ops"
+      "guess_reason": "Used in 'Get Last PString', substring ops",
+      "python_code": "substring = string[offset:offset+length]",
+      "inline": true
     },
     "1145": {
       "name": "To More Specific Class",
       "terminals": [],
-      "python": "specific = cast(data, SpecificType)",
-      "guess_reason": "Type coercion in array VIs"
+      "guess_reason": "Type coercion in array VIs",
+      "python_code": "specific = cast(data, SpecificType)",
+      "inline": true
     },
     "1058": {
       "name": "Array To Cluster",
       "terminals": [],
-      "python": "cluster = tuple(array)",
-      "guess_reason": "Converts array to cluster (from OpenG)"
+      "guess_reason": "Converts array to cluster (from OpenG)",
+      "python_code": "cluster = tuple(array)",
+      "inline": true
     },
     "1083": {
       "name": "Not A Path?",
@@ -275,8 +299,9 @@
           "direction": "out"
         }
       ],
-      "python": "Path(__file__).parent  # or sys.executable parent",
-      "guess_reason": "No inputs, single output - returns app dir. Used in Provider_Startup"
+      "guess_reason": "No inputs, single output - returns app dir. Used in Provider_Startup",
+      "python_code": "Path(__file__).parent  # or sys.executable parent",
+      "inline": true
     },
     "1113": {
       "name": "Initialize Array",
@@ -292,8 +317,9 @@
           "name": null
         }
       ],
-      "python": "array = [default_value] * size",
-      "guess_reason": "Changes array dimensions (from OpenG)"
+      "guess_reason": "Changes array dimensions (from OpenG)",
+      "python_code": "array = [default_value] * size",
+      "inline": true
     },
     "1535": {
       "name": "Match Pattern",
@@ -334,8 +360,9 @@
           "name": "offset"
         }
       ],
-      "python": "match, before, after = re.match(pattern, string).groups()",
-      "guess_reason": "Pattern matching with offsets"
+      "guess_reason": "Pattern matching with offsets",
+      "python_code": "match, before, after = re.match(pattern, string).groups()",
+      "inline": true
     },
     "1102": {
       "name": "Equal?",
@@ -356,8 +383,9 @@
           "name": "y"
         }
       ],
-      "python": "result = x == y",
-      "guess_reason": "Two inputs, one output - comparison operation"
+      "guess_reason": "Two inputs, one output - comparison operation",
+      "python_code": "result = x == y",
+      "inline": true
     },
     "8201": {
       "name": "Variant To Data",
@@ -373,8 +401,9 @@
           "name": null
         }
       ],
-      "python": "data = variant.value",
-      "guess_reason": "Used in 'Cluster to LabVIEW Object'"
+      "guess_reason": "Used in 'Cluster to LabVIEW Object'",
+      "python_code": "data = variant.value",
+      "inline": true
     },
     "1900": {
       "name": "Sort 1D Array",
@@ -390,8 +419,9 @@
           "name": "array"
         }
       ],
-      "python": "sorted_array = sorted(array)",
-      "guess_reason": "Used in Sort VIs"
+      "guess_reason": "Used in Sort VIs",
+      "python_code": "sorted_array = sorted(array)",
+      "inline": true
     },
     "1110": {
       "name": "Greater?",
@@ -412,8 +442,9 @@
           "name": "timer value"
         }
       ],
-      "python": "result = x > y",
-      "guess_reason": "Comparison for sorting"
+      "guess_reason": "Comparison for sorting",
+      "python_code": "result = x > y",
+      "inline": true
     },
     "1056": {
       "name": "Split Array",
@@ -439,8 +470,9 @@
           "name": null
         }
       ],
-      "python": "# TODO",
-      "guess_reason": "1 array in, 2 arrays out - splitting (from OpenG)"
+      "guess_reason": "1 array in, 2 arrays out - splitting (from OpenG)",
+      "python_code": "# TODO",
+      "inline": true
     },
     "1052": {
       "name": "Variant To Data",
@@ -458,8 +490,9 @@
           "direction": "in"
         }
       ],
-      "python": "data = variant.value",
-      "guess_reason": "Used in 'Array to Set', variant operations"
+      "guess_reason": "Used in 'Array to Set', variant operations",
+      "python_code": "data = variant.value",
+      "inline": true
     },
     "8011": {
       "name": "Write To Text File",
@@ -477,8 +510,9 @@
           "direction": "in"
         }
       ],
-      "python": "path.write_text(text)",
-      "guess_reason": "Very common (25 uses). File + data inputs"
+      "guess_reason": "Very common (25 uses). File + data inputs",
+      "python_code": "path.write_text(text)",
+      "inline": true
     },
     "8202": {
       "name": "To Variant",
@@ -509,8 +543,9 @@
           "name": null
         }
       ],
-      "python": "variant = Variant(data)",
-      "guess_reason": "Used in variant VIs"
+      "guess_reason": "Used in variant VIs",
+      "python_code": "variant = Variant(data)",
+      "inline": true
     },
     "1503": {
       "name": "Replace Substring",
@@ -536,8 +571,9 @@
           "name": "String"
         }
       ],
-      "python": "result = string[:offset] + replacement + string[offset+length:]",
-      "guess_reason": "String manipulation"
+      "guess_reason": "String manipulation",
+      "python_code": "result = string[:offset] + replacement + string[offset+length:]",
+      "inline": true
     },
     "1114": {
       "name": "Delete Elements",
@@ -551,14 +587,16 @@
           "direction": "in"
         }
       ],
-      "python": "array[~mask]",
-      "guess_reason": "Conditional delete"
+      "guess_reason": "Conditional delete",
+      "python_code": "array[~mask]",
+      "inline": true
     },
     "1120": {
       "name": "Rotate Array",
       "terminals": [],
-      "python": "array[n:] + array[:n]",
-      "guess_reason": "Used in Sort VIs"
+      "guess_reason": "Used in Sort VIs",
+      "python_code": "array[n:] + array[:n]",
+      "inline": true
     },
     "1419": {
       "name": "Build Path",
@@ -579,7 +617,8 @@
           "name": "base path"
         }
       ],
-      "python": "appended_path = base_path / name_or_relative_path  # pathlib"
+      "python_code": "appended_path = base_path / name_or_relative_path  # pathlib",
+      "inline": true
     },
     "1167": {
       "name": "Auto-Indexing Tunnel",
@@ -595,8 +634,9 @@
           "name": "Elements to keep"
         }
       ],
-      "python": "for item in array",
-      "guess_reason": "Loop iteration"
+      "guess_reason": "Loop iteration",
+      "python_code": "for item in array",
+      "inline": true
     },
     "8203": {
       "name": "Get Type Info",
@@ -617,8 +657,9 @@
           "name": null
         }
       ],
-      "python": "type(value)",
-      "guess_reason": "Gets type descriptor"
+      "guess_reason": "Gets type descriptor",
+      "python_code": "type(value)",
+      "inline": true
     },
     "1062": {
       "name": "Decimate Array",
@@ -639,8 +680,9 @@
           "name": null
         }
       ],
-      "python": "# TODO",
-      "guess_reason": "Used in GIF reader for frame extraction (from OpenG)"
+      "guess_reason": "Used in GIF reader for frame extraction (from OpenG)",
+      "python_code": "# TODO",
+      "inline": true
     },
     "1141": {
       "name": "To More Generic Class",
@@ -656,8 +698,9 @@
           "name": "border spacing (2 px)"
         }
       ],
-      "python": "generic = cast(data, GenericType)",
-      "guess_reason": "Type coercion"
+      "guess_reason": "Type coercion",
+      "python_code": "generic = cast(data, GenericType)",
+      "inline": true
     },
     "1910": {
       "name": "Reshape Array",
@@ -673,8 +716,9 @@
           "name": null
         }
       ],
-      "python": "len(array) == 0",
-      "guess_reason": "Array input, boolean output"
+      "guess_reason": "Array input, boolean output",
+      "python_code": "len(array) == 0",
+      "inline": true
     },
     "8010": {
       "name": "Read From Text File",
@@ -720,14 +764,16 @@
           "name": null
         }
       ],
-      "python": "text = path.read_text()",
-      "guess_reason": "File operation, multiple outputs (data, error)"
+      "guess_reason": "File operation, multiple outputs (data, error)",
+      "python_code": "text = path.read_text()",
+      "inline": true
     },
     "1142": {
       "name": "Build Array (polymorphic)",
       "terminals": [],
-      "python": "# flexible array building",
-      "guess_reason": "Multi-type array build"
+      "guess_reason": "Multi-type array build",
+      "python_code": "# flexible array building",
+      "inline": true
     },
     "1903": {
       "name": "Array Subset",
@@ -741,8 +787,9 @@
           "direction": "in"
         }
       ],
-      "python": "array[start:end]",
-      "guess_reason": "Gets portion of array"
+      "guess_reason": "Gets portion of array",
+      "python_code": "array[start:end]",
+      "inline": true
     },
     "1061": {
       "name": "Add",
@@ -763,8 +810,9 @@
           "name": "Z"
         }
       ],
-      "python": "a + b",
-      "guess_reason": "Numeric add"
+      "guess_reason": "Numeric add",
+      "python_code": "a + b",
+      "inline": true
     },
     "1165": {
       "name": "Flatten To String",
@@ -810,8 +858,9 @@
           "name": "queue element"
         }
       ],
-      "python": "pickle.dumps() or struct.pack()",
-      "guess_reason": "Serialization"
+      "guess_reason": "Serialization",
+      "python_code": "pickle.dumps() or struct.pack()",
+      "inline": true
     },
     "1502": {
       "name": "String Length",
@@ -827,8 +876,9 @@
           "name": "Input String"
         }
       ],
-      "python": "length = len(string)",
-      "guess_reason": "Numeric to string conversion in Get Platform Path Separator"
+      "guess_reason": "Numeric to string conversion in Get Platform Path Separator",
+      "python_code": "length = len(string)",
+      "inline": true
     },
     "1164": {
       "name": "Unflatten From String",
@@ -869,8 +919,9 @@
           "name": "Object in"
         }
       ],
-      "python": "pickle.loads() or struct.unpack()",
-      "guess_reason": "Deserialization"
+      "guess_reason": "Deserialization",
+      "python_code": "pickle.loads() or struct.unpack()",
+      "inline": true
     },
     "1608": {
       "name": "Flatten To Stream",
@@ -886,14 +937,16 @@
           "name": "String"
         }
       ],
-      "python": "# binary serialization",
-      "guess_reason": "Stream operations"
+      "guess_reason": "Stream operations",
+      "python_code": "# binary serialization",
+      "inline": true
     },
     "1081": {
       "name": "Multiply",
       "terminals": [],
-      "python": "a * b",
-      "guess_reason": "Numeric multiply"
+      "guess_reason": "Numeric multiply",
+      "python_code": "a * b",
+      "inline": true
     },
     "1170": {
       "name": "Get Type Descriptor Info",
@@ -914,8 +967,9 @@
           "name": "Waveform Subtype Enum"
         }
       ],
-      "python": "# introspection",
-      "guess_reason": "Type introspection"
+      "guess_reason": "Type introspection",
+      "python_code": "# introspection",
+      "inline": true
     },
     "1064": {
       "name": "String To Path",
@@ -931,14 +985,16 @@
           "name": null
         }
       ],
-      "python": "path = Path(string)",
-      "guess_reason": "Inverse of Path To String, used when creating paths from user input"
+      "guess_reason": "Inverse of Path To String, used when creating paths from user input",
+      "python_code": "path = Path(string)",
+      "inline": true
     },
     "1143": {
       "name": "Coerce To Type",
       "terminals": [],
-      "python": "# type coercion",
-      "guess_reason": "Type operations"
+      "guess_reason": "Type operations",
+      "python_code": "# type coercion",
+      "inline": true
     },
     "1117": {
       "name": "Rotate 2D Array",
@@ -954,8 +1010,9 @@
           "name": "offset in (0)"
         }
       ],
-      "python": "# 2D rotation",
-      "guess_reason": "2D array rotation"
+      "guess_reason": "2D array rotation",
+      "python_code": "# 2D rotation",
+      "inline": true
     },
     "1537": {
       "name": "Format Into String",
@@ -971,37 +1028,85 @@
           "name": null
         }
       ],
-      "python": "formatted = f'{value:format}'",
-      "guess_reason": "Number formatting"
+      "guess_reason": "Number formatting",
+      "python_code": "formatted = f'{value:format}'",
+      "inline": true
     },
     "1111": {
       "name": "Index 2D Array",
       "terminals": [],
-      "python": "array_2d[row][col]",
-      "guess_reason": "2D indexing"
+      "guess_reason": "2D indexing",
+      "python_code": "array_2d[row][col]",
+      "inline": true
     },
     "1609": {
       "name": "Unflatten From Stream",
       "terminals": [],
-      "python": "# binary deserialization",
-      "guess_reason": "Stream operations"
+      "guess_reason": "Stream operations",
+      "python_code": "# binary deserialization",
+      "inline": true
     },
     "8082": {
       "name": "File/Directory Info",
       "terminals": [
-        {"index": 0, "direction": "out", "name": "size"},
-        {"index": 1, "direction": "out", "name": "last modification"},
-        {"index": 2, "direction": "out", "name": "is folder?"},
-        {"index": 3, "direction": "out", "name": "path"},
-        {"index": 4, "direction": "out", "name": "shortcut?"},
-        {"index": 5, "direction": "out", "name": "resolved path"},
-        {"index": 6, "direction": "out", "name": "creation date"},
-        {"index": 8, "direction": "in", "name": "type"},
-        {"index": 11, "direction": "in", "name": "path"},
-        {"index": 12, "direction": "in", "name": "error in"},
-        {"index": 13, "direction": "out", "name": "error out"}
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "size"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "last modification"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "is folder?"
+        },
+        {
+          "index": 3,
+          "direction": "out",
+          "name": "path"
+        },
+        {
+          "index": 4,
+          "direction": "out",
+          "name": "shortcut?"
+        },
+        {
+          "index": 5,
+          "direction": "out",
+          "name": "resolved path"
+        },
+        {
+          "index": 6,
+          "direction": "out",
+          "name": "creation date"
+        },
+        {
+          "index": 8,
+          "direction": "in",
+          "name": "type"
+        },
+        {
+          "index": 11,
+          "direction": "in",
+          "name": "path"
+        },
+        {
+          "index": 12,
+          "direction": "in",
+          "name": "error in"
+        },
+        {
+          "index": 13,
+          "direction": "out",
+          "name": "error out"
+        }
       ],
-      "python": {
+      "guess_reason": "Returns file/directory metadata including size, timestamps, type info. idx=11 is path input, idx=3 is path passthrough output.",
+      "python_code": {
         "_body": "_stat = Path(path).stat() if (path and Path(path).exists()) else None",
         "size": "_stat.st_size if _stat else 0",
         "last_modification": "_stat.st_mtime if _stat else 0.0",
@@ -1012,19 +1117,21 @@
         "creation_date": "_stat.st_ctime if _stat else 0.0",
         "error_out": "error_in"
       },
-      "guess_reason": "Returns file/directory metadata including size, timestamps, type info. idx=11 is path input, idx=3 is path passthrough output."
+      "inline": true
     },
     "1044": {
       "name": "Split 1D Array",
       "terminals": [],
-      "python": "array[:n], array[n:]",
-      "guess_reason": "Used in Sort array VIs"
+      "guess_reason": "Used in Sort array VIs",
+      "python_code": "array[:n], array[n:]",
+      "inline": true
     },
     "1144": {
       "name": "Set Type Descriptor",
       "terminals": [],
-      "python": "# type manipulation",
-      "guess_reason": "Used in 'Set Enum String Value'"
+      "guess_reason": "Used in 'Set Enum String Value'",
+      "python_code": "# type manipulation",
+      "inline": true
     },
     "1147": {
       "name": "Flatten/Unflatten",
@@ -1040,23 +1147,36 @@
           "name": "bytes to read"
         }
       ],
-      "python": "struct.pack/unpack",
-      "guess_reason": "Used in 'LF Read File' VIs"
+      "guess_reason": "Used in 'LF Read File' VIs",
+      "python_code": "struct.pack/unpack",
+      "inline": true
     },
     "1128": {
       "name": "Refnum To Path",
       "terminals": [
-        {"index": 0, "direction": "out", "name": "path"},
-        {"index": 1, "direction": "in", "name": "refnum"}
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "path"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "refnum"
+        }
       ],
-      "python": {"path": "Path(refnum) if refnum else None"},
-      "guess_reason": "Converts refnum to path. If input is already a path, passes through."
+      "guess_reason": "Converts refnum to path. If input is already a path, passes through.",
+      "python_code": {
+        "path": "Path(refnum) if refnum else None"
+      },
+      "inline": true
     },
     "1510": {
       "name": "Quotient & Remainder",
       "terminals": [],
-      "python": "divmod(a, b)",
-      "guess_reason": "Used in 'Number to Proper Engl Text'"
+      "guess_reason": "Used in 'Number to Proper Engl Text'",
+      "python_code": "divmod(a, b)",
+      "inline": true
     },
     "1420": {
       "name": "Strip Path",
@@ -1077,16 +1197,18 @@
           "name": "name"
         }
       ],
-      "python": {
+      "python_code": {
         "stripped_path": "path.parent",
         "name": "path.name"
-      }
+      },
+      "inline": true
     },
     "1171": {
       "name": "Logical Shift",
       "terminals": [],
-      "python": "x << n or x >> n",
-      "guess_reason": "Bit operations in GIF/compression"
+      "guess_reason": "Bit operations in GIF/compression",
+      "python_code": "x << n or x >> n",
+      "inline": true
     },
     "1423": {
       "name": "Search/Split String",
@@ -1104,8 +1226,9 @@
           "direction": "out"
         }
       ],
-      "python": "string.split(pattern) or string.find(pattern)",
-      "guess_reason": "Used in Get Platform Path Separator, splits on pattern"
+      "guess_reason": "Used in Get Platform Path Separator, splits on pattern",
+      "python_code": "string.split(pattern) or string.find(pattern)",
+      "inline": true
     },
     "8056": {
       "name": "Move File",
@@ -1151,8 +1274,9 @@
           "name": null
         }
       ],
-      "python": "shutil.move(src, dst)",
-      "guess_reason": "File move in 'Force File Move'"
+      "guess_reason": "File move in 'Force File Move'",
+      "python_code": "shutil.move(src, dst)",
+      "inline": true
     },
     "1223": {
       "name": "Not (Bitwise)",
@@ -1168,8 +1292,9 @@
           "name": "Bits"
         }
       ],
-      "python": "~x",
-      "guess_reason": "Bit operations in LZW compression"
+      "guess_reason": "Bit operations in LZW compression",
+      "python_code": "~x",
+      "inline": true
     },
     "1911": {
       "name": "Array Length",
@@ -1183,26 +1308,30 @@
           "direction": "in"
         }
       ],
-      "python": "len(array)",
-      "guess_reason": "Array input, numeric output - similar to 1189"
+      "guess_reason": "Array input, numeric output - similar to 1189",
+      "python_code": "len(array)",
+      "inline": true
     },
     "1904": {
       "name": "Reshape Array (to 1D)",
       "terminals": [],
-      "python": "array.flatten()",
-      "guess_reason": "Used in 'MultiD Array to 1D'"
+      "guess_reason": "Used in 'MultiD Array to 1D'",
+      "python_code": "array.flatten()",
+      "inline": true
     },
     "1054": {
       "name": "Reverse 1D Array",
       "terminals": [],
-      "python": "array[::-1]",
-      "guess_reason": "Used in Sort array VIs"
+      "guess_reason": "Used in Sort array VIs",
+      "python_code": "array[::-1]",
+      "inline": true
     },
     "1999": {
       "name": "Not A Path",
       "terminals": [],
-      "python": "None  # empty/invalid path",
-      "guess_reason": "Constant used in error building"
+      "guess_reason": "Constant used in error building",
+      "python_code": "None  # empty/invalid path",
+      "inline": true
     },
     "8205": {
       "name": "Variant Attribute",
@@ -1248,8 +1377,9 @@
           "name": null
         }
       ],
-      "python": "variant.get_attr(name)",
-      "guess_reason": "Used in 'Format Variant Into String'"
+      "guess_reason": "Used in 'Format Variant Into String'",
+      "python_code": "variant.get_attr(name)",
+      "inline": true
     },
     "3914": {
       "name": "Format/Scan String (multi)",
@@ -1315,8 +1445,9 @@
           "name": null
         }
       ],
-      "python": "format or parse",
-      "guess_reason": "Used in 'Encode Section and Key Names'"
+      "guess_reason": "Used in 'Encode Section and Key Names'",
+      "python_code": "format or parse",
+      "inline": true
     },
     "1189": {
       "name": "Array Size",
@@ -1332,37 +1463,69 @@
           "name": null
         }
       ],
-      "python": "len(array)",
-      "guess_reason": "Single array input, numeric output"
+      "guess_reason": "Single array input, numeric output",
+      "python_code": "len(array)",
+      "inline": true
     },
     "1907": {
       "name": "Array Max & Min",
       "terminals": [],
-      "python": "max(array), min(array)",
-      "guess_reason": "Used in 'Fit VI window'"
+      "guess_reason": "Used in 'Fit VI window'",
+      "python_code": "max(array), min(array)",
+      "inline": true
     },
     "8076": {
       "name": "Check If File or Folder Exists",
       "terminals": [
-        {"index": 0, "direction": "out", "name": "exists?"},
-        {"index": 3, "direction": "out", "name": "error out"},
-        {"index": 7, "direction": "in", "name": "path"},
-        {"index": 8, "direction": "in", "name": "path_dup"},
-        {"index": 9, "direction": "in", "name": "unused_9"},
-        {"index": 10, "direction": "in", "name": "unused_10"},
-        {"index": 11, "direction": "in", "name": "error in"}
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "exists?"
+        },
+        {
+          "index": 3,
+          "direction": "out",
+          "name": "error out"
+        },
+        {
+          "index": 7,
+          "direction": "in",
+          "name": "path"
+        },
+        {
+          "index": 8,
+          "direction": "in",
+          "name": "path_dup"
+        },
+        {
+          "index": 9,
+          "direction": "in",
+          "name": "unused_9"
+        },
+        {
+          "index": 10,
+          "direction": "in",
+          "name": "unused_10"
+        },
+        {
+          "index": 11,
+          "direction": "in",
+          "name": "error in"
+        }
       ],
-      "python": {
+      "guess_reason": "File/folder existence check - alternate connector pane with all inputs",
+      "python_code": {
         "exists_": "Path(path).exists() if path else False",
         "error_out": "error_in"
       },
-      "guess_reason": "File/folder existence check - alternate connector pane with all inputs"
+      "inline": true
     },
     "1103": {
       "name": "Greater Or Equal?",
       "terminals": [],
-      "python": "result = x >= y",
-      "guess_reason": "Comparison in 'Number to Proper Engl Text'"
+      "guess_reason": "Comparison in 'Number to Proper Engl Text'",
+      "python_code": "result = x >= y",
+      "inline": true
     },
     "1116": {
       "name": "Get Refnum Info",
@@ -1378,8 +1541,9 @@
           "name": "Exclude Levels (call chain=-1)"
         }
       ],
-      "python": "# refnum introspection",
-      "guess_reason": "Used in 'File Info', 'Find VI'"
+      "guess_reason": "Used in 'File Info', 'Find VI'",
+      "python_code": "# refnum introspection",
+      "inline": true
     },
     "1538": {
       "name": "Scan From String",
@@ -1415,8 +1579,9 @@
           "name": "string"
         }
       ],
-      "python": "values = sscanf(string, format)",
-      "guess_reason": "Used in 'Search or Split String'"
+      "guess_reason": "Used in 'Search or Split String'",
+      "python_code": "values = sscanf(string, format)",
+      "inline": true
     },
     "1300": {
       "name": "Tick Count (ms)",
@@ -1427,14 +1592,16 @@
           "name": "millisecond timer value"
         }
       ],
-      "python": "ms = int(time.time() * 1000)",
-      "guess_reason": "Timing constant in 'Periodic Trigger'"
+      "guess_reason": "Timing constant in 'Periodic Trigger'",
+      "python_code": "ms = int(time.time() * 1000)",
+      "inline": true
     },
     "8053": {
       "name": "Copy File",
       "terminals": [],
-      "python": "shutil.copy(src, dst)",
-      "guess_reason": "File copy operation"
+      "guess_reason": "File copy operation",
+      "python_code": "shutil.copy(src, dst)",
+      "inline": true
     },
     "8050": {
       "name": "Read From Binary File",
@@ -1476,8 +1643,9 @@
           "direction": "in"
         }
       ],
-      "python": "data = file.read(num_bytes)",
-      "guess_reason": "Binary file read"
+      "guess_reason": "Binary file read",
+      "python_code": "data = file.read(num_bytes)",
+      "inline": true
     },
     "8052": {
       "name": "Write To Binary File",
@@ -1499,8 +1667,9 @@
           "direction": "in"
         }
       ],
-      "python": "file.write(data)",
-      "guess_reason": "Binary file write"
+      "guess_reason": "Binary file write",
+      "python_code": "file.write(data)",
+      "inline": true
     },
     "1340": {
       "name": "Unbundle",
@@ -1518,8 +1687,9 @@
           "direction": "in"
         }
       ],
-      "python": "# Destructure tuple/dataclass",
-      "guess_reason": "One input, two outputs - extracts cluster fields"
+      "guess_reason": "One input, two outputs - extracts cluster fields",
+      "python_code": "# Destructure tuple/dataclass",
+      "inline": true
     },
     "1302": {
       "name": "Bundle",
@@ -1533,26 +1703,30 @@
           "direction": "in"
         }
       ],
-      "python": "# Create tuple/dataclass",
-      "guess_reason": "Creates cluster from components"
+      "guess_reason": "Creates cluster from components",
+      "python_code": "# Create tuple/dataclass",
+      "inline": true
     },
     "1163": {
       "name": "String To Byte Array",
       "terminals": [],
-      "python": "string.encode()",
-      "guess_reason": "Used in MD5 VIs"
+      "guess_reason": "Used in MD5 VIs",
+      "python_code": "string.encode()",
+      "inline": true
     },
     "1162": {
       "name": "Byte Array To String",
       "terminals": [],
-      "python": "bytes.decode()",
-      "guess_reason": "Used in MD5 VIs"
+      "guess_reason": "Used in MD5 VIs",
+      "python_code": "bytes.decode()",
+      "inline": true
     },
     "1422": {
       "name": "Path To Array Of Strings",
       "terminals": [],
-      "python": "str(path).split(os.sep)",
-      "guess_reason": "Path decomposition"
+      "guess_reason": "Path decomposition",
+      "python_code": "str(path).split(os.sep)",
+      "inline": true
     },
     "1540": {
       "name": "Format Value",
@@ -1578,14 +1752,16 @@
           "name": null
         }
       ],
-      "python": "str(value)  # with format",
-      "guess_reason": "Used in 'Build Error Cluster'"
+      "guess_reason": "Used in 'Build Error Cluster'",
+      "python_code": "str(value)  # with format",
+      "inline": true
     },
     "1539": {
       "name": "Scan Value",
       "terminals": [],
-      "python": "parse(string)",
-      "guess_reason": "Used in 'String to 1D Array'"
+      "guess_reason": "Used in 'String to 1D Array'",
+      "python_code": "parse(string)",
+      "inline": true
     },
     "8083": {
       "name": "List Folder",
@@ -1631,8 +1807,9 @@
           "name": null
         }
       ],
-      "python": "files, folders = os.listdir(path)",
-      "guess_reason": "Directory listing"
+      "guess_reason": "Directory listing",
+      "python_code": "files, folders = os.listdir(path)",
+      "inline": true
     },
     "1108": {
       "name": "Less Or Equal?",
@@ -1658,13 +1835,15 @@
           "name": "High"
         }
       ],
-      "python": "result = x <= y",
-      "guess_reason": "Comparison in 'Merge Array Sizes'"
+      "guess_reason": "Comparison in 'Merge Array Sizes'",
+      "python_code": "result = x <= y",
+      "inline": true
     },
     "8204": {
       "name": "Unknown_8204",
       "terminals": [],
-      "python": "# TODO: identify this primitive"
+      "python_code": "# TODO: identify this primitive",
+      "inline": true
     },
     "1077": {
       "name": "Path Type",
@@ -1680,23 +1859,27 @@
           "name": "vi path"
         }
       ],
-      "python": "# Returns path type (absolute, relative, etc.)",
-      "guess_reason": "Single input path, single output - likely returns path type info"
+      "guess_reason": "Single input path, single output - likely returns path type info",
+      "python_code": "# Returns path type (absolute, relative, etc.)",
+      "inline": true
     },
     "8065": {
       "name": "Unknown_8065",
       "terminals": [],
-      "python": "# TODO: identify this primitive"
+      "python_code": "# TODO: identify this primitive",
+      "inline": true
     },
     "1425": {
       "name": "Unknown_1425",
       "terminals": [],
-      "python": "# TODO: identify this primitive"
+      "python_code": "# TODO: identify this primitive",
+      "inline": true
     },
     "1104": {
       "name": "Unknown_1104",
       "terminals": [],
-      "python": "# TODO: identify this primitive"
+      "python_code": "# TODO: identify this primitive",
+      "inline": true
     },
     "1426": {
       "name": "Empty Path Constant",
@@ -1706,8 +1889,9 @@
           "direction": "out"
         }
       ],
-      "python": "Path()",
-      "guess_reason": "No inputs, path output - empty or default path"
+      "guess_reason": "No inputs, path output - empty or default path",
+      "python_code": "Path()",
+      "inline": true
     },
     "1078": {
       "name": "Path To String",
@@ -1721,8 +1905,9 @@
           "direction": "in"
         }
       ],
-      "python": "string = str(path)",
-      "guess_reason": "Used in 'VITester Toolbar Icon Paths', path->string conversion common"
+      "guess_reason": "Used in 'VITester Toolbar Icon Paths', path->string conversion common",
+      "python_code": "string = str(path)",
+      "inline": true
     },
     "8058": {
       "name": "Unknown_8058",
@@ -1772,37 +1957,44 @@
           "direction": "in"
         }
       ],
-      "python": "# TODO: identify this primitive"
+      "python_code": "# TODO: identify this primitive",
+      "inline": true
     },
     "8018": {
       "name": "Unknown_8018",
       "terminals": [],
-      "python": "# TODO: identify this primitive"
+      "python_code": "# TODO: identify this primitive",
+      "inline": true
     },
     "1076": {
       "name": "Unknown_1076",
       "terminals": [],
-      "python": "# TODO: identify this primitive"
+      "python_code": "# TODO: identify this primitive",
+      "inline": true
     },
     "8051": {
       "name": "Unknown_8051",
       "terminals": [],
-      "python": "# TODO: identify this primitive"
+      "python_code": "# TODO: identify this primitive",
+      "inline": true
     },
     "1155": {
       "name": "Unknown_1155",
       "terminals": [],
-      "python": "# TODO: identify this primitive"
+      "python_code": "# TODO: identify this primitive",
+      "inline": true
     },
     "1146": {
       "name": "Unknown_1146",
       "terminals": [],
-      "python": "# TODO: identify this primitive"
+      "python_code": "# TODO: identify this primitive",
+      "inline": true
     },
     "1149": {
       "name": "Unknown_1149",
       "terminals": [],
-      "python": "# TODO: identify this primitive"
+      "python_code": "# TODO: identify this primitive",
+      "inline": true
     },
     "1053": {
       "name": "Unknown_1053",
@@ -1820,236 +2012,304 @@
           "direction": "in"
         }
       ],
-      "python": "# TODO: identify this primitive"
+      "python_code": "# TODO: identify this primitive",
+      "inline": true
     },
     "1906": {
       "name": "Unknown_1906",
       "terminals": [],
-      "python": "# TODO: identify this primitive"
+      "python_code": "# TODO: identify this primitive",
+      "inline": true
     },
     "8068": {
       "name": "Unknown_8068",
       "terminals": [],
-      "python": "# TODO: identify this primitive"
+      "python_code": "# TODO: identify this primitive",
+      "inline": true
     },
     "1188": {
       "name": "Unknown_1188",
       "terminals": [],
-      "python": "# TODO: identify this primitive"
+      "python_code": "# TODO: identify this primitive",
+      "inline": true
     },
     "1063": {
       "name": "Unknown_1063",
       "terminals": [],
-      "python": "# TODO: identify this primitive"
+      "python_code": "# TODO: identify this primitive",
+      "inline": true
     },
     "1070": {
       "name": "Unknown_1070",
       "terminals": [],
-      "python": "# TODO: identify this primitive"
+      "python_code": "# TODO: identify this primitive",
+      "inline": true
     },
     "1115": {
       "name": "Unknown_1115",
       "terminals": [],
-      "python": "# TODO: identify this primitive"
+      "python_code": "# TODO: identify this primitive",
+      "inline": true
     },
     "1069": {
       "name": "Unknown_1069",
       "terminals": [],
-      "python": "# TODO: identify this primitive"
+      "python_code": "# TODO: identify this primitive",
+      "inline": true
     },
     "1075": {
       "name": "Unknown_1075",
       "terminals": [],
-      "python": "# TODO: identify this primitive"
+      "python_code": "# TODO: identify this primitive",
+      "inline": true
     },
     "1225": {
       "name": "Unknown_1225",
       "terminals": [],
-      "python": "# TODO: identify this primitive"
+      "python_code": "# TODO: identify this primitive",
+      "inline": true
     },
     "1140": {
       "name": "Unknown_1140",
       "terminals": [],
-      "python": "# TODO: identify this primitive"
+      "python_code": "# TODO: identify this primitive",
+      "inline": true
     },
     "1156": {
       "name": "Unknown_1156",
       "terminals": [],
-      "python": "# TODO: identify this primitive"
+      "python_code": "# TODO: identify this primitive",
+      "inline": true
     },
     "1151": {
       "name": "Unknown_1151",
       "terminals": [],
-      "python": "# TODO: identify this primitive"
+      "python_code": "# TODO: identify this primitive",
+      "inline": true
     },
     "1154": {
       "name": "Unknown_1154",
       "terminals": [],
-      "python": "# TODO: identify this primitive"
+      "python_code": "# TODO: identify this primitive",
+      "inline": true
     },
     "8073": {
       "name": "Unknown_8073",
       "terminals": [],
-      "python": "# TODO: identify this primitive"
+      "python_code": "# TODO: identify this primitive",
+      "inline": true
     },
     "1815": {
       "name": "Unknown_1815",
       "terminals": [],
-      "python": "# TODO: identify this primitive"
+      "python_code": "# TODO: identify this primitive",
+      "inline": true
     },
     "1814": {
       "name": "Unknown_1814",
       "terminals": [],
-      "python": "# TODO: identify this primitive"
+      "python_code": "# TODO: identify this primitive",
+      "inline": true
     },
     "1184": {
       "name": "Unknown_1184",
       "terminals": [],
-      "python": "# TODO: identify this primitive"
+      "python_code": "# TODO: identify this primitive",
+      "inline": true
     },
     "1341": {
       "name": "Bundle By Name",
       "terminals": [],
-      "python": "# TODO",
-      "guess_reason": "3 inputs, 1 cluster output (from OpenG)"
+      "guess_reason": "3 inputs, 1 cluster output (from OpenG)",
+      "python_code": "# TODO",
+      "inline": true
     },
     "8055": {
       "name": "Create Folder",
       "terminals": [
-        {"index": 0, "direction": "out", "name": "new path"},
-        {"index": 1, "direction": "out", "name": "already existed?"},
-        {"index": 3, "direction": "out", "name": "error out"},
-        {"index": 7, "direction": "in", "name": "path"},
-        {"index": 8, "direction": "in", "name": "error in"},
-        {"index": 11, "direction": "in", "name": "path"}
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "new path"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "already existed?"
+        },
+        {
+          "index": 3,
+          "direction": "out",
+          "name": "error out"
+        },
+        {
+          "index": 7,
+          "direction": "in",
+          "name": "path"
+        },
+        {
+          "index": 8,
+          "direction": "in",
+          "name": "error in"
+        },
+        {
+          "index": 11,
+          "direction": "in",
+          "name": "path"
+        }
       ],
-      "python": {
+      "guess_reason": "Creates folder. idx=7 OR idx=11 can be path input (connector pane variant).",
+      "python_code": {
         "_body": "Path(path).mkdir(parents=True, exist_ok=True)",
         "new_path": "Path(path)",
         "already_existed_": "path.exists() if path else False",
         "error_out": "error_in"
       },
-      "guess_reason": "Creates folder. idx=7 OR idx=11 can be path input (connector pane variant)."
+      "inline": true
     },
     "8063": {
       "name": "Unknown_8063",
       "terminals": [],
-      "python": "# TODO: identify this primitive"
+      "python_code": "# TODO: identify this primitive",
+      "inline": true
     },
     "1126": {
       "name": "Unknown_1126",
       "terminals": [],
-      "python": "# TODO: identify this primitive"
+      "python_code": "# TODO: identify this primitive",
+      "inline": true
     },
     "1427": {
       "name": "Unknown_1427",
       "terminals": [],
-      "python": "# TODO: identify this primitive"
+      "python_code": "# TODO: identify this primitive",
+      "inline": true
     },
     "1082": {
       "name": "Unknown_1082",
       "terminals": [],
-      "python": "# TODO: identify this primitive"
+      "python_code": "# TODO: identify this primitive",
+      "inline": true
     },
     "8016": {
       "name": "Unknown_8016",
       "terminals": [],
-      "python": "# TODO: identify this primitive"
+      "python_code": "# TODO: identify this primitive",
+      "inline": true
     },
     "1421": {
       "name": "Unknown_1421",
       "terminals": [],
-      "python": "# TODO: identify this primitive"
+      "python_code": "# TODO: identify this primitive",
+      "inline": true
     },
     "2401": {
       "name": "Unknown_2401",
       "terminals": [],
-      "python": "# TODO: identify this primitive"
+      "python_code": "# TODO: identify this primitive",
+      "inline": true
     },
     "1181": {
       "name": "Unknown_1181",
       "terminals": [],
-      "python": "# TODO: identify this primitive"
+      "python_code": "# TODO: identify this primitive",
+      "inline": true
     },
     "1072": {
       "name": "Unknown_1072",
       "terminals": [],
-      "python": "# TODO: identify this primitive"
+      "python_code": "# TODO: identify this primitive",
+      "inline": true
     },
     "1127": {
       "name": "Unknown_1127",
       "terminals": [],
-      "python": "# TODO: identify this primitive"
+      "python_code": "# TODO: identify this primitive",
+      "inline": true
     },
     "1308": {
       "name": "Unknown_1308",
       "terminals": [],
-      "python": "# TODO: identify this primitive"
+      "python_code": "# TODO: identify this primitive",
+      "inline": true
     },
     "1152": {
       "name": "Unknown_1152",
       "terminals": [],
-      "python": "# TODO: identify this primitive"
+      "python_code": "# TODO: identify this primitive",
+      "inline": true
     },
     "1074": {
       "name": "Unknown_1074",
       "terminals": [],
-      "python": "# TODO: identify this primitive"
+      "python_code": "# TODO: identify this primitive",
+      "inline": true
     },
     "1200": {
       "name": "Unknown_1200",
       "terminals": [],
-      "python": "# TODO: identify this primitive"
+      "python_code": "# TODO: identify this primitive",
+      "inline": true
     },
     "1701": {
       "name": "Unknown_1701",
       "terminals": [],
-      "python": "# TODO: identify this primitive"
+      "python_code": "# TODO: identify this primitive",
+      "inline": true
     },
     "1073": {
       "name": "Unknown_1073",
       "terminals": [],
-      "python": "# TODO: identify this primitive"
+      "python_code": "# TODO: identify this primitive",
+      "inline": true
     },
     "8062": {
       "name": "Unknown_8062",
       "terminals": [],
-      "python": "# TODO: identify this primitive"
+      "python_code": "# TODO: identify this primitive",
+      "inline": true
     },
     "1327": {
       "name": "Unknown_1327",
       "terminals": [],
-      "python": "# TODO: identify this primitive"
+      "python_code": "# TODO: identify this primitive",
+      "inline": true
     },
     "1435": {
       "name": "Unknown_1435",
       "terminals": [],
-      "python": "# TODO: identify this primitive"
+      "python_code": "# TODO: identify this primitive",
+      "inline": true
     },
     "1908": {
       "name": "Unknown_1908",
       "terminals": [],
-      "python": "# TODO: identify this primitive"
+      "python_code": "# TODO: identify this primitive",
+      "inline": true
     },
     "8078": {
       "name": "Unknown_8078",
       "terminals": [],
-      "python": "# TODO: identify this primitive"
+      "python_code": "# TODO: identify this primitive",
+      "inline": true
     },
     "1309": {
       "name": "Unknown_1309",
       "terminals": [],
-      "python": "# TODO: identify this primitive"
+      "python_code": "# TODO: identify this primitive",
+      "inline": true
     },
     "8069": {
       "name": "Unknown_8069",
       "terminals": [],
-      "python": "# TODO: identify this primitive"
+      "python_code": "# TODO: identify this primitive",
+      "inline": true
     },
     "1119": {
       "name": "Unknown_1119",
       "terminals": [],
-      "python": "# TODO: identify this primitive"
+      "python_code": "# TODO: identify this primitive",
+      "inline": true
     },
     "1303": {
       "name": "Empty String Constant",
@@ -2059,8 +2319,9 @@
           "direction": "out"
         }
       ],
-      "python": "''",
-      "guess_reason": "No inputs, string output - likely empty string"
+      "guess_reason": "No inputs, string output - likely empty string",
+      "python_code": "''",
+      "inline": true
     },
     "8080": {
       "name": "Unknown_8080",
@@ -2094,7 +2355,8 @@
           "direction": "in"
         }
       ],
-      "python": "# TODO: identify this primitive"
+      "python_code": "# TODO: identify this primitive",
+      "inline": true
     },
     "8070": {
       "name": "Unknown_8070",
@@ -2132,7 +2394,8 @@
           "direction": "in"
         }
       ],
-      "python": "# TODO: identify this primitive"
+      "python_code": "# TODO: identify this primitive",
+      "inline": true
     },
     "23063": {
       "name": "Unknown_23063",
@@ -2146,151 +2409,176 @@
           "direction": "in"
         }
       ],
-      "python": "# TODO: identify this primitive"
+      "python_code": "# TODO: identify this primitive",
+      "inline": true
     },
     "2073": {
       "name": "Get Error Info",
       "terminals": [],
-      "python": "error.code, error.source, error.description",
-      "guess_reason": "1in/3out - error cluster parsing"
+      "guess_reason": "1in/3out - error cluster parsing",
+      "python_code": "error.code, error.source, error.description",
+      "inline": true
     },
     "2074": {
       "name": "Set Error Info",
       "terminals": [],
-      "python": "Error(code, source, description)",
-      "guess_reason": "2in/4out - error cluster building"
+      "guess_reason": "2in/4out - error cluster building",
+      "python_code": "Error(code, source, description)",
+      "inline": true
     },
     "2075": {
       "name": "Merge Errors",
       "terminals": [],
-      "python": "error1 or error2",
-      "guess_reason": "2in/1out - combines errors"
+      "guess_reason": "2in/1out - combines errors",
+      "python_code": "error1 or error2",
+      "inline": true
     },
     "2076": {
       "name": "Clear Error",
       "terminals": [],
-      "python": "None  # no error",
-      "guess_reason": "1in/2out - clears error"
+      "guess_reason": "1in/2out - clears error",
+      "python_code": "None  # no error",
+      "inline": true
     },
     "9000": {
       "name": "This VI's Path",
       "terminals": [],
-      "python": "Path(__file__)",
-      "guess_reason": "0in/1out - returns current VI path"
+      "guess_reason": "0in/1out - returns current VI path",
+      "python_code": "Path(__file__)",
+      "inline": true
     },
     "9101": {
       "name": "Open VI Reference",
       "terminals": [],
-      "python": "vi_ref = open_vi(path)",
-      "guess_reason": "2in/5out - opens VI reference"
+      "guess_reason": "2in/5out - opens VI reference",
+      "python_code": "vi_ref = open_vi(path)",
+      "inline": true
     },
     "9102": {
       "name": "Close VI Reference",
       "terminals": [],
-      "python": "vi_ref.close()",
-      "guess_reason": "2in/4out - closes VI reference"
+      "guess_reason": "2in/4out - closes VI reference",
+      "python_code": "vi_ref.close()",
+      "inline": true
     },
     "9104": {
       "name": "Close Reference",
       "terminals": [],
-      "python": "ref.close()",
-      "guess_reason": "3in/2out - closes generic reference"
+      "guess_reason": "3in/2out - closes generic reference",
+      "python_code": "ref.close()",
+      "inline": true
     },
     "9105": {
       "name": "Call By Reference",
       "terminals": [],
-      "python": "result = vi_ref.call(*args)",
-      "guess_reason": "2in/6out - calls VI by reference"
+      "guess_reason": "2in/6out - calls VI by reference",
+      "python_code": "result = vi_ref.call(*args)",
+      "inline": true
     },
     "9108": {
       "name": "Property Node (read)",
       "terminals": [],
-      "python": "value = obj.property",
-      "guess_reason": "1in/7out - reads properties"
+      "guess_reason": "1in/7out - reads properties",
+      "python_code": "value = obj.property",
+      "inline": true
     },
     "9109": {
       "name": "Property Node (multi-read)",
       "terminals": [],
-      "python": "values = [obj.prop1, obj.prop2, ...]",
-      "guess_reason": "1in/5out - reads multiple properties"
+      "guess_reason": "1in/5out - reads multiple properties",
+      "python_code": "values = [obj.prop1, obj.prop2, ...]",
+      "inline": true
     },
     "9110": {
       "name": "Invoke Node",
       "terminals": [],
-      "python": "result = obj.method(*args)",
-      "guess_reason": "0in/11out - invokes method"
+      "guess_reason": "0in/11out - invokes method",
+      "python_code": "result = obj.method(*args)",
+      "inline": true
     },
     "9111": {
       "name": "Format Into String (VI Server)",
       "terminals": [],
-      "python": "formatted = f'{value}'",
-      "guess_reason": "3in/4out - string formatting for VI Server"
+      "guess_reason": "3in/4out - string formatting for VI Server",
+      "python_code": "formatted = f'{value}'",
+      "inline": true
     },
     "9112": {
       "name": "Get LV Class Name",
       "terminals": [],
-      "python": "class_name = obj.__class__.__name__",
-      "guess_reason": "0in/7out - gets class name"
+      "guess_reason": "0in/7out - gets class name",
+      "python_code": "class_name = obj.__class__.__name__",
+      "inline": true
     },
     "9113": {
       "name": "Get LV Class Path",
       "terminals": [],
-      "python": "class_path = obj.__class__.__file__",
-      "guess_reason": "1in/6out - gets class path"
+      "guess_reason": "1in/6out - gets class path",
+      "python_code": "class_path = obj.__class__.__file__",
+      "inline": true
     },
     "9114": {
       "name": "To More Specific Class",
       "terminals": [],
-      "python": "specific = cast(obj, SpecificClass)",
-      "guess_reason": "1in/4out - class casting"
+      "guess_reason": "1in/4out - class casting",
+      "python_code": "specific = cast(obj, SpecificClass)",
+      "inline": true
     },
     "1180": {
       "name": "Coerce To Type",
       "terminals": [],
-      "python": "coerced = type(value)",
-      "guess_reason": "1in/2out - type coercion"
+      "guess_reason": "1in/2out - type coercion",
+      "python_code": "coerced = type(value)",
+      "inline": true
     },
     "8014": {
       "name": "Read From Config File",
       "terminals": [],
-      "python": "config.get(section, key)",
-      "guess_reason": "3in/6out - config file read"
+      "guess_reason": "3in/6out - config file read",
+      "python_code": "config.get(section, key)",
+      "inline": true
     },
     "8017": {
       "name": "Write To Config File",
       "terminals": [],
-      "python": "config.set(section, key, value)",
-      "guess_reason": "2in/1out - config file write"
+      "guess_reason": "2in/1out - config file write",
+      "python_code": "config.set(section, key, value)",
+      "inline": true
     },
     "8100": {
       "name": "Get VI Info",
       "terminals": [],
-      "python": "vi.name, vi.path, vi.description",
-      "guess_reason": "2in/2out - gets VI metadata"
+      "guess_reason": "2in/2out - gets VI metadata",
+      "python_code": "vi.name, vi.path, vi.description",
+      "inline": true
     },
     "8101": {
       "name": "Get VI Properties",
       "terminals": [],
-      "python": "vi.properties",
-      "guess_reason": "0in/10out - reads VI properties"
+      "guess_reason": "0in/10out - reads VI properties",
+      "python_code": "vi.properties",
+      "inline": true
     },
     "9003": {
       "name": "Set Control Value By Index",
       "terminals": [],
-      "python": "controls[index].value = value",
-      "guess_reason": "5in/4out - sets control value"
+      "guess_reason": "5in/4out - sets control value",
+      "python_code": "controls[index].value = value",
+      "inline": true
     },
     "9004": {
       "name": "Get Control Value By Index",
       "terminals": [],
-      "python": "value = controls[index].value",
-      "guess_reason": "4in/2out - gets control value"
+      "guess_reason": "4in/2out - gets control value",
+      "python_code": "value = controls[index].value",
+      "inline": true
     },
     "9005": {
       "name": "Scripting: Get VI Objects",
       "terminals": [],
-      "python": "objects = vi.get_objects()",
-      "guess_reason": "3in/7out - VI scripting operation"
+      "guess_reason": "3in/7out - VI scripting operation",
+      "python_code": "objects = vi.get_objects()",
+      "inline": true
     }
   }
 }

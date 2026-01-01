@@ -22,7 +22,7 @@ def lookup_primitive(prim_id: int | str) -> dict | None:
     if resolved and resolved.confidence != "unknown":
         return {
             "name": resolved.name,
-            "python_hint": resolved.python_hint,
+            "python_code": resolved.python_code,
             "description": resolved.description,
             "terminals": resolved.terminals,
             "confidence": resolved.confidence,
@@ -36,7 +36,7 @@ def lookup_primitive_by_types(input_types: list[str], output_types: list[str]) -
     if resolved and resolved.confidence != "unknown":
         return {
             "name": resolved.name,
-            "python_hint": resolved.python_hint,
+            "python_code": resolved.python_code,
             "description": resolved.description,
             "terminals": resolved.terminals,
             "confidence": resolved.confidence,
@@ -55,36 +55,14 @@ class PrimitiveUsage:
     generated_name: str | None = None  # Python function name once generated
     # Resolved info from PrimitiveResolver
     resolved_name: str | None = None
-    python_hint: str | None = None
+    python_code: str | None = None  # Python code (inline template or full function)
+    inline: bool = True  # True = inline at call sites, False = generate module
     terminals: list[dict] = field(default_factory=list)
     confidence: str = "unknown"  # exact_id, exact_name, exact_type, compatible_type, unknown
 
     def is_inline(self) -> bool:
-        """Check if this primitive can be used inline (no wrapper needed).
-
-        Inline primitives have simple python_hint expressions that the LLM
-        can use directly in the VI code. No need to generate wrapper functions.
-        """
-        if not self.python_hint:
-            return False
-        # Dict hints are for multi-output - can still be inline
-        if isinstance(self.python_hint, dict):
-            return True
-        hint = self.python_hint.strip()
-        # If it starts with def, needs a wrapper
-        if hint.startswith("def "):
-            return False
-        # If it has multiple statements (newlines), needs wrapper
-        if "\n" in hint:
-            return False
-        # If it's just a comment or TODO, not useful inline
-        if hint.startswith("#") or hint.startswith("TODO"):
-            return False
-        # If it needs numpy or other imports, might need wrapper
-        if "np." in hint or "numpy" in hint:
-            return False
-        # Simple expression - can be used inline
-        return True
+        """Check if this primitive can be used inline (no wrapper needed)."""
+        return self.python_code is not None and self.inline
 
 
 class PrimitiveRegistry:
@@ -175,8 +153,9 @@ class PrimitiveRegistry:
 
             if resolved:
                 usage.resolved_name = resolved.name
-                usage.python_hint = resolved.python_hint
-                usage.terminals = resolved.terminals
+                usage.python_code = resolved.python_code
+                usage.inline = resolved.inline
+                usage.terminals = [t.model_dump() for t in resolved.terminals]
                 usage.confidence = resolved.confidence
 
             self._primitives[prim_res_id] = usage
@@ -382,7 +361,7 @@ from typing import Any
         output_str = ", ".join(output_types) if output_types else "None"
 
         known_name = usage.resolved_name
-        python_hint = usage.python_hint
+        python_code = usage.python_code
         confidence = usage.confidence
         terminals = usage.terminals
 
@@ -397,11 +376,11 @@ from typing import Any
             terminal_info = "\n".join(term_lines)
 
         # Choose prompt based on available info
-        if python_hint and python_hint.strip() and not python_hint.startswith("#"):
+        if python_code and python_code.strip() and not python_code.startswith("#"):
             return f"""Generate a Python function implementing LabVIEW's "{known_name or f'primitive {usage.prim_res_id}'}".
 
 Function name: {func_name}
-Python equivalent: {python_hint}
+Python equivalent: {python_code}
 
 Input types: {input_str}
 Output types: {output_str}
@@ -553,13 +532,13 @@ Output ONLY the function definition, no explanations.
         """Get rich primitive context for VI conversion.
 
         Returns all known info about primitives used in this VI,
-        including names, Python hints, terminal info, and confidence.
+        including names, Python code, terminal info, and confidence.
 
         Args:
             vi_name: Name of the VI
 
         Returns:
-            Dict mapping primResID -> {name, python_function, python_hint, terminals, confidence}
+            Dict mapping primResID -> {name, python_function, python_code, inline, terminals, confidence}
         """
         context: dict[int, dict] = {}
         for prim in self.get_primitives_for_vi(vi_name):
@@ -571,7 +550,8 @@ Output ONLY the function definition, no explanations.
             context[prim.prim_res_id] = {
                 "name": prim.resolved_name or f"primitive_{prim.prim_res_id}",
                 "python_function": func_name,
-                "python_hint": prim.python_hint or "",
+                "python_code": prim.python_code or "",
+                "inline": prim.inline,
                 "terminals": prim.terminals,
                 "confidence": prim.confidence,
                 "input_types": prim.input_types,

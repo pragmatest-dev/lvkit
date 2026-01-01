@@ -37,13 +37,13 @@ class PrimitiveCodeGen(NodeCodeGen):
         resolver = get_resolver()
         resolved = resolver.resolve(prim_id=prim_id)
 
-        # Check if primitive is truly unknown (no hint, unknown confidence, or comment-only hint)
-        hint = resolved.python_hint if resolved else None
+        # Check if primitive is truly unknown (no code, unknown confidence, or comment-only code)
+        code = resolved.python_code if resolved else None
         is_unknown = (
             not resolved
-            or not hint
+            or not code
             or resolved.confidence == "unknown"
-            or (isinstance(hint, str) and hint.strip().startswith("#"))
+            or (isinstance(code, str) and code.strip().startswith("#"))
         )
         if is_unknown:
             # Unknown primitive - emit explicit error
@@ -55,14 +55,14 @@ class PrimitiveCodeGen(NodeCodeGen):
         # Get wired output terminals
         wired_outputs = self._get_wired_outputs(node, resolved, ctx)
 
-        # Build code based on hint type
-        if isinstance(resolved.python_hint, dict):
+        # Build code based on code type
+        if isinstance(resolved.python_code, dict):
             return self._build_dict_hint(
-                resolved.python_hint, input_map, wired_outputs, ctx, resolved
+                resolved.python_code, input_map, wired_outputs, ctx, resolved
             )
         else:
             return self._build_string_hint(
-                resolved.python_hint, input_map, wired_outputs, ctx, resolved
+                resolved.python_code, input_map, wired_outputs, ctx, resolved
             )
 
     def _build_input_map(
@@ -78,8 +78,8 @@ class PrimitiveCodeGen(NodeCodeGen):
         resolved_inputs: dict[int, str] = {}
         if resolved and resolved.terminals:
             for rt in resolved.terminals:
-                if rt.get("direction") == "in":
-                    resolved_inputs[rt.get("index", -1)] = rt.get("name", "")
+                if rt.direction == "in":
+                    resolved_inputs[rt.index] = rt.name
 
         for term in node.get("terminals", []):
             if term.get("direction") != "input":
@@ -115,8 +115,8 @@ class PrimitiveCodeGen(NodeCodeGen):
         resolved_outputs: dict[int, str] = {}
         if resolved and resolved.terminals:
             for rt in resolved.terminals:
-                if rt.get("direction") == "out":
-                    resolved_outputs[rt.get("index", -1)] = rt.get("name", "")
+                if rt.direction == "out":
+                    resolved_outputs[rt.index] = rt.name
 
         outputs = []
         for term in node.get("terminals", []):

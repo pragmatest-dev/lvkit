@@ -38,9 +38,10 @@
           "python_param": "sorted_pointers"
         }
       ],
-      "python_inline": "{sorted_array_out} = sorted({array_in}, reverse=({order} == 1)); {sorted_pointers} = list(range(len({array_in})))",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{sorted_array_out} = sorted({array_in}, reverse=({order} == 1)); {sorted_pointers} = list(range(len({array_in})))",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Sort 1D Array (EXT)__ogtk",
@@ -77,9 +78,10 @@
           "python_param": "sorted_pointers"
         }
       ],
-      "python_inline": "{sorted_array_out} = sorted({array_in}, reverse=({order} == 1)); {sorted_pointers} = list(range(len({array_in})))",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{sorted_array_out} = sorted({array_in}, reverse=({order} == 1)); {sorted_pointers} = list(range(len({array_in})))",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Sort 1D Array (SGL)__ogtk",
@@ -116,9 +118,10 @@
           "python_param": "sorted_pointers"
         }
       ],
-      "python_inline": "{sorted_array_out} = sorted({array_in}, reverse=({order} == 1)); {sorted_pointers} = list(range(len({array_in})))",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{sorted_array_out} = sorted({array_in}, reverse=({order} == 1)); {sorted_pointers} = list(range(len({array_in})))",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Sort 1D Array (CXT)__ogtk",
@@ -162,9 +165,10 @@
           "python_param": "sorted_pointers"
         }
       ],
-      "python_inline": "{sorted_array_out} = sorted({array_in}, reverse=({order} == 1)); {sorted_pointers} = list(range(len({array_in})))",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{sorted_array_out} = sorted({array_in}, reverse=({order} == 1)); {sorted_pointers} = list(range(len({array_in})))",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Sort 1D Array (U8)__ogtk",
@@ -201,9 +205,10 @@
           "python_param": "sorted_pointers"
         }
       ],
-      "python_inline": "{sorted_array_out} = sorted({array_in}, reverse=({order} == 1)); {sorted_pointers} = list(range(len({array_in})))",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{sorted_array_out} = sorted({array_in}, reverse=({order} == 1)); {sorted_pointers} = list(range(len({array_in})))",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Sort 1D Array (CSG)__ogtk",
@@ -247,9 +252,10 @@
           "python_param": "sorted_pointers"
         }
       ],
-      "python_inline": "{sorted_array_out} = sorted({array_in}, reverse=({order} == 1)); {sorted_pointers} = list(range(len({array_in})))",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{sorted_array_out} = sorted({array_in}, reverse=({order} == 1)); {sorted_pointers} = list(range(len({array_in})))",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Sort 1D Array (xxx)__ogtk",
@@ -286,9 +292,10 @@
           "python_param": "sorted_pointers"
         }
       ],
-      "python_inline": "{sorted_array_out} = sorted({array_in}, reverse=({order} == 1)); {sorted_pointers} = list(range(len({array_in})))",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{sorted_array_out} = sorted({array_in}, reverse=({order} == 1)); {sorted_pointers} = list(range(len({array_in})))",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Sort 1D Array (Path)__ogtk",
@@ -325,9 +332,10 @@
           "python_param": "sorted_pointers"
         }
       ],
-      "python_inline": "{sorted_array_out} = sorted({array_in}, reverse=({order} == 1)); {sorted_pointers} = list(range(len({array_in})))",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{sorted_array_out} = sorted({array_in}, reverse=({order} == 1)); {sorted_pointers} = list(range(len({array_in})))",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Sort 1D Array (DBL)__ogtk",
@@ -364,9 +372,10 @@
           "python_param": "sorted_pointers"
         }
       ],
-      "python_inline": "{sorted_array_out} = sorted({array_in}, reverse=({order} == 1)); {sorted_pointers} = list(range(len({array_in})))",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{sorted_array_out} = sorted({array_in}, reverse=({order} == 1)); {sorted_pointers} = list(range(len({array_in})))",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Sort 1D Array (String)__ogtk",
@@ -403,9 +412,10 @@
           "python_param": "sorted_pointers"
         }
       ],
-      "python_inline": "{sorted_array_out} = sorted({array_in}, reverse=({order} == 1)); {sorted_pointers} = list(range(len({array_in})))",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{sorted_array_out} = sorted({array_in}, reverse=({order} == 1)); {sorted_pointers} = list(range(len({array_in})))",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Sort 1D Array (CDB)__ogtk",
@@ -449,9 +459,10 @@
           "python_param": "sorted_pointers"
         }
       ],
-      "python_inline": "{sorted_array_out} = sorted({array_in}, reverse=({order} == 1)); {sorted_pointers} = list(range(len({array_in})))",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{sorted_array_out} = sorted({array_in}, reverse=({order} == 1)); {sorted_pointers} = list(range(len({array_in})))",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Sort 1D Array (I16)__ogtk",
@@ -488,9 +499,10 @@
           "python_param": "sorted_pointers"
         }
       ],
-      "python_inline": "{sorted_array_out} = sorted({array_in}, reverse=({order} == 1)); {sorted_pointers} = list(range(len({array_in})))",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{sorted_array_out} = sorted({array_in}, reverse=({order} == 1)); {sorted_pointers} = list(range(len({array_in})))",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Sort 1D Array (U32)__ogtk",
@@ -527,9 +539,10 @@
           "python_param": "sorted_pointers"
         }
       ],
-      "python_inline": "{sorted_array_out} = sorted({array_in}, reverse=({order} == 1)); {sorted_pointers} = list(range(len({array_in})))",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{sorted_array_out} = sorted({array_in}, reverse=({order} == 1)); {sorted_pointers} = list(range(len({array_in})))",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Sort 1D Array (I64)__ogtk",
@@ -566,9 +579,10 @@
           "python_param": "sorted_pointers"
         }
       ],
-      "python_inline": "{sorted_array_out} = sorted({array_in}, reverse=({order} == 1)); {sorted_pointers} = list(range(len({array_in})))",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{sorted_array_out} = sorted({array_in}, reverse=({order} == 1)); {sorted_pointers} = list(range(len({array_in})))",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Sort 1D Array (U16)__ogtk",
@@ -605,9 +619,10 @@
           "python_param": "sorted_pointers"
         }
       ],
-      "python_inline": "{sorted_array_out} = sorted({array_in}, reverse=({order} == 1)); {sorted_pointers} = list(range(len({array_in})))",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{sorted_array_out} = sorted({array_in}, reverse=({order} == 1)); {sorted_pointers} = list(range(len({array_in})))",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Sort 1D Array (I8)__ogtk",
@@ -644,9 +659,10 @@
           "python_param": "sorted_pointers"
         }
       ],
-      "python_inline": "{sorted_array_out} = sorted({array_in}, reverse=({order} == 1)); {sorted_pointers} = list(range(len({array_in})))",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{sorted_array_out} = sorted({array_in}, reverse=({order} == 1)); {sorted_pointers} = list(range(len({array_in})))",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Sort 1D Array (U64)__ogtk",
@@ -683,9 +699,10 @@
           "python_param": "sorted_pointers"
         }
       ],
-      "python_inline": "{sorted_array_out} = sorted({array_in}, reverse=({order} == 1)); {sorted_pointers} = list(range(len({array_in})))",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{sorted_array_out} = sorted({array_in}, reverse=({order} == 1)); {sorted_pointers} = list(range(len({array_in})))",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Empty 1D Array (U16)__ogtk",
@@ -708,9 +725,10 @@
           "python_param": "empty_array"
         }
       ],
-      "python_inline": "{empty_array} = len({array}) == 0",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{empty_array} = len({array}) == 0",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Empty 1D Array (I64)__ogtk",
@@ -733,9 +751,10 @@
           "python_param": "empty_array"
         }
       ],
-      "python_inline": "{empty_array} = len({array}) == 0",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{empty_array} = len({array}) == 0",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Empty 1D Array (Variant)__ogtk",
@@ -758,9 +777,10 @@
           "python_param": "empty_array"
         }
       ],
-      "python_inline": "{empty_array} = len({array}) == 0",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{empty_array} = len({array}) == 0",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Empty 1D Array (Boolean)__ogtk",
@@ -783,9 +803,10 @@
           "python_param": "empty_array"
         }
       ],
-      "python_inline": "{empty_array} = len({array}) == 0",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{empty_array} = len({array}) == 0",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Empty 1D Array (SGL)__ogtk",
@@ -808,9 +829,10 @@
           "python_param": "empty_array"
         }
       ],
-      "python_inline": "{empty_array} = len({array}) == 0",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{empty_array} = len({array}) == 0",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Empty 1D Array (DBL)__ogtk",
@@ -833,9 +855,10 @@
           "python_param": "empty_array"
         }
       ],
-      "python_inline": "{empty_array} = len({array}) == 0",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{empty_array} = len({array}) == 0",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Empty 1D Array (String)__ogtk",
@@ -858,9 +881,10 @@
           "python_param": "empty_array"
         }
       ],
-      "python_inline": "{empty_array} = len({array}) == 0",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{empty_array} = len({array}) == 0",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Empty 1D Array (LVObject)__ogtk",
@@ -883,9 +907,10 @@
           "python_param": "empty_array"
         }
       ],
-      "python_inline": "{empty_array} = len({array}) == 0",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{empty_array} = len({array}) == 0",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Empty 1D Array (I8)__ogtk",
@@ -908,9 +933,10 @@
           "python_param": "empty_array"
         }
       ],
-      "python_inline": "{empty_array} = len({array}) == 0",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{empty_array} = len({array}) == 0",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Empty 1D Array (U8)__ogtk",
@@ -933,9 +959,10 @@
           "python_param": "empty_array"
         }
       ],
-      "python_inline": "{empty_array} = len({array}) == 0",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{empty_array} = len({array}) == 0",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Empty 1D Array (xxx)__ogtk",
@@ -958,9 +985,10 @@
           "python_param": "empty_array"
         }
       ],
-      "python_inline": "{empty_array} = len({array}) == 0",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{empty_array} = len({array}) == 0",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Empty 1D Array (U32)__ogtk",
@@ -983,9 +1011,10 @@
           "python_param": "empty_array"
         }
       ],
-      "python_inline": "{empty_array} = len({array}) == 0",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{empty_array} = len({array}) == 0",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Empty 1D Array (I16)__ogtk",
@@ -1008,9 +1037,10 @@
           "python_param": "empty_array"
         }
       ],
-      "python_inline": "{empty_array} = len({array}) == 0",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{empty_array} = len({array}) == 0",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Empty 1D Array (CDB)__ogtk",
@@ -1033,9 +1063,10 @@
           "python_param": "empty_array"
         }
       ],
-      "python_inline": "{empty_array} = len({array}) == 0",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{empty_array} = len({array}) == 0",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Empty 1D Array (EXT)__ogtk",
@@ -1058,9 +1089,10 @@
           "python_param": "empty_array"
         }
       ],
-      "python_inline": "{empty_array} = len({array}) == 0",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{empty_array} = len({array}) == 0",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Empty 1D Array (Path)__ogtk",
@@ -1083,9 +1115,10 @@
           "python_param": "empty_array"
         }
       ],
-      "python_inline": "{empty_array} = len({array}) == 0",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{empty_array} = len({array}) == 0",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Empty 1D Array (CSG)__ogtk",
@@ -1108,9 +1141,10 @@
           "python_param": "empty_array"
         }
       ],
-      "python_inline": "{empty_array} = len({array}) == 0",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{empty_array} = len({array}) == 0",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Empty 1D Array (I32)__ogtk",
@@ -1133,9 +1167,10 @@
           "python_param": "empty_array"
         }
       ],
-      "python_inline": "{empty_array} = len({array}) == 0",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{empty_array} = len({array}) == 0",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Empty 1D Array (U64)__ogtk",
@@ -1158,9 +1193,10 @@
           "python_param": "empty_array"
         }
       ],
-      "python_inline": "{empty_array} = len({array}) == 0",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{empty_array} = len({array}) == 0",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Empty 1D Array (CXT)__ogtk",
@@ -1183,9 +1219,10 @@
           "python_param": "empty_array"
         }
       ],
-      "python_inline": "{empty_array} = len({array}) == 0",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{empty_array} = len({array}) == 0",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Empty 2D Array (Variant)__ogtk",
@@ -1208,9 +1245,10 @@
           "python_param": "empty_array"
         }
       ],
-      "python_inline": "{empty_array} = len({array}) == 0 or (len({array}) > 0 and len({array}[0]) == 0)",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{empty_array} = len({array}) == 0 or (len({array}) > 0 and len({array}[0]) == 0)",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Empty 2D Array (xxx)__ogtk",
@@ -1233,9 +1271,10 @@
           "python_param": "empty_array"
         }
       ],
-      "python_inline": "{empty_array} = len({array}) == 0 or (len({array}) > 0 and len({array}[0]) == 0)",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{empty_array} = len({array}) == 0 or (len({array}) > 0 and len({array}[0]) == 0)",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Empty 2D Array (CSG)__ogtk",
@@ -1258,9 +1297,10 @@
           "python_param": "empty_array"
         }
       ],
-      "python_inline": "{empty_array} = len({array}) == 0 or (len({array}) > 0 and len({array}[0]) == 0)",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{empty_array} = len({array}) == 0 or (len({array}) > 0 and len({array}[0]) == 0)",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Empty 2D Array (DBL)__ogtk",
@@ -1283,9 +1323,10 @@
           "python_param": "empty_array"
         }
       ],
-      "python_inline": "{empty_array} = len({array}) == 0 or (len({array}) > 0 and len({array}[0]) == 0)",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{empty_array} = len({array}) == 0 or (len({array}) > 0 and len({array}[0]) == 0)",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Empty 2D Array (LVObject)__ogtk",
@@ -1308,9 +1349,10 @@
           "python_param": "empty_array"
         }
       ],
-      "python_inline": "{empty_array} = len({array}) == 0 or (len({array}) > 0 and len({array}[0]) == 0)",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{empty_array} = len({array}) == 0 or (len({array}) > 0 and len({array}[0]) == 0)",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Empty 2D Array (U8)__ogtk",
@@ -1333,9 +1375,10 @@
           "python_param": "empty_array"
         }
       ],
-      "python_inline": "{empty_array} = len({array}) == 0 or (len({array}) > 0 and len({array}[0]) == 0)",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{empty_array} = len({array}) == 0 or (len({array}) > 0 and len({array}[0]) == 0)",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Empty 2D Array (CDB)__ogtk",
@@ -1358,9 +1401,10 @@
           "python_param": "empty_array"
         }
       ],
-      "python_inline": "{empty_array} = len({array}) == 0 or (len({array}) > 0 and len({array}[0]) == 0)",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{empty_array} = len({array}) == 0 or (len({array}) > 0 and len({array}[0]) == 0)",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Empty 2D Array (EXT)__ogtk",
@@ -1383,9 +1427,10 @@
           "python_param": "empty_array"
         }
       ],
-      "python_inline": "{empty_array} = len({array}) == 0 or (len({array}) > 0 and len({array}[0]) == 0)",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{empty_array} = len({array}) == 0 or (len({array}) > 0 and len({array}[0]) == 0)",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Empty 2D Array (I64)__ogtk",
@@ -1408,9 +1453,10 @@
           "python_param": "empty_array"
         }
       ],
-      "python_inline": "{empty_array} = len({array}) == 0 or (len({array}) > 0 and len({array}[0]) == 0)",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{empty_array} = len({array}) == 0 or (len({array}) > 0 and len({array}[0]) == 0)",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Empty 2D Array (String)__ogtk",
@@ -1433,9 +1479,10 @@
           "python_param": "empty_array"
         }
       ],
-      "python_inline": "{empty_array} = len({array}) == 0 or (len({array}) > 0 and len({array}[0]) == 0)",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{empty_array} = len({array}) == 0 or (len({array}) > 0 and len({array}[0]) == 0)",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Empty 2D Array (I32)__ogtk",
@@ -1458,9 +1505,10 @@
           "python_param": "empty_array"
         }
       ],
-      "python_inline": "{empty_array} = len({array}) == 0 or (len({array}) > 0 and len({array}[0]) == 0)",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{empty_array} = len({array}) == 0 or (len({array}) > 0 and len({array}[0]) == 0)",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Empty 2D Array (U32)__ogtk",
@@ -1483,9 +1531,10 @@
           "python_param": "empty_array"
         }
       ],
-      "python_inline": "{empty_array} = len({array}) == 0 or (len({array}) > 0 and len({array}[0]) == 0)",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{empty_array} = len({array}) == 0 or (len({array}) > 0 and len({array}[0]) == 0)",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Empty 2D Array (I8)__ogtk",
@@ -1508,9 +1557,10 @@
           "python_param": "empty_array"
         }
       ],
-      "python_inline": "{empty_array} = len({array}) == 0 or (len({array}) > 0 and len({array}[0]) == 0)",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{empty_array} = len({array}) == 0 or (len({array}) > 0 and len({array}[0]) == 0)",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Empty 2D Array (CXT)__ogtk",
@@ -1533,9 +1583,10 @@
           "python_param": "empty_array"
         }
       ],
-      "python_inline": "{empty_array} = len({array}) == 0 or (len({array}) > 0 and len({array}[0]) == 0)",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{empty_array} = len({array}) == 0 or (len({array}) > 0 and len({array}[0]) == 0)",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Empty 2D Array (SGL)__ogtk",
@@ -1558,9 +1609,10 @@
           "python_param": "empty_array"
         }
       ],
-      "python_inline": "{empty_array} = len({array}) == 0 or (len({array}) > 0 and len({array}[0]) == 0)",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{empty_array} = len({array}) == 0 or (len({array}) > 0 and len({array}[0]) == 0)",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Empty 2D Array (Path)__ogtk",
@@ -1583,9 +1635,10 @@
           "python_param": "empty_array"
         }
       ],
-      "python_inline": "{empty_array} = len({array}) == 0 or (len({array}) > 0 and len({array}[0]) == 0)",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{empty_array} = len({array}) == 0 or (len({array}) > 0 and len({array}[0]) == 0)",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Empty 2D Array (Boolean)__ogtk",
@@ -1608,9 +1661,10 @@
           "python_param": "empty_array"
         }
       ],
-      "python_inline": "{empty_array} = len({array}) == 0 or (len({array}) > 0 and len({array}[0]) == 0)",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{empty_array} = len({array}) == 0 or (len({array}) > 0 and len({array}[0]) == 0)",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Empty 2D Array (U16)__ogtk",
@@ -1633,9 +1687,10 @@
           "python_param": "empty_array"
         }
       ],
-      "python_inline": "{empty_array} = len({array}) == 0 or (len({array}) > 0 and len({array}[0]) == 0)",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{empty_array} = len({array}) == 0 or (len({array}) > 0 and len({array}[0]) == 0)",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Empty 2D Array (U64)__ogtk",
@@ -1658,9 +1713,10 @@
           "python_param": "empty_array"
         }
       ],
-      "python_inline": "{empty_array} = len({array}) == 0 or (len({array}) > 0 and len({array}[0]) == 0)",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{empty_array} = len({array}) == 0 or (len({array}) > 0 and len({array}[0]) == 0)",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Empty 2D Array (I16)__ogtk",
@@ -1683,9 +1739,10 @@
           "python_param": "empty_array"
         }
       ],
-      "python_inline": "{empty_array} = len({array}) == 0 or (len({array}) > 0 and len({array}[0]) == 0)",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{empty_array} = len({array}) == 0 or (len({array}) > 0 and len({array}[0]) == 0)",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Search 1D Array (I8)__ogtk",
@@ -1722,9 +1779,10 @@
           "python_param": "indices_of_elements"
         }
       ],
-      "python_inline": "{index_of_element} = {array}.index({element}) if {element} in {array} else -1; {element_found} = {index_of_element} >= 0",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{index_of_element} = {array}.index({element}) if {element} in {array} else -1; {element_found} = {index_of_element} >= 0",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Search 1D Array (EXT)__ogtk",
@@ -1761,9 +1819,10 @@
           "python_param": "indices_of_elements"
         }
       ],
-      "python_inline": "{index_of_element} = {array}.index({element}) if {element} in {array} else -1; {element_found} = {index_of_element} >= 0",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{index_of_element} = {array}.index({element}) if {element} in {array} else -1; {element_found} = {index_of_element} >= 0",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Search 1D Array (DBL)__ogtk",
@@ -1800,9 +1859,10 @@
           "python_param": "indices_of_elements"
         }
       ],
-      "python_inline": "{index_of_element} = {array}.index({element}) if {element} in {array} else -1; {element_found} = {index_of_element} >= 0",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{index_of_element} = {array}.index({element}) if {element} in {array} else -1; {element_found} = {index_of_element} >= 0",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Search 1D Array (Path)__ogtk",
@@ -1839,9 +1899,10 @@
           "python_param": "indices_of_elements"
         }
       ],
-      "python_inline": "{index_of_element} = {array}.index({element}) if {element} in {array} else -1; {element_found} = {index_of_element} >= 0",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{index_of_element} = {array}.index({element}) if {element} in {array} else -1; {element_found} = {index_of_element} >= 0",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Search 1D Array (Variant)__ogtk",
@@ -1878,9 +1939,10 @@
           "python_param": "indices_of_elements"
         }
       ],
-      "python_inline": "{index_of_element} = {array}.index({element}) if {element} in {array} else -1; {element_found} = {index_of_element} >= 0",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{index_of_element} = {array}.index({element}) if {element} in {array} else -1; {element_found} = {index_of_element} >= 0",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Search 1D Array (U32)__ogtk",
@@ -1917,9 +1979,10 @@
           "python_param": "indices_of_elements"
         }
       ],
-      "python_inline": "{index_of_element} = {array}.index({element}) if {element} in {array} else -1; {element_found} = {index_of_element} >= 0",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{index_of_element} = {array}.index({element}) if {element} in {array} else -1; {element_found} = {index_of_element} >= 0",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Search 1D Array (U64)__ogtk",
@@ -1956,9 +2019,10 @@
           "python_param": "indices_of_elements"
         }
       ],
-      "python_inline": "{index_of_element} = {array}.index({element}) if {element} in {array} else -1; {element_found} = {index_of_element} >= 0",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{index_of_element} = {array}.index({element}) if {element} in {array} else -1; {element_found} = {index_of_element} >= 0",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Search 1D Array (String)__ogtk",
@@ -1995,9 +2059,10 @@
           "python_param": "indices_of_elements"
         }
       ],
-      "python_inline": "{index_of_element} = {array}.index({element}) if {element} in {array} else -1; {element_found} = {index_of_element} >= 0",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{index_of_element} = {array}.index({element}) if {element} in {array} else -1; {element_found} = {index_of_element} >= 0",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Search 1D Array (I64)__ogtk",
@@ -2034,9 +2099,10 @@
           "python_param": "indices_of_elements"
         }
       ],
-      "python_inline": "{index_of_element} = {array}.index({element}) if {element} in {array} else -1; {element_found} = {index_of_element} >= 0",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{index_of_element} = {array}.index({element}) if {element} in {array} else -1; {element_found} = {index_of_element} >= 0",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Search 1D Array (LVObject)__ogtk",
@@ -2073,9 +2139,10 @@
           "python_param": "indices_of_elements"
         }
       ],
-      "python_inline": "{index_of_element} = {array}.index({element}) if {element} in {array} else -1; {element_found} = {index_of_element} >= 0",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{index_of_element} = {array}.index({element}) if {element} in {array} else -1; {element_found} = {index_of_element} >= 0",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Search 1D Array (CSG)__ogtk",
@@ -2112,9 +2179,10 @@
           "python_param": "indices_of_elements"
         }
       ],
-      "python_inline": "{index_of_element} = {array}.index({element}) if {element} in {array} else -1; {element_found} = {index_of_element} >= 0",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{index_of_element} = {array}.index({element}) if {element} in {array} else -1; {element_found} = {index_of_element} >= 0",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Search 1D Array (CDB)__ogtk",
@@ -2151,9 +2219,10 @@
           "python_param": "indices_of_elements"
         }
       ],
-      "python_inline": "{index_of_element} = {array}.index({element}) if {element} in {array} else -1; {element_found} = {index_of_element} >= 0",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{index_of_element} = {array}.index({element}) if {element} in {array} else -1; {element_found} = {index_of_element} >= 0",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Search 1D Array (SGL)__ogtk",
@@ -2190,9 +2259,10 @@
           "python_param": "indices_of_elements"
         }
       ],
-      "python_inline": "{index_of_element} = {array}.index({element}) if {element} in {array} else -1; {element_found} = {index_of_element} >= 0",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{index_of_element} = {array}.index({element}) if {element} in {array} else -1; {element_found} = {index_of_element} >= 0",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Search 1D Array (I16)__ogtk",
@@ -2229,9 +2299,10 @@
           "python_param": "indices_of_elements"
         }
       ],
-      "python_inline": "{index_of_element} = {array}.index({element}) if {element} in {array} else -1; {element_found} = {index_of_element} >= 0",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{index_of_element} = {array}.index({element}) if {element} in {array} else -1; {element_found} = {index_of_element} >= 0",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Search 1D Array (U16)__ogtk",
@@ -2268,9 +2339,10 @@
           "python_param": "indices_of_elements"
         }
       ],
-      "python_inline": "{index_of_element} = {array}.index({element}) if {element} in {array} else -1; {element_found} = {index_of_element} >= 0",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{index_of_element} = {array}.index({element}) if {element} in {array} else -1; {element_found} = {index_of_element} >= 0",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Search 1D Array (I32)__ogtk",
@@ -2307,9 +2379,10 @@
           "python_param": "indices_of_elements"
         }
       ],
-      "python_inline": "{index_of_element} = {array}.index({element}) if {element} in {array} else -1; {element_found} = {index_of_element} >= 0",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{index_of_element} = {array}.index({element}) if {element} in {array} else -1; {element_found} = {index_of_element} >= 0",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Search 1D Array (U8)__ogtk",
@@ -2346,9 +2419,10 @@
           "python_param": "indices_of_elements"
         }
       ],
-      "python_inline": "{index_of_element} = {array}.index({element}) if {element} in {array} else -1; {element_found} = {index_of_element} >= 0",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{index_of_element} = {array}.index({element}) if {element} in {array} else -1; {element_found} = {index_of_element} >= 0",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Search 1D Array (xxx)__ogtk",
@@ -2385,9 +2459,10 @@
           "python_param": "indices_of_elements"
         }
       ],
-      "python_inline": "{index_of_element} = {array}.index({element}) if {element} in {array} else -1; {element_found} = {index_of_element} >= 0",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{index_of_element} = {array}.index({element}) if {element} in {array} else -1; {element_found} = {index_of_element} >= 0",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Search 1D Array (Boolean)__ogtk",
@@ -2424,9 +2499,10 @@
           "python_param": "indices_of_elements"
         }
       ],
-      "python_inline": "{index_of_element} = {array}.index({element}) if {element} in {array} else -1; {element_found} = {index_of_element} >= 0",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{index_of_element} = {array}.index({element}) if {element} in {array} else -1; {element_found} = {index_of_element} >= 0",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Search 1D Array (CXT)__ogtk",
@@ -2463,9 +2539,10 @@
           "python_param": "indices_of_elements"
         }
       ],
-      "python_inline": "{index_of_element} = {array}.index({element}) if {element} in {array} else -1; {element_found} = {index_of_element} >= 0",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{index_of_element} = {array}.index({element}) if {element} in {array} else -1; {element_found} = {index_of_element} >= 0",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Reorder 1D Array (Path)__ogtk",
@@ -2502,9 +2579,10 @@
           "python_param": "sorted_pointers_out"
         }
       ],
-      "python_inline": "{sorted_array_out} = [{array_in}[i] for i in {sorted_pointers_in}]; {sorted_pointers_out} = {sorted_pointers_in}",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{sorted_array_out} = [{array_in}[i] for i in {sorted_pointers_in}]; {sorted_pointers_out} = {sorted_pointers_in}",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Reorder 1D Array (I8)__ogtk",
@@ -2541,9 +2619,10 @@
           "python_param": "sorted_pointers_out"
         }
       ],
-      "python_inline": "{sorted_array_out} = [{array_in}[i] for i in {sorted_pointers_in}]; {sorted_pointers_out} = {sorted_pointers_in}",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{sorted_array_out} = [{array_in}[i] for i in {sorted_pointers_in}]; {sorted_pointers_out} = {sorted_pointers_in}",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Reorder 1D Array (U8)__ogtk",
@@ -2580,9 +2659,10 @@
           "python_param": "sorted_pointers_out"
         }
       ],
-      "python_inline": "{sorted_array_out} = [{array_in}[i] for i in {sorted_pointers_in}]; {sorted_pointers_out} = {sorted_pointers_in}",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{sorted_array_out} = [{array_in}[i] for i in {sorted_pointers_in}]; {sorted_pointers_out} = {sorted_pointers_in}",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Reorder 1D Array (U16)__ogtk",
@@ -2619,9 +2699,10 @@
           "python_param": "sorted_pointers_out"
         }
       ],
-      "python_inline": "{sorted_array_out} = [{array_in}[i] for i in {sorted_pointers_in}]; {sorted_pointers_out} = {sorted_pointers_in}",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{sorted_array_out} = [{array_in}[i] for i in {sorted_pointers_in}]; {sorted_pointers_out} = {sorted_pointers_in}",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Reorder 1D Array (I32)__ogtk",
@@ -2658,9 +2739,10 @@
           "python_param": "sorted_pointers_out"
         }
       ],
-      "python_inline": "{sorted_array_out} = [{array_in}[i] for i in {sorted_pointers_in}]; {sorted_pointers_out} = {sorted_pointers_in}",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{sorted_array_out} = [{array_in}[i] for i in {sorted_pointers_in}]; {sorted_pointers_out} = {sorted_pointers_in}",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Reorder 1D Array (EXT)__ogtk",
@@ -2697,9 +2779,10 @@
           "python_param": "sorted_pointers_out"
         }
       ],
-      "python_inline": "{sorted_array_out} = [{array_in}[i] for i in {sorted_pointers_in}]; {sorted_pointers_out} = {sorted_pointers_in}",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{sorted_array_out} = [{array_in}[i] for i in {sorted_pointers_in}]; {sorted_pointers_out} = {sorted_pointers_in}",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Reorder 1D Array (U32)__ogtk",
@@ -2736,9 +2819,10 @@
           "python_param": "sorted_pointers_out"
         }
       ],
-      "python_inline": "{sorted_array_out} = [{array_in}[i] for i in {sorted_pointers_in}]; {sorted_pointers_out} = {sorted_pointers_in}",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{sorted_array_out} = [{array_in}[i] for i in {sorted_pointers_in}]; {sorted_pointers_out} = {sorted_pointers_in}",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Reorder 1D Array (xxx)__ogtk",
@@ -2775,9 +2859,10 @@
           "python_param": "sorted_pointers_out"
         }
       ],
-      "python_inline": "{sorted_array_out} = [{array_in}[i] for i in {sorted_pointers_in}]; {sorted_pointers_out} = {sorted_pointers_in}",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{sorted_array_out} = [{array_in}[i] for i in {sorted_pointers_in}]; {sorted_pointers_out} = {sorted_pointers_in}",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Reorder 1D Array (CDB)__ogtk",
@@ -2814,9 +2899,10 @@
           "python_param": "sorted_pointers_out"
         }
       ],
-      "python_inline": "{sorted_array_out} = [{array_in}[i] for i in {sorted_pointers_in}]; {sorted_pointers_out} = {sorted_pointers_in}",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{sorted_array_out} = [{array_in}[i] for i in {sorted_pointers_in}]; {sorted_pointers_out} = {sorted_pointers_in}",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Reorder 1D Array (Boolean)__ogtk",
@@ -2853,9 +2939,10 @@
           "python_param": "sorted_pointers_out"
         }
       ],
-      "python_inline": "{sorted_array_out} = [{array_in}[i] for i in {sorted_pointers_in}]; {sorted_pointers_out} = {sorted_pointers_in}",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{sorted_array_out} = [{array_in}[i] for i in {sorted_pointers_in}]; {sorted_pointers_out} = {sorted_pointers_in}",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Reorder 1D Array (SGL)__ogtk",
@@ -2892,9 +2979,10 @@
           "python_param": "sorted_pointers_out"
         }
       ],
-      "python_inline": "{sorted_array_out} = [{array_in}[i] for i in {sorted_pointers_in}]; {sorted_pointers_out} = {sorted_pointers_in}",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{sorted_array_out} = [{array_in}[i] for i in {sorted_pointers_in}]; {sorted_pointers_out} = {sorted_pointers_in}",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Reorder 1D Array (I16)__ogtk",
@@ -2931,9 +3019,10 @@
           "python_param": "sorted_pointers_out"
         }
       ],
-      "python_inline": "{sorted_array_out} = [{array_in}[i] for i in {sorted_pointers_in}]; {sorted_pointers_out} = {sorted_pointers_in}",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{sorted_array_out} = [{array_in}[i] for i in {sorted_pointers_in}]; {sorted_pointers_out} = {sorted_pointers_in}",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Reorder 1D Array (DBL)__ogtk",
@@ -2970,9 +3059,10 @@
           "python_param": "sorted_pointers_out"
         }
       ],
-      "python_inline": "{sorted_array_out} = [{array_in}[i] for i in {sorted_pointers_in}]; {sorted_pointers_out} = {sorted_pointers_in}",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{sorted_array_out} = [{array_in}[i] for i in {sorted_pointers_in}]; {sorted_pointers_out} = {sorted_pointers_in}",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Reorder 1D Array (CXT)__ogtk",
@@ -3009,9 +3099,10 @@
           "python_param": "sorted_pointers_out"
         }
       ],
-      "python_inline": "{sorted_array_out} = [{array_in}[i] for i in {sorted_pointers_in}]; {sorted_pointers_out} = {sorted_pointers_in}",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{sorted_array_out} = [{array_in}[i] for i in {sorted_pointers_in}]; {sorted_pointers_out} = {sorted_pointers_in}",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Reorder 1D Array (String)__ogtk",
@@ -3048,9 +3139,10 @@
           "python_param": "sorted_pointers_out"
         }
       ],
-      "python_inline": "{sorted_array_out} = [{array_in}[i] for i in {sorted_pointers_in}]; {sorted_pointers_out} = {sorted_pointers_in}",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{sorted_array_out} = [{array_in}[i] for i in {sorted_pointers_in}]; {sorted_pointers_out} = {sorted_pointers_in}",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Reorder 1D Array (CSG)__ogtk",
@@ -3087,9 +3179,10 @@
           "python_param": "sorted_pointers_out"
         }
       ],
-      "python_inline": "{sorted_array_out} = [{array_in}[i] for i in {sorted_pointers_in}]; {sorted_pointers_out} = {sorted_pointers_in}",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{sorted_array_out} = [{array_in}[i] for i in {sorted_pointers_in}]; {sorted_pointers_out} = {sorted_pointers_in}",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Reorder 1D Array (Variant)__ogtk",
@@ -3126,9 +3219,10 @@
           "python_param": "sorted_pointers_out"
         }
       ],
-      "python_inline": "{sorted_array_out} = [{array_in}[i] for i in {sorted_pointers_in}]; {sorted_pointers_out} = {sorted_pointers_in}",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{sorted_array_out} = [{array_in}[i] for i in {sorted_pointers_in}]; {sorted_pointers_out} = {sorted_pointers_in}",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Filter 1D Array (String)__ogtk",
@@ -3165,9 +3259,10 @@
           "python_param": "filtered_item_indices"
         }
       ],
-      "python_inline": "{filtered_array} = [x for x in {array} if x not in set({items_to_filter})]",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{filtered_array} = [x for x in {array} if x not in set({items_to_filter})]",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Filter 1D Array (CXT)__ogtk",
@@ -3204,9 +3299,10 @@
           "python_param": "filtered_item_indices"
         }
       ],
-      "python_inline": "{filtered_array} = [x for x in {array} if x not in set({items_to_filter})]",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{filtered_array} = [x for x in {array} if x not in set({items_to_filter})]",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Filter 1D Array (I64)__ogtk",
@@ -3243,9 +3339,10 @@
           "python_param": "filtered_item_indices"
         }
       ],
-      "python_inline": "{filtered_array} = [x for x in {array} if x not in set({items_to_filter})]",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{filtered_array} = [x for x in {array} if x not in set({items_to_filter})]",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Filter 1D Array (Path)__ogtk",
@@ -3282,9 +3379,10 @@
           "python_param": "filtered_item_indices"
         }
       ],
-      "python_inline": "{filtered_array} = [x for x in {array} if x not in set({items_to_filter})]",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{filtered_array} = [x for x in {array} if x not in set({items_to_filter})]",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Filter 1D Array (LVObject)__ogtk",
@@ -3321,9 +3419,10 @@
           "python_param": "filtered_item_indices"
         }
       ],
-      "python_inline": "{filtered_array} = [x for x in {array} if x not in set({items_to_filter})]",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{filtered_array} = [x for x in {array} if x not in set({items_to_filter})]",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Filter 1D Array (U16)__ogtk",
@@ -3360,9 +3459,10 @@
           "python_param": "filtered_item_indices"
         }
       ],
-      "python_inline": "{filtered_array} = [x for x in {array} if x not in set({items_to_filter})]",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{filtered_array} = [x for x in {array} if x not in set({items_to_filter})]",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Filter 1D Array (SGL)__ogtk",
@@ -3399,9 +3499,10 @@
           "python_param": "filtered_item_indices"
         }
       ],
-      "python_inline": "{filtered_array} = [x for x in {array} if x not in set({items_to_filter})]",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{filtered_array} = [x for x in {array} if x not in set({items_to_filter})]",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Filter 1D Array (U64)__ogtk",
@@ -3438,9 +3539,10 @@
           "python_param": "filtered_item_indices"
         }
       ],
-      "python_inline": "{filtered_array} = [x for x in {array} if x not in set({items_to_filter})]",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{filtered_array} = [x for x in {array} if x not in set({items_to_filter})]",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Filter 1D Array (U32)__ogtk",
@@ -3477,9 +3579,10 @@
           "python_param": "filtered_item_indices"
         }
       ],
-      "python_inline": "{filtered_array} = [x for x in {array} if x not in set({items_to_filter})]",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{filtered_array} = [x for x in {array} if x not in set({items_to_filter})]",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Filter 1D Array (DBL)__ogtk",
@@ -3516,9 +3619,10 @@
           "python_param": "filtered_item_indices"
         }
       ],
-      "python_inline": "{filtered_array} = [x for x in {array} if x not in set({items_to_filter})]",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{filtered_array} = [x for x in {array} if x not in set({items_to_filter})]",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Filter 1D Array (I16)__ogtk",
@@ -3555,9 +3659,10 @@
           "python_param": "filtered_item_indices"
         }
       ],
-      "python_inline": "{filtered_array} = [x for x in {array} if x not in set({items_to_filter})]",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{filtered_array} = [x for x in {array} if x not in set({items_to_filter})]",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Filter 1D Array (EXT)__ogtk",
@@ -3594,9 +3699,10 @@
           "python_param": "filtered_item_indices"
         }
       ],
-      "python_inline": "{filtered_array} = [x for x in {array} if x not in set({items_to_filter})]",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{filtered_array} = [x for x in {array} if x not in set({items_to_filter})]",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Filter 1D Array (Variant)__ogtk",
@@ -3633,9 +3739,10 @@
           "python_param": "filtered_item_indices"
         }
       ],
-      "python_inline": "{filtered_array} = [x for x in {array} if x not in set({items_to_filter})]",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{filtered_array} = [x for x in {array} if x not in set({items_to_filter})]",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Filter 1D Array (I8)__ogtk",
@@ -3672,9 +3779,10 @@
           "python_param": "filtered_item_indices"
         }
       ],
-      "python_inline": "{filtered_array} = [x for x in {array} if x not in set({items_to_filter})]",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{filtered_array} = [x for x in {array} if x not in set({items_to_filter})]",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Filter 1D Array (U8)__ogtk",
@@ -3711,9 +3819,10 @@
           "python_param": "filtered_item_indices"
         }
       ],
-      "python_inline": "{filtered_array} = [x for x in {array} if x not in set({items_to_filter})]",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{filtered_array} = [x for x in {array} if x not in set({items_to_filter})]",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Filter 1D Array (xxx)__ogtk",
@@ -3750,9 +3859,10 @@
           "python_param": "filtered_item_indices"
         }
       ],
-      "python_inline": "{filtered_array} = [x for x in {array} if x not in set({items_to_filter})]",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{filtered_array} = [x for x in {array} if x not in set({items_to_filter})]",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Filter 1D Array (CSG)__ogtk",
@@ -3789,9 +3899,10 @@
           "python_param": "filtered_item_indices"
         }
       ],
-      "python_inline": "{filtered_array} = [x for x in {array} if x not in set({items_to_filter})]",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{filtered_array} = [x for x in {array} if x not in set({items_to_filter})]",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Filter 1D Array (I32)__ogtk",
@@ -3828,9 +3939,10 @@
           "python_param": "filtered_item_indices"
         }
       ],
-      "python_inline": "{filtered_array} = [x for x in {array} if x not in set({items_to_filter})]",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{filtered_array} = [x for x in {array} if x not in set({items_to_filter})]",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Filter 1D Array (CDB)__ogtk",
@@ -3867,9 +3979,10 @@
           "python_param": "filtered_item_indices"
         }
       ],
-      "python_inline": "{filtered_array} = [x for x in {array} if x not in set({items_to_filter})]",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{filtered_array} = [x for x in {array} if x not in set({items_to_filter})]",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Filter 1D Array (Boolean)__ogtk",
@@ -3906,9 +4019,10 @@
           "python_param": "filtered_item_indices"
         }
       ],
-      "python_inline": "{filtered_array} = [x for x in {array} if x not in set({items_to_filter})]",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{filtered_array} = [x for x in {array} if x not in set({items_to_filter})]",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Remove Duplicates from 1D Array (U32)__ogtk",
@@ -3938,9 +4052,10 @@
           "python_param": "indices_of_removed_elements"
         }
       ],
-      "python_inline": "_seen = set(); {unique_array} = [x for x in {array} if not (x in _seen or _seen.add(x))]",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "_seen = set(); {unique_array} = [x for x in {array} if not (x in _seen or _seen.add(x))]",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Remove Duplicates from 1D Array (CXT)__ogtk",
@@ -3970,9 +4085,10 @@
           "python_param": "indices_of_removed_elements"
         }
       ],
-      "python_inline": "_seen = set(); {unique_array} = [x for x in {array} if not (x in _seen or _seen.add(x))]",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "_seen = set(); {unique_array} = [x for x in {array} if not (x in _seen or _seen.add(x))]",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Remove Duplicates from 1D Array (DBL)__ogtk",
@@ -4002,9 +4118,10 @@
           "python_param": "indices_of_removed_elements"
         }
       ],
-      "python_inline": "_seen = set(); {unique_array} = [x for x in {array} if not (x in _seen or _seen.add(x))]",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "_seen = set(); {unique_array} = [x for x in {array} if not (x in _seen or _seen.add(x))]",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Remove Duplicates from 1D Array (Boolean)__ogtk",
@@ -4034,9 +4151,10 @@
           "python_param": "indices_of_removed_elements"
         }
       ],
-      "python_inline": "_seen = set(); {unique_array} = [x for x in {array} if not (x in _seen or _seen.add(x))]",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "_seen = set(); {unique_array} = [x for x in {array} if not (x in _seen or _seen.add(x))]",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Remove Duplicates from 1D Array (EXT)__ogtk",
@@ -4066,9 +4184,10 @@
           "python_param": "indices_of_removed_elements"
         }
       ],
-      "python_inline": "_seen = set(); {unique_array} = [x for x in {array} if not (x in _seen or _seen.add(x))]",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "_seen = set(); {unique_array} = [x for x in {array} if not (x in _seen or _seen.add(x))]",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Remove Duplicates from 1D Array (I64)__ogtk",
@@ -4098,9 +4217,10 @@
           "python_param": "indices_of_removed_elements"
         }
       ],
-      "python_inline": "_seen = set(); {unique_array} = [x for x in {array} if not (x in _seen or _seen.add(x))]",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "_seen = set(); {unique_array} = [x for x in {array} if not (x in _seen or _seen.add(x))]",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Remove Duplicates from 1D Array (I16)__ogtk",
@@ -4130,9 +4250,10 @@
           "python_param": "indices_of_removed_elements"
         }
       ],
-      "python_inline": "_seen = set(); {unique_array} = [x for x in {array} if not (x in _seen or _seen.add(x))]",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "_seen = set(); {unique_array} = [x for x in {array} if not (x in _seen or _seen.add(x))]",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Remove Duplicates from 1D Array (String)__ogtk",
@@ -4162,9 +4283,10 @@
           "python_param": "indices_of_removed_elements"
         }
       ],
-      "python_inline": "_seen = set(); {unique_array} = [x for x in {array} if not (x in _seen or _seen.add(x))]",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "_seen = set(); {unique_array} = [x for x in {array} if not (x in _seen or _seen.add(x))]",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Remove Duplicates from 1D Array (Path)__ogtk",
@@ -4194,9 +4316,10 @@
           "python_param": "indices_of_removed_elements"
         }
       ],
-      "python_inline": "_seen = set(); {unique_array} = [x for x in {array} if not (x in _seen or _seen.add(x))]",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "_seen = set(); {unique_array} = [x for x in {array} if not (x in _seen or _seen.add(x))]",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Remove Duplicates from 1D Array__ogtk",
@@ -4204,9 +4327,10 @@
       "category": "openg",
       "description": "Remove duplicate elements",
       "terminals": [],
-      "python_inline": "_seen = set(); {unique_array} = [x for x in {array} if not (x in _seen or _seen.add(x))]",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "_seen = set(); {unique_array} = [x for x in {array} if not (x in _seen or _seen.add(x))]",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Remove Duplicates from 1D Array (I32)__ogtk",
@@ -4236,9 +4360,10 @@
           "python_param": "indices_of_removed_elements"
         }
       ],
-      "python_inline": "_seen = set(); {unique_array} = [x for x in {array} if not (x in _seen or _seen.add(x))]",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "_seen = set(); {unique_array} = [x for x in {array} if not (x in _seen or _seen.add(x))]",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Remove Duplicates from 1D Array (U16)__ogtk",
@@ -4268,9 +4393,10 @@
           "python_param": "indices_of_removed_elements"
         }
       ],
-      "python_inline": "_seen = set(); {unique_array} = [x for x in {array} if not (x in _seen or _seen.add(x))]",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "_seen = set(); {unique_array} = [x for x in {array} if not (x in _seen or _seen.add(x))]",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Remove Duplicates from 1D Array (I8)__ogtk",
@@ -4300,9 +4426,10 @@
           "python_param": "indices_of_removed_elements"
         }
       ],
-      "python_inline": "_seen = set(); {unique_array} = [x for x in {array} if not (x in _seen or _seen.add(x))]",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "_seen = set(); {unique_array} = [x for x in {array} if not (x in _seen or _seen.add(x))]",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Remove Duplicates from 1D Array (U64)__ogtk",
@@ -4332,9 +4459,10 @@
           "python_param": "indices_of_removed_elements"
         }
       ],
-      "python_inline": "_seen = set(); {unique_array} = [x for x in {array} if not (x in _seen or _seen.add(x))]",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "_seen = set(); {unique_array} = [x for x in {array} if not (x in _seen or _seen.add(x))]",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Remove Duplicates from 1D Array (Variant)__ogtk",
@@ -4364,9 +4492,10 @@
           "python_param": "indices_of_removed_elements"
         }
       ],
-      "python_inline": "_seen = set(); {unique_array} = [x for x in {array} if not (x in _seen or _seen.add(x))]",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "_seen = set(); {unique_array} = [x for x in {array} if not (x in _seen or _seen.add(x))]",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Remove Duplicates from 1D Array (CDB)__ogtk",
@@ -4396,9 +4525,10 @@
           "python_param": "indices_of_removed_elements"
         }
       ],
-      "python_inline": "_seen = set(); {unique_array} = [x for x in {array} if not (x in _seen or _seen.add(x))]",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "_seen = set(); {unique_array} = [x for x in {array} if not (x in _seen or _seen.add(x))]",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Remove Duplicates from 1D Array (U8)__ogtk",
@@ -4428,9 +4558,10 @@
           "python_param": "indices_of_removed_elements"
         }
       ],
-      "python_inline": "_seen = set(); {unique_array} = [x for x in {array} if not (x in _seen or _seen.add(x))]",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "_seen = set(); {unique_array} = [x for x in {array} if not (x in _seen or _seen.add(x))]",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Remove Duplicates from 1D Array (LVObject)__ogtk",
@@ -4460,9 +4591,10 @@
           "python_param": "indices_of_removed_elements"
         }
       ],
-      "python_inline": "_seen = set(); {unique_array} = [x for x in {array} if not (x in _seen or _seen.add(x))]",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "_seen = set(); {unique_array} = [x for x in {array} if not (x in _seen or _seen.add(x))]",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Remove Duplicates from 1D Array (SGL)__ogtk",
@@ -4492,9 +4624,10 @@
           "python_param": "indices_of_removed_elements"
         }
       ],
-      "python_inline": "_seen = set(); {unique_array} = [x for x in {array} if not (x in _seen or _seen.add(x))]",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "_seen = set(); {unique_array} = [x for x in {array} if not (x in _seen or _seen.add(x))]",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Remove Duplicates from 1D Array (CSG)__ogtk",
@@ -4524,9 +4657,10 @@
           "python_param": "indices_of_removed_elements"
         }
       ],
-      "python_inline": "_seen = set(); {unique_array} = [x for x in {array} if not (x in _seen or _seen.add(x))]",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "_seen = set(); {unique_array} = [x for x in {array} if not (x in _seen or _seen.add(x))]",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Remove Duplicates from 1D Array (xxx)__ogtk",
@@ -4556,9 +4690,10 @@
           "python_param": "indices_of_removed_elements"
         }
       ],
-      "python_inline": "_seen = set(); {unique_array} = [x for x in {array} if not (x in _seen or _seen.add(x))]",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "_seen = set(); {unique_array} = [x for x in {array} if not (x in _seen or _seen.add(x))]",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Reverse 2D Array (I16)__ogtk",
@@ -4588,9 +4723,10 @@
           "python_param": "reversed_array"
         }
       ],
-      "python_inline": "{reversed_array} = {array}[::-1] if {reverse_rows_or_columns} == 0 else [row[::-1] for row in {array}]",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{reversed_array} = {array}[::-1] if {reverse_rows_or_columns} == 0 else [row[::-1] for row in {array}]",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Reverse 2D Array (LVObject)__ogtk",
@@ -4620,9 +4756,10 @@
           "python_param": "reversed_array"
         }
       ],
-      "python_inline": "{reversed_array} = {array}[::-1] if {reverse_rows_or_columns} == 0 else [row[::-1] for row in {array}]",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{reversed_array} = {array}[::-1] if {reverse_rows_or_columns} == 0 else [row[::-1] for row in {array}]",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Reverse 2D Array (EXT)__ogtk",
@@ -4652,9 +4789,10 @@
           "python_param": "reversed_array"
         }
       ],
-      "python_inline": "{reversed_array} = {array}[::-1] if {reverse_rows_or_columns} == 0 else [row[::-1] for row in {array}]",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{reversed_array} = {array}[::-1] if {reverse_rows_or_columns} == 0 else [row[::-1] for row in {array}]",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Reverse 2D Array (U32)__ogtk",
@@ -4684,9 +4822,10 @@
           "python_param": "reversed_array"
         }
       ],
-      "python_inline": "{reversed_array} = {array}[::-1] if {reverse_rows_or_columns} == 0 else [row[::-1] for row in {array}]",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{reversed_array} = {array}[::-1] if {reverse_rows_or_columns} == 0 else [row[::-1] for row in {array}]",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Reverse 2D Array (String)__ogtk",
@@ -4716,9 +4855,10 @@
           "python_param": "reversed_array"
         }
       ],
-      "python_inline": "{reversed_array} = {array}[::-1] if {reverse_rows_or_columns} == 0 else [row[::-1] for row in {array}]",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{reversed_array} = {array}[::-1] if {reverse_rows_or_columns} == 0 else [row[::-1] for row in {array}]",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Reverse 2D Array (U16)__ogtk",
@@ -4748,9 +4888,10 @@
           "python_param": "reversed_array"
         }
       ],
-      "python_inline": "{reversed_array} = {array}[::-1] if {reverse_rows_or_columns} == 0 else [row[::-1] for row in {array}]",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{reversed_array} = {array}[::-1] if {reverse_rows_or_columns} == 0 else [row[::-1] for row in {array}]",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Reverse 2D Array (SGL)__ogtk",
@@ -4780,9 +4921,10 @@
           "python_param": "reversed_array"
         }
       ],
-      "python_inline": "{reversed_array} = {array}[::-1] if {reverse_rows_or_columns} == 0 else [row[::-1] for row in {array}]",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{reversed_array} = {array}[::-1] if {reverse_rows_or_columns} == 0 else [row[::-1] for row in {array}]",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Reverse 2D Array (U8)__ogtk",
@@ -4812,9 +4954,10 @@
           "python_param": "reversed_array"
         }
       ],
-      "python_inline": "{reversed_array} = {array}[::-1] if {reverse_rows_or_columns} == 0 else [row[::-1] for row in {array}]",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{reversed_array} = {array}[::-1] if {reverse_rows_or_columns} == 0 else [row[::-1] for row in {array}]",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Reverse 2D Array (I8)__ogtk",
@@ -4844,9 +4987,10 @@
           "python_param": "reversed_array"
         }
       ],
-      "python_inline": "{reversed_array} = {array}[::-1] if {reverse_rows_or_columns} == 0 else [row[::-1] for row in {array}]",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{reversed_array} = {array}[::-1] if {reverse_rows_or_columns} == 0 else [row[::-1] for row in {array}]",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Reverse 2D Array (Path)__ogtk",
@@ -4876,9 +5020,10 @@
           "python_param": "reversed_array"
         }
       ],
-      "python_inline": "{reversed_array} = {array}[::-1] if {reverse_rows_or_columns} == 0 else [row[::-1] for row in {array}]",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{reversed_array} = {array}[::-1] if {reverse_rows_or_columns} == 0 else [row[::-1] for row in {array}]",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Reverse 2D Array (CSG)__ogtk",
@@ -4908,9 +5053,10 @@
           "python_param": "reversed_array"
         }
       ],
-      "python_inline": "{reversed_array} = {array}[::-1] if {reverse_rows_or_columns} == 0 else [row[::-1] for row in {array}]",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{reversed_array} = {array}[::-1] if {reverse_rows_or_columns} == 0 else [row[::-1] for row in {array}]",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Reverse 2D Array (xxx)__ogtk",
@@ -4940,9 +5086,10 @@
           "python_param": "reversed_array"
         }
       ],
-      "python_inline": "{reversed_array} = {array}[::-1] if {reverse_rows_or_columns} == 0 else [row[::-1] for row in {array}]",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{reversed_array} = {array}[::-1] if {reverse_rows_or_columns} == 0 else [row[::-1] for row in {array}]",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Reverse 2D Array (U64)__ogtk",
@@ -4972,9 +5119,10 @@
           "python_param": "reversed_array"
         }
       ],
-      "python_inline": "{reversed_array} = {array}[::-1] if {reverse_rows_or_columns} == 0 else [row[::-1] for row in {array}]",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{reversed_array} = {array}[::-1] if {reverse_rows_or_columns} == 0 else [row[::-1] for row in {array}]",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Reverse 2D Array (DBL)__ogtk",
@@ -5004,9 +5152,10 @@
           "python_param": "reversed_array"
         }
       ],
-      "python_inline": "{reversed_array} = {array}[::-1] if {reverse_rows_or_columns} == 0 else [row[::-1] for row in {array}]",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{reversed_array} = {array}[::-1] if {reverse_rows_or_columns} == 0 else [row[::-1] for row in {array}]",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Reverse 2D Array (Variant)__ogtk",
@@ -5036,9 +5185,10 @@
           "python_param": "reversed_array"
         }
       ],
-      "python_inline": "{reversed_array} = {array}[::-1] if {reverse_rows_or_columns} == 0 else [row[::-1] for row in {array}]",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{reversed_array} = {array}[::-1] if {reverse_rows_or_columns} == 0 else [row[::-1] for row in {array}]",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Reverse 2D Array (I64)__ogtk",
@@ -5068,9 +5218,10 @@
           "python_param": "reversed_array"
         }
       ],
-      "python_inline": "{reversed_array} = {array}[::-1] if {reverse_rows_or_columns} == 0 else [row[::-1] for row in {array}]",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{reversed_array} = {array}[::-1] if {reverse_rows_or_columns} == 0 else [row[::-1] for row in {array}]",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Reverse 2D Array (I32)__ogtk",
@@ -5100,9 +5251,10 @@
           "python_param": "reversed_array"
         }
       ],
-      "python_inline": "{reversed_array} = {array}[::-1] if {reverse_rows_or_columns} == 0 else [row[::-1] for row in {array}]",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{reversed_array} = {array}[::-1] if {reverse_rows_or_columns} == 0 else [row[::-1] for row in {array}]",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Reverse 2D Array (CXT)__ogtk",
@@ -5132,9 +5284,10 @@
           "python_param": "reversed_array"
         }
       ],
-      "python_inline": "{reversed_array} = {array}[::-1] if {reverse_rows_or_columns} == 0 else [row[::-1] for row in {array}]",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{reversed_array} = {array}[::-1] if {reverse_rows_or_columns} == 0 else [row[::-1] for row in {array}]",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Reverse 2D Array (Boolean)__ogtk",
@@ -5164,9 +5317,10 @@
           "python_param": "reversed_array"
         }
       ],
-      "python_inline": "{reversed_array} = {array}[::-1] if {reverse_rows_or_columns} == 0 else [row[::-1] for row in {array}]",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{reversed_array} = {array}[::-1] if {reverse_rows_or_columns} == 0 else [row[::-1] for row in {array}]",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Reverse 2D Array (CDB)__ogtk",
@@ -5196,9 +5350,10 @@
           "python_param": "reversed_array"
         }
       ],
-      "python_inline": "{reversed_array} = {array}[::-1] if {reverse_rows_or_columns} == 0 else [row[::-1] for row in {array}]",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{reversed_array} = {array}[::-1] if {reverse_rows_or_columns} == 0 else [row[::-1] for row in {array}]",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Conditional Auto-Indexing Tunnel (Variant)__ogtk",
@@ -5228,9 +5383,10 @@
           "python_param": "filtered_array_out"
         }
       ],
-      "python_inline": "{filtered_array_out} = [a for a, keep in zip({array_in}, {elements_to_keep}) if keep]",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{filtered_array_out} = [a for a, keep in zip({array_in}, {elements_to_keep}) if keep]",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Conditional Auto-Indexing Tunnel (U8)__ogtk",
@@ -5260,9 +5416,10 @@
           "python_param": "filtered_array_out"
         }
       ],
-      "python_inline": "{filtered_array_out} = [a for a, keep in zip({array_in}, {elements_to_keep}) if keep]",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{filtered_array_out} = [a for a, keep in zip({array_in}, {elements_to_keep}) if keep]",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Conditional Auto-Indexing Tunnel (DBL)__ogtk",
@@ -5292,9 +5449,10 @@
           "python_param": "filtered_array_out"
         }
       ],
-      "python_inline": "{filtered_array_out} = [a for a, keep in zip({array_in}, {elements_to_keep}) if keep]",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{filtered_array_out} = [a for a, keep in zip({array_in}, {elements_to_keep}) if keep]",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Conditional Auto-Indexing Tunnel (VI-REF)__ogtk",
@@ -5324,9 +5482,10 @@
           "python_param": "filtered_array_out"
         }
       ],
-      "python_inline": "{filtered_array_out} = [a for a, keep in zip({array_in}, {elements_to_keep}) if keep]",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{filtered_array_out} = [a for a, keep in zip({array_in}, {elements_to_keep}) if keep]",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Conditional Auto-Indexing Tunnel (I32)__ogtk",
@@ -5356,9 +5515,10 @@
           "python_param": "filtered_array_out"
         }
       ],
-      "python_inline": "{filtered_array_out} = [a for a, keep in zip({array_in}, {elements_to_keep}) if keep]",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{filtered_array_out} = [a for a, keep in zip({array_in}, {elements_to_keep}) if keep]",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Conditional Auto-Indexing Tunnel (U16)__ogtk",
@@ -5388,9 +5548,10 @@
           "python_param": "filtered_array_out"
         }
       ],
-      "python_inline": "{filtered_array_out} = [a for a, keep in zip({array_in}, {elements_to_keep}) if keep]",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{filtered_array_out} = [a for a, keep in zip({array_in}, {elements_to_keep}) if keep]",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Conditional Auto-Indexing Tunnel (GEN-REF)__ogtk",
@@ -5420,9 +5581,10 @@
           "python_param": "filtered_array_out"
         }
       ],
-      "python_inline": "{filtered_array_out} = [a for a, keep in zip({array_in}, {elements_to_keep}) if keep]",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{filtered_array_out} = [a for a, keep in zip({array_in}, {elements_to_keep}) if keep]",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Conditional Auto-Indexing Tunnel (SGL)__ogtk",
@@ -5452,9 +5614,10 @@
           "python_param": "filtered_array_out"
         }
       ],
-      "python_inline": "{filtered_array_out} = [a for a, keep in zip({array_in}, {elements_to_keep}) if keep]",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{filtered_array_out} = [a for a, keep in zip({array_in}, {elements_to_keep}) if keep]",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Conditional Auto-Indexing Tunnel (GObj-REF)__ogtk",
@@ -5484,9 +5647,10 @@
           "python_param": "filtered_array_out"
         }
       ],
-      "python_inline": "{filtered_array_out} = [a for a, keep in zip({array_in}, {elements_to_keep}) if keep]",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{filtered_array_out} = [a for a, keep in zip({array_in}, {elements_to_keep}) if keep]",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Conditional Auto-Indexing Tunnel (EXT)__ogtk",
@@ -5516,9 +5680,10 @@
           "python_param": "filtered_array_out"
         }
       ],
-      "python_inline": "{filtered_array_out} = [a for a, keep in zip({array_in}, {elements_to_keep}) if keep]",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{filtered_array_out} = [a for a, keep in zip({array_in}, {elements_to_keep}) if keep]",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Conditional Auto-Indexing Tunnel (String)__ogtk",
@@ -5548,9 +5713,10 @@
           "python_param": "filtered_array_out"
         }
       ],
-      "python_inline": "{filtered_array_out} = [a for a, keep in zip({array_in}, {elements_to_keep}) if keep]",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{filtered_array_out} = [a for a, keep in zip({array_in}, {elements_to_keep}) if keep]",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Conditional Auto-Indexing Tunnel (I64)__ogtk",
@@ -5580,9 +5746,10 @@
           "python_param": "filtered_array_out"
         }
       ],
-      "python_inline": "{filtered_array_out} = [a for a, keep in zip({array_in}, {elements_to_keep}) if keep]",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{filtered_array_out} = [a for a, keep in zip({array_in}, {elements_to_keep}) if keep]",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Conditional Auto-Indexing Tunnel (Path)__ogtk",
@@ -5612,9 +5779,10 @@
           "python_param": "filtered_array_out"
         }
       ],
-      "python_inline": "{filtered_array_out} = [a for a, keep in zip({array_in}, {elements_to_keep}) if keep]",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{filtered_array_out} = [a for a, keep in zip({array_in}, {elements_to_keep}) if keep]",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Conditional Auto-Indexing Tunnel (CXT)__ogtk",
@@ -5644,9 +5812,10 @@
           "python_param": "filtered_array_out"
         }
       ],
-      "python_inline": "{filtered_array_out} = [a for a, keep in zip({array_in}, {elements_to_keep}) if keep]",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{filtered_array_out} = [a for a, keep in zip({array_in}, {elements_to_keep}) if keep]",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Conditional Auto-Indexing Tunnel (CTL-REF)__ogtk",
@@ -5676,9 +5845,10 @@
           "python_param": "filtered_array_out"
         }
       ],
-      "python_inline": "{filtered_array_out} = [a for a, keep in zip({array_in}, {elements_to_keep}) if keep]",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{filtered_array_out} = [a for a, keep in zip({array_in}, {elements_to_keep}) if keep]",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Conditional Auto-Indexing Tunnel (I16)__ogtk",
@@ -5708,9 +5878,10 @@
           "python_param": "filtered_array_out"
         }
       ],
-      "python_inline": "{filtered_array_out} = [a for a, keep in zip({array_in}, {elements_to_keep}) if keep]",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{filtered_array_out} = [a for a, keep in zip({array_in}, {elements_to_keep}) if keep]",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Conditional Auto-Indexing Tunnel (U32)__ogtk",
@@ -5740,9 +5911,10 @@
           "python_param": "filtered_array_out"
         }
       ],
-      "python_inline": "{filtered_array_out} = [a for a, keep in zip({array_in}, {elements_to_keep}) if keep]",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{filtered_array_out} = [a for a, keep in zip({array_in}, {elements_to_keep}) if keep]",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Conditional Auto-Indexing Tunnel (LVObject)__ogtk",
@@ -5772,9 +5944,10 @@
           "python_param": "filtered_array_out"
         }
       ],
-      "python_inline": "{filtered_array_out} = [a for a, keep in zip({array_in}, {elements_to_keep}) if keep]",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{filtered_array_out} = [a for a, keep in zip({array_in}, {elements_to_keep}) if keep]",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Conditional Auto-Indexing Tunnel (Bool)__ogtk",
@@ -5804,9 +5977,10 @@
           "python_param": "filtered_array_out"
         }
       ],
-      "python_inline": "{filtered_array_out} = [a for a, keep in zip({array_in}, {elements_to_keep}) if keep]",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{filtered_array_out} = [a for a, keep in zip({array_in}, {elements_to_keep}) if keep]",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Conditional Auto-Indexing Tunnel (xxx)__ogtk",
@@ -5836,9 +6010,10 @@
           "python_param": "filtered_array_out"
         }
       ],
-      "python_inline": "{filtered_array_out} = [a for a, keep in zip({array_in}, {elements_to_keep}) if keep]",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{filtered_array_out} = [a for a, keep in zip({array_in}, {elements_to_keep}) if keep]",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Conditional Auto-Indexing Tunnel (CSG)__ogtk",
@@ -5868,9 +6043,10 @@
           "python_param": "filtered_array_out"
         }
       ],
-      "python_inline": "{filtered_array_out} = [a for a, keep in zip({array_in}, {elements_to_keep}) if keep]",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{filtered_array_out} = [a for a, keep in zip({array_in}, {elements_to_keep}) if keep]",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Conditional Auto-Indexing Tunnel (CDB)__ogtk",
@@ -5900,9 +6076,10 @@
           "python_param": "filtered_array_out"
         }
       ],
-      "python_inline": "{filtered_array_out} = [a for a, keep in zip({array_in}, {elements_to_keep}) if keep]",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{filtered_array_out} = [a for a, keep in zip({array_in}, {elements_to_keep}) if keep]",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Conditional Auto-Indexing Tunnel (I8)__ogtk",
@@ -5932,9 +6109,10 @@
           "python_param": "filtered_array_out"
         }
       ],
-      "python_inline": "{filtered_array_out} = [a for a, keep in zip({array_in}, {elements_to_keep}) if keep]",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{filtered_array_out} = [a for a, keep in zip({array_in}, {elements_to_keep}) if keep]",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Conditional Auto-Indexing Tunnel (U64)__ogtk",
@@ -5964,9 +6142,10 @@
           "python_param": "filtered_array_out"
         }
       ],
-      "python_inline": "{filtered_array_out} = [a for a, keep in zip({array_in}, {elements_to_keep}) if keep]",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{filtered_array_out} = [a for a, keep in zip({array_in}, {elements_to_keep}) if keep]",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Delete Elements from 1D Array (Boolean)__ogtk",
@@ -6003,9 +6182,10 @@
           "python_param": "deleted_elements"
         }
       ],
-      "python_inline": "_indices_set = set({indices}); {array_w_subset_deleted} = [x for i, x in enumerate({array}) if i not in _indices_set]; {deleted_elements} = [{array}[i] for i in sorted({indices}) if i < len({array})]",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "_indices_set = set({indices}); {array_w_subset_deleted} = [x for i, x in enumerate({array}) if i not in _indices_set]; {deleted_elements} = [{array}[i] for i in sorted({indices}) if i < len({array})]",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Delete Elements from 1D Array (LVObject)__ogtk",
@@ -6042,9 +6222,10 @@
           "python_param": "deleted_elements"
         }
       ],
-      "python_inline": "_indices_set = set({indices}); {array_w_subset_deleted} = [x for i, x in enumerate({array}) if i not in _indices_set]; {deleted_elements} = [{array}[i] for i in sorted({indices}) if i < len({array})]",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "_indices_set = set({indices}); {array_w_subset_deleted} = [x for i, x in enumerate({array}) if i not in _indices_set]; {deleted_elements} = [{array}[i] for i in sorted({indices}) if i < len({array})]",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Delete Elements from 1D Array (I8)__ogtk",
@@ -6081,9 +6262,10 @@
           "python_param": "deleted_elements"
         }
       ],
-      "python_inline": "_indices_set = set({indices}); {array_w_subset_deleted} = [x for i, x in enumerate({array}) if i not in _indices_set]; {deleted_elements} = [{array}[i] for i in sorted({indices}) if i < len({array})]",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "_indices_set = set({indices}); {array_w_subset_deleted} = [x for i, x in enumerate({array}) if i not in _indices_set]; {deleted_elements} = [{array}[i] for i in sorted({indices}) if i < len({array})]",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Delete Elements from 1D Array (I16)__ogtk",
@@ -6120,9 +6302,10 @@
           "python_param": "deleted_elements"
         }
       ],
-      "python_inline": "_indices_set = set({indices}); {array_w_subset_deleted} = [x for i, x in enumerate({array}) if i not in _indices_set]; {deleted_elements} = [{array}[i] for i in sorted({indices}) if i < len({array})]",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "_indices_set = set({indices}); {array_w_subset_deleted} = [x for i, x in enumerate({array}) if i not in _indices_set]; {deleted_elements} = [{array}[i] for i in sorted({indices}) if i < len({array})]",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Delete Elements from 1D Array (DBL)__ogtk",
@@ -6159,9 +6342,10 @@
           "python_param": "deleted_elements"
         }
       ],
-      "python_inline": "_indices_set = set({indices}); {array_w_subset_deleted} = [x for i, x in enumerate({array}) if i not in _indices_set]; {deleted_elements} = [{array}[i] for i in sorted({indices}) if i < len({array})]",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "_indices_set = set({indices}); {array_w_subset_deleted} = [x for i, x in enumerate({array}) if i not in _indices_set]; {deleted_elements} = [{array}[i] for i in sorted({indices}) if i < len({array})]",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Delete Elements from 1D Array (U64)__ogtk",
@@ -6198,9 +6382,10 @@
           "python_param": "deleted_elements"
         }
       ],
-      "python_inline": "_indices_set = set({indices}); {array_w_subset_deleted} = [x for i, x in enumerate({array}) if i not in _indices_set]; {deleted_elements} = [{array}[i] for i in sorted({indices}) if i < len({array})]",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "_indices_set = set({indices}); {array_w_subset_deleted} = [x for i, x in enumerate({array}) if i not in _indices_set]; {deleted_elements} = [{array}[i] for i in sorted({indices}) if i < len({array})]",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Delete Elements from 1D Array (CDB)__ogtk",
@@ -6237,9 +6422,10 @@
           "python_param": "deleted_elements"
         }
       ],
-      "python_inline": "_indices_set = set({indices}); {array_w_subset_deleted} = [x for i, x in enumerate({array}) if i not in _indices_set]; {deleted_elements} = [{array}[i] for i in sorted({indices}) if i < len({array})]",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "_indices_set = set({indices}); {array_w_subset_deleted} = [x for i, x in enumerate({array}) if i not in _indices_set]; {deleted_elements} = [{array}[i] for i in sorted({indices}) if i < len({array})]",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Delete Elements from 1D Array (CXT)__ogtk",
@@ -6276,9 +6462,10 @@
           "python_param": "deleted_elements"
         }
       ],
-      "python_inline": "_indices_set = set({indices}); {array_w_subset_deleted} = [x for i, x in enumerate({array}) if i not in _indices_set]; {deleted_elements} = [{array}[i] for i in sorted({indices}) if i < len({array})]",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "_indices_set = set({indices}); {array_w_subset_deleted} = [x for i, x in enumerate({array}) if i not in _indices_set]; {deleted_elements} = [{array}[i] for i in sorted({indices}) if i < len({array})]",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Delete Elements from 1D Array (U16)__ogtk",
@@ -6315,9 +6502,10 @@
           "python_param": "deleted_elements"
         }
       ],
-      "python_inline": "_indices_set = set({indices}); {array_w_subset_deleted} = [x for i, x in enumerate({array}) if i not in _indices_set]; {deleted_elements} = [{array}[i] for i in sorted({indices}) if i < len({array})]",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "_indices_set = set({indices}); {array_w_subset_deleted} = [x for i, x in enumerate({array}) if i not in _indices_set]; {deleted_elements} = [{array}[i] for i in sorted({indices}) if i < len({array})]",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Delete Elements from 1D Array (U32)__ogtk",
@@ -6354,9 +6542,10 @@
           "python_param": "deleted_elements"
         }
       ],
-      "python_inline": "_indices_set = set({indices}); {array_w_subset_deleted} = [x for i, x in enumerate({array}) if i not in _indices_set]; {deleted_elements} = [{array}[i] for i in sorted({indices}) if i < len({array})]",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "_indices_set = set({indices}); {array_w_subset_deleted} = [x for i, x in enumerate({array}) if i not in _indices_set]; {deleted_elements} = [{array}[i] for i in sorted({indices}) if i < len({array})]",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Delete Elements from 1D Array (SGL)__ogtk",
@@ -6393,9 +6582,10 @@
           "python_param": "deleted_elements"
         }
       ],
-      "python_inline": "_indices_set = set({indices}); {array_w_subset_deleted} = [x for i, x in enumerate({array}) if i not in _indices_set]; {deleted_elements} = [{array}[i] for i in sorted({indices}) if i < len({array})]",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "_indices_set = set({indices}); {array_w_subset_deleted} = [x for i, x in enumerate({array}) if i not in _indices_set]; {deleted_elements} = [{array}[i] for i in sorted({indices}) if i < len({array})]",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Delete Elements from 1D Array (CSG)__ogtk",
@@ -6432,9 +6622,10 @@
           "python_param": "deleted_elements"
         }
       ],
-      "python_inline": "_indices_set = set({indices}); {array_w_subset_deleted} = [x for i, x in enumerate({array}) if i not in _indices_set]; {deleted_elements} = [{array}[i] for i in sorted({indices}) if i < len({array})]",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "_indices_set = set({indices}); {array_w_subset_deleted} = [x for i, x in enumerate({array}) if i not in _indices_set]; {deleted_elements} = [{array}[i] for i in sorted({indices}) if i < len({array})]",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Delete Elements from 1D Array (xxx)__ogtk",
@@ -6471,9 +6662,10 @@
           "python_param": "deleted_elements"
         }
       ],
-      "python_inline": "_indices_set = set({indices}); {array_w_subset_deleted} = [x for i, x in enumerate({array}) if i not in _indices_set]; {deleted_elements} = [{array}[i] for i in sorted({indices}) if i < len({array})]",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "_indices_set = set({indices}); {array_w_subset_deleted} = [x for i, x in enumerate({array}) if i not in _indices_set]; {deleted_elements} = [{array}[i] for i in sorted({indices}) if i < len({array})]",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Delete Elements from 1D Array (I32)__ogtk",
@@ -6510,9 +6702,10 @@
           "python_param": "deleted_elements"
         }
       ],
-      "python_inline": "_indices_set = set({indices}); {array_w_subset_deleted} = [x for i, x in enumerate({array}) if i not in _indices_set]; {deleted_elements} = [{array}[i] for i in sorted({indices}) if i < len({array})]",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "_indices_set = set({indices}); {array_w_subset_deleted} = [x for i, x in enumerate({array}) if i not in _indices_set]; {deleted_elements} = [{array}[i] for i in sorted({indices}) if i < len({array})]",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Delete Elements from 1D Array (EXT)__ogtk",
@@ -6549,9 +6742,10 @@
           "python_param": "deleted_elements"
         }
       ],
-      "python_inline": "_indices_set = set({indices}); {array_w_subset_deleted} = [x for i, x in enumerate({array}) if i not in _indices_set]; {deleted_elements} = [{array}[i] for i in sorted({indices}) if i < len({array})]",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "_indices_set = set({indices}); {array_w_subset_deleted} = [x for i, x in enumerate({array}) if i not in _indices_set]; {deleted_elements} = [{array}[i] for i in sorted({indices}) if i < len({array})]",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Delete Elements from 1D Array (Path)__ogtk",
@@ -6588,9 +6782,10 @@
           "python_param": "deleted_elements"
         }
       ],
-      "python_inline": "_indices_set = set({indices}); {array_w_subset_deleted} = [x for i, x in enumerate({array}) if i not in _indices_set]; {deleted_elements} = [{array}[i] for i in sorted({indices}) if i < len({array})]",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "_indices_set = set({indices}); {array_w_subset_deleted} = [x for i, x in enumerate({array}) if i not in _indices_set]; {deleted_elements} = [{array}[i] for i in sorted({indices}) if i < len({array})]",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Delete Elements from 1D Array (String)__ogtk",
@@ -6627,9 +6822,10 @@
           "python_param": "deleted_elements"
         }
       ],
-      "python_inline": "_indices_set = set({indices}); {array_w_subset_deleted} = [x for i, x in enumerate({array}) if i not in _indices_set]; {deleted_elements} = [{array}[i] for i in sorted({indices}) if i < len({array})]",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "_indices_set = set({indices}); {array_w_subset_deleted} = [x for i, x in enumerate({array}) if i not in _indices_set]; {deleted_elements} = [{array}[i] for i in sorted({indices}) if i < len({array})]",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Delete Elements from 1D Array (I64)__ogtk",
@@ -6666,9 +6862,10 @@
           "python_param": "deleted_elements"
         }
       ],
-      "python_inline": "_indices_set = set({indices}); {array_w_subset_deleted} = [x for i, x in enumerate({array}) if i not in _indices_set]; {deleted_elements} = [{array}[i] for i in sorted({indices}) if i < len({array})]",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "_indices_set = set({indices}); {array_w_subset_deleted} = [x for i, x in enumerate({array}) if i not in _indices_set]; {deleted_elements} = [{array}[i] for i in sorted({indices}) if i < len({array})]",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Delete Elements from 1D Array (Variant)__ogtk",
@@ -6705,9 +6902,10 @@
           "python_param": "deleted_elements"
         }
       ],
-      "python_inline": "_indices_set = set({indices}); {array_w_subset_deleted} = [x for i, x in enumerate({array}) if i not in _indices_set]; {deleted_elements} = [{array}[i] for i in sorted({indices}) if i < len({array})]",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "_indices_set = set({indices}); {array_w_subset_deleted} = [x for i, x in enumerate({array}) if i not in _indices_set]; {deleted_elements} = [{array}[i] for i in sorted({indices}) if i < len({array})]",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Delete Elements from 1D Array (U8)__ogtk",
@@ -6744,9 +6942,10 @@
           "python_param": "deleted_elements"
         }
       ],
-      "python_inline": "_indices_set = set({indices}); {array_w_subset_deleted} = [x for i, x in enumerate({array}) if i not in _indices_set]; {deleted_elements} = [{array}[i] for i in sorted({indices}) if i < len({array})]",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "_indices_set = set({indices}); {array_w_subset_deleted} = [x for i, x in enumerate({array}) if i not in _indices_set]; {deleted_elements} = [{array}[i] for i in sorted({indices}) if i < len({array})]",
+      "inline": true,
+      "imports": []
     }
   ]
 }
