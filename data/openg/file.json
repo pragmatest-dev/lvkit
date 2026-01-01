@@ -1,0 +1,21 @@
+{
+  "category": "openg/file",
+  "source_path": "user.lib/_OpenG.lib/file/file.llb",
+  "count": 1,
+  "entries": [
+    {
+      "name": "Create Dir if Non-Existant__ogtk",
+      "vi_path": "user.lib/_OpenG.lib/file/file.llb/Create Dir if Non-Existant__ogtk.vi",
+      "category": "openg/file",
+      "description": "Creates a directory and all parent directories if they don't exist. Unlike LabVIEW's Create Folder, this works recursively and doesn't error if the folder already exists.",
+      "terminals": [
+        {"name": "Path", "index": 0, "direction": "in", "type": "Path", "python_param": "path"},
+        {"name": "error in (no error)", "index": 1, "direction": "in", "type": "Error", "python_param": "error_in"},
+        {"name": "error out", "index": 2, "direction": "out", "type": "Error", "python_param": "error_out"}
+      ],
+      "python_inline": "os.makedirs({path}, exist_ok=True)",
+      "inline_imports": ["import os"],
+      "status": "complete"
+    }
+  ]
+}

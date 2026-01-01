@@ -1114,11 +1114,24 @@ def {func_name}({params_str}) -> {return_type}:
 
         Returns None if VI is not in a library.
         """
+        # Check for Library.lvlib: prefix
         library, _ = self._parse_qualified_name(name)
         if library:
             result = library.lower().replace(" ", "_").replace("-", "_")
             result = "".join(c for c in result if c.isalnum() or c == "_")
             return result or None
+
+        # Check resolver for category info (vilib, openg, etc.)
+        vi_name = name if name.endswith(".vi") else f"{name}.vi"
+        vi_info = self.vilib_resolver.resolve_by_name(vi_name)
+        if vi_info and vi_info.category:
+            # e.g., "openg/file" becomes the library path
+            return vi_info.category
+
+        # Fallback: __ogtk suffix → openg root
+        if "__ogtk" in name:
+            return "openg"
+
         return None
 
     def _get_module_path(self, vi_name: str) -> tuple[Path, str | None]:
