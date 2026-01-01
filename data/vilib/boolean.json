@@ -1,0 +1,828 @@
+{
+  "category": "Boolean",
+  "count": 22,
+  "entries": [
+    {
+      "name": "Assert Error Cluster Type VI",
+      "page": 781,
+      "category": "Boolean",
+      "description": "Breaks the calling VI unless the input data is an error cluster. This VI does nothing at run time. Use this VI in conjunction with the Type Specialization structure to customize sections of code in a malleable VI (.vim) for error clusters or to force a malleable VI to accept error clusters only. This VI does nothing at run time. Use this VI in conjunction with the Type Specialization structure to customize sections of code in a malleable VI (.vim) for error clusters or to force a malleable VI to",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "value in",
+          "direction": "in",
+          "type": null,
+          "description": "value in specifies the input data.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "value_in"
+        },
+        {
+          "name": "value out",
+          "direction": "out",
+          "type": null,
+          "description": "value out returns the input data if value in is an error cluster. Otherwise, this output returns an empty error cluster. Functions \u00a9 National Instruments 781",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "value_out"
+        }
+      ]
+    },
+    {
+      "name": "Assert Array Dimension Count VI",
+      "page": 782,
+      "category": "Boolean",
+      "description": "Breaks the calling VI unless value in is an array with the same number of dimensions as array type. To check if each dimension has the same size, use the Assert Array Dimension Sizes VI. This VI does nothing at run time. Use this VI in conjunction with the Type Specialization structure to customize sections of code in a malleable VI (.vim) for certain array types or to force a malleable VI to accept certain array types only.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "array type",
+          "direction": "in",
+          "type": "Array",
+          "description": "array type specifies the input comparison array with the requirements that the input data must meet. This input accepts arrays of any data type. To set the data type of this input, wire a constant or control of the desired data type to array type. LabVIEW ignores any data in the constant or control wired to array type.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "array_type"
+        },
+        {
+          "name": "value in",
+          "direction": "in",
+          "type": null,
+          "description": "value in specifies the input data. This input accepts arrays that meet the requirements of array type.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "value_in"
+        },
+        {
+          "name": "value out",
+          "direction": "out",
+          "type": null,
+          "description": "value out returns the input data if value in is an array that meets the requirements. Otherwise, this output returns an empty array of array type.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "value_out"
+        }
+      ]
+    },
+    {
+      "name": "Assert Array Dimension Sizes VI",
+      "page": 782,
+      "category": "Boolean",
+      "description": "Breaks the calling VI unless value in is an array with the same number of dimensions Functions 782 ni.com as array type and each dimension in value in has the same size requirement (fixed, bounded, or variable-sized) and size (for fixed and bounded) as the corresponding dimension in array type. If you do not need to compare the size of each dimension, use the Assert Array Dimension Count VI. This VI does nothing at run time. Use this VI in conjunction with the Type Specialization structure to cu",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "array type",
+          "direction": "in",
+          "type": "Array",
+          "description": "array type specifies the input comparison array with the requirements that the input data must meet. This input accepts arrays of any data type. To set the data type of this input, wire a constant or control of the desired data type to array type. LabVIEW ignores any data in the constant or control wired to array type.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "array_type"
+        },
+        {
+          "name": "value in",
+          "direction": "in",
+          "type": null,
+          "description": "value in specifies the input data. This input accepts arrays that meet the requirements of array type.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "value_in"
+        },
+        {
+          "name": "value out",
+          "direction": "out",
+          "type": null,
+          "description": "value out returns the input data if value in is an array that meets the requirements. Otherwise, this output returns an empty array of array type.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "value_out"
+        }
+      ]
+    },
+    {
+      "name": "Assert Same or Descendant Type VI",
+      "page": 783,
+      "category": "Boolean",
+      "description": "Breaks the calling VI unless the input data is the same as or is a descendant of the Functions \u00a9 National Instruments 783 input class or interface. This VI does nothing at run time. Use this VI in conjunction with the Type Specialization structure to customize sections of code in a malleable VI (.vim) for the specified class or interface or the descendants of the specified class or interface or to force a malleable VI to accept the specified class or interface or the descendants of the specified",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "ancestor type",
+          "direction": "in",
+          "type": null,
+          "description": "ancestor type specifies the input class or interface with the requirements that the input data must meet. This input accepts any class or interface. To set the class or interface of this input, wire a constant or control of the desired class or interface to ancestor type. LabVIEW ignores any data in the constant or control wired to ancestor type.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "ancestor_type"
+        },
+        {
+          "name": "value in",
+          "direction": "in",
+          "type": null,
+          "description": "value in specifies the input data. This input accepts the class or interface of ancestor type or descendants of ancestor type.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "value_in"
+        },
+        {
+          "name": "value out",
+          "direction": "out",
+          "type": null,
+          "description": "value out returns the input data if value in meets the requirements. Otherwise, this output returns the default value of ancestor type.",
+          "default_value": "value of ancestor type",
+          "enum_values": null,
+          "python_param": "value_out"
+        }
+      ]
+    },
+    {
+      "name": "Assert Scalar Numeric Or Waveform Type VI",
+      "page": 784,
+      "category": "Boolean",
+      "description": "Breaks the calling VI unless the input data is a scalar numeric or analog waveform type. This VI does nothing at run time. Use this VI in conjunction with the Type Specialization Functions 784 ni.com structure to customize sections of code in a malleable VI (.vim) for scalar numeric or waveform types or to force a malleable VI to accept scalar numeric or waveform types only.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "value in",
+          "direction": "in",
+          "type": null,
+          "description": "value in specifies the input data. This input accepts any scalar numeric or waveform data type.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "value_in"
+        },
+        {
+          "name": "value out",
+          "direction": "out",
+          "type": "I32",
+          "description": "value out returns the input data if value in is a scalar numeric or analog waveform type. Otherwise, this output returns a double-precision floating-point number 0.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "value_out"
+        }
+      ]
+    },
+    {
+      "name": "Assert Scalar Numeric Type VI",
+      "page": 785,
+      "category": "Boolean",
+      "description": "Breaks the calling VI unless the input data is a scalar numeric type. This VI does nothing at run time. Use this VI in conjunction with the Type Specialization structure to customize sections of code in a malleable VI (.vim) for scalar numeric types or to force a malleable VI to accept scalar numeric types only.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "value in",
+          "direction": "in",
+          "type": null,
+          "description": "value in specifies the input data. This input accepts any scalar numeric data type. Functions \u00a9 National Instruments 785",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "value_in"
+        },
+        {
+          "name": "value out",
+          "direction": "out",
+          "type": "I32",
+          "description": "value out returns the input data if value in is a scalar numeric type. Otherwise, this output returns a double-precision floating-point number 0.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "value_out"
+        }
+      ]
+    },
+    {
+      "name": "Assert Real Numeric Or Waveform Type VI",
+      "page": 786,
+      "category": "Boolean",
+      "description": "Breaks the calling VI unless the input data is a non-complex numeric or analog waveform type. This VI does nothing at run time. Use this VI in conjunction with the Type Specialization structure to customize sections of code in a malleable VI (.vim) for non-complex numeric or waveform types or to force a malleable VI to accept non-complex numeric or analog waveform types only.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "value in",
+          "direction": "in",
+          "type": null,
+          "description": "value in specifies the input data. This input accepts any non-complex numeric or waveform data type.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "value_in"
+        },
+        {
+          "name": "value out",
+          "direction": "out",
+          "type": "I32",
+          "description": "value out returns the input data if value in is a non-complex numeric or analog waveform type. Otherwise, this output returns a double-precision floating-point number 0.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "value_out"
+        }
+      ]
+    },
+    {
+      "name": "Assert Real Numeric Type VI",
+      "page": 786,
+      "category": "Boolean",
+      "description": "Breaks the calling VI unless the input data is a non-complex numeric type. This VI does nothing at run time. Use this VI in conjunction with the Type Specialization structure to customize sections of code in a malleable VI (.vim) for non-complex numeric types or to force a malleable VI to accept non-complex numeric types only. Functions 786 ni.com",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "value in",
+          "direction": "in",
+          "type": null,
+          "description": "value in specifies the input data. This input accepts any non-complex numeric data type.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "value_in"
+        },
+        {
+          "name": "value out",
+          "direction": "out",
+          "type": "I32",
+          "description": "value out returns the input data if value in is a non-complex numeric type. Otherwise, this output returns a double-precision floating-point number 0.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "value_out"
+        }
+      ]
+    },
+    {
+      "name": "Assert Fractional Numeric Type VI",
+      "page": 787,
+      "category": "Boolean",
+      "description": "Breaks the calling VI unless the input data is a floating-point, complex floating-point, or fixed-point numeric type. This VI does nothing at run time. Use this VI in conjunction with the Type Specialization structure to customize sections of code in a malleable VI (.vim) for floating-point, complex floating-point, or fixed-point numeric types or to force a malleable VI to accept floating-point, complex floating-point, or fixed-point numeric types only.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "value in",
+          "direction": "in",
+          "type": null,
+          "description": "value in specifies the input data. This input accepts any floating-point, complex floating-point, or fixed-point numeric data type.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "value_in"
+        },
+        {
+          "name": "value out",
+          "direction": "out",
+          "type": "I32",
+          "description": "Functions \u00a9 National Instruments 787 value out returns the input data if value in is a floating-point, complex floating-point, or fixed- point numeric type. Otherwise, this output returns a double-precision floating-point number 0.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "value_out"
+        }
+      ]
+    },
+    {
+      "name": "Assert Complex Numeric Type VI",
+      "page": 788,
+      "category": "Boolean",
+      "description": "Breaks the calling VI unless the input data is a complex numeric type. This VI does nothing at run time. Use this VI in conjunction with the Type Specialization structure to customize sections of code in a malleable VI (.vim) for complex numeric types or to force a malleable VI to accept complex numeric types only.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "value in",
+          "direction": "in",
+          "type": null,
+          "description": "value in specifies the input data. This input accepts any complex numeric data type.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "value_in"
+        },
+        {
+          "name": "value out",
+          "direction": "out",
+          "type": "I32",
+          "description": "value out returns the input data if value in is a complex numeric type. Otherwise, this output returns a complex double-precision number 0 +0 i. This output can return any complex numeric type.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "value_out"
+        }
+      ]
+    },
+    {
+      "name": "Assert Floating-Point Numeric Type VI",
+      "page": 788,
+      "category": "Boolean",
+      "description": "Breaks the calling VI unless the input data is a floating-point or complex floating-point numeric type. This VI does nothing at run time. Use this VI in conjunction with the Type Specialization structure to customize sections of code in a malleable VI (.vim) for floating-point or complex floating-point numeric types or to force a malleable VI to accept floating- Functions 788 ni.com point or complex floating-point numeric types only.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "value in",
+          "direction": "in",
+          "type": null,
+          "description": "value in specifies the input data. This input accepts any floating-point or complex floating-point numeric data type.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "value_in"
+        },
+        {
+          "name": "value out",
+          "direction": "out",
+          "type": "I32",
+          "description": "value out returns the input data if value in is a floating-point or complex floating-point numeric type. Otherwise, this output returns a double-precision floating-point number 0.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "value_out"
+        }
+      ]
+    },
+    {
+      "name": "Assert Real Floating-Point Numeric Type VI",
+      "page": 789,
+      "category": "Boolean",
+      "description": "Breaks the calling VI unless the input data is a non-complex floating-point numeric type. This VI does nothing at run time. Use this VI in conjunction with the Type Specialization structure to customize sections of code in a malleable VI (.vim) for non-complex floating-point numeric types or to force a malleable VI to accept non-complex floating- point numeric types only.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "value in",
+          "direction": "in",
+          "type": null,
+          "description": "value in specifies the input data. This input accepts any non-complex floating-point numeric data type. Functions \u00a9 National Instruments 789",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "value_in"
+        },
+        {
+          "name": "value out",
+          "direction": "out",
+          "type": "I32",
+          "description": "value out returns the input data if value in is a non-complex floating-point numeric type. Otherwise, this output returns a double-precision floating-point number 0.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "value_out"
+        }
+      ]
+    },
+    {
+      "name": "Assert Integer Type VI",
+      "page": 790,
+      "category": "Boolean",
+      "description": "Breaks the calling VI unless the input data is an integer numeric type. This VI does nothing at run time. Use this VI in conjunction with the Type Specialization structure to customize sections of code in a malleable VI (.vim) for integer numeric types or to force a malleable VI to accept integer numeric types only.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "value in",
+          "direction": "in",
+          "type": "I32",
+          "description": "value in specifies the input data. This input accepts any integer numeric data type.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "value_in"
+        },
+        {
+          "name": "value out",
+          "direction": "out",
+          "type": "Enum",
+          "description": "value out returns the input data if value in is an integer numeric type. Otherwise, this output returns a 32-bit signed integer 0.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "value_out"
+        }
+      ]
+    },
+    {
+      "name": "Assert Signed Integer Type VI",
+      "page": 790,
+      "category": "Boolean",
+      "description": "Breaks the calling VI unless the input data is a signed integer numeric type. This VI does nothing at run time. Use this VI in conjunction with the Type Specialization structure to customize sections of code in a malleable VI (.vim) for signed integer numeric types or to force a malleable VI to accept signed integer numeric types only. Functions 790 ni.com",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "value in",
+          "direction": "in",
+          "type": "I32",
+          "description": "value in specifies the input data. This input accepts any signed integer numeric data type.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "value_in"
+        },
+        {
+          "name": "value out",
+          "direction": "out",
+          "type": "Enum",
+          "description": "value out returns the input data if value in is a signed integer numeric type. Otherwise, this output returns a 32-bit signed integer 0.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "value_out"
+        }
+      ]
+    },
+    {
+      "name": "Assert Unsigned Integer Type VI",
+      "page": 791,
+      "category": "Boolean",
+      "description": "Breaks the calling VI unless the input data is an unsigned integer numeric type. This VI does nothing at run time. Use this VI in conjunction with the Type Specialization structure to customize sections of code in a malleable VI (.vim) for unsigned integer numeric types or to force a malleable VI to accept unsigned integer numeric types only.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "value in",
+          "direction": "in",
+          "type": "I32",
+          "description": "value in specifies the input data. This input accepts any unsigned integer numeric data type.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "value_in"
+        },
+        {
+          "name": "value out",
+          "direction": "out",
+          "type": "Enum",
+          "description": "value out returns the input data if value in is an unsigned integer numeric type. Otherwise, this output returns a 32-bit unsigned integer 0. Functions \u00a9 National Instruments 791",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "value_out"
+        }
+      ]
+    },
+    {
+      "name": "Assert Fixed-Point Numeric Type VI",
+      "page": 792,
+      "category": "Boolean",
+      "description": "Breaks the calling VI unless the input data is a fixed-point numeric type. This VI does nothing at run time. Use this VI in conjunction with the Type Specialization structure to customize sections of code in a malleable VI (.vim) for fixed-point numeric data types or to force a malleable VI to accept fixed-point numeric types only. This VI does nothing at run time. Use this VI in conjunction with the Type Specialization structure to customize sections of code in a malleable VI (.vim) for fixed-p",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "value in",
+          "direction": "in",
+          "type": null,
+          "description": "value in specifies the input data.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "value_in"
+        },
+        {
+          "name": "value out",
+          "direction": "out",
+          "type": "I32",
+          "description": "value out returns the input data if value in is a fixed-point numeric type. Otherwise, this output returns a fixed-point number 0.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "value_out"
+        }
+      ]
+    },
+    {
+      "name": "Is Value Changed",
+      "page": 792,
+      "category": "Boolean",
+      "description": "Returns TRUE if this is the first call of this VI or if the input value is different from the value when this VI was last called.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "value",
+          "direction": "in",
+          "type": null,
+          "description": "Functions 792 ni.com value specifies the value to check. This input accepts any data type.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "value"
+        },
+        {
+          "name": "changed or first call?",
+          "direction": "out",
+          "type": "Boolean",
+          "description": "changed or first call? returns TRUE if this is the first call of this VI or if the value changed since the last time this VI was called. Otherwise, this output returns FALSE. Examples Refer to the following example files included with LabVIEW.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "changed_or_first_call"
+        },
+        {
+          "name": "labview\\examples\\Malleable VIs\\Basics\\Malleable VIs",
+          "direction": "in",
+          "type": null,
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "labview_examples_malleable_vis_basics_malleable_vis"
+        },
+        {
+          "name": "path",
+          "direction": "in",
+          "type": "Path",
+          "description": "path specifies the path you want to check.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "path"
+        },
+        {
+          "name": "Is Path and Not Empty?",
+          "direction": "out",
+          "type": "Path",
+          "description": "Is Path and Not Empty? returns TRUE if path is any value other than <Not A Path> or an empty path. Otherwise, Is Path and Not Empty? returns FALSE. Fixed-Point Overflow? Function Fixed-Point Overflow? Function Returns TRUE if FXP includes an overflow status and FXP is the result of an operation that overflowed. Otherwise, this function returns FALSE. Functions",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "is_path_and_not_empty"
+        }
+      ]
+    },
+    {
+      "name": "Is Path and Not Empty?",
+      "page": 793,
+      "category": "Boolean",
+      "description": "Returns TRUE if path is any value other than <Not A Path> or an empty path. Otherwise, this VI returns FALSE.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "path",
+          "direction": "in",
+          "type": "Path",
+          "description": "path specifies the path you want to check.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "path"
+        },
+        {
+          "name": "Is Path and Not Empty?",
+          "direction": "out",
+          "type": "Path",
+          "description": "Is Path and Not Empty? returns TRUE if path is any value other than <Not A Path> or an empty path. Otherwise, Is Path and Not Empty? returns FALSE. Fixed-Point Overflow? Function Fixed-Point Overflow? Function Returns TRUE if FXP includes an overflow status and FXP is the result of an operation that overflowed. Otherwise, this function returns FALSE. Functions \u00a9 National Instruments 793 Inputs/Outputs",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "is_path_and_not_empty"
+        },
+        {
+          "name": "FXP",
+          "direction": "in",
+          "type": "I32",
+          "description": "FXP specifies a fixed-point number.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "fxp"
+        },
+        {
+          "name": "overflow?",
+          "direction": "in",
+          "type": "Boolean",
+          "description": "overflow? is TRUE if FXP includes an overflow status and FXP is the result of an operation that overflowed. If FXP does not include an overflow status, or if FXP includes an overflow status but is not the result of an operation that overflowed, overflow? is FALSE.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "overflow"
+        }
+      ]
+    },
+    {
+      "name": "Fixed-Point Overflow? Function",
+      "page": 793,
+      "category": "Boolean",
+      "description": "Returns TRUE if FXP includes an overflow status and FXP is the result of an operation that overflowed. Otherwise, this function returns FALSE. Functions \u00a9 National Instruments 793",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "FXP",
+          "direction": "in",
+          "type": "I32",
+          "description": "FXP specifies a fixed-point number.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "fxp"
+        },
+        {
+          "name": "overflow?",
+          "direction": "in",
+          "type": "Boolean",
+          "description": "overflow? is TRUE if FXP includes an overflow status and FXP is the result of an operation that overflowed. If FXP does not include an overflow status, or if FXP includes an overflow status but is not the result of an operation that overflowed, overflow? is FALSE.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "overflow"
+        }
+      ]
+    },
+    {
+      "name": "Get Waveform Components",
+      "page": 797,
+      "category": "Boolean",
+      "description": "Returns the analog waveform you specify. You specify components by clicking on the center of the output terminal and selecting the component you want.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "waveform",
+          "direction": "in",
+          "type": null,
+          "description": "waveform is the waveform from which you want to retrieve components.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "waveform"
+        },
+        {
+          "name": "t0",
+          "direction": "out",
+          "type": null,
+          "description": "t0 returns the trigger time of the waveform.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "t0"
+        },
+        {
+          "name": "dt",
+          "direction": "out",
+          "type": null,
+          "description": "dt returns the time interval in seconds between data points in the waveform.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "dt"
+        },
+        {
+          "name": "attributes",
+          "direction": "out",
+          "type": null,
+          "description": "attributes returns the names and values of all waveform attributes. You also can use the Get Waveform Attribute VI to retrieve the names and values of all attributes or the value of a single attribute.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "attributes"
+        }
+      ]
+    },
+    {
+      "name": "Build Waveform",
+      "page": 797,
+      "category": "Boolean",
+      "description": "Builds an analog waveform or modifies an existing waveform. If you do not wire the waveform input, the function creates a new waveform based on the components you wire. If you wire the waveform input, the function modifies the waveform based on the components you wire. Functions \u00a9 National Instruments 797",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "waveform",
+          "direction": "in",
+          "type": null,
+          "description": "waveform is the analog waveform you want to edit. If you do not wire an existing waveform, the function creates a new waveform based on the components you wire.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "waveform"
+        },
+        {
+          "name": "t0",
+          "direction": "in",
+          "type": null,
+          "description": "t0 specifies the start time of the waveform.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "t0"
+        },
+        {
+          "name": "dt",
+          "direction": "in",
+          "type": null,
+          "description": "dt specifies the time interval in seconds between data points in the waveform.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "dt"
+        },
+        {
+          "name": "attributes",
+          "direction": "in",
+          "type": null,
+          "description": "attributes sets the names and values of all waveform attributes. You also can use the Set Waveform Attribute function to set the name and value of a single attribute.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "attributes"
+        },
+        {
+          "name": "output waveform",
+          "direction": "out",
+          "type": null,
+          "description": "waveform is the resulting waveform. If you did not wire an existing waveform, this is a new waveform. If you wired an existing waveform, this is the edited waveform.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "output_waveform"
+        }
+      ]
+    },
+    {
+      "name": "Set Waveform Attribute Function",
+      "page": 798,
+      "category": "Boolean",
+      "description": "Adds or replaces a waveform attribute. You can use any type of data for the value of the attribute. Functions 798 ni.com",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "waveform",
+          "direction": "in",
+          "type": null,
+          "description": "waveform is the waveform for which you want to add or replace an attribute.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "waveform"
+        },
+        {
+          "name": "name",
+          "direction": "in",
+          "type": null,
+          "description": "name is the name of the attribute.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "name"
+        },
+        {
+          "name": "value",
+          "direction": "in",
+          "type": null,
+          "description": "value is the value of the attribute. This input is polymorphic, so you can wire any data to it.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "value"
+        },
+        {
+          "name": "error in (no error)",
+          "direction": "in",
+          "type": null,
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in_no_error"
+        },
+        {
+          "name": "waveform out",
+          "direction": "in",
+          "type": null,
+          "description": "waveform out is the waveform with the new or replaced attribute.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "waveform_out"
+        },
+        {
+          "name": "replaced",
+          "direction": "in",
+          "type": null,
+          "description": "replaced indicates if an attribute was overwritten.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "replaced"
+        },
+        {
+          "name": "error out",
+          "direction": "in",
+          "type": "Boolean",
+          "description": "error out contains error information. This output provides standard error out functionality. If the attribute in name already exists, the function overwrites the attribute with the new value, and replaced is TRUE. If the attribute in name does not exist already, the function creates a new attribute. Some attributes are set by NI-DAQ and Express VIs. The following table lists the waveform attributes set by NI-DAQ. Name Attribute Data Acceptable Values Description Functions",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,19 @@
+{
+  "version": "1.0",
+  "source": "labview-api-ref.pdf",
+  "categories": {
+    "Structures": "structures.json",
+    "Array": "array.json",
+    "Cluster": "cluster.json",
+    "Variant": "variant.json",
+    "Numeric": "numeric.json",
+    "String": "string.json",
+    "Boolean": "boolean.json",
+    "Comparison": "comparison.json",
+    "Other": "other.json",
+    "File I/O": "file-io.json",
+    "Application Control": "application-control.json",
+    "Error Handling": "error-handling.json"
+  },
+  "total_entries": 2943
+}

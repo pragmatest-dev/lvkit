@@ -32,7 +32,8 @@ class SubVICodeGen(NodeCodeGen):
         result_var = f"{func_name}_result"
 
         # Look up vilib info for this SubVI
-        vilib_vi = self._get_vilib_vi(subvi_name)
+        # Raises VILibResolutionNeeded if indices are missing
+        vilib_vi = self._get_vilib_vi(subvi_name, node)
 
         # Gather input arguments with proper names
         args, keywords = self._build_arguments(node, ctx, vilib_vi)
@@ -74,13 +75,56 @@ class SubVICodeGen(NodeCodeGen):
             imports=imports,
         )
 
-    def _get_vilib_vi(self, subvi_name: str) -> Any | None:
-        """Look up SubVI in vilib resolver."""
+    def _get_vilib_vi(self, subvi_name: str, node: dict[str, Any] | None = None) -> Any | None:
+        """Look up SubVI in vilib resolver.
+
+        If the VI is found but has no terminal indices, raises VILibResolutionNeeded
+        with context to help resolve the indices.
+        """
         try:
-            from ....vilib_resolver import get_resolver
+            from ....vilib_resolver import get_resolver, VILibResolutionNeeded
             resolver = get_resolver()
-            return resolver.resolve_by_name(subvi_name)
-        except Exception:
+            vi = resolver.resolve_by_name(subvi_name)
+
+            if vi is None:
+                return None
+
+            # Check if we have terminals but missing indices
+            has_terminals = bool(vi.terminals)
+            missing_indices = any(t.index is None for t in vi.terminals) if has_terminals else False
+
+            if missing_indices:
+                # Build context from the node for resolution
+                context = {
+                    "caller_vi": "unknown",  # Will be set by caller if available
+                    "terminal_names": [t.name for t in vi.terminals],
+                    "pdf_data": {
+                        "page": vi.pdf_page,
+                        "category": vi.category,
+                        "description": "",
+                        "terminals": [
+                            {"name": t.name, "direction": t.direction, "type": t.type}
+                            for t in vi.terminals
+                        ],
+                    },
+                }
+
+                # Add wire info from node if available
+                if node:
+                    wire_types = []
+                    for term in node.get("terminals", []):
+                        term_name = term.get("name", f"idx_{term.get('index', '?')}")
+                        term_dir = term.get("direction", "?")
+                        wire_types.append(f"{term_name} ({term_dir})")
+                    context["wire_types"] = wire_types
+
+                raise VILibResolutionNeeded(subvi_name, context)
+
+            return vi
+        except VILibResolutionNeeded:
+            # Re-raise resolution exceptions - they should propagate up
+            raise
+        except ImportError:
             return None
 
     def _build_arguments(
