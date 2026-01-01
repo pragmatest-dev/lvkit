@@ -713,7 +713,12 @@ Output ONLY the corrected Python code, no explanations."""
         input_attrs = []
         for name, typ in inputs:
             py_name = ContextBuilder._to_var_name(name)
-            default = ContextBuilder._get_default(typ)
+            # Check for enum - use first value as default
+            enum_options = enums.get(py_name) or enums.get(name)
+            if enum_options:
+                default = str(enum_options[0][0])  # First enum value
+            else:
+                default = ContextBuilder._get_default(typ)
             input_attrs.append(f"        self.{py_name} = {default}")
 
         # Generate output attributes
@@ -991,7 +996,8 @@ Output ONLY the corrected Python code, no explanations."""
         # If enum options provided, use a select dropdown
         if enum_options:
             options_dict = {v: f"{v}: {lbl}" for v, lbl in enum_options}
-            return f"ui.select({options_dict}).bind_value(self, '{var_name}').classes('flex-1')"
+            first_value = enum_options[0][0]
+            return f"ui.select({options_dict}, value={first_value}).bind_value(self, '{var_name}').classes('flex-1')"
 
         type_lower = type_str.lower()
         if "bool" in type_lower:
