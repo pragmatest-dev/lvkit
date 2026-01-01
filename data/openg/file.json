@@ -144,7 +144,7 @@
         }
       ],
       "status": "complete",
-      "python_code": "Path({directory_path}).mkdir(mode={permissions_0755}, parents=True, exist_ok=True); {dup_directory_path} = {directory_path}; {created_directories} = []",
+      "python_code": "Path({directory_path}).mkdir(parents=True, exist_ok=True); {dup_directory_path} = {directory_path}; {created_directories} = []",
       "inline": true,
       "imports": [
         "from pathlib import Path"
