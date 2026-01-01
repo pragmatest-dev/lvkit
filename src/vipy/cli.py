@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 import argparse
+import importlib.util
+import json
 import sys
+import traceback
 from pathlib import Path
 
 from . import __version__, convert_vi, convert_xml, summarize_vi
@@ -61,8 +64,8 @@ def main() -> int:
         help="Output format: 'text' (default) or 'cypher' (Neo4j graph format)",
     )
 
-    # Check command
-    check_parser = subparsers.add_parser("check", help="Check if dependencies are available")
+    # Check command (no additional arguments needed)
+    subparsers.add_parser("check", help="Check if dependencies are available")
 
     # Structure command
     struct_parser = subparsers.add_parser("structure", help="Analyze LabVIEW project structure")
@@ -300,10 +303,9 @@ def cmd_check(args: argparse.Namespace) -> int:
         print("✗ Ollama not found. Install from https://ollama.com")
 
     # Check pylabview
-    try:
-        import pylabview
+    if importlib.util.find_spec("pylabview") is not None:
         print("✓ pylabview is installed")
-    except ImportError:
+    else:
         print("✗ pylabview not installed. Run: pip install pylabview")
 
     return 0
@@ -311,8 +313,6 @@ def cmd_check(args: argparse.Namespace) -> int:
 
 def cmd_structure(args: argparse.Namespace) -> int:
     """Handle the structure command."""
-    import json
-
     input_path = Path(args.input)
 
     if not input_path.exists():
@@ -525,7 +525,6 @@ def cmd_graph(args: argparse.Namespace) -> int:
 def cmd_agent(args: argparse.Namespace) -> int:
     """Handle the agent command - convert with validation loop."""
     from .agent import ConversionAgent, ConversionConfig
-    from .extractor import extract_vi_xml
 
     input_path = Path(args.input)
     output_dir = Path(args.output)
@@ -557,19 +556,19 @@ def cmd_agent(args: argparse.Namespace) -> int:
             graph.load_vi(input_path, expand_subvis=True, search_paths=search_paths or None)
         elif suffix == ".lvlib":
             # TODO: Implement lvlib support for InMemoryVIGraph
-            print(f"Error: .lvlib not yet supported with in-memory graph", file=sys.stderr)
+            print("Error: .lvlib not yet supported with in-memory graph", file=sys.stderr)
             return 1
         elif suffix == ".lvclass":
             # TODO: Implement lvclass support for InMemoryVIGraph
-            print(f"Error: .lvclass not yet supported with in-memory graph", file=sys.stderr)
+            print("Error: .lvclass not yet supported with in-memory graph", file=sys.stderr)
             return 1
         elif suffix == ".lvproj":
             # TODO: Implement lvproj support for InMemoryVIGraph
-            print(f"Error: .lvproj not yet supported with in-memory graph", file=sys.stderr)
+            print("Error: .lvproj not yet supported with in-memory graph", file=sys.stderr)
             return 1
         elif input_path.is_dir():
             # TODO: Implement directory support for InMemoryVIGraph
-            print(f"Error: Directory loading not yet supported with in-memory graph", file=sys.stderr)
+            print("Error: Directory loading not yet supported with in-memory graph", file=sys.stderr)
             return 1
         else:
             print(f"Error: Unsupported file type: {suffix}", file=sys.stderr)
@@ -680,7 +679,6 @@ def cmd_experiment(args: argparse.Namespace) -> int:
 
     except Exception as e:
         print(f"Error: {e}", file=sys.stderr)
-        import traceback
         traceback.print_exc()
         return 1
 
@@ -847,7 +845,7 @@ def cmd_claude(args: argparse.Namespace) -> int:
         total_input_tokens = sum(r.input_tokens for r in results)
         total_output_tokens = sum(r.output_tokens for r in results)
 
-        print(f"\n=== Summary ===")
+        print("\n=== Summary ===")
         print(f"Output: {output_dir}")
         print(f"Succeeded: {succeeded}/{len(results)}")
         print(f"Failed: {failed}")
@@ -865,7 +863,6 @@ def cmd_claude(args: argparse.Namespace) -> int:
 
     except Exception as e:
         print(f"Error: {e}", file=sys.stderr)
-        import traceback
         traceback.print_exc()
         return 1
 

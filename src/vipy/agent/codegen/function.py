@@ -277,8 +277,8 @@ class FunctionBuilder:
             return []
 
         lines = [f"class {func_def.result_class_name}(NamedTuple):"]
-        for field in func_def.result_fields:
-            lines.append(f"    {field.name}: {field.type_hint}")
+        for result_field in func_def.result_fields:
+            lines.append(f"    {result_field.name}: {result_field.type_hint}")
 
         if not func_def.result_fields:
             lines.append("    pass")
@@ -303,13 +303,13 @@ class FunctionBuilder:
             return "return None"
 
         parts = []
-        for field in func_def.result_fields:
-            if field.source_var:
-                parts.append(f"{field.name}={field.source_var}")
+        for result_field in func_def.result_fields:
+            if result_field.source_var:
+                parts.append(f"{result_field.name}={result_field.source_var}")
             else:
                 # No traced source - use field name as fallback
                 # This indicates a bug in tracing, but keeps code valid
-                parts.append(f"{field.name}={field.name}")
+                parts.append(f"{result_field.name}={result_field.name}")
 
         args = ", ".join(parts)
         return f"return {func_def.result_class_name}({args})"

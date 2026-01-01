@@ -11,7 +11,6 @@ import platform
 from dataclasses import dataclass
 from enum import IntEnum
 from pathlib import Path
-from typing import Any
 
 
 @dataclass

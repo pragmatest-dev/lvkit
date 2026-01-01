@@ -9,6 +9,7 @@ The LLM only fills in truly unknown parts (unmapped primitives).
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
@@ -677,8 +678,6 @@ class SkeletonGenerator:
         Returns:
             Substituted expression like "dir_result.path / suffix"
         """
-        import re
-
         result = python_hint
 
         # Strip assignment if present (we generate our own output var)
@@ -721,8 +720,6 @@ class SkeletonGenerator:
         Returns:
             (python_expression, [output_var_names], [pre_statements])
         """
-        import re
-
         # Get wired output terminals from the operation
         wired_outputs = []
         for term in op.get("terminals", []):

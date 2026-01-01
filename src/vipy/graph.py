@@ -441,7 +441,6 @@ class VIGraph:
         """
         node_id = record.get(f"{prefix}_id")
         labels = record.get(f"{prefix}_labels", [])
-        prim_id = record.get(f"{prefix}_prim")
 
         # Determine the variable prefix
         if "Primitive" in labels:

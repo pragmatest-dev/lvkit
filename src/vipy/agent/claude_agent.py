@@ -10,7 +10,6 @@ import json
 import os
 import time
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Any
 
 from ..types import TypeInfo
@@ -261,7 +260,6 @@ def convert_with_retry(
 
         # Build error context for retry
         errors = [e.message for e in validation.errors]
-        error_text = "\n".join(f"- {e}" for e in errors)
 
         # Update context with errors for next attempt
         vi_context = {

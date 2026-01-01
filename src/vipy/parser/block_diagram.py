@@ -6,8 +6,6 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 
 from vipy.constants import (
-    CONSTANT_DCO_CLASS,
-    FP_TERMINAL_CLASS,
     MULTI_LABEL_CLASS,
     OPERATION_NODE_CLASSES,
     TERMINAL_CLASS,
@@ -167,8 +165,6 @@ def _extract_terminal_info(
         Dict mapping terminal UID to TerminalInfo
     """
     terminal_info: dict[str, TerminalInfo] = {}
-    const_uids = {c.uid for c in constants}
-    fp_term_map = {fp.uid: fp for fp in fp_terminals}
 
     # Extract terminals from operation nodes
     for elem in root.iter():

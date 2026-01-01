@@ -432,3 +432,574 @@ def test_unknown_node_type_emits_warning():
 
     # Should have warning comment
     assert "WARNING" in result or "Unknown node type" in result
+
+
+# === CodeFragment Tests ===
+
+
+def test_code_fragment_empty():
+    """Test creating an empty CodeFragment."""
+    from vipy.agent.codegen import CodeFragment
+
+    frag = CodeFragment.empty()
+    assert len(frag.statements) == 0
+    assert len(frag.bindings) == 0
+    assert len(frag.imports) == 0
+
+
+def test_code_fragment_from_statement():
+    """Test creating a CodeFragment from a single statement."""
+    from vipy.agent.codegen import CodeFragment
+
+    stmt = ast.Assign(
+        targets=[ast.Name(id="x", ctx=ast.Store())],
+        value=ast.Constant(value=42),
+    )
+    frag = CodeFragment.from_statement(stmt, {"term:1": "x"}, {"import foo"})
+
+    assert len(frag.statements) == 1
+    assert frag.bindings == {"term:1": "x"}
+    assert "import foo" in frag.imports
+
+
+def test_code_fragment_extend():
+    """Test extending a CodeFragment with another."""
+    from vipy.agent.codegen import CodeFragment
+
+    frag1 = CodeFragment(
+        statements=[],
+        bindings={"a": "x"},
+        imports={"import foo"},
+    )
+    frag2 = CodeFragment(
+        statements=[],
+        bindings={"b": "y"},
+        imports={"import bar"},
+    )
+
+    frag1.extend(frag2)
+
+    assert frag1.bindings == {"a": "x", "b": "y"}
+    assert frag1.imports == {"import foo", "import bar"}
+
+
+def test_code_fragment_add():
+    """Test adding two CodeFragments."""
+    from vipy.agent.codegen import CodeFragment
+
+    frag1 = CodeFragment(bindings={"a": "x"}, imports={"import foo"})
+    frag2 = CodeFragment(bindings={"b": "y"}, imports={"import bar"})
+
+    combined = frag1 + frag2
+
+    assert combined.bindings == {"a": "x", "b": "y"}
+    assert combined.imports == {"import foo", "import bar"}
+    # Original frags should be unchanged
+    assert frag1.bindings == {"a": "x"}
+
+
+# === CodeGenContext Additional Tests ===
+
+
+def test_context_add_import():
+    """Test adding imports to context."""
+    from vipy.agent.codegen import CodeGenContext
+
+    ctx = CodeGenContext()
+    ctx.add_import("import os")
+    ctx.add_import("from pathlib import Path")
+
+    assert "import os" in ctx.imports
+    assert "from pathlib import Path" in ctx.imports
+
+
+def test_context_merge_bindings():
+    """Test merging bindings into context."""
+    from vipy.agent.codegen import CodeGenContext
+
+    ctx = CodeGenContext()
+    ctx.bind("t1", "x")
+
+    ctx.merge({"t2": "y", "t3": "z"})
+
+    assert ctx.resolve("t1") == "x"
+    assert ctx.resolve("t2") == "y"
+    assert ctx.resolve("t3") == "z"
+
+
+def test_context_flow_map_tracing():
+    """Test that context traces through data flow."""
+    from vipy.agent.codegen import CodeGenContext
+
+    data_flow = [
+        {"from_terminal_id": "source", "to_terminal_id": "dest", "from_parent_id": "p1"},
+    ]
+
+    ctx = CodeGenContext(data_flow=data_flow)
+    ctx.bind("source", "my_var")
+
+    # Should trace from dest back to source
+    resolved = ctx.resolve("dest")
+    assert resolved == "my_var"
+
+
+def test_context_cycle_detection():
+    """Test that context handles cycles in data flow."""
+    from vipy.agent.codegen import CodeGenContext
+
+    # Create a cycle: a -> b -> a
+    data_flow = [
+        {"from_terminal_id": "a", "to_terminal_id": "b", "from_parent_id": "p1"},
+        {"from_terminal_id": "b", "to_terminal_id": "a", "from_parent_id": "p2"},
+    ]
+
+    ctx = CodeGenContext(data_flow=data_flow)
+
+    # Should not infinite loop, should return None
+    result = ctx.resolve("a")
+    assert result is None
+
+
+def test_context_callee_param_lookup():
+    """Test looking up callee parameter names."""
+    from vipy.agent.codegen import CodeGenContext
+
+    def mock_lookup(vi_name: str) -> dict | None:
+        if vi_name == "Helper.vi":
+            return {
+                "inputs": [
+                    {"slot_index": 0, "name": "Input A"},
+                    {"slot_index": 1, "name": "Input B"},
+                ],
+                "outputs": [
+                    {"slot_index": 2, "name": "Output C"},
+                ],
+            }
+        return None
+
+    ctx = CodeGenContext(vi_context_lookup=mock_lookup)
+
+    assert ctx.get_callee_param_name("Helper.vi", 0) == "Input A"
+    assert ctx.get_callee_param_name("Helper.vi", 1) == "Input B"
+    assert ctx.get_callee_param_name("Helper.vi", 99) is None
+    assert ctx.get_callee_param_name("Unknown.vi", 0) is None
+
+
+def test_context_callee_output_lookup():
+    """Test looking up callee output names."""
+    from vipy.agent.codegen import CodeGenContext
+
+    def mock_lookup(vi_name: str) -> dict | None:
+        if vi_name == "Helper.vi":
+            return {
+                "inputs": [],
+                "outputs": [
+                    {"slot_index": 0, "name": "Result"},
+                ],
+            }
+        return None
+
+    ctx = CodeGenContext(vi_context_lookup=mock_lookup)
+
+    assert ctx.get_callee_output_name("Helper.vi", 0) == "Result"
+    assert ctx.get_callee_output_name("Helper.vi", 99) is None
+
+
+# === DataFlowTracer Tests ===
+
+
+def test_dataflow_tracer_basic():
+    """Test basic DataFlowTracer functionality."""
+    from vipy.agent.codegen import DataFlowTracer
+
+    vi_context = {
+        "terminals": [
+            {"id": "t1", "index": 0, "direction": "input", "parent_id": "op1"},
+            {"id": "t2", "index": 1, "direction": "output", "parent_id": "op1"},
+        ],
+        "operations": [],
+        "data_flow": [
+            {"from_terminal_id": "source", "to_terminal_id": "t1", "from_parent_id": "input1"},
+        ],
+    }
+
+    tracer = DataFlowTracer(vi_context)
+
+    # Test is_wired
+    assert tracer.is_wired("source") is True
+    assert tracer.is_wired("t1") is True
+    assert tracer.is_wired("unknown") is False
+
+    # Test get_terminal
+    term = tracer.get_terminal("t1")
+    assert term is not None
+    assert term.direction == "input"
+
+
+def test_dataflow_tracer_variable_registration():
+    """Test registering and retrieving variables."""
+    from vipy.agent.codegen import DataFlowTracer
+
+    vi_context = {"terminals": [], "operations": [], "data_flow": []}
+    tracer = DataFlowTracer(vi_context)
+
+    tracer.register_variable("t1", "my_var")
+    assert tracer.get_variable("t1") == "my_var"
+    assert tracer.get_variable("unknown") is None
+
+
+def test_dataflow_tracer_resolve_source():
+    """Test resolving source variable for a terminal."""
+    from vipy.agent.codegen import DataFlowTracer
+
+    vi_context = {
+        "terminals": [
+            {"id": "t1", "index": 0, "direction": "input", "parent_id": "op1"},
+        ],
+        "operations": [],
+        "data_flow": [
+            {"from_terminal_id": "source", "to_terminal_id": "t1", "from_parent_id": "input1"},
+        ],
+    }
+
+    tracer = DataFlowTracer(vi_context)
+    tracer.register_variable("source", "x")
+
+    resolved = tracer.resolve_source("t1")
+    assert resolved == "x"
+
+
+def test_dataflow_tracer_wired_inputs():
+    """Test getting wired inputs for an operation."""
+    from vipy.agent.codegen import DataFlowTracer
+
+    vi_context = {
+        "terminals": [
+            {"id": "t1", "index": 0, "direction": "input", "parent_id": "op1"},
+            {"id": "t2", "index": 1, "direction": "input", "parent_id": "op1"},
+            {"id": "t3", "index": 2, "direction": "output", "parent_id": "op1"},
+        ],
+        "operations": [],
+        "data_flow": [
+            {"from_terminal_id": "src1", "to_terminal_id": "t1", "from_parent_id": "p1"},
+            {"from_terminal_id": "src2", "to_terminal_id": "t2", "from_parent_id": "p2"},
+        ],
+    }
+
+    tracer = DataFlowTracer(vi_context)
+    tracer.register_variable("src1", "x")
+    tracer.register_variable("src2", "y")
+
+    inputs = tracer.get_wired_inputs("op1")
+    assert len(inputs) == 2
+    assert inputs[0] == (0, "t1", "x")
+    assert inputs[1] == (1, "t2", "y")
+
+
+def test_dataflow_tracer_wired_outputs():
+    """Test getting wired outputs for an operation."""
+    from vipy.agent.codegen import DataFlowTracer
+
+    vi_context = {
+        "terminals": [
+            {"id": "t1", "index": 0, "direction": "input", "parent_id": "op1"},
+            {"id": "t2", "index": 1, "direction": "output", "parent_id": "op1"},
+        ],
+        "operations": [],
+        "data_flow": [
+            {"from_terminal_id": "t2", "to_terminal_id": "dest", "from_parent_id": "op1"},
+        ],
+    }
+
+    tracer = DataFlowTracer(vi_context)
+
+    outputs = tracer.get_wired_outputs("op1")
+    assert len(outputs) == 1
+    assert outputs[0] == (1, "t2")
+
+
+# === ExpressionBuilder Tests ===
+
+
+def test_expression_builder_string_hint():
+    """Test building expression from string hint."""
+    from vipy.agent.codegen import DataFlowTracer
+
+    vi_context = {"terminals": [], "operations": [], "data_flow": []}
+    tracer = DataFlowTracer(vi_context)
+
+    from vipy.agent.codegen.expressions import ExpressionBuilder
+
+    builder = ExpressionBuilder(tracer)
+
+    expr = builder.build_primitive(
+        python_hint="x + y",
+        input_values=["a", "b"],
+        input_names=["x", "y"],
+        wired_outputs=[(0, "out1", "result")],
+    )
+
+    assert expr.code == "a + b"
+    assert expr.output_vars == ["result"]
+
+
+def test_expression_builder_dict_hint():
+    """Test building expression from dict hint."""
+    from vipy.agent.codegen import DataFlowTracer
+
+    vi_context = {"terminals": [], "operations": [], "data_flow": []}
+    tracer = DataFlowTracer(vi_context)
+
+    from vipy.agent.codegen.expressions import ExpressionBuilder
+
+    builder = ExpressionBuilder(tracer)
+
+    expr = builder.build_primitive(
+        python_hint={"sum": "x + y", "diff": "x - y"},
+        input_values=["a", "b"],
+        input_names=["x", "y"],
+        wired_outputs=[
+            (0, "out1", "sum"),
+            (1, "out2", "diff"),
+        ],
+    )
+
+    assert "a + b" in expr.code
+    assert "a - b" in expr.code
+    assert len(expr.output_vars) == 2
+
+
+def test_expression_builder_subvi_call():
+    """Test building SubVI call expression."""
+    from vipy.agent.codegen import DataFlowTracer
+
+    vi_context = {"terminals": [], "operations": [], "data_flow": []}
+    tracer = DataFlowTracer(vi_context)
+
+    from vipy.agent.codegen.expressions import ExpressionBuilder
+
+    builder = ExpressionBuilder(tracer)
+
+    expr = builder.build_subvi_call(
+        function_name="my_helper",
+        input_values=["x", "y", "z"],
+        result_var="result",
+    )
+
+    assert expr.code == "my_helper(x, y, z)"
+    assert expr.output_vars == ["result"]
+
+
+def test_expression_builder_with_assignment():
+    """Test that assignments are stripped from hints."""
+    from vipy.agent.codegen import DataFlowTracer
+
+    vi_context = {"terminals": [], "operations": [], "data_flow": []}
+    tracer = DataFlowTracer(vi_context)
+
+    from vipy.agent.codegen.expressions import ExpressionBuilder
+
+    builder = ExpressionBuilder(tracer)
+
+    expr = builder.build_primitive(
+        python_hint="result = x + y",  # Has assignment
+        input_values=["a", "b"],
+        input_names=["x", "y"],
+        wired_outputs=[(0, "out1", "result")],
+    )
+
+    # Assignment should be stripped
+    assert expr.code == "a + b"
+
+
+def test_expression_builder_with_comment():
+    """Test that comments are stripped from hints."""
+    from vipy.agent.codegen import DataFlowTracer
+
+    vi_context = {"terminals": [], "operations": [], "data_flow": []}
+    tracer = DataFlowTracer(vi_context)
+
+    from vipy.agent.codegen.expressions import ExpressionBuilder
+
+    builder = ExpressionBuilder(tracer)
+
+    expr = builder.build_primitive(
+        python_hint="x + y  # Add two numbers",  # Has comment
+        input_values=["a", "b"],
+        input_names=["x", "y"],
+        wired_outputs=[(0, "out1", "result")],
+    )
+
+    # Comment should be stripped
+    assert "#" not in expr.code
+    assert expr.code == "a + b"
+
+
+# === Build Module Edge Cases ===
+
+
+def test_build_module_with_case_structure():
+    """Test build_module with a case structure."""
+    from vipy.agent.codegen import build_module
+
+    vi_context = {
+        "name": "Case Test.vi",
+        "inputs": [
+            {"id": "inp:1", "name": "Selector", "type": "int"},
+        ],
+        "outputs": [
+            {"id": "out:1", "name": "Result", "type": "int"},
+        ],
+        "constants": [],
+        "operations": [
+            {
+                "id": "case:1",
+                "name": "Case Structure",
+                "labels": ["Case"],
+                "terminals": [],
+            }
+        ],
+        "data_flow": [],
+    }
+
+    result = build_module(vi_context, "Case Test.vi")
+
+    # Should be valid Python
+    ast.parse(result)
+    assert "def case_test(" in result
+
+
+def test_build_module_with_multiple_outputs():
+    """Test build_module with multiple outputs."""
+    from vipy.agent.codegen import build_module
+
+    vi_context = {
+        "name": "Multi Output.vi",
+        "inputs": [
+            {"id": "inp:1", "name": "Input", "type": "int"},
+        ],
+        "outputs": [
+            {"id": "out:1", "name": "Output A", "type": "int"},
+            {"id": "out:2", "name": "Output B", "type": "str"},
+            {"id": "out:3", "name": "Output C", "type": "float"},
+        ],
+        "constants": [],
+        "operations": [],
+        "data_flow": [],
+    }
+
+    result = build_module(vi_context, "Multi Output.vi")
+
+    # Should be valid Python
+    ast.parse(result)
+    assert "class MultiOutputResult" in result
+    assert "output_a" in result
+    assert "output_b" in result
+    assert "output_c" in result
+
+
+def test_build_module_with_enum_input():
+    """Test build_module with an enum input."""
+    from vipy.agent.codegen import build_module
+
+    vi_context = {
+        "name": "Enum Input.vi",
+        "inputs": [
+            {
+                "id": "inp:1",
+                "name": "Mode",
+                "type": "enum",
+                "enum_values": ["Read", "Write", "Append"],
+            },
+        ],
+        "outputs": [],
+        "constants": [],
+        "operations": [],
+        "data_flow": [],
+    }
+
+    result = build_module(vi_context, "Enum Input.vi")
+
+    # Should be valid Python
+    ast.parse(result)
+    assert "def enum_input(" in result
+
+
+def test_build_module_empty_vi():
+    """Test build_module with an empty VI (no inputs, outputs, or operations)."""
+    from vipy.agent.codegen import build_module
+
+    vi_context = {
+        "name": "Empty.vi",
+        "inputs": [],
+        "outputs": [],
+        "constants": [],
+        "operations": [],
+        "data_flow": [],
+    }
+
+    result = build_module(vi_context, "Empty.vi")
+
+    # Should be valid Python
+    ast.parse(result)
+    assert "def empty(" in result
+
+
+def test_build_module_with_nested_loops():
+    """Test build_module with nested loop structures."""
+    from vipy.agent.codegen import build_module
+
+    vi_context = {
+        "name": "Nested Loops.vi",
+        "inputs": [],
+        "outputs": [],
+        "constants": [],
+        "operations": [
+            {
+                "id": "outer:1",
+                "name": "Outer For",
+                "labels": ["Loop"],
+                "loop_type": "forLoop",
+                "inner_nodes": [
+                    {
+                        "id": "inner:1",
+                        "name": "Inner While",
+                        "labels": ["Loop"],
+                        "loop_type": "whileLoop",
+                        "inner_nodes": [],
+                        "tunnels": [],
+                    }
+                ],
+                "tunnels": [],
+            }
+        ],
+        "data_flow": [],
+    }
+
+    result = build_module(vi_context, "Nested Loops.vi")
+
+    # Should be valid Python
+    ast.parse(result)
+    assert "for " in result
+    assert "while " in result
+
+
+def test_build_module_special_characters_in_name():
+    """Test build_module handles special characters in VI name."""
+    from vipy.agent.codegen import build_module
+
+    vi_context = {
+        "name": "Test-VI (Copy).vi",
+        "inputs": [],
+        "outputs": [],
+        "constants": [],
+        "operations": [],
+        "data_flow": [],
+    }
+
+    result = build_module(vi_context, "Test-VI (Copy).vi")
+
+    # Should be valid Python
+    ast.parse(result)
+    # Function name should be sanitized
+    assert "def test_vi_copy(" in result or "def testvi_copy(" in result

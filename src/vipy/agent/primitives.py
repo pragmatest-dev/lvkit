@@ -2,15 +2,18 @@
 
 from __future__ import annotations
 
+import re
+import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from ..primitive_resolver import PrimitiveResolver, ResolvedPrimitive, get_resolver
+from ..primitive_resolver import get_resolver
 
 if TYPE_CHECKING:
     from ..graph import VIGraph
     from ..llm import LLMConfig
+    from .strategies.base import ConversionStrategy
 
 
 def lookup_primitive(prim_id: int | str) -> dict | None:
@@ -367,7 +370,6 @@ from typing import Any
             )
 
         # All retries failed
-        import sys
         print(f"  ERROR: Failed to generate {func_name} after {max_retries} attempts: {errors}", file=sys.stderr)
         raise RuntimeError(f"Failed to generate primitive {func_name}: {errors}")
 
@@ -485,8 +487,6 @@ Output ONLY the function definition, no explanations.
 
         Returns error message if invalid, None if valid.
         """
-        import re
-
         # Known invalid import patterns
         errors = []
 

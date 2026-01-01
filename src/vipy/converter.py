@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 import subprocess
 import sys
 from dataclasses import dataclass
@@ -222,7 +223,6 @@ def convert_xml(
 
 def _extract_function_name(code: str) -> str:
     """Extract the main function name from generated code."""
-    import re
     match = re.search(r"def\s+(\w+)\s*\(", code)
     if match:
         return match.group(1)

@@ -29,6 +29,8 @@ from .frontpanel import FPControl, parse_front_panel
 from .parser import (
     BlockDiagram,
     ConnectorPane,
+    Constant,
+    Node,
     SubVIPathRef,
     parse_block_diagram,
     parse_connector_pane,

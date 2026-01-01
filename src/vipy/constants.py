@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import os
+
 # === XML Element Class Names ===
 # Node types on the block diagram
 NODE_CLASS_PRIM = "prim"
@@ -118,6 +120,5 @@ def derive_main_xml_path(bd_xml_path: str) -> str:
 
 def derive_vi_name(bd_xml_path: str) -> str:
     """Derive VI name from block diagram XML filename."""
-    import os
     basename = os.path.basename(bd_xml_path)
     return basename.replace(BD_XML_SUFFIX, "")
