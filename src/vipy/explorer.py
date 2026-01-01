@@ -6,6 +6,7 @@ Run with: python app.py (or python explorer.py)
 
 from __future__ import annotations
 
+import argparse
 import importlib
 import sys
 from pathlib import Path
@@ -243,7 +244,6 @@ def run_explorer(directory: str, port: int = 8080) -> None:
 
 
 if __name__ in {"__main__", "__mp_main__"}:
-    import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument("--port", "-p", type=int, default=8080)
     args = parser.parse_args()

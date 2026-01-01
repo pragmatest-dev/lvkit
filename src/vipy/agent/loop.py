@@ -8,17 +8,15 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from ..enum_resolver import get_enum_resolver
 from ..llm import LLMConfig, generate_code
 from ..vilib_resolver import get_resolver as get_vilib_resolver
-from .agentic import AgenticConfig, AgenticConverter, AgenticResult
 from .context import ContextBuilder, VISignature
 from .enums import EnumRegistry
 from .primitives import PrimitiveRegistry
 from .state import ConversionState, get_progress
 from .strategies import get_strategy
 from .types import SharedTypeRegistry
-from .validator import CodeValidator, ErrorFormatter, ValidatorConfig
+from .validator import CodeValidator, ValidatorConfig
 
 if TYPE_CHECKING:
     from ..graph import VIGraph
@@ -178,26 +176,12 @@ class ConversionAgent:
         # Get VI context from graph - structured data for LLM
         vi_context = self.graph.get_vi_context(vi_name)
 
-        # Extract inputs/outputs for validation
-        inputs = self._extract_io(vi_context.get("inputs", []))
-        outputs = self._extract_io(vi_context.get("outputs", []))
-
         # Get converted SubVI signatures (with library-relative imports)
         subvi_sigs = self._get_subvi_signatures(vi_context, vi_name)
 
-        # Get relevant types, primitives, and enums
-        types = self.type_registry.get_types_for_vi(vi_name)
+        # Get relevant primitives
         primitive_names = self.primitive_registry.get_primitive_names(vi_name)
-        primitive_mappings = self.primitive_registry.get_primitive_id_mapping(vi_name)
         primitive_context = self.primitive_registry.get_primitive_context(vi_name)
-        enum_context = self.enum_registry.get_enum_context(vi_name)
-
-        # Extract expected SubVIs for completeness checking
-        expected_subvis = [
-            op["name"]
-            for op in vi_context.get("operations", [])
-            if "SubVI" in op.get("labels", []) and op.get("name")
-        ]
 
         # Use strategy for conversion
         strategy_cls = get_strategy(self.config.strategy)
@@ -250,7 +234,7 @@ class ConversionAgent:
 
         # Max retries exceeded - try agentic mode if enabled
         if self.config.use_agentic_fallback:
-            print(f"    Standard conversion failed, trying agentic mode...")
+            print("    Standard conversion failed, trying agentic mode...")
             agentic_result = self._try_agentic_conversion(
                 vi_name, vi_context, subvi_sigs, primitive_names, primitive_context
             )

@@ -232,8 +232,7 @@ def discover_project_structure(root_path: Path | str) -> dict[str, Any]:
             ],
         })
 
-    # Find standalone VIs (not in library or class directories)
-    lib_dirs = {Path(lib["path"]).parent for lib in structure["libraries"]}
+    # Find standalone VIs (not in class directories)
     class_dirs = {Path(cls["path"]).parent for cls in structure["classes"]}
 
     for vi_path in root_path.rglob("*.vi"):

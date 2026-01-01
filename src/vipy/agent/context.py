@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import copy
 import json
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
@@ -335,7 +336,6 @@ def create() -> {class_name}UI:
         Returns:
             Cleaned context dict
         """
-        import copy
         cleaned = copy.deepcopy(ctx)
         primitive_mappings = primitive_mappings or {}
         primitive_context = primitive_context or {}
@@ -778,7 +778,7 @@ Output ONLY the corrected Python code, no explanations."""
 
         lines = ["```python", "# Available shared types (from .types)"]
         for t in types:
-            lines.append(f"@dataclass")
+            lines.append("@dataclass")
             lines.append(f"class {t.name}:")
             for field_name, field_type in t.fields:
                 lines.append(f"    {field_name}: {field_type}")
@@ -887,7 +887,7 @@ Output ONLY the corrected Python code, no explanations."""
                     lines.append(f"  {marker} {idx}: {val_name}")
 
             if used_values:
-                lines.append(f"  (* = used in this VI)")
+                lines.append("  (* = used in this VI)")
 
         return "\n".join(lines)
 

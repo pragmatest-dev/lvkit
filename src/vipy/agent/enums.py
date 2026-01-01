@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from pathlib import Path
 from typing import TYPE_CHECKING
 
 from ..enum_resolver import EnumResolver, ResolvedEnum, get_enum_resolver
