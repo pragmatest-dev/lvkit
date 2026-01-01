@@ -31,11 +31,12 @@
           "python_param": "millisecond_timer_value"
         }
       ],
-      "python_inline": "{millisecond_timer_value} = int(time.time() * 1000)",
-      "inline_imports": [
+      "status": "complete",
+      "python_code": "{millisecond_timer_value} = int(time.time() * 1000)",
+      "inline": true,
+      "imports": [
         "import time"
-      ],
-      "status": "complete"
+      ]
     },
     {
       "name": "Wait (ms)__ogtk",
@@ -86,11 +87,12 @@
           "python_param": "millisecond_timer_value"
         }
       ],
-      "python_inline": "time.sleep({milliseconds_to_wait} / 1000)",
-      "inline_imports": [
+      "status": "complete",
+      "python_code": "time.sleep({milliseconds_to_wait} / 1000)",
+      "inline": true,
+      "imports": [
         "import time"
-      ],
-      "status": "complete"
+      ]
     }
   ]
 }

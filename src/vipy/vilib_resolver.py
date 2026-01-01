@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
+
+from pydantic import BaseModel, Field
 
 
 class VILibResolutionNeeded(Exception):
@@ -49,33 +50,30 @@ class VILibResolutionNeeded(Exception):
         return msg
 
 
-@dataclass
-class VILibTerminal:
+class VITerminal(BaseModel):
     """A terminal on a vilib VI."""
-    index: int | None  # None if not yet resolved
-    direction: str  # "in" or "out"
-    name: str
+    name: str = ""
+    index: int | None = None
+    direction: str = "in"
     type: str | None = None
-    enum: str | None = None  # Enum type name if this terminal uses an enum
-    enum_values: list[tuple[int, str]] | None = None  # Enum values if extracted from PDF
-    python_param: str | None = None  # Python parameter name if different from name
+    enum: str | None = None
+    enum_values: list[tuple[int, str]] | None = None
+    python_param: str | None = None
 
 
-@dataclass
-class VILibVI:
-    """A vilib VI with its Python mapping."""
-    name: str
-    vilib_path: str  # e.g., "Utility/sysdir.llb/Get System Directory.vi"
-    terminals: list[VILibTerminal] = field(default_factory=list)
-    python: str = ""  # Usage hint like "get_system_directory(directory_type)"
-    python_impl: str | None = None  # Full implementation if available
-    python_inline: str | None = None  # Inline template like "os.makedirs({path}, exist_ok=True)"
-    imports: list[str] = field(default_factory=list)
-    inline_imports: list[str] = field(default_factory=list)  # Imports for inline code
-    doc_url: str | None = None
-    category: str | None = None  # Category like "openg/file" - used as output folder
-    status: str = "needs_review"  # needs_review, needs_terminals, complete
-    pdf_page: int | None = None  # Page number in PDF reference
+class VIEntry(BaseModel):
+    """A vilib/openg VI entry from JSON."""
+    name: str = ""
+    vi_path: str | None = None
+    category: str | None = None
+    description: str | None = None
+    terminals: list[VITerminal] = Field(default_factory=list)
+    python: str = ""
+    python_code: str | None = None
+    inline: bool = False
+    imports: list[str] = Field(default_factory=list)
+    status: str = "needs_review"
+    page: int | None = None
 
 
 class VILibResolver:
@@ -98,8 +96,8 @@ class VILibResolver:
         if data_dir is None:
             data_dir = Path(__file__).parent.parent.parent / "data"
 
-        self._vis: dict[str, VILibVI] = {}
-        self._by_name: dict[str, VILibVI] = {}  # Lookup by VI name only
+        self._vis: dict[str, VIEntry] = {}
+        self._by_name: dict[str, VIEntry] = {}  # Lookup by VI name only
         self._pdf_entries: dict[str, dict] = {}  # Raw PDF data for context
         self._enums: dict[str, dict] = {}  # Enum definitions
 
@@ -136,50 +134,27 @@ class VILibResolver:
             with open(category_path) as f:
                 data = json.load(f)
 
-            for entry in data.get("entries", []):
-                name = entry.get("name", "")
-                if not name:
+            for entry_data in data.get("entries", []):
+                # Parse JSON into typed Pydantic model
+                entry = VIEntry.model_validate(entry_data)
+                if not entry.name:
                     continue
 
-                # Store raw PDF data for context in exceptions
-                self._pdf_entries[name] = entry
+                # Apply default category if not set
+                if not entry.category:
+                    entry.category = category
 
-                terminals = []
-                for t in entry.get("terminals", []):
-                    terminals.append(
-                        VILibTerminal(
-                            index=t.get("index"),  # None if not resolved yet
-                            direction=t.get("direction", "in"),
-                            name=t.get("name", ""),
-                            type=t.get("type"),
-                            enum=t.get("enum"),
-                            enum_values=t.get("enum_values"),
-                            python_param=t.get("python_param"),
-                        )
-                    )
+                # Store raw data for context in exceptions
+                self._pdf_entries[entry.name] = entry_data
 
                 # Create VI name with .vi extension for lookup
-                vi_name = f"{name}.vi" if not name.endswith(".vi") else name
-
-                vi = VILibVI(
-                    name=name,
-                    vilib_path=entry.get("vi_path") or f"vi.lib/{category}/{name}.vi",
-                    terminals=terminals,
-                    python=entry.get("python", ""),
-                    python_impl=entry.get("python_impl"),
-                    python_inline=entry.get("python_inline"),
-                    imports=entry.get("imports", []),
-                    inline_imports=entry.get("inline_imports", []),
-                    category=entry.get("category") or category,  # Entry can override
-                    status=entry.get("status", "needs_review"),
-                    pdf_page=entry.get("page"),
-                )
+                vi_name = f"{entry.name}.vi" if not entry.name.endswith(".vi") else entry.name
 
                 # Only add if not already present (legacy data takes priority)
                 if vi_name not in self._by_name:
-                    self._by_name[vi_name] = vi
-                    if vi.vilib_path:
-                        self._vis[vi.vilib_path] = vi
+                    self._by_name[vi_name] = entry
+                    if entry.vi_path:
+                        self._vis[entry.vi_path] = entry
 
     def get_enums(self) -> dict[str, dict]:
         """Get all enum definitions.
@@ -189,35 +164,40 @@ class VILibResolver:
         """
         return self._enums
 
-    def resolve(self, vilib_path: str) -> VILibVI | None:
+    def resolve(self, vilib_path: str) -> VIEntry | None:
         """Resolve a vilib path to its VI mapping.
 
         Args:
             vilib_path: Full vilib path like "Utility/sysdir.llb/Get System Directory.vi"
 
         Returns:
-            VILibVI if found, None otherwise
+            VIEntry if found, None otherwise
         """
         return self._vis.get(vilib_path)
 
-    def resolve_by_name(self, vi_name: str) -> VILibVI | None:
+    def resolve_by_name(self, vi_name: str) -> VIEntry | None:
         """Resolve a VI by its filename only.
 
         Args:
             vi_name: VI filename like "Get System Directory.vi"
 
         Returns:
-            VILibVI if found, None otherwise
+            VIEntry if found, None otherwise
         """
         return self._by_name.get(vi_name)
 
     def has_implementation(self, vi_name: str) -> bool:
-        """Check if we have a Python implementation for a VI."""
+        """Check if we have a full Python implementation (module) for a VI."""
         vi = self.resolve_by_name(vi_name)
-        return vi is not None and vi.python_impl is not None
+        return vi is not None and vi.python_code is not None and not vi.inline
+
+    def has_inline(self, vi_name: str) -> bool:
+        """Check if we have inline Python code for a VI (inlined at call sites)."""
+        vi = self.resolve_by_name(vi_name)
+        return vi is not None and vi.python_code is not None and vi.inline
 
     def get_implementation(self, vi_name: str) -> str | None:
-        """Get the Python implementation for a vilib VI.
+        """Get the Python implementation for a vilib VI (non-inline only).
 
         Args:
             vi_name: VI filename like "Get System Directory.vi"
@@ -226,7 +206,7 @@ class VILibResolver:
             Python code string if available, None otherwise
         """
         vi = self.resolve_by_name(vi_name)
-        if not vi or not vi.python_impl:
+        if not vi or not vi.python_code or vi.inline:
             return None
 
         lines = ['"""Generated from vilib VI."""', "", "from __future__ import annotations", ""]
@@ -234,7 +214,7 @@ class VILibResolver:
         if vi.imports:
             lines.append("")
         lines.append("")
-        lines.append(vi.python_impl)
+        lines.append(vi.python_code)
         return "\n".join(lines)
 
     def get_context(self, vi_name: str) -> dict[str, Any] | None:
@@ -252,7 +232,7 @@ class VILibResolver:
 
         return {
             "name": vi.name,
-            "vilib_path": vi.vilib_path,
+            "vi_path": vi.vi_path,
             "terminals": [
                 {
                     "index": t.index,
@@ -264,7 +244,9 @@ class VILibResolver:
                 for t in vi.terminals
             ],
             "python": vi.python,
-            "has_implementation": vi.python_impl is not None,
+            "python_code": vi.python_code,
+            "inline": vi.inline,
+            "has_implementation": vi.python_code is not None and not vi.inline,
             "imports": vi.imports,
         }
 

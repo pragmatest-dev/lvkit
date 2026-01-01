@@ -33,7 +33,7 @@ class SubVICodeGen(NodeCodeGen):
         vilib_vi = self._get_vilib_vi(subvi_name, node)
 
         # Check for inline replacement first
-        if vilib_vi and vilib_vi.python_inline:
+        if vilib_vi and vilib_vi.python_code and vilib_vi.inline:
             return self._generate_inline(node, ctx, vilib_vi)
 
         func_name = to_function_name(subvi_name)
@@ -92,7 +92,7 @@ class SubVICodeGen(NodeCodeGen):
         Becomes: "get_array_size_0_size = len(my_array)"
         With binding: size_terminal_id -> "get_array_size_0_size"
         """
-        template = vilib_vi.python_inline
+        template = vilib_vi.python_code
         func_name = to_function_name(node.get("name", "inline"))
 
         # Build index → param name mappings for inputs and outputs
@@ -155,8 +155,8 @@ class SubVICodeGen(NodeCodeGen):
             parsed = ast.parse(template, mode="eval")
             statements = [ast.Expr(value=parsed.body)]
 
-        # Build imports from inline_imports
-        imports = set(vilib_vi.inline_imports) if vilib_vi.inline_imports else set()
+        # Build imports from vilib imports
+        imports = set(vilib_vi.imports) if vilib_vi.imports else set()
 
         return CodeFragment(
             statements=statements,
@@ -194,7 +194,7 @@ class SubVICodeGen(NodeCodeGen):
                     "caller_vi": "unknown",  # Will be set by caller if available
                     "terminal_names": [t.name for t in vi.terminals],
                     "pdf_data": {
-                        "page": vi.pdf_page,
+                        "page": vi.page,
                         "category": vi.category,
                         "description": "",
                         "terminals": [

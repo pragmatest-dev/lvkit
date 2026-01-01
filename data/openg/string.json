@@ -31,9 +31,10 @@
           "python_param": "string_out"
         }
       ],
-      "python_inline": "{string_out} = {string_in}.strip() if {remove_leading_and_trailing} == 0 else ({string_in}.lstrip() if {remove_leading_and_trailing} == 1 else {string_in}.rstrip())",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{string_out} = {string_in}.strip() if {remove_leading_and_trailing} == 0 else ({string_in}.lstrip() if {remove_leading_and_trailing} == 1 else {string_in}.rstrip())",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "1D Array to String__ogtk",
@@ -63,9 +64,10 @@
           "python_param": "delimited_string"
         }
       ],
-      "python_inline": "{delimited_string} = str({delimiter_tab} or '\\t').join({array_of_strings})",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{delimited_string} = str({delimiter_tab} or '\\t').join({array_of_strings})",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "String to 1D Array__ogtk",
@@ -102,9 +104,10 @@
           "python_param": "array_of_strings"
         }
       ],
-      "python_inline": "{string_array} = {string}.split({delimiter_tab} or '\\t')",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{string_array} = {string}.split({delimiter_tab} or '\\t')",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Convert EOLs (String)__ogtk",
@@ -134,9 +137,10 @@
           "python_param": "string_out"
         }
       ],
-      "python_inline": "{string_out} = {string_in}.replace('\\r\\n', '\\n').replace('\\r', '\\n')",
-      "inline_imports": [],
-      "status": "complete"
+      "status": "complete",
+      "python_code": "{string_out} = {string_in}.replace('\\r\\n', '\\n').replace('\\r', '\\n')",
+      "inline": true,
+      "imports": []
     }
   ]
 }

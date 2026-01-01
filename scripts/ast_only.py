@@ -200,6 +200,7 @@ def main():
     parser.add_argument("-o", "--output", required=True, help="Output directory")
     parser.add_argument("--search-path", action="append", dest="search_paths",
                         default=[], help="Additional search paths")
+    parser.add_argument("--generate-ui", action="store_true", help="Generate NiceGUI wrappers")
     args = parser.parse_args()
 
     output_dir = Path(args.output)
@@ -236,15 +237,21 @@ def main():
             continue
 
         is_stub = graph.is_stub_vi(vi_name)
-        has_vilib = vilib_resolver.has_implementation(vi_name) if is_stub else False
+        has_vilib = vilib_resolver.has_implementation(vi_name)
+        has_inline = vilib_resolver.has_inline(vi_name)
 
         module_name = to_module_name(vi_name)
         output_path = output_dir / f"{module_name}.py"
 
         print(f"  [{i}/{len(order)}] {vi_name}")
 
-        if is_stub and has_vilib:
-            # Generate vilib implementation
+        if has_inline:
+            # Skip - inlined at call sites by AST builder
+            print(f"         -> (inlined at call sites)")
+            continue
+
+        if has_vilib:
+            # Generate vilib/openg implementation
             code = vilib_resolver.get_implementation(vi_name)
             output_path.write_text(code)
             print(f"         -> vilib: {output_path.name}")
@@ -265,8 +272,14 @@ def {func_name}(*args, **kwargs) -> Any:
             generated.append((vi_name, output_path, "stub"))
 
         elif vi_name in poly_groups:
-            # Generate polymorphic module with all variants
+            # Check if all variants are inlined
             variants = poly_groups[vi_name]
+            all_inlined = all(vilib_resolver.has_inline(v) for v in variants)
+            if all_inlined:
+                print(f"         -> (polymorphic, all variants inlined)")
+                continue
+
+            # Generate polymorphic module with all variants
             try:
                 code = generate_polymorphic_module(vi_name, variants, graph, vilib_resolver)
                 ast.parse(code)  # Validate syntax
@@ -322,6 +335,53 @@ def {func_name}(*args, **kwargs) -> Any:
     print(f"  ast:   {sum(1 for _, _, s in generated if s == 'ast')}")
     print(f"  stub:  {sum(1 for _, _, s in generated if s == 'stub')}")
     print(f"  error: {sum(1 for _, _, s in generated if s == 'error')}")
+
+    # Generate UI wrappers if requested
+    if args.generate_ui:
+        from vipy.agent.context import ContextBuilder
+
+        print("\nGenerating UI wrappers...")
+        ui_count = 0
+        for vi_name, path, status in generated:
+            if path and status in ("vilib", "ast"):
+                vi_context = graph.get_vi_context(vi_name)
+                inputs = vi_context.get("inputs", [])
+                outputs = vi_context.get("outputs", [])
+
+                # Build input/output specs for UI - format: (display_name, type)
+                ui_inputs = []
+                for inp in inputs:
+                    name = inp.get("name", "input")
+                    ctrl_type = inp.get("control_type", "Any")
+                    ui_inputs.append((name, ctrl_type))
+
+                ui_outputs = []
+                for out in outputs:
+                    name = out.get("name", "output")
+                    ctrl_type = out.get("control_type", "Any")
+                    ui_outputs.append((name, ctrl_type))
+
+                if ui_inputs or ui_outputs:
+                    module_name = to_module_name(vi_name)
+                    func_name = to_function_name(vi_name)
+                    ui_code = ContextBuilder.build_ui_wrapper(
+                        vi_name=vi_name,
+                        module_name=module_name,
+                        function_name=func_name,
+                        inputs=ui_inputs,
+                        outputs=ui_outputs,
+                    )
+                    ui_path = output_dir / f"{module_name}_ui.py"
+                    ui_path.write_text(ui_code)
+                    ui_count += 1
+
+        print(f"  Generated {ui_count} UI wrappers")
+
+        # Copy app.py template
+        app_template = Path(__file__).parent.parent / "src" / "vipy" / "explorer.py"
+        if app_template.exists():
+            shutil.copy(app_template, output_dir / "app.py")
+            print(f"  Copied app.py - run with: python {output_dir}/app.py")
 
 
 if __name__ == "__main__":
