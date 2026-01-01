@@ -1,20 +1,11 @@
 {
   "version": "1.0",
-  "source": "OpenG Toolkit (manually curated)",
+  "source": "OpenG Toolkit",
   "categories": {
-    "file": "file.json",
-    "array": "array.json",
-    "string": "string.json",
-    "error": "error.json",
-    "numeric": "numeric.json",
-    "boolean": "boolean.json",
-    "time": "time.json",
-    "comparison": "comparison.json",
-    "dictionary": "dictionary.json",
-    "appcontrol": "appcontrol.json",
-    "lvdata": "lvdata.json",
-    "variantconfig": "variantconfig.json"
+    "File": "file.json",
+    "Array": "array.json",
+    "String": "string.json",
+    "Time": "time.json"
   },
-  "total_entries": 0,
-  "note": "Entries added as VIs are encountered during conversion"
+  "total_entries": 222
 }
