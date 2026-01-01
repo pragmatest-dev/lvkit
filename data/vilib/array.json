@@ -1,0 +1,2453 @@
+{
+  "category": "Array",
+  "count": 54,
+  "entries": [
+    {
+      "name": "Array Size Function",
+      "page": 391,
+      "category": "Array",
+      "description": "Returns the number of elements in each dimension of array. The connector pane displays the default data types for this polymorphic function.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "array",
+          "direction": "in",
+          "type": "Array",
+          "description": "array can be an n-dimensional array of any type.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "array"
+        },
+        {
+          "name": "size(s)",
+          "direction": "in",
+          "type": "Enum",
+          "description": "Functions \u00a9 National Instruments 391 size(s) is a 32-bit integer if array is one-dimensional (1D). If array is multidimensional, the returned value is a 1D array in which each element is a 32-bit integer that represents the number of elements in the corresponding dimension of array. The order of elements in the return array corresponds to row-major order. Thus, vol is the first index, followed by page, row, and column. These names are index identifiers and have no other meaning.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "sizes"
+        }
+      ]
+    },
+    {
+      "name": "Index Array",
+      "page": 392,
+      "category": "Array",
+      "description": "Returns the element or subarray of n-dimension array at index. When you wire an array to this function, the function resizes automatically to display index inputs for each dimension in the array you wire to n-dimension array. You also can add additional element or subarray terminals by resizing the function. The connector pane displays the default data types for this polymorphic function.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "array",
+          "direction": "in",
+          "type": "Array",
+          "description": "n-dimension array can be an n-dimensional array of any type. If n-dimension array is an empty array, element or subarray returns the default value of the defined data type for the array.",
+          "default_value": "value of the defined data type for the array",
+          "enum_values": null,
+          "python_param": "array"
+        },
+        {
+          "name": "index",
+          "direction": "in",
+          "type": "I32",
+          "description": "index 0..n-1 specifies a number that refers to a location within the input array. LabVIEW automatically provides an index input for each dimension of the array.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "index"
+        },
+        {
+          "name": "element",
+          "direction": "in",
+          "type": "I32",
+          "description": "element or subarray has the same type as the elements of n-dimension array. Functions 392 ni.com You can disable indexing along a dimension by leaving the corresponding index input unwired, unless you are indexing a 1D array. By default, the first dimension has indexing enabled, with the others disabled. If disabled, the input terminal is an outlined black rectangle. If enabled, it is filled. You can wire a constant or control to the index inputs that you want enabled. For example, if you want t",
+          "default_value": "value of the defined data type for the array",
+          "enum_values": null,
+          "python_param": "element"
+        }
+      ]
+    },
+    {
+      "name": "Replace Array Subset",
+      "page": 395,
+      "category": "Array",
+      "description": "Replaces an element or subarray in an array at the point you specify in index. When you wire an array to this function, the function resizes automatically to display index inputs for each dimension in the array you wired. The connector pane displays the default data types for this polymorphic function.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "array",
+          "direction": "in",
+          "type": "Array",
+          "description": "n-dimension array is the array in which you want to replace an element(s), row(s), column(s), or page(s). This input can be an n-dimension array of any type.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "array"
+        },
+        {
+          "name": "index",
+          "direction": "in",
+          "type": "I32",
+          "description": "index 0..n-1 specifies the element, row, column, or page you want to replace in the array. If you do not wire this input, the dimensions of the new element/subarray input determines the number of elements of n-dimension array, starting with element 0, this function replaces. If you specify an index without wiring the following indexes, this function continues from the last index you specify. For example, if you do not wire this input and n-dimension array consists of three elements, and new elem",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "index"
+        },
+        {
+          "name": "new element/subarray",
+          "direction": "in",
+          "type": "Array",
+          "description": "new element/subarray is the array or element that replaces an element, row, column, or page in the array specified in n-dimension array. Note The base data type of the new element or subarray must be the same type as Functions",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "new_element_subarray"
+        }
+      ]
+    },
+    {
+      "name": "Insert Into Array",
+      "page": 396,
+      "category": "Array",
+      "description": "Inserts an element or subarray into n-dim array at the point you specify in index. When you wire an array to this function, the function resizes automatically to display index inputs for each dimension in the array. If you do not wire any index inputs, the function appends the new element or subarray to the end of the n-dim array. If the index input is larger than the array size, the function does not insert anything into the input array.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "array",
+          "direction": "in",
+          "type": "Array",
+          "description": "the input array. Functions 396 ni.com n-dim array is the array in which you want to insert an element, row, column, page, and so on. This input can be an n-dimension array of any type.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "array"
+        },
+        {
+          "name": "index",
+          "direction": "in",
+          "type": "I32",
+          "description": "index 0..n-1 specifies the point in the array at which you want to insert the element, row, column, page, and so on. You can wire only one index input. For example, to insert a 1D array as the fourth row of a 2D array, wire 3 to the first index input, and the second index input becomes disabled. To insert the array as the fourth column of the 2D array, wire 3 to the second index input, and the first index input becomes disabled.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "index"
+        },
+        {
+          "name": "new element/subarray",
+          "direction": "in",
+          "type": "Array",
+          "description": "n or n-1 dim array is the element, row, column, or page you want to insert into the array specified in n-dim array.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "new_element_subarray"
+        },
+        {
+          "name": "output array",
+          "direction": "out",
+          "type": "Boolean",
+          "description": "output array is the array this function returns with the inserted element(s), row(s), column(s), or page(s). This function resizes the array along only one dimension. Therefore, you can wire only one index input. The index you wire determines the dimension along which you can insert. For example, to insert row(s), wire the row index, or to insert column(s), wire the column index. The array you wire to n or n-1 dim array must be the same dimension or a dimension less than the one you wired to n-d",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "output_array"
+        }
+      ]
+    },
+    {
+      "name": "Delete From Array",
+      "page": 398,
+      "category": "Array",
+      "description": "Deletes an element or subarray from n-dim array of length elements starting at index. Returns the edited array in array w/ subset deleted and the deleted element or subarray in deleted portion. When you wire an array to this function, the function resizes automatically to display index inputs for each dimension in the array.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "array",
+          "direction": "in",
+          "type": "Array",
+          "description": "n-dim array is the array from which you want to delete element(s), row(s), column(s), page(s), and so on. This input can be an n-dimension array of any type.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "array"
+        },
+        {
+          "name": "length",
+          "direction": "in",
+          "type": null,
+          "description": "length determines how many elements, rows, columns, or pages to delete. The default length is one element.",
+          "default_value": "length is one element",
+          "enum_values": null,
+          "python_param": "length"
+        },
+        {
+          "name": "index",
+          "direction": "in",
+          "type": "I32",
+          "description": "index 0..n-1 specifies what you want to delete from the array, such as an element, row, column, or page. Array functions in LabVIEW access array data in row-major order. In a 2D array, row is the first, major index. Column is the last, minor index. In bigger multidimensional arrays, column remains the last index and the more major indexes are added to the front. Thus, vol is the first index, followed by page, row, and column. These names are index identifiers and have no other meaning. The defau",
+          "default_value": "the index of the last element in the array",
+          "enum_values": null,
+          "python_param": "index"
+        },
+        {
+          "name": "array w/ subset deleted",
+          "direction": "in",
+          "type": "Array",
+          "description": "array w/ subset deleted is the array returned with the deleted element(s), row(s), column(s), or Functions 398 ni.com page(s).",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "array_w_subset_deleted"
+        },
+        {
+          "name": "deleted portion",
+          "direction": "in",
+          "type": "I32",
+          "description": "deleted portion is the deleted element or array. If you wire a value to length, deleted portion is an array of the same number of dimensions as n- dim array containing all the elements deleted from n-dim array. The outer dimension size of deleted portion is the value of length, and the inner dimension size(s) match that of n-dim array. For example, if you wire a 3D array of dimensions 10x4x6 to n-dim array and a value of 2 to length, and do not wire values to the index inputs, deleted portion is",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "deleted_portion"
+        }
+      ]
+    },
+    {
+      "name": "Initialize Array",
+      "page": 399,
+      "category": "Array",
+      "description": "Creates an n-dimensional array in which every element is initialized to the value of element. Use the Positioning tool to resize the function and increase the number of dimensions (element, row, column, page, and so on) of the output array. The connector pane displays the default data types for this polymorphic function. Functions \u00a9 National Instruments 399",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "element",
+          "direction": "in",
+          "type": null,
+          "description": "element is the value used to initialize all elements of initialized array. element can be any scalar type.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "element"
+        },
+        {
+          "name": "dimension size",
+          "direction": "in",
+          "type": "I32",
+          "description": "dimension size 0..n-1 must be a number. The function creates an empty array if any dimension size is less than or equal to 0. You must have n dimension size terminals for n-dimensions.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "dimension_size"
+        },
+        {
+          "name": "initialized array",
+          "direction": "in",
+          "type": "Array",
+          "description": "initialized array is an array of the same type as the type you wire to element.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "initialized_array"
+        }
+      ]
+    },
+    {
+      "name": "Build Array",
+      "page": 400,
+      "category": "Array",
+      "description": "Concatenates multiple arrays or appends elements to an n-dimensional array. You also can use the Replace Array Subset function to modify an existing array. The connector pane displays the default data types for this polymorphic function.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "element",
+          "direction": "in",
+          "type": "Array",
+          "description": "array or element can be any n-dimensional array or scalar element. All inputs must be either elements and 1D arrays or n-dimensional and (n-1)-dimensional arrays. Functions 400 ni.com All inputs must have the same base type.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "element"
+        },
+        {
+          "name": "appended array",
+          "direction": "out",
+          "type": "Array",
+          "description": "appended array is the resulting array. When you place the function on the block diagram, it has only one input available. Add inputs to the node by right-clicking an input and selecting Add Input from the shortcut menu or by resizing the node. If you wire control references of different classes to this function, this function typecasts the references to a more generic class that is the lowest common class in the inheritance hierarchy. This function then returns appended array with that class. Th",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "appended_array"
+        }
+      ]
+    },
+    {
+      "name": "Array Subset",
+      "page": 402,
+      "category": "Array",
+      "description": "Returns a portion of array starting at index and containing length elements.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "array",
+          "direction": "in",
+          "type": "Array",
+          "description": "array can be an n-dimensional array of any type.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "array"
+        },
+        {
+          "name": "index",
+          "direction": "in",
+          "type": "I32",
+          "description": "index specifies the first element, row, column, or page to include in the portion of array you want to return. If index is less than 0, the function treats it as 0. If index is greater than or equal to the array size, the function returns an empty array.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "index"
+        },
+        {
+          "name": "length",
+          "direction": "in",
+          "type": "I32",
+          "description": "length specifies how many elements, rows, columns, or pages to include in the portion of array Functions 402 ni.com you want to return. If index plus length is larger than the size of the array, the function returns only as much data as is available. The default is the length from index to the end of array. If length is less than 0, the function treats it as 0.",
+          "default_value": "the length from index to the end of array",
+          "enum_values": null,
+          "python_param": "length"
+        },
+        {
+          "name": "subarray",
+          "direction": "in",
+          "type": "I32",
+          "description": "subarray is of the same type as array. When you wire an array to this function, the function resizes automatically to display index and length inputs for each dimension in the array. If you wire a 1D array to the function, the function displays the index inputs for an element. If you wire a 2D array to the function, the function displays the index inputs for a row and column, respectively. If you wire a 3D through nD array to the function, the function displays the index inputs for a page. The c",
+          "default_value": "data types for this polymorphic function",
+          "enum_values": null,
+          "python_param": "subarray"
+        }
+      ]
+    },
+    {
+      "name": "Array Max & Min Function",
+      "page": 403,
+      "category": "Array",
+      "description": "Returns the maximum and minimum values found in array, along with the indexes for each value. The connector pane displays the default data types for this polymorphic function.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "array",
+          "direction": "in",
+          "type": "Array",
+          "description": "Functions \u00a9 National Instruments 403 array can be an n-dimensional array of any type.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "array"
+        },
+        {
+          "name": "max value",
+          "direction": "in",
+          "type": null,
+          "description": "max value is of the same data type and structure as the elements in array.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "max_value"
+        },
+        {
+          "name": "max index(es)",
+          "direction": "in",
+          "type": "I32",
+          "description": "max index(es) is the index for the first max value. If array is multidimensional, max index(es) is an array whose elements are the indexes for the first maximum value in array.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "max_indexes"
+        },
+        {
+          "name": "min value",
+          "direction": "in",
+          "type": null,
+          "description": "min value is of the same data type and structure as the elements in array.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "min_value"
+        },
+        {
+          "name": "min index(es)",
+          "direction": "in",
+          "type": "I32",
+          "description": "min index(es) is the index for the first min value. If array is multidimensional, min index(es) is an array whose elements are the indexes for the first minimum value in array. The function compares each data type according to the rules for Array Comparison. If a numeric array has one dimension, the max index and min index outputs are scalar integers. If a numeric array has more than one dimension, these outputs are 1D arrays that contain the indexes of the maximum and minimum values. If the inp",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "min_indexes"
+        }
+      ]
+    },
+    {
+      "name": "Reshape Array",
+      "page": 404,
+      "category": "Array",
+      "description": "Changes the dimensions of an array according to the values of dimension size 0..m-1. This function reads the array data in memory from left to right, row by row and populates the reshaped array the same way. For example, if you pass a 2D array of 8 elements, 2 columns of {0,1,2, 3}, to this function with two dimensions defined with sizes of 2 and 4, respectively, the function returns an array containing {{0,0,1,1}, {2,2, 3, Functions 404 ni.com 3}}. The connector pane displays the default data t",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "array",
+          "direction": "in",
+          "type": "Array",
+          "description": "n-dim array can be an n-dimensional array of any type.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "array"
+        },
+        {
+          "name": "dimension size",
+          "direction": "in",
+          "type": null,
+          "description": "dimension size 0..m-1 specifies the dimensions of m-dim array and must be a numeric. The function creates an empty array if any dimension size is 0. You must have m dimension size terminals for m-dimensions.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "dimension_size"
+        },
+        {
+          "name": "output array",
+          "direction": "out",
+          "type": "I32",
+          "description": "m-dim array If the product of the dimension sizes is greater than the number of elements in the input array, the function pads the new array with the default of the data type of n-dim array. If the product of the dimension sizes is less than the number of elements in the input array, the function truncates the array. This function adjusts the array data in memory according to the reshaped array dimensions. This function pads or truncates the data if necessary. For example, if you pass a 1D array",
+          "default_value": "of the data type of n-dim array",
+          "enum_values": null,
+          "python_param": "output_array"
+        }
+      ]
+    },
+    {
+      "name": "Sort 1D Array Function",
+      "page": 406,
+      "category": "Array",
+      "description": "Returns a sorted version of array with the elements arranged in ascending order. If array is an array of clusters, the function sorts the elements by comparing the first elements. If the first elements match, the function compares the second and subsequent elements. The connector pane displays the default data types for this polymorphic function.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "array",
+          "direction": "in",
+          "type": "Array",
+          "description": "unsorted array can be a 1D array of any type.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "array"
+        },
+        {
+          "name": "sorted array",
+          "direction": "out",
+          "type": "Array",
+          "description": "sorted array is the output array.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "sorted_array"
+        }
+      ]
+    },
+    {
+      "name": "Sort 2D Array",
+      "page": 406,
+      "category": "Array",
+      "description": "Rearranges the rows or columns of a 2D array by sorting the elements in the specified column or row in ascending order. This VI rearranges the elements in the specified column or row in ascending order by comparing the elements using comparison rules for different data types. Note To customize the sort order use the Sort 1D Array Malleable VI. Functions 406 ni.com",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "2D array",
+          "direction": "in",
+          "type": "Array",
+          "description": "2D array specifies the 2D array that you want to sort. This input accepts an array of any data type except refnums.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "2d_array"
+        },
+        {
+          "name": "dimension to index (column)",
+          "direction": "in",
+          "type": "I32",
+          "description": "dimension to index specifies the dimension of the 2D array to sort by. 0 column (default)\u2014Rearranges the rows by sorting the elements in the indexed column in ascending order. 1 row\u2014Rearranges the columns by sorting the elements in the indexed row in ascending order.",
+          "default_value": null,
+          "enum_values": [
+            [
+              0,
+              "column (default)"
+            ],
+            [
+              1,
+              "row"
+            ]
+          ],
+          "python_param": "dimension_to_index_column"
+        },
+        {
+          "name": "index",
+          "direction": "in",
+          "type": "Enum",
+          "description": "index specifies the index of the column or row with elements that you want to rearrange. This input accepts a signed 32-bit integer or an array of signed 32-bit integers.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "index"
+        },
+        {
+          "name": "sorted 2D array",
+          "direction": "out",
+          "type": "Array",
+          "description": "sorted 2D array returns a sorted version of the 2D array.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "sorted_2d_array"
+        },
+        {
+          "name": "index out of range?",
+          "direction": "out",
+          "type": "Boolean",
+          "description": "index out of range? returns TRUE if the indexed column or row, or any of the indexed columns or rows does not exist in the 2D array. Otherwise, this output returns FALSE. The example below demonstrates how this VI sorts the following 2D array if dimension to index is column. Alice 28 Female developer Robert 31 Male Manager David 29 Male Technician Kate 29 Female Engineer Functions",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "index_out_of_range"
+        }
+      ]
+    },
+    {
+      "name": "Shuffle 1D Array",
+      "page": 409,
+      "category": "Array",
+      "description": "Rearranges the elements of a 1D array in a pseudorandom order. This VI uses a uniform shuffle so that every element has an equal chance of ending up in any position of the array. Technician , developer . Note If index is an array, this VI rearranges the elements in the indexed columns in order. In this example, this VI rearranges first the elements in column 2 to be ascending, and then the elements in column 0. Functions \u00a9 National Instruments 409",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "array",
+          "direction": "in",
+          "type": "Array",
+          "description": "array specifies the 1D array with elements that you want to shuffle. The array can be a 1D array of any data type.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "array"
+        },
+        {
+          "name": "shuffled array",
+          "direction": "out",
+          "type": "Array",
+          "description": "shuffled array returns a shuffled version of the 1D array. Examples Refer to the following example files included with LabVIEW.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "shuffled_array"
+        },
+        {
+          "name": "labview\\examples\\Malleable VIs\\Basics\\Malleable VIs",
+          "direction": "in",
+          "type": null,
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "labview_examples_malleable_vis_basics_malleable_vis"
+        }
+      ]
+    },
+    {
+      "name": "Shuffle 2D Array",
+      "page": 410,
+      "category": "Array",
+      "description": "Rearranges the elements of a 2D array in a pseudorandom order. This VI uses a uniform shuffle so that every element has an equal chance of ending up in any position of the array.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "array",
+          "direction": "in",
+          "type": "Array",
+          "description": "array specifies the 2D array with elements that you want to shuffle. The array can be a 2D array of any data type.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "array"
+        },
+        {
+          "name": "shuffled array",
+          "direction": "out",
+          "type": "Array",
+          "description": "shuffled array returns a shuffled version of the 2D array. Functions 410 ni.com",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "shuffled_array"
+        }
+      ]
+    },
+    {
+      "name": "Reverse 1D Array Function",
+      "page": 411,
+      "category": "Array",
+      "description": "Reverses the order of the elements in array, where array is of any type. The connector pane displays the default data types for this polymorphic function.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "array",
+          "direction": "in",
+          "type": "Array",
+          "description": "array is a one-dimensional array of any type.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "array"
+        },
+        {
+          "name": "reversed array",
+          "direction": "in",
+          "type": "Array",
+          "description": "reversed array. If array has n elements, array[0] becomes reversed array[n-1], array[1] becomes reversed array[n-2], and so on.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "reversed_array"
+        }
+      ]
+    },
+    {
+      "name": "Search 1D Array Function",
+      "page": 411,
+      "category": "Array",
+      "description": "Searches for an element in a 1D array starting at start index. Because the search is linear, you need not sort the array before calling this function. LabVIEW stops searching as soon as the element is found.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "1D array",
+          "direction": "in",
+          "type": "Array",
+          "description": "1D array can be a 1D array of any type.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "1d_array"
+        },
+        {
+          "name": "element",
+          "direction": "in",
+          "type": null,
+          "description": "Functions \u00a9 National Instruments 411 element is the value to search for in the array. element must be the same data type as the elements in 1D array.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "element"
+        },
+        {
+          "name": "start index (0)",
+          "direction": "in",
+          "type": "I32",
+          "description": "start index is the index that LabVIEW begins the search from. The default is 0.",
+          "default_value": "0",
+          "enum_values": null,
+          "python_param": "start_index_0"
+        },
+        {
+          "name": "index of element",
+          "direction": "in",
+          "type": "I32",
+          "description": "index of element is the index where element is found. If the function does not find element, index of element is \u20131. You cannot use this function to retrieve the index of a value that is not an element of the array. For example, if you have an array of two elements (0.0 and 1.0), this function does not find the index of the value 0.5, as that value is not an element of the array. Use the Threshold 1D Array to find a fractional index. This function only finds a string if the element you specify m",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "index_of_element"
+        }
+      ]
+    },
+    {
+      "name": "Split 1D Array Function",
+      "page": 412,
+      "category": "Array",
+      "description": "Divides array at index and returns the two portions with the element of index at the beginning of second subarray. The connector pane displays the default data types.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "array",
+          "direction": "in",
+          "type": "Array",
+          "description": "Functions 412 ni.com array can be a 1D array of any type.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "array"
+        },
+        {
+          "name": "index",
+          "direction": "in",
+          "type": "I32",
+          "description": "index must be numeric. If index is negative or 0, first subarray is empty. If index is equal to or greater than the size of array, second subarray is empty.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "index"
+        },
+        {
+          "name": "first subarray",
+          "direction": "in",
+          "type": "I32",
+          "description": "first subarray contains array[0] through array[index-1].",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "first_subarray"
+        },
+        {
+          "name": "second subarray",
+          "direction": "in",
+          "type": "Array",
+          "description": "second subarray contains the remaining array elements not already contained in first subarray. If the input array is empty, both output arrays are empty. This function does not generate an error if you pass in an empty array.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "second_subarray"
+        }
+      ]
+    },
+    {
+      "name": "Rotate 1D Array Function",
+      "page": 413,
+      "category": "Array",
+      "description": "Rotates the elements of array the number of places and in the direction indicated by n. The connector pane displays the default data types for this polymorphic function.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "array",
+          "direction": "in",
+          "type": "Array",
+          "description": "array can be a 1D array of any type.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "array"
+        },
+        {
+          "name": "array (last n elements first)",
+          "direction": "out",
+          "type": "I32",
+          "description": "Functions \u00a9 National Instruments 413 array (last n elements first) is the output array. For example, if n is 1, the input array[0] becomes output array[1], input array[1] becomes output array[2], and so on, and input array[m\u20131] becomes output array[0], where m is the number of elements in the array. If n is \u20132, input array[0] becomes output array[m\u20132], input array[1] becomes output array[m\u20131], and so on, and input array[m\u20131] becomes output array[m\u20133], where m is the number of elements in the arr",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "array_last_n_elements_first"
+        }
+      ]
+    },
+    {
+      "name": "Increment Array Element",
+      "page": 414,
+      "category": "Array",
+      "description": "Adds 1 to the specified elements of a 1D array. If the array is an array of timestamps, this VI increments the element by one second.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "array in",
+          "direction": "in",
+          "type": "Array",
+          "description": "array in specifies the 1D array with the element that you want to increment. This input accepts an array or an array of clusters of the following data types:",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "array_in"
+        },
+        {
+          "name": "Numbers",
+          "direction": "in",
+          "type": null,
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "numbers"
+        },
+        {
+          "name": "Timestamps",
+          "direction": "in",
+          "type": null,
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "timestamps"
+        },
+        {
+          "name": "Analog Waveforms",
+          "direction": "in",
+          "type": null,
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "analog_waveforms"
+        },
+        {
+          "name": "index",
+          "direction": "in",
+          "type": "Enum",
+          "description": "index specifies the index of the element in the array that you want to increment. This input accepts a signed 32-bit integer or an array of signed 32-bit integers.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "index"
+        },
+        {
+          "name": "array out",
+          "direction": "out",
+          "type": "Array",
+          "description": "array out returns the 1D array with the specified element incremented. Examples Refer to the following example files included with LabVIEW. Functions 414 ni.com",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "array_out"
+        },
+        {
+          "name": "labview\\examples\\Malleable VIs\\Basics\\Malleable VIs",
+          "direction": "in",
+          "type": null,
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "labview_examples_malleable_vis_basics_malleable_vis"
+        }
+      ]
+    },
+    {
+      "name": "Decrement Array Element",
+      "page": 415,
+      "category": "Array",
+      "description": "Subtracts 1 from the specified element of a 1D array. If the array is an array of timestamps, this VI decrements the element by one second.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "array in",
+          "direction": "in",
+          "type": "Array",
+          "description": "array in specifies the 1D array with the element that you want to decrement. This input accepts an array or an array of clusters of the following data types:",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "array_in"
+        },
+        {
+          "name": "Numbers",
+          "direction": "in",
+          "type": null,
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "numbers"
+        },
+        {
+          "name": "Timestamps",
+          "direction": "in",
+          "type": null,
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "timestamps"
+        },
+        {
+          "name": "Analog Waveforms",
+          "direction": "in",
+          "type": null,
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "analog_waveforms"
+        },
+        {
+          "name": "index",
+          "direction": "in",
+          "type": "Enum",
+          "description": "index specifies the index of the element in the array that you want to decrement. This input accepts a signed 32-bit integer or an array of signed 32-bit integers.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "index"
+        },
+        {
+          "name": "array out",
+          "direction": "out",
+          "type": "Array",
+          "description": "array out returns the 1D array with the specified element decremented.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "array_out"
+        }
+      ]
+    },
+    {
+      "name": "Interpolate 1D Array Function",
+      "page": 415,
+      "category": "Array",
+      "description": "Linearly interpolates a decimal y value from an array of numbers or points using a fractional index or x value. The connector pane displays the default data types for this polymorphic function. Functions \u00a9 National Instruments 415",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "array of numbers or points",
+          "direction": "in",
+          "type": "I32",
+          "description": "array of numbers or points can be an array of numbers or an array of points where each point is a cluster of x and y coordinates. If this input is an array of points, the function uses the first element in the cluster (x) to obtain a fractional index by linear interpolation. The function then uses this fractional index to compute the output y value from the second cluster element (y).",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "array_of_numbers_or_points"
+        },
+        {
+          "name": "fractional index or x",
+          "direction": "in",
+          "type": "I32",
+          "description": "fractional index or x is the index or x-value at which the function should return a y-value. For example, if array of numbers or points contains two double-precision, floating-point numeric values, 5 and 7, and fractional index or x is set to 0.5, the function returns 6.0, which is halfway between the values at elements 0 and 1. If array of numbers or points contains an array of data point sets, the function returns the linearly interpolated y value at the x-value corresponding to fractional ind",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "fractional_index_or_x"
+        },
+        {
+          "name": "y value",
+          "direction": "in",
+          "type": "I32",
+          "description": "y value is the interpolated value of the element at the fractional index or the interpolated y- value of the fractional data point, in array of numbers or points. You can wire an array of numeric values or an array of data point sets to this function. If you wire an array of numeric values, the function interprets fractional index or x as a reference to the array elements. If you wire an array of data point sets, the function interprets fractional index or x as a reference to the x-value element",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "y_value"
+        }
+      ]
+    },
+    {
+      "name": "Threshold 1D Array Function",
+      "page": 417,
+      "category": "Array",
+      "description": "Interpolates points in a 1D array that represents a 2D non-descending graph. This function compares threshold y to the values in array of numbers or points starting at start index until it finds a pair of consecutive elements such that threshold y is greater than or equal to the value of the first element and less than or equal to the value of the second element. The connector pane displays the default data types for this polymorphic function.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "array of numbers or points",
+          "direction": "in",
+          "type": "I32",
+          "description": "array of numbers or points can be an array of numbers or an array of points where each point is a cluster of x- and y-coordinates. If this input is an array of points, this function uses the second elements in the clusters, or the y- coordinates, to obtain a fractional index that it then uses to interpolate the corresponding x value.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "array_of_numbers_or_points"
+        },
+        {
+          "name": "threshold y",
+          "direction": "in",
+          "type": "I32",
+          "description": "threshold y is the threshold value for the function. If threshold y is less than or equal to the array value at start index, the function returns start index for fractional index or x. If threshold y is greater than every value in the array, the function returns the index of the last value. If the array is empty, the function returns NaN.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "threshold_y"
+        },
+        {
+          "name": "start index (0)",
+          "direction": "out",
+          "type": "I32",
+          "description": "start index must be a number. The default is 0, which means the function returns the result calculated from the entire array, rather than a specified section of the array.",
+          "default_value": "0, which means the function returns the result calculated from the entire array, rather than a specified section of the array",
+          "enum_values": null,
+          "python_param": "start_index_0"
+        },
+        {
+          "name": "fractional index or x",
+          "direction": "in",
+          "type": "Array",
+          "description": "Note If you wire an array of data points to this function, the data points must be sorted by increasing x-value. Functions",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "fractional_index_or_x"
+        }
+      ]
+    },
+    {
+      "name": "Interleave 1D Arrays",
+      "page": 418,
+      "category": "Array",
+      "description": "Interleaves corresponding elements from the input arrays into a single output array. Note Use this function only with arrays sorted in non-descending order. Functions 418 ni.com",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "array",
+          "direction": "in",
+          "type": "I32",
+          "description": "array 0..n-1 must be 1D. If the input array is not the same size, the number of elements in interleaved array equals the number of elements in the smallest input array multiplied by the number of input arrays.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "array"
+        },
+        {
+          "name": "array",
+          "direction": "in",
+          "type": null,
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "array"
+        },
+        {
+          "name": "interleaved array",
+          "direction": "in",
+          "type": "I32",
+          "description": "interleaved array[0] contains array 0[0], interleaved array[1] contains array 1[0], interleaved array[n-1] contains array n-1[0], interleaved array[n] contains array 0[1], and so on, where n is the number of input terminals. The following table shows how elements from the input arrays affect interleaved array. array 0 array 1 array 2 interleaved array [0, 3] [1, 4] [2, 5] [0, 1, 2, 3, 4, 5] [0, 3, 5] [1] [2, 4] [0, 1, 2]",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "interleaved_array"
+        }
+      ]
+    },
+    {
+      "name": "Decimate 1D Array",
+      "page": 419,
+      "category": "Array",
+      "description": "Divides the elements of array into the output arrays, placing elements into the outputs successively. This function drops any elements that cause the output arrays to have different lengths. You also can add additional output terminals by resizing the function. Functions \u00a9 National Instruments 419",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "array",
+          "direction": "in",
+          "type": "Array",
+          "description": "array can be a 1D array of any type.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "array"
+        },
+        {
+          "name": "decimated array",
+          "direction": "in",
+          "type": "I32",
+          "description": "elements 0, n, 2n, \u2026 is the first output array. The function stores array[0] at index 0 of the first output array, array[1] is stored at index 0 of the second output array, array[n-1] at index 0 of the last output array, array[n] at index 1 of the first output array, and so on, where n is the number of output terminals for this function. For example, assume the array has 16 elements and that you wire four output arrays. The first output array receives elements 0, 4, 8, and 12. The second output ",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "decimated_array"
+        },
+        {
+          "name": "decimated array",
+          "direction": "in",
+          "type": null,
+          "description": "elements 1, n+1, 2n+1, \u2026 is the second output array, and so on.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "decimated_array"
+        }
+      ]
+    },
+    {
+      "name": "Transpose 2D Array Function",
+      "page": 420,
+      "category": "Array",
+      "description": "Rearranges the elements of 2D array such that 2D array[i,j] becomes transposed array[j,i]. The connector pane displays the default data types for this polymorphic function.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "2D array",
+          "direction": "in",
+          "type": "Array",
+          "description": "Functions 420 ni.com 2D array can be a 2D array of any type.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "2d_array"
+        },
+        {
+          "name": "transposed array",
+          "direction": "out",
+          "type": "Array",
+          "description": "transposed array is the output array.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "transposed_array"
+        }
+      ]
+    },
+    {
+      "name": "Array To Cluster Function",
+      "page": 421,
+      "category": "Array",
+      "description": "Converts a 1D array to a cluster of elements of the same type as the array elements. Double-click the function to open the Cluster Size dialog box and set the number of elements in the cluster. The default is nine. The maximum cluster size for this function is 256. Use this function when you want to display elements of the same type in a front panel cluster indicator but want to manipulate the elements on the block diagram by their index values.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "array",
+          "direction": "in",
+          "type": "Array",
+          "description": "Functions \u00a9 National Instruments 421 array is a one-dimensional array of any type.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "array"
+        },
+        {
+          "name": "cluster",
+          "direction": "in",
+          "type": null,
+          "description": "Each element in cluster is the same as the corresponding element in array. The cluster order matches the order of the elements in the array.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "cluster"
+        },
+        {
+          "name": "labview\\examples\\Arrays\\Array to Cluster.vi",
+          "direction": "in",
+          "type": null,
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "labview_examples_arrays_array_to_cluster_vi"
+        }
+      ]
+    },
+    {
+      "name": "Cluster To Array Function",
+      "page": 422,
+      "category": "Array",
+      "description": "Converts a cluster of elements of the same data type to a 1D array of elements of the same data type. Functions 422 ni.com",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "cluster",
+          "direction": "in",
+          "type": "Array",
+          "description": "The cluster components cannot be arrays.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "cluster"
+        },
+        {
+          "name": "array",
+          "direction": "in",
+          "type": "Array",
+          "description": "The elements in array are of the same type as the elements in cluster. The order of the elements in array is the same as the cluster order of the elements. Examples Refer to the following example files included with LabVIEW.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "array"
+        },
+        {
+          "name": "labview\\examples\\Arrays\\Array to Cluster.vi",
+          "direction": "in",
+          "type": null,
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "labview_examples_arrays_array_to_cluster_vi"
+        }
+      ]
+    },
+    {
+      "name": "Array To Matrix",
+      "page": 423,
+      "category": "Array",
+      "description": "Converts an array to a matrix of elements of the same type as the array elements. Wire data to the Real 2D Array input to determine the polymorphic instance to use or manually select the instance. \u2022 Array To Matrix - RA2 VI \u2022 Array To Matrix - RA VI \u2022 Array To Matrix - CA2 VI \u2022 Array To Matrix - CA VI If the array elements are not real or complex double-precision floating-point numbers, Functions \u00a9 National Instruments 423 LabVIEW converts the array elements to the closest data type. LabVIEW sto",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "Real 2D Array",
+          "direction": "in",
+          "type": "Array",
+          "description": "Real 2D Array specifies a two-dimensional array.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "real_2d_array"
+        },
+        {
+          "name": "Real Matrix",
+          "direction": "in",
+          "type": "I32",
+          "description": "The elements in Real Matrix are of the same type as the elements in Real 2D Array. The order of the elements in Real Matrix is the same as the Real 2D Array order of the elements. If the array elements are not real or complex double-precision floating-point numbers, LabVIEW converts the array elements to the closest data type. LabVIEW stores the elements of 1D arrays in the first column of the matrix. Functions 424 ni.com Examples Refer to the following example files included with LabVIEW.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "real_matrix"
+        },
+        {
+          "name": "labview\\examples\\Mathematics\\Linear Algebra\\Matrix",
+          "direction": "in",
+          "type": null,
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "labview_examples_mathematics_linear_algebra_matrix"
+        },
+        {
+          "name": "labview\\examples\\Mathematics\\Linear Algebra\\Matrix to a",
+          "direction": "in",
+          "type": null,
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "labview_examples_mathematics_linear_algebra_matrix_to_a"
+        }
+      ]
+    },
+    {
+      "name": "Array To Matrix - RA2 VI",
+      "page": 424,
+      "category": "Array",
+      "description": "Converts an array to a matrix of elements of the same type as the array elements. Wire data to the Real 2D Array input to determine the polymorphic instance to use or manually select the instance.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "Real 2D Array",
+          "direction": "in",
+          "type": "Array",
+          "description": "Real 2D Array specifies a two-dimensional array.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "real_2d_array"
+        },
+        {
+          "name": "Real Matrix",
+          "direction": "in",
+          "type": "I32",
+          "description": "The elements in Real Matrix are of the same type as the elements in Real 2D Array. The order of the elements in Real Matrix is the same as the Real 2D Array order of the elements. If the array elements are not real or complex double-precision floating-point numbers, LabVIEW converts the array elements to the closest data type. LabVIEW stores the elements of 1D arrays in the first column of the matrix. Functions 424 ni.com Examples Refer to the following example files included with LabVIEW.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "real_matrix"
+        },
+        {
+          "name": "labview\\examples\\Mathematics\\Linear Algebra\\Matrix",
+          "direction": "in",
+          "type": null,
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "labview_examples_mathematics_linear_algebra_matrix"
+        },
+        {
+          "name": "labview\\examples\\Mathematics\\Linear Algebra\\Matrix to a",
+          "direction": "in",
+          "type": null,
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "labview_examples_mathematics_linear_algebra_matrix_to_a"
+        }
+      ]
+    },
+    {
+      "name": "Array To Matrix - RA VI",
+      "page": 425,
+      "category": "Array",
+      "description": "Converts an array to a matrix of elements of the same type as the array elements. Wire data to the Real 2D Array input to determine the polymorphic instance to use or manually select the instance.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "Real 1D Array",
+          "direction": "in",
+          "type": "Array",
+          "description": "Real 1D Array specifies a one-dimensional array.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "real_1d_array"
+        },
+        {
+          "name": "Real Matrix (Column Vector)",
+          "direction": "in",
+          "type": "I32",
+          "description": "The elements in Real Matrix (Column Vector) are of the same type as the elements in Real 1D Array. The order of the elements in Real Matrix (Column Vector) is the same as the Real 1D Array order of the elements. If the array elements are not real or complex double-precision floating-point numbers, LabVIEW converts the array elements to the closest data type. LabVIEW stores the elements of 1D arrays in the first column of the matrix. Examples Refer to the following example files included with Lab",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "real_matrix_column_vector"
+        }
+      ]
+    },
+    {
+      "name": "Array To Matrix - CA2 VI",
+      "page": 426,
+      "category": "Array",
+      "description": "Converts an array to a matrix of elements of the same type as the array elements. Wire data to the Real 2D Array input to determine the polymorphic instance to use or manually select the instance.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "Complex 2D Array",
+          "direction": "in",
+          "type": "Array",
+          "description": "Complex 2D Array specifies a complex two-dimensional array.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "complex_2d_array"
+        },
+        {
+          "name": "Complex Matrix",
+          "direction": "in",
+          "type": "I32",
+          "description": "The elements in Complex Matrix are of the same type as the elements in Complex 2D Array. The order of the elements in Complex Matrix is the same as the Complex 2D Array order of the elements. If the array elements are not real or complex double-precision floating-point numbers, LabVIEW converts the array elements to the closest data type. LabVIEW stores the elements of 1D arrays in the first column of the matrix. Examples Refer to the following example files included with LabVIEW.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "complex_matrix"
+        },
+        {
+          "name": "labview\\examples\\Mathematics\\Linear Algebra\\Matrix",
+          "direction": "in",
+          "type": null,
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "labview_examples_mathematics_linear_algebra_matrix"
+        },
+        {
+          "name": "labview\\examples\\Mathematics\\Linear Algebra\\Matrix to a",
+          "direction": "in",
+          "type": null,
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "labview_examples_mathematics_linear_algebra_matrix_to_a"
+        }
+      ]
+    },
+    {
+      "name": "Array To Matrix - CA VI",
+      "page": 427,
+      "category": "Array",
+      "description": "Converts an array to a matrix of elements of the same type as the array elements. Wire data to the Real 2D Array input to determine the polymorphic instance to use or manually select the instance.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "Complex 1D Array",
+          "direction": "in",
+          "type": "Array",
+          "description": "Complex 1D Array specifies a complex one-dimensional array.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "complex_1d_array"
+        },
+        {
+          "name": "Complex Matrix (Column Vector)",
+          "direction": "in",
+          "type": "I32",
+          "description": "The elements in Complex Matrix (Column Vector) are of the same type as the elements in Complex 1D Array. The order of the elements in Complex Matrix (Column Vector) is the same as the Complex 1D Array order of the elements. If the array elements are not real or complex double-precision floating-point numbers, LabVIEW converts the array elements to the closest data type. LabVIEW stores the elements of 1D arrays in the first column of the matrix. Examples Refer to the following example files inclu",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "complex_matrix_column_vector"
+        },
+        {
+          "name": "labview\\examples\\Mathematics\\Linear Algebra\\Matrix",
+          "direction": "in",
+          "type": null,
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "labview_examples_mathematics_linear_algebra_matrix"
+        },
+        {
+          "name": "labview\\examples\\Mathematics\\Linear Algebra\\Matrix to a",
+          "direction": "in",
+          "type": null,
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "labview_examples_mathematics_linear_algebra_matrix_to_a"
+        }
+      ]
+    },
+    {
+      "name": "Matrix To Array",
+      "page": 428,
+      "category": "Array",
+      "description": "Converts a matrix of elements to an array of elements of the same data type. Wire data to the Real Matrix input to determine the polymorphic instance to use or manually select the instance. \u2022 Matrix To Array - RM VI \u2022 Matrix To Array - CM VI Examples Refer to the following example files included with LabVIEW. \u2022 labview\\examples\\Mathematics\\Linear Algebra\\Matrix Fundamentals.vi Matrix To Array - RM VI Matrix To Array - RM VI Converts a matrix of elements to an array of elements of the same data t",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "Real Matrix",
+          "direction": "in",
+          "type": null,
+          "description": "Real Matrix specifies a real matrix.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "real_matrix"
+        },
+        {
+          "name": "Real 2D Array",
+          "direction": "in",
+          "type": "Array",
+          "description": "The elements in Real 2D Array are of the same type as the elements in Real Matrix. The order of the elements in Real 2D Array is the same as the Real Matrix order of the elements. Functions 428 ni.com Examples Refer to the following example files included with LabVIEW.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "real_2d_array"
+        },
+        {
+          "name": "labview\\examples\\Mathematics\\Linear Algebra\\Matrix",
+          "direction": "in",
+          "type": null,
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "labview_examples_mathematics_linear_algebra_matrix"
+        }
+      ]
+    },
+    {
+      "name": "Matrix To Array - RM VI",
+      "page": 428,
+      "category": "Array",
+      "description": "Converts a matrix of elements to an array of elements of the same data type. Wire data to the Real Matrix input to determine the polymorphic instance to use or manually select the instance.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "Real Matrix",
+          "direction": "in",
+          "type": null,
+          "description": "Real Matrix specifies a real matrix.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "real_matrix"
+        },
+        {
+          "name": "Real 2D Array",
+          "direction": "in",
+          "type": "Array",
+          "description": "The elements in Real 2D Array are of the same type as the elements in Real Matrix. The order of the elements in Real 2D Array is the same as the Real Matrix order of the elements. Functions 428 ni.com Examples Refer to the following example files included with LabVIEW.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "real_2d_array"
+        },
+        {
+          "name": "labview\\examples\\Mathematics\\Linear Algebra\\Matrix",
+          "direction": "in",
+          "type": null,
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "labview_examples_mathematics_linear_algebra_matrix"
+        }
+      ]
+    },
+    {
+      "name": "Matrix To Array - CM VI",
+      "page": 429,
+      "category": "Array",
+      "description": "Converts a matrix of elements to an array of elements of the same data type. Wire data to the Real Matrix input to determine the polymorphic instance to use or manually select the instance.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "Complex Matrix",
+          "direction": "in",
+          "type": null,
+          "description": "Complex Matrix specifies a complex matrix.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "complex_matrix"
+        },
+        {
+          "name": "Complex 2D Array",
+          "direction": "in",
+          "type": "Array",
+          "description": "The elements in Complex 2D Array are of the same type as the elements in Complex Matrix. The order of the elements in Complex 2D Array is the same as the Complex Matrix order of the elements. Examples Refer to the following example files included with LabVIEW.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "complex_2d_array"
+        },
+        {
+          "name": "labview\\examples\\Mathematics\\Linear Algebra\\Matrix",
+          "direction": "in",
+          "type": null,
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "labview_examples_mathematics_linear_algebra_matrix"
+        }
+      ]
+    },
+    {
+      "name": "Remove Duplicates From 1D Array",
+      "page": 429,
+      "category": "Array",
+      "description": "Removes duplicate elements from a 1D array. This VI preserves the original order of the Functions \u00a9 National Instruments 429 elements.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "array",
+          "direction": "in",
+          "type": "Array",
+          "description": "array specifies the input array. This input accepts a 1D array of any data type.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "array"
+        },
+        {
+          "name": "array with duplicates removed",
+          "direction": "out",
+          "type": "Array",
+          "description": "array with duplicates removed returns an array with the duplicate elements removed from array.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "array_with_duplicates_removed"
+        }
+      ]
+    },
+    {
+      "name": "Search Unsorted 1D Array",
+      "page": 431,
+      "category": "Array",
+      "description": "Searches for an element in an unsorted 1D array starting at start index. The search is linear and LabVIEW stops searching as soon as the element is found. The connector pane displays the default data types for this polymorphic function.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "unsorted 1D array",
+          "direction": "in",
+          "type": "Array",
+          "description": "unsorted 1D array can be a 1D array of any type.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "unsorted_1d_array"
+        },
+        {
+          "name": "element",
+          "direction": "in",
+          "type": "Array",
+          "description": "element is the value to search for in the array. element must be the same data type as the elements in 1D array.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "element"
+        },
+        {
+          "name": "start index (0)",
+          "direction": "in",
+          "type": "I32",
+          "description": "start index is the index that LabVIEW begins the search from. The default is 0.",
+          "default_value": "0",
+          "enum_values": null,
+          "python_param": "start_index_0"
+        },
+        {
+          "name": "equals function (built-in =)",
+          "direction": "in",
+          "type": "Boolean",
+          "description": "equals function is the comparison used to search the array. By default, this is the same comparison the standard Equal? function uses. If the array element is a class with an Equals method that includes two inputs of the same type and a boolean output in the connector pane , the default changes to use that comparison. To specify a different sort order, wire this terminal to one of the following objects:",
+          "default_value": "changes to use that comparison",
+          "enum_values": null,
+          "python_param": "equals_function_built_in"
+        },
+        {
+          "name": "A class that defines a Equals method with the following connector pane configuration",
+          "direction": "in",
+          "type": null,
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "a_class_that_defines_a_equals_method_with_the_following_connector_pane_configuration"
+        }
+      ]
+    },
+    {
+      "name": "Sort 1D Array",
+      "page": 432,
+      "category": "Array",
+      "description": "Returns a sorted version of unsorted array with the elements arranged in ascending order. If unsorted array is an array of clusters, the function sorts the elements by comparing the first elements. If the first elements match, the function compares the second and subsequent elements. The connector pane displays the default data types for this polymorphic function. Functions 432 ni.com",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "unsorted array",
+          "direction": "in",
+          "type": "Array",
+          "description": "unsorted array can be a 1D array of any type.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "unsorted_array"
+        },
+        {
+          "name": "less function (built-in <)",
+          "direction": "in",
+          "type": "Boolean",
+          "description": "less function is the comparison used to search the array. By default, this is the same comparison the standard Less? function uses. If the array element is a class with a Less Than method that includes two inputs of the same type and a boolean output in the connector pane , the default changes to use that comparison. To specify a different sort order, wire this terminal to one of the following objects:",
+          "default_value": "changes to use that comparison",
+          "enum_values": null,
+          "python_param": "less_function_built_in"
+        },
+        {
+          "name": "A class that defines a Less Than method with the following connector pane configuration",
+          "direction": "in",
+          "type": null,
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "a_class_that_defines_a_less_than_method_with_the_following_connector_pane_configuration"
+        },
+        {
+          "name": "A VI refnum with the following connector pane configuration",
+          "direction": "in",
+          "type": null,
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "a_vi_refnum_with_the_following_connector_pane_configuration"
+        },
+        {
+          "name": "sorted array",
+          "direction": "out",
+          "type": "Array",
+          "description": "sorted array is the output array. Examples Refer to the following example files included with LabVIEW.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "sorted_array"
+        },
+        {
+          "name": "labview\\examples\\Malleable VIs\\Nested Malleable VIs\\",
+          "direction": "in",
+          "type": null,
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "labview_examples_malleable_vis_nested_malleable_vis"
+        }
+      ]
+    },
+    {
+      "name": "Sorted Array",
+      "page": 434,
+      "category": "Array",
+      "description": "Use the Sorted Array functions to manipulate sorted arrays while maintaining the sorted order. Palette Object Description Search Sorted 1D Array Searches for the first instance of element in sorted 1D array. If the array is not sorted, the results will be incorrect. The connector pane displays the default data types for this polymorphic function. Insert Into Sorted Array Inserts element into sorted array in while maintaining sorted order. If the array is not sorted, the element may be inserted a",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "sorted 1D array",
+          "direction": "in",
+          "type": "Array",
+          "description": "sorted 1D array can be a 1D array of any type.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "sorted_1d_array"
+        },
+        {
+          "name": "element",
+          "direction": "in",
+          "type": null,
+          "description": "Functions 434 ni.com element is the value to insert into the array. element must be the same data type as the elements in sorted 1D array.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "element"
+        },
+        {
+          "name": "less function (built-in <)",
+          "direction": "in",
+          "type": "Boolean",
+          "description": "less function is the comparison used to search the array. By default, this is the same comparison the standard Less? function uses. If the array element is a class with a Less Than method that includes two inputs of the same type and a boolean output in the connector pane , the default changes to use that comparison. To specify a different sort order, wire this terminal to one of the following objects:",
+          "default_value": "changes to use that comparison",
+          "enum_values": null,
+          "python_param": "less_function_built_in"
+        },
+        {
+          "name": "A class that defines a Less Than method with the following connector pane configuration",
+          "direction": "in",
+          "type": null,
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "a_class_that_defines_a_less_than_method_with_the_following_connector_pane_configuration"
+        },
+        {
+          "name": "A VI refnum with the following connector pane configuration",
+          "direction": "in",
+          "type": null,
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "a_vi_refnum_with_the_following_connector_pane_configuration"
+        },
+        {
+          "name": "found?",
+          "direction": "in",
+          "type": "Boolean",
+          "description": "found? indicates whether the element was found.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "found"
+        },
+        {
+          "name": "nearest index",
+          "direction": "in",
+          "type": "Boolean",
+          "description": "nearest index is the index of the element if found? is TRUE. If found? is FALSE, nearest index is the index where the element would have been in the sorted array. If element is greater than all the elements in the array, nearest index is equal to the size of the array. If element is less than all the elements in the array, nearest index is 0. If you search an empty array, nearest index is 0. Functions",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "nearest_index"
+        }
+      ]
+    },
+    {
+      "name": "Search Sorted 1D Array",
+      "page": 434,
+      "category": "Array",
+      "description": "Searches for the first instance of element in sorted 1D array. If the array is not sorted, the results will be incorrect. The connector pane displays the default data types for this polymorphic function.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "sorted 1D array",
+          "direction": "in",
+          "type": "Array",
+          "description": "sorted 1D array can be a 1D array of any type.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "sorted_1d_array"
+        },
+        {
+          "name": "element",
+          "direction": "in",
+          "type": null,
+          "description": "Functions 434 ni.com element is the value to insert into the array. element must be the same data type as the elements in sorted 1D array.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "element"
+        },
+        {
+          "name": "less function (built-in <)",
+          "direction": "in",
+          "type": "Boolean",
+          "description": "less function is the comparison used to search the array. By default, this is the same comparison the standard Less? function uses. If the array element is a class with a Less Than method that includes two inputs of the same type and a boolean output in the connector pane , the default changes to use that comparison. To specify a different sort order, wire this terminal to one of the following objects:",
+          "default_value": "changes to use that comparison",
+          "enum_values": null,
+          "python_param": "less_function_built_in"
+        },
+        {
+          "name": "A class that defines a Less Than method with the following connector pane configuration",
+          "direction": "in",
+          "type": null,
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "a_class_that_defines_a_less_than_method_with_the_following_connector_pane_configuration"
+        },
+        {
+          "name": "A VI refnum with the following connector pane configuration",
+          "direction": "in",
+          "type": null,
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "a_vi_refnum_with_the_following_connector_pane_configuration"
+        },
+        {
+          "name": "found?",
+          "direction": "in",
+          "type": "Boolean",
+          "description": "found? indicates whether the element was found.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "found"
+        },
+        {
+          "name": "nearest index",
+          "direction": "in",
+          "type": "Boolean",
+          "description": "nearest index is the index of the element if found? is TRUE. If found? is FALSE, nearest index is the index where the element would have been in the sorted array. If element is greater than all the elements in the array, nearest index is equal to the size of the array. If element is less than all the elements in the array, nearest index is 0. If you search an empty array, nearest index is 0. Functions",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "nearest_index"
+        }
+      ]
+    },
+    {
+      "name": "Insert Into Sorted Array",
+      "page": 436,
+      "category": "Array",
+      "description": "Inserts element into sorted array in while maintaining sorted order. If the array is not sorted, the element may be inserted at the wrong location. The connector pane displays the default data types for this polymorphic function.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "sorted array in",
+          "direction": "in",
+          "type": "Array",
+          "description": "sorted array in can be a 1D array of any type.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "sorted_array_in"
+        },
+        {
+          "name": "element",
+          "direction": "in",
+          "type": "Array",
+          "description": "element is the value to insert into the array. element must be the same data type as the elements in sorted array in.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "element"
+        },
+        {
+          "name": "less function (built-in <)",
+          "direction": "in",
+          "type": "Boolean",
+          "description": "less function is the comparison used to search the array. By default, this is the same comparison the standard Less? function uses. If the array element is a class with a Less Than method that includes two inputs of the same type and a boolean output in the connector pane , the default changes to use that comparison. To specify a different sort order, wire this terminal to one of the following objects:",
+          "default_value": "changes to use that comparison",
+          "enum_values": null,
+          "python_param": "less_function_built_in"
+        },
+        {
+          "name": "A class that defines a Less Than method with the following connector pane configuration",
+          "direction": "in",
+          "type": null,
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "a_class_that_defines_a_less_than_method_with_the_following_connector_pane_configuration"
+        },
+        {
+          "name": "A VI refnum with the following connector pane configuration",
+          "direction": "in",
+          "type": null,
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "a_vi_refnum_with_the_following_connector_pane_configuration"
+        },
+        {
+          "name": "sorted array out",
+          "direction": "in",
+          "type": "Array",
+          "description": "sorted array out is the sorted array with the new element. Examples Refer to the following example files included with LabVIEW.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "sorted_array_out"
+        },
+        {
+          "name": "labview\\examples\\Malleable VIs\\Nested Malleable VIs\\",
+          "direction": "in",
+          "type": null,
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "labview_examples_malleable_vis_nested_malleable_vis"
+        }
+      ]
+    },
+    {
+      "name": "Matrix Size Function",
+      "page": 438,
+      "category": "Array",
+      "description": "Returns the dimensions for the number of rows and columns of matrix. The connector pane displays the default data types for this polymorphic function.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "matrix",
+          "direction": "in",
+          "type": "I32",
+          "description": "number of rows is the row dimension of the matrix.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "matrix"
+        },
+        {
+          "name": "number of rows",
+          "direction": "in",
+          "type": "I32",
+          "description": "number of columns is the column dimension of the matrix. Functions 438 ni.com",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "number_of_rows"
+        },
+        {
+          "name": "number of columns",
+          "direction": "in",
+          "type": "Array",
+          "description": "matrix must be a 2D array of any numeric type or a real or complex matrix.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "number_of_columns"
+        }
+      ]
+    },
+    {
+      "name": "Build Matrix",
+      "page": 439,
+      "category": "Array",
+      "description": "Appends elements to a matrix by rows or columns. You also can use the Set Matrix Elements and Set Submatrix functions to modify an existing matrix. The connector pane displays the default data types for this polymorphic function.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "element",
+          "direction": "in",
+          "type": null,
+          "description": "matrix or element can be a numeric scalar, a real or complex matrix, or a 1D or 2D array of any numeric type.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "element"
+        },
+        {
+          "name": "appended array",
+          "direction": "out",
+          "type": null,
+          "description": "appended matrix is the resulting matrix. When you add the function to the block diagram, it has only one input available. Add inputs to the node by right-clicking an input and selecting Add Input from the shortcut menu or by resizing the node. The Build Matrix function operates in one of two different modes: Append by Rows or Append by Columns. When you add the function to the block diagram, the default mode is Append by Columns. If you right-click the function and select Build Matrix Mode\u00bbAppen",
+          "default_value": "mode is Append by Columns",
+          "enum_values": null,
+          "python_param": "appended_array"
+        }
+      ]
+    },
+    {
+      "name": "Resize Matrix Function",
+      "page": 440,
+      "category": "Array",
+      "description": "Resizes matrix with new row and column dimensions based on the number of rows and columns you specify. The connector pane displays the default data types for this polymorphic function.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "matrix",
+          "direction": "in",
+          "type": "Array",
+          "description": "matrix must be a 2D array of any numeric type or a real or complex matrix.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "matrix"
+        },
+        {
+          "name": "number of rows",
+          "direction": "in",
+          "type": "I32",
+          "description": "number of rows specifies the new row dimension.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "number_of_rows"
+        },
+        {
+          "name": "number of columns",
+          "direction": "in",
+          "type": "I32",
+          "description": "Functions 440 ni.com number of columns specifies the new column dimension.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "number_of_columns"
+        },
+        {
+          "name": "resized matrix",
+          "direction": "in",
+          "type": "I32",
+          "description": "resized matrix is matrix with the number of rows and columns you specify in number of rows and number of columns. If you do not wire number of rows, the function uses the row dimension of matrix to determine the number of rows in resized matrix. If you do not wire number of columns, the function uses the column dimension of matrix to determine the number of columns in resized matrix. If you increase the row or column dimensions of matrix, the function returns 0 at each exterior location. This fu",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "resized_matrix"
+        }
+      ]
+    },
+    {
+      "name": "Transpose Matrix Function",
+      "page": 441,
+      "category": "Array",
+      "description": "Returns the conjugate transpose of matrix. The connector pane displays the default data types for this polymorphic function.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "matrix",
+          "direction": "in",
+          "type": "Array",
+          "description": "matrix must be a 2D array of any numeric type or a real or complex matrix.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "matrix"
+        },
+        {
+          "name": "transposed matrix",
+          "direction": "out",
+          "type": "I32",
+          "description": "transposed matrix is the output matrix with transposed elements. Functions \u00a9 National Instruments 441 The conjugate transpose of matrix rearranges the elements so that the element at index (i, j) in matrix becomes the conjugate of the element at (j, i) in transposed matrix. For a real matrix, the transpose and conjugate transpose operations produce the same result.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "transposed_matrix"
+        }
+      ]
+    },
+    {
+      "name": "Get Matrix Diagonal",
+      "page": 442,
+      "category": "Array",
+      "description": "Returns the diagonal of matrix beginning at the index (row, column). Add additional row and column inputs and matrix diagonal outputs by resizing the node. The connector pane displays the default data types for this polymorphic function.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "matrix",
+          "direction": "in",
+          "type": "Array",
+          "description": "matrix must be a 2D array of any numeric type or a real or complex matrix.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "matrix"
+        },
+        {
+          "name": "index (row)",
+          "direction": "in",
+          "type": "I32",
+          "description": "row must be an integer or real number. row is the starting row index in the output. The default is 0.",
+          "default_value": "0",
+          "enum_values": null,
+          "python_param": "index_row"
+        },
+        {
+          "name": "index (col)",
+          "direction": "in",
+          "type": "I32",
+          "description": "column must be an integer or real number. column is the starting column index in the output. The default is 0.",
+          "default_value": "0",
+          "enum_values": null,
+          "python_param": "index_col"
+        },
+        {
+          "name": "diagonal",
+          "direction": "in",
+          "type": "I32",
+          "description": "matrix diagonal is the matrix or 2D array that contains the diagonal elements in matrix. The matrix diagonal output is a matrix or 2D array with one column and has the same the numeric type as matrix. If you wire a matrix to matrix, matrix diagonal returns a Functions 442 ni.com column vector. If you wire a 2D array to matrix, matrix diagonal returns a 2D array. If you do not wire row and column, matrix diagonal returns the main diagonal of matrix. If you do not wire column, matrix diagonal retu",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "diagonal"
+        }
+      ]
+    },
+    {
+      "name": "Get Matrix Elements",
+      "page": 443,
+      "category": "Array",
+      "description": "Returns the elements of matrix at row and column. The row and column inputs specify row and column indexes. If you wire scalar data to row and column, for example i for row and j for column, the function returns a scalar Functions \u00a9 National Instruments 443 that contains the element at location (i, j). The connector pane displays the default data types for this polymorphic function.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "matrix",
+          "direction": "in",
+          "type": "Array",
+          "description": "matrix must be a 2D array of any numeric type or a real or complex matrix.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "matrix"
+        },
+        {
+          "name": "index (row)",
+          "direction": "in",
+          "type": "I32",
+          "description": "row must be an integer, a floating-point numeric, a 1D array of integers, or a 1D array of a floating-point numeric. The default is a 1D array of integers that contains all row indexes.",
+          "default_value": "a 1D array of integers that contains all row indexes",
+          "enum_values": null,
+          "python_param": "index_row"
+        },
+        {
+          "name": "index (col)",
+          "direction": "in",
+          "type": "I32",
+          "description": "column must be an integer, a floating-point numeric, a 1D array of integers, or a 1D array of a floating-point numeric. The default is 0.",
+          "default_value": "0",
+          "enum_values": null,
+          "python_param": "index_col"
+        },
+        {
+          "name": "output matrix",
+          "direction": "out",
+          "type": "I32",
+          "description": "element is the scalar, matrix, or 2D array that contains the matrix elements. The data type of element is the same as the data type of matrix. Add additional row and column inputs and element outputs by resizing the node. If matrix is an empty matrix or array, element returns an invalid operation value at each exterior location. If you do not wire row and column, element returns a column vector with the first column of matrix. Functions 444 ni.com If you do not wire column and you wire a numeric",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "output_matrix"
+        }
+      ]
+    },
+    {
+      "name": "Get Submatrix",
+      "page": 445,
+      "category": "Array",
+      "description": "Returns a submatrix of matrix starting at (row 1, column 1) and ending at (row N, column N). To retrieve elements that are not next to each other in matrix, use the Get Matrix Elements function. The connector pane displays the default data types for this polymorphic function. Functions \u00a9 National Instruments 445",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "matrix",
+          "direction": "in",
+          "type": "Array",
+          "description": "matrix must be a 2D array of any numeric type or a real or complex matrix.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "matrix"
+        },
+        {
+          "name": "row 1",
+          "direction": "in",
+          "type": "I32",
+          "description": "row 1 must be an integer or real numeric. row 1 specifies the first row in matrix you want to appear in the output. The default is 0.",
+          "default_value": "0",
+          "enum_values": null,
+          "python_param": "row_1"
+        },
+        {
+          "name": "row N",
+          "direction": "in",
+          "type": "I32",
+          "description": "row N must be an integer or real numeric. row N specifies the last row in matrix you want to appear in the output. The default is the index of the last row in matrix.",
+          "default_value": "the index of the last row in matrix",
+          "enum_values": null,
+          "python_param": "row_n"
+        },
+        {
+          "name": "column 1",
+          "direction": "in",
+          "type": "I32",
+          "description": "column 1 must be an integer or real numeric. column 1 specifies the first column in matrix you want to appear in the output. The default is 0.",
+          "default_value": "0",
+          "enum_values": null,
+          "python_param": "column_1"
+        },
+        {
+          "name": "column N",
+          "direction": "in",
+          "type": "I32",
+          "description": "column N must be an integer or real numeric. column N specifies the last column in matrix you want to appear in the output. The default is the index of the last column in matrix.",
+          "default_value": "the index of the last column in matrix",
+          "enum_values": null,
+          "python_param": "column_n"
+        },
+        {
+          "name": "submatrix",
+          "direction": "in",
+          "type": "I32",
+          "description": "submatrix is a matrix that contains the submatrix. If matrix is an empty matrix or array, submatrix returns matrix. Functions 446 ni.com If you wire a matrix to matrix, submatrix returns a matrix with the same numeric type as matrix. If you wire a 2D array to matrix, submatrix returns a 2D array with the same numeric type as matrix. If you wire matrix but you do not wire the other inputs, submatrix returns matrix. If you do not wire inputs to row 1 and column 1, submatrix starts with the first e",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "submatrix"
+        }
+      ]
+    },
+    {
+      "name": "Set Matrix Diagonal",
+      "page": 447,
+      "category": "Array",
+      "description": "Sets the diagonal of matrix beginning at (row, column). Add additional row, column, and new diagonal inputs and output matrix outputs by resizing the node. The connector pane displays the default data types for this polymorphic function. Functions \u00a9 National Instruments 447",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "matrix",
+          "direction": "in",
+          "type": "Array",
+          "description": "matrix must be a 2D array of any numeric type or a real or complex matrix.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "matrix"
+        },
+        {
+          "name": "disabled index (row)",
+          "direction": "in",
+          "type": "I32",
+          "description": "row must be an integer or real number. row is the starting row index in the output. The default is 0.",
+          "default_value": "0",
+          "enum_values": null,
+          "python_param": "disabled_index_row"
+        },
+        {
+          "name": "index (col)",
+          "direction": "in",
+          "type": "I32",
+          "description": "column must be an integer or real number. column is the starting column index in the output. The default is 0.",
+          "default_value": "0",
+          "enum_values": null,
+          "python_param": "index_col"
+        },
+        {
+          "name": "new diagonal/fill element",
+          "direction": "in",
+          "type": null,
+          "description": "new diagonal can be a real or complex matrix or a 2D array of any numeric type. new diagonal specifies the elements to set.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "new_diagonal_fill_element"
+        },
+        {
+          "name": "output matrix",
+          "direction": "out",
+          "type": "I32",
+          "description": "output matrix is the matrix with the new diagonal. If you wire matrix and no other inputs, output matrix returns matrix with the main diagonal set to zero. If you wire column without row, output matrix returns matrix with the upper diagonal starting at (0, column) set to the new diagonal elements. If you wire row without column, output matrix returns matrix with the lower diagonal starting at (row, 0) set to the new diagonal elements. If you wire a matrix to new diagonal, the matrix must be a co",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "output_matrix"
+        }
+      ]
+    },
+    {
+      "name": "Set Matrix Elements",
+      "page": 449,
+      "category": "Array",
+      "description": "Sets one or more elements in matrix at the indexes you specify in row and column. The row and column inputs specify row and column indexes. For example, if you wire numeric scalar values i and j to row and column, respectively, these inputs correspond Functions \u00a9 National Instruments 449 to a single matrix element at location (i, j). The connector pane displays the default data types for this polymorphic function.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "matrix",
+          "direction": "in",
+          "type": "Array",
+          "description": "matrix must be a 2D array of any numeric type or a real or complex matrix.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "matrix"
+        },
+        {
+          "name": "disabled index (row)",
+          "direction": "in",
+          "type": "I32",
+          "description": "row must be an integer, a floating-point numeric, a 1D array of integers, or a 1D array of a floating-point numeric.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "disabled_index_row"
+        },
+        {
+          "name": "index (col)",
+          "direction": "in",
+          "type": "I32",
+          "description": "column must be an integer, a floating-point numeric, a 1D array of integers, or a 1D array of a floating-point numeric.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "index_col"
+        },
+        {
+          "name": "new element/submatrix",
+          "direction": "in",
+          "type": "Array",
+          "description": "new element is the scalar, matrix, or 2D array that replaces one or more elements in matrix.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "new_element_submatrix"
+        },
+        {
+          "name": "output matrix",
+          "direction": "out",
+          "type": "I32",
+          "description": "output matrix is the matrix with the new elements. If matrix is an empty matrix or array, output matrix resizes to receive the new elements. Add additional row, column, and new element inputs and output matrix outputs by resizing the node. If you wire a 2D array to matrix, output matrix returns an array even if you wire a real or complex matrix to new element. If new element is a scalar or a matrix, output matrix returns matrix with the element Functions 450 ni.com at location (i, j) set to the ",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "output_matrix"
+        }
+      ]
+    },
+    {
+      "name": "Set Submatrix",
+      "page": 452,
+      "category": "Array",
+      "description": "Adds a submatrix to matrix starting at (row 1, column 1) and ending at (row N, column N). Add additional row, column, and new submatrix inputs and output matrix outputs by resizing the node. The connector pane displays the default data types for this polymorphic function. Functions 452 ni.com",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "matrix",
+          "direction": "in",
+          "type": "Array",
+          "description": "matrix must be a 2D array of any numeric type or a real or complex matrix.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "matrix"
+        },
+        {
+          "name": "row 1",
+          "direction": "in",
+          "type": "I32",
+          "description": "row 1 must be an integer or real numeric. row 1 specifies the first row in matrix you want to appear in the output. The default is 0.",
+          "default_value": "0",
+          "enum_values": null,
+          "python_param": "row_1"
+        },
+        {
+          "name": "row N",
+          "direction": "in",
+          "type": "I32",
+          "description": "row N must be an integer or real numeric. row N specifies the last row in matrix you want to appear in the output. The default is the index of the last row in matrix.",
+          "default_value": "the index of the last row in matrix",
+          "enum_values": null,
+          "python_param": "row_n"
+        },
+        {
+          "name": "column 1",
+          "direction": "in",
+          "type": "I32",
+          "description": "column 1 must be an integer or real numeric. column 1 specifies the first column in matrix you want to appear in the output. The default is 0.",
+          "default_value": "0",
+          "enum_values": null,
+          "python_param": "column_1"
+        },
+        {
+          "name": "column N",
+          "direction": "in",
+          "type": "I32",
+          "description": "column N must be an integer or real numeric. column N specifies the last column in matrix you want to appear in the output. The default is the index of the last column in matrix.",
+          "default_value": "the index of the last column in matrix",
+          "enum_values": null,
+          "python_param": "column_n"
+        },
+        {
+          "name": "new submatrix/fill element",
+          "direction": "in",
+          "type": null,
+          "description": "new submatrix can be a real or complex matrix, a 2D array of any numeric type, or a numeric scalar. If you do not wire an input to new submatrix, the default is 0. Functions",
+          "default_value": "0",
+          "enum_values": null,
+          "python_param": "new_submatrix_fill_element"
+        }
+      ]
+    },
+    {
+      "name": "Related Information",
+      "page": 455,
+      "category": "Array",
+      "description": "",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_review",
+      "terminals": []
+    },
+    {
+      "name": "Unbundle By Name",
+      "page": 457,
+      "category": "Array",
+      "description": "Returns the cluster elements whose names you specify. Functions \u00a9 National Instruments 457 You do not have to keep track of the order of the elements within the cluster. This function does not require the number of elements to match the number in the cluster. After you wire a cluster to this function, you can select an individual element from the function. The connector pane displays the default data types for this polymorphic function.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "input cluster",
+          "direction": "in",
+          "type": null,
+          "description": "input cluster is the cluster whose elements you want to access.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "input_cluster"
+        },
+        {
+          "name": "element",
+          "direction": "in",
+          "type": null,
+          "description": "element 0..m-1 is the element of input cluster called name 0..m-1. You can access only elements with owned labels. To select a named element, click a name terminal and select a name from the shortcut menu.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "element"
+        }
+      ]
+    },
+    {
+      "name": "Bundle By Name",
+      "page": 458,
+      "category": "Array",
+      "description": "Replaces one or more cluster elements. This function refers to cluster elements by name instead of by their position in the cluster. After you wire the node to an input cluster, right-click the name terminals to select elements from the shortcut menu. You also can use the Operating tool to click the name terminals and select from a list of cluster elements. The connector pane displays the default data types for this polymorphic function. Functions 458 ni.com",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "input cluster",
+          "direction": "in",
+          "type": null,
+          "description": "input cluster is the cluster whose elements you want to replace. At least one element of input cluster must have an owned label. You must always wire the input cluster terminal.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "input_cluster"
+        },
+        {
+          "name": "element",
+          "direction": "in",
+          "type": null,
+          "description": "element 0..m-1 are the elements of input cluster you want to replace by name. You only can replace elements with owned labels. Select the correct element 0..m-1 by clicking a name terminal and selecting a name from the shortcut menu.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "element"
+        },
+        {
+          "name": "output cluster",
+          "direction": "out",
+          "type": null,
+          "description": "output cluster is the cluster whose value is the resulting cluster. When you use the Bundle by Name function on nested clusters, you can display both the element name and the owning cluster name for elements in the nested cluster by right-clicking the function and selecting Show Full Names. This is useful when element names in nested clusters are identical or similar.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "output_cluster"
+        }
+      ]
+    }
+  ]
+}
