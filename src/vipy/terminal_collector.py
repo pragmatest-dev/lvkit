@@ -27,19 +27,55 @@ class TerminalObservation:
         direction: str,
         name: str | None = None,
         wire_type: str | None = None,
+        type_info: Any | None = None,  # LVType when available
     ):
         self.index = index
         self.direction = direction  # "input" or "output"
         self.name = name  # Terminal name from connector pane if available
-        self.wire_type = wire_type  # Type from dataflow analysis
+        self.wire_type = wire_type  # Type name string (backward compat)
+        self.type_info = type_info  # Full LVType structure
 
     def to_dict(self) -> dict[str, Any]:
-        return {
+        result = {
             "index": self.index,
             "direction": self.direction,
             "name": self.name,
             "wire_type": self.wire_type,
         }
+        if self.type_info:
+            result["type_info"] = self._serialize_type(self.type_info)
+        return result
+
+    def _serialize_type(self, type_obj: Any) -> dict[str, Any] | str:
+        """Serialize LVType to JSON-compatible dict."""
+        # Import here to avoid circular dependency
+        from vipy.graph_types import LVType, ClusterField, EnumValue
+
+        if isinstance(type_obj, LVType):
+            result = {
+                "kind": type_obj.kind,
+                "underlying_type": type_obj.underlying_type,
+            }
+            if type_obj.values:
+                result["values"] = {
+                    name: {"value": ev.value, "description": ev.description}
+                    for name, ev in type_obj.values.items()
+                }
+            if type_obj.fields:
+                result["fields"] = [
+                    {"name": f.name, "type": self._serialize_type(f.type)}
+                    for f in type_obj.fields
+                ]
+            if type_obj.element_type:
+                result["element_type"] = self._serialize_type(type_obj.element_type)
+            if type_obj.dimensions:
+                result["dimensions"] = type_obj.dimensions
+            if type_obj.typedef_path:
+                result["typedef_path"] = type_obj.typedef_path
+            return result
+        else:
+            # Fallback for non-LVType objects
+            return str(type_obj)
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "TerminalObservation":
@@ -48,6 +84,7 @@ class TerminalObservation:
             direction=data["direction"],
             name=data.get("name"),
             wire_type=data.get("wire_type"),
+            type_info=data.get("type_info"),  # Store raw dict for now
         )
 
 
@@ -112,18 +149,21 @@ class TerminalCollector:
                 index = term.index
                 direction = term.direction
                 name = term.name
-                wire_type = term.type
+                wire_type = term.type  # String type name (backward compat)
+                type_info = getattr(term, 'type_info', None)  # LVType if available
             else:  # dict
                 index = term.get("index", -1)
                 direction = term.get("direction", "unknown")
                 name = term.get("name")
                 wire_type = term.get("type")
+                type_info = term.get("type_info")
 
             obs = TerminalObservation(
                 index=index,
                 direction=direction,
                 name=name,
                 wire_type=wire_type,
+                type_info=type_info,
             )
             terminals.append(obs.to_dict())
 
@@ -134,6 +174,7 @@ class TerminalCollector:
                     "direction": obs.direction,
                     "observed_names": [],
                     "observed_types": [],
+                    "observed_type_info": [],  # Full LVType structures
                     "count": 0,
                 }
 
@@ -143,6 +184,11 @@ class TerminalCollector:
                 term_info["observed_names"].append(obs.name)
             if obs.wire_type and obs.wire_type not in term_info["observed_types"]:
                 term_info["observed_types"].append(obs.wire_type)
+            if obs.type_info:
+                # Serialize and store type_info if not already present
+                type_dict = obs._serialize_type(obs.type_info)
+                if type_dict not in term_info["observed_type_info"]:
+                    term_info["observed_type_info"].append(type_dict)
 
         # Record this caller's observation
         vi_data["callers"].append({

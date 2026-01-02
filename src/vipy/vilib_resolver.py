@@ -8,6 +8,8 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
+from vipy.graph_types import ClusterField, EnumValue, LVType, TypeDef
+
 
 class VILibResolutionNeeded(Exception):
     """Raised when vi.lib terminal info is missing.
@@ -99,7 +101,7 @@ class VILibResolver:
         self._vis: dict[str, VIEntry] = {}
         self._by_name: dict[str, VIEntry] = {}  # Lookup by VI name only
         self._pdf_entries: dict[str, dict] = {}  # Raw PDF data for context
-        self._enums: dict[str, dict] = {}  # Enum definitions
+        self._types: dict[str, TypeDef] = {}  # Type definitions indexed by typedef path
 
         # Load vilib data from category files
         vilib_dir = data_dir / "vilib"
@@ -111,11 +113,10 @@ class VILibResolver:
         if openg_dir.exists():
             self._load_vilib_data(openg_dir)
 
-        # Load enums
-        enums_path = vilib_dir / "_enums.json"
-        if enums_path.exists():
-            with open(enums_path) as f:
-                self._enums = json.load(f)
+        # Load type definitions (indexed by typedef path)
+        types_path = vilib_dir / "_types.json"
+        if types_path.exists():
+            self._load_types(types_path)
 
     def _load_vilib_data(self, vilib_dir: Path) -> None:
         """Load VI mappings from category files in data/vilib/."""
@@ -156,13 +157,83 @@ class VILibResolver:
                     if entry.vi_path:
                         self._vis[entry.vi_path] = entry
 
-    def get_enums(self) -> dict[str, dict]:
-        """Get all enum definitions.
+    def _load_types(self, types_path: Path) -> None:
+        """Load type definitions from _types.json into TypeDef dataclasses."""
+        with open(types_path) as f:
+            raw_types = json.load(f)
+
+        for typedef_path, type_data in raw_types.items():
+            # Parse enum values if present
+            values: dict[str, EnumValue] | None = None
+            if "values" in type_data:
+                values = {}
+                for name, val_data in type_data["values"].items():
+                    values[name] = EnumValue(
+                        value=val_data["value"],
+                        description=val_data.get("description"),
+                    )
+
+            # Parse cluster fields if present
+            fields: list[ClusterField] | None = None
+            if "fields" in type_data:
+                fields = [
+                    ClusterField(
+                        name=f["name"],
+                        type=self._parse_field_type(f["type"])
+                    )
+                    for f in type_data["fields"]
+                ]
+
+            # Parse array element type if present
+            element_type: LVType | None = None
+            if "element_type" in type_data:
+                element_type = self._parse_field_type(type_data["element_type"])
+
+            # Create the LVType structure
+            lv_type = LVType(
+                kind=type_data["kind"],
+                underlying_type=type_data["underlying_type"],
+                values=values,
+                fields=fields,
+                element_type=element_type,
+                dimensions=type_data.get("dimensions"),
+            )
+
+            # Wrap in TypeDef with path metadata
+            self._types[typedef_path] = TypeDef(
+                type=lv_type,
+                typedef_path=typedef_path,
+                name=type_data["name"],
+                description=type_data.get("description"),
+            )
+
+    def _parse_field_type(self, type_spec: str) -> LVType:
+        """Parse a field type specification into an LVType.
+
+        Args:
+            type_spec: Either a primitive type name (e.g., "NumInt32") or
+                      a typedef path (e.g., "vi.lib/Utility/sysdir.llb/Type.ctl")
 
         Returns:
-            Dict mapping enum name -> {description, values: {name: {value, description}}}
+            LVType - either a primitive or a typedef_ref
         """
-        return self._enums
+        if type_spec.endswith(".ctl"):
+            # It's a typedef reference - lazy resolution
+            return LVType(kind="typedef_ref", typedef_path=type_spec)
+        else:
+            # It's a primitive type
+            return LVType(kind="primitive", underlying_type=type_spec)
+
+    def resolve_type(self, typedef_path: str) -> TypeDef | None:
+        """Resolve a typedef path to its TypeDef dataclass.
+
+        Args:
+            typedef_path: Full typedef path like "vi.lib/Utility/sysdir.llb/System Directory Type.ctl"
+
+        Returns:
+            TypeDef dataclass if found, None otherwise.
+        """
+        return self._types.get(typedef_path)
 
     def resolve(self, vilib_path: str) -> VIEntry | None:
         """Resolve a vilib path to its VI mapping.
@@ -210,28 +281,41 @@ class VILibResolver:
             return None
 
         lines = ['"""Generated from vilib VI."""', "", "from __future__ import annotations", ""]
+
+        # Collect enum typedefs used by this VI's terminals
+        enum_typedefs: set[str] = set()
+        needs_intenum = False
+        for terminal in vi.terminals:
+            if terminal.type and terminal.type.endswith('.ctl'):
+                typedef = self.resolve_type(terminal.type)
+                if typedef and typedef.type.kind == 'enum':
+                    enum_typedefs.add(terminal.type)
+                    needs_intenum = True
+
+        # Add IntEnum import if needed
+        if needs_intenum:
+            lines.append("from enum import IntEnum")
+
         lines.extend(vi.imports)
-        if vi.imports:
+        if vi.imports or needs_intenum:
             lines.append("")
+
+        # Generate IntEnum classes for typedef enums
+        for typedef_path in sorted(enum_typedefs):
+            typedef = self.resolve_type(typedef_path)
+            if typedef and typedef.type.values:
+                lines.append("")
+                lines.append(f"class {typedef.name}(IntEnum):")
+                lines.append(f'    """{typedef.description or typedef.name}"""')
+                for name, enum_val in typedef.type.values.items():
+                    if enum_val.description:
+                        lines.append(f"    {name} = {enum_val.value}  # {enum_val.description}")
+                    else:
+                        lines.append(f"    {name} = {enum_val.value}")
+
         lines.append("")
         lines.append(vi.python_code)
         return "\n".join(lines)
-
-    def _resolve_enum_values(self, enum_name: str | None) -> list[tuple[int, str]] | None:
-        """Resolve enum values from _enums.json by enum name.
-
-        Args:
-            enum_name: Name of the enum (e.g., "SystemDirectoryType")
-
-        Returns:
-            List of (value, name) tuples or None if not found
-        """
-        if not enum_name or enum_name not in self._enums:
-            return None
-
-        enum_def = self._enums[enum_name]
-        values = enum_def.get("values", {})
-        return [(v["value"], name) for name, v in values.items()]
 
     def get_context(self, vi_name: str) -> dict[str, Any] | None:
         """Get context for LLM code generation.
@@ -248,19 +332,33 @@ class VILibResolver:
 
         terminals = []
         for t in vi.terminals:
-            # Resolve enum values from _enums.json if enum reference exists
+            # Start with terminal's own values
             enum_values = t.enum_values
-            if enum_values is None and t.enum:
-                enum_values = self._resolve_enum_values(t.enum)
+            type_name = t.enum  # Python type name (e.g., "SystemDirectoryType")
+            underlying_type = None
+            typedef: TypeDef | None = None
+
+            # If terminal has a typedef path, resolve it for full type info
+            if t.type and t.type.endswith(".ctl"):
+                typedef = self.resolve_type(t.type)
+                if typedef:
+                    # Get Python type name from resolved typedef
+                    type_name = typedef.name or type_name
+                    underlying_type = typedef.type.underlying_type
+                    # Get enum values if not already set and typedef has them
+                    if enum_values is None and typedef.type.values:
+                        enum_values = [(ev.value, name) for name, ev in typedef.type.values.items()]
 
             terminals.append({
                 "index": t.index,
                 "direction": t.direction,
                 "name": t.name,
-                "type": t.type,
-                "enum": t.enum,
+                "type": t.type,  # Typedef path
+                "underlying_type": underlying_type,  # Base type (UInt16, etc.)
+                "type_name": type_name,  # Python type name
                 "enum_values": enum_values,
                 "python_param": t.python_param,
+                "typedef": typedef,  # Full TypeDef dataclass if resolved
             })
 
         return {
