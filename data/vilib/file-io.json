@@ -1114,66 +1114,8 @@
       "terminals": [
         {
           "name": "system directory type",
-          "description": "system directory type specifies the type of directory you want LabVIEW to retrieve. 0 User Home\u2014Directory that contains the personal files of the current user. This directory is a readable and writable directory accessible to a single user of the system. 1 User Desktop\u2014Directory that contains files located on the desktop of the current user. This directory is a readable and writable directory accessible to a single user of the system. 2 User Documents\u2014Default directory for saving the documents o",
-          "default_value": "directory for saving the documents of the current user",
-          "enum_values": [
-            [
-              0,
-              "User Home"
-            ],
-            [
-              1,
-              "User Desktop"
-            ],
-            [
-              2,
-              "User Documents"
-            ],
-            [
-              3,
-              "User Application Data"
-            ],
-            [
-              4,
-              "User Preferences"
-            ],
-            [
-              5,
-              "User Temporary"
-            ],
-            [
-              6,
-              "Public Documents"
-            ],
-            [
-              7,
-              "Public Application Data"
-            ],
-            [
-              8,
-              "Public Preferences"
-            ],
-            [
-              9,
-              "System Core Libraries"
-            ],
-            [
-              10,
-              "System Installed Libraries"
-            ],
-            [
-              11,
-              "Application Files"
-            ],
-            [
-              12,
-              "Boot Volume Root"
-            ],
-            [
-              13,
-              "Public Cache"
-            ]
-          ],
+          "description": "system directory type specifies the type of directory you want LabVIEW to retrieve.",
+          "type": "vi.lib/Utility/sysdir.llb/System Directory Type.ctl",
           "python_param": "directory_type",
           "enum": "SystemDirectoryType",
           "index": 11,
