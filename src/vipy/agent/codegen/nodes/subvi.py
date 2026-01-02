@@ -320,9 +320,80 @@ class SubVICodeGen(NodeCodeGen):
                     f"No vilib, callee_param, term_name, or context lookup available."
                 )
 
-            keywords[param_name] = value
+            # Check if this parameter is an enum typedef - generate enum reference
+            final_value = self._resolve_enum_value(
+                value, term, vilib_vi, ctx
+            ) if vilib_vi else value
+
+            keywords[param_name] = final_value
 
         return args, keywords
+
+    def _resolve_enum_value(
+        self,
+        value: str,
+        term: Any,
+        vilib_vi: Any,
+        ctx: CodeGenContext,
+    ) -> str:
+        """Resolve enum constant to enum reference if applicable.
+
+        Args:
+            value: The resolved value (e.g., "7")
+            term: Terminal object with type info
+            vilib_vi: VI entry with terminal typedef info
+            ctx: Code generation context
+
+        Returns:
+            Either the original value or an enum reference like "EnumName.MEMBER"
+        """
+        # Only process constant integers
+        if not value.isdigit() and not (value.startswith('-') and value[1:].isdigit()):
+            return value
+
+        int_value = int(value)
+        term_index = term.index
+
+        # Find this terminal in vilib
+        vilib_term = None
+        for vt in vilib_vi.terminals:
+            if vt.index == term_index and vt.direction == "input":
+                vilib_term = vt
+                break
+
+        if not vilib_term or not vilib_term.type:
+            return value
+
+        # Check if this terminal references an enum typedef
+        if not vilib_term.type.endswith('.ctl'):
+            return value
+
+        # Get the typedef from vilib resolver
+        from vipy.vilib_resolver import get_resolver
+        resolver = get_resolver()
+        typedef = resolver.resolve_type(vilib_term.type)
+
+        if not typedef or typedef.type.kind != 'enum' or not typedef.type.values:
+            return value
+
+        # Reverse lookup: find enum member with this value
+        for member_name, enum_val in typedef.type.values.items():
+            if enum_val.value == int_value:
+                # Found it! Generate enum reference
+                enum_class_name = typedef.name
+                # Add import for this enum (track in context)
+                ctx.add_import(f"from .{self._to_module_name(vilib_vi.name)} import {enum_class_name}")
+                return f"{enum_class_name}.{member_name}"
+
+        # Value not in enum - return as-is
+        return value
+
+    def _to_module_name(self, vi_name: str) -> str:
+        """Convert VI name to Python module name."""
+        name = vi_name.replace('.vi', '').replace(' ', '_').replace('-', '_').lower()
+        # Remove special characters
+        import re
+        return re.sub(r'[^a-z0-9_]', '', name)
 
     def _build_output_bindings(
         self,

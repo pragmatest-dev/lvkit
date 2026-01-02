@@ -95,8 +95,9 @@ class FPTerminalNode:
     control_type: str | None = None
     default_value: Any = None
     enum_values: list = field(default_factory=list)
-    type: str | None = None  # Resolved type
-    type_info: Any = None  # TypeInfo object (added during enrichment)
+    type: str | None = None  # Resolved type (underlying_type string)
+    lv_type: LVType | None = None  # Full LVType structure (unified type system)
+    type_info: Any = None  # TypeInfo object (for legacy rendering)
 
 
 @dataclass
@@ -111,3 +112,138 @@ class Wire:
     to_parent_name: str | None = None
     from_parent_labels: list[str] = field(default_factory=list)
     to_parent_labels: list[str] = field(default_factory=list)
+
+
+# Type definition dataclasses
+
+@dataclass
+class EnumValue:
+    """A single value in an enum typedef."""
+    value: int
+    description: str | None = None
+
+
+# Mapping from LabVIEW type names to Python type annotations
+_LV_TO_PYTHON_TYPE: dict[str, str] = {
+    "NumInt8": "int", "NumInt16": "int", "NumInt32": "int", "NumInt64": "int",
+    "NumUInt8": "int", "NumUInt16": "int", "NumUInt32": "int", "NumUInt64": "int",
+    "NumFloat32": "float", "NumFloat64": "float",
+    "String": "str",
+    "Boolean": "bool",
+    "Path": "Path",
+    "Variant": "Any",
+    "Void": "None",
+}
+
+
+# Mapping from Front Panel control types to LVType (shared source of truth)
+def control_type_to_lvtype(control_type: str) -> LVType | None:
+    """Map a LabVIEW control type to LVType.
+
+    Args:
+        control_type: Control type string like "stdPath", "stdString", etc.
+
+    Returns:
+        LVType instance or None if not recognized
+    """
+    mapping = {
+        "stdPath": LVType(kind="primitive", underlying_type="Path"),
+        "stdString": LVType(kind="primitive", underlying_type="String"),
+        "stdBool": LVType(kind="primitive", underlying_type="Boolean"),
+        "stdNum": LVType(kind="primitive", underlying_type="NumFloat64"),
+        "stdDBL": LVType(kind="primitive", underlying_type="NumFloat64"),
+        "stdI32": LVType(kind="primitive", underlying_type="NumInt32"),
+        "stdI16": LVType(kind="primitive", underlying_type="NumInt16"),
+        "stdU32": LVType(kind="primitive", underlying_type="NumUInt32"),
+        "stdU16": LVType(kind="primitive", underlying_type="NumUInt16"),
+    }
+    return mapping.get(control_type)
+
+
+@dataclass
+class LVType:
+    """LabVIEW type structure - unified representation for all types.
+
+    ALL types are represented as LVType, including:
+    - primitives (kind="primitive")
+    - enums (kind="enum")
+    - clusters (kind="cluster")
+    - arrays (kind="array")
+    - rings (kind="ring")
+    - typedef references (kind="typedef_ref") - lazy resolution
+
+    Examples:
+        LVType(kind="primitive", underlying_type="NumInt32")
+        LVType(kind="enum", underlying_type="UInt16", values={...})
+        LVType(kind="cluster", underlying_type="Cluster", fields=[...])
+        LVType(kind="array", underlying_type="Array", element_type=LVType(...))
+        LVType(kind="typedef_ref", typedef_path="vi.lib/Utility/sysdir.llb/...")
+    """
+    kind: str  # "primitive", "enum", "cluster", "array", "ring", "typedef_ref"
+    underlying_type: str | None = None  # Base LabVIEW type (None for typedef_ref)
+
+    # Kind-specific fields (all optional, set based on kind)
+    values: dict[str, EnumValue] | None = None  # enum/ring
+    fields: list[ClusterField] | None = None  # cluster
+    element_type: LVType | None = None  # array
+    dimensions: int | None = None  # array
+    typedef_path: str | None = None  # typedef_ref - path to resolve
+    typedef_name: str | None = None  # Qualified name (e.g., "sysdir.llb:Type.ctl")
+
+    def to_python(self) -> str:
+        """Render as Python type annotation string."""
+        if self.kind == "primitive":
+            return _LV_TO_PYTHON_TYPE.get(self.underlying_type or "", "Any")
+        elif self.kind == "array":
+            if self.element_type:
+                inner = self.element_type.to_python()
+            else:
+                inner = "Any"
+            result = f"list[{inner}]"
+            # Nested lists for multi-dimensional arrays
+            dims = self.dimensions or 1
+            for _ in range(dims - 1):
+                result = f"list[{result}]"
+            return result
+        elif self.kind == "cluster":
+            # Use typedef_name if available, otherwise generic dict
+            if self.typedef_name:
+                # Clean up typedef name for use as class name
+                name = self.typedef_name.split(":")[-1].replace(".ctl", "")
+                return name.replace(" ", "")
+            return "dict[str, Any]"
+        elif self.kind in ("enum", "ring"):
+            if self.typedef_name:
+                name = self.typedef_name.split(":")[-1].replace(".ctl", "")
+                return name.replace(" ", "")
+            return "int"
+        elif self.kind == "typedef_ref":
+            if self.typedef_name:
+                name = self.typedef_name.split(":")[-1].replace(".ctl", "")
+                return name.replace(" ", "")
+            return "Any"
+        return "Any"
+
+
+@dataclass
+class ClusterField:
+    """A field in a cluster.
+
+    The type field is always an LVType - supports full nesting
+    (clusters in clusters, arrays of clusters, etc.)
+    """
+    name: str
+    type: LVType
+
+
+@dataclass
+class TypeDef:
+    """A shared type definition (.ctl file) = LVType + path metadata.
+
+    TypeDefs are just shared types - the LVType holds the actual structure,
+    and TypeDef adds the path/name metadata for the .ctl file.
+    """
+    type: LVType  # The actual type structure
+    typedef_path: str  # Path: "vi.lib/Utility/sysdir.llb/System Directory Type.ctl"
+    name: str  # Python-friendly name: "SystemDirectoryType"
+    description: str | None = None

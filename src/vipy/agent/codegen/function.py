@@ -194,10 +194,14 @@ class FunctionBuilder:
 
         for out in outputs:
             name = self._to_var_name(out.get("name", "output"))
-            # Use TypeInfo if available, otherwise fall back to manual mapping
-            type_info = out.get("type_info")
-            if type_info:
+            # Use LVType (unified type system) if available
+            lv_type_obj = out.get("lv_type")
+            if lv_type_obj:
+                type_hint = lv_type_obj.to_python()
+            # Fallback to TypeInfo if available
+            elif (type_info := out.get("type_info")):
                 type_hint = type_info.to_python()
+            # Last resort: manual mapping
             else:
                 lv_type = out.get("type")
                 if not lv_type:

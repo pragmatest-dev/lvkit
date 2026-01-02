@@ -9,6 +9,7 @@ No database server required. Supports recursive VIs via SCC detection.
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
 
@@ -20,10 +21,12 @@ from .frontpanel import FrontPanel, parse_front_panel
 from .graph_types import (
     Constant,
     FPTerminalNode,
+    LVType,
     Operation,
     Terminal,
     Tunnel,
     Wire,
+    control_type_to_lvtype,
 )
 from .parser import (
     BlockDiagram,
@@ -35,7 +38,6 @@ from .parser import (
     parse_vi_metadata,
 )
 from .parser.types import (
-    TypeInfo,
     parse_type_map_rich,
     resolve_type_rich,
 )
@@ -251,7 +253,7 @@ class InMemoryVIGraph:
                 wiring_rules = parse_connector_pane_types(main_xml, conpane)
 
         # Parse type map for resolving TypeID references (with typedef info)
-        type_map: dict[int, TypeInfo] = {}
+        type_map: dict[int, LVType] = {}
         if main_xml and main_xml.exists():
             type_map = parse_type_map_rich(main_xml)
 
@@ -438,7 +440,7 @@ class InMemoryVIGraph:
         conpane: ConnectorPane | None,
         wiring_rules: dict[int, int],
         vi_name: str,
-        type_map: dict[int, TypeInfo] | None = None,
+        type_map: dict[int, LVType] | None = None,
     ) -> nx.DiGraph:
         """Build a dataflow graph from a BlockDiagram.
 
@@ -473,19 +475,39 @@ class InMemoryVIGraph:
             ctrl = fp_by_uid.get(fp_term.fp_dco_uid)
             # Get wiring rule for this slot (default to 0 = Invalid/optional)
             wiring_rule = wiring_rules.get(slot_index, 0) if slot_index else 0
-            g.add_node(
-                fp_term.uid,
-                kind=kind,
-                name=ctrl.name if ctrl else fp_term.name,
-                is_indicator=fp_term.is_indicator,
-                is_public=is_public,  # On connector pane = public interface
-                slot_index=slot_index,  # Position on connector pane
-                wiring_rule=wiring_rule,  # 0=Invalid, 1=Required, 2=Rec, 3=Opt
-                type_desc=ctrl.type_desc if ctrl else None,
-                control_type=ctrl.control_type if ctrl else None,
-                default_value=ctrl.default_value if ctrl else None,
-                enum_values=ctrl.enum_values if ctrl else [],
-            )
+
+            # Resolve TypeID to LVType if available
+            lv_type = None
+            type_desc_str = ctrl.type_desc if ctrl else None
+            control_type_str = ctrl.control_type if ctrl else None
+
+            if type_desc_str and type_map:
+                lv_type = resolve_type_rich(type_desc_str, type_map)
+            elif control_type_str:
+                # Map control_type to LVType using shared mapping
+                lv_type = control_type_to_lvtype(control_type_str)
+
+            node_attrs: dict[str, Any] = {
+                "kind": kind,
+                "name": ctrl.name if ctrl else fp_term.name,
+                "is_indicator": fp_term.is_indicator,
+                "is_public": is_public,  # On connector pane = public interface
+                "slot_index": slot_index,  # Position on connector pane
+                "wiring_rule": wiring_rule,  # 0=Invalid, 1=Required, 2=Rec, 3=Opt
+                "type_desc": type_desc_str,
+                "control_type": ctrl.control_type if ctrl else None,
+                "default_value": ctrl.default_value if ctrl else None,
+                "enum_values": ctrl.enum_values if ctrl else [],
+            }
+            if lv_type:
+                node_attrs["lv_type"] = lv_type
+                node_attrs["type"] = lv_type.underlying_type or "Any"
+                if lv_type.typedef_path:
+                    node_attrs["typedef_path"] = lv_type.typedef_path
+                if lv_type.typedef_name:
+                    node_attrs["typedef_name"] = lv_type.typedef_name
+
+            g.add_node(fp_term.uid, **node_attrs)
 
         # Add constants WITH DECODED VALUES
         for const in bd.constants:
@@ -512,23 +534,24 @@ class InMemoryVIGraph:
             terminals = []
             for term_uid, term_info in bd.terminal_info.items():
                 if term_info.parent_uid == node.uid:
-                    # Resolve TypeID to rich type info (type + typedef)
+                    # Resolve TypeID to LVType
                     raw_type = term_info.type_id or "unknown"
                     if type_map:
-                        type_info = resolve_type_rich(raw_type, type_map)
+                        lv_type = resolve_type_rich(raw_type, type_map)
                     else:
-                        type_info = TypeInfo(type=raw_type)
+                        lv_type = LVType(kind="primitive", underlying_type=raw_type)
                     term_dict: dict[str, Any] = {
                         "id": term_uid,
                         "index": term_info.index,
-                        "type": type_info.type,
+                        "type": lv_type.underlying_type or "Any",
                         "name": term_info.name,
                         "direction": "output" if term_info.is_output else "input",
+                        "lv_type": lv_type,
                     }
-                    if type_info.typedef_path:
-                        term_dict["typedef_path"] = type_info.typedef_path
-                    if type_info.typedef_name:
-                        term_dict["typedef_name"] = type_info.typedef_name
+                    if lv_type.typedef_path:
+                        term_dict["typedef_path"] = lv_type.typedef_path
+                    if lv_type.typedef_name:
+                        term_dict["typedef_name"] = lv_type.typedef_name
                     terminals.append(term_dict)
 
             g.add_node(
@@ -544,24 +567,25 @@ class InMemoryVIGraph:
         # Add terminal nodes (for wire routing)
         for term_uid, term_info in bd.terminal_info.items():
             if term_uid not in g:  # Don't override FP terminals
-                # Resolve TypeID to rich type info (type + typedef)
+                # Resolve TypeID to LVType
                 raw_type = term_info.type_id or "unknown"
                 if type_map:
-                    type_info = resolve_type_rich(raw_type, type_map)
+                    lv_type = resolve_type_rich(raw_type, type_map)
                 else:
-                    type_info = TypeInfo(type=raw_type)
+                    lv_type = LVType(kind="primitive", underlying_type=raw_type)
                 node_attrs: dict[str, Any] = {
                     "kind": "terminal",
                     "parent_id": term_info.parent_uid,
                     "index": term_info.index,
-                    "type": type_info.type,
+                    "type": lv_type.underlying_type or "Any",
                     "name": term_info.name,
                     "direction": "output" if term_info.is_output else "input",
+                    "lv_type": lv_type,
                 }
-                if type_info.typedef_path:
-                    node_attrs["typedef_path"] = type_info.typedef_path
-                if type_info.typedef_name:
-                    node_attrs["typedef_name"] = type_info.typedef_name
+                if lv_type.typedef_path:
+                    node_attrs["typedef_path"] = lv_type.typedef_path
+                if lv_type.typedef_name:
+                    node_attrs["typedef_name"] = lv_type.typedef_name
                 g.add_node(term_uid, **node_attrs)
 
         # Add edges (wires)
@@ -801,6 +825,7 @@ class InMemoryVIGraph:
                 default_value=d.get("default_value"),
                 enum_values=d.get("enum_values", []),
                 type=d.get("type"),
+                lv_type=d.get("lv_type"),
             ))
         return results
 
@@ -836,6 +861,7 @@ class InMemoryVIGraph:
                 default_value=d.get("default_value"),
                 enum_values=d.get("enum_values", []),
                 type=d.get("type"),
+                lv_type=d.get("lv_type"),
             ))
         return results
 

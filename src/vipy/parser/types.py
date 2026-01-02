@@ -5,23 +5,15 @@ from __future__ import annotations
 import json
 import re
 import xml.etree.ElementTree as ET
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from ..graph_types import LVType
 from ..naming import build_qualified_name, build_relative_path
 from .models import DefaultValue, ResolvedTypeDefValue, TypeDefRef
 
 
-@dataclass
-class TypeInfo:
-    """Rich type information including typedef details."""
-    type: str  # Underlying type (NumInt32, Cluster, Path, etc.)
-    typedef_path: str | None = None  # Filesystem path: "Utility/sysdir.llb/Type.ctl"
-    typedef_name: str | None = None  # Qualified name: "sysdir.llb:Type.ctl"
-
-
-def parse_type_map_rich(xml_path: Path | str) -> dict[int, TypeInfo]:
+def parse_type_map_rich(xml_path: Path | str) -> dict[int, LVType]:
     """Parse TypeID mappings with rich type info from main XML.
 
     For TypeDefs, extracts the underlying type and .ctl filename.
@@ -31,10 +23,12 @@ def parse_type_map_rich(xml_path: Path | str) -> dict[int, TypeInfo]:
         xml_path: Path to main .xml file (not BDHb/FPHb)
 
     Returns:
-        Dict mapping TypeID -> TypeInfo
+        Dict mapping TypeID -> LVType
     """
-    type_map: dict[int, TypeInfo] = {}
+    type_map: dict[int, LVType] = {}
     heap_to_consolidated: dict[int, int] = {}
+    # Track type names for primitives before we have full type info
+    type_names: dict[int, str] = {}
 
     # First pass: parse comments to get heap->consolidated mapping and basic types
     with open(xml_path, encoding='utf-8', errors='replace') as f:
@@ -49,7 +43,8 @@ def parse_type_map_rich(xml_path: Path | str) -> dict[int, TypeInfo]:
                 consolidated_id = int(match.group(2))
                 type_name = match.group(3)
                 heap_to_consolidated[heap_id] = consolidated_id
-                type_map[heap_id] = TypeInfo(type=type_name)
+                type_names[heap_id] = type_name
+                type_map[heap_id] = _make_primitive_lvtype(type_name)
                 continue
 
             # Match <!-- TypeID N: TypeName -->
@@ -58,7 +53,8 @@ def parse_type_map_rich(xml_path: Path | str) -> dict[int, TypeInfo]:
                 type_id = int(match.group(1))
                 type_name = match.group(2)
                 if type_id not in type_map:
-                    type_map[type_id] = TypeInfo(type=type_name)
+                    type_names[type_id] = type_name
+                    type_map[type_id] = _make_primitive_lvtype(type_name)
 
     # Second pass: parse VCTP to get TypeDef details
     # Chain: Heap TypeID -> Consolidated ID -> FlatTypeID -> VCTP TypeDesc
@@ -125,7 +121,7 @@ def parse_type_map_rich(xml_path: Path | str) -> dict[int, TypeInfo]:
             if flat_id is not None and flat_id in flat_to_typedef:
                 underlying_type, ctl_filename = flat_to_typedef[flat_id]
                 if heap_id in type_map:
-                    existing = type_map[heap_id]
+                    existing_type_name = type_names.get(heap_id, "unknown")
 
                     # Build path and qualified name from VICC if available
                     typedef_path = None
@@ -146,15 +142,35 @@ def parse_type_map_rich(xml_path: Path | str) -> dict[int, TypeInfo]:
                         # No path info, just use filename
                         typedef_qname = ctl_filename
 
-                    type_map[heap_id] = TypeInfo(
-                        type=underlying_type or existing.type,
-                        typedef_path=typedef_path,
-                        typedef_name=typedef_qname
-                    )
+                    # Create LVType for this typedef
+                    if typedef_path:
+                        type_map[heap_id] = LVType(
+                            kind="typedef_ref",
+                            underlying_type=underlying_type or existing_type_name,
+                            typedef_path=typedef_path,
+                            typedef_name=typedef_qname,
+                        )
+                    else:
+                        type_map[heap_id] = _make_primitive_lvtype(
+                            underlying_type or existing_type_name
+                        )
     except ET.ParseError:
         pass  # Fall back to comment-based parsing only
 
     return type_map
+
+
+def _make_primitive_lvtype(type_name: str) -> LVType:
+    """Create an LVType for a primitive type name."""
+    # Map LabVIEW type names to kind
+    if type_name in ("Cluster",):
+        return LVType(kind="cluster", underlying_type=type_name)
+    elif type_name in ("Array",):
+        return LVType(kind="array", underlying_type=type_name)
+    elif type_name.startswith("Enum") or type_name == "Ring":
+        return LVType(kind="enum", underlying_type=type_name)
+    else:
+        return LVType(kind="primitive", underlying_type=type_name)
 
 
 def parse_type_map(xml_path: Path | str) -> dict[int, str]:
@@ -192,21 +208,21 @@ def resolve_type(type_ref: str, type_map: dict[int, str]) -> str:
     return type_ref
 
 
-def resolve_type_rich(type_ref: str, type_map: dict[int, TypeInfo]) -> TypeInfo:
-    """Resolve TypeID(N) reference to rich TypeInfo.
+def resolve_type_rich(type_ref: str, type_map: dict[int, LVType]) -> LVType:
+    """Resolve TypeID(N) reference to LVType.
 
     Args:
         type_ref: String like "TypeID(37)"
-        type_map: Mapping from TypeID -> TypeInfo
+        type_map: Mapping from TypeID -> LVType
 
     Returns:
-        TypeInfo with type and optional typedef, or TypeInfo with original string
+        LVType for the resolved type, or primitive LVType with original string
     """
     match = re.match(r'TypeID\((\d+)\)', type_ref)
     if match:
         type_id = int(match.group(1))
-        return type_map.get(type_id, TypeInfo(type=type_ref))
-    return TypeInfo(type=type_ref)
+        return type_map.get(type_id, LVType(kind="primitive", underlying_type=type_ref))
+    return LVType(kind="primitive", underlying_type=type_ref)
 
 
 def parse_type_chain(xml_path: Path | str) -> dict:
