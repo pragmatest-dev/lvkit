@@ -10,6 +10,7 @@ No database server required. Supports recursive VIs via SCC detection.
 from __future__ import annotations
 
 from collections.abc import Iterator
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -25,9 +26,133 @@ from .parser import (
     parse_connector_pane,
     parse_connector_pane_types,
     parse_subvi_paths,
+    parse_vi_metadata,
+)
+from .parser.types import (
+    TypeInfo,
+    parse_type_map_rich,
+    resolve_type_rich,
 )
 from .types import from_labview_type
 from .vilib_resolver import get_resolver as get_vilib_resolver
+
+# =============================================================================
+# Dataclasses for graph nodes - support both attribute and dict-style access
+# =============================================================================
+
+
+class DictMixin:
+    """Mixin to provide dict-like access to dataclass fields.
+
+    Allows gradual migration from dict['key'] to obj.key syntax.
+    """
+
+    def get(self, key: str, default: Any = None) -> Any:
+        """Dict-style get for backward compatibility."""
+        return getattr(self, key, default)
+
+    def __getitem__(self, key: str) -> Any:
+        """Dict-style [] access."""
+        if hasattr(self, key):
+            return getattr(self, key)
+        raise KeyError(key)
+
+    def __contains__(self, key: str) -> bool:
+        """Support 'in' operator."""
+        return hasattr(self, key)
+
+    def items(self) -> Iterator[tuple[str, Any]]:
+        """Iterate over field name-value pairs."""
+        for k in self.__dataclass_fields__:  # type: ignore
+            yield k, getattr(self, k)
+
+    def keys(self) -> Iterator[str]:
+        """Iterate over field names."""
+        return iter(self.__dataclass_fields__)  # type: ignore
+
+
+@dataclass
+class Terminal(DictMixin):
+    """A terminal on an operation node."""
+
+    id: str
+    index: int
+    direction: str  # "input" or "output"
+    type: str = "Any"
+    name: str | None = None
+    typedef_path: str | None = None  # Filesystem path to .ctl
+    typedef_name: str | None = None  # Qualified name (e.g., "sysdir.llb:Type.ctl")
+    callee_param_name: str | None = None  # Name in SubVI's signature
+
+
+@dataclass
+class Tunnel(DictMixin):
+    """A tunnel connecting loop outer/inner terminals."""
+
+    outer_terminal_uid: str
+    inner_terminal_uid: str
+    tunnel_type: str  # "lSR", "rSR", "lpTun", "lMax"
+    paired_terminal_uid: str | None = None
+
+
+@dataclass
+class Operation(DictMixin):
+    """An operation node (SubVI, primitive, loop)."""
+
+    id: str
+    name: str | None
+    labels: list[str]
+    primResID: int | None = None
+    terminals: list[Terminal] = field(default_factory=list)
+    node_type: str | None = None
+    loop_type: str | None = None
+    tunnels: list[Tunnel] = field(default_factory=list)
+    inner_nodes: list[Operation] = field(default_factory=list)
+    stop_condition_terminal: str | None = None
+
+
+@dataclass
+class Constant(DictMixin):
+    """A constant value node."""
+
+    id: str
+    value: Any
+    type: str
+    raw_value: str | None = None
+    label: str | None = None
+
+
+@dataclass
+class FPTerminalNode(DictMixin):
+    """A front panel terminal (input/output)."""
+
+    id: str
+    kind: str  # "input" or "output"
+    name: str | None
+    is_indicator: bool
+    is_public: bool
+    slot_index: int | None = None
+    wiring_rule: int = 0
+    type_desc: str | None = None
+    control_type: str | None = None
+    default_value: Any = None
+    enum_values: list = field(default_factory=list)
+    type: str | None = None  # Resolved type
+    type_info: Any = None  # TypeInfo object (added during enrichment)
+
+
+@dataclass
+class Wire(DictMixin):
+    """A wire (edge) in the dataflow graph."""
+
+    from_terminal_id: str
+    to_terminal_id: str
+    from_parent_id: str | None = None
+    to_parent_id: str | None = None
+    from_parent_name: str | None = None
+    to_parent_name: str | None = None
+    from_parent_labels: list[str] = field(default_factory=list)
+    to_parent_labels: list[str] = field(default_factory=list)
 
 
 class InMemoryVIGraph:
@@ -57,6 +182,8 @@ class InMemoryVIGraph:
         self._bindings: dict[tuple[str, str], tuple[str, str]] = {}
         # Loop structures: vi_name -> {loop_uid -> LoopStructure}
         self._loop_structures: dict[str, dict[str, Any]] = {}
+        # Polymorphic VI info: vi_name -> {is_polymorphic, variants}
+        self._poly_info: dict[str, dict[str, Any]] = {}
 
     def clear(self) -> None:
         """Clear all loaded data."""
@@ -65,6 +192,7 @@ class InMemoryVIGraph:
         self._stubs.clear()
         self._bindings.clear()
         self._loop_structures.clear()
+        self._poly_info.clear()
 
     def query(self, cypher: str, params: dict | None = None) -> list[dict]:
         """Cypher query compatibility - routes to native methods.
@@ -234,13 +362,28 @@ class InMemoryVIGraph:
             if main_xml and main_xml.exists() and conpane:
                 wiring_rules = parse_connector_pane_types(main_xml, conpane)
 
+        # Parse type map for resolving TypeID references (with typedef info)
+        type_map: dict[int, TypeInfo] = {}
+        if main_xml and main_xml.exists():
+            type_map = parse_type_map_rich(main_xml)
+
         # Build dataflow graph for this VI
         self._dataflow[vi_name] = self._build_dataflow_graph(
-            bd, fp, conpane, wiring_rules, vi_name
+            bd, fp, conpane, wiring_rules, vi_name, type_map
         )
 
         # Store loop structures for later lookup
         self._loop_structures[vi_name] = {loop.uid: loop for loop in bd.loops}
+
+        # Parse and store polymorphic VI metadata
+        if main_xml and main_xml.exists():
+            metadata = parse_vi_metadata(main_xml)
+            if metadata.get("is_polymorphic"):
+                self._poly_info[vi_name] = {
+                    "is_polymorphic": True,
+                    "variants": metadata.get("poly_variants", []),
+                    "selectors": metadata.get("poly_selectors", []),
+                }
 
         # Add to dependency graph
         self._dep_graph.add_node(vi_name)
@@ -258,11 +401,23 @@ class InMemoryVIGraph:
             subvi_refs = parse_subvi_paths(main_xml)
             subvi_ref_map = {ref.name: ref for ref in subvi_refs}
 
+            # Caller directory for relative path resolution
+            caller_dir = bd_xml.parent
+
             for subvi_name in called_subvis:
                 ref = subvi_ref_map.get(subvi_name)
-                # Use ref.name if available, otherwise use the raw subvi_name
-                lookup_name = ref.name if ref else subvi_name
-                subvi_path = self._find_subvi(lookup_name, search_paths)
+                # Use relative path from ref if available for better resolution
+                if ref and ref.path_tokens:
+                    lookup_path = ref.get_relative_path()
+                    is_vilib = ref.is_vilib
+                    is_userlib = ref.is_userlib
+                else:
+                    lookup_path = subvi_name
+                    is_vilib = False
+                    is_userlib = False
+                subvi_path = self._find_subvi(
+                    lookup_path, search_paths, caller_dir, is_vilib, is_userlib
+                )
                 if subvi_path:
                     # Recursively load SubVI
                     try:
@@ -292,15 +447,53 @@ class InMemoryVIGraph:
 
         return vi_name
 
-    def _find_subvi(self, vi_path: str, search_paths: list[Path]) -> Path | None:
-        """Find a SubVI file in search paths."""
+    def _find_subvi(
+        self,
+        vi_path: str,
+        search_paths: list[Path],
+        caller_dir: Path | None = None,
+        is_vilib: bool = False,
+        is_userlib: bool = False,
+    ) -> Path | None:
+        """Find a SubVI file in search paths.
+
+        Args:
+            vi_path: VI name or relative path (e.g., "Utilities/MyVI.vi")
+            search_paths: Directories to search
+            caller_dir: Directory of the calling VI for relative resolution
+            is_vilib: True if SubVI is from <vilib>
+            is_userlib: True if SubVI is from <userlib>
+        """
         vi_name = Path(vi_path).name
+        path_parts = Path(vi_path).parts
+
+        # For same-directory VIs (not vilib/userlib), try caller's directory first
+        if caller_dir and not is_vilib and not is_userlib:
+            # Try exact match in caller's directory
+            candidate = caller_dir / vi_name
+            if candidate.exists():
+                return candidate
+
+            # Try relative path from caller's parent directories
+            if len(path_parts) > 1:
+                for parent in [caller_dir] + list(caller_dir.parents)[:3]:
+                    candidate = parent / vi_path
+                    if candidate.exists():
+                        return candidate
+
         for search_path in search_paths:
-            # Direct path
+            # Try with full relative path first
+            if len(path_parts) > 1:
+                candidate = search_path / vi_path
+                if candidate.exists():
+                    return candidate
+
+            # Direct path with just filename
             candidate = search_path / vi_name
             if candidate.exists():
                 return candidate
-            # Recursive search
+
+            # Recursive search by filename
             for found in search_path.rglob(vi_name):
                 return found
         return None
@@ -357,6 +550,7 @@ class InMemoryVIGraph:
         conpane: ConnectorPane | None,
         wiring_rules: dict[int, int],
         vi_name: str,
+        type_map: dict[int, TypeInfo] | None = None,
     ) -> nx.DiGraph:
         """Build a dataflow graph from a BlockDiagram.
 
@@ -365,6 +559,8 @@ class InMemoryVIGraph:
 
         Only includes FP terminals that are on the connector pane (public interface).
         """
+        if type_map is None:
+            type_map = {}
         g = nx.DiGraph()
 
         # Build FP control lookup by UID for merging names/types/defaults
@@ -396,7 +592,7 @@ class InMemoryVIGraph:
                 is_indicator=fp_term.is_indicator,
                 is_public=is_public,  # On connector pane = public interface
                 slot_index=slot_index,  # Position on connector pane
-                wiring_rule=wiring_rule,  # 0=Invalid, 1=Required, 2=Recommended, 3=Optional
+                wiring_rule=wiring_rule,  # 0=Invalid, 1=Required, 2=Rec, 3=Opt
                 type_desc=ctrl.type_desc if ctrl else None,
                 control_type=ctrl.control_type if ctrl else None,
                 default_value=ctrl.default_value if ctrl else None,
@@ -428,13 +624,24 @@ class InMemoryVIGraph:
             terminals = []
             for term_uid, term_info in bd.terminal_info.items():
                 if term_info.parent_uid == node.uid:
-                    terminals.append({
+                    # Resolve TypeID to rich type info (type + typedef)
+                    raw_type = term_info.type_id or "unknown"
+                    if type_map:
+                        type_info = resolve_type_rich(raw_type, type_map)
+                    else:
+                        type_info = TypeInfo(type=raw_type)
+                    term_dict: dict[str, Any] = {
                         "id": term_uid,
                         "index": term_info.index,
-                        "type": term_info.type_id or "unknown",
+                        "type": type_info.type,
                         "name": term_info.name,
                         "direction": "output" if term_info.is_output else "input",
-                    })
+                    }
+                    if type_info.typedef_path:
+                        term_dict["typedef_path"] = type_info.typedef_path
+                    if type_info.typedef_name:
+                        term_dict["typedef_name"] = type_info.typedef_name
+                    terminals.append(term_dict)
 
             g.add_node(
                 node.uid,
@@ -449,15 +656,25 @@ class InMemoryVIGraph:
         # Add terminal nodes (for wire routing)
         for term_uid, term_info in bd.terminal_info.items():
             if term_uid not in g:  # Don't override FP terminals
-                g.add_node(
-                    term_uid,
-                    kind="terminal",
-                    parent_id=term_info.parent_uid,
-                    index=term_info.index,
-                    type=term_info.type_id or "unknown",
-                    name=term_info.name,
-                    direction="output" if term_info.is_output else "input",
-                )
+                # Resolve TypeID to rich type info (type + typedef)
+                raw_type = term_info.type_id or "unknown"
+                if type_map:
+                    type_info = resolve_type_rich(raw_type, type_map)
+                else:
+                    type_info = TypeInfo(type=raw_type)
+                node_attrs: dict[str, Any] = {
+                    "kind": "terminal",
+                    "parent_id": term_info.parent_uid,
+                    "index": term_info.index,
+                    "type": type_info.type,
+                    "name": term_info.name,
+                    "direction": "output" if term_info.is_output else "input",
+                }
+                if type_info.typedef_path:
+                    node_attrs["typedef_path"] = type_info.typedef_path
+                if type_info.typedef_name:
+                    node_attrs["typedef_name"] = type_info.typedef_name
+                g.add_node(term_uid, **node_attrs)
 
         # Add edges (wires)
         for wire in bd.wires:
@@ -618,8 +835,14 @@ class InMemoryVIGraph:
         condensation = nx.condensation(self._dep_graph)
 
         # Topologically sort the condensation (SCCs in order)
-        # Reverse because we want dependencies first
-        scc_order = list(reversed(list(nx.topological_sort(condensation))))
+        # Use lexicographical sort for deterministic ordering
+        # Key function uses minimum VI name in each SCC for stable ordering
+        def scc_key(scc_id: int) -> str:
+            return min(condensation.nodes[scc_id]["members"])
+
+        scc_order = list(reversed(list(
+            nx.lexicographical_topological_sort(condensation, key=scc_key)
+        )))
 
         # vilib VIs have implementations, so include them in conversion order
         vilib_resolver = get_vilib_resolver()
@@ -660,7 +883,7 @@ class InMemoryVIGraph:
 
     def get_inputs(
         self, vi_name: str, *, public_only: bool = True
-    ) -> list[dict[str, Any]]:
+    ) -> list[FPTerminalNode]:
         """Get VI input terminals.
 
         Args:
@@ -671,16 +894,31 @@ class InMemoryVIGraph:
         g = self._dataflow.get(vi_name)
         if g is None:
             return []
-        return [
-            {"id": n, **d}
-            for n, d in g.nodes(data=True)
-            if d.get("kind") == "input"
-            and (not public_only or d.get("is_public", True))
-        ]
+        results = []
+        for n, d in g.nodes(data=True):
+            if d.get("kind") != "input":
+                continue
+            if public_only and not d.get("is_public", True):
+                continue
+            results.append(FPTerminalNode(
+                id=n,
+                kind="input",
+                name=d.get("name"),
+                is_indicator=d.get("is_indicator", False),
+                is_public=d.get("is_public", True),
+                slot_index=d.get("slot_index"),
+                wiring_rule=d.get("wiring_rule", 0),
+                type_desc=d.get("type_desc"),
+                control_type=d.get("control_type"),
+                default_value=d.get("default_value"),
+                enum_values=d.get("enum_values", []),
+                type=d.get("type"),
+            ))
+        return results
 
     def get_outputs(
         self, vi_name: str, *, public_only: bool = True
-    ) -> list[dict[str, Any]]:
+    ) -> list[FPTerminalNode]:
         """Get VI output terminals.
 
         Args:
@@ -691,28 +929,50 @@ class InMemoryVIGraph:
         g = self._dataflow.get(vi_name)
         if g is None:
             return []
-        return [
-            {"id": n, **d}
-            for n, d in g.nodes(data=True)
-            if d.get("kind") == "output"
-            and (not public_only or d.get("is_public", True))
-        ]
+        results = []
+        for n, d in g.nodes(data=True):
+            if d.get("kind") != "output":
+                continue
+            if public_only and not d.get("is_public", True):
+                continue
+            results.append(FPTerminalNode(
+                id=n,
+                kind="output",
+                name=d.get("name"),
+                is_indicator=d.get("is_indicator", True),
+                is_public=d.get("is_public", True),
+                slot_index=d.get("slot_index"),
+                wiring_rule=d.get("wiring_rule", 0),
+                type_desc=d.get("type_desc"),
+                control_type=d.get("control_type"),
+                default_value=d.get("default_value"),
+                enum_values=d.get("enum_values", []),
+                type=d.get("type"),
+            ))
+        return results
 
-    def get_constants(self, vi_name: str) -> list[dict[str, Any]]:
+    def get_constants(self, vi_name: str) -> list[Constant]:
         """Get all constants in a VI."""
         g = self._dataflow.get(vi_name)
         if g is None:
             return []
-        return [
-            {"id": n, **d}
-            for n, d in g.nodes(data=True)
-            if d.get("kind") == "constant"
-        ]
+        results = []
+        for n, d in g.nodes(data=True):
+            if d.get("kind") != "constant":
+                continue
+            results.append(Constant(
+                id=n,
+                value=d.get("value"),
+                type=d.get("type", "Any"),
+                raw_value=d.get("raw_value"),
+                label=d.get("label"),
+            ))
+        return results
 
-    def get_operations(self, vi_name: str) -> list[dict[str, Any]]:
+    def get_operations(self, vi_name: str) -> list[Operation]:
         """Get all operations (SubVIs, primitives) in a VI.
 
-        Returns operations in dataflow execution order with backward-compatible format.
+        Returns operations in dataflow execution order.
         Only returns top-level operations - inner loop operations are nested in
         the loop's inner_nodes list.
         """
@@ -754,44 +1014,70 @@ class InMemoryVIGraph:
                 labels = ["Operation"]
 
             # Enrich terminals with callee parameter names for SubVIs
-            terminals = d.get("terminals", [])
+            raw_terminals = d.get("terminals", [])
             if kind == "subvi":
-                terminals = self._enrich_subvi_terminals(terminals, d.get("name"), vi_name)
+                subvi_name = d.get("name")
+                raw_terminals = self._enrich_subvi_terminals(
+                    raw_terminals, subvi_name, vi_name
+                )
 
-            op_dict: dict[str, Any] = {
-                "id": n,
-                "name": d.get("name"),
-                "labels": labels,
-                "primResID": d.get("prim_id"),
-                "terminals": terminals,
-            }
+            # Convert terminal dicts to Terminal dataclasses
+            terminals = self._to_terminal_list(raw_terminals)
 
-            # Add loop_type for loop structures
+            # Build tunnels and inner_nodes for loops
+            tunnels: list[Tunnel] = []
+            inner_nodes: list[Operation] = []
+            loop_type: str | None = None
+            stop_cond: str | None = None
+
             if node_type in ("whileLoop", "forLoop"):
-                op_dict["loop_type"] = node_type
-                op_dict["labels"] = ["Loop"]  # Override label for loops
-
-                # Get LoopStructure data
+                labels = ["Loop"]  # Override label for loops
+                loop_type = node_type
                 loop_struct = self._loop_structures.get(vi_name, {}).get(n)
                 if loop_struct:
-                    op_dict["tunnels"] = [
-                        {
-                            "outer_terminal_uid": t.outer_terminal_uid,
-                            "inner_terminal_uid": t.inner_terminal_uid,
-                            "tunnel_type": t.tunnel_type,
-                            "paired_terminal_uid": t.paired_terminal_uid,
-                        }
+                    tunnels = [
+                        Tunnel(
+                            outer_terminal_uid=t.outer_terminal_uid,
+                            inner_terminal_uid=t.inner_terminal_uid,
+                            tunnel_type=t.tunnel_type,
+                            paired_terminal_uid=t.paired_terminal_uid,
+                        )
                         for t in loop_struct.tunnels
                     ]
-                    op_dict["inner_nodes"] = self._build_inner_nodes(
+                    inner_nodes = self._build_inner_nodes(
                         loop_struct.inner_node_uids, g, vi_name
                     )
-                    # Add stop condition terminal for while loops
-                    if loop_struct.stop_condition_terminal_uid:
-                        op_dict["stop_condition_terminal"] = loop_struct.stop_condition_terminal_uid
+                    stop_cond = loop_struct.stop_condition_terminal_uid
 
-            result.append(op_dict)
+            result.append(Operation(
+                id=n,
+                name=d.get("name"),
+                labels=labels,
+                primResID=d.get("prim_id"),
+                terminals=terminals,
+                node_type=node_type or None,
+                loop_type=loop_type,
+                tunnels=tunnels,
+                inner_nodes=inner_nodes,
+                stop_condition_terminal=stop_cond,
+            ))
         return result
+
+    def _to_terminal_list(self, raw_terminals: list[dict]) -> list[Terminal]:
+        """Convert list of terminal dicts to Terminal dataclasses."""
+        terminals = []
+        for t in raw_terminals:
+            terminals.append(Terminal(
+                id=t.get("id", ""),
+                index=t.get("index", 0),
+                direction=t.get("direction", "input"),
+                type=t.get("type", "Any"),
+                name=t.get("name"),
+                typedef_path=t.get("typedef_path"),
+                typedef_name=t.get("typedef_name"),
+                callee_param_name=t.get("callee_param_name"),
+            ))
+        return terminals
 
     def _enrich_subvi_terminals(
         self,
@@ -831,8 +1117,8 @@ class InMemoryVIGraph:
 
     def _build_inner_nodes(
         self, uids: list[str], g: nx.DiGraph, vi_name: str
-    ) -> list[dict[str, Any]]:
-        """Build operation dicts for nodes inside a loop.
+    ) -> list[Operation]:
+        """Build Operation dataclasses for nodes inside a loop.
 
         Recursively handles nested loops.
         """
@@ -852,35 +1138,43 @@ class InMemoryVIGraph:
             else:
                 labels = ["Operation"]
 
-            inner_op: dict[str, Any] = {
-                "id": uid,
-                "name": d.get("name"),
-                "labels": labels,
-                "primResID": d.get("prim_id"),
-                "node_type": node_type,  # For cpdArith, aBuild, etc.
-                "terminals": d.get("terminals", []),
-            }
+            # Convert raw terminals to Terminal dataclasses
+            terminals = self._to_terminal_list(d.get("terminals", []))
 
-            # Handle nested loops recursively
+            # Build tunnels and inner_nodes for nested loops
+            tunnels: list[Tunnel] = []
+            nested_inner: list[Operation] = []
+            loop_type: str | None = None
+
             if node_type in ("whileLoop", "forLoop"):
-                inner_op["loop_type"] = node_type
-                inner_op["labels"] = ["Loop"]
+                labels = ["Loop"]
+                loop_type = node_type
                 nested_struct = self._loop_structures.get(vi_name, {}).get(uid)
                 if nested_struct:
-                    inner_op["tunnels"] = [
-                        {
-                            "outer_terminal_uid": t.outer_terminal_uid,
-                            "inner_terminal_uid": t.inner_terminal_uid,
-                            "tunnel_type": t.tunnel_type,
-                            "paired_terminal_uid": t.paired_terminal_uid,
-                        }
+                    tunnels = [
+                        Tunnel(
+                            outer_terminal_uid=t.outer_terminal_uid,
+                            inner_terminal_uid=t.inner_terminal_uid,
+                            tunnel_type=t.tunnel_type,
+                            paired_terminal_uid=t.paired_terminal_uid,
+                        )
                         for t in nested_struct.tunnels
                     ]
-                    inner_op["inner_nodes"] = self._build_inner_nodes(
+                    nested_inner = self._build_inner_nodes(
                         nested_struct.inner_node_uids, g, vi_name
                     )
 
-            inner_ops.append(inner_op)
+            inner_ops.append(Operation(
+                id=uid,
+                name=d.get("name"),
+                labels=labels,
+                primResID=d.get("prim_id"),
+                terminals=terminals,
+                node_type=node_type or None,
+                loop_type=loop_type,
+                tunnels=tunnels,
+                inner_nodes=nested_inner,
+            ))
         return inner_ops
 
     def get_operation_order(self, vi_name: str) -> list[str]:
@@ -967,11 +1261,8 @@ class InMemoryVIGraph:
 
         return source
 
-    def get_wires(self, vi_name: str) -> list[dict[str, Any]]:
-        """Get all wires (edges) in a VI's dataflow graph.
-
-        Returns wires in backward-compatible format for skeleton generator.
-        """
+    def get_wires(self, vi_name: str) -> list[Wire]:
+        """Get all wires (edges) in a VI's dataflow graph."""
         g = self._dataflow.get(vi_name)
         if g is None:
             return []
@@ -991,16 +1282,16 @@ class InMemoryVIGraph:
             from_labels = self._kind_to_labels(from_kind)
             to_labels = self._kind_to_labels(to_kind)
 
-            result.append({
-                "from_terminal_id": u,
-                "to_terminal_id": v,
-                "from_parent_id": from_parent_id,
-                "to_parent_id": to_parent_id,
-                "from_parent_name": from_node.get("name"),
-                "to_parent_name": to_node.get("name"),
-                "from_parent_labels": from_labels,
-                "to_parent_labels": to_labels,
-            })
+            result.append(Wire(
+                from_terminal_id=u,
+                to_terminal_id=v,
+                from_parent_id=from_parent_id,
+                to_parent_id=to_parent_id,
+                from_parent_name=from_node.get("name"),
+                to_parent_name=to_node.get("name"),
+                from_parent_labels=from_labels,
+                to_parent_labels=to_labels,
+            ))
         return result
 
     def _kind_to_labels(self, kind: str) -> list[str]:
@@ -1131,7 +1422,7 @@ class InMemoryVIGraph:
         # Get inputs/outputs with TypeInfo enrichment
         inputs = self._enrich_with_type_info(self.get_inputs(vi_name))
         outputs = self._enrich_with_type_info(self.get_outputs(vi_name))
-        constants = self._enrich_with_type_info(self.get_constants(vi_name))
+        constants = self.get_constants(vi_name)  # Constants don't need TypeInfo
 
         return {
             "name": vi_name,
@@ -1144,21 +1435,57 @@ class InMemoryVIGraph:
             "subvi_calls": subvi_calls,
         }
 
-    def _enrich_with_type_info(self, items: list[dict]) -> list[dict]:
-        """Add TypeInfo objects to context items.
+    def _enrich_with_type_info(
+        self, items: list[FPTerminalNode]
+    ) -> list[FPTerminalNode]:
+        """Add TypeInfo objects to FP terminal nodes.
 
         Adds 'type_info' field based on 'type' and 'control_type' fields.
         """
         for item in items:
-            lv_type = item.get("type", "")
-            control_type = item.get("control_type", "")
-            item["type_info"] = from_labview_type(lv_type, control_type)
+            lv_type = item.type or ""
+            control_type = item.control_type or ""
+            item.type_info = from_labview_type(lv_type, control_type)
         return items
 
     def get_subvi_calls(self, vi_name: str) -> list[dict]:
         """Get SubVIs called by a VI."""
         ctx = self.get_vi_context(vi_name)
         return ctx.get("subvi_calls", [])
+
+    # === Polymorphic VI Methods ===
+
+    def is_polymorphic(self, vi_name: str) -> bool:
+        """Check if a VI is a polymorphic wrapper."""
+        return vi_name in self._poly_info
+
+    def get_poly_variants(self, vi_name: str) -> list[str]:
+        """Get variants for a polymorphic VI."""
+        info = self._poly_info.get(vi_name, {})
+        return info.get("variants", [])
+
+    def get_polymorphic_groups(self) -> dict[str, list[str]]:
+        """Get all polymorphic VIs and their variants.
+
+        Returns dict mapping wrapper VI name to list of variant VI names.
+        Based on actual VI metadata, not naming heuristics.
+        """
+        return {
+            vi_name: info["variants"]
+            for vi_name, info in self._poly_info.items()
+            if info.get("variants")
+        }
+
+    def get_poly_variant_wrappers(self) -> dict[str, str]:
+        """Get mapping of variant VI names to their wrapper VI.
+
+        Inverts the polymorphic groups for quick variant->wrapper lookup.
+        """
+        result: dict[str, str] = {}
+        for wrapper, variants in self._poly_info.items():
+            for variant in variants.get("variants", []):
+                result[variant] = wrapper
+        return result
 
     # === Context Manager ===
 
