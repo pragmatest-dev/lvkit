@@ -162,10 +162,10 @@ class FunctionBuilder:
 
         for inp in inputs:
             name = self._to_var_name(inp.get("name", "input"))
-            # Use TypeInfo if available, otherwise fall back to manual mapping
-            type_info = inp.get("type_info")
-            if type_info:
-                type_hint = type_info.to_python()
+            # Use LVType if available, otherwise fall back to manual mapping
+            lv_type_obj = inp.get("lv_type")
+            if lv_type_obj:
+                type_hint = lv_type_obj.to_python()
             else:
                 type_hint = self._map_type(inp.get("type", "Any"))
             wiring_rule = inp.get("wiring_rule", 0)
@@ -198,15 +198,15 @@ class FunctionBuilder:
             lv_type_obj = out.get("lv_type")
             if lv_type_obj:
                 type_hint = lv_type_obj.to_python()
-            # Fallback to TypeInfo if available
-            elif (type_info := out.get("type_info")):
-                type_hint = type_info.to_python()
-            # Last resort: manual mapping
+            # Fallback: manual mapping
             else:
                 lv_type = out.get("type")
                 if not lv_type:
                     control_type = out.get("control_type")
-                    lv_type = self.CONTROL_TYPE_MAP.get(control_type, "Any") if control_type else "Any"
+                    if control_type:
+                        lv_type = self.CONTROL_TYPE_MAP.get(control_type, "Any")
+                    else:
+                        lv_type = "Any"
                 type_hint = self._map_type(lv_type)
             out_id = out.get("id")
 

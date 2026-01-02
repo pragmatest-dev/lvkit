@@ -41,7 +41,6 @@ from .parser.types import (
     parse_type_map_rich,
     resolve_type_rich,
 )
-from .types import from_labview_type
 from .vilib_resolver import get_resolver as get_vilib_resolver
 
 
@@ -1333,10 +1332,10 @@ class InMemoryVIGraph:
                     "direction": d.get("direction"),
                 })
 
-        # Get inputs/outputs with TypeInfo enrichment
-        inputs = self._enrich_with_type_info(self.get_inputs(vi_name))
-        outputs = self._enrich_with_type_info(self.get_outputs(vi_name))
-        constants = self.get_constants(vi_name)  # Constants don't need TypeInfo
+        # Get inputs/outputs (already enriched with lv_type during graph creation)
+        inputs = self.get_inputs(vi_name)
+        outputs = self.get_outputs(vi_name)
+        constants = self.get_constants(vi_name)
 
         return {
             "name": vi_name,
@@ -1348,19 +1347,6 @@ class InMemoryVIGraph:
             "data_flow": self.get_wires(vi_name),
             "subvi_calls": subvi_calls,
         }
-
-    def _enrich_with_type_info(
-        self, items: list[FPTerminalNode]
-    ) -> list[FPTerminalNode]:
-        """Add TypeInfo objects to FP terminal nodes.
-
-        Adds 'type_info' field based on 'type' and 'control_type' fields.
-        """
-        for item in items:
-            lv_type = item.type or ""
-            control_type = item.control_type or ""
-            item.type_info = from_labview_type(lv_type, control_type)
-        return items
 
     def get_subvi_calls(self, vi_name: str) -> list[dict]:
         """Get SubVIs called by a VI."""
