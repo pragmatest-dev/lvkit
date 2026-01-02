@@ -4,11 +4,157 @@ from __future__ import annotations
 
 import json
 import re
+import xml.etree.ElementTree as ET
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
-import xml.etree.ElementTree as ET
 
+from ..naming import build_qualified_name, build_relative_path
 from .models import DefaultValue, ResolvedTypeDefValue, TypeDefRef
+
+
+@dataclass
+class TypeInfo:
+    """Rich type information including typedef details."""
+    type: str  # Underlying type (NumInt32, Cluster, Path, etc.)
+    typedef_path: str | None = None  # Filesystem path: "Utility/sysdir.llb/Type.ctl"
+    typedef_name: str | None = None  # Qualified name: "sysdir.llb:Type.ctl"
+
+
+def parse_type_map_rich(xml_path: Path | str) -> dict[int, TypeInfo]:
+    """Parse TypeID mappings with rich type info from main XML.
+
+    For TypeDefs, extracts the underlying type and .ctl filename.
+    For regular types, just the type name.
+
+    Args:
+        xml_path: Path to main .xml file (not BDHb/FPHb)
+
+    Returns:
+        Dict mapping TypeID -> TypeInfo
+    """
+    type_map: dict[int, TypeInfo] = {}
+    heap_to_consolidated: dict[int, int] = {}
+
+    # First pass: parse comments to get heap->consolidated mapping and basic types
+    with open(xml_path, encoding='utf-8', errors='replace') as f:
+        for line in f:
+            # Match <!-- Heap TypeID N = Consolidated TypeID M: TypeName -->
+            match = re.search(
+                r'Heap TypeID\s+(\d+)\s*=\s*Consolidated TypeID\s+(\d+):\s*(\w+)',
+                line
+            )
+            if match:
+                heap_id = int(match.group(1))
+                consolidated_id = int(match.group(2))
+                type_name = match.group(3)
+                heap_to_consolidated[heap_id] = consolidated_id
+                type_map[heap_id] = TypeInfo(type=type_name)
+                continue
+
+            # Match <!-- TypeID N: TypeName -->
+            match = re.search(r'<!--\s*TypeID\s+(\d+):\s*(\w+)', line)
+            if match:
+                type_id = int(match.group(1))
+                type_name = match.group(2)
+                if type_id not in type_map:
+                    type_map[type_id] = TypeInfo(type=type_name)
+
+    # Second pass: parse VCTP to get TypeDef details
+    # Chain: Heap TypeID -> Consolidated ID -> FlatTypeID -> VCTP TypeDesc
+    try:
+        tree = ET.parse(xml_path)
+        root = tree.getroot()
+
+        # Build consolidated -> flat mapping from TopLevel
+        consolidated_to_flat: dict[int, int] = {}
+        for td in root.findall(".//VCTP//TopLevel/TypeDesc"):
+            index = td.get("Index")
+            flat_id = td.get("FlatTypeID")
+            if index and flat_id:
+                consolidated_to_flat[int(index)] = int(flat_id)
+
+        # Build flat -> typedef info from VCTP Section TypeDescs
+        flat_to_typedef: dict[int, tuple[str | None, str | None]] = {}
+        for section in root.findall(".//VCTP/Section"):
+            # Find TypeDefs and their FlatTypeID from preceding comment
+            for i, type_desc in enumerate(section.findall("TypeDesc")):
+                if type_desc.get("Type") != "TypeDef":
+                    continue
+
+                # Get the .ctl filename from Label element
+                typedef_name = None
+                for label in type_desc.findall("Label"):
+                    text = label.get("Text", "")
+                    if text.endswith(".ctl"):
+                        typedef_name = text
+                        break
+
+                # Get nested underlying type
+                nested = type_desc.find("TypeDesc[@Nested='True']")
+                underlying_type = nested.get("Type") if nested is not None else None
+
+                # The FlatTypeID is the position in the section
+                flat_to_typedef[i] = (underlying_type, typedef_name)
+
+        # Parse VICC elements to get path info for typedefs
+        # Maps ctl_filename -> path_tokens (match by filename, not type_id)
+        vicc_paths: dict[str, list[str]] = {}
+        for vicc in root.findall(".//LIvi//VICC"):
+            path_ref = vicc.find("LinkSavePathRef")
+            if path_ref is None:
+                continue
+
+            path_parts = [s.text for s in path_ref.findall("String") if s.text]
+            if not path_parts:
+                continue
+
+            # Check if this is a .ctl file
+            filename = path_parts[-1]
+            if not filename.endswith('.ctl'):
+                continue
+
+            # Remove special markers like <vilib>, <userlib>
+            clean_parts = [p for p in path_parts if not p.startswith('<')]
+            if clean_parts:
+                vicc_paths[filename] = clean_parts
+
+        # Now update type_map: heap -> consolidated -> flat -> typedef
+        for heap_id, cons_id in heap_to_consolidated.items():
+            flat_id = consolidated_to_flat.get(cons_id)
+            if flat_id is not None and flat_id in flat_to_typedef:
+                underlying_type, ctl_filename = flat_to_typedef[flat_id]
+                if heap_id in type_map:
+                    existing = type_map[heap_id]
+
+                    # Build path and qualified name from VICC if available
+                    typedef_path = None
+                    typedef_qname = None
+                    if ctl_filename and ctl_filename in vicc_paths:
+                        path_tokens = vicc_paths[ctl_filename]
+                        typedef_path = build_relative_path(path_tokens)
+
+                        # Extract owner chain (containers in path)
+                        owner_chain = [
+                            t for t in path_tokens[:-1]
+                            if t.endswith(('.llb', '.lvlib', '.lvclass'))
+                        ]
+                        typedef_qname = build_qualified_name(
+                            owner_chain, ctl_filename
+                        )
+                    elif ctl_filename:
+                        # No path info, just use filename
+                        typedef_qname = ctl_filename
+
+                    type_map[heap_id] = TypeInfo(
+                        type=underlying_type or existing.type,
+                        typedef_path=typedef_path,
+                        typedef_name=typedef_qname
+                    )
+    except ET.ParseError:
+        pass  # Fall back to comment-based parsing only
+
+    return type_map
 
 
 def parse_type_map(xml_path: Path | str) -> dict[int, str]:
@@ -24,30 +170,9 @@ def parse_type_map(xml_path: Path | str) -> dict[int, str]:
     Returns:
         Dict mapping TypeID -> type name (e.g., 37 -> "NumInt64")
     """
-    type_map = {}
-
-    with open(xml_path, encoding='utf-8', errors='replace') as f:
-        for line in f:
-            # Match <!-- Heap TypeID N = Consolidated TypeID M: TypeName -->
-            match = re.search(
-                r'Heap TypeID\s+(\d+)\s*=\s*Consolidated TypeID\s+\d+:\s*(\w+)',
-                line
-            )
-            if match:
-                type_id = int(match.group(1))
-                type_name = match.group(2)
-                type_map[type_id] = type_name
-                continue
-
-            # Match <!-- TypeID N: TypeName -->
-            match = re.search(r'<!--\s*TypeID\s+(\d+):\s*(\w+)', line)
-            if match:
-                type_id = int(match.group(1))
-                type_name = match.group(2)
-                if type_id not in type_map:
-                    type_map[type_id] = type_name
-
-    return type_map
+    rich_map = parse_type_map_rich(xml_path)
+    # Return simple type names for backward compatibility
+    return {k: v.type for k, v in rich_map.items()}
 
 
 def resolve_type(type_ref: str, type_map: dict[int, str]) -> str:
@@ -65,6 +190,23 @@ def resolve_type(type_ref: str, type_map: dict[int, str]) -> str:
         type_id = int(match.group(1))
         return type_map.get(type_id, type_ref)
     return type_ref
+
+
+def resolve_type_rich(type_ref: str, type_map: dict[int, TypeInfo]) -> TypeInfo:
+    """Resolve TypeID(N) reference to rich TypeInfo.
+
+    Args:
+        type_ref: String like "TypeID(37)"
+        type_map: Mapping from TypeID -> TypeInfo
+
+    Returns:
+        TypeInfo with type and optional typedef, or TypeInfo with original string
+    """
+    match = re.match(r'TypeID\((\d+)\)', type_ref)
+    if match:
+        type_id = int(match.group(1))
+        return type_map.get(type_id, TypeInfo(type=type_ref))
+    return TypeInfo(type=type_ref)
 
 
 def parse_type_chain(xml_path: Path | str) -> dict:
