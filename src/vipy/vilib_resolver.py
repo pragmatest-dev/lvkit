@@ -98,10 +98,12 @@ class VILibResolver:
         if data_dir is None:
             data_dir = Path(__file__).parent.parent.parent / "data"
 
+        self.data_dir = data_dir
         self._vis: dict[str, VIEntry] = {}
         self._by_name: dict[str, VIEntry] = {}  # Lookup by VI name only
         self._pdf_entries: dict[str, dict] = {}  # Raw PDF data for context
         self._types: dict[str, TypeDef] = {}  # Type definitions indexed by typedef path
+        self._category_files: dict[str, Path] = {}  # VI name → category file
 
         # Load vilib data from category files
         vilib_dir = data_dir / "vilib"
@@ -149,7 +151,13 @@ class VILibResolver:
                 self._pdf_entries[entry.name] = entry_data
 
                 # Create VI name with .vi extension for lookup
-                vi_name = f"{entry.name}.vi" if not entry.name.endswith(".vi") else entry.name
+                if not entry.name.endswith(".vi"):
+                    vi_name = f"{entry.name}.vi"
+                else:
+                    vi_name = entry.name
+
+                # Track which file this VI came from
+                self._category_files[vi_name] = category_path
 
                 # Only add if not already present (legacy data takes priority)
                 if vi_name not in self._by_name:
@@ -376,6 +384,239 @@ class VILibResolver:
         """List all known vilib VI names."""
         return list(self._by_name.keys())
 
+    def auto_update_terminals(
+        self,
+        vi_name: str,
+        wired_terminals: list[Any],
+        caller_vi: str | None = None,
+    ) -> VIEntry:
+        """Auto-update VI terminals from caller observations.
+
+        Creates new typedefs in _types.json as needed.
+        Raises VILibConflict on conflicts (stops processing).
+        """
+        vi = self.resolve_by_name(vi_name)
+        if not vi:
+            raise ValueError(f"VI not found: {vi_name}")
+
+        existing_map: dict[int, VITerminal] = {
+            t.index: t for t in vi.terminals if t.index is not None
+        }
+
+        observed_map: dict[int, dict[str, Any]] = {}
+        for wired_term in wired_terminals:
+            lv_type = getattr(wired_term, 'lv_type', None)
+            type_str = None
+
+            if lv_type:
+                if lv_type.kind == "typedef_ref" and lv_type.typedef_path:
+                    type_str = lv_type.typedef_path
+                    # Auto-create typedef if needed
+                    self._ensure_typedef(lv_type)
+                elif lv_type.underlying_type:
+                    type_str = lv_type.underlying_type
+            elif hasattr(wired_term, 'type'):
+                type_str = wired_term.type
+
+            observed_map[wired_term.index] = {
+                "name": wired_term.name or "",
+                "direction": wired_term.direction,
+                "type": type_str,
+            }
+
+        # Check conflicts
+        conflicts = []
+        for idx, obs_data in observed_map.items():
+            if idx in existing_map:
+                existing = existing_map[idx]
+                if (existing.name and obs_data["name"] and
+                        existing.name != obs_data["name"]):
+                    conflicts.append({
+                        "index": idx,
+                        "field": "name",
+                        "existing": existing.name,
+                        "observed": obs_data["name"],
+                    })
+                if (existing.direction and obs_data["direction"] and
+                        existing.direction != obs_data["direction"]):
+                    conflicts.append({
+                        "index": idx,
+                        "field": "direction",
+                        "existing": existing.direction,
+                        "observed": obs_data["direction"],
+                    })
+
+        if conflicts:
+            self._add_to_pending(
+                vi_name, caller_vi, conflicts, observed_map, existing_map
+            )
+            raise VILibConflict(vi_name, conflicts)
+
+        # Auto-update
+        updated = False
+        for idx, obs_data in observed_map.items():
+            if idx in existing_map:
+                term = existing_map[idx]
+                if not term.direction and obs_data["direction"]:
+                    term.direction = obs_data["direction"]
+                    updated = True
+                if not term.type and obs_data["type"]:
+                    term.type = obs_data["type"]
+                    updated = True
+            else:
+                for term in vi.terminals:
+                    if term.name == obs_data["name"] and term.index is None:
+                        term.index = idx
+                        term.direction = obs_data["direction"]
+                        term.type = obs_data["type"]
+                        updated = True
+                        break
+
+        if updated:
+            self._save_vi_entry(vi_name, vi)
+
+        return vi
+
+    def _ensure_typedef(self, lv_type: LVType) -> None:
+        """Create typedef in _types.json if it doesn't exist."""
+        if not lv_type.typedef_path:
+            return
+
+        if lv_type.typedef_path in self._types:
+            return
+
+        # Create new typedef
+        name = lv_type.typedef_path.split("/")[-1].replace(".ctl", "")
+        name = "".join(w.capitalize() for w in name.replace(" ", "_").split("_"))
+
+        typedef = TypeDef(
+            type=lv_type,
+            typedef_path=lv_type.typedef_path,
+            name=name,
+            description=f"Auto-discovered typedef from {lv_type.typedef_path}",
+        )
+
+        self._types[lv_type.typedef_path] = typedef
+        self._save_typedef(typedef)
+
+    def _save_typedef(self, typedef: TypeDef) -> None:
+        """Save typedef to _types.json."""
+        types_path = self.data_dir / "vilib" / "_types.json"
+
+        if types_path.exists():
+            with open(types_path) as f:
+                data = json.load(f)
+        else:
+            data = {}
+
+        # Serialize typedef
+        type_data: dict[str, Any] = {
+            "name": typedef.name,
+            "kind": typedef.type.kind,
+            "underlying_type": typedef.type.underlying_type,
+        }
+
+        if typedef.description:
+            type_data["description"] = typedef.description
+
+        if typedef.type.values:
+            type_data["values"] = {
+                name: {
+                    "value": ev.value,
+                    "description": ev.description,
+                }
+                for name, ev in typedef.type.values.items()
+            }
+
+        if typedef.type.fields:
+            type_data["fields"] = [
+                {"name": f.name, "type": f.type.underlying_type or "Any"}
+                for f in typedef.type.fields
+            ]
+
+        data[typedef.typedef_path] = type_data
+
+        types_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(types_path, "w") as f:
+            json.dump(data, f, indent=2)
+
+    def _save_vi_entry(self, vi_name: str, vi: VIEntry) -> None:
+        """Save updated VI to category JSON."""
+        category_file = self._category_files.get(vi_name)
+        if not category_file:
+            return
+
+        with open(category_file) as f:
+            data = json.load(f)
+
+        for i, entry in enumerate(data.get("entries", [])):
+            entry_name = entry.get("name", "")
+            if not entry_name.endswith(".vi"):
+                entry_vi_name = f"{entry_name}.vi"
+            else:
+                entry_vi_name = entry_name
+            if entry_vi_name == vi_name:
+                data["entries"][i] = json.loads(
+                    vi.model_dump_json(exclude_none=True)
+                )
+                break
+
+        with open(category_file, "w") as f:
+            json.dump(data, f, indent=2)
+
+    def _add_to_pending(
+        self,
+        vi_name: str,
+        caller_vi: str | None,
+        conflicts: list[dict[str, Any]],
+        observed_map: dict[int, dict[str, Any]],
+        existing_map: dict[int, VITerminal],
+    ) -> None:
+        """Save conflict to _pending_terminals.json."""
+        pending_file = self.data_dir / "vilib" / "_pending_terminals.json"
+
+        if pending_file.exists():
+            with open(pending_file) as f:
+                pending_data = json.load(f)
+        else:
+            pending_data = {"conflicts": {}}
+
+        if vi_name not in pending_data["conflicts"]:
+            pending_data["conflicts"][vi_name] = []
+
+        conflict_entry = {
+            "caller_vi": caller_vi,
+            "conflicts": conflicts,
+            "observed": {k: v for k, v in observed_map.items()},
+            "existing": {
+                k: {"name": v.name, "direction": v.direction, "type": v.type}
+                for k, v in existing_map.items()
+            },
+        }
+
+        pending_data["conflicts"][vi_name].append(conflict_entry)
+
+        pending_file.parent.mkdir(parents=True, exist_ok=True)
+        with open(pending_file, "w") as f:
+            json.dump(pending_data, f, indent=2)
+
+
+class VILibConflict(Exception):
+    """Terminal conflict detected across callers."""
+
+    def __init__(self, vi_name: str, conflicts: list[dict[str, Any]]):
+        self.vi_name = vi_name
+        self.conflicts = conflicts
+        super().__init__(self._format_message())
+
+    def _format_message(self) -> str:
+        msg = f"Terminal conflict for '{self.vi_name}'.\n\nConflicts:\n"
+        for c in self.conflicts:
+            msg += f"  Index {c['index']} ({c['field']}): "
+            msg += f"{c['existing']} → {c['observed']}\n"
+        msg += "\nSee data/vilib/_pending_terminals.json"
+        return msg
+
 
 # Module-level singleton
 _resolver: VILibResolver | None = None
@@ -387,3 +628,9 @@ def get_resolver() -> VILibResolver:
     if _resolver is None:
         _resolver = VILibResolver()
     return _resolver
+
+
+def reset_resolver() -> None:
+    """Reset resolver (for testing)."""
+    global _resolver
+    _resolver = None
