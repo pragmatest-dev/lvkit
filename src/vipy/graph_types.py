@@ -97,7 +97,6 @@ class FPTerminalNode:
     enum_values: list = field(default_factory=list)
     type: str | None = None  # Resolved type (underlying_type string)
     lv_type: LVType | None = None  # Full LVType structure (unified type system)
-    type_info: Any = None  # TypeInfo object (for legacy rendering)
 
 
 @dataclass
