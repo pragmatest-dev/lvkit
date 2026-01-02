@@ -14,8 +14,6 @@
       "terminals": [
         {
           "name": "[user-specified font]",
-          "direction": "in",
-          "type": null,
           "description": "[user-specified font] specifies the specific font characteristics for the text to draw. The VI ignores this input unless desired font is User-specified Font.",
           "default_value": null,
           "enum_values": null,
@@ -23,8 +21,6 @@
         },
         {
           "name": "Font Name:",
-          "direction": "in",
-          "type": null,
           "description": "Font Name specifies the font to use for the text. If you misspell the font name or specify a font that is not installed on the computer, the operating system selects a font.",
           "default_value": null,
           "enum_values": null,
@@ -32,8 +28,6 @@
         },
         {
           "name": "Size",
-          "direction": "in",
-          "type": null,
           "description": "Size specifies the size of the font in points.",
           "default_value": null,
           "enum_values": null,
@@ -41,8 +35,6 @@
         },
         {
           "name": "Strikeout?",
-          "direction": "in",
-          "type": "Boolean",
           "description": "Strikeout? specifies if the text appears in strikeout. If Strikeout? is TRUE, the text appears in strikeout.",
           "default_value": null,
           "enum_values": null,
@@ -50,8 +42,6 @@
         },
         {
           "name": "Italic?",
-          "direction": "in",
-          "type": "Boolean",
           "description": "Italic? specifies if the text appears in italics. If Italic? is TRUE, the text appears in italics.",
           "default_value": null,
           "enum_values": null,
@@ -59,8 +49,6 @@
         },
         {
           "name": "Underline?",
-          "direction": "in",
-          "type": "Boolean",
           "description": "Underline? specifies if the text is underlined. If Underline? is TRUE, the text appears underlined.",
           "default_value": null,
           "enum_values": null,
@@ -68,8 +56,6 @@
         },
         {
           "name": "Outline?",
-          "direction": "in",
-          "type": "Boolean",
           "description": "Outline? specifies if the text is outlined. If Outline? is TRUE, the text appears outlined.",
           "default_value": null,
           "enum_values": null,
@@ -77,8 +63,6 @@
         },
         {
           "name": "Shadow?",
-          "direction": "in",
-          "type": "Boolean",
           "description": "Shadow? specifies if the text has a shadow. If Shadow? is TRUE, the text appears in shadow.",
           "default_value": null,
           "enum_values": null,
@@ -86,8 +70,6 @@
         },
         {
           "name": "Bold?",
-          "direction": "in",
-          "type": "Boolean",
           "description": "Functions 2004 ni.com Bold? specifies if the text is bold. If Bold? is TRUE, the text appears bold.",
           "default_value": null,
           "enum_values": null,
@@ -95,8 +77,6 @@
         },
         {
           "name": "desired font(Application)",
-          "direction": "in",
-          "type": null,
           "description": "desired font specifies the text font. 0 User-specified Font 1 Application Font (default) 2 System Font 3 Dialog Font",
           "default_value": null,
           "enum_values": null,
@@ -104,8 +84,6 @@
         },
         {
           "name": "picture",
-          "direction": "in",
-          "type": null,
           "description": "picture is the picture to which you want to add the plot. The default is an empty picture.",
           "default_value": "an empty picture",
           "enum_values": null,
@@ -113,8 +91,6 @@
         },
         {
           "name": "smith plot",
-          "direction": "in",
-          "type": "Array",
           "description": "smith plot is an array of points, where each point is a cluster containing the r and x values that make up the complex impedance, z, of r + jx.",
           "default_value": null,
           "enum_values": null,
@@ -122,8 +98,6 @@
         },
         {
           "name": "dimensions (w,h)",
-          "direction": "in",
-          "type": null,
           "description": "dimensions specifies the top left point of the drawn bitmap.",
           "default_value": null,
           "enum_values": null,
@@ -131,8 +105,6 @@
         },
         {
           "name": "width",
-          "direction": "in",
-          "type": null,
           "description": "width specifies the horizontal coordinate that increases to the right.",
           "default_value": null,
           "enum_values": null,
@@ -140,8 +112,6 @@
         },
         {
           "name": "height",
-          "direction": "in",
-          "type": null,
           "description": "Functions",
           "default_value": null,
           "enum_values": null,
@@ -161,8 +131,6 @@
       "terminals": [
         {
           "name": "[user-specified font]",
-          "direction": "in",
-          "type": null,
           "description": "[user-specified font] specifies the specific font characteristics for the text to draw. The VI ignores this input unless desired font is User-specified Font.",
           "default_value": null,
           "enum_values": null,
@@ -170,8 +138,6 @@
         },
         {
           "name": "Font Name:",
-          "direction": "in",
-          "type": null,
           "description": "Font Name specifies the font to use for the text. If you misspell the font name or specify a font that is not installed on the computer, the operating system selects a font.",
           "default_value": null,
           "enum_values": null,
@@ -179,8 +145,6 @@
         },
         {
           "name": "Size",
-          "direction": "in",
-          "type": null,
           "description": "Size specifies the size of the font in points.",
           "default_value": null,
           "enum_values": null,
@@ -188,8 +152,6 @@
         },
         {
           "name": "Strikeout?",
-          "direction": "in",
-          "type": "Boolean",
           "description": "Strikeout? specifies if the text appears in strikeout. If Strikeout? is TRUE, the text appears in strikeout.",
           "default_value": null,
           "enum_values": null,
@@ -197,8 +159,6 @@
         },
         {
           "name": "Italic?",
-          "direction": "in",
-          "type": "Boolean",
           "description": "Italic? specifies if the text appears in italics. If Italic? is TRUE, the text appears in italics.",
           "default_value": null,
           "enum_values": null,
@@ -206,8 +166,6 @@
         },
         {
           "name": "Underline?",
-          "direction": "in",
-          "type": "Boolean",
           "description": "Underline? specifies if the text is underlined. If Underline? is TRUE, the text appears underlined.",
           "default_value": null,
           "enum_values": null,
@@ -215,8 +173,6 @@
         },
         {
           "name": "Outline?",
-          "direction": "in",
-          "type": "Boolean",
           "description": "Functions",
           "default_value": null,
           "enum_values": null,
@@ -236,8 +192,6 @@
       "terminals": [
         {
           "name": "Zo (50.0)",
-          "direction": "in",
-          "type": null,
           "description": "Zo is the characteristic impedance of the system.",
           "default_value": null,
           "enum_values": null,
@@ -245,8 +199,6 @@
         },
         {
           "name": "points {r,x}",
-          "direction": "in",
-          "type": "Array",
           "description": "points {r,x} is an array of points, where each point is a cluster containing the r and x values that make up the complex impedance r + jx.",
           "default_value": null,
           "enum_values": null,
@@ -254,8 +206,6 @@
         },
         {
           "name": "points complex",
-          "direction": "in",
-          "type": "I32",
           "description": "points complex is an array of complex numbers.",
           "default_value": null,
           "enum_values": null,
@@ -263,8 +213,6 @@
         },
         {
           "name": "normalized smith points {r,x}",
-          "direction": "in",
-          "type": null,
           "description": "Functions 2014 ni.com normalized smith points {r,x} is an array of clusters of points containing the normalized data. Each cluster contains an r and an x value.",
           "default_value": null,
           "enum_values": null,
@@ -272,8 +220,6 @@
         },
         {
           "name": "labview\\examples\\Graphics and Sound\\Picture Plots\\Smith",
-          "direction": "in",
-          "type": null,
           "description": "",
           "default_value": null,
           "enum_values": null,
@@ -293,8 +239,6 @@
       "terminals": [
         {
           "name": "[user-specified font]",
-          "direction": "in",
-          "type": null,
           "description": "[user-specified font] specifies the specific font characteristics for the text to draw. The VI ignores this input unless desired font is User-specified Font.",
           "default_value": null,
           "enum_values": null,
@@ -302,8 +246,6 @@
         },
         {
           "name": "Font Name:",
-          "direction": "in",
-          "type": null,
           "description": "Font Name specifies the font to use for the text. If you misspell the font name or specify a font that is not installed on the computer, the operating system selects a font.",
           "default_value": null,
           "enum_values": null,
@@ -311,8 +253,6 @@
         },
         {
           "name": "Size",
-          "direction": "in",
-          "type": null,
           "description": "Size specifies the size of the font in points.",
           "default_value": null,
           "enum_values": null,
@@ -320,8 +260,6 @@
         },
         {
           "name": "Strikeout?",
-          "direction": "in",
-          "type": "Boolean",
           "description": "Strikeout? specifies if the text appears in strikeout. If Strikeout? is TRUE, the text appears in strikeout.",
           "default_value": null,
           "enum_values": null,
@@ -329,8 +267,6 @@
         },
         {
           "name": "Italic?",
-          "direction": "in",
-          "type": "Boolean",
           "description": "Italic? specifies if the text appears in italics. If Italic? is TRUE, the text appears in italics.",
           "default_value": null,
           "enum_values": null,
@@ -338,8 +274,6 @@
         },
         {
           "name": "Underline?",
-          "direction": "in",
-          "type": "Boolean",
           "description": "Underline? specifies if the text is underlined. If Underline? is TRUE, the text appears underlined. Functions 2016 ni.com",
           "default_value": null,
           "enum_values": null,
@@ -347,8 +281,6 @@
         },
         {
           "name": "Outline?",
-          "direction": "in",
-          "type": "Boolean",
           "description": "Outline? specifies if the text is outlined. If Outline? is TRUE, the text appears outlined.",
           "default_value": null,
           "enum_values": null,
@@ -356,8 +288,6 @@
         },
         {
           "name": "Shadow?",
-          "direction": "in",
-          "type": "Boolean",
           "description": "Shadow? specifies if the text has a shadow. If Shadow? is TRUE, the text appears in shadow.",
           "default_value": null,
           "enum_values": null,
@@ -365,8 +295,6 @@
         },
         {
           "name": "Bold?",
-          "direction": "in",
-          "type": "Boolean",
           "description": "Bold? specifies if the text is bold. If Bold? is TRUE, the text appears bold.",
           "default_value": null,
           "enum_values": null,
@@ -374,8 +302,6 @@
         },
         {
           "name": "desired font(Application)",
-          "direction": "in",
-          "type": null,
           "description": "desired font specifies the text font. 0 User-specified Font 1 Application Font (default) 2 System Font 3 Dialog Font",
           "default_value": null,
           "enum_values": null,
@@ -383,8 +309,6 @@
         },
         {
           "name": "picture",
-          "direction": "in",
-          "type": null,
           "description": "picture is the picture to which you want to add the graph. The default is an empty picture.",
           "default_value": "an empty picture",
           "enum_values": null,
@@ -392,8 +316,6 @@
         },
         {
           "name": "data",
-          "direction": "in",
-          "type": "Array",
           "description": "data is an array of points, where each point is a cluster of x and y pixel coordinates.",
           "default_value": null,
           "enum_values": null,
@@ -401,8 +323,6 @@
         },
         {
           "name": "dimensions (w,h)",
-          "direction": "in",
-          "type": null,
           "description": "Functions",
           "default_value": null,
           "enum_values": null,
@@ -422,8 +342,6 @@
       "terminals": [
         {
           "name": "[user-specified font]",
-          "direction": "in",
-          "type": null,
           "description": "[user-specified font] specifies the specific font characteristics for the text to draw. The VI ignores this input unless desired font is User-specified Font.",
           "default_value": null,
           "enum_values": null,
@@ -431,8 +349,6 @@
         },
         {
           "name": "Font Name:",
-          "direction": "in",
-          "type": null,
           "description": "Font Name specifies the font to use for the text. If you misspell the font name or specify a font that is not installed on the computer, the operating system selects a font.",
           "default_value": null,
           "enum_values": null,
@@ -440,8 +356,6 @@
         },
         {
           "name": "Size",
-          "direction": "in",
-          "type": null,
           "description": "Size specifies the size of the font in points.",
           "default_value": null,
           "enum_values": null,
@@ -449,8 +363,6 @@
         },
         {
           "name": "Strikeout?",
-          "direction": "in",
-          "type": "Boolean",
           "description": "Strikeout? specifies if the text appears in strikeout. If Strikeout? is TRUE, the text appears in strikeout.",
           "default_value": null,
           "enum_values": null,
@@ -458,8 +370,6 @@
         },
         {
           "name": "Italic?",
-          "direction": "in",
-          "type": "Boolean",
           "description": "Italic? specifies if the text appears in italics. If Italic? is TRUE, the text appears in italics.",
           "default_value": null,
           "enum_values": null,
@@ -467,8 +377,6 @@
         },
         {
           "name": "Underline?",
-          "direction": "in",
-          "type": "Boolean",
           "description": "Functions",
           "default_value": null,
           "enum_values": null,
@@ -488,8 +396,6 @@
       "terminals": [
         {
           "name": "[user-specified font]",
-          "direction": "in",
-          "type": null,
           "description": "[user-specified font] specifies the specific font characteristics for the text to draw. The VI ignores this input unless desired font is User-specified Font.",
           "default_value": null,
           "enum_values": null,
@@ -497,8 +403,6 @@
         },
         {
           "name": "Font Name:",
-          "direction": "in",
-          "type": null,
           "description": "Font Name specifies the font to use for the text. If you misspell the font name or specify a font that is not installed on the computer, the operating system selects a font.",
           "default_value": null,
           "enum_values": null,
@@ -506,8 +410,6 @@
         },
         {
           "name": "Size",
-          "direction": "in",
-          "type": null,
           "description": "Size specifies the size of the font in points.",
           "default_value": null,
           "enum_values": null,
@@ -515,8 +417,6 @@
         },
         {
           "name": "Strikeout?",
-          "direction": "in",
-          "type": "Boolean",
           "description": "Strikeout? specifies if the text appears in strikeout. If Strikeout? is TRUE, the text appears in strikeout.",
           "default_value": null,
           "enum_values": null,
@@ -524,8 +424,6 @@
         },
         {
           "name": "Italic?",
-          "direction": "in",
-          "type": "Boolean",
           "description": "Italic? specifies if the text appears in italics. If Italic? is TRUE, the text appears in italics.",
           "default_value": null,
           "enum_values": null,
@@ -533,8 +431,6 @@
         },
         {
           "name": "Underline?",
-          "direction": "in",
-          "type": "Boolean",
           "description": "Underline? specifies if the text is underlined. If Underline? is TRUE, the text appears underlined.",
           "default_value": null,
           "enum_values": null,
@@ -542,8 +438,6 @@
         },
         {
           "name": "Outline?",
-          "direction": "in",
-          "type": "Boolean",
           "description": "Functions 2030 ni.com Outline? specifies if the text is outlined. If Outline? is TRUE, the text appears outlined.",
           "default_value": null,
           "enum_values": null,
@@ -551,8 +445,6 @@
         },
         {
           "name": "Shadow?",
-          "direction": "in",
-          "type": "Boolean",
           "description": "Shadow? specifies if the text has a shadow. If Shadow? is TRUE, the text appears in shadow.",
           "default_value": null,
           "enum_values": null,
@@ -560,8 +452,6 @@
         },
         {
           "name": "Bold?",
-          "direction": "in",
-          "type": "Boolean",
           "description": "Bold? specifies if the text is bold. If Bold? is TRUE, the text appears bold.",
           "default_value": null,
           "enum_values": null,
@@ -569,8 +459,6 @@
         },
         {
           "name": "desired font(Application)",
-          "direction": "in",
-          "type": null,
           "description": "desired font specifies the text font. 0 User-specified Font 1 Application Font (default) 2 System Font 3 Dialog Font",
           "default_value": null,
           "enum_values": null,
@@ -578,8 +466,6 @@
         },
         {
           "name": "picture",
-          "direction": "in",
-          "type": null,
           "description": "picture is the picture to which you want to add the graph. The default is an empty picture.",
           "default_value": "an empty picture",
           "enum_values": null,
@@ -587,8 +473,6 @@
         },
         {
           "name": "bounding rect",
-          "direction": "in",
-          "type": null,
           "description": "bounding rect contains the upper-left and lower-right coordinates that describe a rectangle bounding the plot, including the x- and y-axes. Horizontal coordinates increase to the right, and vertical coordinates increase to the bottom.",
           "default_value": null,
           "enum_values": null,
@@ -596,8 +480,6 @@
         },
         {
           "name": "left",
-          "direction": "in",
-          "type": null,
           "description": "left is the horizontal coordinate of the left edge of the rectangle.",
           "default_value": null,
           "enum_values": null,
@@ -605,8 +487,6 @@
         },
         {
           "name": "top",
-          "direction": "in",
-          "type": null,
           "description": "top is the vertical coordinate of the top edge of the rectangle.",
           "default_value": null,
           "enum_values": null,
@@ -614,8 +494,6 @@
         },
         {
           "name": "right",
-          "direction": "in",
-          "type": null,
           "description": "Functions",
           "default_value": null,
           "enum_values": null,
@@ -635,8 +513,6 @@
       "terminals": [
         {
           "name": "[user-specified font]",
-          "direction": "in",
-          "type": null,
           "description": "[user-specified font] specifies the specific font characteristics for the text to draw. The VI ignores this input unless desired font is User-specified Font.",
           "default_value": null,
           "enum_values": null,
@@ -644,8 +520,6 @@
         },
         {
           "name": "Font Name:",
-          "direction": "in",
-          "type": null,
           "description": "Font Name specifies the font to use for the text. If you misspell the font name or specify a font that is not installed on the computer, the operating system selects a font.",
           "default_value": null,
           "enum_values": null,
@@ -653,8 +527,6 @@
         },
         {
           "name": "Size",
-          "direction": "in",
-          "type": null,
           "description": "Size specifies the size of the font in points.",
           "default_value": null,
           "enum_values": null,
@@ -662,8 +534,6 @@
         },
         {
           "name": "Strikeout?",
-          "direction": "in",
-          "type": "Boolean",
           "description": "Strikeout? specifies if the text appears in strikeout. If Strikeout? is TRUE, the text appears in strikeout.",
           "default_value": null,
           "enum_values": null,
@@ -671,8 +541,6 @@
         },
         {
           "name": "Italic?",
-          "direction": "in",
-          "type": "Boolean",
           "description": "Italic? specifies if the text appears in italics. If Italic? is TRUE, the text appears in italics.",
           "default_value": null,
           "enum_values": null,
@@ -680,8 +548,6 @@
         },
         {
           "name": "Underline?",
-          "direction": "in",
-          "type": "Boolean",
           "description": "Functions",
           "default_value": null,
           "enum_values": null,
@@ -701,8 +567,6 @@
       "terminals": [
         {
           "name": "[user-specified font]",
-          "direction": "in",
-          "type": null,
           "description": "[user-specified font] specifies the specific font characteristics for the text to draw. Functions 2042 ni.com The VI ignores this input unless desired font is User-specified Font.",
           "default_value": null,
           "enum_values": null,
@@ -710,8 +574,6 @@
         },
         {
           "name": "Font Name:",
-          "direction": "in",
-          "type": null,
           "description": "Font Name specifies the font to use for the text. If you misspell the font name or specify a font that is not installed on the computer, the operating system selects a font.",
           "default_value": null,
           "enum_values": null,
@@ -719,8 +581,6 @@
         },
         {
           "name": "Size",
-          "direction": "in",
-          "type": null,
           "description": "Size specifies the size of the font in points.",
           "default_value": null,
           "enum_values": null,
@@ -728,8 +588,6 @@
         },
         {
           "name": "Strikeout?",
-          "direction": "in",
-          "type": "Boolean",
           "description": "Strikeout? specifies if the text appears in strikeout. If Strikeout? is TRUE, the text appears in strikeout.",
           "default_value": null,
           "enum_values": null,
@@ -737,8 +595,6 @@
         },
         {
           "name": "Italic?",
-          "direction": "in",
-          "type": "Boolean",
           "description": "Italic? specifies if the text appears in italics. If Italic? is TRUE, the text appears in italics.",
           "default_value": null,
           "enum_values": null,
@@ -746,8 +602,6 @@
         },
         {
           "name": "Underline?",
-          "direction": "in",
-          "type": "Boolean",
           "description": "Underline? specifies if the text is underlined. If Underline? is TRUE, the text appears underlined.",
           "default_value": null,
           "enum_values": null,
@@ -755,8 +609,6 @@
         },
         {
           "name": "Outline?",
-          "direction": "in",
-          "type": "Boolean",
           "description": "Outline? specifies if the text is outlined. If Outline? is TRUE, the text appears outlined.",
           "default_value": null,
           "enum_values": null,
@@ -764,8 +616,6 @@
         },
         {
           "name": "Shadow?",
-          "direction": "in",
-          "type": "Boolean",
           "description": "Shadow? specifies if the text has a shadow. If Shadow? is TRUE, the text appears in shadow.",
           "default_value": null,
           "enum_values": null,
@@ -773,8 +623,6 @@
         },
         {
           "name": "Bold?",
-          "direction": "in",
-          "type": "Boolean",
           "description": "Bold? specifies if the text is bold. If Bold? is TRUE, the text appears bold.",
           "default_value": null,
           "enum_values": null,
@@ -782,8 +630,6 @@
         },
         {
           "name": "desired font(Application)",
-          "direction": "in",
-          "type": null,
           "description": "desired font specifies the text font. Functions",
           "default_value": null,
           "enum_values": null,
@@ -803,8 +649,6 @@
       "terminals": [
         {
           "name": "[user-specified font]",
-          "direction": "in",
-          "type": null,
           "description": "[user-specified font] specifies the specific font characteristics for the text to draw. Functions \u00a9 National Instruments 2045 The VI ignores this input unless desired font is User-specified Font.",
           "default_value": null,
           "enum_values": null,
@@ -812,8 +656,6 @@
         },
         {
           "name": "Font Name:",
-          "direction": "in",
-          "type": null,
           "description": "Font Name specifies the font to use for the text. If you misspell the font name or specify a font that is not installed on the computer, the operating system selects a font.",
           "default_value": null,
           "enum_values": null,
@@ -821,8 +663,6 @@
         },
         {
           "name": "Size",
-          "direction": "in",
-          "type": null,
           "description": "Size specifies the size of the font in points.",
           "default_value": null,
           "enum_values": null,
@@ -830,8 +670,6 @@
         },
         {
           "name": "Strikeout?",
-          "direction": "in",
-          "type": "Boolean",
           "description": "Strikeout? specifies if the text appears in strikeout. If Strikeout? is TRUE, the text appears in strikeout.",
           "default_value": null,
           "enum_values": null,
@@ -839,8 +677,6 @@
         },
         {
           "name": "Italic?",
-          "direction": "in",
-          "type": "Boolean",
           "description": "Italic? specifies if the text appears in italics. If Italic? is TRUE, the text appears in italics.",
           "default_value": null,
           "enum_values": null,
@@ -848,8 +684,6 @@
         },
         {
           "name": "Underline?",
-          "direction": "in",
-          "type": "Boolean",
           "description": "Underline? specifies if the text is underlined. If Underline? is TRUE, the text appears underlined.",
           "default_value": null,
           "enum_values": null,
@@ -857,8 +691,6 @@
         },
         {
           "name": "Outline?",
-          "direction": "in",
-          "type": "Boolean",
           "description": "Outline? specifies if the text is outlined. If Outline? is TRUE, the text appears outlined.",
           "default_value": null,
           "enum_values": null,
@@ -866,8 +698,6 @@
         },
         {
           "name": "Shadow?",
-          "direction": "in",
-          "type": "Boolean",
           "description": "Shadow? specifies if the text has a shadow. If Shadow? is TRUE, the text appears in shadow.",
           "default_value": null,
           "enum_values": null,
@@ -875,8 +705,6 @@
         },
         {
           "name": "Bold?",
-          "direction": "in",
-          "type": "Boolean",
           "description": "Bold? specifies if the text is bold. If Bold? is TRUE, the text appears bold.",
           "default_value": null,
           "enum_values": null,
@@ -884,8 +712,6 @@
         },
         {
           "name": "desired font(Application)",
-          "direction": "in",
-          "type": null,
           "description": "desired font specifies the text font. Functions 2046 ni.com 0 User-specified Font 1 Application Font (default) 2 System Font 3 Dialog Font",
           "default_value": null,
           "enum_values": null,
@@ -893,8 +719,6 @@
         },
         {
           "name": "scale definition",
-          "direction": "in",
-          "type": "I32",
           "description": "scale definition specifies the pixel coordinates and values for both ends of the scale, and the numeric format and precision for the scale numbers.",
           "default_value": null,
           "enum_values": null,
@@ -902,8 +726,6 @@
         },
         {
           "name": "coordinate 1",
-          "direction": "in",
-          "type": null,
           "description": "coordinate 1 contains the pixel coordinates for the left of a vertical scale or the top of a horizontal scale.",
           "default_value": null,
           "enum_values": null,
@@ -911,8 +733,6 @@
         },
         {
           "name": "value 1",
-          "direction": "in",
-          "type": "I32",
           "description": "value 1 contains the minimum value for the scale numbers.",
           "default_value": null,
           "enum_values": null,
@@ -920,8 +740,6 @@
         },
         {
           "name": "coordinate 2",
-          "direction": "in",
-          "type": null,
           "description": "coordinate 2 contains the pixel coordinates for the right of a vertical scale or the bottom of a horizontal scale.",
           "default_value": null,
           "enum_values": null,
@@ -929,8 +747,6 @@
         },
         {
           "name": "value 2",
-          "direction": "in",
-          "type": "I32",
           "description": "value 2 contains the maximum value for the scale numbers.",
           "default_value": null,
           "enum_values": null,
@@ -938,8 +754,6 @@
         },
         {
           "name": "log?(F)",
-          "direction": "in",
-          "type": null,
           "description": "log? specifies if the scale is logarithmic.",
           "default_value": null,
           "enum_values": null,
@@ -947,8 +761,6 @@
         },
         {
           "name": "fmt and prec",
-          "direction": "in",
-          "type": "I32",
           "description": "fmt and prec specifies the numeric format and precision for the scale numbers.",
           "default_value": null,
           "enum_values": null,
@@ -956,8 +768,6 @@
         },
         {
           "name": "format",
-          "direction": "in",
-          "type": "I32",
           "description": "format specifies the numeric format for the scale numbers. Functions \u00a9 National Instruments 2047",
           "default_value": null,
           "enum_values": null,
@@ -977,8 +787,6 @@
       "terminals": [
         {
           "name": "[user-specified font]",
-          "direction": "in",
-          "type": null,
           "description": "[user-specified font] specifies the specific font characteristics for the text to draw. The VI ignores this input unless desired font is User-specified Font.",
           "default_value": null,
           "enum_values": null,
@@ -986,8 +794,6 @@
         },
         {
           "name": "Font Name:",
-          "direction": "in",
-          "type": null,
           "description": "Font Name specifies the font to use for the text. If you misspell the font name or specify a font that is not installed on the computer, the operating system selects a font.",
           "default_value": null,
           "enum_values": null,
@@ -995,8 +801,6 @@
         },
         {
           "name": "Size",
-          "direction": "in",
-          "type": null,
           "description": "Size specifies the size of the font in points.",
           "default_value": null,
           "enum_values": null,
@@ -1004,8 +808,6 @@
         },
         {
           "name": "Strikeout?",
-          "direction": "in",
-          "type": "Boolean",
           "description": "Strikeout? specifies if the text appears in strikeout. If Strikeout? is TRUE, the text appears in strikeout.",
           "default_value": null,
           "enum_values": null,
@@ -1013,8 +815,6 @@
         },
         {
           "name": "Italic?",
-          "direction": "in",
-          "type": "Boolean",
           "description": "Italic? specifies if the text appears in italics. If Italic? is TRUE, the text appears in italics.",
           "default_value": null,
           "enum_values": null,
@@ -1022,8 +822,6 @@
         },
         {
           "name": "Underline?",
-          "direction": "in",
-          "type": "Boolean",
           "description": "Underline? specifies if the text is underlined. If Underline? is TRUE, the text appears underlined.",
           "default_value": null,
           "enum_values": null,
@@ -1031,8 +829,6 @@
         },
         {
           "name": "Outline?",
-          "direction": "in",
-          "type": "Boolean",
           "description": "Outline? specifies if the text is outlined. If Outline? is TRUE, the text appears outlined.",
           "default_value": null,
           "enum_values": null,
@@ -1040,8 +836,6 @@
         },
         {
           "name": "Shadow?",
-          "direction": "in",
-          "type": "Boolean",
           "description": "Shadow? specifies if the text has a shadow. If Shadow? is TRUE, the text appears in shadow.",
           "default_value": null,
           "enum_values": null,
@@ -1049,8 +843,6 @@
         },
         {
           "name": "Bold?",
-          "direction": "in",
-          "type": "Boolean",
           "description": "Functions 2050 ni.com Bold? specifies if the text is bold. If Bold? is TRUE, the text appears bold.",
           "default_value": null,
           "enum_values": null,
@@ -1058,8 +850,6 @@
         },
         {
           "name": "desired font(Application)",
-          "direction": "in",
-          "type": null,
           "description": "desired font specifies the text font. 0 User-specified Font 1 Application Font (default) 2 System Font 3 Dialog Font",
           "default_value": null,
           "enum_values": null,
@@ -1067,8 +857,6 @@
         },
         {
           "name": "picture",
-          "direction": "in",
-          "type": null,
           "description": "picture is the picture to which you want to add the scale. The default is an empty picture.",
           "default_value": "an empty picture",
           "enum_values": null,
@@ -1076,8 +864,6 @@
         },
         {
           "name": "scale specs",
-          "direction": "in",
-          "type": "Array",
           "description": "scale specs is an array of clusters containing the coordinates and labels you can use in the scale. Use the Calc Scale Specs VI to obtain the values for this input.",
           "default_value": null,
           "enum_values": null,
@@ -1085,8 +871,6 @@
         },
         {
           "name": "coordinate",
-          "direction": "in",
-          "type": null,
           "description": "coordinate specifies the coordinates to use in the scale.",
           "default_value": null,
           "enum_values": null,
@@ -1094,8 +878,6 @@
         },
         {
           "name": "label",
-          "direction": "in",
-          "type": null,
           "description": "label specifies the labels to use in the scale.",
           "default_value": null,
           "enum_values": null,
@@ -1103,8 +885,6 @@
         },
         {
           "name": "constant coordinate",
-          "direction": "in",
-          "type": null,
           "description": "constant coordinate is the location of the x coordinate in a vertical scale, or the y coordinate in a horizontal scale.",
           "default_value": null,
           "enum_values": null,
@@ -1112,8 +892,6 @@
         },
         {
           "name": "tick length(3)",
-          "direction": "in",
-          "type": null,
           "description": "tick length specifies the length of the tick marks on the edge of the scale.",
           "default_value": null,
           "enum_values": null,
@@ -1121,8 +899,6 @@
         },
         {
           "name": "scale attributes",
-          "direction": "in",
-          "type": null,
           "description": "Functions",
           "default_value": null,
           "enum_values": null,
@@ -1142,8 +918,6 @@
       "terminals": [
         {
           "name": "log?(F)",
-          "direction": "in",
-          "type": null,
           "description": "log? specifies if the scale is logarithmic.",
           "default_value": null,
           "enum_values": null,
@@ -1151,8 +925,6 @@
         },
         {
           "name": "coordinate 1",
-          "direction": "in",
-          "type": null,
           "description": "coordinate 1 is the pixel location for the first point.",
           "default_value": null,
           "enum_values": null,
@@ -1160,8 +932,6 @@
         },
         {
           "name": "value 1",
-          "direction": "in",
-          "type": null,
           "description": "value 1 is the actual data value for the first point.",
           "default_value": null,
           "enum_values": null,
@@ -1169,8 +939,6 @@
         },
         {
           "name": "coordinate 2",
-          "direction": "in",
-          "type": null,
           "description": "coordinate 2 is the pixel location for the second point.",
           "default_value": null,
           "enum_values": null,
@@ -1178,8 +946,6 @@
         },
         {
           "name": "value 2",
-          "direction": "in",
-          "type": null,
           "description": "value 2 is the actual data value for the second point.",
           "default_value": null,
           "enum_values": null,
@@ -1187,8 +953,6 @@
         },
         {
           "name": "scale factors",
-          "direction": "in",
-          "type": null,
           "description": "scale factors is the scale factor created from the two points. Use this output as the input for other VIs such as the Map Pixel to Value VI and the Map Value to Pixel VI. Functions",
           "default_value": null,
           "enum_values": null,
@@ -1208,8 +972,6 @@
       "terminals": [
         {
           "name": "scale factors",
-          "direction": "in",
-          "type": null,
           "description": "scale factors is a cluster returned by the Map Setup VI.",
           "default_value": null,
           "enum_values": null,
@@ -1217,8 +979,6 @@
         },
         {
           "name": "log?(F)",
-          "direction": "in",
-          "type": null,
           "description": "log? specifies if the scale is logarithmic. Functions 2054 ni.com",
           "default_value": null,
           "enum_values": null,
@@ -1226,8 +986,6 @@
         },
         {
           "name": "pixel",
-          "direction": "in",
-          "type": null,
           "description": "pixel is the pixel value corresponding to the domain value.",
           "default_value": null,
           "enum_values": null,
@@ -1247,8 +1005,6 @@
       "terminals": [
         {
           "name": "scale factors",
-          "direction": "in",
-          "type": null,
           "description": "scale factors is a cluster returned by the Map Setup VI.",
           "default_value": null,
           "enum_values": null,
@@ -1256,8 +1012,6 @@
         },
         {
           "name": "log?(F)",
-          "direction": "in",
-          "type": null,
           "description": "log? specifies if the scale is logarithmic.",
           "default_value": null,
           "enum_values": null,
@@ -1265,8 +1019,6 @@
         },
         {
           "name": "pixel",
-          "direction": "in",
-          "type": null,
           "description": "pixel is the pixel value.",
           "default_value": null,
           "enum_values": null,
@@ -1297,8 +1049,6 @@
       "terminals": [
         {
           "name": "picture",
-          "direction": "in",
-          "type": null,
           "description": "picture is the picture to which you want to add a pixel. The default is an empty picture.",
           "default_value": "an empty picture",
           "enum_values": null,
@@ -1306,8 +1056,6 @@
         },
         {
           "name": "point(x,y)",
-          "direction": "in",
-          "type": null,
           "description": "point(x,y) is the coordinate of the pixel to set in the resulting picture relative to the current location of the origin.",
           "default_value": null,
           "enum_values": null,
@@ -1315,8 +1063,6 @@
         },
         {
           "name": "color(black)",
-          "direction": "in",
-          "type": null,
           "description": "color is the color of the pixel. The default is black. You can wire a color box constant to this input.",
           "default_value": "black",
           "enum_values": null,
@@ -1324,8 +1070,6 @@
         },
         {
           "name": "pen",
-          "direction": "in",
-          "type": null,
           "description": "pen sets the width and style of the pen the VI uses to draw the picture.",
           "default_value": null,
           "enum_values": null,
@@ -1333,8 +1077,6 @@
         },
         {
           "name": "Width",
-          "direction": "in",
-          "type": null,
           "description": "Width sets the width in pixels of the pen the VI uses to draw the picture.",
           "default_value": null,
           "enum_values": null,
@@ -1342,8 +1084,6 @@
         },
         {
           "name": "Style",
-          "direction": "in",
-          "type": null,
           "description": "Style sets the style of the line the VI uses to draw the picture. Functions",
           "default_value": null,
           "enum_values": null,
@@ -1363,8 +1103,6 @@
       "terminals": [
         {
           "name": "picture",
-          "direction": "in",
-          "type": null,
           "description": "picture is the picture whose current pen location you want to move. The default is an empty picture.",
           "default_value": "an empty picture",
           "enum_values": null,
@@ -1372,8 +1110,6 @@
         },
         {
           "name": "new position",
-          "direction": "in",
-          "type": "Boolean",
           "description": "new position is the point to which the pen moves in the new picture. Functions 2060 ni.com If absolute coordinates? is TRUE, the pen moves to the absolute coordinate specified by new position. If absolute coordinates? is FALSE, the pen moves relative to the current pen location in picture.",
           "default_value": null,
           "enum_values": null,
@@ -1381,8 +1117,6 @@
         },
         {
           "name": "absolute coordinates?(T)",
-          "direction": "in",
-          "type": "Boolean",
           "description": "absolute coordinates? specifies whether the point new position is in absolute or relative coordinates. The default is absolute (TRUE).",
           "default_value": "absolute (TRUE)",
           "enum_values": null,
@@ -1390,8 +1124,6 @@
         },
         {
           "name": "new picture",
-          "direction": "in",
-          "type": null,
           "description": "new picture is the picture that contains the new image. You can wire this output to any other picture input to add more drawing instructions to the picture. You also can wire this output to the Picture to Pixmap VI to obtain an image data cluster. You then can use the Graphics Formats VIs to save the image data to a file. You can wire this output to the Concatenate Strings function to concatenate the output from multiple Picture Functions VIs so that they draw on a single picture control. Exampl",
           "default_value": null,
           "enum_values": null,
@@ -1399,8 +1131,6 @@
         },
         {
           "name": "labview\\examples\\Graphics and Sound\\2D Picture Control\\",
-          "direction": "in",
-          "type": null,
           "description": "",
           "default_value": null,
           "enum_values": null,
@@ -1420,8 +1150,6 @@
       "terminals": [
         {
           "name": "picture",
-          "direction": "in",
-          "type": null,
           "description": "picture is the picture to which you want to add the line. The default is an empty picture.",
           "default_value": "an empty picture",
           "enum_values": null,
@@ -1429,8 +1157,6 @@
         },
         {
           "name": "end point",
-          "direction": "in",
-          "type": "Boolean",
           "description": "end point is the end point of the new line. If absolute coordinates? is TRUE, the line draws to the absolute coordinate that end point specifies. If absolute coordinates? is FALSE, the line draws relative to the current pen location in picture.",
           "default_value": null,
           "enum_values": null,
@@ -1438,8 +1164,6 @@
         },
         {
           "name": "absolute coordinates?(T)",
-          "direction": "in",
-          "type": "Boolean",
           "description": "absolute coordinates? specifies whether the point new position is in absolute or relative coordinates. The default is absolute (TRUE).",
           "default_value": "absolute (TRUE)",
           "enum_values": null,
@@ -1447,8 +1171,6 @@
         },
         {
           "name": "color(black)",
-          "direction": "in",
-          "type": null,
           "description": "color is the color of the pixel. The default is black. Functions 2062 ni.com You can wire a color box constant to this input.",
           "default_value": "black",
           "enum_values": null,
@@ -1456,8 +1178,6 @@
         },
         {
           "name": "pen",
-          "direction": "in",
-          "type": null,
           "description": "pen sets the width and style of the pen the VI uses to draw the picture.",
           "default_value": null,
           "enum_values": null,
@@ -1465,8 +1185,6 @@
         },
         {
           "name": "Width",
-          "direction": "in",
-          "type": null,
           "description": "Width sets the width in pixels of the pen the VI uses to draw the picture.",
           "default_value": null,
           "enum_values": null,
@@ -1474,8 +1192,6 @@
         },
         {
           "name": "Style",
-          "direction": "in",
-          "type": null,
           "description": "Style sets the style of the line the VI uses to draw the picture. 0 Solid (default) 1 Dash 2 Dot 3 DashDot 4 DashDotDot",
           "default_value": null,
           "enum_values": null,
@@ -1483,8 +1199,6 @@
         },
         {
           "name": "new picture",
-          "direction": "in",
-          "type": null,
           "description": "new picture is the picture that contains the new image. You can wire this output to any other picture input to add more drawing instructions to the picture. You also can wire this output to the Picture to Pixmap VI to obtain an image data cluster. You then can use the Graphics Formats VIs to save the image data to a file. You can wire this output to the Concatenate Strings function to concatenate the output from multiple Picture Functions VIs so that they draw on a single picture control. Exampl",
           "default_value": null,
           "enum_values": null,
@@ -1492,8 +1206,6 @@
         },
         {
           "name": "labview\\examples\\Graphics and Sound\\2D Picture Control\\",
-          "direction": "in",
-          "type": null,
           "description": "",
           "default_value": null,
           "enum_values": null,
@@ -1513,8 +1225,6 @@
       "terminals": [
         {
           "name": "picture",
-          "direction": "in",
-          "type": null,
           "description": "picture is the picture to which you want to add lines. The default is an empty picture.",
           "default_value": "an empty picture",
           "enum_values": null,
@@ -1522,8 +1232,6 @@
         },
         {
           "name": "line endpoints",
-          "direction": "in",
-          "type": "Array",
           "description": "line endpoints is an array of points describing the lines to draw. The lines are drawn in the specified color, connecting the points in order. All coordinates are absolute.",
           "default_value": null,
           "enum_values": null,
@@ -1531,8 +1239,6 @@
         },
         {
           "name": "fill?(F)",
-          "direction": "in",
-          "type": "Boolean",
           "description": "fill? specifies whether to fill the interior. If FALSE (default), the VI draws only the outlines.",
           "default_value": null,
           "enum_values": null,
@@ -1540,8 +1246,6 @@
         },
         {
           "name": "color(black)",
-          "direction": "in",
-          "type": null,
           "description": "Functions 2064 ni.com color is the color of the lines. If the interior is filled, the VI uses this color for the interior. The default is black. You can wire a color box constant to this input.",
           "default_value": "black",
           "enum_values": null,
@@ -1549,8 +1253,6 @@
         },
         {
           "name": "pen",
-          "direction": "in",
-          "type": null,
           "description": "pen sets the width and style of the pen the VI uses to draw the picture.",
           "default_value": null,
           "enum_values": null,
@@ -1558,8 +1260,6 @@
         },
         {
           "name": "Width",
-          "direction": "in",
-          "type": null,
           "description": "Width sets the width in pixels of the pen the VI uses to draw the picture.",
           "default_value": null,
           "enum_values": null,
@@ -1567,8 +1267,6 @@
         },
         {
           "name": "Style",
-          "direction": "in",
-          "type": null,
           "description": "Style sets the style of the line the VI uses to draw the picture. 0 Solid (default) 1 Dash 2 Dot 3 DashDot 4 DashDotDot",
           "default_value": null,
           "enum_values": null,
@@ -1576,8 +1274,6 @@
         },
         {
           "name": "new picture",
-          "direction": "in",
-          "type": null,
           "description": "new picture is the picture that contains the new image. You can wire this output to any other picture input to add more drawing instructions to the picture. You also can wire this output to the Picture to Pixmap VI to obtain an image data cluster. You then can use the Graphics Formats VIs to save the image data to a file. You can wire this output to the Concatenate Strings function to concatenate the output from multiple Picture Functions VIs so that they draw on a single picture control.",
           "default_value": null,
           "enum_values": null,
@@ -1597,8 +1293,6 @@
       "terminals": [
         {
           "name": "picture",
-          "direction": "in",
-          "type": null,
           "description": "picture is the picture to which you want to add the rectangle. The default is an empty picture.",
           "default_value": "an empty picture",
           "enum_values": null,
@@ -1606,8 +1300,6 @@
         },
         {
           "name": "rect",
-          "direction": "in",
-          "type": null,
           "description": "rect is a cluster that contains four numeric controls that describe the left, top, right, and bottom coordinates of the outer edges of the rectangle. Horizontal coordinates increase to the right, and vertical coordinates increase to the bottom.",
           "default_value": null,
           "enum_values": null,
@@ -1615,8 +1307,6 @@
         },
         {
           "name": "left",
-          "direction": "in",
-          "type": null,
           "description": "left is the horizontal coordinate of the left edge of the rectangle.",
           "default_value": null,
           "enum_values": null,
@@ -1624,8 +1314,6 @@
         },
         {
           "name": "top",
-          "direction": "in",
-          "type": null,
           "description": "top is the vertical coordinate of the top edge of the rectangle.",
           "default_value": null,
           "enum_values": null,
@@ -1633,8 +1321,6 @@
         },
         {
           "name": "right",
-          "direction": "in",
-          "type": null,
           "description": "right is the horizontal coordinate of the right edge of the rectangle.",
           "default_value": null,
           "enum_values": null,
@@ -1642,8 +1328,6 @@
         },
         {
           "name": "bottom",
-          "direction": "in",
-          "type": null,
           "description": "bottom is the vertical coordinate of the bottom edge of the rectangle.",
           "default_value": null,
           "enum_values": null,
@@ -1651,8 +1335,6 @@
         },
         {
           "name": "fill?(F)",
-          "direction": "in",
-          "type": "Boolean",
           "description": "fill? specifies whether to fill the interior. If FALSE (default), the VI draws only the outlines.",
           "default_value": null,
           "enum_values": null,
@@ -1660,8 +1342,6 @@
         },
         {
           "name": "color(black)",
-          "direction": "in",
-          "type": null,
           "description": "color is the color of the lines. Functions 2066 ni.com If the interior is filled, the VI uses this color for the interior. The default is black. You can wire a color box constant to this input.",
           "default_value": "black",
           "enum_values": null,
@@ -1669,8 +1349,6 @@
         },
         {
           "name": "pen",
-          "direction": "in",
-          "type": null,
           "description": "pen sets the width and style of the pen the VI uses to draw the picture.",
           "default_value": null,
           "enum_values": null,
@@ -1678,8 +1356,6 @@
         },
         {
           "name": "Width",
-          "direction": "in",
-          "type": null,
           "description": "Width sets the width in pixels of the pen the VI uses to draw the picture.",
           "default_value": null,
           "enum_values": null,
@@ -1687,8 +1363,6 @@
         },
         {
           "name": "Style",
-          "direction": "in",
-          "type": null,
           "description": "Style sets the style of the line the VI uses to draw the picture. 0 Solid (default) 1 Dash 2 Dot 3 DashDot 4 DashDotDot",
           "default_value": null,
           "enum_values": null,
@@ -1696,8 +1370,6 @@
         },
         {
           "name": "new picture",
-          "direction": "in",
-          "type": null,
           "description": "new picture is the picture that contains the new image. You can wire this output to any other picture input to add more drawing instructions to the picture. You also can wire this output to the Picture to Pixmap VI to obtain an image data cluster. You then can use the Graphics Formats VIs to save the image data to a file. You can wire this output to the Concatenate Strings function to concatenate the output from multiple Picture Functions VIs so that they draw on a single picture control.",
           "default_value": null,
           "enum_values": null,
@@ -1717,8 +1389,6 @@
       "terminals": [
         {
           "name": "picture",
-          "direction": "in",
-          "type": null,
           "description": "picture is the picture to which you want to add the rectangle. The default is an empty picture.",
           "default_value": "an empty picture",
           "enum_values": null,
@@ -1726,8 +1396,6 @@
         },
         {
           "name": "rect",
-          "direction": "in",
-          "type": null,
           "description": "rect is a cluster that contains four numeric controls that describe the left, top, right, and bottom coordinates of the outer edges of the rectangle. Horizontal coordinates increase to the right, and vertical coordinates increase to the bottom.",
           "default_value": null,
           "enum_values": null,
@@ -1735,8 +1403,6 @@
         },
         {
           "name": "left",
-          "direction": "in",
-          "type": null,
           "description": "left is the horizontal coordinate of the left edge of the rectangle.",
           "default_value": null,
           "enum_values": null,
@@ -1744,8 +1410,6 @@
         },
         {
           "name": "top",
-          "direction": "in",
-          "type": null,
           "description": "top is the vertical coordinate of the top edge of the rectangle.",
           "default_value": null,
           "enum_values": null,
@@ -1753,8 +1417,6 @@
         },
         {
           "name": "right",
-          "direction": "in",
-          "type": null,
           "description": "right is the horizontal coordinate of the right edge of the rectangle.",
           "default_value": null,
           "enum_values": null,
@@ -1762,8 +1424,6 @@
         },
         {
           "name": "bottom",
-          "direction": "in",
-          "type": null,
           "description": "bottom is the vertical coordinate of the bottom edge of the rectangle.",
           "default_value": null,
           "enum_values": null,
@@ -1771,8 +1431,6 @@
         },
         {
           "name": "color(black)",
-          "direction": "in",
-          "type": null,
           "description": "color is the color of the pattern. In black and white, the VI uses white. You can wire a color box constant to this input.",
           "default_value": null,
           "enum_values": null,
@@ -1780,8 +1438,6 @@
         },
         {
           "name": "new picture",
-          "direction": "in",
-          "type": null,
           "description": "Functions 2068 ni.com new picture is the picture that contains the new image. You can wire this output to any other picture input to add more drawing instructions to the picture. You also can wire this output to the Picture to Pixmap VI to obtain an image data cluster. You then can use the Graphics Formats VIs to save the image data to a file. You can wire this output to the Concatenate Strings function to concatenate the output from multiple Picture Functions VIs so that they draw on a single p",
           "default_value": null,
           "enum_values": null,
@@ -1801,8 +1457,6 @@
       "terminals": [
         {
           "name": "oval height",
-          "direction": "in",
-          "type": null,
           "description": "oval height is the height of an oval that defines the amount of curvature for the corners.",
           "default_value": null,
           "enum_values": null,
@@ -1810,8 +1464,6 @@
         },
         {
           "name": "oval width",
-          "direction": "in",
-          "type": null,
           "description": "oval width is the width of an oval that defines the amount of curvature for the corners.",
           "default_value": null,
           "enum_values": null,
@@ -1819,8 +1471,6 @@
         },
         {
           "name": "picture",
-          "direction": "in",
-          "type": null,
           "description": "picture is the picture to which you want to add the rectangle. The default is an empty picture.",
           "default_value": "an empty picture",
           "enum_values": null,
@@ -1828,8 +1478,6 @@
         },
         {
           "name": "rect",
-          "direction": "in",
-          "type": null,
           "description": "rect is a cluster that contains four numeric controls that describe the left, top, right, and bottom coordinates of the outer edges of a rectangle that circumscribes the rounded rectangle. Horizontal coordinates increase to the right, and vertical coordinates increase to the bottom. Functions",
           "default_value": null,
           "enum_values": null,
@@ -1849,8 +1497,6 @@
       "terminals": [
         {
           "name": "picture",
-          "direction": "in",
-          "type": null,
           "description": "picture is the picture to which you want to add the oval. The default is an empty picture.",
           "default_value": "an empty picture",
           "enum_values": null,
@@ -1858,8 +1504,6 @@
         },
         {
           "name": "rect",
-          "direction": "in",
-          "type": null,
           "description": "rect is a cluster that contains four numeric controls that describe the left, top, right, and bottom coordinates of the outer edges of the rectangle. Horizontal coordinates increase to the right, and vertical coordinates increase to the bottom.",
           "default_value": null,
           "enum_values": null,
@@ -1867,8 +1511,6 @@
         },
         {
           "name": "left",
-          "direction": "in",
-          "type": null,
           "description": "left is the horizontal coordinate of the left edge of the rectangle.",
           "default_value": null,
           "enum_values": null,
@@ -1876,8 +1518,6 @@
         },
         {
           "name": "top",
-          "direction": "in",
-          "type": null,
           "description": "top is the vertical coordinate of the top edge of the rectangle.",
           "default_value": null,
           "enum_values": null,
@@ -1885,8 +1525,6 @@
         },
         {
           "name": "right",
-          "direction": "in",
-          "type": null,
           "description": "right is the horizontal coordinate of the right edge of the rectangle.",
           "default_value": null,
           "enum_values": null,
@@ -1894,8 +1532,6 @@
         },
         {
           "name": "bottom",
-          "direction": "in",
-          "type": null,
           "description": "bottom is the vertical coordinate of the bottom edge of the rectangle.",
           "default_value": null,
           "enum_values": null,
@@ -1903,8 +1539,6 @@
         },
         {
           "name": "fill?(F)",
-          "direction": "in",
-          "type": "Boolean",
           "description": "fill? specifies whether to fill the interior. If FALSE (default), the VI draws only the outlines.",
           "default_value": null,
           "enum_values": null,
@@ -1912,8 +1546,6 @@
         },
         {
           "name": "color(black)",
-          "direction": "in",
-          "type": null,
           "description": "color is the color of the lines. Functions 2072 ni.com If the interior is filled, the VI uses this color for the interior. The default is black. You can wire a color box constant to this input.",
           "default_value": "black",
           "enum_values": null,
@@ -1921,8 +1553,6 @@
         },
         {
           "name": "pen",
-          "direction": "in",
-          "type": null,
           "description": "pen sets the width and style of the pen the VI uses to draw the picture.",
           "default_value": null,
           "enum_values": null,
@@ -1930,8 +1560,6 @@
         },
         {
           "name": "Width",
-          "direction": "in",
-          "type": null,
           "description": "Width sets the width in pixels of the pen the VI uses to draw the picture.",
           "default_value": null,
           "enum_values": null,
@@ -1939,8 +1567,6 @@
         },
         {
           "name": "Style",
-          "direction": "in",
-          "type": null,
           "description": "Style sets the style of the line the VI uses to draw the picture. 0 Solid (default) 1 Dash 2 Dot 3 DashDot 4 DashDotDot",
           "default_value": null,
           "enum_values": null,
@@ -1948,8 +1574,6 @@
         },
         {
           "name": "new picture",
-          "direction": "in",
-          "type": null,
           "description": "new picture is the picture that contains the new image. You can wire this output to any other picture input to add more drawing instructions to the picture. You also can wire this output to the Picture to Pixmap VI to obtain an image data cluster. You then can use the Graphics Formats VIs to save the image data to a file. You can wire this output to the Concatenate Strings function to concatenate the output from multiple Picture Functions VIs so that they draw on a single picture control.",
           "default_value": null,
           "enum_values": null,
@@ -1969,8 +1593,6 @@
       "terminals": [
         {
           "name": "arc size[degrees]",
-          "direction": "in",
-          "type": null,
           "description": "arc size determines the degree value of the circle you want to draw. This value can range from -360 to 360. For example, a value of 360 creates a complete circle, and a value of 180 creates a semicircle.",
           "default_value": null,
           "enum_values": null,
@@ -1978,8 +1600,6 @@
         },
         {
           "name": "start angle[degrees]",
-          "direction": "in",
-          "type": null,
           "description": "start angle determines where the arc begins.",
           "default_value": null,
           "enum_values": null,
@@ -1987,8 +1607,6 @@
         },
         {
           "name": "picture",
-          "direction": "in",
-          "type": null,
           "description": "picture is the picture to which you want to add the arc. The default is an empty picture.",
           "default_value": "an empty picture",
           "enum_values": null,
@@ -1996,8 +1614,6 @@
         },
         {
           "name": "rect",
-          "direction": "in",
-          "type": null,
           "description": "rect is a cluster that contains four numeric controls that describe the left, top, right, and bottom coordinates of the outer edges of the rectangle. Horizontal coordinates increase to the right, and vertical coordinates increase to the bottom.",
           "default_value": null,
           "enum_values": null,
@@ -2005,8 +1621,6 @@
         },
         {
           "name": "left",
-          "direction": "in",
-          "type": null,
           "description": "left is the horizontal coordinate of the left edge of the rectangle.",
           "default_value": null,
           "enum_values": null,
@@ -2014,8 +1628,6 @@
         },
         {
           "name": "top",
-          "direction": "in",
-          "type": null,
           "description": "top is the vertical coordinate of the top edge of the rectangle.",
           "default_value": null,
           "enum_values": null,
@@ -2023,8 +1635,6 @@
         },
         {
           "name": "right",
-          "direction": "in",
-          "type": null,
           "description": "right is the horizontal coordinate of the right edge of the rectangle.",
           "default_value": null,
           "enum_values": null,
@@ -2032,8 +1642,6 @@
         },
         {
           "name": "bottom",
-          "direction": "in",
-          "type": null,
           "description": "Functions 2074 ni.com bottom is the vertical coordinate of the bottom edge of the rectangle.",
           "default_value": null,
           "enum_values": null,
@@ -2041,8 +1649,6 @@
         },
         {
           "name": "fill?(F)",
-          "direction": "in",
-          "type": "Boolean",
           "description": "fill? specifies whether to fill the rectangle. If FALSE (default), the VI draws only the arc component and does not draw interior bounds of the wedge.",
           "default_value": null,
           "enum_values": null,
@@ -2050,8 +1656,6 @@
         },
         {
           "name": "color(black)",
-          "direction": "in",
-          "type": null,
           "description": "color is the color of the lines. If the interior is filled, the VI uses this color for the interior. The default is black. You can wire a color box constant to this input.",
           "default_value": "black",
           "enum_values": null,
@@ -2059,8 +1663,6 @@
         },
         {
           "name": "pen",
-          "direction": "in",
-          "type": null,
           "description": "pen sets the width and style of the pen the VI uses to draw the picture.",
           "default_value": null,
           "enum_values": null,
@@ -2068,8 +1670,6 @@
         },
         {
           "name": "Width",
-          "direction": "in",
-          "type": null,
           "description": "Width sets the width in pixels of the pen the VI uses to draw the picture.",
           "default_value": null,
           "enum_values": null,
@@ -2077,8 +1677,6 @@
         },
         {
           "name": "Style",
-          "direction": "in",
-          "type": null,
           "description": "Style sets the style of the line the VI uses to draw the picture. 0 Solid (default) 1 Dash 2 Dot 3 DashDot 4 DashDotDot",
           "default_value": null,
           "enum_values": null,
@@ -2086,8 +1684,6 @@
         },
         {
           "name": "new picture",
-          "direction": "in",
-          "type": null,
           "description": "new picture is the picture that contains the new image. You can wire this output to any other picture input to add more drawing instructions to the picture. Functions",
           "default_value": null,
           "enum_values": null,
@@ -2107,8 +1703,6 @@
       "terminals": [
         {
           "name": "[user-specified font]",
-          "direction": "in",
-          "type": null,
           "description": "[user-specified font] specifies the specific font characteristics for the text to draw. The VI ignores this input unless desired font is User-specified Font.",
           "default_value": null,
           "enum_values": null,
@@ -2116,8 +1710,6 @@
         },
         {
           "name": "Font Name:",
-          "direction": "in",
-          "type": null,
           "description": "Font Name specifies the font to use for the text. If you misspell the font name or specify a font that is not installed on the computer, the operating system selects a font.",
           "default_value": null,
           "enum_values": null,
@@ -2125,8 +1717,6 @@
         },
         {
           "name": "Size",
-          "direction": "in",
-          "type": null,
           "description": "Size specifies the size of the font in points.",
           "default_value": null,
           "enum_values": null,
@@ -2134,8 +1724,6 @@
         },
         {
           "name": "Strikeout?",
-          "direction": "in",
-          "type": "Boolean",
           "description": "Strikeout? specifies if the text appears in strikeout. If Strikeout? is TRUE, the text appears in strikeout.",
           "default_value": null,
           "enum_values": null,
@@ -2143,8 +1731,6 @@
         },
         {
           "name": "Italic?",
-          "direction": "in",
-          "type": "Boolean",
           "description": "Italic? specifies if the text appears in italics. If Italic? is TRUE, the text appears in italics.",
           "default_value": null,
           "enum_values": null,
@@ -2152,8 +1738,6 @@
         },
         {
           "name": "Underline?",
-          "direction": "in",
-          "type": "Boolean",
           "description": "Underline? specifies if the text is underlined. If Underline? is TRUE, the text appears underlined.",
           "default_value": null,
           "enum_values": null,
@@ -2161,8 +1745,6 @@
         },
         {
           "name": "Outline?",
-          "direction": "in",
-          "type": "Boolean",
           "description": "Outline? specifies if the text is outlined. If Outline? is TRUE, the text appears outlined.",
           "default_value": null,
           "enum_values": null,
@@ -2170,8 +1752,6 @@
         },
         {
           "name": "Shadow?",
-          "direction": "in",
-          "type": "Boolean",
           "description": "Shadow? specifies if the text has a shadow. If Shadow? is TRUE, the text appears in shadow.",
           "default_value": null,
           "enum_values": null,
@@ -2179,8 +1759,6 @@
         },
         {
           "name": "Bold?",
-          "direction": "in",
-          "type": "Boolean",
           "description": "Functions",
           "default_value": null,
           "enum_values": null,
@@ -2200,8 +1778,6 @@
       "terminals": [
         {
           "name": "[user-specified font]",
-          "direction": "in",
-          "type": null,
           "description": "[user-specified font] specifies the specific font characteristics for the text to draw. The VI ignores this input unless desired font is User-specified Font.",
           "default_value": null,
           "enum_values": null,
@@ -2209,8 +1785,6 @@
         },
         {
           "name": "Font Name:",
-          "direction": "in",
-          "type": null,
           "description": "Font Name specifies the font to use for the text. If you misspell the font name or specify a font that is not installed on the computer, the operating system selects a font.",
           "default_value": null,
           "enum_values": null,
@@ -2218,8 +1792,6 @@
         },
         {
           "name": "Size",
-          "direction": "in",
-          "type": null,
           "description": "Size specifies the size of the font in points.",
           "default_value": null,
           "enum_values": null,
@@ -2227,8 +1799,6 @@
         },
         {
           "name": "Strikeout?",
-          "direction": "in",
-          "type": "Boolean",
           "description": "Strikeout? specifies if the text appears in strikeout. If Strikeout? is TRUE, the text appears in strikeout.",
           "default_value": null,
           "enum_values": null,
@@ -2236,8 +1806,6 @@
         },
         {
           "name": "Italic?",
-          "direction": "in",
-          "type": "Boolean",
           "description": "Italic? specifies if the text appears in italics. If Italic? is TRUE, the text appears in italics.",
           "default_value": null,
           "enum_values": null,
@@ -2245,8 +1813,6 @@
         },
         {
           "name": "Underline?",
-          "direction": "in",
-          "type": "Boolean",
           "description": "Underline? specifies if the text is underlined. If Underline? is TRUE, the text appears underlined.",
           "default_value": null,
           "enum_values": null,
@@ -2254,8 +1820,6 @@
         },
         {
           "name": "Outline?",
-          "direction": "in",
-          "type": "Boolean",
           "description": "Outline? specifies if the text is outlined. If Outline? is TRUE, the text appears outlined.",
           "default_value": null,
           "enum_values": null,
@@ -2263,8 +1827,6 @@
         },
         {
           "name": "Shadow?",
-          "direction": "in",
-          "type": "Boolean",
           "description": "Functions",
           "default_value": null,
           "enum_values": null,
@@ -2284,8 +1846,6 @@
       "terminals": [
         {
           "name": "[user-specified font]",
-          "direction": "in",
-          "type": null,
           "description": "[user-specified font] specifies the specific font characteristics for the text to draw. The VI ignores this input unless desired font is User-specified Font.",
           "default_value": null,
           "enum_values": null,
@@ -2293,8 +1853,6 @@
         },
         {
           "name": "Font Name:",
-          "direction": "in",
-          "type": null,
           "description": "Font Name specifies the font to use for the text. If you misspell the font name or specify a font that is not installed on the computer, the operating system selects a font.",
           "default_value": null,
           "enum_values": null,
@@ -2302,8 +1860,6 @@
         },
         {
           "name": "Size",
-          "direction": "in",
-          "type": null,
           "description": "Functions 2084 ni.com Size specifies the size of the font in points.",
           "default_value": null,
           "enum_values": null,
@@ -2311,8 +1867,6 @@
         },
         {
           "name": "Strikeout?",
-          "direction": "in",
-          "type": "Boolean",
           "description": "Strikeout? specifies if the text appears in strikeout. If Strikeout? is TRUE, the text appears in strikeout.",
           "default_value": null,
           "enum_values": null,
@@ -2320,8 +1874,6 @@
         },
         {
           "name": "Italic?",
-          "direction": "in",
-          "type": "Boolean",
           "description": "Italic? specifies if the text appears in italics. If Italic? is TRUE, the text appears in italics.",
           "default_value": null,
           "enum_values": null,
@@ -2329,8 +1881,6 @@
         },
         {
           "name": "Underline?",
-          "direction": "in",
-          "type": "Boolean",
           "description": "Underline? specifies if the text is underlined. If Underline? is TRUE, the text appears underlined.",
           "default_value": null,
           "enum_values": null,
@@ -2338,8 +1888,6 @@
         },
         {
           "name": "Outline?",
-          "direction": "in",
-          "type": "Boolean",
           "description": "Outline? specifies if the text is outlined. If Outline? is TRUE, the text appears outlined.",
           "default_value": null,
           "enum_values": null,
@@ -2347,8 +1895,6 @@
         },
         {
           "name": "Shadow?",
-          "direction": "in",
-          "type": "Boolean",
           "description": "Shadow? specifies if the text has a shadow. If Shadow? is TRUE, the text appears in shadow.",
           "default_value": null,
           "enum_values": null,
@@ -2356,8 +1902,6 @@
         },
         {
           "name": "Bold?",
-          "direction": "in",
-          "type": "Boolean",
           "description": "Bold? specifies if the text is bold. If Bold? is TRUE, the text appears bold.",
           "default_value": null,
           "enum_values": null,
@@ -2365,8 +1909,6 @@
         },
         {
           "name": "desired font(Application)",
-          "direction": "in",
-          "type": null,
           "description": "desired font specifies the text font. 0 User-specified Font 1 Application Font (default) 2 System Font 3 Dialog Font",
           "default_value": null,
           "enum_values": null,
@@ -2374,8 +1916,6 @@
         },
         {
           "name": "picture",
-          "direction": "in",
-          "type": null,
           "description": "picture is the picture to which you want to add the text string. The default is an empty picture. Functions",
           "default_value": "an empty picture",
           "enum_values": null,
@@ -2395,8 +1935,6 @@
       "terminals": [
         {
           "name": "arc size(360)",
-          "direction": "in",
-          "type": null,
           "description": "arc size determines the degree value of the circle you want to draw. This value can range from -360 to 360. For example, a value of 360 creates a complete circle, and a value of 180 creates a semicircle. Functions \u00a9 National Instruments 2087",
           "default_value": null,
           "enum_values": null,
@@ -2404,8 +1942,6 @@
         },
         {
           "name": "start angle(0)",
-          "direction": "in",
-          "type": null,
           "description": "start angle determines where the arc begins.",
           "default_value": null,
           "enum_values": null,
@@ -2413,8 +1949,6 @@
         },
         {
           "name": "picture",
-          "direction": "in",
-          "type": null,
           "description": "picture is the picture to which you want to add the circle. The default is an empty picture.",
           "default_value": "an empty picture",
           "enum_values": null,
@@ -2422,8 +1956,6 @@
         },
         {
           "name": "radius",
-          "direction": "in",
-          "type": null,
           "description": "radius determines the size of the circle, in pixels. If, for example, this value is 40, the radius of the resulting circle is 40 pixels.",
           "default_value": null,
           "enum_values": null,
@@ -2431,8 +1963,6 @@
         },
         {
           "name": "pixel center",
-          "direction": "in",
-          "type": null,
           "description": "pixel center contains the coordinates around which the VI draws the circle.",
           "default_value": null,
           "enum_values": null,
@@ -2440,8 +1970,6 @@
         },
         {
           "name": "horizontal",
-          "direction": "in",
-          "type": null,
           "description": "horizontal is the pixel center of the circle relative to the x-coordinate of the current origin.",
           "default_value": null,
           "enum_values": null,
@@ -2449,8 +1977,6 @@
         },
         {
           "name": "vertical",
-          "direction": "in",
-          "type": null,
           "description": "vertical is the pixel center of the circle relative to the y-coordinate of the current origin.",
           "default_value": null,
           "enum_values": null,
@@ -2458,8 +1984,6 @@
         },
         {
           "name": "fill?(F)",
-          "direction": "in",
-          "type": "Boolean",
           "description": "fill? specifies whether to fill the interior. If FALSE (default), the VI draws only the outlines.",
           "default_value": null,
           "enum_values": null,
@@ -2467,8 +1991,6 @@
         },
         {
           "name": "color(black)",
-          "direction": "in",
-          "type": null,
           "description": "color sets the pen color to use when drawing the oval. If unwired, the VI uses the last color specified as the pen color. You can wire a color box constant to this input.",
           "default_value": null,
           "enum_values": null,
@@ -2476,8 +1998,6 @@
         },
         {
           "name": "pen",
-          "direction": "in",
-          "type": null,
           "description": "pen sets the width and style of the pen the VI uses to draw the picture. Functions 2088 ni.com",
           "default_value": null,
           "enum_values": null,
@@ -2485,8 +2005,6 @@
         },
         {
           "name": "Width",
-          "direction": "in",
-          "type": null,
           "description": "Width sets the width in pixels of the pen the VI uses to draw the picture.",
           "default_value": null,
           "enum_values": null,
@@ -2494,8 +2012,6 @@
         },
         {
           "name": "Style",
-          "direction": "in",
-          "type": null,
           "description": "Style sets the style of the line the VI uses to draw the picture. 0 Solid (default) 1 Dash 2 Dot 3 DashDot 4 DashDotDot",
           "default_value": null,
           "enum_values": null,
@@ -2503,8 +2019,6 @@
         },
         {
           "name": "new picture",
-          "direction": "in",
-          "type": "I32",
           "description": "new picture is the picture that contains the new image. You can wire this output to any other picture input to add more drawing instructions to the picture. You also can wire this output to the Picture to Pixmap VI to obtain an image data cluster. You then can use the Graphics Formats VIs to save the image data to a file. You can wire this output to the Concatenate Strings function to concatenate the output from multiple Picture Functions VIs so that they draw on a single picture control. The Dr",
           "default_value": null,
           "enum_values": null,
@@ -2524,8 +2038,6 @@
       "terminals": [
         {
           "name": "Color In",
-          "direction": "in",
-          "type": null,
           "description": "Color In is the input color on which to base the returned highlight and shadow colors. You can wire a color box constant to this input.",
           "default_value": null,
           "enum_values": null,
@@ -2533,8 +2045,6 @@
         },
         {
           "name": "Percentage(30)",
-          "direction": "in",
-          "type": null,
           "description": "Percentage determines the degree of highlighting and shadow in the new colors. The default is 30 percent.",
           "default_value": "30 percent",
           "enum_values": null,
@@ -2542,8 +2052,6 @@
         },
         {
           "name": "Hilite",
-          "direction": "in",
-          "type": null,
           "description": "Hilite is the new color matched as a highlight to the input color.",
           "default_value": null,
           "enum_values": null,
@@ -2551,8 +2059,6 @@
         },
         {
           "name": "Shadow",
-          "direction": "in",
-          "type": null,
           "description": "Shadow is the new color matched as a shadow to the input color. Functions 2090 ni.com",
           "default_value": null,
           "enum_values": null,
@@ -2572,8 +2078,6 @@
       "terminals": [
         {
           "name": "picture",
-          "direction": "in",
-          "type": null,
           "description": "picture is the picture to which you want to add the pixmap. The default is an empty picture.",
           "default_value": "an empty picture",
           "enum_values": null,
@@ -2581,8 +2085,6 @@
         },
         {
           "name": "top left point(0, 0)",
-          "direction": "in",
-          "type": null,
           "description": "top left point specifies in coordinates where to place the top-left corner of the image in the new picture. Functions \u00a9 National Instruments 2091",
           "default_value": null,
           "enum_values": null,
@@ -2590,8 +2092,6 @@
         },
         {
           "name": "data (RGB format)",
-          "direction": "in",
-          "type": "Enum",
           "description": "data is a 2D array of 32-bit unsigned integers that describes the color of each pixel in the image in raster order. Each pixel has three bytes to describe its color. The first byte for each pixel describes the red value, the second byte describes the green value, and the third byte describes the blue value.",
           "default_value": null,
           "enum_values": null,
@@ -2599,8 +2099,6 @@
         },
         {
           "name": "mask",
-          "direction": "in",
-          "type": "Array",
           "description": "mask is an array of bytes in which each bit describes mask information for a pixel. The first byte describes the first eight pixels, the second byte describes the next eight pixels, and so on. If a bit is zero, LabVIEW draws the corresponding pixel as transparent. If the array is empty, LabVIEW draws all pixels without transparency. If the array does not contain a bit for each pixel in the image, LabVIEW draws any pixels missing from the array without transparency.",
           "default_value": null,
           "enum_values": null,
@@ -2608,8 +2106,6 @@
         },
         {
           "name": "new picture",
-          "direction": "in",
-          "type": null,
           "description": "new picture is the picture that contains the new image. You can wire this output to any other picture input to add more drawing instructions to the picture.",
           "default_value": null,
           "enum_values": null,
@@ -2629,8 +2125,6 @@
       "terminals": [
         {
           "name": "picture",
-          "direction": "in",
-          "type": null,
           "description": "picture is the picture to which you want to add the array of data. The default is an empty picture.",
           "default_value": "an empty picture",
           "enum_values": null,
@@ -2638,8 +2132,6 @@
         },
         {
           "name": "image data",
-          "direction": "in",
-          "type": null,
           "description": "image data describes the image you want to draw or manipulate.",
           "default_value": null,
           "enum_values": null,
@@ -2647,8 +2139,6 @@
         },
         {
           "name": "image type",
-          "direction": "in",
-          "type": null,
           "description": "image type is reserved for future use.",
           "default_value": null,
           "enum_values": null,
@@ -2656,8 +2146,6 @@
         },
         {
           "name": "image depth",
-          "direction": "in",
-          "type": "I32",
           "description": "image depth specifies the color depth of the image, which is the number of bits to use to Functions \u00a9 National Instruments 2097 describe the color of each pixel in the image. Valid values include 1, 4, 8, and 24 bits per pixel. image depth affects how LabVIEW interprets the values of image and colors.",
           "default_value": null,
           "enum_values": null,
@@ -2665,8 +2153,6 @@
         },
         {
           "name": "image",
-          "direction": "in",
-          "type": "Enum",
           "description": "image is an array of bytes that describes the color of each pixel in the image in raster order. The value of image depth determines how LabVIEW interprets the value of this input. If image depth is 24, each pixel has three bytes to describe its color. The first byte for each pixel describes the red value, the second byte describes the green value, and the third byte describes the blue value. If image depth is 8, each pixel has one byte to describe its color. The value of each byte corresponds to",
           "default_value": null,
           "enum_values": null,
@@ -2674,8 +2160,6 @@
         },
         {
           "name": "mask",
-          "direction": "in",
-          "type": "Array",
           "description": "mask is an array of bytes in which each bit describes mask information for a pixel. The first byte describes the first eight pixels, the second byte describes the next eight pixels, and so on. If a bit is zero, LabVIEW draws the corresponding pixel as transparent. If the array is empty, LabVIEW draws all pixels without transparency. If the array does not contain a bit for each pixel in the image, LabVIEW draws any pixels missing from the array without transparency.",
           "default_value": null,
           "enum_values": null,
@@ -2683,8 +2167,6 @@
         },
         {
           "name": "colors",
-          "direction": "in",
-          "type": "Enum",
           "description": "colors is an array of RGB color values that correspond to the values in image. The value of image depth determines how LabVIEW interprets the value of this input. colors stores 32-bit RGB values where the most-significant byte is zero, followed in order by red, green, and blue values. Valid values include 0 through 255. Functions 2098 ni.com If image depth is 24, LabVIEW ignores this input. If image depth is 8, the array can have 256 elements. If image depth is 4, the array can have 16 elements.",
           "default_value": null,
           "enum_values": null,
@@ -2692,8 +2174,6 @@
         },
         {
           "name": "Rectangle",
-          "direction": "in",
-          "type": null,
           "description": "Rectangle is a cluster that contains coordinates that describe the bounding rectangle in which you want to draw the image. The VI clips the image to the width and height of the rectangle. The bottom and right edges of the rectangle bounds do not contain image pixels. Horizontal coordinates increase to the right, and vertical coordinates increase to the bottom.",
           "default_value": null,
           "enum_values": null,
@@ -2701,8 +2181,6 @@
         },
         {
           "name": "left",
-          "direction": "in",
-          "type": null,
           "description": "left is the horizontal coordinate of the left edge of the rectangle.",
           "default_value": null,
           "enum_values": null,
@@ -2710,8 +2188,6 @@
         },
         {
           "name": "top",
-          "direction": "in",
-          "type": null,
           "description": "top is the vertical coordinate of the top edge of the rectangle.",
           "default_value": null,
           "enum_values": null,
@@ -2719,8 +2195,6 @@
         },
         {
           "name": "right",
-          "direction": "in",
-          "type": null,
           "description": "right is the horizontal coordinate of the right edge of the rectangle.",
           "default_value": null,
           "enum_values": null,
@@ -2728,8 +2202,6 @@
         },
         {
           "name": "bottom",
-          "direction": "in",
-          "type": null,
           "description": "bottom is the vertical coordinate of the bottom edge of the rectangle.",
           "default_value": null,
           "enum_values": null,
@@ -2737,8 +2209,6 @@
         },
         {
           "name": "new picture",
-          "direction": "in",
-          "type": null,
           "description": "new picture is the picture that contains the new image. You can wire this output to any other picture input to add more drawing instructions to the picture. Functions \u00a9 National Instruments 2099",
           "default_value": null,
           "enum_values": null,
@@ -2758,8 +2228,6 @@
       "terminals": [
         {
           "name": "image data",
-          "direction": "out",
-          "type": null,
           "description": "image data returns information about the image so you can use the Draw Flattened Pixmap VI to draw it as a picture.",
           "default_value": null,
           "enum_values": null,
@@ -2767,8 +2235,6 @@
         },
         {
           "name": "image type",
-          "direction": "in",
-          "type": null,
           "description": "image type is reserved for future use.",
           "default_value": null,
           "enum_values": null,
@@ -2776,8 +2242,6 @@
         },
         {
           "name": "image depth",
-          "direction": "in",
-          "type": "Enum",
           "description": "Note This VI interprets 32-bit images as 24-bit images. Functions 2100 ni.com image depth specifies the color depth of the image, which is the number of bits to use to describe the color of each pixel in the image. Valid values include 1, 4, 8, and 24 bits per pixel. image depth affects how LabVIEW interprets the values of image and colors.",
           "default_value": null,
           "enum_values": null,
@@ -2785,8 +2249,6 @@
         },
         {
           "name": "image",
-          "direction": "in",
-          "type": "Enum",
           "description": "image is an array of bytes that describes the color of each pixel in the image in raster order. The value of image depth determines how LabVIEW interprets the value of this output. If image depth is 24, each pixel has three bytes to describe its color. The first byte for each pixel describes the red value, the second byte describes the green value, and the third byte describes the blue value. If image depth is 8, each pixel has one byte to describe its color. The value of each byte corresponds t",
           "default_value": null,
           "enum_values": null,
@@ -2794,8 +2256,6 @@
         },
         {
           "name": "mask",
-          "direction": "in",
-          "type": "Array",
           "description": "mask is an array of bytes in which each bit describes mask information for a pixel. The first byte describes the first eight pixels, the second byte describes the next eight pixels, and so on. If a bit is zero, LabVIEW draws the corresponding pixel as transparent. If the array is empty, LabVIEW draws all pixels without transparency. If the array does not contain a bit for each pixel in the image, LabVIEW draws any pixels missing from the array without transparency.",
           "default_value": null,
           "enum_values": null,
@@ -2803,8 +2263,6 @@
         },
         {
           "name": "colors",
-          "direction": "in",
-          "type": "Array",
           "description": "colors is an array of RGB color values that correspond to the values in image. The value of image depth determines how LabVIEW interprets the value of this output. Functions",
           "default_value": null,
           "enum_values": null,

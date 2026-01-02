@@ -14,8 +14,6 @@
       "terminals": [
         {
           "name": "array",
-          "direction": "in",
-          "type": "Array",
           "description": "array can be an n-dimensional array of any type.",
           "default_value": null,
           "enum_values": null,
@@ -23,8 +21,6 @@
         },
         {
           "name": "size(s)",
-          "direction": "in",
-          "type": "Enum",
           "description": "Functions \u00a9 National Instruments 391 size(s) is a 32-bit integer if array is one-dimensional (1D). If array is multidimensional, the returned value is a 1D array in which each element is a 32-bit integer that represents the number of elements in the corresponding dimension of array. The order of elements in the return array corresponds to row-major order. Thus, vol is the first index, followed by page, row, and column. These names are index identifiers and have no other meaning.",
           "default_value": null,
           "enum_values": null,
@@ -44,8 +40,6 @@
       "terminals": [
         {
           "name": "array",
-          "direction": "in",
-          "type": "Array",
           "description": "n-dimension array can be an n-dimensional array of any type. If n-dimension array is an empty array, element or subarray returns the default value of the defined data type for the array.",
           "default_value": "value of the defined data type for the array",
           "enum_values": null,
@@ -53,8 +47,6 @@
         },
         {
           "name": "index",
-          "direction": "in",
-          "type": "I32",
           "description": "index 0..n-1 specifies a number that refers to a location within the input array. LabVIEW automatically provides an index input for each dimension of the array.",
           "default_value": null,
           "enum_values": null,
@@ -62,8 +54,6 @@
         },
         {
           "name": "element",
-          "direction": "in",
-          "type": "I32",
           "description": "element or subarray has the same type as the elements of n-dimension array. Functions 392 ni.com You can disable indexing along a dimension by leaving the corresponding index input unwired, unless you are indexing a 1D array. By default, the first dimension has indexing enabled, with the others disabled. If disabled, the input terminal is an outlined black rectangle. If enabled, it is filled. You can wire a constant or control to the index inputs that you want enabled. For example, if you want t",
           "default_value": "value of the defined data type for the array",
           "enum_values": null,
@@ -83,8 +73,6 @@
       "terminals": [
         {
           "name": "array",
-          "direction": "in",
-          "type": "Array",
           "description": "n-dimension array is the array in which you want to replace an element(s), row(s), column(s), or page(s). This input can be an n-dimension array of any type.",
           "default_value": null,
           "enum_values": null,
@@ -92,8 +80,6 @@
         },
         {
           "name": "index",
-          "direction": "in",
-          "type": "I32",
           "description": "index 0..n-1 specifies the element, row, column, or page you want to replace in the array. If you do not wire this input, the dimensions of the new element/subarray input determines the number of elements of n-dimension array, starting with element 0, this function replaces. If you specify an index without wiring the following indexes, this function continues from the last index you specify. For example, if you do not wire this input and n-dimension array consists of three elements, and new elem",
           "default_value": null,
           "enum_values": null,
@@ -101,8 +87,6 @@
         },
         {
           "name": "new element/subarray",
-          "direction": "in",
-          "type": "Array",
           "description": "new element/subarray is the array or element that replaces an element, row, column, or page in the array specified in n-dimension array. Note The base data type of the new element or subarray must be the same type as Functions",
           "default_value": null,
           "enum_values": null,
@@ -122,8 +106,6 @@
       "terminals": [
         {
           "name": "array",
-          "direction": "in",
-          "type": "Array",
           "description": "the input array. Functions 396 ni.com n-dim array is the array in which you want to insert an element, row, column, page, and so on. This input can be an n-dimension array of any type.",
           "default_value": null,
           "enum_values": null,
@@ -131,8 +113,6 @@
         },
         {
           "name": "index",
-          "direction": "in",
-          "type": "I32",
           "description": "index 0..n-1 specifies the point in the array at which you want to insert the element, row, column, page, and so on. You can wire only one index input. For example, to insert a 1D array as the fourth row of a 2D array, wire 3 to the first index input, and the second index input becomes disabled. To insert the array as the fourth column of the 2D array, wire 3 to the second index input, and the first index input becomes disabled.",
           "default_value": null,
           "enum_values": null,
@@ -140,8 +120,6 @@
         },
         {
           "name": "new element/subarray",
-          "direction": "in",
-          "type": "Array",
           "description": "n or n-1 dim array is the element, row, column, or page you want to insert into the array specified in n-dim array.",
           "default_value": null,
           "enum_values": null,
@@ -149,8 +127,6 @@
         },
         {
           "name": "output array",
-          "direction": "out",
-          "type": "Boolean",
           "description": "output array is the array this function returns with the inserted element(s), row(s), column(s), or page(s). This function resizes the array along only one dimension. Therefore, you can wire only one index input. The index you wire determines the dimension along which you can insert. For example, to insert row(s), wire the row index, or to insert column(s), wire the column index. The array you wire to n or n-1 dim array must be the same dimension or a dimension less than the one you wired to n-d",
           "default_value": null,
           "enum_values": null,
@@ -170,8 +146,6 @@
       "terminals": [
         {
           "name": "array",
-          "direction": "in",
-          "type": "Array",
           "description": "n-dim array is the array from which you want to delete element(s), row(s), column(s), page(s), and so on. This input can be an n-dimension array of any type.",
           "default_value": null,
           "enum_values": null,
@@ -179,8 +153,6 @@
         },
         {
           "name": "length",
-          "direction": "in",
-          "type": null,
           "description": "length determines how many elements, rows, columns, or pages to delete. The default length is one element.",
           "default_value": "length is one element",
           "enum_values": null,
@@ -188,8 +160,6 @@
         },
         {
           "name": "index",
-          "direction": "in",
-          "type": "I32",
           "description": "index 0..n-1 specifies what you want to delete from the array, such as an element, row, column, or page. Array functions in LabVIEW access array data in row-major order. In a 2D array, row is the first, major index. Column is the last, minor index. In bigger multidimensional arrays, column remains the last index and the more major indexes are added to the front. Thus, vol is the first index, followed by page, row, and column. These names are index identifiers and have no other meaning. The defau",
           "default_value": "the index of the last element in the array",
           "enum_values": null,
@@ -197,8 +167,6 @@
         },
         {
           "name": "array w/ subset deleted",
-          "direction": "in",
-          "type": "Array",
           "description": "array w/ subset deleted is the array returned with the deleted element(s), row(s), column(s), or Functions 398 ni.com page(s).",
           "default_value": null,
           "enum_values": null,
@@ -206,8 +174,6 @@
         },
         {
           "name": "deleted portion",
-          "direction": "in",
-          "type": "I32",
           "description": "deleted portion is the deleted element or array. If you wire a value to length, deleted portion is an array of the same number of dimensions as n- dim array containing all the elements deleted from n-dim array. The outer dimension size of deleted portion is the value of length, and the inner dimension size(s) match that of n-dim array. For example, if you wire a 3D array of dimensions 10x4x6 to n-dim array and a value of 2 to length, and do not wire values to the index inputs, deleted portion is",
           "default_value": null,
           "enum_values": null,
@@ -227,8 +193,6 @@
       "terminals": [
         {
           "name": "element",
-          "direction": "in",
-          "type": null,
           "description": "element is the value used to initialize all elements of initialized array. element can be any scalar type.",
           "default_value": null,
           "enum_values": null,
@@ -236,8 +200,6 @@
         },
         {
           "name": "dimension size",
-          "direction": "in",
-          "type": "I32",
           "description": "dimension size 0..n-1 must be a number. The function creates an empty array if any dimension size is less than or equal to 0. You must have n dimension size terminals for n-dimensions.",
           "default_value": null,
           "enum_values": null,
@@ -245,8 +207,6 @@
         },
         {
           "name": "initialized array",
-          "direction": "in",
-          "type": "Array",
           "description": "initialized array is an array of the same type as the type you wire to element.",
           "default_value": null,
           "enum_values": null,
@@ -266,8 +226,6 @@
       "terminals": [
         {
           "name": "element",
-          "direction": "in",
-          "type": "Array",
           "description": "array or element can be any n-dimensional array or scalar element. All inputs must be either elements and 1D arrays or n-dimensional and (n-1)-dimensional arrays. Functions 400 ni.com All inputs must have the same base type.",
           "default_value": null,
           "enum_values": null,
@@ -275,8 +233,6 @@
         },
         {
           "name": "appended array",
-          "direction": "out",
-          "type": "Array",
           "description": "appended array is the resulting array. When you place the function on the block diagram, it has only one input available. Add inputs to the node by right-clicking an input and selecting Add Input from the shortcut menu or by resizing the node. If you wire control references of different classes to this function, this function typecasts the references to a more generic class that is the lowest common class in the inheritance hierarchy. This function then returns appended array with that class. Th",
           "default_value": null,
           "enum_values": null,
@@ -296,8 +252,6 @@
       "terminals": [
         {
           "name": "array",
-          "direction": "in",
-          "type": "Array",
           "description": "array can be an n-dimensional array of any type.",
           "default_value": null,
           "enum_values": null,
@@ -305,8 +259,6 @@
         },
         {
           "name": "index",
-          "direction": "in",
-          "type": "I32",
           "description": "index specifies the first element, row, column, or page to include in the portion of array you want to return. If index is less than 0, the function treats it as 0. If index is greater than or equal to the array size, the function returns an empty array.",
           "default_value": null,
           "enum_values": null,
@@ -314,8 +266,6 @@
         },
         {
           "name": "length",
-          "direction": "in",
-          "type": "I32",
           "description": "length specifies how many elements, rows, columns, or pages to include in the portion of array Functions 402 ni.com you want to return. If index plus length is larger than the size of the array, the function returns only as much data as is available. The default is the length from index to the end of array. If length is less than 0, the function treats it as 0.",
           "default_value": "the length from index to the end of array",
           "enum_values": null,
@@ -323,8 +273,6 @@
         },
         {
           "name": "subarray",
-          "direction": "in",
-          "type": "I32",
           "description": "subarray is of the same type as array. When you wire an array to this function, the function resizes automatically to display index and length inputs for each dimension in the array. If you wire a 1D array to the function, the function displays the index inputs for an element. If you wire a 2D array to the function, the function displays the index inputs for a row and column, respectively. If you wire a 3D through nD array to the function, the function displays the index inputs for a page. The c",
           "default_value": "data types for this polymorphic function",
           "enum_values": null,
@@ -344,8 +292,6 @@
       "terminals": [
         {
           "name": "array",
-          "direction": "in",
-          "type": "Array",
           "description": "Functions \u00a9 National Instruments 403 array can be an n-dimensional array of any type.",
           "default_value": null,
           "enum_values": null,
@@ -353,8 +299,6 @@
         },
         {
           "name": "max value",
-          "direction": "in",
-          "type": null,
           "description": "max value is of the same data type and structure as the elements in array.",
           "default_value": null,
           "enum_values": null,
@@ -362,8 +306,6 @@
         },
         {
           "name": "max index(es)",
-          "direction": "in",
-          "type": "I32",
           "description": "max index(es) is the index for the first max value. If array is multidimensional, max index(es) is an array whose elements are the indexes for the first maximum value in array.",
           "default_value": null,
           "enum_values": null,
@@ -371,8 +313,6 @@
         },
         {
           "name": "min value",
-          "direction": "in",
-          "type": null,
           "description": "min value is of the same data type and structure as the elements in array.",
           "default_value": null,
           "enum_values": null,
@@ -380,8 +320,6 @@
         },
         {
           "name": "min index(es)",
-          "direction": "in",
-          "type": "I32",
           "description": "min index(es) is the index for the first min value. If array is multidimensional, min index(es) is an array whose elements are the indexes for the first minimum value in array. The function compares each data type according to the rules for Array Comparison. If a numeric array has one dimension, the max index and min index outputs are scalar integers. If a numeric array has more than one dimension, these outputs are 1D arrays that contain the indexes of the maximum and minimum values. If the inp",
           "default_value": null,
           "enum_values": null,
@@ -401,8 +339,6 @@
       "terminals": [
         {
           "name": "array",
-          "direction": "in",
-          "type": "Array",
           "description": "n-dim array can be an n-dimensional array of any type.",
           "default_value": null,
           "enum_values": null,
@@ -410,8 +346,6 @@
         },
         {
           "name": "dimension size",
-          "direction": "in",
-          "type": null,
           "description": "dimension size 0..m-1 specifies the dimensions of m-dim array and must be a numeric. The function creates an empty array if any dimension size is 0. You must have m dimension size terminals for m-dimensions.",
           "default_value": null,
           "enum_values": null,
@@ -419,8 +353,6 @@
         },
         {
           "name": "output array",
-          "direction": "out",
-          "type": "I32",
           "description": "m-dim array If the product of the dimension sizes is greater than the number of elements in the input array, the function pads the new array with the default of the data type of n-dim array. If the product of the dimension sizes is less than the number of elements in the input array, the function truncates the array. This function adjusts the array data in memory according to the reshaped array dimensions. This function pads or truncates the data if necessary. For example, if you pass a 1D array",
           "default_value": "of the data type of n-dim array",
           "enum_values": null,
@@ -440,8 +372,6 @@
       "terminals": [
         {
           "name": "array",
-          "direction": "in",
-          "type": "Array",
           "description": "unsorted array can be a 1D array of any type.",
           "default_value": null,
           "enum_values": null,
@@ -449,8 +379,6 @@
         },
         {
           "name": "sorted array",
-          "direction": "out",
-          "type": "Array",
           "description": "sorted array is the output array.",
           "default_value": null,
           "enum_values": null,
@@ -470,8 +398,6 @@
       "terminals": [
         {
           "name": "2D array",
-          "direction": "in",
-          "type": "Array",
           "description": "2D array specifies the 2D array that you want to sort. This input accepts an array of any data type except refnums.",
           "default_value": null,
           "enum_values": null,
@@ -479,8 +405,6 @@
         },
         {
           "name": "dimension to index (column)",
-          "direction": "in",
-          "type": "I32",
           "description": "dimension to index specifies the dimension of the 2D array to sort by. 0 column (default)\u2014Rearranges the rows by sorting the elements in the indexed column in ascending order. 1 row\u2014Rearranges the columns by sorting the elements in the indexed row in ascending order.",
           "default_value": null,
           "enum_values": [
@@ -497,8 +421,6 @@
         },
         {
           "name": "index",
-          "direction": "in",
-          "type": "Enum",
           "description": "index specifies the index of the column or row with elements that you want to rearrange. This input accepts a signed 32-bit integer or an array of signed 32-bit integers.",
           "default_value": null,
           "enum_values": null,
@@ -506,8 +428,6 @@
         },
         {
           "name": "sorted 2D array",
-          "direction": "out",
-          "type": "Array",
           "description": "sorted 2D array returns a sorted version of the 2D array.",
           "default_value": null,
           "enum_values": null,
@@ -515,8 +435,6 @@
         },
         {
           "name": "index out of range?",
-          "direction": "out",
-          "type": "Boolean",
           "description": "index out of range? returns TRUE if the indexed column or row, or any of the indexed columns or rows does not exist in the 2D array. Otherwise, this output returns FALSE. The example below demonstrates how this VI sorts the following 2D array if dimension to index is column. Alice 28 Female developer Robert 31 Male Manager David 29 Male Technician Kate 29 Female Engineer Functions",
           "default_value": null,
           "enum_values": null,
@@ -536,8 +454,6 @@
       "terminals": [
         {
           "name": "array",
-          "direction": "in",
-          "type": "Array",
           "description": "array specifies the 1D array with elements that you want to shuffle. The array can be a 1D array of any data type.",
           "default_value": null,
           "enum_values": null,
@@ -545,8 +461,6 @@
         },
         {
           "name": "shuffled array",
-          "direction": "out",
-          "type": "Array",
           "description": "shuffled array returns a shuffled version of the 1D array. Examples Refer to the following example files included with LabVIEW.",
           "default_value": null,
           "enum_values": null,
@@ -554,8 +468,6 @@
         },
         {
           "name": "labview\\examples\\Malleable VIs\\Basics\\Malleable VIs",
-          "direction": "in",
-          "type": null,
           "description": "",
           "default_value": null,
           "enum_values": null,
@@ -575,8 +487,6 @@
       "terminals": [
         {
           "name": "array",
-          "direction": "in",
-          "type": "Array",
           "description": "array specifies the 2D array with elements that you want to shuffle. The array can be a 2D array of any data type.",
           "default_value": null,
           "enum_values": null,
@@ -584,8 +494,6 @@
         },
         {
           "name": "shuffled array",
-          "direction": "out",
-          "type": "Array",
           "description": "shuffled array returns a shuffled version of the 2D array. Functions 410 ni.com",
           "default_value": null,
           "enum_values": null,
@@ -605,8 +513,6 @@
       "terminals": [
         {
           "name": "array",
-          "direction": "in",
-          "type": "Array",
           "description": "array is a one-dimensional array of any type.",
           "default_value": null,
           "enum_values": null,
@@ -614,8 +520,6 @@
         },
         {
           "name": "reversed array",
-          "direction": "in",
-          "type": "Array",
           "description": "reversed array. If array has n elements, array[0] becomes reversed array[n-1], array[1] becomes reversed array[n-2], and so on.",
           "default_value": null,
           "enum_values": null,
@@ -635,8 +539,6 @@
       "terminals": [
         {
           "name": "1D array",
-          "direction": "in",
-          "type": "Array",
           "description": "1D array can be a 1D array of any type.",
           "default_value": null,
           "enum_values": null,
@@ -644,8 +546,6 @@
         },
         {
           "name": "element",
-          "direction": "in",
-          "type": null,
           "description": "Functions \u00a9 National Instruments 411 element is the value to search for in the array. element must be the same data type as the elements in 1D array.",
           "default_value": null,
           "enum_values": null,
@@ -653,8 +553,6 @@
         },
         {
           "name": "start index (0)",
-          "direction": "in",
-          "type": "I32",
           "description": "start index is the index that LabVIEW begins the search from. The default is 0.",
           "default_value": "0",
           "enum_values": null,
@@ -662,8 +560,6 @@
         },
         {
           "name": "index of element",
-          "direction": "in",
-          "type": "I32",
           "description": "index of element is the index where element is found. If the function does not find element, index of element is \u20131. You cannot use this function to retrieve the index of a value that is not an element of the array. For example, if you have an array of two elements (0.0 and 1.0), this function does not find the index of the value 0.5, as that value is not an element of the array. Use the Threshold 1D Array to find a fractional index. This function only finds a string if the element you specify m",
           "default_value": null,
           "enum_values": null,
@@ -683,8 +579,6 @@
       "terminals": [
         {
           "name": "array",
-          "direction": "in",
-          "type": "Array",
           "description": "Functions 412 ni.com array can be a 1D array of any type.",
           "default_value": null,
           "enum_values": null,
@@ -692,8 +586,6 @@
         },
         {
           "name": "index",
-          "direction": "in",
-          "type": "I32",
           "description": "index must be numeric. If index is negative or 0, first subarray is empty. If index is equal to or greater than the size of array, second subarray is empty.",
           "default_value": null,
           "enum_values": null,
@@ -701,8 +593,6 @@
         },
         {
           "name": "first subarray",
-          "direction": "in",
-          "type": "I32",
           "description": "first subarray contains array[0] through array[index-1].",
           "default_value": null,
           "enum_values": null,
@@ -710,8 +600,6 @@
         },
         {
           "name": "second subarray",
-          "direction": "in",
-          "type": "Array",
           "description": "second subarray contains the remaining array elements not already contained in first subarray. If the input array is empty, both output arrays are empty. This function does not generate an error if you pass in an empty array.",
           "default_value": null,
           "enum_values": null,
@@ -731,8 +619,6 @@
       "terminals": [
         {
           "name": "array",
-          "direction": "in",
-          "type": "Array",
           "description": "array can be a 1D array of any type.",
           "default_value": null,
           "enum_values": null,
@@ -740,8 +626,6 @@
         },
         {
           "name": "array (last n elements first)",
-          "direction": "out",
-          "type": "I32",
           "description": "Functions \u00a9 National Instruments 413 array (last n elements first) is the output array. For example, if n is 1, the input array[0] becomes output array[1], input array[1] becomes output array[2], and so on, and input array[m\u20131] becomes output array[0], where m is the number of elements in the array. If n is \u20132, input array[0] becomes output array[m\u20132], input array[1] becomes output array[m\u20131], and so on, and input array[m\u20131] becomes output array[m\u20133], where m is the number of elements in the arr",
           "default_value": null,
           "enum_values": null,
@@ -761,8 +645,6 @@
       "terminals": [
         {
           "name": "array in",
-          "direction": "in",
-          "type": "Array",
           "description": "array in specifies the 1D array with the element that you want to increment. This input accepts an array or an array of clusters of the following data types:",
           "default_value": null,
           "enum_values": null,
@@ -770,8 +652,6 @@
         },
         {
           "name": "Numbers",
-          "direction": "in",
-          "type": null,
           "description": "",
           "default_value": null,
           "enum_values": null,
@@ -779,8 +659,6 @@
         },
         {
           "name": "Timestamps",
-          "direction": "in",
-          "type": null,
           "description": "",
           "default_value": null,
           "enum_values": null,
@@ -788,8 +666,6 @@
         },
         {
           "name": "Analog Waveforms",
-          "direction": "in",
-          "type": null,
           "description": "",
           "default_value": null,
           "enum_values": null,
@@ -797,8 +673,6 @@
         },
         {
           "name": "index",
-          "direction": "in",
-          "type": "Enum",
           "description": "index specifies the index of the element in the array that you want to increment. This input accepts a signed 32-bit integer or an array of signed 32-bit integers.",
           "default_value": null,
           "enum_values": null,
@@ -806,8 +680,6 @@
         },
         {
           "name": "array out",
-          "direction": "out",
-          "type": "Array",
           "description": "array out returns the 1D array with the specified element incremented. Examples Refer to the following example files included with LabVIEW. Functions 414 ni.com",
           "default_value": null,
           "enum_values": null,
@@ -815,8 +687,6 @@
         },
         {
           "name": "labview\\examples\\Malleable VIs\\Basics\\Malleable VIs",
-          "direction": "in",
-          "type": null,
           "description": "",
           "default_value": null,
           "enum_values": null,
@@ -836,8 +706,6 @@
       "terminals": [
         {
           "name": "array in",
-          "direction": "in",
-          "type": "Array",
           "description": "array in specifies the 1D array with the element that you want to decrement. This input accepts an array or an array of clusters of the following data types:",
           "default_value": null,
           "enum_values": null,
@@ -845,8 +713,6 @@
         },
         {
           "name": "Numbers",
-          "direction": "in",
-          "type": null,
           "description": "",
           "default_value": null,
           "enum_values": null,
@@ -854,8 +720,6 @@
         },
         {
           "name": "Timestamps",
-          "direction": "in",
-          "type": null,
           "description": "",
           "default_value": null,
           "enum_values": null,
@@ -863,8 +727,6 @@
         },
         {
           "name": "Analog Waveforms",
-          "direction": "in",
-          "type": null,
           "description": "",
           "default_value": null,
           "enum_values": null,
@@ -872,8 +734,6 @@
         },
         {
           "name": "index",
-          "direction": "in",
-          "type": "Enum",
           "description": "index specifies the index of the element in the array that you want to decrement. This input accepts a signed 32-bit integer or an array of signed 32-bit integers.",
           "default_value": null,
           "enum_values": null,
@@ -881,8 +741,6 @@
         },
         {
           "name": "array out",
-          "direction": "out",
-          "type": "Array",
           "description": "array out returns the 1D array with the specified element decremented.",
           "default_value": null,
           "enum_values": null,
@@ -902,8 +760,6 @@
       "terminals": [
         {
           "name": "array of numbers or points",
-          "direction": "in",
-          "type": "I32",
           "description": "array of numbers or points can be an array of numbers or an array of points where each point is a cluster of x and y coordinates. If this input is an array of points, the function uses the first element in the cluster (x) to obtain a fractional index by linear interpolation. The function then uses this fractional index to compute the output y value from the second cluster element (y).",
           "default_value": null,
           "enum_values": null,
@@ -911,8 +767,6 @@
         },
         {
           "name": "fractional index or x",
-          "direction": "in",
-          "type": "I32",
           "description": "fractional index or x is the index or x-value at which the function should return a y-value. For example, if array of numbers or points contains two double-precision, floating-point numeric values, 5 and 7, and fractional index or x is set to 0.5, the function returns 6.0, which is halfway between the values at elements 0 and 1. If array of numbers or points contains an array of data point sets, the function returns the linearly interpolated y value at the x-value corresponding to fractional ind",
           "default_value": null,
           "enum_values": null,
@@ -920,8 +774,6 @@
         },
         {
           "name": "y value",
-          "direction": "in",
-          "type": "I32",
           "description": "y value is the interpolated value of the element at the fractional index or the interpolated y- value of the fractional data point, in array of numbers or points. You can wire an array of numeric values or an array of data point sets to this function. If you wire an array of numeric values, the function interprets fractional index or x as a reference to the array elements. If you wire an array of data point sets, the function interprets fractional index or x as a reference to the x-value element",
           "default_value": null,
           "enum_values": null,
@@ -941,8 +793,6 @@
       "terminals": [
         {
           "name": "array of numbers or points",
-          "direction": "in",
-          "type": "I32",
           "description": "array of numbers or points can be an array of numbers or an array of points where each point is a cluster of x- and y-coordinates. If this input is an array of points, this function uses the second elements in the clusters, or the y- coordinates, to obtain a fractional index that it then uses to interpolate the corresponding x value.",
           "default_value": null,
           "enum_values": null,
@@ -950,8 +800,6 @@
         },
         {
           "name": "threshold y",
-          "direction": "in",
-          "type": "I32",
           "description": "threshold y is the threshold value for the function. If threshold y is less than or equal to the array value at start index, the function returns start index for fractional index or x. If threshold y is greater than every value in the array, the function returns the index of the last value. If the array is empty, the function returns NaN.",
           "default_value": null,
           "enum_values": null,
@@ -959,8 +807,6 @@
         },
         {
           "name": "start index (0)",
-          "direction": "out",
-          "type": "I32",
           "description": "start index must be a number. The default is 0, which means the function returns the result calculated from the entire array, rather than a specified section of the array.",
           "default_value": "0, which means the function returns the result calculated from the entire array, rather than a specified section of the array",
           "enum_values": null,
@@ -968,8 +814,6 @@
         },
         {
           "name": "fractional index or x",
-          "direction": "in",
-          "type": "Array",
           "description": "Note If you wire an array of data points to this function, the data points must be sorted by increasing x-value. Functions",
           "default_value": null,
           "enum_values": null,
@@ -989,8 +833,6 @@
       "terminals": [
         {
           "name": "array",
-          "direction": "in",
-          "type": "I32",
           "description": "array 0..n-1 must be 1D. If the input array is not the same size, the number of elements in interleaved array equals the number of elements in the smallest input array multiplied by the number of input arrays.",
           "default_value": null,
           "enum_values": null,
@@ -998,8 +840,6 @@
         },
         {
           "name": "array",
-          "direction": "in",
-          "type": null,
           "description": "",
           "default_value": null,
           "enum_values": null,
@@ -1007,8 +847,6 @@
         },
         {
           "name": "interleaved array",
-          "direction": "in",
-          "type": "I32",
           "description": "interleaved array[0] contains array 0[0], interleaved array[1] contains array 1[0], interleaved array[n-1] contains array n-1[0], interleaved array[n] contains array 0[1], and so on, where n is the number of input terminals. The following table shows how elements from the input arrays affect interleaved array. array 0 array 1 array 2 interleaved array [0, 3] [1, 4] [2, 5] [0, 1, 2, 3, 4, 5] [0, 3, 5] [1] [2, 4] [0, 1, 2]",
           "default_value": null,
           "enum_values": null,
@@ -1028,8 +866,6 @@
       "terminals": [
         {
           "name": "array",
-          "direction": "in",
-          "type": "Array",
           "description": "array can be a 1D array of any type.",
           "default_value": null,
           "enum_values": null,
@@ -1037,8 +873,6 @@
         },
         {
           "name": "decimated array",
-          "direction": "in",
-          "type": "I32",
           "description": "elements 0, n, 2n, \u2026 is the first output array. The function stores array[0] at index 0 of the first output array, array[1] is stored at index 0 of the second output array, array[n-1] at index 0 of the last output array, array[n] at index 1 of the first output array, and so on, where n is the number of output terminals for this function. For example, assume the array has 16 elements and that you wire four output arrays. The first output array receives elements 0, 4, 8, and 12. The second output ",
           "default_value": null,
           "enum_values": null,
@@ -1046,8 +880,6 @@
         },
         {
           "name": "decimated array",
-          "direction": "in",
-          "type": null,
           "description": "elements 1, n+1, 2n+1, \u2026 is the second output array, and so on.",
           "default_value": null,
           "enum_values": null,
@@ -1067,8 +899,6 @@
       "terminals": [
         {
           "name": "2D array",
-          "direction": "in",
-          "type": "Array",
           "description": "Functions 420 ni.com 2D array can be a 2D array of any type.",
           "default_value": null,
           "enum_values": null,
@@ -1076,8 +906,6 @@
         },
         {
           "name": "transposed array",
-          "direction": "out",
-          "type": "Array",
           "description": "transposed array is the output array.",
           "default_value": null,
           "enum_values": null,
@@ -1097,8 +925,6 @@
       "terminals": [
         {
           "name": "array",
-          "direction": "in",
-          "type": "Array",
           "description": "Functions \u00a9 National Instruments 421 array is a one-dimensional array of any type.",
           "default_value": null,
           "enum_values": null,
@@ -1106,8 +932,6 @@
         },
         {
           "name": "cluster",
-          "direction": "in",
-          "type": null,
           "description": "Each element in cluster is the same as the corresponding element in array. The cluster order matches the order of the elements in the array.",
           "default_value": null,
           "enum_values": null,
@@ -1115,8 +939,6 @@
         },
         {
           "name": "labview\\examples\\Arrays\\Array to Cluster.vi",
-          "direction": "in",
-          "type": null,
           "description": "",
           "default_value": null,
           "enum_values": null,
@@ -1136,8 +958,6 @@
       "terminals": [
         {
           "name": "cluster",
-          "direction": "in",
-          "type": "Array",
           "description": "The cluster components cannot be arrays.",
           "default_value": null,
           "enum_values": null,
@@ -1145,8 +965,6 @@
         },
         {
           "name": "array",
-          "direction": "in",
-          "type": "Array",
           "description": "The elements in array are of the same type as the elements in cluster. The order of the elements in array is the same as the cluster order of the elements. Examples Refer to the following example files included with LabVIEW.",
           "default_value": null,
           "enum_values": null,
@@ -1154,8 +972,6 @@
         },
         {
           "name": "labview\\examples\\Arrays\\Array to Cluster.vi",
-          "direction": "in",
-          "type": null,
           "description": "",
           "default_value": null,
           "enum_values": null,
@@ -1175,8 +991,6 @@
       "terminals": [
         {
           "name": "Real 2D Array",
-          "direction": "in",
-          "type": "Array",
           "description": "Real 2D Array specifies a two-dimensional array.",
           "default_value": null,
           "enum_values": null,
@@ -1184,8 +998,6 @@
         },
         {
           "name": "Real Matrix",
-          "direction": "in",
-          "type": "I32",
           "description": "The elements in Real Matrix are of the same type as the elements in Real 2D Array. The order of the elements in Real Matrix is the same as the Real 2D Array order of the elements. If the array elements are not real or complex double-precision floating-point numbers, LabVIEW converts the array elements to the closest data type. LabVIEW stores the elements of 1D arrays in the first column of the matrix. Functions 424 ni.com Examples Refer to the following example files included with LabVIEW.",
           "default_value": null,
           "enum_values": null,
@@ -1193,8 +1005,6 @@
         },
         {
           "name": "labview\\examples\\Mathematics\\Linear Algebra\\Matrix",
-          "direction": "in",
-          "type": null,
           "description": "",
           "default_value": null,
           "enum_values": null,
@@ -1202,8 +1012,6 @@
         },
         {
           "name": "labview\\examples\\Mathematics\\Linear Algebra\\Matrix to a",
-          "direction": "in",
-          "type": null,
           "description": "",
           "default_value": null,
           "enum_values": null,
@@ -1223,8 +1031,6 @@
       "terminals": [
         {
           "name": "Real 2D Array",
-          "direction": "in",
-          "type": "Array",
           "description": "Real 2D Array specifies a two-dimensional array.",
           "default_value": null,
           "enum_values": null,
@@ -1232,8 +1038,6 @@
         },
         {
           "name": "Real Matrix",
-          "direction": "in",
-          "type": "I32",
           "description": "The elements in Real Matrix are of the same type as the elements in Real 2D Array. The order of the elements in Real Matrix is the same as the Real 2D Array order of the elements. If the array elements are not real or complex double-precision floating-point numbers, LabVIEW converts the array elements to the closest data type. LabVIEW stores the elements of 1D arrays in the first column of the matrix. Functions 424 ni.com Examples Refer to the following example files included with LabVIEW.",
           "default_value": null,
           "enum_values": null,
@@ -1241,8 +1045,6 @@
         },
         {
           "name": "labview\\examples\\Mathematics\\Linear Algebra\\Matrix",
-          "direction": "in",
-          "type": null,
           "description": "",
           "default_value": null,
           "enum_values": null,
@@ -1250,8 +1052,6 @@
         },
         {
           "name": "labview\\examples\\Mathematics\\Linear Algebra\\Matrix to a",
-          "direction": "in",
-          "type": null,
           "description": "",
           "default_value": null,
           "enum_values": null,
@@ -1271,8 +1071,6 @@
       "terminals": [
         {
           "name": "Real 1D Array",
-          "direction": "in",
-          "type": "Array",
           "description": "Real 1D Array specifies a one-dimensional array.",
           "default_value": null,
           "enum_values": null,
@@ -1280,8 +1078,6 @@
         },
         {
           "name": "Real Matrix (Column Vector)",
-          "direction": "in",
-          "type": "I32",
           "description": "The elements in Real Matrix (Column Vector) are of the same type as the elements in Real 1D Array. The order of the elements in Real Matrix (Column Vector) is the same as the Real 1D Array order of the elements. If the array elements are not real or complex double-precision floating-point numbers, LabVIEW converts the array elements to the closest data type. LabVIEW stores the elements of 1D arrays in the first column of the matrix. Examples Refer to the following example files included with Lab",
           "default_value": null,
           "enum_values": null,
@@ -1301,8 +1097,6 @@
       "terminals": [
         {
           "name": "Complex 2D Array",
-          "direction": "in",
-          "type": "Array",
           "description": "Complex 2D Array specifies a complex two-dimensional array.",
           "default_value": null,
           "enum_values": null,
@@ -1310,8 +1104,6 @@
         },
         {
           "name": "Complex Matrix",
-          "direction": "in",
-          "type": "I32",
           "description": "The elements in Complex Matrix are of the same type as the elements in Complex 2D Array. The order of the elements in Complex Matrix is the same as the Complex 2D Array order of the elements. If the array elements are not real or complex double-precision floating-point numbers, LabVIEW converts the array elements to the closest data type. LabVIEW stores the elements of 1D arrays in the first column of the matrix. Examples Refer to the following example files included with LabVIEW.",
           "default_value": null,
           "enum_values": null,
@@ -1319,8 +1111,6 @@
         },
         {
           "name": "labview\\examples\\Mathematics\\Linear Algebra\\Matrix",
-          "direction": "in",
-          "type": null,
           "description": "",
           "default_value": null,
           "enum_values": null,
@@ -1328,8 +1118,6 @@
         },
         {
           "name": "labview\\examples\\Mathematics\\Linear Algebra\\Matrix to a",
-          "direction": "in",
-          "type": null,
           "description": "",
           "default_value": null,
           "enum_values": null,
@@ -1349,8 +1137,6 @@
       "terminals": [
         {
           "name": "Complex 1D Array",
-          "direction": "in",
-          "type": "Array",
           "description": "Complex 1D Array specifies a complex one-dimensional array.",
           "default_value": null,
           "enum_values": null,
@@ -1358,8 +1144,6 @@
         },
         {
           "name": "Complex Matrix (Column Vector)",
-          "direction": "in",
-          "type": "I32",
           "description": "The elements in Complex Matrix (Column Vector) are of the same type as the elements in Complex 1D Array. The order of the elements in Complex Matrix (Column Vector) is the same as the Complex 1D Array order of the elements. If the array elements are not real or complex double-precision floating-point numbers, LabVIEW converts the array elements to the closest data type. LabVIEW stores the elements of 1D arrays in the first column of the matrix. Examples Refer to the following example files inclu",
           "default_value": null,
           "enum_values": null,
@@ -1367,8 +1151,6 @@
         },
         {
           "name": "labview\\examples\\Mathematics\\Linear Algebra\\Matrix",
-          "direction": "in",
-          "type": null,
           "description": "",
           "default_value": null,
           "enum_values": null,
@@ -1376,8 +1158,6 @@
         },
         {
           "name": "labview\\examples\\Mathematics\\Linear Algebra\\Matrix to a",
-          "direction": "in",
-          "type": null,
           "description": "",
           "default_value": null,
           "enum_values": null,
@@ -1397,8 +1177,6 @@
       "terminals": [
         {
           "name": "Real Matrix",
-          "direction": "in",
-          "type": null,
           "description": "Real Matrix specifies a real matrix.",
           "default_value": null,
           "enum_values": null,
@@ -1406,8 +1184,6 @@
         },
         {
           "name": "Real 2D Array",
-          "direction": "in",
-          "type": "Array",
           "description": "The elements in Real 2D Array are of the same type as the elements in Real Matrix. The order of the elements in Real 2D Array is the same as the Real Matrix order of the elements. Functions 428 ni.com Examples Refer to the following example files included with LabVIEW.",
           "default_value": null,
           "enum_values": null,
@@ -1415,8 +1191,6 @@
         },
         {
           "name": "labview\\examples\\Mathematics\\Linear Algebra\\Matrix",
-          "direction": "in",
-          "type": null,
           "description": "",
           "default_value": null,
           "enum_values": null,
@@ -1436,8 +1210,6 @@
       "terminals": [
         {
           "name": "Real Matrix",
-          "direction": "in",
-          "type": null,
           "description": "Real Matrix specifies a real matrix.",
           "default_value": null,
           "enum_values": null,
@@ -1445,8 +1217,6 @@
         },
         {
           "name": "Real 2D Array",
-          "direction": "in",
-          "type": "Array",
           "description": "The elements in Real 2D Array are of the same type as the elements in Real Matrix. The order of the elements in Real 2D Array is the same as the Real Matrix order of the elements. Functions 428 ni.com Examples Refer to the following example files included with LabVIEW.",
           "default_value": null,
           "enum_values": null,
@@ -1454,8 +1224,6 @@
         },
         {
           "name": "labview\\examples\\Mathematics\\Linear Algebra\\Matrix",
-          "direction": "in",
-          "type": null,
           "description": "",
           "default_value": null,
           "enum_values": null,
@@ -1475,8 +1243,6 @@
       "terminals": [
         {
           "name": "Complex Matrix",
-          "direction": "in",
-          "type": null,
           "description": "Complex Matrix specifies a complex matrix.",
           "default_value": null,
           "enum_values": null,
@@ -1484,8 +1250,6 @@
         },
         {
           "name": "Complex 2D Array",
-          "direction": "in",
-          "type": "Array",
           "description": "The elements in Complex 2D Array are of the same type as the elements in Complex Matrix. The order of the elements in Complex 2D Array is the same as the Complex Matrix order of the elements. Examples Refer to the following example files included with LabVIEW.",
           "default_value": null,
           "enum_values": null,
@@ -1493,8 +1257,6 @@
         },
         {
           "name": "labview\\examples\\Mathematics\\Linear Algebra\\Matrix",
-          "direction": "in",
-          "type": null,
           "description": "",
           "default_value": null,
           "enum_values": null,
@@ -1514,8 +1276,6 @@
       "terminals": [
         {
           "name": "array",
-          "direction": "in",
-          "type": "Array",
           "description": "array specifies the input array. This input accepts a 1D array of any data type.",
           "default_value": null,
           "enum_values": null,
@@ -1523,8 +1283,6 @@
         },
         {
           "name": "array with duplicates removed",
-          "direction": "out",
-          "type": "Array",
           "description": "array with duplicates removed returns an array with the duplicate elements removed from array.",
           "default_value": null,
           "enum_values": null,
@@ -1544,8 +1302,6 @@
       "terminals": [
         {
           "name": "unsorted 1D array",
-          "direction": "in",
-          "type": "Array",
           "description": "unsorted 1D array can be a 1D array of any type.",
           "default_value": null,
           "enum_values": null,
@@ -1553,8 +1309,6 @@
         },
         {
           "name": "element",
-          "direction": "in",
-          "type": "Array",
           "description": "element is the value to search for in the array. element must be the same data type as the elements in 1D array.",
           "default_value": null,
           "enum_values": null,
@@ -1562,8 +1316,6 @@
         },
         {
           "name": "start index (0)",
-          "direction": "in",
-          "type": "I32",
           "description": "start index is the index that LabVIEW begins the search from. The default is 0.",
           "default_value": "0",
           "enum_values": null,
@@ -1571,8 +1323,6 @@
         },
         {
           "name": "equals function (built-in =)",
-          "direction": "in",
-          "type": "Boolean",
           "description": "equals function is the comparison used to search the array. By default, this is the same comparison the standard Equal? function uses. If the array element is a class with an Equals method that includes two inputs of the same type and a boolean output in the connector pane , the default changes to use that comparison. To specify a different sort order, wire this terminal to one of the following objects:",
           "default_value": "changes to use that comparison",
           "enum_values": null,
@@ -1580,8 +1330,6 @@
         },
         {
           "name": "A class that defines a Equals method with the following connector pane configuration",
-          "direction": "in",
-          "type": null,
           "description": "",
           "default_value": null,
           "enum_values": null,
@@ -1601,8 +1349,6 @@
       "terminals": [
         {
           "name": "unsorted array",
-          "direction": "in",
-          "type": "Array",
           "description": "unsorted array can be a 1D array of any type.",
           "default_value": null,
           "enum_values": null,
@@ -1610,8 +1356,6 @@
         },
         {
           "name": "less function (built-in <)",
-          "direction": "in",
-          "type": "Boolean",
           "description": "less function is the comparison used to search the array. By default, this is the same comparison the standard Less? function uses. If the array element is a class with a Less Than method that includes two inputs of the same type and a boolean output in the connector pane , the default changes to use that comparison. To specify a different sort order, wire this terminal to one of the following objects:",
           "default_value": "changes to use that comparison",
           "enum_values": null,
@@ -1619,8 +1363,6 @@
         },
         {
           "name": "A class that defines a Less Than method with the following connector pane configuration",
-          "direction": "in",
-          "type": null,
           "description": "",
           "default_value": null,
           "enum_values": null,
@@ -1628,8 +1370,6 @@
         },
         {
           "name": "A VI refnum with the following connector pane configuration",
-          "direction": "in",
-          "type": null,
           "description": "",
           "default_value": null,
           "enum_values": null,
@@ -1637,8 +1377,6 @@
         },
         {
           "name": "sorted array",
-          "direction": "out",
-          "type": "Array",
           "description": "sorted array is the output array. Examples Refer to the following example files included with LabVIEW.",
           "default_value": null,
           "enum_values": null,
@@ -1646,8 +1384,6 @@
         },
         {
           "name": "labview\\examples\\Malleable VIs\\Nested Malleable VIs\\",
-          "direction": "in",
-          "type": null,
           "description": "",
           "default_value": null,
           "enum_values": null,
@@ -1667,8 +1403,6 @@
       "terminals": [
         {
           "name": "sorted 1D array",
-          "direction": "in",
-          "type": "Array",
           "description": "sorted 1D array can be a 1D array of any type.",
           "default_value": null,
           "enum_values": null,
@@ -1676,8 +1410,6 @@
         },
         {
           "name": "element",
-          "direction": "in",
-          "type": null,
           "description": "Functions 434 ni.com element is the value to insert into the array. element must be the same data type as the elements in sorted 1D array.",
           "default_value": null,
           "enum_values": null,
@@ -1685,8 +1417,6 @@
         },
         {
           "name": "less function (built-in <)",
-          "direction": "in",
-          "type": "Boolean",
           "description": "less function is the comparison used to search the array. By default, this is the same comparison the standard Less? function uses. If the array element is a class with a Less Than method that includes two inputs of the same type and a boolean output in the connector pane , the default changes to use that comparison. To specify a different sort order, wire this terminal to one of the following objects:",
           "default_value": "changes to use that comparison",
           "enum_values": null,
@@ -1694,8 +1424,6 @@
         },
         {
           "name": "A class that defines a Less Than method with the following connector pane configuration",
-          "direction": "in",
-          "type": null,
           "description": "",
           "default_value": null,
           "enum_values": null,
@@ -1703,8 +1431,6 @@
         },
         {
           "name": "A VI refnum with the following connector pane configuration",
-          "direction": "in",
-          "type": null,
           "description": "",
           "default_value": null,
           "enum_values": null,
@@ -1712,8 +1438,6 @@
         },
         {
           "name": "found?",
-          "direction": "in",
-          "type": "Boolean",
           "description": "found? indicates whether the element was found.",
           "default_value": null,
           "enum_values": null,
@@ -1721,8 +1445,6 @@
         },
         {
           "name": "nearest index",
-          "direction": "in",
-          "type": "Boolean",
           "description": "nearest index is the index of the element if found? is TRUE. If found? is FALSE, nearest index is the index where the element would have been in the sorted array. If element is greater than all the elements in the array, nearest index is equal to the size of the array. If element is less than all the elements in the array, nearest index is 0. If you search an empty array, nearest index is 0. Functions",
           "default_value": null,
           "enum_values": null,
@@ -1742,8 +1464,6 @@
       "terminals": [
         {
           "name": "sorted 1D array",
-          "direction": "in",
-          "type": "Array",
           "description": "sorted 1D array can be a 1D array of any type.",
           "default_value": null,
           "enum_values": null,
@@ -1751,8 +1471,6 @@
         },
         {
           "name": "element",
-          "direction": "in",
-          "type": null,
           "description": "Functions 434 ni.com element is the value to insert into the array. element must be the same data type as the elements in sorted 1D array.",
           "default_value": null,
           "enum_values": null,
@@ -1760,8 +1478,6 @@
         },
         {
           "name": "less function (built-in <)",
-          "direction": "in",
-          "type": "Boolean",
           "description": "less function is the comparison used to search the array. By default, this is the same comparison the standard Less? function uses. If the array element is a class with a Less Than method that includes two inputs of the same type and a boolean output in the connector pane , the default changes to use that comparison. To specify a different sort order, wire this terminal to one of the following objects:",
           "default_value": "changes to use that comparison",
           "enum_values": null,
@@ -1769,8 +1485,6 @@
         },
         {
           "name": "A class that defines a Less Than method with the following connector pane configuration",
-          "direction": "in",
-          "type": null,
           "description": "",
           "default_value": null,
           "enum_values": null,
@@ -1778,8 +1492,6 @@
         },
         {
           "name": "A VI refnum with the following connector pane configuration",
-          "direction": "in",
-          "type": null,
           "description": "",
           "default_value": null,
           "enum_values": null,
@@ -1787,8 +1499,6 @@
         },
         {
           "name": "found?",
-          "direction": "in",
-          "type": "Boolean",
           "description": "found? indicates whether the element was found.",
           "default_value": null,
           "enum_values": null,
@@ -1796,8 +1506,6 @@
         },
         {
           "name": "nearest index",
-          "direction": "in",
-          "type": "Boolean",
           "description": "nearest index is the index of the element if found? is TRUE. If found? is FALSE, nearest index is the index where the element would have been in the sorted array. If element is greater than all the elements in the array, nearest index is equal to the size of the array. If element is less than all the elements in the array, nearest index is 0. If you search an empty array, nearest index is 0. Functions",
           "default_value": null,
           "enum_values": null,
@@ -1817,8 +1525,6 @@
       "terminals": [
         {
           "name": "sorted array in",
-          "direction": "in",
-          "type": "Array",
           "description": "sorted array in can be a 1D array of any type.",
           "default_value": null,
           "enum_values": null,
@@ -1826,8 +1532,6 @@
         },
         {
           "name": "element",
-          "direction": "in",
-          "type": "Array",
           "description": "element is the value to insert into the array. element must be the same data type as the elements in sorted array in.",
           "default_value": null,
           "enum_values": null,
@@ -1835,8 +1539,6 @@
         },
         {
           "name": "less function (built-in <)",
-          "direction": "in",
-          "type": "Boolean",
           "description": "less function is the comparison used to search the array. By default, this is the same comparison the standard Less? function uses. If the array element is a class with a Less Than method that includes two inputs of the same type and a boolean output in the connector pane , the default changes to use that comparison. To specify a different sort order, wire this terminal to one of the following objects:",
           "default_value": "changes to use that comparison",
           "enum_values": null,
@@ -1844,8 +1546,6 @@
         },
         {
           "name": "A class that defines a Less Than method with the following connector pane configuration",
-          "direction": "in",
-          "type": null,
           "description": "",
           "default_value": null,
           "enum_values": null,
@@ -1853,8 +1553,6 @@
         },
         {
           "name": "A VI refnum with the following connector pane configuration",
-          "direction": "in",
-          "type": null,
           "description": "",
           "default_value": null,
           "enum_values": null,
@@ -1862,8 +1560,6 @@
         },
         {
           "name": "sorted array out",
-          "direction": "in",
-          "type": "Array",
           "description": "sorted array out is the sorted array with the new element. Examples Refer to the following example files included with LabVIEW.",
           "default_value": null,
           "enum_values": null,
@@ -1871,8 +1567,6 @@
         },
         {
           "name": "labview\\examples\\Malleable VIs\\Nested Malleable VIs\\",
-          "direction": "in",
-          "type": null,
           "description": "",
           "default_value": null,
           "enum_values": null,
@@ -1892,8 +1586,6 @@
       "terminals": [
         {
           "name": "matrix",
-          "direction": "in",
-          "type": "I32",
           "description": "number of rows is the row dimension of the matrix.",
           "default_value": null,
           "enum_values": null,
@@ -1901,8 +1593,6 @@
         },
         {
           "name": "number of rows",
-          "direction": "in",
-          "type": "I32",
           "description": "number of columns is the column dimension of the matrix. Functions 438 ni.com",
           "default_value": null,
           "enum_values": null,
@@ -1910,8 +1600,6 @@
         },
         {
           "name": "number of columns",
-          "direction": "in",
-          "type": "Array",
           "description": "matrix must be a 2D array of any numeric type or a real or complex matrix.",
           "default_value": null,
           "enum_values": null,
@@ -1931,8 +1619,6 @@
       "terminals": [
         {
           "name": "element",
-          "direction": "in",
-          "type": null,
           "description": "matrix or element can be a numeric scalar, a real or complex matrix, or a 1D or 2D array of any numeric type.",
           "default_value": null,
           "enum_values": null,
@@ -1940,8 +1626,6 @@
         },
         {
           "name": "appended array",
-          "direction": "out",
-          "type": null,
           "description": "appended matrix is the resulting matrix. When you add the function to the block diagram, it has only one input available. Add inputs to the node by right-clicking an input and selecting Add Input from the shortcut menu or by resizing the node. The Build Matrix function operates in one of two different modes: Append by Rows or Append by Columns. When you add the function to the block diagram, the default mode is Append by Columns. If you right-click the function and select Build Matrix Mode\u00bbAppen",
           "default_value": "mode is Append by Columns",
           "enum_values": null,
@@ -1961,8 +1645,6 @@
       "terminals": [
         {
           "name": "matrix",
-          "direction": "in",
-          "type": "Array",
           "description": "matrix must be a 2D array of any numeric type or a real or complex matrix.",
           "default_value": null,
           "enum_values": null,
@@ -1970,8 +1652,6 @@
         },
         {
           "name": "number of rows",
-          "direction": "in",
-          "type": "I32",
           "description": "number of rows specifies the new row dimension.",
           "default_value": null,
           "enum_values": null,
@@ -1979,8 +1659,6 @@
         },
         {
           "name": "number of columns",
-          "direction": "in",
-          "type": "I32",
           "description": "Functions 440 ni.com number of columns specifies the new column dimension.",
           "default_value": null,
           "enum_values": null,
@@ -1988,8 +1666,6 @@
         },
         {
           "name": "resized matrix",
-          "direction": "in",
-          "type": "I32",
           "description": "resized matrix is matrix with the number of rows and columns you specify in number of rows and number of columns. If you do not wire number of rows, the function uses the row dimension of matrix to determine the number of rows in resized matrix. If you do not wire number of columns, the function uses the column dimension of matrix to determine the number of columns in resized matrix. If you increase the row or column dimensions of matrix, the function returns 0 at each exterior location. This fu",
           "default_value": null,
           "enum_values": null,
@@ -2009,8 +1685,6 @@
       "terminals": [
         {
           "name": "matrix",
-          "direction": "in",
-          "type": "Array",
           "description": "matrix must be a 2D array of any numeric type or a real or complex matrix.",
           "default_value": null,
           "enum_values": null,
@@ -2018,8 +1692,6 @@
         },
         {
           "name": "transposed matrix",
-          "direction": "out",
-          "type": "I32",
           "description": "transposed matrix is the output matrix with transposed elements. Functions \u00a9 National Instruments 441 The conjugate transpose of matrix rearranges the elements so that the element at index (i, j) in matrix becomes the conjugate of the element at (j, i) in transposed matrix. For a real matrix, the transpose and conjugate transpose operations produce the same result.",
           "default_value": null,
           "enum_values": null,
@@ -2039,8 +1711,6 @@
       "terminals": [
         {
           "name": "matrix",
-          "direction": "in",
-          "type": "Array",
           "description": "matrix must be a 2D array of any numeric type or a real or complex matrix.",
           "default_value": null,
           "enum_values": null,
@@ -2048,8 +1718,6 @@
         },
         {
           "name": "index (row)",
-          "direction": "in",
-          "type": "I32",
           "description": "row must be an integer or real number. row is the starting row index in the output. The default is 0.",
           "default_value": "0",
           "enum_values": null,
@@ -2057,8 +1725,6 @@
         },
         {
           "name": "index (col)",
-          "direction": "in",
-          "type": "I32",
           "description": "column must be an integer or real number. column is the starting column index in the output. The default is 0.",
           "default_value": "0",
           "enum_values": null,
@@ -2066,8 +1732,6 @@
         },
         {
           "name": "diagonal",
-          "direction": "in",
-          "type": "I32",
           "description": "matrix diagonal is the matrix or 2D array that contains the diagonal elements in matrix. The matrix diagonal output is a matrix or 2D array with one column and has the same the numeric type as matrix. If you wire a matrix to matrix, matrix diagonal returns a Functions 442 ni.com column vector. If you wire a 2D array to matrix, matrix diagonal returns a 2D array. If you do not wire row and column, matrix diagonal returns the main diagonal of matrix. If you do not wire column, matrix diagonal retu",
           "default_value": null,
           "enum_values": null,
@@ -2087,8 +1751,6 @@
       "terminals": [
         {
           "name": "matrix",
-          "direction": "in",
-          "type": "Array",
           "description": "matrix must be a 2D array of any numeric type or a real or complex matrix.",
           "default_value": null,
           "enum_values": null,
@@ -2096,8 +1758,6 @@
         },
         {
           "name": "index (row)",
-          "direction": "in",
-          "type": "I32",
           "description": "row must be an integer, a floating-point numeric, a 1D array of integers, or a 1D array of a floating-point numeric. The default is a 1D array of integers that contains all row indexes.",
           "default_value": "a 1D array of integers that contains all row indexes",
           "enum_values": null,
@@ -2105,8 +1765,6 @@
         },
         {
           "name": "index (col)",
-          "direction": "in",
-          "type": "I32",
           "description": "column must be an integer, a floating-point numeric, a 1D array of integers, or a 1D array of a floating-point numeric. The default is 0.",
           "default_value": "0",
           "enum_values": null,
@@ -2114,8 +1772,6 @@
         },
         {
           "name": "output matrix",
-          "direction": "out",
-          "type": "I32",
           "description": "element is the scalar, matrix, or 2D array that contains the matrix elements. The data type of element is the same as the data type of matrix. Add additional row and column inputs and element outputs by resizing the node. If matrix is an empty matrix or array, element returns an invalid operation value at each exterior location. If you do not wire row and column, element returns a column vector with the first column of matrix. Functions 444 ni.com If you do not wire column and you wire a numeric",
           "default_value": null,
           "enum_values": null,
@@ -2135,8 +1791,6 @@
       "terminals": [
         {
           "name": "matrix",
-          "direction": "in",
-          "type": "Array",
           "description": "matrix must be a 2D array of any numeric type or a real or complex matrix.",
           "default_value": null,
           "enum_values": null,
@@ -2144,8 +1798,6 @@
         },
         {
           "name": "row 1",
-          "direction": "in",
-          "type": "I32",
           "description": "row 1 must be an integer or real numeric. row 1 specifies the first row in matrix you want to appear in the output. The default is 0.",
           "default_value": "0",
           "enum_values": null,
@@ -2153,8 +1805,6 @@
         },
         {
           "name": "row N",
-          "direction": "in",
-          "type": "I32",
           "description": "row N must be an integer or real numeric. row N specifies the last row in matrix you want to appear in the output. The default is the index of the last row in matrix.",
           "default_value": "the index of the last row in matrix",
           "enum_values": null,
@@ -2162,8 +1812,6 @@
         },
         {
           "name": "column 1",
-          "direction": "in",
-          "type": "I32",
           "description": "column 1 must be an integer or real numeric. column 1 specifies the first column in matrix you want to appear in the output. The default is 0.",
           "default_value": "0",
           "enum_values": null,
@@ -2171,8 +1819,6 @@
         },
         {
           "name": "column N",
-          "direction": "in",
-          "type": "I32",
           "description": "column N must be an integer or real numeric. column N specifies the last column in matrix you want to appear in the output. The default is the index of the last column in matrix.",
           "default_value": "the index of the last column in matrix",
           "enum_values": null,
@@ -2180,8 +1826,6 @@
         },
         {
           "name": "submatrix",
-          "direction": "in",
-          "type": "I32",
           "description": "submatrix is a matrix that contains the submatrix. If matrix is an empty matrix or array, submatrix returns matrix. Functions 446 ni.com If you wire a matrix to matrix, submatrix returns a matrix with the same numeric type as matrix. If you wire a 2D array to matrix, submatrix returns a 2D array with the same numeric type as matrix. If you wire matrix but you do not wire the other inputs, submatrix returns matrix. If you do not wire inputs to row 1 and column 1, submatrix starts with the first e",
           "default_value": null,
           "enum_values": null,
@@ -2201,8 +1845,6 @@
       "terminals": [
         {
           "name": "matrix",
-          "direction": "in",
-          "type": "Array",
           "description": "matrix must be a 2D array of any numeric type or a real or complex matrix.",
           "default_value": null,
           "enum_values": null,
@@ -2210,8 +1852,6 @@
         },
         {
           "name": "disabled index (row)",
-          "direction": "in",
-          "type": "I32",
           "description": "row must be an integer or real number. row is the starting row index in the output. The default is 0.",
           "default_value": "0",
           "enum_values": null,
@@ -2219,8 +1859,6 @@
         },
         {
           "name": "index (col)",
-          "direction": "in",
-          "type": "I32",
           "description": "column must be an integer or real number. column is the starting column index in the output. The default is 0.",
           "default_value": "0",
           "enum_values": null,
@@ -2228,8 +1866,6 @@
         },
         {
           "name": "new diagonal/fill element",
-          "direction": "in",
-          "type": null,
           "description": "new diagonal can be a real or complex matrix or a 2D array of any numeric type. new diagonal specifies the elements to set.",
           "default_value": null,
           "enum_values": null,
@@ -2237,8 +1873,6 @@
         },
         {
           "name": "output matrix",
-          "direction": "out",
-          "type": "I32",
           "description": "output matrix is the matrix with the new diagonal. If you wire matrix and no other inputs, output matrix returns matrix with the main diagonal set to zero. If you wire column without row, output matrix returns matrix with the upper diagonal starting at (0, column) set to the new diagonal elements. If you wire row without column, output matrix returns matrix with the lower diagonal starting at (row, 0) set to the new diagonal elements. If you wire a matrix to new diagonal, the matrix must be a co",
           "default_value": null,
           "enum_values": null,
@@ -2258,8 +1892,6 @@
       "terminals": [
         {
           "name": "matrix",
-          "direction": "in",
-          "type": "Array",
           "description": "matrix must be a 2D array of any numeric type or a real or complex matrix.",
           "default_value": null,
           "enum_values": null,
@@ -2267,8 +1899,6 @@
         },
         {
           "name": "disabled index (row)",
-          "direction": "in",
-          "type": "I32",
           "description": "row must be an integer, a floating-point numeric, a 1D array of integers, or a 1D array of a floating-point numeric.",
           "default_value": null,
           "enum_values": null,
@@ -2276,8 +1906,6 @@
         },
         {
           "name": "index (col)",
-          "direction": "in",
-          "type": "I32",
           "description": "column must be an integer, a floating-point numeric, a 1D array of integers, or a 1D array of a floating-point numeric.",
           "default_value": null,
           "enum_values": null,
@@ -2285,8 +1913,6 @@
         },
         {
           "name": "new element/submatrix",
-          "direction": "in",
-          "type": "Array",
           "description": "new element is the scalar, matrix, or 2D array that replaces one or more elements in matrix.",
           "default_value": null,
           "enum_values": null,
@@ -2294,8 +1920,6 @@
         },
         {
           "name": "output matrix",
-          "direction": "out",
-          "type": "I32",
           "description": "output matrix is the matrix with the new elements. If matrix is an empty matrix or array, output matrix resizes to receive the new elements. Add additional row, column, and new element inputs and output matrix outputs by resizing the node. If you wire a 2D array to matrix, output matrix returns an array even if you wire a real or complex matrix to new element. If new element is a scalar or a matrix, output matrix returns matrix with the element Functions 450 ni.com at location (i, j) set to the ",
           "default_value": null,
           "enum_values": null,
@@ -2315,8 +1939,6 @@
       "terminals": [
         {
           "name": "matrix",
-          "direction": "in",
-          "type": "Array",
           "description": "matrix must be a 2D array of any numeric type or a real or complex matrix.",
           "default_value": null,
           "enum_values": null,
@@ -2324,8 +1946,6 @@
         },
         {
           "name": "row 1",
-          "direction": "in",
-          "type": "I32",
           "description": "row 1 must be an integer or real numeric. row 1 specifies the first row in matrix you want to appear in the output. The default is 0.",
           "default_value": "0",
           "enum_values": null,
@@ -2333,8 +1953,6 @@
         },
         {
           "name": "row N",
-          "direction": "in",
-          "type": "I32",
           "description": "row N must be an integer or real numeric. row N specifies the last row in matrix you want to appear in the output. The default is the index of the last row in matrix.",
           "default_value": "the index of the last row in matrix",
           "enum_values": null,
@@ -2342,8 +1960,6 @@
         },
         {
           "name": "column 1",
-          "direction": "in",
-          "type": "I32",
           "description": "column 1 must be an integer or real numeric. column 1 specifies the first column in matrix you want to appear in the output. The default is 0.",
           "default_value": "0",
           "enum_values": null,
@@ -2351,8 +1967,6 @@
         },
         {
           "name": "column N",
-          "direction": "in",
-          "type": "I32",
           "description": "column N must be an integer or real numeric. column N specifies the last column in matrix you want to appear in the output. The default is the index of the last column in matrix.",
           "default_value": "the index of the last column in matrix",
           "enum_values": null,
@@ -2360,8 +1974,6 @@
         },
         {
           "name": "new submatrix/fill element",
-          "direction": "in",
-          "type": null,
           "description": "new submatrix can be a real or complex matrix, a 2D array of any numeric type, or a numeric scalar. If you do not wire an input to new submatrix, the default is 0. Functions",
           "default_value": "0",
           "enum_values": null,
@@ -2392,8 +2004,6 @@
       "terminals": [
         {
           "name": "input cluster",
-          "direction": "in",
-          "type": null,
           "description": "input cluster is the cluster whose elements you want to access.",
           "default_value": null,
           "enum_values": null,
@@ -2401,8 +2011,6 @@
         },
         {
           "name": "element",
-          "direction": "in",
-          "type": null,
           "description": "element 0..m-1 is the element of input cluster called name 0..m-1. You can access only elements with owned labels. To select a named element, click a name terminal and select a name from the shortcut menu.",
           "default_value": null,
           "enum_values": null,
@@ -2422,8 +2030,6 @@
       "terminals": [
         {
           "name": "input cluster",
-          "direction": "in",
-          "type": null,
           "description": "input cluster is the cluster whose elements you want to replace. At least one element of input cluster must have an owned label. You must always wire the input cluster terminal.",
           "default_value": null,
           "enum_values": null,
@@ -2431,8 +2037,6 @@
         },
         {
           "name": "element",
-          "direction": "in",
-          "type": null,
           "description": "element 0..m-1 are the elements of input cluster you want to replace by name. You only can replace elements with owned labels. Select the correct element 0..m-1 by clicking a name terminal and selecting a name from the shortcut menu.",
           "default_value": null,
           "enum_values": null,
@@ -2440,8 +2044,6 @@
         },
         {
           "name": "output cluster",
-          "direction": "out",
-          "type": null,
           "description": "output cluster is the cluster whose value is the resulting cluster. When you use the Bundle by Name function on nested clusters, you can display both the element name and the owning cluster name for elements in the nested cluster by right-clicking the function and selecting Show Full Names. This is useful when element names in nested clusters are identical or similar.",
           "default_value": null,
           "enum_values": null,

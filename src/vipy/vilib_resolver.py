@@ -54,7 +54,7 @@ class VITerminal(BaseModel):
     """A terminal on a vilib VI."""
     name: str = ""
     index: int | None = None
-    direction: str = "in"
+    direction: str | None = None  # None = unknown, must come from observation
     type: str | None = None
     enum: str | None = None
     enum_values: list[tuple[int, str]] | None = None

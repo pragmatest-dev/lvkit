@@ -14,8 +14,6 @@
       "terminals": [
         {
           "name": "format (%.3f)",
-          "direction": "in",
-          "type": "I32",
           "description": "format specifies how to convert the numbers to characters. Note To format with Microsoft Excel, use ActiveX with LabVIEW or the Report Generation Toolkit for Microsoft Office. Functions 1440 ni.com If the format is %.3f (default), the VI creates a string long enough to contain the number, with three digits to the right of the decimal point. If format is %d, the VI converts the data to integer form using as many characters as necessary to contain the entire number. If format is %s, the VI copies ",
           "default_value": null,
           "enum_values": null,
@@ -23,8 +21,6 @@
         },
         {
           "name": "file path (dialog if empty)",
-          "direction": "in",
-          "type": "Path",
           "description": "file path is the path name of the file. If file path is empty (default) or is <Not A Path>, the VI displays a dialog box from which you can select a file. Error 43 occurs if you cancel the dialog box.",
           "default_value": null,
           "enum_values": null,
@@ -32,8 +28,6 @@
         },
         {
           "name": "2D data",
-          "direction": "in",
-          "type": null,
           "description": "2D data specifies the data to write to the file if 1D data is not wired or is empty.",
           "default_value": null,
           "enum_values": null,
@@ -41,8 +35,6 @@
         },
         {
           "name": "1D data",
-          "direction": "in",
-          "type": null,
           "description": "1D data specifies the data to write to the file if this input is not empty. The VI converts the 1D array into a 2D array before proceeding.",
           "default_value": null,
           "enum_values": null,
@@ -50,8 +42,6 @@
         },
         {
           "name": "append to file? (new file:F)",
-          "direction": "in",
-          "type": "Boolean",
           "description": "append to file? appends data to an existing file, if TRUE. If append to file? is FALSE (default), the VI replaces data in an existing file. If there is no existing file, the VI creates a new file.",
           "default_value": null,
           "enum_values": null,
@@ -59,8 +49,6 @@
         },
         {
           "name": "error in (no error)",
-          "direction": "in",
-          "type": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
           "default_value": null,
           "enum_values": null,
@@ -68,8 +56,6 @@
         },
         {
           "name": "transpose? (no:F)",
-          "direction": "in",
-          "type": "Boolean",
           "description": "transpose? specifies whether the VI transposes the data after converting it from a string. The default is FALSE. If transpose? is FALSE, each call to this VI creates a new line or row in the file.",
           "default_value": "FALSE",
           "enum_values": null,
@@ -77,8 +63,6 @@
         },
         {
           "name": "delimiter (\\t)",
-          "direction": "in",
-          "type": "String",
           "description": "delimiter is the character or string of characters to use to separate fields in the spreadsheet file. For example, a value of , (comma) specifies a single comma as the delimiter. The default is \\t, which specifies a single tab character as the delimiter. Functions",
           "default_value": "\\t, which specifies a single tab character as the delimiter",
           "enum_values": null,
@@ -98,8 +82,6 @@
       "terminals": [
         {
           "name": "format (%.3f)",
-          "direction": "in",
-          "type": "I32",
           "description": "format specifies how to convert the numbers to characters. Note To format with Microsoft Excel, use ActiveX with LabVIEW or the Report Generation Toolkit for Microsoft Office. Functions 1440 ni.com If the format is %.3f (default), the VI creates a string long enough to contain the number, with three digits to the right of the decimal point. If format is %d, the VI converts the data to integer form using as many characters as necessary to contain the entire number. If format is %s, the VI copies ",
           "default_value": null,
           "enum_values": null,
@@ -107,8 +89,6 @@
         },
         {
           "name": "file path (dialog if empty)",
-          "direction": "in",
-          "type": "Path",
           "description": "file path is the path name of the file. If file path is empty (default) or is <Not A Path>, the VI displays a dialog box from which you can select a file. Error 43 occurs if you cancel the dialog box.",
           "default_value": null,
           "enum_values": null,
@@ -116,8 +96,6 @@
         },
         {
           "name": "2D data",
-          "direction": "in",
-          "type": null,
           "description": "2D data specifies the data to write to the file if 1D data is not wired or is empty.",
           "default_value": null,
           "enum_values": null,
@@ -125,8 +103,6 @@
         },
         {
           "name": "1D data",
-          "direction": "in",
-          "type": null,
           "description": "1D data specifies the data to write to the file if this input is not empty. The VI converts the 1D array into a 2D array before proceeding.",
           "default_value": null,
           "enum_values": null,
@@ -134,8 +110,6 @@
         },
         {
           "name": "append to file? (new file:F)",
-          "direction": "in",
-          "type": "Boolean",
           "description": "append to file? appends data to an existing file, if TRUE. If append to file? is FALSE (default), the VI replaces data in an existing file. If there is no existing file, the VI creates a new file.",
           "default_value": null,
           "enum_values": null,
@@ -143,8 +117,6 @@
         },
         {
           "name": "error in (no error)",
-          "direction": "in",
-          "type": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
           "default_value": null,
           "enum_values": null,
@@ -152,8 +124,6 @@
         },
         {
           "name": "transpose? (no:F)",
-          "direction": "in",
-          "type": "Boolean",
           "description": "transpose? specifies whether the VI transposes the data after converting it from a string. The default is FALSE. If transpose? is FALSE, each call to this VI creates a new line or row in the file.",
           "default_value": "FALSE",
           "enum_values": null,
@@ -161,8 +131,6 @@
         },
         {
           "name": "delimiter (\\t)",
-          "direction": "in",
-          "type": "String",
           "description": "delimiter is the character or string of characters to use to separate fields in the spreadsheet file. For example, a value of , (comma) specifies a single comma as the delimiter. The default is \\t, which specifies a single tab character as the delimiter. Functions",
           "default_value": "\\t, which specifies a single tab character as the delimiter",
           "enum_values": null,
@@ -182,8 +150,6 @@
       "terminals": [
         {
           "name": "format (%d)",
-          "direction": "in",
-          "type": "I32",
           "description": "format specifies how to convert the numbers to characters. Note To format with Microsoft Excel, use ActiveX with LabVIEW or the Report Generation Toolkit for Microsoft Office. Functions 1442 ni.com If format is %d (default), the VI converts the data to integer form using as many characters as necessary to contain the entire number. If the format is %.3f, the VI creates a string long enough to contain the number, with three digits to the right of the decimal point. If format is %s, the VI copies ",
           "default_value": null,
           "enum_values": null,
@@ -191,8 +157,6 @@
         },
         {
           "name": "file path (dialog if empty)",
-          "direction": "in",
-          "type": "Path",
           "description": "file path is the path name of the file. If file path is empty (default) or is <Not A Path>, the VI displays a dialog box from which you can select a file. Error 43 occurs if you cancel the dialog box.",
           "default_value": null,
           "enum_values": null,
@@ -200,8 +164,6 @@
         },
         {
           "name": "2D data",
-          "direction": "in",
-          "type": null,
           "description": "2D data specifies the data to write to the file if 1D data is not wired or is empty.",
           "default_value": null,
           "enum_values": null,
@@ -209,8 +171,6 @@
         },
         {
           "name": "1D data",
-          "direction": "in",
-          "type": null,
           "description": "1D data specifies the data to write to the file if this input is not empty. The VI converts the 1D array into a 2D array before proceeding.",
           "default_value": null,
           "enum_values": null,
@@ -218,8 +178,6 @@
         },
         {
           "name": "append to file? (new file:F)",
-          "direction": "in",
-          "type": "Boolean",
           "description": "append to file? appends data to an existing file, if TRUE. If append to file? is FALSE (default), the VI replaces data in an existing file. If there is no existing file, the VI creates a new file.",
           "default_value": null,
           "enum_values": null,
@@ -227,8 +185,6 @@
         },
         {
           "name": "error in (no error)",
-          "direction": "in",
-          "type": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
           "default_value": null,
           "enum_values": null,
@@ -236,8 +192,6 @@
         },
         {
           "name": "transpose? (no:F)",
-          "direction": "in",
-          "type": "Boolean",
           "description": "transpose? specifies whether the VI transposes the data after converting it from a string. The default is FALSE. If transpose? is FALSE, each call to this VI creates a new line or row in the file.",
           "default_value": "FALSE",
           "enum_values": null,
@@ -245,8 +199,6 @@
         },
         {
           "name": "delimiter (\\t)",
-          "direction": "in",
-          "type": "String",
           "description": "delimiter is the character or string of characters to use to separate fields in the spreadsheet file. For example, a value of , (comma) specifies a single comma as the delimiter. The default is \\t, which specifies a single tab character as the delimiter. Functions",
           "default_value": "\\t, which specifies a single tab character as the delimiter",
           "enum_values": null,
@@ -266,8 +218,6 @@
       "terminals": [
         {
           "name": "format (%s)",
-          "direction": "in",
-          "type": "I32",
           "description": "format specifies how to convert the numbers to characters. Note To format with Microsoft Excel, use ActiveX with LabVIEW or the Report Generation Toolkit for Microsoft Office. Functions 1444 ni.com If format is %s (default), the VI copies the input string. If the format is %.3f, the VI creates a string long enough to contain the number, with three digits to the right of the decimal point. If format is %d, the VI converts the data to integer form using as many characters as necessary to contain t",
           "default_value": null,
           "enum_values": null,
@@ -275,8 +225,6 @@
         },
         {
           "name": "file path (dialog if empty)",
-          "direction": "in",
-          "type": "Path",
           "description": "file path is the path name of the file. If file path is empty (default) or is <Not A Path>, the VI displays a dialog box from which you can select a file. Error 43 occurs if you cancel the dialog box.",
           "default_value": null,
           "enum_values": null,
@@ -284,8 +232,6 @@
         },
         {
           "name": "2D data",
-          "direction": "in",
-          "type": null,
           "description": "2D data specifies the data to write to the file if 1D data is not wired or is empty.",
           "default_value": null,
           "enum_values": null,
@@ -293,8 +239,6 @@
         },
         {
           "name": "1D data",
-          "direction": "in",
-          "type": null,
           "description": "1D data specifies the data to write to the file if this input is not empty. The VI converts the 1D array into a 2D array before proceeding.",
           "default_value": null,
           "enum_values": null,
@@ -302,8 +246,6 @@
         },
         {
           "name": "append to file? (new file:F)",
-          "direction": "in",
-          "type": "Boolean",
           "description": "append to file? appends data to an existing file, if TRUE. If append to file? is FALSE (default), the VI replaces data in an existing file. If there is no existing file, the VI creates a new file.",
           "default_value": null,
           "enum_values": null,
@@ -311,8 +253,6 @@
         },
         {
           "name": "error in (no error)",
-          "direction": "in",
-          "type": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
           "default_value": null,
           "enum_values": null,
@@ -320,8 +260,6 @@
         },
         {
           "name": "transpose? (no:F)",
-          "direction": "in",
-          "type": "Boolean",
           "description": "transpose? specifies whether the VI transposes the data after converting it from a string. The default is FALSE. If transpose? is FALSE, each call to this VI creates a new line or row in the file.",
           "default_value": "FALSE",
           "enum_values": null,
@@ -329,8 +267,6 @@
         },
         {
           "name": "delimiter (\\t)",
-          "direction": "in",
-          "type": "String",
           "description": "delimiter is the character or string of characters to use to separate fields in the spreadsheet file. For example, a value of , (comma) specifies a single comma as the delimiter. The default is \\t, which specifies a single tab character as the delimiter. Functions",
           "default_value": "\\t, which specifies a single tab character as the delimiter",
           "enum_values": null,
@@ -350,8 +286,6 @@
       "terminals": [
         {
           "name": "format (%.3f)",
-          "direction": "in",
-          "type": "I32",
           "description": "format specifies how to convert the numbers to characters. If the format is %.3f (default), the VI creates a string long enough to contain the number, with three digits to the right of the decimal point. If format is %d, the VI converts the data to integer form using as many characters as necessary to contain the entire number. If format is %s, the VI copies the input string. Use the format string syntax.",
           "default_value": null,
           "enum_values": null,
@@ -359,8 +293,6 @@
         },
         {
           "name": "file path (dialog if empty)",
-          "direction": "in",
-          "type": "Path",
           "description": "file path is the path name of the file. If file path is empty (default) or is <Not A Path>, the VI displays a dialog box from which you can select a file. Error 43 occurs if you cancel the dialog box.",
           "default_value": null,
           "enum_values": null,
@@ -368,8 +300,6 @@
         },
         {
           "name": "number of rows (all:-1)",
-          "direction": "in",
-          "type": "I32",
           "description": "number of rows is the maximum number of rows or lines the VI reads. For this VI, a row is a character string ending with a carriage return, linefeed, or a carriage return followed by a linefeed; a string ending at the end of file; or a string that has the maximum line length specified by the max characters per row input. If number of rows is <0, the VI reads the entire file. The default is \u20131.",
           "default_value": "\u20131",
           "enum_values": null,
@@ -377,8 +307,6 @@
         },
         {
           "name": "start of read offset (chars.:0)",
-          "direction": "in",
-          "type": null,
           "description": "start of read offset specifies the position in the file, in characters (bytes), at which the VI begins reading. Functions",
           "default_value": null,
           "enum_values": null,
@@ -398,8 +326,6 @@
       "terminals": [
         {
           "name": "format (%.3f)",
-          "direction": "in",
-          "type": "I32",
           "description": "format specifies how to convert the numbers to characters. If the format is %.3f (default), the VI creates a string long enough to contain the number, with three digits to the right of the decimal point. If format is %d, the VI converts the data to integer form using as many characters as necessary to contain the entire number. If format is %s, the VI copies the input string. Use the format string syntax.",
           "default_value": null,
           "enum_values": null,
@@ -407,8 +333,6 @@
         },
         {
           "name": "file path (dialog if empty)",
-          "direction": "in",
-          "type": "Path",
           "description": "file path is the path name of the file. If file path is empty (default) or is <Not A Path>, the VI displays a dialog box from which you can select a file. Error 43 occurs if you cancel the dialog box.",
           "default_value": null,
           "enum_values": null,
@@ -416,8 +340,6 @@
         },
         {
           "name": "number of rows (all:-1)",
-          "direction": "in",
-          "type": "I32",
           "description": "number of rows is the maximum number of rows or lines the VI reads. For this VI, a row is a character string ending with a carriage return, linefeed, or a carriage return followed by a linefeed; a string ending at the end of file; or a string that has the maximum line length specified by the max characters per row input. If number of rows is <0, the VI reads the entire file. The default is \u20131.",
           "default_value": "\u20131",
           "enum_values": null,
@@ -425,8 +347,6 @@
         },
         {
           "name": "start of read offset (chars.:0)",
-          "direction": "in",
-          "type": null,
           "description": "start of read offset specifies the position in the file, in characters (bytes), at which the VI begins reading. Functions",
           "default_value": null,
           "enum_values": null,
@@ -446,8 +366,6 @@
       "terminals": [
         {
           "name": "format (%d)",
-          "direction": "in",
-          "type": "I32",
           "description": "format specifies how to convert the numbers to characters. If format is %d (default), the VI converts the data to integer form using as many characters as necessary to contain the entire number. If the format is %.3f, the VI creates a string long enough to contain the number, with three digits to the right of the decimal point. If format is %s, the VI copies the input string. Use the format string syntax. Functions \u00a9 National Instruments 1449",
           "default_value": null,
           "enum_values": null,
@@ -455,8 +373,6 @@
         },
         {
           "name": "file path (dialog if empty)",
-          "direction": "in",
-          "type": "Path",
           "description": "file path is the path name of the file. If file path is empty (default) or is <Not A Path>, the VI displays a dialog box from which you can select a file. Error 43 occurs if you cancel the dialog box.",
           "default_value": null,
           "enum_values": null,
@@ -464,8 +380,6 @@
         },
         {
           "name": "number of rows (all:-1)",
-          "direction": "in",
-          "type": "I32",
           "description": "number of rows is the maximum number of rows or lines the VI reads. For this VI, a row is a character string ending with a carriage return, linefeed, or a carriage return followed by a linefeed; a string ending at the end of file; or a string that has the maximum line length specified by the max characters per row input. If number of rows is <0, the VI reads the entire file. The default is \u20131.",
           "default_value": "\u20131",
           "enum_values": null,
@@ -473,8 +387,6 @@
         },
         {
           "name": "start of read offset (chars.:0)",
-          "direction": "in",
-          "type": "I32",
           "description": "start of read offset specifies the position in the file, in characters (bytes), at which the VI begins reading. The offset unit is bytes rather than numbers because byte stream files can contain segments of different types of data. Therefore, to read an array of 100 numbers that follows a header of 57 characters, set start of read offset to 57.",
           "default_value": null,
           "enum_values": null,
@@ -482,8 +394,6 @@
         },
         {
           "name": "max characters/row (no limit:0)",
-          "direction": "in",
-          "type": "I32",
           "description": "max characters/row is the maximum number of characters the VI reads before ending the search for the end of a row or line. The default is 0, which means that there is no limit to the number of characters the VI reads.",
           "default_value": "0, which means that there is no limit to the number of characters the VI reads",
           "enum_values": null,
@@ -491,8 +401,6 @@
         },
         {
           "name": "error in (no error)",
-          "direction": "in",
-          "type": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
           "default_value": null,
           "enum_values": null,
@@ -500,8 +408,6 @@
         },
         {
           "name": "transpose? (F)",
-          "direction": "in",
-          "type": "Boolean",
           "description": "transpose? specifies whether the VI transposes the data after converting it from a string. The default is FALSE.",
           "default_value": "FALSE",
           "enum_values": null,
@@ -509,8 +415,6 @@
         },
         {
           "name": "delimiter (\\t)",
-          "direction": "in",
-          "type": null,
           "description": "Functions 1450 ni.com delimiter is the character or string of characters to use to separate fields in the spreadsheet file. For example, a value of , (comma) specifies a single comma as the delimiter. The default is \\t, which specifies a single tab character as the delimiter.",
           "default_value": "\\t, which specifies a single tab character as the delimiter",
           "enum_values": null,
@@ -518,8 +422,6 @@
         },
         {
           "name": "new file path (Not A Path if cancelled)",
-          "direction": "out",
-          "type": "Path",
           "description": "new file path returns the path to the file.",
           "default_value": null,
           "enum_values": null,
@@ -527,8 +429,6 @@
         },
         {
           "name": "all rows",
-          "direction": "in",
-          "type": null,
           "description": "all rows is the data read from the file.",
           "default_value": null,
           "enum_values": null,
@@ -536,8 +436,6 @@
         },
         {
           "name": "first row",
-          "direction": "in",
-          "type": "Array",
           "description": "first row is the first row of the all rows array. You can use this output when you want to read one row into a 1D array.",
           "default_value": null,
           "enum_values": null,
@@ -545,8 +443,6 @@
         },
         {
           "name": "mark after read (chars.)",
-          "direction": "out",
-          "type": null,
           "description": "mark after read returns the character (byte) in the file following the last character read.",
           "default_value": null,
           "enum_values": null,
@@ -554,8 +450,6 @@
         },
         {
           "name": "error out",
-          "direction": "in",
-          "type": null,
           "description": "error out contains error information. This output provides standard error out functionality.",
           "default_value": null,
           "enum_values": null,
@@ -563,8 +457,6 @@
         },
         {
           "name": "EOF?",
-          "direction": "in",
-          "type": "Boolean",
           "description": "EOF? is TRUE if you attempt to read past the end of file. Read Delimited Spreadsheet (string) VI Read Delimited Spreadsheet (string) VI Reads a specified number of lines or rows from a numeric text file beginning at a specified character offset and converts the data to a 2D, double-precision array of numbers, strings, or integers. You must manually select the polymorphic instance you want to use. You optionally can transpose the array. The VI opens the file before reading from it and closes it a",
           "default_value": null,
           "enum_values": null,
@@ -584,8 +476,6 @@
       "terminals": [
         {
           "name": "format (%s)",
-          "direction": "in",
-          "type": "I32",
           "description": "format specifies how to convert the numbers to characters. If format is %s (default), the VI copies the input string. If the format is %.3f, the VI creates a string long enough to contain the number, with three digits to the right of the decimal point. If format is %d, the VI converts the data to integer form using as many characters as necessary to contain the entire number. Use the format string syntax.",
           "default_value": null,
           "enum_values": null,
@@ -593,8 +483,6 @@
         },
         {
           "name": "file path (dialog if empty)",
-          "direction": "in",
-          "type": "Path",
           "description": "file path is the path name of the file. If file path is empty (default) or is <Not A Path>, the VI displays a dialog box from which you can select a file. Error 43 occurs if you cancel the dialog box.",
           "default_value": null,
           "enum_values": null,
@@ -602,8 +490,6 @@
         },
         {
           "name": "number of rows (all:-1)",
-          "direction": "in",
-          "type": "I32",
           "description": "number of rows is the maximum number of rows or lines the VI reads. For this VI, a row is a character string ending with a carriage return, linefeed, or a carriage return followed by a linefeed; a string ending at the end of file; or a string that has the maximum line length specified by the max characters per row input. If number of rows is <0, the VI reads the entire file. The default is \u20131.",
           "default_value": "\u20131",
           "enum_values": null,
@@ -611,8 +497,6 @@
         },
         {
           "name": "start of read offset (chars.:0)",
-          "direction": "in",
-          "type": "I32",
           "description": "start of read offset specifies the position in the file, in characters (bytes), at which the VI begins reading. The offset unit is bytes rather than numbers because byte stream files can contain segments of different types of data. Therefore, to read an array of 100 numbers that follows a header of 57 characters, set start of read offset to 57.",
           "default_value": null,
           "enum_values": null,
@@ -620,8 +504,6 @@
         },
         {
           "name": "max characters/row (no limit:0)",
-          "direction": "in",
-          "type": "I32",
           "description": "Functions 1452 ni.com max characters/row is the maximum number of characters the VI reads before ending the search for the end of a row or line. The default is 0, which means that there is no limit to the number of characters the VI reads.",
           "default_value": "0, which means that there is no limit to the number of characters the VI reads",
           "enum_values": null,
@@ -629,8 +511,6 @@
         },
         {
           "name": "error in (no error)",
-          "direction": "in",
-          "type": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
           "default_value": null,
           "enum_values": null,
@@ -638,8 +518,6 @@
         },
         {
           "name": "transpose? (F)",
-          "direction": "in",
-          "type": "Boolean",
           "description": "transpose? specifies whether the VI transposes the data after converting it from a string. The default is FALSE.",
           "default_value": "FALSE",
           "enum_values": null,
@@ -647,8 +525,6 @@
         },
         {
           "name": "delimiter (\\t)",
-          "direction": "in",
-          "type": "String",
           "description": "delimiter is the character or string of characters to use to separate fields in the spreadsheet file. For example, a value of , (comma) specifies a single comma as the delimiter. The default is \\t, which specifies a single tab character as the delimiter.",
           "default_value": "\\t, which specifies a single tab character as the delimiter",
           "enum_values": null,
@@ -656,8 +532,6 @@
         },
         {
           "name": "new file path (Not A Path if cancelled)",
-          "direction": "out",
-          "type": "Path",
           "description": "new file path returns the path to the file.",
           "default_value": null,
           "enum_values": null,
@@ -665,8 +539,6 @@
         },
         {
           "name": "all rows",
-          "direction": "in",
-          "type": null,
           "description": "all rows is the data read from the file.",
           "default_value": null,
           "enum_values": null,
@@ -674,8 +546,6 @@
         },
         {
           "name": "first row",
-          "direction": "in",
-          "type": "Array",
           "description": "first row is the first row of the all rows array. You can use this output when you want to read one row into a 1D array.",
           "default_value": null,
           "enum_values": null,
@@ -683,8 +553,6 @@
         },
         {
           "name": "mark after read (chars.)",
-          "direction": "out",
-          "type": null,
           "description": "mark after read returns the character (byte) in the file following the last character read.",
           "default_value": null,
           "enum_values": null,
@@ -692,8 +560,6 @@
         },
         {
           "name": "error out",
-          "direction": "in",
-          "type": null,
           "description": "error out contains error information. This output provides standard error out functionality.",
           "default_value": null,
           "enum_values": null,
@@ -701,8 +567,6 @@
         },
         {
           "name": "EOF?",
-          "direction": "in",
-          "type": "Boolean",
           "description": "Functions",
           "default_value": null,
           "enum_values": null,
@@ -744,8 +608,6 @@
       "terminals": [
         {
           "name": "prompt",
-          "direction": "in",
-          "type": null,
           "description": "prompt is the message that appears above the list of files and directories or folder in the file dialog box.",
           "default_value": null,
           "enum_values": null,
@@ -753,8 +615,6 @@
         },
         {
           "name": "file path (use dialog)",
-          "direction": "in",
-          "type": "Path",
           "description": "file path is the absolute path to the file. If you do not wire file path, the function displays a dialog box from which you can select a file. If you specify an empty or relative path, this function returns an error. If file path is the path to a Functions 1470 ni.com directory that does not exist, this function returns an error. Use the Create Folder function to create a directory.",
           "default_value": null,
           "enum_values": null,
@@ -762,8 +622,6 @@
         },
         {
           "name": "operation (0:open)",
-          "direction": "in",
-          "type": null,
           "description": "operation is the operation to perform. Error 43 occurs if you cancel the dialog box. 0 open (default)\u2014Opens an existing file. Error 7 occurs if the file cannot be found. 1 replace\u2014Replaces an existing file by opening the file and setting its end of file to 0. 2 create\u2014Creates a new file. Error 10 occurs if the file already exists. 3 open or create\u2014Opens an existing file or creates a new file if one does not exist. 4 replace or create\u2014Creates a new file or replaces a file if it exists. This VI re",
           "default_value": null,
           "enum_values": [
@@ -788,8 +646,6 @@
         },
         {
           "name": "access (0:read/write)",
-          "direction": "in",
-          "type": null,
           "description": "access specifies how you plan to access the file. The default is read/write. 0 read/write 1 read-only 2 write-only",
           "default_value": "read/write",
           "enum_values": null,
@@ -797,8 +653,6 @@
         },
         {
           "name": "error in",
-          "direction": "in",
-          "type": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
           "default_value": null,
           "enum_values": null,
@@ -806,8 +660,6 @@
         },
         {
           "name": "disable buffering (F)",
-          "direction": "in",
-          "type": "Boolean",
           "description": "disable buffering specifies if the file opens without buffering. The default is FALSE. If you want to read or write a data file to a Redundant Array of Independent Disks (RAID), consider opening the file without buffering to speed up data transfers. To disable buffering, wire a TRUE value to the disable buffering input. Note If you have a small amount of data to transfer, you might not notice a Functions",
           "default_value": "FALSE",
           "enum_values": null,
@@ -827,8 +679,6 @@
       "terminals": [
         {
           "name": "refnum",
-          "direction": "in",
-          "type": null,
           "description": "refnum is the file refnum associated with the file you want to close.",
           "default_value": null,
           "enum_values": null,
@@ -836,8 +686,6 @@
         },
         {
           "name": "error in",
-          "direction": "in",
-          "type": null,
           "description": "error in describes error conditions that occur before this node runs. With the following exception, this input provides standard error in functionality. This node runs normally even if an error occurred before this node runs.",
           "default_value": null,
           "enum_values": null,
@@ -845,8 +693,6 @@
         },
         {
           "name": "path",
-          "direction": "in",
-          "type": "Path",
           "description": "path is the corresponding path to refnum.",
           "default_value": null,
           "enum_values": null,
@@ -854,8 +700,6 @@
         },
         {
           "name": "error out",
-          "direction": "in",
-          "type": null,
           "description": "error out contains error information. This output provides standard error out functionality. Examples Refer to the following example files included with LabVIEW.",
           "default_value": null,
           "enum_values": null,
@@ -863,8 +707,6 @@
         },
         {
           "name": "labview\\examples\\File IO\\Datalog\\Datalog File.lvproj",
-          "direction": "in",
-          "type": null,
           "description": "",
           "default_value": null,
           "enum_values": null,
@@ -884,8 +726,6 @@
       "terminals": [
         {
           "name": "format string",
-          "direction": "in",
-          "type": "String",
           "description": "format string specifies how to convert the input arguments. Defaults match the data type of the input arguments. Right-click the function and select Edit Format String from the shortcut menu to create and edit the format string. This input accepts a maximum of 255 characters.",
           "default_value": null,
           "enum_values": null,
@@ -893,8 +733,6 @@
         },
         {
           "name": "input file",
-          "direction": "in",
-          "type": "Path",
           "description": "input file can be a refnum or absolute file path. If it is a refnum, this node opens the file specified by the refnum. This function creates the specified file if it does not already exist. The default is to display a file dialog box and prompt you to select a file. If you specify an empty or relative path, this function returns an error.",
           "default_value": "to display a file dialog box and prompt you to select a file",
           "enum_values": null,
@@ -902,8 +740,6 @@
         },
         {
           "name": "error in",
-          "direction": "in",
-          "type": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
           "default_value": null,
           "enum_values": null,
@@ -911,8 +747,6 @@
         },
         {
           "name": "input 1",
-          "direction": "in",
-          "type": "Boolean",
           "description": "input 1..n specifies the input parameters you want the function to convert. This parameter accepts a string, path, enumerated type, time stamp, Boolean, or any numeric data type. For complex numeric data types, this function converts only the real component. You cannot use arrays and clusters with this function. If you specify a Boolean value for this parameter and %s as the format code, the Format Into File function outputs the value as TRUE or FALSE. If you specify a Boolean value for this par",
           "default_value": null,
           "enum_values": null,
@@ -920,8 +754,6 @@
         },
         {
           "name": "output file refnum",
-          "direction": "out",
-          "type": null,
           "description": "output file refnum is the refnum of the file that the VI read. You can wire this output to another file function, depending on what you want to do with the file. The default is to close the file if it is referenced by a file path or selected from the file dialog box. If input file is a refnum, LabVIEW assumes that the file is still in use until you close it.",
           "default_value": "to close the file if it is referenced by a file path or selected from the file dialog box",
           "enum_values": null,
@@ -929,8 +761,6 @@
         },
         {
           "name": "error out",
-          "direction": "in",
-          "type": "I32",
           "description": "error out contains error information. This output provides standard error out functionality. Increase the number of parameters by right-clicking the function and selecting Add Parameter from the shortcut menu or by resizing the function. You can use this function to determine the order in which the data appears in the file. This function converts new lines, or \\n, in the format string into the platform-specific end-of-line character, for example, CR/LF on Windows, and LF on macOS and Linux. If y",
           "default_value": null,
           "enum_values": null,
@@ -950,8 +780,6 @@
       "terminals": [
         {
           "name": "format string",
-          "direction": "in",
-          "type": "String",
           "description": "format string specifies how to convert the input string into the output arguments. The default is to scan the string according to default behavior for the data types of the outputs wired. Right-click the function and select Edit Scan String from the shortcut menu to create and edit the format string. This input accepts a maximum of 255 characters.",
           "default_value": "to scan the string according to default behavior for the data types of the outputs wired",
           "enum_values": null,
@@ -959,8 +787,6 @@
         },
         {
           "name": "input file",
-          "direction": "in",
-          "type": "Path",
           "description": "input file can be a refnum or absolute file path. If it is a refnum, this node opens the file specified by the refnum. This function creates the specified file if it does not already exist. The default is to display a file dialog box and prompt you to select a file. If you specify an empty or relative path, this function returns an error.",
           "default_value": "to display a file dialog box and prompt you to select a file",
           "enum_values": null,
@@ -968,8 +794,6 @@
         },
         {
           "name": "error in",
-          "direction": "in",
-          "type": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
           "default_value": null,
           "enum_values": null,
@@ -977,8 +801,6 @@
         },
         {
           "name": "default value 1",
-          "direction": "in",
-          "type": null,
           "description": "default 1..n specifies the type and default value for the output parameters. If this function cannot scan the input value from format string, the function uses the default. If you do not wire default 1 and you wire a constant to format string, the function uses format string to determine the type of the output. Otherwise, the default data type is double-precision, floating-point. The default value is 0 or an empty string, depending on the output data type. If Functions",
           "default_value": "1",
           "enum_values": null,
@@ -998,8 +820,6 @@
       "terminals": [
         {
           "name": "prompt (Choose or enter file path)",
-          "direction": "in",
-          "type": "Path",
           "description": "Functions 1480 ni.com prompt is the message that appears above the list of files and directories or folder in the file dialog box.",
           "default_value": null,
           "enum_values": null,
@@ -1007,8 +827,6 @@
         },
         {
           "name": "file (use dialog)",
-          "direction": "in",
-          "type": "Path",
           "description": "file can be a refnum or absolute file path. If you wire a path to the file input, the function opens or creates the file before writing to it and replaces any previous file contents. If you wire a file refnum to the file input, writing begins at the current file position. To append to an existing file, set the file position to the end of the file by using the Set File Position function. The default is to display a file dialog box and prompt you to select a file. If you specify an empty or relati",
           "default_value": "to display a file dialog box and prompt you to select a file",
           "enum_values": null,
@@ -1016,8 +834,6 @@
         },
         {
           "name": "text",
-          "direction": "in",
-          "type": null,
           "description": "text is the data the function writes to the file. text is a string or an array of strings.",
           "default_value": null,
           "enum_values": null,
@@ -1025,8 +841,6 @@
         },
         {
           "name": "error in",
-          "direction": "in",
-          "type": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
           "default_value": null,
           "enum_values": null,
@@ -1034,8 +848,6 @@
         },
         {
           "name": "refnum out",
-          "direction": "in",
-          "type": null,
           "description": "refnum out is the refnum of the file that the function read. You can wire this output to another file function, depending on what you want to do with the file. The default is to close the file if it is referenced by a file path or selected from the file dialog box. If file is a refnum or if you wire refnum out to another function, LabVIEW assumes that the file is still in use until you close it.",
           "default_value": "to close the file if it is referenced by a file path or selected from the file dialog box",
           "enum_values": null,
@@ -1043,8 +855,6 @@
         },
         {
           "name": "cancelled",
-          "direction": "in",
-          "type": "Boolean",
           "description": "cancelled is TRUE if you cancel the file dialog box. Otherwise, cancelled is FALSE, even if this function returns an error.",
           "default_value": null,
           "enum_values": null,
@@ -1052,8 +862,6 @@
         },
         {
           "name": "error out",
-          "direction": "in",
-          "type": null,
           "description": "error out contains error information. This output provides standard error out functionality. This function appends platform-dependent, end-of-line (EOL) characters to the elements of an array even if you right-click the function and remove the checkmark Functions",
           "default_value": null,
           "enum_values": null,
@@ -1073,8 +881,6 @@
       "terminals": [
         {
           "name": "prompt (Open existing file)",
-          "direction": "in",
-          "type": null,
           "description": "prompt is the message that appears above the list of files and directories, or folder, in the file dialog box.",
           "default_value": null,
           "enum_values": null,
@@ -1082,8 +888,6 @@
         },
         {
           "name": "file (use dialog)",
-          "direction": "in",
-          "type": "Path",
           "description": "file can be a refnum or absolute file path. If it is a path, this function opens the file specified by the path. The default is to display a file dialog box and prompt you to select a file. If you specify an empty or relative path or if the file does not exist, this function returns an error.",
           "default_value": "to display a file dialog box and prompt you to select a file",
           "enum_values": null,
@@ -1091,8 +895,6 @@
         },
         {
           "name": "count",
-          "direction": "in",
-          "type": "I32",
           "description": "count is the maximum number of characters or lines the function reads. The function reads fewer characters or lines if it reaches the end of file first. If count is <0, the function reads the entire file starting from the current file position. The default is to read a single Functions 1482 ni.com line if you placed a checkmark next to the Read Lines shortcut menu item and to read the entire file if you removed the checkmark next to the item.",
           "default_value": "to read a single Functions 1482 ni",
           "enum_values": null,
@@ -1100,8 +902,6 @@
         },
         {
           "name": "error in",
-          "direction": "in",
-          "type": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
           "default_value": null,
           "enum_values": null,
@@ -1109,8 +909,6 @@
         },
         {
           "name": "refnum out",
-          "direction": "in",
-          "type": null,
           "description": "refnum out is the refnum of the file that the function read. You can wire this output to another file function, depending on what you want to do with the file. The default is to close the file if it is referenced by a file path or selected from the file dialog box. If file is a refnum or if you wire refnum out to another function, LabVIEW assumes that the file is still in use until you close it.",
           "default_value": "to close the file if it is referenced by a file path or selected from the file dialog box",
           "enum_values": null,
@@ -1118,8 +916,6 @@
         },
         {
           "name": "text",
-          "direction": "in",
-          "type": "I32",
           "description": "text is the text read from the file. By default, this parameter is a string that contains the characters read from the first line of the file. If you wire count, this parameter is an array of strings that contains the lines read from the file. If you right-click the function and remove the checkmark next to the Read Lines shortcut menu item, this parameter is a string that contains the characters read from the file.",
           "default_value": null,
           "enum_values": null,
@@ -1127,8 +923,6 @@
         },
         {
           "name": "cancelled",
-          "direction": "in",
-          "type": "Boolean",
           "description": "cancelled is TRUE if you cancel the file dialog box. Otherwise, cancelled is FALSE, even if this function returns an error.",
           "default_value": null,
           "enum_values": null,
@@ -1136,8 +930,6 @@
         },
         {
           "name": "error out",
-          "direction": "in",
-          "type": "Enum",
           "description": "error out contains error information. This output provides standard error out functionality. This function opens files as read-only. If you wire the refnum out output of this function to the file input of a write function, LabVIEW returns a permissions error. Use the Open/Create/Replace File function to open the file with the default read/write access and wire the refnum to the read and write functions. Note If you wire a file size with a data type other than a 32-bit integer to count, LabVIEW c",
           "default_value": "read/write access and wire the refnum to the read and write functions",
           "enum_values": null,
@@ -1157,8 +949,6 @@
       "terminals": [
         {
           "name": "prepend array or string size? (T)",
-          "direction": "in",
-          "type": "Boolean",
           "description": "prepend array or string size? indicates whether LabVIEW includes data size information at the beginning of the file when data is an array or string. If prepend array or string size? is FALSE, LabVIEW does not include the size information. The default is TRUE. prepend array or string size? controls only the top-level data size information. Arrays and strings in hierarchical data types such as clusters always include size information.",
           "default_value": "TRUE",
           "enum_values": null,
@@ -1166,8 +956,6 @@
         },
         {
           "name": "prompt (Choose or enter file path)",
-          "direction": "in",
-          "type": "Path",
           "description": "prompt is the message that appears above the list of files and directories, or folder, in the file dialog box.",
           "default_value": null,
           "enum_values": null,
@@ -1175,8 +963,6 @@
         },
         {
           "name": "file (use dialog)",
-          "direction": "in",
-          "type": "Path",
           "description": "file can be a refnum or absolute file path. If you wire a path to the file input, the function opens or creates the file before writing to it and replaces any previous file contents. If you wire a file refnum to the file input, writing begins at the current file position. To append to an existing file, set the file position to the end of the file by using the Set File Position function. The default is to display a file dialog box and prompt you to select a file. If you specify an empty or relati",
           "default_value": "to display a file dialog box and prompt you to select a file",
           "enum_values": null,
@@ -1184,8 +970,6 @@
         },
         {
           "name": "data",
-          "direction": "in",
-          "type": null,
           "description": "data contains the data to write to the file and can be any data type.",
           "default_value": null,
           "enum_values": null,
@@ -1193,8 +977,6 @@
         },
         {
           "name": "byte order (0:big-endian, network order)",
-          "direction": "in",
-          "type": "I32",
           "description": "byte order sets the endian form of the resulting data. Byte order, or endian form, indicates whether integers are represented in memory from most-significant byte to least-significant byte or vice versa. The function must read the data in the same byte order that the data was written. Functions",
           "default_value": null,
           "enum_values": null,
@@ -1214,8 +996,6 @@
       "terminals": [
         {
           "name": "data type",
-          "direction": "in",
-          "type": "I32",
           "description": "data type sets the type of data the function uses to read from the binary file. The function interprets the data starting at the current file position to be count instances of data type. If the type is an array, string, or cluster containing an array or string, the function assumes that each instance of that data type contains size information. If an instance does not include size information, the function misinterprets the data. If LabVIEW determines that the data does not match the type, it se",
           "default_value": "for the specified type and returns an error",
           "enum_values": null,
@@ -1223,8 +1003,6 @@
         },
         {
           "name": "prompt (Open existing file)",
-          "direction": "in",
-          "type": null,
           "description": "prompt is the message that appears above the list of files and directories, or folder, in the file dialog box.",
           "default_value": null,
           "enum_values": null,
@@ -1232,8 +1010,6 @@
         },
         {
           "name": "file (use dialog)",
-          "direction": "in",
-          "type": "Path",
           "description": "file can be a refnum or absolute file path. If it is a path, this function opens the file specified by the path. The default is to display a file dialog box and prompt you to select a file. If you specify an empty or relative path or if the file does not exist, this function returns an error. Functions",
           "default_value": "to display a file dialog box and prompt you to select a file",
           "enum_values": null,
@@ -1253,8 +1029,6 @@
       "terminals": [
         {
           "name": "base path",
-          "direction": "in",
-          "type": "Path",
           "description": "base path specifies the path to which this function appends name or relative path. The default is an empty path. If base path is invalid, this function sets appended path to <Not A Path>.",
           "default_value": "an empty path",
           "enum_values": null,
@@ -1262,8 +1036,6 @@
         },
         {
           "name": "name or relative path",
-          "direction": "in",
-          "type": "Path",
           "description": "name or relative path is the new path component appended to base path. If name or relative path is an empty string or an invalid path, this function sets appended path to <Not A Path>.",
           "default_value": null,
           "enum_values": null,
@@ -1271,8 +1043,6 @@
         },
         {
           "name": "appended path",
-          "direction": "out",
-          "type": "Path",
           "description": "appended path is the resulting path. Suppose you want to build the path c:\\dir1\\vis\\first.vi. The following table shows examples of how you can specify base path and name or relative path to build this path. Operation base path name or relative path To specify a name c:\\dir1\\vis first.vi To specify a relative path c:\\dir1 vis\\first.vi To specify an absolute path \u2014 c:\\dir1\\vis\\first.vi Functions 1490 ni.com",
           "default_value": null,
           "enum_values": null,
@@ -1292,8 +1062,6 @@
       "terminals": [
         {
           "name": "path",
-          "direction": "in",
-          "type": "Path",
           "description": "path specifies the path on which you want to operate. If this parameter is an empty path or is invalid, this function returns an empty string in name and <Not A Path> in stripped path.",
           "default_value": null,
           "enum_values": null,
@@ -1301,8 +1069,6 @@
         },
         {
           "name": "stripped path",
-          "direction": "out",
-          "type": "Path",
           "description": "stripped path is the resulting path obtained by removing name from the end of path.",
           "default_value": null,
           "enum_values": null,
@@ -1310,8 +1076,6 @@
         },
         {
           "name": "name",
-          "direction": "in",
-          "type": "Path",
           "description": "name is the last component of the specified path. For the path C:\\labview\\foo.vi, stripped path returns C:\\labview while name returns foo.vi.",
           "default_value": null,
           "enum_values": null,
@@ -1331,8 +1095,6 @@
       "terminals": [
         {
           "name": "path",
-          "direction": "in",
-          "type": "Path",
           "description": "path is the path to the current VI.",
           "default_value": null,
           "enum_values": null,
@@ -1352,8 +1114,6 @@
       "terminals": [
         {
           "name": "system directory type",
-          "direction": "in",
-          "type": null,
           "description": "system directory type specifies the type of directory you want LabVIEW to retrieve. 0 User Home\u2014Directory that contains the personal files of the current user. This directory is a readable and writable directory accessible to a single user of the system. 1 User Desktop\u2014Directory that contains files located on the desktop of the current user. This directory is a readable and writable directory accessible to a single user of the system. 2 User Documents\u2014Default directory for saving the documents o",
           "default_value": "directory for saving the documents of the current user",
           "enum_values": [
@@ -1415,28 +1175,21 @@
             ]
           ],
           "python_param": "directory_type",
-          "index": 11,
           "enum": "SystemDirectoryType"
         },
         {
           "name": "create directory if not found? (F)",
-          "direction": "in",
-          "type": "Boolean",
           "description": "create directory if not found? specifies whether the VI creates a new directory if the specified directory does not exist. If FALSE (default), the VI returns the path where the system expects to find the directory. If TRUE, LabVIEW creates a new directory.",
           "default_value": null,
           "enum_values": null,
-          "python_param": "create_if_not_found",
-          "index": 6
+          "python_param": "create_if_not_found"
         },
         {
           "name": "system directory",
-          "direction": "out",
-          "type": null,
           "description": "system directory returns the specified system directory of the current target. If errors occur while accessing or creating a directory, or the current target does not support the specified system directory type, the VI returns Not a Path.",
           "default_value": null,
           "enum_values": null,
-          "python_param": "system_directory_path",
-          "index": 2
+          "python_param": "system_directory_path"
         }
       ],
       "imports": [
@@ -1461,8 +1214,6 @@
       "terminals": [
         {
           "name": "path",
-          "direction": "in",
-          "type": "Path",
           "description": "path is the path to the default directory.",
           "default_value": "directory",
           "enum_values": null,
@@ -1482,8 +1233,6 @@
       "terminals": [
         {
           "name": "App:Default Data Directory",
-          "direction": "in",
-          "type": "Path",
           "description": "App:Default Data Directory is the path to the default data directory.",
           "default_value": "Data Directory is the path to the default data directory",
           "enum_values": null,
@@ -1503,8 +1252,6 @@
       "terminals": [
         {
           "name": "path",
-          "direction": "in",
-          "type": "Path",
           "description": "path is the path to the VI library directory for the current application instance on the current Functions \u00a9 National Instruments 1497 computer.",
           "default_value": null,
           "enum_values": null,
@@ -1524,8 +1271,6 @@
       "terminals": [
         {
           "name": "Application Directory",
-          "direction": "in",
-          "type": "Path",
           "description": "Application Directory is the path to the directory where this VI is running.",
           "default_value": null,
           "enum_values": null,
@@ -1545,8 +1290,6 @@
       "terminals": [
         {
           "name": "path",
-          "direction": "in",
-          "type": "Path",
           "description": "path is the path to the temporary directory.",
           "default_value": null,
           "enum_values": null,
@@ -1566,8 +1309,6 @@
       "terminals": [
         {
           "name": "configuration file path",
-          "direction": "in",
-          "type": "Path",
           "description": "configuration file path is the path to the platform-independent configuration file.",
           "default_value": null,
           "enum_values": null,
@@ -1575,8 +1316,6 @@
         },
         {
           "name": "create file if necessary (T)",
-          "direction": "in",
-          "type": "Boolean",
           "description": "create file if necessary (T) configures the VI to create the file specified in configuration file path if the file does not exist. You must set create file if necessary (T) to the default value of TRUE for the VI to create the file.",
           "default_value": "value of TRUE for the VI to create the file",
           "enum_values": null,
@@ -1584,8 +1323,6 @@
         },
         {
           "name": "error in (no error)",
-          "direction": "in",
-          "type": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
           "default_value": null,
           "enum_values": null,
@@ -1593,8 +1330,6 @@
         },
         {
           "name": "refnum",
-          "direction": "in",
-          "type": "I32",
           "description": "refnum is the reference number of the configuration data.",
           "default_value": null,
           "enum_values": null,
@@ -1602,8 +1337,6 @@
         },
         {
           "name": "file created?",
-          "direction": "out",
-          "type": "Boolean",
           "description": "file created? returns TRUE if the configuration file operation creates a file.",
           "default_value": null,
           "enum_values": null,
@@ -1611,8 +1344,6 @@
         },
         {
           "name": "error out",
-          "direction": "in",
-          "type": null,
           "description": "error out contains error information. This output provides standard error out functionality. Functions",
           "default_value": null,
           "enum_values": null,
@@ -1632,8 +1363,6 @@
       "terminals": [
         {
           "name": "configuration file path",
-          "direction": "in",
-          "type": "Path",
           "description": "configuration file path is the path to the platform-independent configuration file.",
           "default_value": null,
           "enum_values": null,
@@ -1641,8 +1370,6 @@
         },
         {
           "name": "create file if necessary (T)",
-          "direction": "in",
-          "type": "Boolean",
           "description": "create file if necessary (T) configures the VI to create the file specified in configuration file path if the file does not exist. You must set create file if necessary (T) to the default value of TRUE for the VI to create the file.",
           "default_value": "value of TRUE for the VI to create the file",
           "enum_values": null,
@@ -1650,8 +1377,6 @@
         },
         {
           "name": "error in (no error)",
-          "direction": "in",
-          "type": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
           "default_value": null,
           "enum_values": null,
@@ -1659,8 +1384,6 @@
         },
         {
           "name": "refnum",
-          "direction": "in",
-          "type": "I32",
           "description": "refnum is the reference number of the configuration data.",
           "default_value": null,
           "enum_values": null,
@@ -1668,8 +1391,6 @@
         },
         {
           "name": "file created?",
-          "direction": "out",
-          "type": "Boolean",
           "description": "file created? returns TRUE if the configuration file operation creates a file.",
           "default_value": null,
           "enum_values": null,
@@ -1677,8 +1398,6 @@
         },
         {
           "name": "error out",
-          "direction": "in",
-          "type": null,
           "description": "error out contains error information. This output provides standard error out functionality. Functions",
           "default_value": null,
           "enum_values": null,
@@ -1698,8 +1417,6 @@
       "terminals": [
         {
           "name": "section",
-          "direction": "in",
-          "type": null,
           "description": "section is the name of the section from which to read the specified key.",
           "default_value": null,
           "enum_values": null,
@@ -1707,8 +1424,6 @@
         },
         {
           "name": "refnum",
-          "direction": "in",
-          "type": "I32",
           "description": "refnum is the reference number of the configuration data.",
           "default_value": null,
           "enum_values": null,
@@ -1716,8 +1431,6 @@
         },
         {
           "name": "key",
-          "direction": "in",
-          "type": null,
           "description": "key is the name of the key to read.",
           "default_value": null,
           "enum_values": null,
@@ -1725,8 +1438,6 @@
         },
         {
           "name": "default value",
-          "direction": "in",
-          "type": null,
           "description": "default value is the value to return if the VI does not find the key in the specified section or if an error occurs.",
           "default_value": "value is the value to return if the VI does not find the key in the specified section or if an error occurs",
           "enum_values": null,
@@ -1734,8 +1445,6 @@
         },
         {
           "name": "error in (no error)",
-          "direction": "in",
-          "type": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
           "default_value": null,
           "enum_values": null,
@@ -1743,8 +1452,6 @@
         },
         {
           "name": "refnum out",
-          "direction": "in",
-          "type": "I32",
           "description": "refnum out is the reference number of the configuration data.",
           "default_value": null,
           "enum_values": null,
@@ -1752,8 +1459,6 @@
         },
         {
           "name": "found?",
-          "direction": "in",
-          "type": "Boolean",
           "description": "found? is TRUE if the VI found the key in the specified section.",
           "default_value": null,
           "enum_values": null,
@@ -1761,8 +1466,6 @@
         },
         {
           "name": "value",
-          "direction": "in",
-          "type": null,
           "description": "value is the value of the key.",
           "default_value": null,
           "enum_values": null,
@@ -1770,8 +1473,6 @@
         },
         {
           "name": "error out",
-          "direction": "in",
-          "type": null,
           "description": "Functions",
           "default_value": null,
           "enum_values": null,
@@ -1791,8 +1492,6 @@
       "terminals": [
         {
           "name": "section",
-          "direction": "in",
-          "type": null,
           "description": "section is the name of the section in which to write the specified key.",
           "default_value": null,
           "enum_values": null,
@@ -1800,8 +1499,6 @@
         },
         {
           "name": "refnum",
-          "direction": "in",
-          "type": "I32",
           "description": "refnum is the reference number of the configuration data.",
           "default_value": null,
           "enum_values": null,
@@ -1809,8 +1506,6 @@
         },
         {
           "name": "key",
-          "direction": "in",
-          "type": null,
           "description": "key is the name of the key to write.",
           "default_value": null,
           "enum_values": null,
@@ -1818,8 +1513,6 @@
         },
         {
           "name": "value",
-          "direction": "in",
-          "type": null,
           "description": "value is the value to write to the key.",
           "default_value": null,
           "enum_values": null,
@@ -1827,8 +1520,6 @@
         },
         {
           "name": "error in (no error)",
-          "direction": "in",
-          "type": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
           "default_value": null,
           "enum_values": null,
@@ -1836,8 +1527,6 @@
         },
         {
           "name": "refnum out",
-          "direction": "in",
-          "type": "I32",
           "description": "refnum out is the reference number of the configuration data.",
           "default_value": null,
           "enum_values": null,
@@ -1845,8 +1534,6 @@
         },
         {
           "name": "found?",
-          "direction": "in",
-          "type": "Boolean",
           "description": "found? is TRUE if the VI found the key in the specified section.",
           "default_value": null,
           "enum_values": null,
@@ -1854,8 +1541,6 @@
         },
         {
           "name": "error out",
-          "direction": "in",
-          "type": null,
           "description": "error out contains error information. This output provides standard error out functionality. If key exists, the VI replaces the existing value. If key does not exist, the VI adds the key/value pair to the end of the specified section. If section does not exist, the VI adds section, with the key/value pair, to the end of the configuration data. Examples Refer to the following example files included with LabVIEW. Functions",
           "default_value": null,
           "enum_values": null,
@@ -1875,8 +1560,6 @@
       "terminals": [
         {
           "name": "section",
-          "direction": "in",
-          "type": null,
           "description": "section is the name of the section from which to remove the specified key.",
           "default_value": null,
           "enum_values": null,
@@ -1884,8 +1567,6 @@
         },
         {
           "name": "refnum",
-          "direction": "in",
-          "type": "I32",
           "description": "refnum is the reference number of the configuration data.",
           "default_value": null,
           "enum_values": null,
@@ -1893,8 +1574,6 @@
         },
         {
           "name": "key",
-          "direction": "in",
-          "type": null,
           "description": "key is the name of the key to remove.",
           "default_value": null,
           "enum_values": null,
@@ -1902,8 +1581,6 @@
         },
         {
           "name": "error in (no error)",
-          "direction": "in",
-          "type": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
           "default_value": null,
           "enum_values": null,
@@ -1911,8 +1588,6 @@
         },
         {
           "name": "refnum out",
-          "direction": "in",
-          "type": "I32",
           "description": "Functions 1522 ni.com refnum out is the reference number of the configuration data.",
           "default_value": null,
           "enum_values": null,
@@ -1920,8 +1595,6 @@
         },
         {
           "name": "found?",
-          "direction": "in",
-          "type": "Boolean",
           "description": "found? is TRUE if the VI found the key in the specified section.",
           "default_value": null,
           "enum_values": null,
@@ -1929,8 +1602,6 @@
         },
         {
           "name": "error out",
-          "direction": "in",
-          "type": null,
           "description": "error out contains error information. This output provides standard error out functionality.",
           "default_value": null,
           "enum_values": null,
@@ -1950,8 +1621,6 @@
       "terminals": [
         {
           "name": "section",
-          "direction": "in",
-          "type": null,
           "description": "section is the name of the section to remove.",
           "default_value": null,
           "enum_values": null,
@@ -1959,8 +1628,6 @@
         },
         {
           "name": "refnum",
-          "direction": "in",
-          "type": "I32",
           "description": "refnum is the reference number of the configuration data.",
           "default_value": null,
           "enum_values": null,
@@ -1968,8 +1635,6 @@
         },
         {
           "name": "error in (no error)",
-          "direction": "in",
-          "type": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
           "default_value": null,
           "enum_values": null,
@@ -1977,8 +1642,6 @@
         },
         {
           "name": "refnum out",
-          "direction": "in",
-          "type": "I32",
           "description": "refnum out is the reference number of the configuration data.",
           "default_value": null,
           "enum_values": null,
@@ -1986,8 +1649,6 @@
         },
         {
           "name": "section exists?",
-          "direction": "in",
-          "type": "Boolean",
           "description": "section exists? is TRUE if the VI found the specified section. Functions \u00a9 National Instruments 1523",
           "default_value": null,
           "enum_values": null,
@@ -1995,8 +1656,6 @@
         },
         {
           "name": "error out",
-          "direction": "in",
-          "type": null,
           "description": "error out contains error information. This output provides standard error out functionality.",
           "default_value": null,
           "enum_values": null,
@@ -2016,8 +1675,6 @@
       "terminals": [
         {
           "name": "refnum",
-          "direction": "in",
-          "type": "I32",
           "description": "refnum is the reference number of the configuration data.",
           "default_value": null,
           "enum_values": null,
@@ -2025,8 +1682,6 @@
         },
         {
           "name": "write file if changed (T)",
-          "direction": "in",
-          "type": "Boolean",
           "description": "write file if changed (T) configures the VI to write the configuration data to the platform- independent configuration file you specify with the Open Config Data VI. You must set write file if changed (T) to the default value of TRUE for the VI to write the configuration data. If the value is FALSE, the VI does not write the configuration data.",
           "default_value": "value of TRUE for the VI to write the configuration data",
           "enum_values": null,
@@ -2034,8 +1689,6 @@
         },
         {
           "name": "error in (no error)",
-          "direction": "in",
-          "type": null,
           "description": "error in describes error conditions that occur before this node runs. With the following exception, this input provides standard error in functionality. If an error occurs before this node executes, the node only closes the reference passed to it.",
           "default_value": null,
           "enum_values": null,
@@ -2043,8 +1696,6 @@
         },
         {
           "name": "file path",
-          "direction": "in",
-          "type": "Path",
           "description": "file path is the path to the configuration file.",
           "default_value": null,
           "enum_values": null,
@@ -2052,8 +1703,6 @@
         },
         {
           "name": "error out",
-          "direction": "in",
-          "type": null,
           "description": "error out contains error information. This output provides standard error out functionality. Functions 1524 ni.com Examples Refer to the following example files included with LabVIEW.",
           "default_value": null,
           "enum_values": null,
@@ -2061,8 +1710,6 @@
         },
         {
           "name": "labview\\examples\\File IO\\Configuration",
-          "direction": "in",
-          "type": null,
           "description": "",
           "default_value": null,
           "enum_values": null,
@@ -2082,8 +1729,6 @@
       "terminals": [
         {
           "name": "section",
-          "direction": "in",
-          "type": null,
           "description": "section is the name of the section from which to get the key names.",
           "default_value": null,
           "enum_values": null,
@@ -2091,8 +1736,6 @@
         },
         {
           "name": "refnum",
-          "direction": "in",
-          "type": "I32",
           "description": "refnum is the reference number of the configuration data.",
           "default_value": null,
           "enum_values": null,
@@ -2100,8 +1743,6 @@
         },
         {
           "name": "error in (no error)",
-          "direction": "in",
-          "type": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
           "default_value": null,
           "enum_values": null,
@@ -2109,8 +1750,6 @@
         },
         {
           "name": "refnum out",
-          "direction": "in",
-          "type": "I32",
           "description": "refnum out is the reference number of the configuration data.",
           "default_value": null,
           "enum_values": null,
@@ -2118,8 +1757,6 @@
         },
         {
           "name": "section exists?",
-          "direction": "in",
-          "type": "Boolean",
           "description": "Functions \u00a9 National Instruments 1525 section exists? is TRUE if the VI found the specified section.",
           "default_value": null,
           "enum_values": null,
@@ -2127,8 +1764,6 @@
         },
         {
           "name": "key names",
-          "direction": "in",
-          "type": null,
           "description": "key names contains the names of all keys in the section, in the order in which they appear in the file.",
           "default_value": null,
           "enum_values": null,
@@ -2136,8 +1771,6 @@
         },
         {
           "name": "error out",
-          "direction": "in",
-          "type": null,
           "description": "error out contains error information. This output provides standard error out functionality.",
           "default_value": null,
           "enum_values": null,
@@ -2157,8 +1790,6 @@
       "terminals": [
         {
           "name": "refnum",
-          "direction": "in",
-          "type": "I32",
           "description": "refnum is the reference number of the configuration data.",
           "default_value": null,
           "enum_values": null,
@@ -2166,8 +1797,6 @@
         },
         {
           "name": "error in (no error)",
-          "direction": "in",
-          "type": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
           "default_value": null,
           "enum_values": null,
@@ -2175,8 +1804,6 @@
         },
         {
           "name": "refnum out",
-          "direction": "in",
-          "type": "I32",
           "description": "refnum out is the reference number of the configuration data.",
           "default_value": null,
           "enum_values": null,
@@ -2184,8 +1811,6 @@
         },
         {
           "name": "section names",
-          "direction": "in",
-          "type": null,
           "description": "section names contains the names of all sections in refnum.",
           "default_value": null,
           "enum_values": null,
@@ -2193,8 +1818,6 @@
         },
         {
           "name": "error out",
-          "direction": "in",
-          "type": null,
           "description": "Functions 1526 ni.com error out contains error information. This output provides standard error out functionality.",
           "default_value": null,
           "enum_values": null,
@@ -2214,8 +1837,6 @@
       "terminals": [
         {
           "name": "refnum",
-          "direction": "in",
-          "type": "I32",
           "description": "refnum is the reference number of the configuration data.",
           "default_value": null,
           "enum_values": null,
@@ -2223,8 +1844,6 @@
         },
         {
           "name": "not a config data refnum",
-          "direction": "in",
-          "type": "Boolean",
           "description": "not a config data refnum is TRUE if refnum is not a valid configuration data refnum.",
           "default_value": null,
           "enum_values": null,
@@ -2244,8 +1863,6 @@
       "terminals": [
         {
           "name": "create index file? (T)",
-          "direction": "in",
-          "type": "Boolean",
           "description": "create index file? specifies whether LabVIEW automatically generates a .tdms_index file for the corresponding .tdms file. This index file enables LabVIEW to speed up random access to the .tdms file. If you have limited disk space, wire a FALSE value to this input to prevent LabVIEW from generating the .tdms_index file. The default is TRUE. LabVIEW ignores this input if you open a .tdms file that already has a .tdms_index file. Wiring a FALSE value to this input does not remove this file. LabVIEW",
           "default_value": "TRUE",
           "enum_values": null,
@@ -2253,8 +1870,6 @@
         },
         {
           "name": "file format version (2.0)",
-          "direction": "in",
-          "type": "I32",
           "description": "Note If you use multiple TDMS Open functions, which have different values for the create index file? input, to open the same .tdms file, LabVIEW uses the create index file? input of the first TDMS Open function to determine whether to generate the .tdms_index file or not. LabVIEW ignores the create index file? input of all subsequent TDMS Open functions. Functions 1530 ni.com file format version specifies the file format version for the .tdms file. Refer to the following support document at ni.c",
           "default_value": null,
           "enum_values": null,
@@ -2262,8 +1877,6 @@
         },
         {
           "name": "file path",
-          "direction": "in",
-          "type": "Path",
           "description": "file path specifies the absolute path to the file you want to open. If you use this function to create a new file, the file extension of the filename you specify in file path must be .tdms. Otherwise, this function automatically appends .tdms to the filename you specify. If you use this function to open or update an existing file, you do not have to ensure that the file extension is .tdms.",
           "default_value": null,
           "enum_values": null,
@@ -2271,8 +1884,6 @@
         },
         {
           "name": "operation (0:open)",
-          "direction": "in",
-          "type": null,
           "description": "operation specifies the operation to perform. 0 open (default)\u2014Opens a .tdms file to write to. 1 open or create\u2014Creates a new .tdms file or opens an existing .tdms file to configure. 2 create or replace\u2014Creates a new .tdms file or replaces an existing .tdms file. 3 create\u2014Creates a new .tdms file. 4 open (read-only)\u2014Opens a read-only version of the .tdms file.",
           "default_value": null,
           "enum_values": [
@@ -2301,8 +1912,6 @@
         },
         {
           "name": "byte order (2:little-endian)",
-          "direction": "in",
-          "type": null,
           "description": "byte order specifies the byte order, or endian format, of the data in the .tdms file. Byte order specifies whether LabVIEW represents numeric values in memory from most significant byte to least significant byte or vice versa. The byte order input is valid only if you use this function to create a new .tdms file. If you use this function to read an existing .tdms file, LabVIEW reads data in the byte order of that file and represents the data in the native byte order of the host computer. If you ",
           "default_value": null,
           "enum_values": null,
@@ -2322,8 +1931,6 @@
       "terminals": [
         {
           "name": "data layout (0:decimated)",
-          "direction": "in",
-          "type": "Enum",
           "description": "data layout specifies the arrangement of the data that you want to stream to a .tdms file. You must use the same data layout for each channel under the same group. 0 decimated (default)\u2014Specifies that the input data prioritizes channels before samples. This arrangement first lists all samples from the first channel, then all samples from the second channel, and so on through the last channel. The following table shows a typical example of the decimated data layout. Channel 0\u2014Sample 1 Channel 0\u2014S",
           "default_value": null,
           "enum_values": [
@@ -2356,8 +1963,6 @@
       "terminals": [
         {
           "name": "count (-1: all)",
-          "direction": "in",
-          "type": "I32",
           "description": "count specifies the maximum number of data elements to read from the .tdms file for each channel. The default is \u20131, all available elements.",
           "default_value": "\u20131, all available elements",
           "enum_values": null,
@@ -2365,8 +1970,6 @@
         },
         {
           "name": "offset (0)",
-          "direction": "in",
-          "type": "I32",
           "description": "offset specifies the number of data elements into the .tdms file at which the function begins reading the .tdms file. The default is 0.",
           "default_value": "0",
           "enum_values": null,
@@ -2374,8 +1977,6 @@
         },
         {
           "name": "tdms file",
-          "direction": "in",
-          "type": "I32",
           "description": "tdms file specifies a reference number to the .tdms file on which to perform the operation. Use the TDMS Open function to open the refnum.",
           "default_value": null,
           "enum_values": null,
@@ -2383,8 +1984,6 @@
         },
         {
           "name": "group name in",
-          "direction": "in",
-          "type": null,
           "description": "Functions",
           "default_value": null,
           "enum_values": null,
@@ -2404,8 +2003,6 @@
       "terminals": [
         {
           "name": "tdms file",
-          "direction": "in",
-          "type": "I32",
           "description": "Functions 1540 ni.com tdms file specifies a reference number to the .tdms file on which to perform the operation. Use the TDMS Open function to open the refnum.",
           "default_value": null,
           "enum_values": null,
@@ -2413,8 +2010,6 @@
         },
         {
           "name": "error in (no error)",
-          "direction": "in",
-          "type": null,
           "description": "error in describes error conditions that occur before this node runs. With the following exception, this input provides standard error in functionality. This node runs normally even if an error occurred before this node runs.",
           "default_value": null,
           "enum_values": null,
@@ -2422,8 +2017,6 @@
         },
         {
           "name": "file path out",
-          "direction": "out",
-          "type": "Path",
           "description": "file path out returns the path of the .tdms file on which you performed the operation.",
           "default_value": null,
           "enum_values": null,
@@ -2431,8 +2024,6 @@
         },
         {
           "name": "error out",
-          "direction": "in",
-          "type": null,
           "description": "error out contains error information. This output provides standard error out functionality. (VxWorks) LabVIEW loads the shared TDMS component into memory when you open a TDMS file. LabVIEW unloads this component from memory when you close all TDMS files. On the VxWorks operating system, unloading the TDMS component from memory will leak approximately 1.8 kilobytes of memory due to a known issue of VxWorks. You can follow the guidelines below to avoid memory leak in your application.",
           "default_value": null,
           "enum_values": null,
@@ -2440,8 +2031,6 @@
         },
         {
           "name": "Avoid opening and closing TDMS files unnecessarily on VxWorks.",
-          "direction": "in",
-          "type": null,
           "description": "",
           "default_value": null,
           "enum_values": null,
@@ -2449,8 +2038,6 @@
         },
         {
           "name": "Open an additional TDMS file at the beginning of the application and keep it open",
-          "direction": "in",
-          "type": null,
           "description": "",
           "default_value": null,
           "enum_values": null,
@@ -2458,8 +2045,6 @@
         },
         {
           "name": "Set the TDMS component as a startup component on your RT target. To do this,",
-          "direction": "in",
-          "type": null,
           "description": "",
           "default_value": null,
           "enum_values": null,
@@ -2479,8 +2064,6 @@
       "terminals": [
         {
           "name": "tdms file",
-          "direction": "in",
-          "type": "I32",
           "description": "tdms file specifies a reference number to the .tdms file on which to perform the operation. Use the TDMS Open function to open the refnum.",
           "default_value": null,
           "enum_values": null,
@@ -2488,8 +2071,6 @@
         },
         {
           "name": "group name",
-          "direction": "in",
-          "type": null,
           "description": "group name indicates the channel group to analyze. If this input is not wired, the function performs the operation on all channel and group names.",
           "default_value": null,
           "enum_values": null,
@@ -2497,8 +2078,6 @@
         },
         {
           "name": "error in (no error)",
-          "direction": "in",
-          "type": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
           "default_value": null,
           "enum_values": null,
@@ -2506,8 +2085,6 @@
         },
         {
           "name": "tdms file out",
-          "direction": "out",
-          "type": null,
           "description": "tdms file out returns a TDMS file reference to the .tdms file on which you performed the operation.",
           "default_value": null,
           "enum_values": null,
@@ -2515,8 +2092,6 @@
         },
         {
           "name": "group names",
-          "direction": "in",
-          "type": null,
           "description": "Functions 1542 ni.com group names lists the names of the channel groups in the specified .tdms file.",
           "default_value": null,
           "enum_values": null,
@@ -2524,8 +2099,6 @@
         },
         {
           "name": "group/channel names",
-          "direction": "in",
-          "type": null,
           "description": "group/channel names lists the names of the channel groups and their associated channels in the specified .tdms file. If the group name input is wired, group/channel names returns the channel names within the specified group.",
           "default_value": null,
           "enum_values": null,
@@ -2533,8 +2106,6 @@
         },
         {
           "name": "error out",
-          "direction": "in",
-          "type": null,
           "description": "error out contains error information. This output provides standard error out functionality.",
           "default_value": null,
           "enum_values": null,
@@ -2554,8 +2125,6 @@
       "terminals": [
         {
           "name": "property values",
-          "direction": "in",
-          "type": null,
           "description": "property values specifies the property values of the specified channel group, channel, or .tdms file. This input accepts the following data types:",
           "default_value": null,
           "enum_values": null,
@@ -2563,8 +2132,6 @@
         },
         {
           "name": "Signed or unsigned integers",
-          "direction": "in",
-          "type": null,
           "description": "",
           "default_value": null,
           "enum_values": null,
@@ -2572,8 +2139,6 @@
         },
         {
           "name": "Floating-point numbers, including the following specific data types:",
-          "direction": "in",
-          "type": null,
           "description": "",
           "default_value": null,
           "enum_values": null,
@@ -2581,8 +2146,6 @@
         },
         {
           "name": "Timestamps",
-          "direction": "in",
-          "type": null,
           "description": "",
           "default_value": null,
           "enum_values": null,
@@ -2590,8 +2153,6 @@
         },
         {
           "name": "Booleans",
-          "direction": "in",
-          "type": null,
           "description": "",
           "default_value": null,
           "enum_values": null,
@@ -2599,8 +2160,6 @@
         },
         {
           "name": "Alphanumeric strings that do not contain null characters",
-          "direction": "in",
-          "type": null,
           "description": "",
           "default_value": null,
           "enum_values": null,
@@ -2608,8 +2167,6 @@
         },
         {
           "name": "Variants that contain any of the data types specified above",
-          "direction": "in",
-          "type": null,
           "description": "",
           "default_value": null,
           "enum_values": null,
@@ -2617,8 +2174,6 @@
         },
         {
           "name": "property names",
-          "direction": "in",
-          "type": null,
           "description": "property names specifies the property names of the specified channel group, channel, or .tdms file.",
           "default_value": null,
           "enum_values": null,
@@ -2626,8 +2181,6 @@
         },
         {
           "name": "tdms file",
-          "direction": "in",
-          "type": "I32",
           "description": "tdms file specifies a reference number to the .tdms file on which to perform the operation. Use the TDMS Open function to open the refnum.",
           "default_value": null,
           "enum_values": null,
@@ -2635,8 +2188,6 @@
         },
         {
           "name": "group name",
-          "direction": "in",
-          "type": null,
           "description": "group name specifies the channel group to perform the operation on. If you wire a value to the channel name input, you must also wire a value to this input.",
           "default_value": null,
           "enum_values": null,
@@ -2644,8 +2195,6 @@
         },
         {
           "name": "channel name",
-          "direction": "in",
-          "type": null,
           "description": "channel name specifies the channel to perform the operation on. If you wire a value to this input, you must also wire a value to the group name input.",
           "default_value": null,
           "enum_values": null,
@@ -2653,8 +2202,6 @@
         },
         {
           "name": "error in (no error)",
-          "direction": "in",
-          "type": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
           "default_value": null,
           "enum_values": null,
@@ -2662,8 +2209,6 @@
         },
         {
           "name": "tdms file out",
-          "direction": "out",
-          "type": null,
           "description": "tdms file out returns a TDMS file reference to the .tdms file on which you performed the operation.",
           "default_value": null,
           "enum_values": null,
@@ -2671,8 +2216,6 @@
         },
         {
           "name": "group name out",
-          "direction": "out",
-          "type": null,
           "description": "Functions 1544 ni.com group name out returns the name of the channel group on which you performed the operation.",
           "default_value": null,
           "enum_values": null,
@@ -2680,8 +2223,6 @@
         },
         {
           "name": "channel name out",
-          "direction": "out",
-          "type": null,
           "description": "channel name out returns the name of the channel on which you performed the operation.",
           "default_value": null,
           "enum_values": null,
@@ -2689,8 +2230,6 @@
         },
         {
           "name": "error out",
-          "direction": "in",
-          "type": "Enum",
           "description": "error out contains error information. This output provides standard error out functionality. This section lists all properties that you might encounter when you use a .tdms file. The first table lists all properties you might find in a .tdms file. The second table lists all properties that do not exist in a .tdms file but which you can use to perform certain actions. You can write these properties as waveform attributes to a .tdms file. However, some of these properties might not appear as wavef",
           "default_value": null,
           "enum_values": null,
@@ -2710,8 +2249,6 @@
       "terminals": [
         {
           "name": "data type",
-          "direction": "in",
-          "type": "Boolean",
           "description": "data type controls the data type of the property values or property value output. This input accepts the following data types: Data Type Default Value Signed or unsigned integer 0 Single-precision or double-precision floating-point number 0 Complex single-precision or double-precision floating-point number 0+0i (Windows) Extended-precision floating-point number 0 Alphanumeric string that does not contain null characters Empty string Functions 1554 ni.com Data Type Default Value Timestamp 00:00:0",
           "default_value": "Value Signed or unsigned integer 0 Single-precision or double-precision floating-point number 0 Complex single-precision or double-precision floating-point number 0+0i (Windows) Extended-precision floating-point number 0 Alphanumeric string that does not contain null characters Empty string Functions 1554 ni",
           "enum_values": null,
@@ -2719,8 +2256,6 @@
         },
         {
           "name": "property name",
-          "direction": "in",
-          "type": "Boolean",
           "description": "property name specifies the name of the property whose values you want to get. If you do not wire this input, this function returns the property names and their property values for the specified group name, channel name, or the entire .tdms file. If you wire this input, the property value output replaces property values and returns the value of the specified property; the found output replaces property names and returns TRUE. If the specified property does not exist in the .tdms file, the proper",
           "default_value": "value of the specified data type and the found output returns FALSE",
           "enum_values": null,
@@ -2728,8 +2263,6 @@
         },
         {
           "name": "tdms file",
-          "direction": "in",
-          "type": "I32",
           "description": "tdms file specifies a reference number to the .tdms file on which to perform the operation. Use the TDMS Open function to open the refnum.",
           "default_value": null,
           "enum_values": null,
@@ -2737,8 +2270,6 @@
         },
         {
           "name": "group name",
-          "direction": "in",
-          "type": null,
           "description": "group name specifies the channel group to perform the operation on. If you wire a value to the channel name input, you must also wire a value to this input.",
           "default_value": null,
           "enum_values": null,
@@ -2746,8 +2277,6 @@
         },
         {
           "name": "channel name",
-          "direction": "in",
-          "type": null,
           "description": "channel name specifies the channel to perform the operation on. If you wire a value to this input, you must also wire a value to the group name input.",
           "default_value": null,
           "enum_values": null,
@@ -2755,8 +2284,6 @@
         },
         {
           "name": "error in (no error)",
-          "direction": "in",
-          "type": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
           "default_value": null,
           "enum_values": null,
@@ -2764,8 +2291,6 @@
         },
         {
           "name": "tdms file out",
-          "direction": "out",
-          "type": null,
           "description": "tdms file out returns a TDMS file reference to the .tdms file on which you performed the operation. Functions",
           "default_value": null,
           "enum_values": null,
@@ -2785,8 +2310,6 @@
       "terminals": [
         {
           "name": "tdms file",
-          "direction": "in",
-          "type": "I32",
           "description": "tdms file specifies a reference number to the .tdms file on which to perform the operation. Use the TDMS Open function to open the refnum.",
           "default_value": null,
           "enum_values": null,
@@ -2794,8 +2317,6 @@
         },
         {
           "name": "error in (no error)",
-          "direction": "in",
-          "type": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
           "default_value": null,
           "enum_values": null,
@@ -2803,8 +2324,6 @@
         },
         {
           "name": "tdms file out",
-          "direction": "out",
-          "type": null,
           "description": "tdms file out returns a TDMS file reference to the .tdms file on which you performed the operation.",
           "default_value": null,
           "enum_values": null,
@@ -2812,8 +2331,6 @@
         },
         {
           "name": "error out",
-          "direction": "in",
-          "type": null,
           "description": "error out contains error information. This output provides standard error out functionality. Examples Refer to the following example files included with LabVIEW.",
           "default_value": null,
           "enum_values": null,
@@ -2821,8 +2338,6 @@
         },
         {
           "name": "labview\\examples\\File IO\\TDMS\\Flush Written TDMS Data.vi",
-          "direction": "in",
-          "type": null,
           "description": "",
           "default_value": null,
           "enum_values": null,
@@ -2842,8 +2357,6 @@
       "terminals": [
         {
           "name": "file path",
-          "direction": "in",
-          "type": "Path",
           "description": "file path is the path to the .tdms file you want to defragment.",
           "default_value": null,
           "enum_values": null,
@@ -2851,8 +2364,6 @@
         },
         {
           "name": "error in (no error)",
-          "direction": "in",
-          "type": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
           "default_value": null,
           "enum_values": null,
@@ -2860,8 +2371,6 @@
         },
         {
           "name": "error out",
-          "direction": "in",
-          "type": null,
           "description": "error out contains error information. This output provides standard error out functionality.",
           "default_value": null,
           "enum_values": null,
@@ -2892,8 +2401,6 @@
       "terminals": [
         {
           "name": "file path",
-          "direction": "in",
-          "type": "Path",
           "description": "Specifies the full path of the file you want to open.",
           "default_value": null,
           "enum_values": null,
@@ -2901,8 +2408,6 @@
         },
         {
           "name": "function (open:0)",
-          "direction": "in",
-          "type": null,
           "description": "Specifies the operation to perform.",
           "default_value": null,
           "enum_values": null,
@@ -2910,8 +2415,6 @@
         },
         {
           "name": "DataPlugin name",
-          "direction": "in",
-          "type": null,
           "description": "Specifies the name of the DataPlugin, which determines the storage format of the data file. To open an external data file, you first must install the correct National Instruments DataPlugins. Refer to the National Instruments website at ni.com/dataplugins to download DataPlugins. If you do not wire data to this input, LabVIEW uses the value that you specify in the DataPlugin dialog box option. If you wire data to this input, LabVIEW ignores the value of the DataPlugin option. If you wire an empt",
           "default_value": null,
           "enum_values": null,
@@ -2919,8 +2422,6 @@
         },
         {
           "name": "additional parameters",
-          "direction": "in",
-          "type": null,
           "description": "Specifies additional parameters for the input DataPlugin.",
           "default_value": null,
           "enum_values": null,
@@ -2928,8 +2429,6 @@
         },
         {
           "name": "error in (no error)",
-          "direction": "in",
-          "type": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
           "default_value": null,
           "enum_values": null,
@@ -2937,8 +2436,6 @@
         },
         {
           "name": "storage refnum (file)",
-          "direction": "in",
-          "type": null,
           "description": "Generates a refnum to the file this Express VI opened.",
           "default_value": null,
           "enum_values": null,
@@ -2946,8 +2443,6 @@
         },
         {
           "name": "DataPlugin name out",
-          "direction": "out",
-          "type": null,
           "description": "Returns DataPlugin name unchanged. If you do not wire data to the DataPlugin name input, DataPlugin name out returns the value that you specify in the DataPlugin dialog box option. If you wire an empty string to the DataPlugin name input, DataPlugin name out returns the storage format that LabVIEW automatically detects.",
           "default_value": null,
           "enum_values": null,
@@ -2955,8 +2450,6 @@
         },
         {
           "name": "error out",
-          "direction": "in",
-          "type": null,
           "description": "error out contains error information. This output provides standard error out functionality. Functions",
           "default_value": null,
           "enum_values": null,
@@ -2976,8 +2469,6 @@
       "terminals": [
         {
           "name": "storage refnum (file)",
-          "direction": "in",
-          "type": "I32",
           "description": "Specifies the reference number for the .tdm and .tdms file you want to access. You must wire a Functions 1654 ni.com",
           "default_value": null,
           "enum_values": null,
@@ -2997,8 +2488,6 @@
       "terminals": [
         {
           "name": "storage refnum (file)",
-          "direction": "in",
-          "type": "I32",
           "description": "Specifies the reference number for the data object you want to access. After you wire a file refnum to this input, the label changes from storage refnum to storage refnum (file). After you wire a channel group refnum to this input, the label changes from storage refnum to storage refnum (channel group). After you wire a channel refnum to this input, the label changes from storage refnum to storage refnum (channel).",
           "default_value": null,
           "enum_values": null,
@@ -3006,8 +2495,6 @@
         },
         {
           "name": "error in",
-          "direction": "in",
-          "type": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
           "default_value": null,
           "enum_values": null,
@@ -3015,8 +2502,6 @@
         },
         {
           "name": "index",
-          "direction": "in",
-          "type": null,
           "description": "Specifies where this Express VI starts reading values from a channel. This input appears only if you select Channel as the Object type and if you place a checkmark in the Show terminals for data channel check box in the configuration dialog box. Functions 1658 ni.com",
           "default_value": null,
           "enum_values": null,
@@ -3036,8 +2521,6 @@
       "terminals": [
         {
           "name": "storage refnum",
-          "direction": "in",
-          "type": "I32",
           "description": "Specifies the reference number for the data object you want to access. After you wire a file refnum to this input, the label changes from storage refnum to storage refnum (file). After you wire a channel group refnum to this input, the label changes from storage refnum to storage refnum (channel group). After you wire a channel refnum to this input, the label changes from storage refnum to storage refnum (channel).",
           "default_value": null,
           "enum_values": null,
@@ -3045,8 +2528,6 @@
         },
         {
           "name": "error in (no error)",
-          "direction": "in",
-          "type": null,
           "description": "Describes error conditions that occur before this node runs.",
           "default_value": null,
           "enum_values": null,
@@ -3054,8 +2535,6 @@
         },
         {
           "name": "file path",
-          "direction": "out",
-          "type": "Path",
           "description": "Returns the path that corresponds to storage refnum.",
           "default_value": null,
           "enum_values": null,
@@ -3063,8 +2542,6 @@
         },
         {
           "name": "error out",
-          "direction": "in",
-          "type": null,
           "description": "Contains error information. This output provides standard error out functionality.",
           "default_value": null,
           "enum_values": null,
@@ -3106,8 +2583,6 @@
       "terminals": [
         {
           "name": "storage refnum (channel)",
-          "direction": "in",
-          "type": null,
           "description": "storage refnum (channel) specifies the channel to remove.",
           "default_value": null,
           "enum_values": null,
@@ -3115,8 +2590,6 @@
         },
         {
           "name": "error in (no error)",
-          "direction": "in",
-          "type": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
           "default_value": null,
           "enum_values": null,
@@ -3124,8 +2597,6 @@
         },
         {
           "name": "error out",
-          "direction": "in",
-          "type": null,
           "description": "error out contains error information. This output provides standard error out functionality.",
           "default_value": null,
           "enum_values": null,
@@ -3145,8 +2616,6 @@
       "terminals": [
         {
           "name": "file path",
-          "direction": "in",
-          "type": "Path",
           "description": "file path is the absolute path to the file you want to open.",
           "default_value": null,
           "enum_values": null,
@@ -3154,8 +2623,6 @@
         },
         {
           "name": "DataPlugin name",
-          "direction": "in",
-          "type": null,
           "description": "DataPlugin name specifies the name of the DataPlugin that determines the storage format of Note This VI does not delete data in .tdms files. Functions \u00a9 National Instruments 1671 the data file. Use the List DataPlugins VI to obtain the names of all DataPlugins installed on the local computer. If you do not wire data to this input or if you wire an empty string to this input, this VI automatically detects the storage format of the data file.",
           "default_value": null,
           "enum_values": null,
@@ -3163,8 +2630,6 @@
         },
         {
           "name": "error in (no error)",
-          "direction": "in",
-          "type": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
           "default_value": null,
           "enum_values": null,
@@ -3172,8 +2637,6 @@
         },
         {
           "name": "file path out",
-          "direction": "out",
-          "type": "Path",
           "description": "file path out returns file path unchanged.",
           "default_value": null,
           "enum_values": null,
@@ -3181,8 +2644,6 @@
         },
         {
           "name": "DataPlugin name out",
-          "direction": "out",
-          "type": null,
           "description": "DataPlugin name out returns DataPlugin name unchanged. If you do not wire the DataPlugin name input or if you wire an empty string to this input, DataPlugin name out returns the DataPlugin name that this VI detects automatically.",
           "default_value": null,
           "enum_values": null,
@@ -3190,8 +2651,6 @@
         },
         {
           "name": "error out",
-          "direction": "in",
-          "type": null,
           "description": "error out contains error information. This output provides standard error out functionality.",
           "default_value": null,
           "enum_values": null,
@@ -3211,8 +2670,6 @@
       "terminals": [
         {
           "name": "DataPlugin name",
-          "direction": "in",
-          "type": null,
           "description": "DataPlugin name specifies the name of the DataPlugin that determines the storage format of the data file. Use the List DataPlugins VI to obtain the names of all DataPlugins installed on the Functions 1672 ni.com local computer. If you do not wire data to this input or if you wire an empty string to this input, this VI automatically detects the storage format of the data file.",
           "default_value": null,
           "enum_values": null,
@@ -3220,8 +2677,6 @@
         },
         {
           "name": "source file path",
-          "direction": "in",
-          "type": "Path",
           "description": "source file path specifies the path to the data file you want to convert.",
           "default_value": null,
           "enum_values": null,
@@ -3229,8 +2684,6 @@
         },
         {
           "name": "target file path",
-          "direction": "in",
-          "type": "Path",
           "description": "target file path specifies the path to the new .tdm or .tdms file you want to create.",
           "default_value": null,
           "enum_values": null,
@@ -3238,8 +2691,6 @@
         },
         {
           "name": "target file operation (3:create)",
-          "direction": "in",
-          "type": null,
           "description": "target file operation specifies the operation to perform. 0 open \u2014Opens a file to configure. 1 open or create \u2014Opens an existing file or creates a new file to configure. 2 create or replace \u2014Creates a new file or replaces an existing file. 3 create (Default)\u2014Creates a new file. 4 open (read only) \u2014Opens a read-only version of the file.",
           "default_value": null,
           "enum_values": [
@@ -3268,8 +2719,6 @@
         },
         {
           "name": "target file format (TDMS)",
-          "direction": "in",
-          "type": null,
           "description": "target file format specifies the target file format to which you want to convert the data file. 0 TDM \u2014Converts the data file to a .tdm file. 1 TDMS (Default)\u2014Converts the data file to a .tdms file.",
           "default_value": null,
           "enum_values": [
@@ -3286,8 +2735,6 @@
         },
         {
           "name": "error in (no error)",
-          "direction": "in",
-          "type": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
           "default_value": null,
           "enum_values": null,
@@ -3295,8 +2742,6 @@
         },
         {
           "name": "data chunk size (1E+7)",
-          "direction": "in",
-          "type": null,
           "description": "Functions",
           "default_value": null,
           "enum_values": null,
@@ -3316,8 +2761,6 @@
       "terminals": [
         {
           "name": "DataPlugin name",
-          "direction": "in",
-          "type": null,
           "description": "Note Use the Register DataPlugin VI to register or install DataPlugins on the local computer. Functions \u00a9 National Instruments 1675 DataPlugin name specifies the name of the DataPlugin you want to search for. If you do not wire data to this input or if you wire an empty string to this input, this VI lists all DataPlugins registered on the local computer or exist on the National Instruments website.",
           "default_value": null,
           "enum_values": null,
@@ -3325,8 +2768,6 @@
         },
         {
           "name": "file extension",
-          "direction": "in",
-          "type": null,
           "description": "file extension specifies the file extension of a DataPlugin.",
           "default_value": null,
           "enum_values": null,
@@ -3334,8 +2775,6 @@
         },
         {
           "name": "source",
-          "direction": "in",
-          "type": null,
           "description": "source specifies the source location where you want to search for the DataPlugins. 0 local machine (default)\u2014Lists or searches DataPlugins installed on the local computer. 1 web\u2014Lists or searches DataPlugins from the National Instruments website at ni.com/ dataplugins.",
           "default_value": null,
           "enum_values": [
@@ -3352,8 +2791,6 @@
         },
         {
           "name": "error in (no error)",
-          "direction": "in",
-          "type": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
           "default_value": null,
           "enum_values": null,
@@ -3361,8 +2798,6 @@
         },
         {
           "name": "DataPlugin information",
-          "direction": "out",
-          "type": null,
           "description": "DataPlugin information returns information about each DataPlugin.",
           "default_value": null,
           "enum_values": null,
@@ -3370,8 +2805,6 @@
         },
         {
           "name": "name",
-          "direction": "out",
-          "type": null,
           "description": "name returns the name of the DataPlugin.",
           "default_value": null,
           "enum_values": null,
@@ -3379,8 +2812,6 @@
         },
         {
           "name": "version",
-          "direction": "out",
-          "type": null,
           "description": "version returns the version information of the DataPlugin.",
           "default_value": null,
           "enum_values": null,
@@ -3388,8 +2819,6 @@
         },
         {
           "name": "type",
-          "direction": "out",
-          "type": null,
           "description": "type returns the type of the DataPlugin. This information indicates the programming language in which the DataPlugin was created.",
           "default_value": null,
           "enum_values": null,
@@ -3397,8 +2826,6 @@
         },
         {
           "name": "read-only?",
-          "direction": "in",
-          "type": "Boolean",
           "description": "read-only? indicates whether the DataPlugin is a read-only DataPlugin. Functions 1676 ni.com",
           "default_value": null,
           "enum_values": null,
@@ -3418,8 +2845,6 @@
       "terminals": [
         {
           "name": "storage refnum",
-          "direction": "in",
-          "type": "I32",
           "description": "storage refnum specifies the reference number for the data object you want to access.",
           "default_value": null,
           "enum_values": null,
@@ -3427,8 +2852,6 @@
         },
         {
           "name": "error in (no error)",
-          "direction": "in",
-          "type": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
           "default_value": null,
           "enum_values": null,
@@ -3436,8 +2859,6 @@
         },
         {
           "name": "storage read-only",
-          "direction": "in",
-          "type": null,
           "description": "Functions \u00a9 National Instruments 1685 storage read-only specifies if the data storage is read only.",
           "default_value": null,
           "enum_values": null,
@@ -3445,8 +2866,6 @@
         },
         {
           "name": "storage refnum out",
-          "direction": "out",
-          "type": "I32",
           "description": "storage refnum out returns a reference number for the data object this VI accesses.",
           "default_value": null,
           "enum_values": null,
@@ -3454,8 +2873,6 @@
         },
         {
           "name": "object type",
-          "direction": "out",
-          "type": null,
           "description": "object type returns the data object type (file, channel group, or channel).",
           "default_value": null,
           "enum_values": null,
@@ -3463,8 +2880,6 @@
         },
         {
           "name": "storage location",
-          "direction": "out",
-          "type": "Path",
           "description": "storage location returns the file path to the data storage.",
           "default_value": null,
           "enum_values": null,
@@ -3472,8 +2887,6 @@
         },
         {
           "name": "error out",
-          "direction": "in",
-          "type": null,
           "description": "error out contains error information. This output provides standard error out functionality.",
           "default_value": null,
           "enum_values": null,
@@ -3481,8 +2894,6 @@
         },
         {
           "name": "DataPlugin name",
-          "direction": "out",
-          "type": null,
           "description": "DataPlugin name returns the DataPlugin name that the data object contains.",
           "default_value": null,
           "enum_values": null,
@@ -3502,8 +2913,6 @@
       "terminals": [
         {
           "name": "target",
-          "direction": "in",
-          "type": "Path",
           "description": "target specifies the path to the new or existing zip file. The VI deletes and rewrites the file if it Functions 1722 ni.com already exists. You cannot append data to a zip file.",
           "default_value": null,
           "enum_values": null,
@@ -3511,8 +2920,6 @@
         },
         {
           "name": "confirm overwrite? (F)",
-          "direction": "in",
-          "type": "Boolean",
           "description": "confirm overwrite? specifies to overwrite the existing zip file. The default is FALSE. If you set confirm overwrite? to TRUE, the VI prompts you to confirm deleting the existing zip file.",
           "default_value": "FALSE",
           "enum_values": null,
@@ -3520,8 +2927,6 @@
         },
         {
           "name": "error in (no error)",
-          "direction": "in",
-          "type": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
           "default_value": null,
           "enum_values": null,
@@ -3529,8 +2934,6 @@
         },
         {
           "name": "zip file out",
-          "direction": "out",
-          "type": null,
           "description": "zip file out returns the open zip file. zip file out is analogous to a refnum or task ID.",
           "default_value": null,
           "enum_values": null,
@@ -3538,8 +2941,6 @@
         },
         {
           "name": "cancelled",
-          "direction": "out",
-          "type": "Boolean",
           "description": "cancelled returns TRUE only if a user cancels an overwrite confirmation dialog box.",
           "default_value": null,
           "enum_values": null,
@@ -3547,8 +2948,6 @@
         },
         {
           "name": "error out",
-          "direction": "in",
-          "type": null,
           "description": "error out contains error information. This output provides standard error out functionality. Examples Refer to the following example files included with LabVIEW.",
           "default_value": null,
           "enum_values": null,
@@ -3556,8 +2955,6 @@
         },
         {
           "name": "labview\\examples\\File IO\\Zip\\Create Zip File.vi",
-          "direction": "in",
-          "type": null,
           "description": "",
           "default_value": null,
           "enum_values": null,
@@ -3577,8 +2974,6 @@
       "terminals": [
         {
           "name": "zip file in",
-          "direction": "in",
-          "type": null,
           "description": "zip file in specifies the open zip file.",
           "default_value": null,
           "enum_values": null,
@@ -3586,8 +2981,6 @@
         },
         {
           "name": "source file path",
-          "direction": "in",
-          "type": "Path",
           "description": "source file path specifies the path to file to add to the zip file.",
           "default_value": null,
           "enum_values": null,
@@ -3595,8 +2988,6 @@
         },
         {
           "name": "destination path in zip",
-          "direction": "in",
-          "type": "Path",
           "description": "destination path in zip specifies the filename and the path to apply to the source file when the VI encodes the file into the zip file.",
           "default_value": null,
           "enum_values": null,
@@ -3604,8 +2995,6 @@
         },
         {
           "name": "error in (no error)",
-          "direction": "in",
-          "type": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
           "default_value": null,
           "enum_values": null,
@@ -3613,8 +3002,6 @@
         },
         {
           "name": "zip file out",
-          "direction": "out",
-          "type": null,
           "description": "zip file out returns the open zip file. zip file out is analogous to a refnum or task ID.",
           "default_value": null,
           "enum_values": null,
@@ -3622,8 +3009,6 @@
         },
         {
           "name": "error out",
-          "direction": "in",
-          "type": null,
           "description": "error out contains error information. This output provides standard error out functionality. Examples Refer to the following example files included with LabVIEW.",
           "default_value": null,
           "enum_values": null,
@@ -3631,8 +3016,6 @@
         },
         {
           "name": "labview\\examples\\File IO\\Zip\\Create Zip File.vi",
-          "direction": "in",
-          "type": null,
           "description": "",
           "default_value": null,
           "enum_values": null,
@@ -3652,8 +3035,6 @@
       "terminals": [
         {
           "name": "zip file in",
-          "direction": "in",
-          "type": null,
           "description": "zip file in specifies the open zip file.",
           "default_value": null,
           "enum_values": null,
@@ -3661,8 +3042,6 @@
         },
         {
           "name": "comments",
-          "direction": "in",
-          "type": null,
           "description": "comments includes text to include in the zip file.",
           "default_value": null,
           "enum_values": null,
@@ -3670,8 +3049,6 @@
         },
         {
           "name": "error in (no error)",
-          "direction": "in",
-          "type": null,
           "description": "error in describes error conditions that occur before this node runs. With the following exception, this input provides standard error in functionality. This node runs normally even if an error occurred before this node runs.",
           "default_value": null,
           "enum_values": null,
@@ -3679,8 +3056,6 @@
         },
         {
           "name": "error out",
-          "direction": "in",
-          "type": null,
           "description": "error out contains error information. This output provides standard error out functionality. Examples Refer to the following example files included with LabVIEW.",
           "default_value": null,
           "enum_values": null,
@@ -3688,8 +3063,6 @@
         },
         {
           "name": "labview\\examples\\File IO\\Zip\\Create Zip File.vi",
-          "direction": "in",
-          "type": null,
           "description": "",
           "default_value": null,
           "enum_values": null,
@@ -3709,8 +3082,6 @@
       "terminals": [
         {
           "name": "anything",
-          "direction": "in",
-          "type": null,
           "description": "anything is any LabVIEW data you want to convert. This parameter is polymorphic.",
           "default_value": null,
           "enum_values": null,
@@ -3718,8 +3089,6 @@
         },
         {
           "name": "xml string",
-          "direction": "out",
-          "type": "String",
           "description": "Functions 1728 ni.com xml string is the resulting XML string that represents the LabVIEW data type. When converting decimal values, this function uses only the period (.) as a decimal separator. The function does not use localized decimal separators. Examples Refer to the following example files included with LabVIEW.",
           "default_value": null,
           "enum_values": null,
@@ -3727,8 +3096,6 @@
         },
         {
           "name": "labview\\examples\\File IO\\XML\\Flatten and Unflatten XML\\",
-          "direction": "in",
-          "type": null,
           "description": "",
           "default_value": null,
           "enum_values": null,
@@ -3770,8 +3137,6 @@
       "terminals": [
         {
           "name": "refnum",
-          "direction": "in",
-          "type": null,
           "description": "refnum is the file refnum associated with the file whose file mark you want to move.",
           "default_value": null,
           "enum_values": null,
@@ -3779,8 +3144,6 @@
         },
         {
           "name": "error in",
-          "direction": "in",
-          "type": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
           "default_value": null,
           "enum_values": null,
@@ -3788,8 +3151,6 @@
         },
         {
           "name": "refnum out",
-          "direction": "out",
-          "type": null,
           "description": "refnum out returns refnum unchanged.",
           "default_value": null,
           "enum_values": null,
@@ -3797,8 +3158,6 @@
         },
         {
           "name": "offset (in bytes)",
-          "direction": "in",
-          "type": null,
           "description": "offset (in bytes) indicates the new location of the file mark relative to the beginning of the file (zero-based).",
           "default_value": null,
           "enum_values": null,
@@ -3806,8 +3165,6 @@
         },
         {
           "name": "error out",
-          "direction": "in",
-          "type": null,
           "description": "error out contains error information. This output provides standard error out functionality.",
           "default_value": null,
           "enum_values": null,
@@ -3827,8 +3184,6 @@
       "terminals": [
         {
           "name": "file",
-          "direction": "in",
-          "type": "Path",
           "description": "file can be a refnum or file path. Functions 1762 ni.com If it is a file path, this node opens the file specified by the file path.",
           "default_value": null,
           "enum_values": null,
@@ -3836,8 +3191,6 @@
         },
         {
           "name": "error in",
-          "direction": "in",
-          "type": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
           "default_value": null,
           "enum_values": null,
@@ -3845,8 +3198,6 @@
         },
         {
           "name": "refnum out",
-          "direction": "in",
-          "type": null,
           "description": "refnum out is the refnum of the file that the function read. You can wire this output to another file function, depending on what you want to do with the file. The default is to close the file if it is referenced by a file path. If file is a refnum or if you wire refnum out to another function, LabVIEW assumes that the file is still in use until you close it.",
           "default_value": "to close the file if it is referenced by a file path",
           "enum_values": null,
@@ -3854,8 +3205,6 @@
         },
         {
           "name": "size (in bytes)",
-          "direction": "in",
-          "type": null,
           "description": "size (in bytes) is the size of the file in bytes.",
           "default_value": null,
           "enum_values": null,
@@ -3863,8 +3212,6 @@
         },
         {
           "name": "error out",
-          "direction": "in",
-          "type": null,
           "description": "error out contains error information. This output provides standard error out functionality.",
           "default_value": null,
           "enum_values": null,
@@ -3884,8 +3231,6 @@
       "terminals": [
         {
           "name": "path",
-          "direction": "in",
-          "type": "Path",
           "description": "path specifies the file or directory whose access rights you want to change.",
           "default_value": null,
           "enum_values": null,
@@ -3893,8 +3238,6 @@
         },
         {
           "name": "error in",
-          "direction": "in",
-          "type": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides Functions \u00a9 National Instruments 1763 standard error in functionality.",
           "default_value": null,
           "enum_values": null,
@@ -3902,8 +3245,6 @@
         },
         {
           "name": "permissions",
-          "direction": "in",
-          "type": null,
           "description": "permissions contains the current permissions setting for the file or directory after this function executes.",
           "default_value": null,
           "enum_values": null,
@@ -3911,8 +3252,6 @@
         },
         {
           "name": "path out",
-          "direction": "out",
-          "type": "Path",
           "description": "path out returns path unchanged.",
           "default_value": null,
           "enum_values": null,
@@ -3920,8 +3259,6 @@
         },
         {
           "name": "owner",
-          "direction": "in",
-          "type": null,
           "description": "owner contains the current owner setting for the file or directory after this function executes.",
           "default_value": null,
           "enum_values": null,
@@ -3929,8 +3266,6 @@
         },
         {
           "name": "group",
-          "direction": "in",
-          "type": null,
           "description": "group contains the current group setting for the file or directory after this function executes.",
           "default_value": null,
           "enum_values": null,
@@ -3938,8 +3273,6 @@
         },
         {
           "name": "error out",
-          "direction": "in",
-          "type": null,
           "description": "error out contains error information. This output provides standard error out functionality. Refer to Setting Permissions for more information about the permissions parameter. (Windows) This function returns empty strings for owner and group because Windows does not support owners and groups. (macOS) If path refers to a file, this function returns empty strings for owner and group because macOS does not support owners or groups for files.",
           "default_value": null,
           "enum_values": null,
@@ -3959,8 +3292,6 @@
       "terminals": [
         {
           "name": "path",
-          "direction": "in",
-          "type": "Path",
           "description": "path specifies the file or directory whose type or creator you want to read.",
           "default_value": null,
           "enum_values": null,
@@ -3968,8 +3299,6 @@
         },
         {
           "name": "error in",
-          "direction": "in",
-          "type": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
           "default_value": null,
           "enum_values": null,
@@ -3977,8 +3306,6 @@
         },
         {
           "name": "path out",
-          "direction": "out",
-          "type": "Path",
           "description": "path out returns path unchanged.",
           "default_value": null,
           "enum_values": null,
@@ -3986,8 +3313,6 @@
         },
         {
           "name": "type",
-          "direction": "in",
-          "type": null,
           "description": "type contains the current type of the file after this function executes. If no error occurs, this function returns the type of the specified file in type. If an error occurs, error indicates the type of error and type is an empty string.",
           "default_value": null,
           "enum_values": null,
@@ -3995,8 +3320,6 @@
         },
         {
           "name": "creator",
-          "direction": "in",
-          "type": null,
           "description": "creator contains the current creator of the file after this function executes. If no error occurs, this function returns the creator of the specified file in creator. If an error occurs, error indicates the type of error and creator is an empty string.",
           "default_value": null,
           "enum_values": null,
@@ -4004,8 +3327,6 @@
         },
         {
           "name": "error out",
-          "direction": "in",
-          "type": null,
           "description": "error out contains error information. This output provides standard error out functionality. type can return the values for LabVIEW files listed in the table below. LabVIEW File Type type Value Control LVCC .log LVDL Functions",
           "default_value": null,
           "enum_values": null,
@@ -4025,8 +3346,6 @@
       "terminals": [
         {
           "name": "refnum in",
-          "direction": "in",
-          "type": null,
           "description": "refnum in specifies the file refnum associated with the file you want to read.",
           "default_value": null,
           "enum_values": null,
@@ -4034,8 +3353,6 @@
         },
         {
           "name": "data in",
-          "direction": "in",
-          "type": "Array",
           "description": "Functions 1766 ni.com data in specifies the array in which to place data. This function attempts to read as many data elements as the array holds. Refer to the support table for information about the arrays and data types this function supports.",
           "default_value": null,
           "enum_values": null,
@@ -4043,8 +3360,6 @@
         },
         {
           "name": "byte order (0:big-endian, network order)",
-          "direction": "in",
-          "type": "I32",
           "description": "byte order sets the endian form of the resulting data. Byte order, or endian form, indicates whether integers are represented in memory from most-significant byte to least-significant byte or vice versa. The function must read the data in the same byte order that the data was written. 0 big-endian, network order (default)\u2014The most-significant byte occupies the lowest memory address. This endian form is used on PowerPC platforms such as VxWorks. This endian-form also is used when reading data wri",
           "default_value": null,
           "enum_values": [
@@ -4065,8 +3380,6 @@
         },
         {
           "name": "error in",
-          "direction": "in",
-          "type": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
           "default_value": null,
           "enum_values": null,
@@ -4074,8 +3387,6 @@
         },
         {
           "name": "refnum out",
-          "direction": "in",
-          "type": null,
           "description": "refnum out is the refnum of the file that the function read. You can wire this output to another file function.",
           "default_value": null,
           "enum_values": null,
@@ -4083,8 +3394,6 @@
         },
         {
           "name": "data out",
-          "direction": "in",
-          "type": null,
           "description": "data out contains the data read from the file. This output does not resize to include only valid data. If LabVIEW reaches the end of the file before the data in array is full, then the array contains some invalid elements. Use the num elements read output to determine the exact amount of valid data in data out. If LabVIEW does not reach the end of the file before the data in array is full, LabVIEW leaves the file pointer where the read finished so that the next read starts where Note This functi",
           "default_value": null,
           "enum_values": null,
@@ -4104,8 +3413,6 @@
       "terminals": [
         {
           "name": "button label",
-          "direction": "in",
-          "type": null,
           "description": "Label to display on the OK or Current Directory button in the file dialog box. If you configure the Express VI to allow the user to select directories, use this input to specify a label for the Current Directory button. If the configuration does not allow the user to select directories, use this input to specify a label for the OK button. For example, if you select Files only in the configure dialog box, the user must select an existing file to which to append data, so you might want to wire App",
           "default_value": null,
           "enum_values": null,
@@ -4113,8 +3420,6 @@
         },
         {
           "name": "pattern (all files)",
-          "direction": "in",
-          "type": null,
           "description": "Restricts the files displayed in the dialog box to those whose name matches pattern (all files). pattern (all files) does not restrict the directories displayed. The pattern matching in this VI is similar to the matching used in matching wildcards in Windows and Linux filenames. If you specify characters other than the question mark character (?) or the asterisk character (*), the VI displays only files or directories that contain those characters. You can use the question mark character (?) to ",
           "default_value": null,
           "enum_values": null,
@@ -4134,8 +3439,6 @@
       "terminals": [
         {
           "name": "refnum",
-          "direction": "in",
-          "type": null,
           "description": "refnum is the file refnum associated with the file whose file mark you want to move.",
           "default_value": null,
           "enum_values": null,
@@ -4143,8 +3446,6 @@
         },
         {
           "name": "offset (in bytes) (0)",
-          "direction": "in",
-          "type": null,
           "description": "offset (in bytes) specifies how far from the location specified by from to set the file mark.",
           "default_value": null,
           "enum_values": null,
@@ -4152,8 +3453,6 @@
         },
         {
           "name": "from (0:start)",
-          "direction": "in",
-          "type": null,
           "description": "from, together with offset (in bytes), specifies where to set the file mark. If you wire offset (in bytes), from defaults to 0, and the offset is relative to the beginning of the file. If you do not wire offset (in bytes), offset (in bytes) defaults to 0, from defaults to 2, and the operation starts at the current file mark. 0 start\u2014Sets the file mark offset (in bytes) bytes from the beginning of the file. If from is 0, offset (in bytes) should be positive or 0, which sets the file mark at the b",
           "default_value": null,
           "enum_values": [
@@ -4174,8 +3473,6 @@
         },
         {
           "name": "error in",
-          "direction": "in",
-          "type": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
           "default_value": null,
           "enum_values": null,
@@ -4183,8 +3480,6 @@
         },
         {
           "name": "refnum out",
-          "direction": "out",
-          "type": null,
           "description": "Functions 1774 ni.com refnum out returns refnum.",
           "default_value": null,
           "enum_values": null,
@@ -4192,8 +3487,6 @@
         },
         {
           "name": "error out",
-          "direction": "in",
-          "type": null,
           "description": "error out contains error information. This output provides standard error out functionality.",
           "default_value": null,
           "enum_values": null,
@@ -4213,8 +3506,6 @@
       "terminals": [
         {
           "name": "file",
-          "direction": "in",
-          "type": "Path",
           "description": "file can be a refnum or file path. If it is a file path, this node opens the file specified by the file path.",
           "default_value": null,
           "enum_values": null,
@@ -4222,8 +3513,6 @@
         },
         {
           "name": "size (in bytes)",
-          "direction": "in",
-          "type": null,
           "description": "size (in bytes) is the size of the file in bytes.",
           "default_value": null,
           "enum_values": null,
@@ -4231,8 +3520,6 @@
         },
         {
           "name": "error in",
-          "direction": "in",
-          "type": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
           "default_value": null,
           "enum_values": null,
@@ -4240,8 +3527,6 @@
         },
         {
           "name": "refnum out",
-          "direction": "in",
-          "type": null,
           "description": "refnum out is the refnum of the file that the function read. You can wire this output to another file function, depending on what you want to do with the file. The default is to close the file if it is referenced by a file path. If file is a refnum or if you wire refnum out to another function, LabVIEW assumes that the file is still in use until you close it.",
           "default_value": "to close the file if it is referenced by a file path",
           "enum_values": null,
@@ -4249,8 +3534,6 @@
         },
         {
           "name": "error out",
-          "direction": "in",
-          "type": null,
           "description": "Functions",
           "default_value": null,
           "enum_values": null,
@@ -4270,8 +3553,6 @@
       "terminals": [
         {
           "name": "permissions",
-          "direction": "in",
-          "type": null,
           "description": "permissions specifies the new permissions setting for the file or directory. Refer to Setting Permissions for more information about how to define the permissions you want to set.",
           "default_value": null,
           "enum_values": null,
@@ -4279,8 +3560,6 @@
         },
         {
           "name": "path",
-          "direction": "in",
-          "type": "Path",
           "description": "path specifies the file or directory whose access rights you want to change.",
           "default_value": null,
           "enum_values": null,
@@ -4288,8 +3567,6 @@
         },
         {
           "name": "new owner",
-          "direction": "in",
-          "type": null,
           "description": "new owner specifies the new owner for the file or directory. If new owner is an empty string, the VI does not set the owner.",
           "default_value": null,
           "enum_values": null,
@@ -4297,8 +3574,6 @@
         },
         {
           "name": "new group",
-          "direction": "in",
-          "type": null,
           "description": "new group specifies the new group for the file or directory. If new group is an empty string, the VI does not set the group.",
           "default_value": null,
           "enum_values": null,
@@ -4306,8 +3581,6 @@
         },
         {
           "name": "error in",
-          "direction": "in",
-          "type": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
           "default_value": null,
           "enum_values": null,
@@ -4315,8 +3588,6 @@
         },
         {
           "name": "path out",
-          "direction": "out",
-          "type": "Path",
           "description": "Functions 1776 ni.com path out returns path unchanged.",
           "default_value": null,
           "enum_values": null,
@@ -4324,8 +3595,6 @@
         },
         {
           "name": "error out",
-          "direction": "in",
-          "type": null,
           "description": "error out contains error information. This output provides standard error out functionality. If you do not specify new owner, new group, or permissions, this function returns the current settings unchanged. (Windows) This function ignores new owner and new group because Windows does not support owners and groups. (macOS) If path refers to a file, this function ignores new owner and new group because macOS does not support owners or groups for files.",
           "default_value": null,
           "enum_values": null,
@@ -4345,8 +3614,6 @@
       "terminals": [
         {
           "name": "path",
-          "direction": "in",
-          "type": "Path",
           "description": "path specifies the file or directory whose type or creator you want to read.",
           "default_value": null,
           "enum_values": null,
@@ -4354,8 +3621,6 @@
         },
         {
           "name": "type (no change)",
-          "direction": "in",
-          "type": null,
           "description": "type is the type of the specified file. If type is a string other than four characters, an error occurs.",
           "default_value": null,
           "enum_values": null,
@@ -4363,8 +3628,6 @@
         },
         {
           "name": "creator (no change)",
-          "direction": "in",
-          "type": null,
           "description": "Functions \u00a9 National Instruments 1777 creator is the creator of the specified file. If creator is a string other than four characters, an error occurs.",
           "default_value": null,
           "enum_values": null,
@@ -4372,8 +3635,6 @@
         },
         {
           "name": "error in",
-          "direction": "in",
-          "type": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
           "default_value": null,
           "enum_values": null,
@@ -4381,8 +3642,6 @@
         },
         {
           "name": "path out",
-          "direction": "out",
-          "type": "Path",
           "description": "path out returns path unchanged.",
           "default_value": null,
           "enum_values": null,
@@ -4390,8 +3649,6 @@
         },
         {
           "name": "error out",
-          "direction": "in",
-          "type": null,
           "description": "error out contains error information. This output provides standard error out functionality.",
           "default_value": null,
           "enum_values": null,
@@ -4411,8 +3668,6 @@
       "terminals": [
         {
           "name": "file or directory path",
-          "direction": "in",
-          "type": "Path",
           "description": "file or directory path specifies the path to a file or directory.",
           "default_value": null,
           "enum_values": null,
@@ -4420,8 +3675,6 @@
         },
         {
           "name": "error in (no error)",
-          "direction": "in",
-          "type": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
           "default_value": null,
           "enum_values": null,
@@ -4429,8 +3682,6 @@
         },
         {
           "name": "error out",
-          "direction": "in",
-          "type": null,
           "description": "Functions 1778 ni.com error out contains error information. This output provides standard error out functionality.",
           "default_value": null,
           "enum_values": null,
@@ -4450,8 +3701,6 @@
       "terminals": [
         {
           "name": "filename",
-          "direction": "in",
-          "type": null,
           "description": "filename specifies the filename to check.",
           "default_value": null,
           "enum_values": null,
@@ -4459,8 +3708,6 @@
         },
         {
           "name": "filename must be valid on all platforms (F)",
-          "direction": "in",
-          "type": "Boolean",
           "description": "filename must be valid on all platforms specifies whether to check if the specified filename is valid on all possible platforms. If this input is TRUE, the VI checks the filename against all possible platforms. If this input is FALSE, the VI checks the filename against only the current platform. The default is FALSE.",
           "default_value": "FALSE",
           "enum_values": null,
@@ -4468,8 +3715,6 @@
         },
         {
           "name": "error in (no error)",
-          "direction": "in",
-          "type": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
           "default_value": null,
           "enum_values": null,
@@ -4477,8 +3722,6 @@
         },
         {
           "name": "suggested filename",
-          "direction": "out",
-          "type": null,
           "description": "suggested filename returns the filename that you specified if the filename is valid. If the specified filename is invalid, this output transforms the specified filename into a valid filename by replacing invalid characters with hyphens or removing ending periods.",
           "default_value": null,
           "enum_values": null,
@@ -4486,8 +3729,6 @@
         },
         {
           "name": "filename had conflict",
-          "direction": "in",
-          "type": null,
           "description": "Functions",
           "default_value": null,
           "enum_values": null,
@@ -4507,8 +3748,6 @@
       "terminals": [
         {
           "name": "format string (\" (%d)\")",
-          "direction": "in",
-          "type": "Path",
           "description": "format string specifies how to convert the file path into a string. format string must contain exactly one decimal format code (%d). The default is \" (%d)\".",
           "default_value": "\" (%d)\"",
           "enum_values": null,
@@ -4516,8 +3755,6 @@
         },
         {
           "name": "file path",
-          "direction": "in",
-          "type": "Path",
           "description": "file path specifies the path to the file you want to create. You must specify an absolute path. If you specify an empty or relative path, this VI returns an error.",
           "default_value": null,
           "enum_values": null,
@@ -4525,8 +3762,6 @@
         },
         {
           "name": "error in (no error)",
-          "direction": "in",
-          "type": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
           "default_value": null,
           "enum_values": null,
@@ -4534,8 +3769,6 @@
         },
         {
           "name": "disable buffering (F)",
-          "direction": "in",
-          "type": "Boolean",
           "description": "disable buffering specifies if the file opens without buffering. The default is FALSE. If you want to read or write a data file to a Redundant Array of Independent Disks (RAID), consider opening the file without buffering to speed up data transfers. To disable buffering, wire a TRUE value to the disable buffering input. (macOS and Linux) LabVIEW ignores this input.",
           "default_value": "FALSE",
           "enum_values": null,
@@ -4543,8 +3776,6 @@
         },
         {
           "name": "refnum out",
-          "direction": "out",
-          "type": "I32",
           "description": "refnum out returns the reference number of the file this VI creates.",
           "default_value": null,
           "enum_values": null,
@@ -4552,8 +3783,6 @@
         },
         {
           "name": "actual path",
-          "direction": "out",
-          "type": "Path",
           "description": "actual path returns the path to the file this VI creates. Note If you have a small amount of data to transfer, you might not notice a difference if you disable buffering. Functions",
           "default_value": null,
           "enum_values": null,
@@ -4573,8 +3802,6 @@
       "terminals": [
         {
           "name": "prompt (Choose or enter target path for move)",
-          "direction": "in",
-          "type": "Path",
           "description": "prompt is the message that appears above the list of files and directories, or folder, in the file dialog box.",
           "default_value": null,
           "enum_values": null,
@@ -4582,8 +3809,6 @@
         },
         {
           "name": "source path",
-          "direction": "in",
-          "type": "Path",
           "description": "source path specifies an absolute path to the file or directory on which you want to operate. Functions 1782 ni.com If you specify an empty or relative path, this function returns an error.",
           "default_value": null,
           "enum_values": null,
@@ -4591,8 +3816,6 @@
         },
         {
           "name": "target path (use dialog)",
-          "direction": "in",
-          "type": "Path",
           "description": "target path is the new absolute path for the file or folder on which you want to operate, including the new file or folder name. You must have write permission for the file or directory that you specify in target path; otherwise, this function does not move the file or directory and returns an error. You must ensure the target path exists before running this function. If the last component of the target path does not exist, this function renames the file or folder you specified in the source pat",
           "default_value": null,
           "enum_values": null,
@@ -4612,8 +3835,6 @@
       "terminals": [
         {
           "name": "prompt (Choose or enter target path for copy)",
-          "direction": "in",
-          "type": "Path",
           "description": "prompt is the message that appears above the list of files and directories, or folder, in the file dialog box.",
           "default_value": null,
           "enum_values": null,
@@ -4621,8 +3842,6 @@
         },
         {
           "name": "source path",
-          "direction": "in",
-          "type": "Path",
           "description": "source path specifies an absolute path to the file or directory on which you want to operate. If you specify an empty or relative path, this function returns an error.",
           "default_value": null,
           "enum_values": null,
@@ -4630,8 +3849,6 @@
         },
         {
           "name": "target path (use dialog)",
-          "direction": "in",
-          "type": "Path",
           "description": "target path is the new absolute path for the file or folder on which you want to operate, including the new file or folder name. If target path is empty (default), the function displays a dialog box from which you can select a file or folder. If you specify an empty or relative path, this function returns an error. cancelled is TRUE if you cancel the dialog box.",
           "default_value": null,
           "enum_values": null,
@@ -4639,8 +3856,6 @@
         },
         {
           "name": "overwrite (F)",
-          "direction": "in",
-          "type": "Path",
           "description": "overwrite determines whether the function replaces existing files or folders in the target path. If you overwrite a folder that contains unique files, LabVIEW moves those files to the new folder. (macOS and Linux) LabVIEW does not overwrite read-only files, even if you set this parameter to TRUE.",
           "default_value": null,
           "enum_values": null,
@@ -4648,8 +3863,6 @@
         },
         {
           "name": "error in",
-          "direction": "in",
-          "type": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
           "default_value": null,
           "enum_values": null,
@@ -4657,8 +3870,6 @@
         },
         {
           "name": "new path",
-          "direction": "in",
-          "type": "Path",
           "description": "new path specifies the new location of the file or directory. If the operation is unsuccessful, this function sets new path to <Not A Path>.",
           "default_value": null,
           "enum_values": null,
@@ -4666,8 +3877,6 @@
         },
         {
           "name": "cancelled",
-          "direction": "in",
-          "type": null,
           "description": "Functions",
           "default_value": null,
           "enum_values": null,
@@ -4687,8 +3896,6 @@
       "terminals": [
         {
           "name": "prompt (Delete)",
-          "direction": "in",
-          "type": null,
           "description": "prompt is the message that appears above the list of files and directories, or folder, in the file dialog box.",
           "default_value": null,
           "enum_values": null,
@@ -4696,8 +3903,6 @@
         },
         {
           "name": "path (use dialog)",
-          "direction": "in",
-          "type": "Path",
           "description": "path specifies the absolute path to the file or directory you want to delete. If path is empty (default), the function displays a dialog box from which you can select a file or directory. If you specify an empty or relative path, this function returns an error. cancelled is TRUE if you cancel the dialog box.",
           "default_value": null,
           "enum_values": null,
@@ -4705,8 +3910,6 @@
         },
         {
           "name": "entire hierarchy (F)",
-          "direction": "in",
-          "type": "Boolean",
           "description": "entire hierarchy determines whether this function deletes all contents in the folder. The default is FALSE. If entire hierarchy is TRUE, this function deletes all files and folders within the specified path.",
           "default_value": "FALSE",
           "enum_values": null,
@@ -4714,8 +3917,6 @@
         },
         {
           "name": "confirm (F)",
-          "direction": "in",
-          "type": "Boolean",
           "description": "If confirm is TRUE, the function displays a dialog box and asks you to confirm the delete operation. The default is FALSE.",
           "default_value": "FALSE",
           "enum_values": null,
@@ -4723,8 +3924,6 @@
         },
         {
           "name": "error in",
-          "direction": "in",
-          "type": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
           "default_value": null,
           "enum_values": null,
@@ -4732,8 +3931,6 @@
         },
         {
           "name": "deleted path",
-          "direction": "out",
-          "type": "Path",
           "description": "deleted path is the path of the deleted file or folder.deleted path returns <Not A Path> if an error occurred.",
           "default_value": null,
           "enum_values": null,
@@ -4741,8 +3938,6 @@
         },
         {
           "name": "cancelled",
-          "direction": "in",
-          "type": "Boolean",
           "description": "cancelled is TRUE if you cancel the file dialog box. Otherwise, cancelled is FALSE, even if this Functions",
           "default_value": null,
           "enum_values": null,
@@ -4762,8 +3957,6 @@
       "terminals": [
         {
           "name": "refnum",
-          "direction": "in",
-          "type": null,
           "description": "refnum is the file refnum associated with the file you want to flush.",
           "default_value": null,
           "enum_values": null,
@@ -4771,8 +3964,6 @@
         },
         {
           "name": "error in",
-          "direction": "in",
-          "type": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
           "default_value": null,
           "enum_values": null,
@@ -4780,8 +3971,6 @@
         },
         {
           "name": "refnum out",
-          "direction": "out",
-          "type": null,
           "description": "refnum out returns refnum unchanged. Functions 1788 ni.com",
           "default_value": null,
           "enum_values": null,
@@ -4789,8 +3978,6 @@
         },
         {
           "name": "error out",
-          "direction": "in",
-          "type": null,
           "description": "error out contains error information. This output provides standard error out functionality.",
           "default_value": null,
           "enum_values": null,
@@ -4810,8 +3997,6 @@
       "terminals": [
         {
           "name": "refnum",
-          "direction": "in",
-          "type": null,
           "description": "refnum is the file refnum associated with the file you want to deny access to.",
           "default_value": null,
           "enum_values": null,
@@ -4819,8 +4004,6 @@
         },
         {
           "name": "deny mode (0:deny read/write)",
-          "direction": "in",
-          "type": null,
           "description": "deny mode specifies what read or write access is denied. 0 deny read/write\u2014Deny both read and write access to the file (default). 1 deny write-only\u2014Permit read access but deny write access to the file. 2 deny none\u2014Permit both read and write access to the file.",
           "default_value": null,
           "enum_values": [
@@ -4841,8 +4024,6 @@
         },
         {
           "name": "error in",
-          "direction": "in",
-          "type": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
           "default_value": null,
           "enum_values": null,
@@ -4850,8 +4031,6 @@
         },
         {
           "name": "refnum out",
-          "direction": "out",
-          "type": null,
           "description": "refnum out returns refnum.",
           "default_value": null,
           "enum_values": null,
@@ -4859,8 +4038,6 @@
         },
         {
           "name": "error out",
-          "direction": "in",
-          "type": null,
           "description": "error out contains error information. This output provides standard error out functionality. Functions",
           "default_value": null,
           "enum_values": null,
@@ -4880,8 +4057,6 @@
       "terminals": [
         {
           "name": "path",
-          "direction": "in",
-          "type": "Path",
           "description": "path specifies the absolute path to the file or directory whose attributes you want to determine. If you wire an empty path to path, directory returns TRUE.",
           "default_value": null,
           "enum_values": null,
@@ -4889,8 +4064,6 @@
         },
         {
           "name": "error in",
-          "direction": "in",
-          "type": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
           "default_value": null,
           "enum_values": null,
@@ -4898,8 +4071,6 @@
         },
         {
           "name": "directory",
-          "direction": "in",
-          "type": "Path",
           "description": "Note You cannot deny access to a datalog file. Functions 1790 ni.com directory is TRUE if the path points to a directory and FALSE otherwise. If you wire an empty path constant to path, directory returns TRUE.",
           "default_value": null,
           "enum_values": null,
@@ -4907,8 +4078,6 @@
         },
         {
           "name": "path out",
-          "direction": "out",
-          "type": "Path",
           "description": "path out returns path unchanged.",
           "default_value": null,
           "enum_values": null,
@@ -4916,8 +4085,6 @@
         },
         {
           "name": "size",
-          "direction": "in",
-          "type": "Path",
           "description": "size indicates the size of the file or directory specified by path. If path specifies a directory, size indicates the number of items in the directory. (Windows) If path is an empty path, size indicates the number of drives on the computer. (macOS and Linux) If path is an empty path, size indicates the number of volumes on the computer. Otherwise, size indicates the length in bytes of the specified file, whether the file is a datalog file or a byte stream file.",
           "default_value": null,
           "enum_values": null,
@@ -4925,8 +4092,6 @@
         },
         {
           "name": "last mod",
-          "direction": "in",
-          "type": "Enum",
           "description": "last mod indicates the date and time at which the file or directory was last modified. The number is a time zone-independent number of seconds that have elapsed since 12:00 a.m., Friday, January 1, 1904, Universal Time [01-01-1904 00:00:00].",
           "default_value": null,
           "enum_values": null,
@@ -4934,8 +4099,6 @@
         },
         {
           "name": "error out",
-          "direction": "in",
-          "type": null,
           "description": "error out contains error information. This output provides standard error out functionality.",
           "default_value": null,
           "enum_values": null,
@@ -4943,8 +4106,6 @@
         },
         {
           "name": "resolved path",
-          "direction": "out",
-          "type": "Path",
           "description": "resolved path returns the path to the shortcut target.",
           "default_value": null,
           "enum_values": null,
@@ -4952,8 +4113,6 @@
         },
         {
           "name": "shortcut",
-          "direction": "in",
-          "type": "Path",
           "description": "shortcut is TRUE if the path points to a shortcut and FALSE otherwise.",
           "default_value": null,
           "enum_values": null,
@@ -4973,8 +4132,6 @@
       "terminals": [
         {
           "name": "path",
-          "direction": "in",
-          "type": "Path",
           "description": "path specifies the absolute path to the file or directory whose volume attributes you want to determine. If you specify an empty or relative path, this function returns an error.",
           "default_value": null,
           "enum_values": null,
@@ -4982,8 +4139,6 @@
         },
         {
           "name": "error in",
-          "direction": "in",
-          "type": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
           "default_value": null,
           "enum_values": null,
@@ -4991,8 +4146,6 @@
         },
         {
           "name": "volume path",
-          "direction": "in",
-          "type": "Path",
           "description": "volume path is a new path that specifies the volume on which the specified file or directory resides.",
           "default_value": null,
           "enum_values": null,
@@ -5000,8 +4153,6 @@
         },
         {
           "name": "path out",
-          "direction": "out",
-          "type": "Path",
           "description": "path out returns path unchanged.",
           "default_value": null,
           "enum_values": null,
@@ -5009,8 +4160,6 @@
         },
         {
           "name": "size (bytes)",
-          "direction": "in",
-          "type": null,
           "description": "size (bytes) indicates the amount of storage, in bytes, provided by the specified volume.",
           "default_value": null,
           "enum_values": null,
@@ -5018,8 +4167,6 @@
         },
         {
           "name": "free (bytes)",
-          "direction": "in",
-          "type": null,
           "description": "free (bytes) indicates the amount of storage, in bytes, available on the specified volume.",
           "default_value": null,
           "enum_values": null,
@@ -5027,8 +4174,6 @@
         },
         {
           "name": "error out",
-          "direction": "in",
-          "type": null,
           "description": "error out contains error information. This output provides standard error out functionality.",
           "default_value": null,
           "enum_values": null,
@@ -5036,8 +4181,6 @@
         },
         {
           "name": "sector size (bytes)",
-          "direction": "in",
-          "type": null,
           "description": "sector size (bytes) indicates the size, in bytes, of the smallest physical storage unit on disk. If you open a file without buffering, you must make the size of the data in that file a multiple of the Functions 1792 ni.com given sector size. The volume where the file is located determines the sector size.",
           "default_value": null,
           "enum_values": null,
@@ -5057,8 +4200,6 @@
       "terminals": [
         {
           "name": "prompt (Create Folder)",
-          "direction": "in",
-          "type": null,
           "description": "prompt (Create Folder) is the message that appears above the list of files and directories, or folder, in the file dialog box.",
           "default_value": null,
           "enum_values": null,
@@ -5066,8 +4207,6 @@
         },
         {
           "name": "path (use dialog)",
-          "direction": "in",
-          "type": "Path",
           "description": "path is the absolute path to the folder you want to create. If you do not wire data to path, the function displays a dialog box from which you can select a folder. If you specify an empty or relative path, this function returns an error.",
           "default_value": null,
           "enum_values": null,
@@ -5075,8 +4214,6 @@
         },
         {
           "name": "error in",
-          "direction": "in",
-          "type": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
           "default_value": null,
           "enum_values": null,
@@ -5084,8 +4221,6 @@
         },
         {
           "name": "created path",
-          "direction": "in",
-          "type": "Path",
           "description": "created path specifies the new location of the folder. Functions",
           "default_value": null,
           "enum_values": null,
@@ -5105,8 +4240,6 @@
       "terminals": [
         {
           "name": "datalog type",
-          "direction": "in",
-          "type": null,
           "description": "datalog type can be any data type and restricts the filenames returned to only datalog files containing records of the specified data type. Datalog records contain a time stamp cluster and a cluster of the front panel data.",
           "default_value": null,
           "enum_values": null,
@@ -5114,8 +4247,6 @@
         },
         {
           "name": "path",
-          "direction": "in",
-          "type": "Path",
           "description": "path identifies the folder whose contents you want to determine. If this is not an existing folder, this function sets filenames and folder names to empty arrays and returns an error. If path points to a VI library (*.llb), filenames returns the contents of the VI library and folder names returns an empty array.",
           "default_value": null,
           "enum_values": null,
@@ -5123,8 +4254,6 @@
         },
         {
           "name": "error in",
-          "direction": "in",
-          "type": null,
           "description": "Functions 1794 ni.com error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
           "default_value": null,
           "enum_values": null,
@@ -5132,8 +4261,6 @@
         },
         {
           "name": "pattern",
-          "direction": "in",
-          "type": null,
           "description": "pattern restricts the files and directories returned to those whose names match pattern. The pattern matching in this function is similar to the matching used in matching wildcards in Windows and Linux filenames and is not like the regular expression matching performed by the Match Pattern function and the Match Regular Expression function. If you specify characters other than the question mark character (?) or the asterisk character (*), the function displays only files or directories that cont",
           "default_value": null,
           "enum_values": null,
@@ -5141,8 +4268,6 @@
         },
         {
           "name": "path out",
-          "direction": "out",
-          "type": "Path",
           "description": "path out returns path unchanged.",
           "default_value": null,
           "enum_values": null,
@@ -5150,8 +4275,6 @@
         },
         {
           "name": "filenames",
-          "direction": "in",
-          "type": null,
           "description": "filenames contains the names of the files found in the specified directory. This function does not return the names of files found in folders within the directory. This function sorts the returned filenames alphabetically.",
           "default_value": null,
           "enum_values": null,
@@ -5159,8 +4282,6 @@
         },
         {
           "name": "folder names",
-          "direction": "in",
-          "type": null,
           "description": "folder names contains the names of the folders found in the specified directory. This function sorts the folder names alphabetically. If path is an empty path, folder names contains the names of the drives on the computer.",
           "default_value": null,
           "enum_values": null,
@@ -5168,8 +4289,6 @@
         },
         {
           "name": "error out",
-          "direction": "in",
-          "type": null,
           "description": "error out contains error information. This output provides standard error out functionality. Note Front panel controls might not update while the function lists files and folders found in the specified directory. The controls update when the function finishes listing the files and folders. Functions",
           "default_value": null,
           "enum_values": null,
@@ -5189,8 +4308,6 @@
       "terminals": [
         {
           "name": "path",
-          "direction": "in",
-          "type": "Path",
           "description": "path specifies the path to the file or folder you want LabVIEW to look for. If you use this VI to check the validity of a network path, make sure that you connect to the network first.",
           "default_value": null,
           "enum_values": null,
@@ -5198,8 +4315,6 @@
         },
         {
           "name": "error in (no error)",
-          "direction": "in",
-          "type": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
           "default_value": null,
           "enum_values": null,
@@ -5207,8 +4322,6 @@
         },
         {
           "name": "dup path",
-          "direction": "out",
-          "type": "Path",
           "description": "dup path returns path unchanged.",
           "default_value": null,
           "enum_values": null,
@@ -5216,8 +4329,6 @@
         },
         {
           "name": "file or folder exists?",
-          "direction": "in",
-          "type": "Path",
           "description": "file or folder exists? is TRUE if the file or folder you specify in path exists on disk and FALSE if the file or folder you specify in path does not exist on disk. If you wire an empty path to path, file or folder exists? returns TRUE because the empty path refers to the list of drives mapped to the computer. (macOS) The empty path refers to the mounted volumes. (Linux) The empty path refers to the root directory.",
           "default_value": null,
           "enum_values": null,
@@ -5225,8 +4336,6 @@
         },
         {
           "name": "error out",
-          "direction": "in",
-          "type": null,
           "description": "error out contains error information. This output provides standard error out functionality. Functions 1796 ni.com",
           "default_value": null,
           "enum_values": null,
@@ -5246,8 +4355,6 @@
       "terminals": [
         {
           "name": "Folder Path",
-          "direction": "in",
-          "type": "Path",
           "description": "Folder Path specifies the path to the folder or LLB whose contents you want LabVIEW to return.",
           "default_value": null,
           "enum_values": null,
@@ -5255,8 +4362,6 @@
         },
         {
           "name": "Treat LLBs as Folders?",
-          "direction": "in",
-          "type": "Boolean",
           "description": "Treat LLBs as Folders? specifies whether to list LLBs as files or folders. If Treat LLBs as Folders? is TRUE, this VI includes LLBs in the list of folders. If Treat LLBs as Folders? is FALSE, this VI includes LLBs in the list of files. The default is FALSE. If Folder Path specifies the path to an LLB, this VI ignores this input and returns all files, including LLBs, in All Files in Dir.",
           "default_value": "FALSE",
           "enum_values": null,
@@ -5264,8 +4369,6 @@
         },
         {
           "name": "Continue Recursing on Error? (F)",
-          "direction": "in",
-          "type": "Boolean",
           "description": "Continue Recursing on Error? specifies whether to continue recursing directories if an error occurs. If Continue Recursing on Error? is TRUE, the VI continues recursing directory contents after the error occurs. If Continue Recursing on Error? is FALSE, the VI stops recursing directory content when the error occurs.",
           "default_value": null,
           "enum_values": null,
@@ -5273,8 +4376,6 @@
         },
         {
           "name": "error in (no error)",
-          "direction": "in",
-          "type": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
           "default_value": null,
           "enum_values": null,
@@ -5282,8 +4383,6 @@
         },
         {
           "name": "pattern",
-          "direction": "in",
-          "type": "Path",
           "description": "Note This VI does not support shortcuts and symbolic links to folders or LLB files. Specify a path to the target folder or LLB instead of its shortcut or symbolic link. Functions",
           "default_value": null,
           "enum_values": null,
@@ -5303,8 +4402,6 @@
       "terminals": [
         {
           "name": "path",
-          "direction": "in",
-          "type": "Path",
           "description": "path is the path, array of paths, cluster of paths, or array of clusters of paths you want to convert to a string. If path is <Not A Path>, the function sets string to <Not A Path>.",
           "default_value": null,
           "enum_values": null,
@@ -5312,8 +4409,6 @@
         },
         {
           "name": "string",
-          "direction": "in",
-          "type": "Path",
           "description": "string is the path descriptor(s) represented by path in the standard format for the current platform. string is of the same data type structure as path.",
           "default_value": null,
           "enum_values": null,
@@ -5333,8 +4428,6 @@
       "terminals": [
         {
           "name": "string",
-          "direction": "in",
-          "type": "String",
           "description": "string can be a string or any data structure that contains only strings, such as an array or clusters of strings.",
           "default_value": null,
           "enum_values": null,
@@ -5342,8 +4435,6 @@
         },
         {
           "name": "path",
-          "direction": "in",
-          "type": "Path",
           "description": "path is the platform-independent representation of the path described by string. If string is not a valid path descriptor on the current platform, the function sets path to <Not a Path>. path is of the same data type structure as string. Note If string is <Not a Path>, the function returns a path to <Not a Path>. If you attempt to use the path, LabVIEW cannot find the file and throws an error. Functions",
           "default_value": null,
           "enum_values": null,
@@ -5363,8 +4454,6 @@
       "terminals": [
         {
           "name": "path",
-          "direction": "in",
-          "type": "Path",
           "description": "path is the path you want to convert to an array of strings. If path is <Not A Path>, the array of strings is empty and relative is FALSE.",
           "default_value": null,
           "enum_values": null,
@@ -5372,8 +4461,6 @@
         },
         {
           "name": "relative",
-          "direction": "in",
-          "type": "Path",
           "description": "relative indicates whether the path you converted is a relative path or an absolute path. If TRUE, it is a relative path. If FALSE, it is an absolute path.",
           "default_value": null,
           "enum_values": null,
@@ -5381,8 +4468,6 @@
         },
         {
           "name": "array of strings",
-          "direction": "in",
-          "type": "Path",
           "description": "array of strings contains the components of the path. The first element is the first step of the path hierarchy. For file systems that support multiple volumes, the first element is the volume name. If path is a network path, the first element of array of strings includes the name of the server in addition to the first step of the path hierarchy. The last element of array of strings is the file or directory specified by the path.",
           "default_value": null,
           "enum_values": null,
@@ -5402,8 +4487,6 @@
       "terminals": [
         {
           "name": "relative",
-          "direction": "in",
-          "type": "Path",
           "description": "relative indicates whether you want to create a relative path or an absolute path. If TRUE, the function creates a relative path. If FALSE (default), the function creates an absolute path. If FALSE and the path specified is not valid as an absolute path (for example, the path means go up a level), the function sets path to <Not A Path>.",
           "default_value": null,
           "enum_values": null,
@@ -5411,8 +4494,6 @@
         },
         {
           "name": "array of strings",
-          "direction": "in",
-          "type": "Path",
           "description": "array of strings contains the names of the components of the path you want to build. The first element is the highest level of the path hierarchy (the volume name, for file systems that support multiple volumes), and the last element is the last element of the hierarchy. An element that contains an empty string tells LabVIEW to go up a level in the hierarchy.",
           "default_value": null,
           "enum_values": null,
@@ -5420,8 +4501,6 @@
         },
         {
           "name": "path",
-          "direction": "out",
-          "type": "Path",
           "description": "path is the resulting path. Suppose the path to the VI containing this function is c:\\dir1\\main.vi. To use this function to build a relative path to another VI such as c:\\dir1\\dir2\\called.vi, wire TRUE to relative. In array of strings, enter dir2 as the first element and called.vi as the second element. The function returns a relative path of dir2\\ called.vi. You can use the Build Path function to append the relative path to the output of the Current VI's Path function. To build an absolute path",
           "default_value": null,
           "enum_values": null,
@@ -5441,8 +4520,6 @@
       "terminals": [
         {
           "name": "refnum",
-          "direction": "in",
-          "type": "Path",
           "description": "refnum is the refnum of an open file whose associated path you want to determine. If refnum is not a valid refnum, this function sets path to <Not A Path>, meaning refnum is not associated with any open file. You can wire only file refnums to refnum. You cannot wire configuration file refnums to refnum.",
           "default_value": null,
           "enum_values": null,
@@ -5450,8 +4527,6 @@
         },
         {
           "name": "path",
-          "direction": "in",
-          "type": "Path",
           "description": "path is the corresponding path to refnum.",
           "default_value": null,
           "enum_values": null,
@@ -5471,8 +4546,6 @@
       "terminals": [
         {
           "name": "path",
-          "direction": "in",
-          "type": "Path",
           "description": "path specifies the path whose syntax you want to check.",
           "default_value": null,
           "enum_values": null,
@@ -5480,8 +4553,6 @@
         },
         {
           "name": "type",
-          "direction": "in",
-          "type": "Path",
           "description": "Functions 1802 ni.com type indicates the type of the specified path. UNC file paths are absolute file paths. Use two leading backslashes (\\\\) to represent UNC file paths. type returns <Not A Path> only when you wire the Not A Path constant to this function. 0 Absolute path 1 Relative path 2 <Not A Path>",
           "default_value": null,
           "enum_values": null,
@@ -5501,8 +4572,6 @@
       "terminals": [
         {
           "name": "Path 1",
-          "direction": "in",
-          "type": "Path",
           "description": "Path 1 specifies the first path.",
           "default_value": null,
           "enum_values": null,
@@ -5510,8 +4579,6 @@
         },
         {
           "name": "Path 2",
-          "direction": "in",
-          "type": "Path",
           "description": "Path 2 specifies the second path.",
           "default_value": null,
           "enum_values": null,
@@ -5519,8 +4586,6 @@
         },
         {
           "name": "error in (no error)",
-          "direction": "in",
-          "type": null,
           "description": "Functions \u00a9 National Instruments 1803 error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
           "default_value": null,
           "enum_values": null,
@@ -5528,8 +4593,6 @@
         },
         {
           "name": "Relative Path from 1 to 2",
-          "direction": "out",
-          "type": "Path",
           "description": "Relative Path from 1 to 2 returns the relative path you have to take on disk to get from Path 1 to Path 2.",
           "default_value": null,
           "enum_values": null,
@@ -5537,8 +4600,6 @@
         },
         {
           "name": "Common Path",
-          "direction": "out",
-          "type": "Path",
           "description": "Common Path returns the part of the absolute path that Path 1 shares with Path 2.",
           "default_value": null,
           "enum_values": null,
@@ -5546,8 +4607,6 @@
         },
         {
           "name": "Path 2 Relative to Path 1?",
-          "direction": "in",
-          "type": "Path",
           "description": "Path 2 Relative to Path 1? is TRUE if Path 1 is on the same directory level as Path 2. Otherwise, this output is FALSE.",
           "default_value": null,
           "enum_values": null,
@@ -5555,8 +4614,6 @@
         },
         {
           "name": "error out",
-          "direction": "in",
-          "type": null,
           "description": "error out contains error information. This output provides standard error out functionality.",
           "default_value": null,
           "enum_values": null,
@@ -5576,8 +4633,6 @@
       "terminals": [
         {
           "name": "file",
-          "direction": "in",
-          "type": "Path",
           "description": "file specifies the path to the file whose extension you want LabVIEW to return.",
           "default_value": null,
           "enum_values": null,
@@ -5585,8 +4640,6 @@
         },
         {
           "name": "error in (no error)",
-          "direction": "in",
-          "type": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality. Functions 1804 ni.com",
           "default_value": null,
           "enum_values": null,
@@ -5594,8 +4647,6 @@
         },
         {
           "name": "dup file",
-          "direction": "out",
-          "type": null,
           "description": "dup file returns file unchanged.",
           "default_value": null,
           "enum_values": null,
@@ -5603,8 +4654,6 @@
         },
         {
           "name": "lowercase file extension",
-          "direction": "out",
-          "type": null,
           "description": "lowercase file extension returns the extension of the file, without the period (.). LabVIEW always returns a lowercase file extension, even if file contains uppercase letters.",
           "default_value": null,
           "enum_values": null,
@@ -5612,8 +4661,6 @@
         },
         {
           "name": "filename without extension",
-          "direction": "out",
-          "type": null,
           "description": "filename without extension returns the name of the file you specify in file without the directory path, period (.), or file extension. Unlike lowercase file extension, filename without extension matches the case of the original filename.",
           "default_value": null,
           "enum_values": null,
@@ -5621,8 +4668,6 @@
         },
         {
           "name": "error out",
-          "direction": "in",
-          "type": null,
           "description": "error out contains error information. This output provides standard error out functionality.",
           "default_value": null,
           "enum_values": null,
@@ -5630,8 +4675,6 @@
         },
         {
           "name": "unmodified file extension",
-          "direction": "out",
-          "type": null,
           "description": "unmodified file extension returns the extension of the file you specify in file, without the period (.). Unlike lowercase file extension, unmodified file extension matches the case of the original file extension.",
           "default_value": null,
           "enum_values": null,
@@ -5651,8 +4694,6 @@
       "terminals": [
         {
           "name": "path",
-          "direction": "in",
-          "type": "Path",
           "description": "path specifies the path to the file for which you want to compute the message digest.",
           "default_value": null,
           "enum_values": null,
@@ -5660,8 +4701,6 @@
         },
         {
           "name": "error in",
-          "direction": "in",
-          "type": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
           "default_value": null,
           "enum_values": null,
@@ -5669,8 +4708,6 @@
         },
         {
           "name": "digest",
-          "direction": "out",
-          "type": null,
           "description": "digest returns the SHA-256 message digest of the contents of the file as a hexadecimal string.",
           "default_value": null,
           "enum_values": null,
@@ -5678,8 +4715,6 @@
         },
         {
           "name": "error out",
-          "direction": "in",
-          "type": null,
           "description": "error out contains error information. This output provides standard error out functionality.",
           "default_value": null,
           "enum_values": null,
@@ -5699,8 +4734,6 @@
       "terminals": [
         {
           "name": "Temporary File Extension (tmp)",
-          "direction": "in",
-          "type": null,
           "description": "Temporary File Extension (tmp) specifies the file extension.",
           "default_value": null,
           "enum_values": null,
@@ -5708,8 +4741,6 @@
         },
         {
           "name": "error in (no error)",
-          "direction": "in",
-          "type": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
           "default_value": null,
           "enum_values": null,
@@ -5717,8 +4748,6 @@
         },
         {
           "name": "Unique Temporary File Path",
-          "direction": "out",
-          "type": "Path",
           "description": "Unique Temporary File Path returns a unique path to a non-existent file in the temporary directory. You can use this path with other VIs when you want to create a file in the temporary directory.",
           "default_value": null,
           "enum_values": null,
@@ -5726,8 +4755,6 @@
         },
         {
           "name": "error out",
-          "direction": "in",
-          "type": null,
           "description": "error out contains error information. This output provides standard error out functionality. Functions",
           "default_value": null,
           "enum_values": null,

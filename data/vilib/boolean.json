@@ -14,8 +14,6 @@
       "terminals": [
         {
           "name": "value in",
-          "direction": "in",
-          "type": null,
           "description": "value in specifies the input data.",
           "default_value": null,
           "enum_values": null,
@@ -23,8 +21,6 @@
         },
         {
           "name": "value out",
-          "direction": "out",
-          "type": null,
           "description": "value out returns the input data if value in is an error cluster. Otherwise, this output returns an empty error cluster. Functions \u00a9 National Instruments 781",
           "default_value": null,
           "enum_values": null,
@@ -44,8 +40,6 @@
       "terminals": [
         {
           "name": "array type",
-          "direction": "in",
-          "type": "Array",
           "description": "array type specifies the input comparison array with the requirements that the input data must meet. This input accepts arrays of any data type. To set the data type of this input, wire a constant or control of the desired data type to array type. LabVIEW ignores any data in the constant or control wired to array type.",
           "default_value": null,
           "enum_values": null,
@@ -53,8 +47,6 @@
         },
         {
           "name": "value in",
-          "direction": "in",
-          "type": null,
           "description": "value in specifies the input data. This input accepts arrays that meet the requirements of array type.",
           "default_value": null,
           "enum_values": null,
@@ -62,8 +54,6 @@
         },
         {
           "name": "value out",
-          "direction": "out",
-          "type": null,
           "description": "value out returns the input data if value in is an array that meets the requirements. Otherwise, this output returns an empty array of array type.",
           "default_value": null,
           "enum_values": null,
@@ -83,8 +73,6 @@
       "terminals": [
         {
           "name": "array type",
-          "direction": "in",
-          "type": "Array",
           "description": "array type specifies the input comparison array with the requirements that the input data must meet. This input accepts arrays of any data type. To set the data type of this input, wire a constant or control of the desired data type to array type. LabVIEW ignores any data in the constant or control wired to array type.",
           "default_value": null,
           "enum_values": null,
@@ -92,8 +80,6 @@
         },
         {
           "name": "value in",
-          "direction": "in",
-          "type": null,
           "description": "value in specifies the input data. This input accepts arrays that meet the requirements of array type.",
           "default_value": null,
           "enum_values": null,
@@ -101,8 +87,6 @@
         },
         {
           "name": "value out",
-          "direction": "out",
-          "type": null,
           "description": "value out returns the input data if value in is an array that meets the requirements. Otherwise, this output returns an empty array of array type.",
           "default_value": null,
           "enum_values": null,
@@ -122,8 +106,6 @@
       "terminals": [
         {
           "name": "ancestor type",
-          "direction": "in",
-          "type": null,
           "description": "ancestor type specifies the input class or interface with the requirements that the input data must meet. This input accepts any class or interface. To set the class or interface of this input, wire a constant or control of the desired class or interface to ancestor type. LabVIEW ignores any data in the constant or control wired to ancestor type.",
           "default_value": null,
           "enum_values": null,
@@ -131,8 +113,6 @@
         },
         {
           "name": "value in",
-          "direction": "in",
-          "type": null,
           "description": "value in specifies the input data. This input accepts the class or interface of ancestor type or descendants of ancestor type.",
           "default_value": null,
           "enum_values": null,
@@ -140,8 +120,6 @@
         },
         {
           "name": "value out",
-          "direction": "out",
-          "type": null,
           "description": "value out returns the input data if value in meets the requirements. Otherwise, this output returns the default value of ancestor type.",
           "default_value": "value of ancestor type",
           "enum_values": null,
@@ -161,8 +139,6 @@
       "terminals": [
         {
           "name": "value in",
-          "direction": "in",
-          "type": null,
           "description": "value in specifies the input data. This input accepts any scalar numeric or waveform data type.",
           "default_value": null,
           "enum_values": null,
@@ -170,8 +146,6 @@
         },
         {
           "name": "value out",
-          "direction": "out",
-          "type": "I32",
           "description": "value out returns the input data if value in is a scalar numeric or analog waveform type. Otherwise, this output returns a double-precision floating-point number 0.",
           "default_value": null,
           "enum_values": null,
@@ -191,8 +165,6 @@
       "terminals": [
         {
           "name": "value in",
-          "direction": "in",
-          "type": null,
           "description": "value in specifies the input data. This input accepts any scalar numeric data type. Functions \u00a9 National Instruments 785",
           "default_value": null,
           "enum_values": null,
@@ -200,8 +172,6 @@
         },
         {
           "name": "value out",
-          "direction": "out",
-          "type": "I32",
           "description": "value out returns the input data if value in is a scalar numeric type. Otherwise, this output returns a double-precision floating-point number 0.",
           "default_value": null,
           "enum_values": null,
@@ -221,8 +191,6 @@
       "terminals": [
         {
           "name": "value in",
-          "direction": "in",
-          "type": null,
           "description": "value in specifies the input data. This input accepts any non-complex numeric or waveform data type.",
           "default_value": null,
           "enum_values": null,
@@ -230,8 +198,6 @@
         },
         {
           "name": "value out",
-          "direction": "out",
-          "type": "I32",
           "description": "value out returns the input data if value in is a non-complex numeric or analog waveform type. Otherwise, this output returns a double-precision floating-point number 0.",
           "default_value": null,
           "enum_values": null,
@@ -251,8 +217,6 @@
       "terminals": [
         {
           "name": "value in",
-          "direction": "in",
-          "type": null,
           "description": "value in specifies the input data. This input accepts any non-complex numeric data type.",
           "default_value": null,
           "enum_values": null,
@@ -260,8 +224,6 @@
         },
         {
           "name": "value out",
-          "direction": "out",
-          "type": "I32",
           "description": "value out returns the input data if value in is a non-complex numeric type. Otherwise, this output returns a double-precision floating-point number 0.",
           "default_value": null,
           "enum_values": null,
@@ -281,8 +243,6 @@
       "terminals": [
         {
           "name": "value in",
-          "direction": "in",
-          "type": null,
           "description": "value in specifies the input data. This input accepts any floating-point, complex floating-point, or fixed-point numeric data type.",
           "default_value": null,
           "enum_values": null,
@@ -290,8 +250,6 @@
         },
         {
           "name": "value out",
-          "direction": "out",
-          "type": "I32",
           "description": "Functions \u00a9 National Instruments 787 value out returns the input data if value in is a floating-point, complex floating-point, or fixed- point numeric type. Otherwise, this output returns a double-precision floating-point number 0.",
           "default_value": null,
           "enum_values": null,
@@ -311,8 +269,6 @@
       "terminals": [
         {
           "name": "value in",
-          "direction": "in",
-          "type": null,
           "description": "value in specifies the input data. This input accepts any complex numeric data type.",
           "default_value": null,
           "enum_values": null,
@@ -320,8 +276,6 @@
         },
         {
           "name": "value out",
-          "direction": "out",
-          "type": "I32",
           "description": "value out returns the input data if value in is a complex numeric type. Otherwise, this output returns a complex double-precision number 0 +0 i. This output can return any complex numeric type.",
           "default_value": null,
           "enum_values": null,
@@ -341,8 +295,6 @@
       "terminals": [
         {
           "name": "value in",
-          "direction": "in",
-          "type": null,
           "description": "value in specifies the input data. This input accepts any floating-point or complex floating-point numeric data type.",
           "default_value": null,
           "enum_values": null,
@@ -350,8 +302,6 @@
         },
         {
           "name": "value out",
-          "direction": "out",
-          "type": "I32",
           "description": "value out returns the input data if value in is a floating-point or complex floating-point numeric type. Otherwise, this output returns a double-precision floating-point number 0.",
           "default_value": null,
           "enum_values": null,
@@ -371,8 +321,6 @@
       "terminals": [
         {
           "name": "value in",
-          "direction": "in",
-          "type": null,
           "description": "value in specifies the input data. This input accepts any non-complex floating-point numeric data type. Functions \u00a9 National Instruments 789",
           "default_value": null,
           "enum_values": null,
@@ -380,8 +328,6 @@
         },
         {
           "name": "value out",
-          "direction": "out",
-          "type": "I32",
           "description": "value out returns the input data if value in is a non-complex floating-point numeric type. Otherwise, this output returns a double-precision floating-point number 0.",
           "default_value": null,
           "enum_values": null,
@@ -401,8 +347,6 @@
       "terminals": [
         {
           "name": "value in",
-          "direction": "in",
-          "type": "I32",
           "description": "value in specifies the input data. This input accepts any integer numeric data type.",
           "default_value": null,
           "enum_values": null,
@@ -410,8 +354,6 @@
         },
         {
           "name": "value out",
-          "direction": "out",
-          "type": "Enum",
           "description": "value out returns the input data if value in is an integer numeric type. Otherwise, this output returns a 32-bit signed integer 0.",
           "default_value": null,
           "enum_values": null,
@@ -431,8 +373,6 @@
       "terminals": [
         {
           "name": "value in",
-          "direction": "in",
-          "type": "I32",
           "description": "value in specifies the input data. This input accepts any signed integer numeric data type.",
           "default_value": null,
           "enum_values": null,
@@ -440,8 +380,6 @@
         },
         {
           "name": "value out",
-          "direction": "out",
-          "type": "Enum",
           "description": "value out returns the input data if value in is a signed integer numeric type. Otherwise, this output returns a 32-bit signed integer 0.",
           "default_value": null,
           "enum_values": null,
@@ -461,8 +399,6 @@
       "terminals": [
         {
           "name": "value in",
-          "direction": "in",
-          "type": "I32",
           "description": "value in specifies the input data. This input accepts any unsigned integer numeric data type.",
           "default_value": null,
           "enum_values": null,
@@ -470,8 +406,6 @@
         },
         {
           "name": "value out",
-          "direction": "out",
-          "type": "Enum",
           "description": "value out returns the input data if value in is an unsigned integer numeric type. Otherwise, this output returns a 32-bit unsigned integer 0. Functions \u00a9 National Instruments 791",
           "default_value": null,
           "enum_values": null,
@@ -491,8 +425,6 @@
       "terminals": [
         {
           "name": "value in",
-          "direction": "in",
-          "type": null,
           "description": "value in specifies the input data.",
           "default_value": null,
           "enum_values": null,
@@ -500,8 +432,6 @@
         },
         {
           "name": "value out",
-          "direction": "out",
-          "type": "I32",
           "description": "value out returns the input data if value in is a fixed-point numeric type. Otherwise, this output returns a fixed-point number 0.",
           "default_value": null,
           "enum_values": null,
@@ -521,8 +451,6 @@
       "terminals": [
         {
           "name": "value",
-          "direction": "in",
-          "type": null,
           "description": "Functions 792 ni.com value specifies the value to check. This input accepts any data type.",
           "default_value": null,
           "enum_values": null,
@@ -530,8 +458,6 @@
         },
         {
           "name": "changed or first call?",
-          "direction": "out",
-          "type": "Boolean",
           "description": "changed or first call? returns TRUE if this is the first call of this VI or if the value changed since the last time this VI was called. Otherwise, this output returns FALSE. Examples Refer to the following example files included with LabVIEW.",
           "default_value": null,
           "enum_values": null,
@@ -539,8 +465,6 @@
         },
         {
           "name": "labview\\examples\\Malleable VIs\\Basics\\Malleable VIs",
-          "direction": "in",
-          "type": null,
           "description": "",
           "default_value": null,
           "enum_values": null,
@@ -548,8 +472,6 @@
         },
         {
           "name": "path",
-          "direction": "in",
-          "type": "Path",
           "description": "path specifies the path you want to check.",
           "default_value": null,
           "enum_values": null,
@@ -557,8 +479,6 @@
         },
         {
           "name": "Is Path and Not Empty?",
-          "direction": "out",
-          "type": "Path",
           "description": "Is Path and Not Empty? returns TRUE if path is any value other than <Not A Path> or an empty path. Otherwise, Is Path and Not Empty? returns FALSE. Fixed-Point Overflow? Function Fixed-Point Overflow? Function Returns TRUE if FXP includes an overflow status and FXP is the result of an operation that overflowed. Otherwise, this function returns FALSE. Functions",
           "default_value": null,
           "enum_values": null,
@@ -578,8 +498,6 @@
       "terminals": [
         {
           "name": "path",
-          "direction": "in",
-          "type": "Path",
           "description": "path specifies the path you want to check.",
           "default_value": null,
           "enum_values": null,
@@ -587,8 +505,6 @@
         },
         {
           "name": "Is Path and Not Empty?",
-          "direction": "out",
-          "type": "Path",
           "description": "Is Path and Not Empty? returns TRUE if path is any value other than <Not A Path> or an empty path. Otherwise, Is Path and Not Empty? returns FALSE. Fixed-Point Overflow? Function Fixed-Point Overflow? Function Returns TRUE if FXP includes an overflow status and FXP is the result of an operation that overflowed. Otherwise, this function returns FALSE. Functions \u00a9 National Instruments 793 Inputs/Outputs",
           "default_value": null,
           "enum_values": null,
@@ -596,8 +512,6 @@
         },
         {
           "name": "FXP",
-          "direction": "in",
-          "type": "I32",
           "description": "FXP specifies a fixed-point number.",
           "default_value": null,
           "enum_values": null,
@@ -605,8 +519,6 @@
         },
         {
           "name": "overflow?",
-          "direction": "in",
-          "type": "Boolean",
           "description": "overflow? is TRUE if FXP includes an overflow status and FXP is the result of an operation that overflowed. If FXP does not include an overflow status, or if FXP includes an overflow status but is not the result of an operation that overflowed, overflow? is FALSE.",
           "default_value": null,
           "enum_values": null,
@@ -626,8 +538,6 @@
       "terminals": [
         {
           "name": "FXP",
-          "direction": "in",
-          "type": "I32",
           "description": "FXP specifies a fixed-point number.",
           "default_value": null,
           "enum_values": null,
@@ -635,8 +545,6 @@
         },
         {
           "name": "overflow?",
-          "direction": "in",
-          "type": "Boolean",
           "description": "overflow? is TRUE if FXP includes an overflow status and FXP is the result of an operation that overflowed. If FXP does not include an overflow status, or if FXP includes an overflow status but is not the result of an operation that overflowed, overflow? is FALSE.",
           "default_value": null,
           "enum_values": null,
@@ -656,8 +564,6 @@
       "terminals": [
         {
           "name": "waveform",
-          "direction": "in",
-          "type": null,
           "description": "waveform is the waveform from which you want to retrieve components.",
           "default_value": null,
           "enum_values": null,
@@ -665,8 +571,6 @@
         },
         {
           "name": "t0",
-          "direction": "out",
-          "type": null,
           "description": "t0 returns the trigger time of the waveform.",
           "default_value": null,
           "enum_values": null,
@@ -674,8 +578,6 @@
         },
         {
           "name": "dt",
-          "direction": "out",
-          "type": null,
           "description": "dt returns the time interval in seconds between data points in the waveform.",
           "default_value": null,
           "enum_values": null,
@@ -683,8 +585,6 @@
         },
         {
           "name": "attributes",
-          "direction": "out",
-          "type": null,
           "description": "attributes returns the names and values of all waveform attributes. You also can use the Get Waveform Attribute VI to retrieve the names and values of all attributes or the value of a single attribute.",
           "default_value": null,
           "enum_values": null,
@@ -704,8 +604,6 @@
       "terminals": [
         {
           "name": "waveform",
-          "direction": "in",
-          "type": null,
           "description": "waveform is the analog waveform you want to edit. If you do not wire an existing waveform, the function creates a new waveform based on the components you wire.",
           "default_value": null,
           "enum_values": null,
@@ -713,8 +611,6 @@
         },
         {
           "name": "t0",
-          "direction": "in",
-          "type": null,
           "description": "t0 specifies the start time of the waveform.",
           "default_value": null,
           "enum_values": null,
@@ -722,8 +618,6 @@
         },
         {
           "name": "dt",
-          "direction": "in",
-          "type": null,
           "description": "dt specifies the time interval in seconds between data points in the waveform.",
           "default_value": null,
           "enum_values": null,
@@ -731,8 +625,6 @@
         },
         {
           "name": "attributes",
-          "direction": "in",
-          "type": null,
           "description": "attributes sets the names and values of all waveform attributes. You also can use the Set Waveform Attribute function to set the name and value of a single attribute.",
           "default_value": null,
           "enum_values": null,
@@ -740,8 +632,6 @@
         },
         {
           "name": "output waveform",
-          "direction": "out",
-          "type": null,
           "description": "waveform is the resulting waveform. If you did not wire an existing waveform, this is a new waveform. If you wired an existing waveform, this is the edited waveform.",
           "default_value": null,
           "enum_values": null,
@@ -761,8 +651,6 @@
       "terminals": [
         {
           "name": "waveform",
-          "direction": "in",
-          "type": null,
           "description": "waveform is the waveform for which you want to add or replace an attribute.",
           "default_value": null,
           "enum_values": null,
@@ -770,8 +658,6 @@
         },
         {
           "name": "name",
-          "direction": "in",
-          "type": null,
           "description": "name is the name of the attribute.",
           "default_value": null,
           "enum_values": null,
@@ -779,8 +665,6 @@
         },
         {
           "name": "value",
-          "direction": "in",
-          "type": null,
           "description": "value is the value of the attribute. This input is polymorphic, so you can wire any data to it.",
           "default_value": null,
           "enum_values": null,
@@ -788,8 +672,6 @@
         },
         {
           "name": "error in (no error)",
-          "direction": "in",
-          "type": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
           "default_value": null,
           "enum_values": null,
@@ -797,8 +679,6 @@
         },
         {
           "name": "waveform out",
-          "direction": "in",
-          "type": null,
           "description": "waveform out is the waveform with the new or replaced attribute.",
           "default_value": null,
           "enum_values": null,
@@ -806,8 +686,6 @@
         },
         {
           "name": "replaced",
-          "direction": "in",
-          "type": null,
           "description": "replaced indicates if an attribute was overwritten.",
           "default_value": null,
           "enum_values": null,
@@ -815,8 +693,6 @@
         },
         {
           "name": "error out",
-          "direction": "in",
-          "type": "Boolean",
           "description": "error out contains error information. This output provides standard error out functionality. If the attribute in name already exists, the function overwrites the attribute with the new value, and replaced is TRUE. If the attribute in name does not exist already, the function creates a new attribute. Some attributes are set by NI-DAQ and Express VIs. The following table lists the waveform attributes set by NI-DAQ. Name Attribute Data Acceptable Values Description Functions",
           "default_value": null,
           "enum_values": null,

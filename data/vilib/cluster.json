@@ -14,8 +14,6 @@
       "terminals": [
         {
           "name": "element",
-          "direction": "in",
-          "type": null,
           "description": "element 0..n-1 inputs must be of the same type as the value wired to the topmost element terminal.",
           "default_value": null,
           "enum_values": null,
@@ -23,8 +21,6 @@
         },
         {
           "name": "array of clusters",
-          "direction": "out",
-          "type": "Array",
           "description": "array of clusters is the resulting array. Each cluster contains a single element.",
           "default_value": null,
           "enum_values": null,
@@ -44,8 +40,6 @@
       "terminals": [
         {
           "name": "array",
-          "direction": "in",
-          "type": "Array",
           "description": "Functions \u00a9 National Instruments 463 array of x..z can be a 1D array of any type. Array inputs do not all have to be the same type.",
           "default_value": null,
           "enum_values": null,
@@ -53,8 +47,6 @@
         },
         {
           "name": "array of clusters",
-          "direction": "in",
-          "type": "I32",
           "description": "array of cluster is a cluster array containing one element from each input array. The number of elements in the output array equals the number of elements in the shortest input array.",
           "default_value": null,
           "enum_values": null,
@@ -74,8 +66,6 @@
       "terminals": [
         {
           "name": "cluster",
-          "direction": "in",
-          "type": "Array",
           "description": "The cluster components cannot be arrays.",
           "default_value": null,
           "enum_values": null,
@@ -83,8 +73,6 @@
         },
         {
           "name": "array",
-          "direction": "in",
-          "type": "Array",
           "description": "The elements in array are of the same type as the elements in cluster. The order of the elements in array is the same as the cluster order of the elements. Examples Refer to the following example files included with LabVIEW.",
           "default_value": null,
           "enum_values": null,
@@ -92,8 +80,6 @@
         },
         {
           "name": "labview\\examples\\Arrays\\Array to Cluster.vi",
-          "direction": "in",
-          "type": null,
           "description": "",
           "default_value": null,
           "enum_values": null,
@@ -113,8 +99,6 @@
       "terminals": [
         {
           "name": "array",
-          "direction": "in",
-          "type": "Array",
           "description": "array is a one-dimensional array of any type.",
           "default_value": null,
           "enum_values": null,
@@ -122,8 +106,6 @@
         },
         {
           "name": "cluster",
-          "direction": "in",
-          "type": null,
           "description": "Each element in cluster is the same as the corresponding element in array. The cluster order matches the order of the elements in the array.",
           "default_value": null,
           "enum_values": null,
@@ -131,8 +113,6 @@
         },
         {
           "name": "labview\\examples\\Arrays\\Array to Cluster.vi",
-          "direction": "in",
-          "type": null,
           "description": "",
           "default_value": null,
           "enum_values": null,
@@ -163,8 +143,6 @@
       "terminals": [
         {
           "name": "target class",
-          "direction": "in",
-          "type": null,
           "description": "target class is the class or interface to which you want to downcast reference. You can wire a class specifier constant or any wire of the target type to this input.",
           "default_value": null,
           "enum_values": null,
@@ -172,8 +150,6 @@
         },
         {
           "name": "reference",
-          "direction": "in",
-          "type": null,
           "description": "reference is the refnum or LabVIEW class or interface to downcast.",
           "default_value": null,
           "enum_values": null,
@@ -181,8 +157,6 @@
         },
         {
           "name": "error in",
-          "direction": "in",
-          "type": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
           "default_value": null,
           "enum_values": null,
@@ -190,8 +164,6 @@
         },
         {
           "name": "specific class reference",
-          "direction": "in",
-          "type": null,
           "description": "specific class reference is the downcast reference. If the target class is incompatible with the reference, the function returns an error and specific class reference is Not A Refnum.",
           "default_value": null,
           "enum_values": null,
@@ -199,8 +171,6 @@
         },
         {
           "name": "error out",
-          "direction": "in",
-          "type": "Boolean",
           "description": "error out contains error information. This output provides standard error out functionality. You can use the To More Specific Class function to manipulate the properties or methods from a more specific class or interface than that of the reference. For example, if you build an array of references to boolean, numeric, and string controls, LabVIEW casts these references to the more generic Control class because an array can contain only one data type, and each of these controls is a member of the ",
           "default_value": null,
           "enum_values": null,
@@ -208,8 +178,6 @@
         },
         {
           "name": "labview\\examples\\Application Control\\VI Server\\To More",
-          "direction": "in",
-          "type": null,
           "description": "",
           "default_value": null,
           "enum_values": null,
@@ -229,8 +197,6 @@
       "terminals": [
         {
           "name": "target class",
-          "direction": "in",
-          "type": null,
           "description": "target class is the class or interface to which you want to upcast reference. You can wire a class specifier constant or any wire of the target type to this input. Functions \u00a9 National Instruments 469",
           "default_value": null,
           "enum_values": null,
@@ -238,8 +204,6 @@
         },
         {
           "name": "reference",
-          "direction": "in",
-          "type": null,
           "description": "reference is the refnum or LabVIEW class or interface to upcast.",
           "default_value": null,
           "enum_values": null,
@@ -247,8 +211,6 @@
         },
         {
           "name": "generic class reference",
-          "direction": "in",
-          "type": null,
           "description": "generic class reference is the upcasted reference. If an error occurs, generic class reference is Not A Refnum. This function does not have error in and error out parameters because LabVIEW can determine at edit time whether you have wired the reference to a compatible target class. If you wire the reference to an incompatible target class, the wire breaks and you receive a Class conflict error. You can use the To More Generic Class function to manipulate the properties or methods from a more ge",
           "default_value": null,
           "enum_values": null,
@@ -268,8 +230,6 @@
       "terminals": [
         {
           "name": "target object",
-          "direction": "in",
-          "type": null,
           "description": "target object\u2014is the object whose class you want to compare to the class of object in.",
           "default_value": null,
           "enum_values": null,
@@ -277,8 +237,6 @@
         },
         {
           "name": "object in",
-          "direction": "in",
-          "type": null,
           "description": "object in\u2014is the object you want LabVIEW to downcast automatically.",
           "default_value": null,
           "enum_values": null,
@@ -286,8 +244,6 @@
         },
         {
           "name": "error in",
-          "direction": "in",
-          "type": null,
           "description": "error in describes error conditions that occur before this node runs. With the following exception, this input provides standard error in functionality. This node runs normally even if an error occurred before this node runs.",
           "default_value": null,
           "enum_values": null,
@@ -295,8 +251,6 @@
         },
         {
           "name": "object out",
-          "direction": "in",
-          "type": null,
           "description": "object out\u2014is the same as object in. If the target object is incompatible with object in, the function returns an error and the data value of object out is of the same wire type as target object.",
           "default_value": null,
           "enum_values": null,
@@ -304,8 +258,6 @@
         },
         {
           "name": "error out",
-          "direction": "in",
-          "type": null,
           "description": "error out contains error information. This output provides standard error out functionality. Use this function in VIs that meet the following criteria:",
           "default_value": null,
           "enum_values": null,
@@ -313,8 +265,6 @@
         },
         {
           "name": "The VI accepts a LabVIEW class as an input and returns the same LabVIEW class as",
-          "direction": "out",
-          "type": null,
           "description": "",
           "default_value": null,
           "enum_values": null,
@@ -322,8 +272,6 @@
         },
         {
           "name": "You want to call the VI as a subVI.",
-          "direction": "in",
-          "type": null,
           "description": "",
           "default_value": null,
           "enum_values": null,
@@ -331,8 +279,6 @@
         },
         {
           "name": "You want to guarantee that the output class type of the resulting subVI node",
-          "direction": "out",
-          "type": null,
           "description": "",
           "default_value": null,
           "enum_values": null,
@@ -352,8 +298,6 @@
       "terminals": [
         {
           "name": "class path",
-          "direction": "in",
-          "type": "Path",
           "description": "class path specifies the path to the LabVIEW class.",
           "default_value": null,
           "enum_values": null,
@@ -361,8 +305,6 @@
         },
         {
           "name": "options",
-          "direction": "in",
-          "type": null,
           "description": "options is a bit set that specifies the behavior of LabVIEW when loading the class into memory. The default is 0x0, which means that when loading the class, LabVIEW searches for missing dependencies but does not prompt the user to browse to missing dependencies. options can be a combination of the following values. 0x01 This option has no effect when loading LabVIEW classes. For VIs, this is the Record Modifications value. When dynamically loading classes, modifications are always recorded and m",
           "default_value": "0x0, which means that when loading the class, LabVIEW searches for missing dependencies but does not prompt the user to browse to missing dependencies",
           "enum_values": null,
@@ -382,8 +324,6 @@
       "terminals": [
         {
           "name": "object",
-          "direction": "in",
-          "type": "Path",
           "description": "object specifies the object for which you want to retrieve the path to the owning class.",
           "default_value": null,
           "enum_values": null,
@@ -391,8 +331,6 @@
         },
         {
           "name": "error in (no error)",
-          "direction": "in",
-          "type": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality. Note This option does not affect whether LabVIEW prompts you to find the missing dependencies or not. Functions 474 ni.com",
           "default_value": null,
           "enum_values": null,
@@ -400,8 +338,6 @@
         },
         {
           "name": "class path",
-          "direction": "in",
-          "type": "Path",
           "description": "class path specifies the absolute path to the .lvclass file on disk. If an error occurs, the value of class path is <Not A Path>. If object is a LabVIEW Object, which does not exist on disk, the value of class path is <Empty Path>. If object belongs to a class that is not saved, class path is a relative path consisting only of the name of the class.",
           "default_value": null,
           "enum_values": null,
@@ -409,8 +345,6 @@
         },
         {
           "name": "error out",
-          "direction": "in",
-          "type": null,
           "description": "error out contains error information. This output provides standard error out functionality.",
           "default_value": null,
           "enum_values": null,
@@ -430,8 +364,6 @@
       "terminals": [
         {
           "name": "class name",
-          "direction": "in",
-          "type": null,
           "description": "class name specifies the name of the class whose data you want to retrieve.",
           "default_value": null,
           "enum_values": null,
@@ -439,8 +371,6 @@
         },
         {
           "name": "error in (no error)",
-          "direction": "in",
-          "type": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
           "default_value": null,
           "enum_values": null,
@@ -448,8 +378,6 @@
         },
         {
           "name": "object",
-          "direction": "out",
-          "type": null,
           "description": "object returns the data of the class you wire to the class name input.",
           "default_value": null,
           "enum_values": null,
@@ -457,8 +385,6 @@
         },
         {
           "name": "error out",
-          "direction": "in",
-          "type": null,
           "description": "error out contains error information. This output provides standard error out functionality. Functions \u00a9 National Instruments 475",
           "default_value": null,
           "enum_values": null,
@@ -478,8 +404,6 @@
       "terminals": [
         {
           "name": "object",
-          "direction": "in",
-          "type": null,
           "description": "object specifies the object for which you want to retrieve the name of the owning class.",
           "default_value": null,
           "enum_values": null,
@@ -487,8 +411,6 @@
         },
         {
           "name": "error in (no error)",
-          "direction": "in",
-          "type": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
           "default_value": null,
           "enum_values": null,
@@ -496,8 +418,6 @@
         },
         {
           "name": "class name",
-          "direction": "out",
-          "type": null,
           "description": "class name returns the class name of object.",
           "default_value": null,
           "enum_values": null,
@@ -505,8 +425,6 @@
         },
         {
           "name": "error out",
-          "direction": "in",
-          "type": null,
           "description": "error out contains error information. This output provides standard error out functionality.",
           "default_value": null,
           "enum_values": null,
@@ -526,8 +444,6 @@
       "terminals": [
         {
           "name": "anything",
-          "direction": "in",
-          "type": null,
           "description": "Functions \u00a9 National Instruments 477 anything is any LabVIEW data you want to convert. This parameter is polymorphic.",
           "default_value": null,
           "enum_values": null,
@@ -535,8 +451,6 @@
         },
         {
           "name": "variant",
-          "direction": "out",
-          "type": null,
           "description": "variant is the resulting variant data. If you use the To Variant and Variant to Data functions with LabVIEW classes consider the following caveat. Variants do not recognize inheritance hierarchies. For example, if you have child data traveling on a parent class wire and you then wire the parent wire to a To Variant function, the variant recognizes only the parent data type. If you wire a child data type to the Variant to Data function to extract the child data, LabVIEW returns an error. You must",
           "default_value": null,
           "enum_values": null,
@@ -556,8 +470,6 @@
       "terminals": [
         {
           "name": "type",
-          "direction": "in",
-          "type": "I32",
           "description": "type specifies the LabVIEW data type of the data stored in variant. If the data is an integer, you can coerce the data to another numeric representation, such as an extended-precision, floating-point number.",
           "default_value": null,
           "enum_values": null,
@@ -565,8 +477,6 @@
         },
         {
           "name": "variant",
-          "direction": "in",
-          "type": null,
           "description": "variant is the variant data you want to convert to the LabVIEW data type specified in type.",
           "default_value": null,
           "enum_values": null,
@@ -574,8 +484,6 @@
         },
         {
           "name": "error in",
-          "direction": "in",
-          "type": null,
           "description": "Functions 478 ni.com error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
           "default_value": null,
           "enum_values": null,
@@ -583,8 +491,6 @@
         },
         {
           "name": "data",
-          "direction": "in",
-          "type": null,
           "description": "data is the variant changed to the data type specified by type. If variant could not be converted to the data type specified, this data returns the default value for the data type.",
           "default_value": "value for the data type",
           "enum_values": null,
@@ -592,8 +498,6 @@
         },
         {
           "name": "error out",
-          "direction": "in",
-          "type": null,
           "description": "error out contains error information. This output provides standard error out functionality. Using Variant to Data with ActiveX References This function also serves the same purpose as the QueryInterface method of ActiveX. To use the Variant to Data function to switch between interfaces of an ActiveX object, first convert the automation refnum for the ActiveX object to a variant by using the To Variant function. Wire the variant version of the refnum to the variant input of the Variant to Data f",
           "default_value": null,
           "enum_values": null,
@@ -613,8 +517,6 @@
       "terminals": [
         {
           "name": "type string",
-          "direction": "in",
-          "type": "String",
           "description": "type string is an array of numeric integers that identifies the data type of the flattened string if the data type existed in LabVIEW 7.x or earlier.",
           "default_value": null,
           "enum_values": null,
@@ -622,8 +524,6 @@
         },
         {
           "name": "data string",
-          "direction": "in",
-          "type": "String",
           "description": "data string is the flattened data you want to convert to variant data.",
           "default_value": null,
           "enum_values": null,
@@ -631,8 +531,6 @@
         },
         {
           "name": "error in",
-          "direction": "in",
-          "type": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
           "default_value": null,
           "enum_values": null,
@@ -640,8 +538,6 @@
         },
         {
           "name": "variant",
-          "direction": "out",
-          "type": null,
           "description": "variant is the resulting variant data.",
           "default_value": null,
           "enum_values": null,
@@ -649,8 +545,6 @@
         },
         {
           "name": "error out",
-          "direction": "in",
-          "type": null,
           "description": "error out contains error information. This output provides standard error out functionality.",
           "default_value": null,
           "enum_values": null,
@@ -670,8 +564,6 @@
       "terminals": [
         {
           "name": "variant",
-          "direction": "in",
-          "type": null,
           "description": "variant is the variant data you want converted to a string of flattened data.",
           "default_value": null,
           "enum_values": null,
@@ -679,8 +571,6 @@
         },
         {
           "name": "type string",
-          "direction": "in",
-          "type": "String",
           "description": "type string is an array of numeric integers that identifies the data type of the flattened string.",
           "default_value": null,
           "enum_values": null,
@@ -688,8 +578,6 @@
         },
         {
           "name": "data string",
-          "direction": "out",
-          "type": "String",
           "description": "data string is the resulting flattened data you converted from variant data. If you use this function to flatten variant data, LabVIEW flattens only the variant and discards all its contents, including attributes. However, if you use the Flatten To String function, LabVIEW flattens the variant and all of its attributes.",
           "default_value": null,
           "enum_values": null,
@@ -709,8 +597,6 @@
       "terminals": [
         {
           "name": "variant",
-          "direction": "in",
-          "type": null,
           "description": "Functions \u00a9 National Instruments 481 variant is the variant data for which you want to retrieve an attribute(s) and value(s).",
           "default_value": null,
           "enum_values": null,
@@ -718,8 +604,6 @@
         },
         {
           "name": "name",
-          "direction": "in",
-          "type": "Boolean",
           "description": "name is the name of the attribute whose value you want to retrieve. Do not wire this parameter if you want to retrieve all the attributes associated with the specified variant. If you wire name, the names output changes to a Boolean output found, the array output values changes to an output called value of the same type as default value, and the function searches for only the specified attribute.",
           "default_value": "value, and the function searches for only the specified attribute",
           "enum_values": null,
@@ -727,8 +611,6 @@
         },
         {
           "name": "default value (empty variant)",
-          "direction": "in",
-          "type": null,
           "description": "default value is a value and data type that you specify. If the function does not find the attribute specified in name, it returns the default value. If you wire default value, you must wire name.",
           "default_value": "value is a value and data type that you specify",
           "enum_values": null,
@@ -736,8 +618,6 @@
         },
         {
           "name": "error in",
-          "direction": "in",
-          "type": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
           "default_value": null,
           "enum_values": null,
@@ -745,8 +625,6 @@
         },
         {
           "name": "duplicate variant",
-          "direction": "in",
-          "type": null,
           "description": "duplicate variant is the variant data you input in variant.",
           "default_value": null,
           "enum_values": null,
@@ -754,8 +632,6 @@
         },
         {
           "name": "names",
-          "direction": "out",
-          "type": "Boolean",
           "description": "names returns a 1D array containing the names of all attributes associated with the variant. LabVIEW sorts this array and arranges the array elements in ascending order using the same algorithm as the Sort 1D Array function. If you wire the name parameter, this output changes to a Boolean value found. found returns TRUE if the function finds the attribute that you specify in name.",
           "default_value": null,
           "enum_values": null,
@@ -763,8 +639,6 @@
         },
         {
           "name": "values",
-          "direction": "out",
-          "type": "Array",
           "description": "values returns a 1D array containing the values associated with each attribute of the specified variant in variant format. The values in this array appear in the same order as their corresponding names appear in the names output. You must unflatten each attribute value to an appropriate data type. If you wire name, this output changes to a single variant value. If the function does not find the attribute that you specify in name, it returns the value passed to default value.",
           "default_value": "value",
           "enum_values": null,
@@ -772,8 +646,6 @@
         },
         {
           "name": "error out",
-          "direction": "in",
-          "type": "Boolean",
           "description": "Functions 482 ni.com error out contains error information. This output provides standard error out functionality. This function has two modes of behavior depending on whether you wire the name parameter. By default, the function returns the names of all attributes and their corresponding values in 1D arrays. If you wire name, the names output changes to a Boolean output found, the values output changes to a variant output value, and the function searches for only the specified attribute. If the ",
           "default_value": "value, found is FALSE, and value displays the contents of default value",
           "enum_values": null,
@@ -793,8 +665,6 @@
       "terminals": [
         {
           "name": "variant",
-          "direction": "in",
-          "type": null,
           "description": "variant is the variant data you want to create an attribute and value for or replace a value for.",
           "default_value": null,
           "enum_values": null,
@@ -802,8 +672,6 @@
         },
         {
           "name": "name",
-          "direction": "in",
-          "type": null,
           "description": "name is the name of the attribute you want to edit or create. If name matches an attribute, this function replaces the attribute with the value specified. If name does not match an attribute, this function creates a new attribute. If name is an empty string, this function returns error code 1 because an empty string triggers a special behavior in the Delete Variant Attribute function.",
           "default_value": null,
           "enum_values": null,
@@ -811,8 +679,6 @@
         },
         {
           "name": "value",
-          "direction": "in",
-          "type": null,
           "description": "value is the value of the attribute. This input is polymorphic, so you can wire any data to it.",
           "default_value": null,
           "enum_values": null,
@@ -820,8 +686,6 @@
         },
         {
           "name": "error in",
-          "direction": "in",
-          "type": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides Functions",
           "default_value": null,
           "enum_values": null,
@@ -841,8 +705,6 @@
       "terminals": [
         {
           "name": "variant",
-          "direction": "in",
-          "type": null,
           "description": "variant is the variant data you want to delete an attribute(s) and value(s) in.",
           "default_value": null,
           "enum_values": null,
@@ -850,8 +712,6 @@
         },
         {
           "name": "name (all attributes)",
-          "direction": "in",
-          "type": null,
           "description": "name is the name of the attribute you want to delete. If name matches an attribute, this function deletes the attribute and its value. If name is an empty string, this function deletes all the attributes and associated values in the variant data. The default is an empty string.",
           "default_value": "an empty string",
           "enum_values": null,
@@ -859,8 +719,6 @@
         },
         {
           "name": "error in",
-          "direction": "in",
-          "type": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
           "default_value": null,
           "enum_values": null,
@@ -868,8 +726,6 @@
         },
         {
           "name": "variant out",
-          "direction": "in",
-          "type": null,
           "description": "Functions 484 ni.com variant out is the variant data with the deleted attribute(s).",
           "default_value": null,
           "enum_values": null,
@@ -877,8 +733,6 @@
         },
         {
           "name": "found",
-          "direction": "in",
-          "type": "Boolean",
           "description": "found is TRUE if the function found the attribute specified in name. If name is unwired, found is TRUE if the function located and deleted attributes and FALSE otherwise.",
           "default_value": null,
           "enum_values": null,
@@ -886,8 +740,6 @@
         },
         {
           "name": "error out",
-          "direction": "in",
-          "type": null,
           "description": "error out contains error information. This output provides standard error out functionality.",
           "default_value": null,
           "enum_values": null,

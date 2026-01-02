@@ -40,48 +40,6 @@ def to_module_name(vi_name: str) -> str:
     return result or "module"
 
 
-def is_polymorphic_variant(vi_name: str, all_vis: list[str]) -> tuple[bool, str | None]:
-    """Check if VI is a polymorphic variant.
-
-    Returns (is_variant, base_name) where base_name is the polymorphic wrapper VI name.
-    """
-    # Pattern: "Base - Variant__suffix.vi" or "Base - Variant.vi"
-    # Look for " - " in the name which indicates a variant
-    name = vi_name.replace(".vi", "").replace(".VI", "")
-
-    if " - " not in name:
-        return False, None
-
-    # Extract potential base name (everything before " - ")
-    parts = name.split(" - ")
-    base = parts[0]
-
-    # Check if the base + .vi exists in the VI list
-    for suffix in ["__ogtk", ""]:
-        base_vi = f"{base}{suffix}.vi"
-        if base_vi in all_vis and base_vi != vi_name:
-            return True, base_vi
-
-    return False, None
-
-
-def get_polymorphic_groups(order: list[str]) -> dict[str, list[str]]:
-    """Group VIs by polymorphic wrapper.
-
-    Returns dict mapping wrapper VI name to list of variant VI names.
-    """
-    groups: dict[str, list[str]] = {}
-
-    for vi_name in order:
-        is_variant, base_name = is_polymorphic_variant(vi_name, order)
-        if is_variant and base_name:
-            if base_name not in groups:
-                groups[base_name] = []
-            groups[base_name].append(vi_name)
-
-    return groups
-
-
 def generate_polymorphic_module(
     wrapper_name: str,
     variants: list[str],
@@ -132,7 +90,9 @@ def generate_polymorphic_module(
                     all_outputs[idx] = out
 
         except Exception as e:
-            lines.append(f"# ERROR generating {variant_name}: {e}")
+            # Comment out all lines of the error message
+            error_msg = str(e).replace('\n', '\n# ')
+            lines.append(f"# ERROR generating {variant_name}: {error_msg}")
 
     # Generate wrapper function
     wrapper_func = to_function_name(wrapper_name)
@@ -223,8 +183,8 @@ def main():
 
     vilib_resolver = get_vilib_resolver()
 
-    # Identify polymorphic groups
-    poly_groups = get_polymorphic_groups(order)
+    # Identify polymorphic groups (from VI metadata, not heuristics)
+    poly_groups = graph.get_polymorphic_groups()
     poly_variants = set()
     for variants in poly_groups.values():
         poly_variants.update(variants)
@@ -337,6 +297,14 @@ def {func_name}(*args, **kwargs) -> Any:
     print(f"  ast:   {sum(1 for _, _, s in generated if s == 'ast')}")
     print(f"  stub:  {sum(1 for _, _, s in generated if s == 'stub')}")
     print(f"  error: {sum(1 for _, _, s in generated if s == 'error')}")
+
+    # Save terminal observations for incremental collection
+    from vipy.terminal_collector import get_collector
+    collector = get_collector()
+    if collector.data["observations"]:
+        collector.save()
+        print(f"\nTerminal observations collected for {len(collector.data['observations'])} VI(s)")
+        print(f"  Saved to: {collector.pending_file}")
 
     # Generate UI wrappers if requested
     if args.generate_ui:

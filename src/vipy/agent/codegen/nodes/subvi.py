@@ -30,7 +30,7 @@ class SubVICodeGen(NodeCodeGen):
 
         # Look up vilib info for this SubVI
         # Raises VILibResolutionNeeded if indices are missing
-        vilib_vi = self._get_vilib_vi(subvi_name, node)
+        vilib_vi = self._get_vilib_vi(subvi_name, node, ctx)
 
         # Check for inline replacement first
         if vilib_vi and vilib_vi.python_code and vilib_vi.inline:
@@ -165,7 +165,8 @@ class SubVICodeGen(NodeCodeGen):
         )
 
     def _get_vilib_vi(
-        self, subvi_name: str, node: dict[str, Any] | None = None
+        self, subvi_name: str, node: dict[str, Any] | None = None,
+        ctx: CodeGenContext | None = None
     ) -> Any | None:
         """Look up SubVI in vilib resolver.
 
@@ -180,15 +181,50 @@ class SubVICodeGen(NodeCodeGen):
             if vi is None:
                 return None
 
-            # Check if we have terminals but missing indices
+            # Check if caller's WIRED terminals are missing indices
+            # Only require indices for terminals that have actual wires
             has_terminals = bool(vi.terminals)
-            missing_indices = (
-                any(t.index is None for t in vi.terminals)
-                if has_terminals
-                else False
-            )
+            if has_terminals and node and ctx:
+                # Get indices the caller is actually wiring (not just connector slots)
+                caller_indices = set()
+                for term in node.get("terminals", []):
+                    term_id = term.get("id")
+                    term_index = term.get("index")
+                    # Only count terminals that have wires connected
+                    if term_id and term_index is not None and ctx.is_wired(term_id):
+                        caller_indices.add(term_index)
+                # Get indices we have in vilib
+                vilib_indices = {t.index for t in vi.terminals if t.index is not None}
+                # Missing = caller wires indices we don't have mapped
+                missing_indices = bool(caller_indices - vilib_indices)
+            else:
+                missing_indices = False
 
             if missing_indices:
+                # Collect terminal observations before raising exception
+                from ....terminal_collector import get_collector
+                collector = get_collector()
+
+                vilib_terminals = [
+                    {"name": t.name, "direction": t.direction, "type": t.type}
+                    for t in vi.terminals
+                ]
+
+                # Filter to only wired terminals for observation
+                wired_node_terminals = [
+                    term for term in node.get("terminals", [])
+                    if ctx and ctx.is_wired(term.get("id"))
+                ] if node else []
+
+                if node and wired_node_terminals:
+                    # Record observation from caller's dataflow (wired only)
+                    collector.observe(
+                        vi_name=subvi_name,
+                        caller_vi="unknown",  # Could be set by caller context
+                        node_terminals=wired_node_terminals,
+                        vilib_terminals=vilib_terminals,
+                    )
+
                 # Build context from the node for resolution
                 context = {
                     "caller_vi": "unknown",  # Will be set by caller if available
@@ -197,17 +233,14 @@ class SubVICodeGen(NodeCodeGen):
                         "page": vi.page,
                         "category": vi.category,
                         "description": "",
-                        "terminals": [
-                            {"name": t.name, "direction": t.direction, "type": t.type}
-                            for t in vi.terminals
-                        ],
+                        "terminals": vilib_terminals,
                     },
                 }
 
-                # Add wire info from node if available
-                if node:
+                # Add wire info from node (wired terminals only)
+                if wired_node_terminals:
                     wire_types = []
-                    for term in node.get("terminals", []):
+                    for term in wired_node_terminals:
                         term_name = term.get("name", f"idx_{term.get('index', '?')}")
                         term_dir = term.get("direction", "?")
                         wire_types.append(f"{term_name} ({term_dir})")
