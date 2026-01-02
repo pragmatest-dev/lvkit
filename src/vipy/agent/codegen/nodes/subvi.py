@@ -176,7 +176,7 @@ class SubVICodeGen(NodeCodeGen):
         with context to help resolve the indices.
         """
         try:
-            from ....vilib_resolver import VILibResolutionNeeded, get_resolver
+            from ....vilib_resolver import get_resolver
             resolver = get_resolver()
             vi = resolver.resolve_by_name(subvi_name)
 
@@ -203,57 +203,23 @@ class SubVICodeGen(NodeCodeGen):
                 missing_indices = False
 
             if missing_indices:
-                # Collect terminal observations before raising exception
-                from ....terminal_collector import get_collector
-                collector = get_collector()
-
-                vilib_terminals = [
-                    {"name": t.name, "direction": t.direction, "type": t.type}
-                    for t in vi.terminals
-                ]
-
-                # Filter to only wired terminals for observation
+                # Auto-update vilib JSON with observed terminals
+                # Filter to only wired terminals
                 wired_node_terminals = [
                     term for term in node.terminals
                     if ctx and ctx.is_wired(term.id)
                 ] if node else []
 
-                if node and wired_node_terminals:
-                    # Record observation from caller's dataflow (wired only)
-                    collector.observe(
-                        vi_name=subvi_name,
-                        caller_vi=ctx.vi_name or "unknown",
-                        node_terminals=wired_node_terminals,
-                        vilib_terminals=vilib_terminals,
-                    )
-
-                # Build context from the node for resolution
-                context = {
-                    "caller_vi": ctx.vi_name or "unknown",
-                    "terminal_names": [t.name for t in vi.terminals],
-                    "pdf_data": {
-                        "page": vi.page,
-                        "category": vi.category,
-                        "description": "",
-                        "terminals": vilib_terminals,
-                    },
-                }
-
-                # Add wire info from node (wired terminals only)
                 if wired_node_terminals:
-                    wire_types = []
-                    for term in wired_node_terminals:
-                        term_name = term.name or f"idx_{term.index}"
-                        term_dir = term.direction
-                        wire_types.append(f"{term_name} ({term_dir})")
-                    context["wire_types"] = wire_types
-
-                raise VILibResolutionNeeded(subvi_name, context)
+                    # Auto-update terminals (raises VILibConflict on conflict)
+                    vi = resolver.auto_update_terminals(
+                        vi_name=subvi_name,
+                        wired_terminals=wired_node_terminals,
+                        caller_vi=ctx.vi_name if ctx else None,
+                    )
+                    # Successfully updated - continue with updated VI
 
             return vi
-        except VILibResolutionNeeded:
-            # Re-raise resolution exceptions - they should propagate up
-            raise
         except ImportError:
             return None
 
@@ -382,7 +348,8 @@ class SubVICodeGen(NodeCodeGen):
                 # Found it! Generate enum reference
                 enum_class_name = typedef.name
                 # Add import for this enum (track in context)
-                ctx.add_import(f"from .{self._to_module_name(vilib_vi.name)} import {enum_class_name}")
+                module = self._to_module_name(vilib_vi.name)
+                ctx.add_import(f"from .{module} import {enum_class_name}")
                 return f"{enum_class_name}.{member_name}"
 
         # Value not in enum - return as-is
