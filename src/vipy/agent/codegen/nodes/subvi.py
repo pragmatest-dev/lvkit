@@ -222,14 +222,14 @@ class SubVICodeGen(NodeCodeGen):
                     # Record observation from caller's dataflow (wired only)
                     collector.observe(
                         vi_name=subvi_name,
-                        caller_vi="unknown",  # Could be set by caller context
+                        caller_vi=ctx.vi_name or "unknown",
                         node_terminals=wired_node_terminals,
                         vilib_terminals=vilib_terminals,
                     )
 
                 # Build context from the node for resolution
                 context = {
-                    "caller_vi": "unknown",  # Will be set by caller if available
+                    "caller_vi": ctx.vi_name or "unknown",
                     "terminal_names": [t.name for t in vi.terminals],
                     "pdf_data": {
                         "page": vi.page,

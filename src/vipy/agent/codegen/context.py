@@ -17,11 +17,13 @@ class CodeGenContext:
     - Data flow connections for resolving sources
     - Imports accumulated during generation
     - Optional lookup for callee VI contexts (for SubVI parameter names)
+    - VI name being generated (for terminal observation tracking)
     """
 
     bindings: dict[str, str] = field(default_factory=dict)
     data_flow: list[Wire] = field(default_factory=list)
     imports: set[str] = field(default_factory=set)
+    vi_name: str | None = None  # Name of VI being generated
 
     # Flow map for quick lookup: dest_terminal → source info
     _flow_map: dict[str, dict] = field(default_factory=dict, repr=False)
@@ -118,6 +120,7 @@ class CodeGenContext:
             bindings=dict(self.bindings),  # Copy
             data_flow=self.data_flow,  # Share (read-only)
             imports=self.imports,  # Share (accumulate)
+            vi_name=self.vi_name,  # Share (for observation tracking)
             _flow_map=self._flow_map,  # Share (read-only)
             vi_context_lookup=self.vi_context_lookup,  # Share
         )
