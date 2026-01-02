@@ -14,8 +14,6 @@
       "terminals": [
         {
           "name": "x+y",
-          "direction": "in",
-          "type": null,
           "description": "Functions \u00a9 National Instruments 515 x+y is the sum of x and y. Matrix Details When you wire matrix data as an input to this function, a VI that includes subVIs that work with the matrix data type replaces the function. The resulting VI has the same icon but contains a matrix-specific algorithm. The node remains a VI if you disconnect the matrix from the inputs. Wire other data types as inputs to restore the original function. If you wire a data type to a function and that data type causes a bas",
           "default_value": null,
           "enum_values": null,
@@ -23,8 +21,6 @@
         },
         {
           "name": "labview\\examples\\Numerics\\Numeric Functions.vi",
-          "direction": "in",
-          "type": null,
           "description": "",
           "default_value": null,
           "enum_values": null,
@@ -44,8 +40,6 @@
       "terminals": [
         {
           "name": "Number",
-          "direction": "in",
-          "type": null,
           "description": "",
           "default_value": null,
           "enum_values": null,
@@ -53,8 +47,6 @@
         },
         {
           "name": "Timestamp",
-          "direction": "in",
-          "type": null,
           "description": "",
           "default_value": null,
           "enum_values": null,
@@ -62,8 +54,6 @@
         },
         {
           "name": "Analog Waveform",
-          "direction": "in",
-          "type": null,
           "description": "",
           "default_value": null,
           "enum_values": null,
@@ -71,8 +61,6 @@
         },
         {
           "name": "x-y",
-          "direction": "in",
-          "type": null,
           "description": "x-y is the difference between x and y. Note You can manually configure this function to output data of a type you want. To specify the output data type, right-click the function and select Properties to display the Object Properties dialog box. On the Output Configuration page, click the Representation icon and select the data type you want. A blue coercion dot appears Functions",
           "default_value": null,
           "enum_values": null,
@@ -92,8 +80,6 @@
       "terminals": [
         {
           "name": "x*y",
-          "direction": "in",
-          "type": "I32",
           "description": "x*y is the product of x multiplied by y. You cannot use this function to multiply a matrix and a vector. Use the A x B VI instead. When multiplying two matrices, if the number of rows in the second matrix does not match the number of columns in the first matrix, this function returns an empty matrix. Refer to the A x B VI for more information about matrix multiplication. When you wire matrix data as an input to this function, a VI that includes subVIs that work with the matrix data type replaces",
           "default_value": null,
           "enum_values": null,
@@ -113,8 +99,6 @@
       "terminals": [
         {
           "name": "x/y",
-          "direction": "in",
-          "type": "I32",
           "description": "x/y is a double-precision, floating-point number if both x and y are integers. In general, the output type is the widest representation of the inputs if the inputs are not integers or if their representations differ. Fixed-Point Details If you wire fixed-point values to this function, by default LabVIEW configures the integer word length of the quotient to avoid overflow for nonzero values of y. However, because the precision of the quotient can be infinite, rounding conditions always occur. Use",
           "default_value": "LabVIEW configures the integer word length of the quotient to avoid overflow for nonzero values of y",
           "enum_values": null,
@@ -134,8 +118,6 @@
       "terminals": [
         {
           "name": "x-y*floor(x/y)",
-          "direction": "in",
-          "type": null,
           "description": "x-y*floor(x/y) is the remainder. This corresponds to the modulo function of text-based programming languages. When y is 1, the remainder is the fractional part of x.",
           "default_value": null,
           "enum_values": null,
@@ -143,8 +125,6 @@
         },
         {
           "name": "floor(x/y)",
-          "direction": "in",
-          "type": "I32",
           "description": "floor(x/y) is the integer quotient. If either input is a floating-point number, the quotient is a floating-point number with an integer value. When y is 1, the quotient is the integer part of x. If the integer input value of y is zero, the quotient is zero and remainder is dividend x. For floating-point inputs, if y is zero, the quotient is infinity and the remainder defaults to NaN. Functions",
           "default_value": null,
           "enum_values": null,
@@ -164,8 +144,6 @@
       "terminals": [
         {
           "name": "number",
-          "direction": "in",
-          "type": "I32",
           "description": "number can be a scalar number, array or cluster of numbers, array of clusters of numbers, and so on.",
           "default_value": null,
           "enum_values": null,
@@ -173,8 +151,6 @@
         },
         {
           "name": "extended precision float",
-          "direction": "in",
-          "type": "I32",
           "description": "extended precision float is of the same data type structure as number.",
           "default_value": null,
           "enum_values": null,
@@ -194,8 +170,6 @@
       "terminals": [
         {
           "name": "number",
-          "direction": "in",
-          "type": "I32",
           "description": "number can be a scalar number, array or cluster of numbers, array of clusters of numbers, a time stamp, and so on.",
           "default_value": null,
           "enum_values": null,
@@ -203,8 +177,6 @@
         },
         {
           "name": "double precision float",
-          "direction": "in",
-          "type": "I32",
           "description": "double precision float is of the same data type structure as number.",
           "default_value": null,
           "enum_values": null,
@@ -224,8 +196,6 @@
       "terminals": [
         {
           "name": "number",
-          "direction": "in",
-          "type": "I32",
           "description": "number can be a scalar number, array or cluster of numbers, array of clusters of numbers, and so on.",
           "default_value": null,
           "enum_values": null,
@@ -233,8 +203,6 @@
         },
         {
           "name": "single precision float",
-          "direction": "in",
-          "type": "I32",
           "description": "single precision float is of the same data type structure as number.",
           "default_value": null,
           "enum_values": null,
@@ -254,8 +222,6 @@
       "terminals": [
         {
           "name": "fixed-point type",
-          "direction": "in",
-          "type": "I32",
           "description": "fixed-point type is the fixed-point data type to which you want to convert the integer data. You can configure the fixed-point data type in the Data Type page of the Properties dialog box. LabVIEW ignores any data in the constant or control that you wire to fixed-point type. You also can leave this input unwired and configure the output data type in the Output Configuration page of the Properties dialog box.",
           "default_value": null,
           "enum_values": null,
@@ -263,8 +229,6 @@
         },
         {
           "name": "number",
-          "direction": "in",
-          "type": "I32",
           "description": "Functions \u00a9 National Instruments 527 number can be any non-complex number.",
           "default_value": null,
           "enum_values": null,
@@ -272,8 +236,6 @@
         },
         {
           "name": "fixed-point",
-          "direction": "in",
-          "type": null,
           "description": "fixed-point is the input data scaled to the requested fixed-point data type. To override the default behavior of this function, right-click the function and select Properties from the shortcut menu to display the Output Configuration page of the Properties dialog box. You can use this dialog box to configure the output settings of this function.",
           "default_value": "behavior of this function, right-click the function and select Properties from the shortcut menu to display the Output Configuration page of the Properties dialog box",
           "enum_values": null,
@@ -293,8 +255,6 @@
       "terminals": [
         {
           "name": "number",
-          "direction": "in",
-          "type": "I32",
           "description": "number can be a scalar number, array or cluster of numbers, array of clusters of numbers, a time stamp, and so on.",
           "default_value": null,
           "enum_values": null,
@@ -302,8 +262,6 @@
         },
         {
           "name": "64bit integer",
-          "direction": "in",
-          "type": "I32",
           "description": "64bit integer is of the same data type structure as number. This function rounds all floating-point and fixed-point numeric values to the nearest integer. If the fractional part of the value is .5, the function rounds the value to the nearest even integer. For example, the function rounds 13.5 to 14 and rounds 14.5 to 14. Functions 528 ni.com",
           "default_value": null,
           "enum_values": null,
@@ -323,8 +281,6 @@
       "terminals": [
         {
           "name": "number",
-          "direction": "in",
-          "type": "I32",
           "description": "number can be a scalar number, array or cluster of numbers, array of clusters of numbers, and so on.",
           "default_value": null,
           "enum_values": null,
@@ -332,8 +288,6 @@
         },
         {
           "name": "32bit integer",
-          "direction": "in",
-          "type": "I32",
           "description": "32bit integer is of the same data type structure as number. If the fractional part of the floating-point or fixed-point value is .5, the function rounds the value to the nearest even integer. For example, the function rounds 13.5 to 14 and rounds 14.5 to 14.",
           "default_value": null,
           "enum_values": null,
@@ -353,8 +307,6 @@
       "terminals": [
         {
           "name": "number",
-          "direction": "in",
-          "type": "I32",
           "description": "Functions \u00a9 National Instruments 529 number can be a scalar number, array or cluster of numbers, array of clusters of numbers, and so on.",
           "default_value": null,
           "enum_values": null,
@@ -362,8 +314,6 @@
         },
         {
           "name": "16bit integer",
-          "direction": "in",
-          "type": "I32",
           "description": "16bit integer is of the same data type structure as number. This function rounds all floating-point and fixed-point numeric values to the nearest integer. If the fractional part of the value is .5, the function rounds the value to the nearest even integer. For example, the function rounds 13.5 to 14 and rounds 14.5 to 14.",
           "default_value": null,
           "enum_values": null,
@@ -383,8 +333,6 @@
       "terminals": [
         {
           "name": "number",
-          "direction": "in",
-          "type": "I32",
           "description": "number can be a scalar number, array or cluster of numbers, array of clusters of numbers, and so on.",
           "default_value": null,
           "enum_values": null,
@@ -392,8 +340,6 @@
         },
         {
           "name": "8bit integer",
-          "direction": "in",
-          "type": "I32",
           "description": "8bit integer is of the same data type structure as number. This function rounds all floating-point numeric values to the nearest integer. If the fractional part of the floating-point value is .5, the function rounds the value to the nearest even integer. For example, the function rounds 13.5 to 14 and rounds 14.5 to 14. Functions 530 ni.com",
           "default_value": null,
           "enum_values": null,
@@ -413,8 +359,6 @@
       "terminals": [
         {
           "name": "number",
-          "direction": "in",
-          "type": "I32",
           "description": "number can be a scalar number, array or cluster of numbers, array of clusters of numbers, a time stamp, and so on.",
           "default_value": null,
           "enum_values": null,
@@ -422,8 +366,6 @@
         },
         {
           "name": "unsigned 64bit integer",
-          "direction": "in",
-          "type": "I32",
           "description": "unsigned 64bit integer is of the same data type structure as number. This function rounds all floating-point and fixed-point numeric values to the nearest integer. If the fractional part of the value is .5, the function rounds the value to the nearest even integer. For example, the function rounds 13.5 to 14 and rounds 14.5 to 14.",
           "default_value": null,
           "enum_values": null,
@@ -443,8 +385,6 @@
       "terminals": [
         {
           "name": "number",
-          "direction": "in",
-          "type": "I32",
           "description": "Functions \u00a9 National Instruments 531 number can be a scalar number, array or cluster of numbers, array of clusters of numbers, a time stamp, and so on.",
           "default_value": null,
           "enum_values": null,
@@ -452,8 +392,6 @@
         },
         {
           "name": "unsigned 32bit integer",
-          "direction": "in",
-          "type": "I32",
           "description": "unsigned 32bit integer is of the same data type structure as number. This function rounds all floating-point and fixed-point numeric values to the nearest integer. If the fractional part of the value is .5, the function rounds the value to the nearest even integer. For example, the function rounds 13.5 to 14 and rounds 14.5 to 14.",
           "default_value": null,
           "enum_values": null,
@@ -473,8 +411,6 @@
       "terminals": [
         {
           "name": "number",
-          "direction": "in",
-          "type": "I32",
           "description": "number can be a scalar number, array or cluster of numbers, array of clusters of numbers, and so on.",
           "default_value": null,
           "enum_values": null,
@@ -482,8 +418,6 @@
         },
         {
           "name": "unsigned 16bit integer",
-          "direction": "in",
-          "type": "I32",
           "description": "unsigned 16bit integer is of the same data type structure as number. This function rounds all floating-point and fixed-point numeric values to the nearest integer. If the fractional part of the value is .5, the function rounds the value to the nearest even integer. For example, the function rounds 13.5 to 14 and rounds 14.5 to 14. Functions 532 ni.com",
           "default_value": null,
           "enum_values": null,
@@ -503,8 +437,6 @@
       "terminals": [
         {
           "name": "number",
-          "direction": "in",
-          "type": "I32",
           "description": "number can be a scalar number, array or cluster of numbers, array of clusters of numbers, and so on.",
           "default_value": null,
           "enum_values": null,
@@ -512,8 +444,6 @@
         },
         {
           "name": "unsigned 8bit integer",
-          "direction": "in",
-          "type": "I32",
           "description": "unsigned 8bit integer is of the same data type structure as number. This function rounds all floating-point and fixed-point numeric values to the nearest integer. If the fractional part of the value is .5, the function rounds the value to the nearest even integer. For example, the function rounds 13.5 to 14 and rounds 14.5 to 14.",
           "default_value": null,
           "enum_values": null,
@@ -533,8 +463,6 @@
       "terminals": [
         {
           "name": "number",
-          "direction": "in",
-          "type": "I32",
           "description": "Functions \u00a9 National Instruments 533 number can be a scalar number, array or cluster of numbers, array of clusters of numbers, and so on.",
           "default_value": null,
           "enum_values": null,
@@ -542,8 +470,6 @@
         },
         {
           "name": "extended precision complex",
-          "direction": "in",
-          "type": "I32",
           "description": "extended precision complex is of the same data type structure as number.",
           "default_value": null,
           "enum_values": null,
@@ -563,8 +489,6 @@
       "terminals": [
         {
           "name": "number",
-          "direction": "in",
-          "type": "I32",
           "description": "number can be a scalar number, array or cluster of numbers, array of clusters of numbers, and so on.",
           "default_value": null,
           "enum_values": null,
@@ -572,8 +496,6 @@
         },
         {
           "name": "double precision complex",
-          "direction": "in",
-          "type": "I32",
           "description": "double precision complex is of the same data type structure as number.",
           "default_value": null,
           "enum_values": null,
@@ -593,8 +515,6 @@
       "terminals": [
         {
           "name": "number",
-          "direction": "in",
-          "type": "I32",
           "description": "number can be a scalar number, array or cluster of numbers, array of clusters of numbers, and so on.",
           "default_value": null,
           "enum_values": null,
@@ -602,8 +522,6 @@
         },
         {
           "name": "single precision complex",
-          "direction": "in",
-          "type": "I32",
           "description": "single precision complex is of the same data type structure as number.",
           "default_value": null,
           "enum_values": null,
@@ -623,8 +541,6 @@
       "terminals": [
         {
           "name": "type",
-          "direction": "in",
-          "type": null,
           "description": "type specifies the data type to which you want to convert the input data x. To set the data type to which you want to convert the input data, wire a constant or control of the desired data type to type. LabVIEW ignores any data in the constant or control wired to type.",
           "default_value": null,
           "enum_values": null,
@@ -632,8 +548,6 @@
         },
         {
           "name": "coerced x",
-          "direction": "out",
-          "type": null,
           "description": "coerced x returns the value of the input data x after the conversion. The Type Cast function also converts data to a desired data type. Unlike the Type Cast function, the Coerce To Type function allows only conversion between compatible data types to preserve the value of the input data, similar to what a coercion dot does. The Type Cast function allows conversion between incompatible data types by flattening and unflattening the input data, which allows for radical reinterpretation of the data.",
           "default_value": null,
           "enum_values": null,
@@ -653,8 +567,6 @@
       "terminals": [
         {
           "name": "number",
-          "direction": "in",
-          "type": "I32",
           "description": "number can be a number.",
           "default_value": null,
           "enum_values": null,
@@ -662,8 +574,6 @@
         },
         {
           "name": "Boolean array",
-          "direction": "in",
-          "type": "Boolean",
           "description": "Boolean array can have 8, 16, 32, or 64 elements if number is an integer. If number is a fixed- Functions 536 ni.com point number, Boolean array can have between 1 and 64 elements. If you wire a fixed-point number that includes an overflow status to number, this function ignores the overflow status and converts only the number to a Boolean array.",
           "default_value": null,
           "enum_values": null,
@@ -683,8 +593,6 @@
       "terminals": [
         {
           "name": "Boolean array",
-          "direction": "in",
-          "type": "Boolean",
           "description": "Boolean array is a one-dimensional array of Boolean values. This function truncates Boolean array if it is too long. If Boolean array is too short, this function pads Boolean array according to the Sign Extension Mode you can select by right-clicking the function.",
           "default_value": null,
           "enum_values": null,
@@ -692,8 +600,6 @@
         },
         {
           "name": "Never",
-          "direction": "in",
-          "type": "Boolean",
           "description": "This function pads Boolean array with Boolean FALSE bits.",
           "default_value": null,
           "enum_values": null,
@@ -701,8 +607,6 @@
         },
         {
           "name": "If Output Is Signed",
-          "direction": "out",
-          "type": "Boolean",
           "description": "(default) For an output with an unsigned representation, this function pads Boolean array with Boolean FALSE bits. For an output with a signed representation, this function pads Boolean array with the last element of the array.",
           "default_value": null,
           "enum_values": null,
@@ -710,8 +614,6 @@
         },
         {
           "name": "Always",
-          "direction": "in",
-          "type": "Boolean",
           "description": "This function pads Boolean array with the last element of the array.",
           "default_value": null,
           "enum_values": null,
@@ -719,8 +621,6 @@
         },
         {
           "name": "number",
-          "direction": "in",
-          "type": "Boolean",
           "description": "number is an integer or a fixed-point number. You can change the numeric representation of number on the Output Configuration page of the Properties dialog box. Right-click the function and select Properties to display the Properties dialog box. The following table shows the relationship between Boolean array and number. Functions",
           "default_value": null,
           "enum_values": null,
@@ -740,8 +640,6 @@
       "terminals": [
         {
           "name": "Boolean",
-          "direction": "in",
-          "type": "Boolean",
           "description": "Boolean can be a scalar, an array, a cluster of Boolean values, an array of clusters of Boolean values, and so on. If Boolean is an error cluster, only the status parameter of the error cluster passes to the input terminal.",
           "default_value": null,
           "enum_values": null,
@@ -749,8 +647,6 @@
         },
         {
           "name": "0, 1",
-          "direction": "in",
-          "type": "Boolean",
           "description": "0, 1 is 0 if Boolean is FALSE and 1 if Boolean is TRUE.",
           "default_value": null,
           "enum_values": null,
@@ -770,8 +666,6 @@
       "terminals": [
         {
           "name": "number",
-          "direction": "in",
-          "type": "Enum",
           "description": "number can be a scalar number, array or cluster of numbers, array of clusters of numbers, and so on, that represents the amount of seconds from the epoch time of 12 a.m., January 1, 1904 [01-01-1904 00:00:00].",
           "default_value": null,
           "enum_values": null,
@@ -779,8 +673,6 @@
         },
         {
           "name": "time stamp",
-          "direction": "in",
-          "type": "Enum",
           "description": "time stamp is a time-zone-independent number of seconds that have elapsed since 12:00 a.m., Friday, January 1, 1904, Universal Time [01-01-1904 00:00:00].",
           "default_value": null,
           "enum_values": null,
@@ -800,8 +692,6 @@
       "terminals": [
         {
           "name": "string",
-          "direction": "in",
-          "type": "String",
           "description": "string is the input string the function converts.",
           "default_value": null,
           "enum_values": null,
@@ -809,8 +699,6 @@
         },
         {
           "name": "unsigned byte array",
-          "direction": "out",
-          "type": "Array",
           "description": "unsigned byte array is the output array. The first byte in the array has the ASCII value of the first character in string, the second byte has the second value, and so on.",
           "default_value": null,
           "enum_values": null,
@@ -830,8 +718,6 @@
       "terminals": [
         {
           "name": "unsigned byte array",
-          "direction": "in",
-          "type": "Array",
           "description": "unsigned byte array is the array of ASCII values you want to convert.",
           "default_value": null,
           "enum_values": null,
@@ -839,8 +725,6 @@
         },
         {
           "name": "string",
-          "direction": "in",
-          "type": "String",
           "description": "string is the result of interpreting each array element as an ASCII value and forming a string out of the corresponding characters. Refer to ASCII Codes for the numbers that correspond to each character.",
           "default_value": null,
           "enum_values": null,
@@ -871,8 +755,6 @@
       "terminals": [
         {
           "name": "unit (none)",
-          "direction": "in",
-          "type": null,
           "description": "unit associates input with output results. The default is none, which does not associate any units.",
           "default_value": "none, which does not associate any units",
           "enum_values": null,
@@ -892,8 +774,6 @@
       "terminals": [
         {
           "name": "Color",
-          "direction": "in",
-          "type": null,
           "description": "Color is the color that you want to convert to its respective red, green, and blue components.",
           "default_value": null,
           "enum_values": null,
@@ -901,8 +781,6 @@
         },
         {
           "name": "Resolved Color",
-          "direction": "in",
-          "type": null,
           "description": "resolved color is the resolved color in RGB format.",
           "default_value": null,
           "enum_values": null,
@@ -922,8 +800,6 @@
       "terminals": [
         {
           "name": "enum",
-          "direction": "in",
-          "type": null,
           "description": "enum specifies the input enum.",
           "default_value": null,
           "enum_values": null,
@@ -931,8 +807,6 @@
         },
         {
           "name": "array of enums",
-          "direction": "out",
-          "type": "Array",
           "description": "array of enums returns an array containing each enum value in order. For example, if enum has values {cat, dog, bird}, array of enums returns a three-element array with values cat, dog, and bird, respectively.",
           "default_value": null,
           "enum_values": null,
@@ -952,8 +826,6 @@
       "terminals": [
         {
           "name": "Number",
-          "direction": "in",
-          "type": null,
           "description": "",
           "default_value": null,
           "enum_values": null,
@@ -961,8 +833,6 @@
         },
         {
           "name": "Timestamp",
-          "direction": "in",
-          "type": null,
           "description": "",
           "default_value": null,
           "enum_values": null,
@@ -970,8 +840,6 @@
         },
         {
           "name": "Analog Waveform",
-          "direction": "in",
-          "type": null,
           "description": "",
           "default_value": null,
           "enum_values": null,
@@ -979,8 +847,6 @@
         },
         {
           "name": "x+1",
-          "direction": "in",
-          "type": null,
           "description": "x+1 is the result of x+1. If the input is a time stamp value, this function increments the time by one second. If the input is an enumerated type value, this function increments the last enumerated value to the first. Examples Refer to the following example files included with LabVIEW.",
           "default_value": null,
           "enum_values": null,
@@ -988,8 +854,6 @@
         },
         {
           "name": "labview\\examples\\Numerics\\Numeric Functions.vi",
-          "direction": "in",
-          "type": null,
           "description": "",
           "default_value": null,
           "enum_values": null,
@@ -1009,8 +873,6 @@
       "terminals": [
         {
           "name": "Number",
-          "direction": "in",
-          "type": null,
           "description": "",
           "default_value": null,
           "enum_values": null,
@@ -1018,8 +880,6 @@
         },
         {
           "name": "Timestamp",
-          "direction": "in",
-          "type": null,
           "description": "",
           "default_value": null,
           "enum_values": null,
@@ -1027,8 +887,6 @@
         },
         {
           "name": "Analog Waveform",
-          "direction": "in",
-          "type": null,
           "description": "",
           "default_value": null,
           "enum_values": null,
@@ -1036,8 +894,6 @@
         },
         {
           "name": "x-1",
-          "direction": "in",
-          "type": null,
           "description": "x-1 is the result of x-1. If the input is a time stamp value, this function decrements the time by one second. If the input is an enumerated type value, this function decrements the first enumerated value to the last. Examples Refer to the following example files included with LabVIEW.",
           "default_value": null,
           "enum_values": null,
@@ -1045,8 +901,6 @@
         },
         {
           "name": "labview\\examples\\Numerics\\Numeric Functions.vi",
-          "direction": "in",
-          "type": null,
           "description": "",
           "default_value": null,
           "enum_values": null,
@@ -1066,8 +920,6 @@
       "terminals": [
         {
           "name": "numeric array",
-          "direction": "in",
-          "type": "I32",
           "description": "numeric array can have any number of dimensions.",
           "default_value": null,
           "enum_values": null,
@@ -1075,8 +927,6 @@
         },
         {
           "name": "sum",
-          "direction": "in",
-          "type": null,
           "description": "sum is of the same data type and structure as the elements in numeric array. Examples Refer to the following example files included with LabVIEW.",
           "default_value": null,
           "enum_values": null,
@@ -1084,8 +934,6 @@
         },
         {
           "name": "labview\\examples\\Numerics\\Numeric Functions.vi",
-          "direction": "in",
-          "type": null,
           "description": "",
           "default_value": null,
           "enum_values": null,
@@ -1105,8 +953,6 @@
       "terminals": [
         {
           "name": "numeric array",
-          "direction": "in",
-          "type": "I32",
           "description": "numeric array can have any number of dimensions.",
           "default_value": null,
           "enum_values": null,
@@ -1114,8 +960,6 @@
         },
         {
           "name": "product",
-          "direction": "in",
-          "type": null,
           "description": "product is of the same data type and structure as the elements in numeric array. Examples Refer to the following example files included with LabVIEW.",
           "default_value": null,
           "enum_values": null,
@@ -1123,8 +967,6 @@
         },
         {
           "name": "labview\\examples\\Numerics\\Numeric Functions.vi",
-          "direction": "in",
-          "type": null,
           "description": "",
           "default_value": null,
           "enum_values": null,
@@ -1144,8 +986,6 @@
       "terminals": [
         {
           "name": "value",
-          "direction": "in",
-          "type": "Boolean",
           "description": "Note You cannot use this function with fixed-point numbers. If you wire fixed-point numbers to this function, the VI appears with a broken Run button. Functions 548 ni.com value 0..n-1 can be a number or Boolean value, an array of numbers or Boolean values, a cluster, array of clusters, and so on. You can wire a waveform to only one value input. If an input is a waveform, you can have an unlimited number of scalar inputs of varying sizes. If value is an error cluster, only the status parameter o",
           "default_value": null,
           "enum_values": null,
@@ -1153,8 +993,6 @@
         },
         {
           "name": "value",
-          "direction": "in",
-          "type": null,
           "description": "",
           "default_value": null,
           "enum_values": null,
@@ -1162,8 +1000,6 @@
         },
         {
           "name": "result",
-          "direction": "out",
-          "type": "Boolean",
           "description": "result returns the result of the selected operation applied to the value 0..n-1. For AND, OR, or XOR, result returns the bitwise operations on numeric inputs and logical operations on Boolean inputs. Add inputs to the node by right-clicking an input and selecting Add Input from the shortcut menu or by resizing the function. You can invert the inputs or the output of this function by right-clicking the individual terminals and selecting Invert from the shortcut menu. For Add, select Invert to neg",
           "default_value": null,
           "enum_values": null,
@@ -1183,8 +1019,6 @@
       "terminals": [
         {
           "name": "type",
-          "direction": "in",
-          "type": null,
           "description": "type is the data type to which you want to convert the data. Wire any constant or control to type to set the data type to which you want to convert the data. LabVIEW ignores any data in the constant or control you wire to type.",
           "default_value": null,
           "enum_values": null,
@@ -1204,8 +1038,6 @@
       "terminals": [
         {
           "name": "type",
-          "direction": "in",
-          "type": null,
           "description": "type is the data type to which you want to convert the data. Wire any constant or control to type to set the data type to which you want to convert the data. LabVIEW ignores any data in the constant or control you wire to type.",
           "default_value": null,
           "enum_values": null,
@@ -1213,8 +1045,6 @@
         },
         {
           "name": "*(type *) &x",
-          "direction": "in",
-          "type": "Boolean",
           "description": "*(type *) &x is the value provided in x and converted to the same data type as type. Choosing between the Type Cast Function and the Coerce To Type Function The Coerce To Type function also converts data to a desired data type. Unlike the Coerce To Type function, the Type Cast function allows conversion between incompatible data types by flattening and unflattening the input data, which allows for radical reinterpretation of the data. When the desired data type requires a different memory size t",
           "default_value": null,
           "enum_values": null,
@@ -1234,8 +1064,6 @@
       "terminals": [
         {
           "name": "anything",
-          "direction": "in",
-          "type": "Boolean",
           "description": "Functions \u00a9 National Instruments 553 anything contains the data you want to convert to a UTF-8 JSON string. This input accepts arrays and clusters of Booleans, floating-point numbers, and strings. anything can also accept an array of clusters, or a cluster of arrays, of these data types. This input does not support other data types, such as enums, refnums, file paths, and fixed-point numbers. Cluster elements may be named or unnamed, but not a combination of both. If cluster elements are named, ",
           "default_value": null,
           "enum_values": null,
@@ -1243,8 +1071,6 @@
         },
         {
           "name": "prepend array or string size? (T)",
-          "direction": "in",
-          "type": "Boolean",
           "description": "prepend array or string size? specifies whether LabVIEW includes data size information at the beginning of data string when anything is an array or string. If prepend array or string size? is FALSE, LabVIEW does not include the size information. The default is TRUE. The string created by the Flatten To String function is a LabVIEW string. If prepend array or string size? is TRUE, the LabVIEW string has a 4-byte (I32) number at the beginning of the string that tells how long the string is. This e",
           "default_value": "TRUE",
           "enum_values": null,
@@ -1252,8 +1078,6 @@
         },
         {
           "name": "byte order (0:big-endian, network order)",
-          "direction": "in",
-          "type": "I32",
           "description": "byte order sets the endian format of the data in the resulting flattened string. Byte order, or endian form, indicates whether integers are represented in memory from most significant byte to least significant byte or vice versa. 0 big-endian, network order (default)\u2014The most significant byte occupies the lowest memory address. 1 native, host order\u2014Uses the byte-ordering format of the host computer. 2 little-endian\u2014The least significant byte occupies the lowest memory address.",
           "default_value": null,
           "enum_values": [
@@ -1274,8 +1098,6 @@
         },
         {
           "name": "error in (no error)",
-          "direction": "in",
-          "type": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
           "default_value": null,
           "enum_values": null,
@@ -1283,8 +1105,6 @@
         },
         {
           "name": "data string",
-          "direction": "in",
-          "type": "String",
           "description": "Functions 554 ni.com data string is the flattened data generated by the function. data string might contain header information before each non-scalar component describing its size. Such a string can be stored in a file or sent over a network. If you send the string over a network, the receiver must be able to interpret it. Usually, LabVIEW stores data as noncontiguous, indirectly referenced pieces. This function copies the data in LabVIEW form into a contiguous buffer data string. Use the Unflat",
           "default_value": null,
           "enum_values": null,
@@ -1292,8 +1112,6 @@
         },
         {
           "name": "type string (7.x only)",
-          "direction": "in",
-          "type": "String",
           "description": "type string (7.x only) is visible only if the terminal is already wired from a previous version of LabVIEW or if you right-click the function and select Convert 7.x Data from the shortcut menu. type string (7.x only) is an encoded binary description of data string. type string (7.x only) is not the same as the type input in the Unflatten From String function. If type string (7.x only) cannot represent the data type wired to anything, this function returns an error.",
           "default_value": null,
           "enum_values": null,
@@ -1301,8 +1119,6 @@
         },
         {
           "name": "error out",
-          "direction": "in",
-          "type": "Boolean",
           "description": "error out contains error information. This output provides standard error out functionality. Use the Type Cast function for conversion of data types that does not result in flattened data. If you need to flatten type descriptor data to a string that is readable by LabVIEW 7.x or earlier, right-click this function and select Convert 7.x Data from the shortcut menu. In Convert 7.x Data mode, this function shows the type string (7.x only) output and displays the icon for this function with a red 7.",
           "default_value": null,
           "enum_values": null,
@@ -1322,8 +1138,6 @@
       "terminals": [
         {
           "name": "type",
-          "direction": "in",
-          "type": null,
           "description": "type is a normally constructed LabVIEW type. type is not the type string output in the Flatten To String function.",
           "default_value": null,
           "enum_values": null,
@@ -1331,8 +1145,6 @@
         },
         {
           "name": "binary string",
-          "direction": "in",
-          "type": "Boolean",
           "description": "binary string is a flattened string that is typically generated by the Flatten To String function. Functions 556 ni.com If data includes array or string size? is TRUE, binary string contains header information describing its size.",
           "default_value": null,
           "enum_values": null,
@@ -1340,8 +1152,6 @@
         },
         {
           "name": "data includes array or string size? (T)",
-          "direction": "in",
-          "type": "Boolean",
           "description": "data includes array or string size? indicates whether LabVIEW reads data size information from the beginning of an incoming array or string. If data includes array or string size? is TRUE, LabVIEW reads the size information from the beginning of binary string. If data includes array or string size? is FALSE, LabVIEW detects the size information from the memory size of binary string. The default is TRUE. data includes array or string size? only accesses the top-level data size information. Arrays",
           "default_value": "TRUE",
           "enum_values": null,
@@ -1349,8 +1159,6 @@
         },
         {
           "name": "byte order (0:big-endian, network order)",
-          "direction": "in",
-          "type": "I32",
           "description": "byte order indicates the endian format of the data in the incoming flattened string. Byte order, or endian form, indicates whether integers are represented in memory from most-significant byte to least-significant byte or vice versa. 0 big-endian, network order (default)\u2014The most-significant byte occupies the lowest memory address. 1 native, host order\u2014Uses the byte-ordering format of the host computer. 2 little-endian\u2014The least-significant byte occupies the lowest memory address.",
           "default_value": null,
           "enum_values": [
@@ -1371,8 +1179,6 @@
         },
         {
           "name": "error in (no error)",
-          "direction": "in",
-          "type": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
           "default_value": null,
           "enum_values": null,
@@ -1380,8 +1186,6 @@
         },
         {
           "name": "rest of the binary string",
-          "direction": "in",
-          "type": "String",
           "description": "rest of the binary string contains any leftover bytes that this function did not convert. This function does not convert all the bytes if the size of binary string is not a multiple of the size of type.",
           "default_value": null,
           "enum_values": null,
@@ -1389,8 +1193,6 @@
         },
         {
           "name": "value",
-          "direction": "out",
-          "type": "String",
           "description": "value returns binary string as unflattened data of the same data type and structure as type.",
           "default_value": null,
           "enum_values": null,
@@ -1398,8 +1200,6 @@
         },
         {
           "name": "error out",
-          "direction": "in",
-          "type": null,
           "description": "Functions",
           "default_value": null,
           "enum_values": null,
@@ -1419,8 +1219,6 @@
       "terminals": [
         {
           "name": "number",
-          "direction": "in",
-          "type": "I32",
           "description": "number can be any decimal representation.",
           "default_value": null,
           "enum_values": null,
@@ -1428,8 +1226,6 @@
         },
         {
           "name": "mantissa",
-          "direction": "in",
-          "type": "I32",
           "description": "mantissa has the same decimal representation as number.",
           "default_value": null,
           "enum_values": null,
@@ -1437,8 +1233,6 @@
         },
         {
           "name": "exponent",
-          "direction": "in",
-          "type": "I32",
           "description": "exponent has the same decimal representation as number.",
           "default_value": null,
           "enum_values": null,
@@ -1458,8 +1252,6 @@
       "terminals": [
         {
           "name": "carry",
-          "direction": "in",
-          "type": null,
           "description": "carry is the new low-order bit of value.",
           "default_value": null,
           "enum_values": null,
@@ -1467,8 +1259,6 @@
         },
         {
           "name": "value",
-          "direction": "in",
-          "type": "I32",
           "description": "value must be an integer. It cannot be an array or a cluster.",
           "default_value": null,
           "enum_values": null,
@@ -1476,8 +1266,6 @@
         },
         {
           "name": "msb carry out",
-          "direction": "in",
-          "type": null,
           "description": "msb carry out is the former high-order bit of value.",
           "default_value": null,
           "enum_values": null,
@@ -1485,8 +1273,6 @@
         },
         {
           "name": "value",
-          "direction": "in",
-          "type": null,
           "description": "Functions \u00a9 National Instruments 559 value is the new value. The data type of the output value is determined by the data type of the input value.",
           "default_value": null,
           "enum_values": null,
@@ -1506,8 +1292,6 @@
       "terminals": [
         {
           "name": "carry",
-          "direction": "in",
-          "type": null,
           "description": "carry is the new high-order bit of value.",
           "default_value": null,
           "enum_values": null,
@@ -1515,8 +1299,6 @@
         },
         {
           "name": "value",
-          "direction": "in",
-          "type": "I32",
           "description": "value must be an integer. It cannot be an array or a cluster.",
           "default_value": null,
           "enum_values": null,
@@ -1524,8 +1306,6 @@
         },
         {
           "name": "lsb carry out",
-          "direction": "in",
-          "type": null,
           "description": "lsb carry out is the former low-order bit of value.",
           "default_value": null,
           "enum_values": null,
@@ -1533,8 +1313,6 @@
         },
         {
           "name": "value",
-          "direction": "in",
-          "type": null,
           "description": "value is the new value. The data type of the output value is determined by the data type of the input value.",
           "default_value": null,
           "enum_values": null,
@@ -1554,8 +1332,6 @@
       "terminals": [
         {
           "name": "x << y",
-          "direction": "in",
-          "type": null,
           "description": "x << y is the result of the shift and has the same numeric representation as x.",
           "default_value": null,
           "enum_values": null,

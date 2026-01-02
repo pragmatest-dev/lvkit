@@ -42,7 +42,7 @@ def parse_block_diagram(xml_path: Path | str) -> BlockDiagram:
     wires = _extract_wires(root)
     fp_terminals = extract_fp_terminals(root)
     enum_labels = _extract_enum_labels(root)
-    terminal_info = _extract_terminal_info(root, constants, fp_terminals)
+    terminal_info = _extract_terminal_info(root, constants, fp_terminals, wires)
     loops = extract_loops(root)
 
     return BlockDiagram(
@@ -148,23 +148,31 @@ def _extract_terminal_info(
     root: ET.Element,
     constants: list[Constant],
     fp_terminals: list[FPTerminal],
+    wires: list[Wire],
 ) -> dict[str, TerminalInfo]:
     """Extract detailed terminal info for graph-native representation.
 
     Captures:
     - Terminal position (index) in parent's termList
-    - Input vs output direction (from objFlags)
+    - Input vs output direction (from wire connectivity)
     - Type information
 
     Args:
         root: XML root element
         constants: List of parsed constants
         fp_terminals: List of front panel terminals
+        wires: List of parsed wires (for direction inference)
 
     Returns:
         Dict mapping terminal UID to TerminalInfo
     """
     terminal_info: dict[str, TerminalInfo] = {}
+
+    # Build wire connectivity maps for direction inference
+    # from_term = source of data = OUTPUT terminal
+    # to_term = destination of data = INPUT terminal
+    wire_sources: set[str] = {w.from_term for w in wires}
+    wire_sinks: set[str] = {w.to_term for w in wires}
 
     # Extract terminals from operation nodes
     for elem in root.iter():
@@ -191,17 +199,24 @@ def _extract_terminal_info(
                     if parm_index_elem is not None and parm_index_elem.text:
                         parm_index = int(parm_index_elem.text)
 
-                # Determine direction from objFlags
-                # Bit 0 (isIndicator) = output terminal
-                term_flags_elem = term.find("objFlags")
-                term_flags = int(term_flags_elem.text) if term_flags_elem is not None and term_flags_elem.text else 0
-                dco_flags = 0
-                if dco is not None:
-                    dco_flags_elem = dco.find("objFlags")
-                    dco_flags = int(dco_flags_elem.text) if dco_flags_elem is not None and dco_flags_elem.text else 0
-
-                combined_flags = term_flags | dco_flags
-                is_output = bool(combined_flags & 0x1)
+                # Determine direction from wire connectivity
+                # If terminal is source of a wire (from_term) -> OUTPUT
+                # If terminal is sink of a wire (to_term) -> INPUT
+                # Wire connectivity is the authoritative source for SubVI terminals
+                if term_uid in wire_sources:
+                    is_output = True
+                elif term_uid in wire_sinks:
+                    is_output = False
+                else:
+                    # Unwired terminal - fall back to flag-based detection
+                    term_flags_elem = term.find("objFlags")
+                    term_flags = int(term_flags_elem.text) if term_flags_elem is not None and term_flags_elem.text else 0
+                    dco_flags = 0
+                    if dco is not None:
+                        dco_flags_elem = dco.find("objFlags")
+                        dco_flags = int(dco_flags_elem.text) if dco_flags_elem is not None and dco_flags_elem.text else 0
+                    combined_flags = term_flags | dco_flags
+                    is_output = bool(combined_flags & 0x1)
 
                 type_desc_elem = term.find(".//typeDesc")
                 type_id = type_desc_elem.text if type_desc_elem is not None else None

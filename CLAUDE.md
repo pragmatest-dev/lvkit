@@ -72,6 +72,37 @@ LabVIEW primitives are identified by `primResID`. Known mappings in `summarizer.
 
 This table needs expansion as more VIs are encountered.
 
+## VILib Terminal Resolution Workflow
+
+When the code generator encounters a vilib VI with missing terminal indices, it raises a `VILibResolutionNeeded` exception. This is intentional - use the caller's dataflow info to fill in the missing indices.
+
+**Workflow:**
+1. Run the code generator (e.g., `scripts/ast_only.py`)
+2. When a VI lacks terminal index info, exception is raised with:
+   - Terminal names from the vilib JSON
+   - Wire types from the caller's dataflow (shows actual indices being used)
+   - PDF documentation reference
+3. Use the **caller's dataflow** to determine correct indices - DO NOT GUESS
+4. Update `data/vilib/<category>.json` with the correct terminal indices
+5. Re-run to verify
+
+**Example exception output:**
+```
+VILib resolution needed for 'Error Cluster From Error Code.vi'.
+
+Terminal names from XML:
+  - is warning? (False)
+  - error code (0)
+  ...
+
+Wire types from dataflow:
+  - idx_0 (input)    <- These are the actual indices from the caller
+  - idx_1 (output)
+  ...
+```
+
+The "Wire types from dataflow" section shows what terminal indices the caller is actually using. Match these to the terminal names and add `"index": N` to each terminal in the JSON.
+
 ## Code Style
 
 - Python 3.10+ required

@@ -141,10 +141,18 @@ def parse_subvi_paths(xml_path: Path | str) -> list[SubVIPathRef]:
     refs: list[SubVIPathRef] = []
 
     for vivi in root.findall(".//LIvi//VIVI"):
-        qual_name = vivi.find("LinkSaveQualName/String")
-        if qual_name is None or not qual_name.text:
+        # Take the LAST string - first may be library name, last is the VI name
+        qual_name_strings = vivi.findall("LinkSaveQualName/String")
+        if not qual_name_strings:
             continue
-        name = qual_name.text
+        # Find last non-empty string (the actual VI name)
+        name = None
+        for s in reversed(qual_name_strings):
+            if s.text and s.text.endswith(".vi"):
+                name = s.text
+                break
+        if not name:
+            continue
 
         path_ref = vivi.find("LinkSavePathRef")
         if path_ref is None:

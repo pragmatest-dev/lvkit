@@ -14,8 +14,6 @@
       "terminals": [
         {
           "name": "x rotated left by y",
-          "direction": "in",
-          "type": null,
           "description": "x rotated left by y is the result of the rotation. The data type of x rotated left by y is determined by the data type of the x input. The following table illustrates how x and y affect x rotated left by y: y x x rotated left by y Comments 1 3 (00000011) 6 (00000110) This function shifts the first one bit on the left, 0, to the right end. 2 3 (00000011) 12 (00001100) This function shifts the first two bits on the left, 00, to the right end. \u20133 3 (00000011) 96 (01100000) This function shifts the ",
           "default_value": null,
           "enum_values": null,
@@ -35,8 +33,6 @@
       "terminals": [
         {
           "name": "hi(x)",
-          "direction": "in",
-          "type": "Enum",
           "description": "hi(x) and lo(x) are integers that are half the width of x. hi(x) and lo(x) are 8-bit, 16-bit, or 32-bit Functions 562 ni.com unsigned integers, respectively, or an array or cluster of those representations. hi(x) is the numerically high-order byte and lo(x) is the numerically low-order byte, regardless of the endianness of the operating system.",
           "default_value": null,
           "enum_values": null,
@@ -44,8 +40,6 @@
         },
         {
           "name": "lo(x)",
-          "direction": "in",
-          "type": "Enum",
           "description": "If you wire an 8-bit integer input, this function does not split the number. Instead, LabVIEW returns the same 8-bit number in the lo(x) output, and returns zero for the hi(x) output.",
           "default_value": null,
           "enum_values": null,
@@ -65,8 +59,6 @@
       "terminals": [
         {
           "name": "hi",
-          "direction": "in",
-          "type": "Enum",
           "description": "hi can be an 8-, 16-, or 32-bit number or an array or cluster of that representation.",
           "default_value": null,
           "enum_values": null,
@@ -74,8 +66,6 @@
         },
         {
           "name": "lo",
-          "direction": "in",
-          "type": "Enum",
           "description": "lo can be an 8-, 16-, or 32-bit number or an array or cluster of that representation.",
           "default_value": null,
           "enum_values": null,
@@ -83,8 +73,6 @@
         },
         {
           "name": "(hi.lo)",
-          "direction": "in",
-          "type": "Enum",
           "description": "(hi.lo) is an integer twice the width of hi and lo. (hi.lo) is a 16-, 32-, or 64-bit unsigned integer or an array or cluster of those representations. If hi and lo are of different widths, (hi.lo) is twice the width of the widest number.",
           "default_value": null,
           "enum_values": null,
@@ -104,8 +92,6 @@
       "terminals": [
         {
           "name": "data",
-          "direction": "in",
-          "type": "I32",
           "description": "data is an integer, an array of integers, or a cluster containing integers that you want to byte swap. If data is a cluster that contains integers, this function swaps only the integer elements of the cluster. Neither refnums or variants are valid inputs. Both will break the input wire.",
           "default_value": null,
           "enum_values": null,
@@ -113,8 +99,6 @@
         },
         {
           "name": "byte swapped",
-          "direction": "in",
-          "type": null,
           "description": "byte swapped is of the same data type and structure as data.",
           "default_value": null,
           "enum_values": null,
@@ -134,8 +118,6 @@
       "terminals": [
         {
           "name": "data",
-          "direction": "in",
-          "type": "I32",
           "description": "Functions 564 ni.com data is an integer, an array of integers, or a cluster containing integers that you want to word swap. In the case of a cluster that contains integers, this function swaps only the integer elements of the cluster. If you want to byte-swap floating-point or fixed-point numbers, use the Type Cast function to cast the value to a 1D array of bytes. Then use the Reverse 1D Array function and type cast it back to a floating-point or fixed-point number. Neither refnums or variants ",
           "default_value": null,
           "enum_values": null,
@@ -143,8 +125,6 @@
         },
         {
           "name": "word swapped",
-          "direction": "in",
-          "type": null,
           "description": "word swapped is of the same data type and structure as data.",
           "default_value": null,
           "enum_values": null,
@@ -164,8 +144,6 @@
       "terminals": [
         {
           "name": "buffer",
-          "direction": "in",
-          "type": "Array",
           "description": "buffer specifies the byte array, or buffer, for which you want to compute the message digest.",
           "default_value": null,
           "enum_values": null,
@@ -173,8 +151,6 @@
         },
         {
           "name": "digest",
-          "direction": "out",
-          "type": null,
           "description": "digest returns the SHA-256 message digest of the byte array, or buffer, as a hexadecimal string.",
           "default_value": null,
           "enum_values": null,
@@ -194,8 +170,6 @@
       "terminals": [
         {
           "name": "abs(x)",
-          "direction": "in",
-          "type": "Enum",
           "description": "abs(x) is the absolute value of x. When x is of the form x = a + bi, that is, when x is complex, the following equation defines abs(x): When you wire matrix data as an input to this function, a VI that includes subVIs that work with the matrix data type replaces the function. The resulting VI has the same icon but contains a matrix-specific algorithm. The node remains a VI if you disconnect the matrix from the inputs. Wire other data types as inputs to restore the original function. If you wire ",
           "default_value": null,
           "enum_values": null,
@@ -203,8 +177,6 @@
         },
         {
           "name": "labview\\examples\\Numerics\\Numeric Functions.vi",
-          "direction": "in",
-          "type": null,
           "description": "",
           "default_value": null,
           "enum_values": null,
@@ -224,8 +196,6 @@
       "terminals": [
         {
           "name": "number",
-          "direction": "in",
-          "type": "I32",
           "description": "number can be a scalar number, array or cluster of numbers, array of clusters of numbers, and so on.",
           "default_value": null,
           "enum_values": null,
@@ -233,8 +203,6 @@
         },
         {
           "name": "nearest integer value",
-          "direction": "out",
-          "type": "I32",
           "description": "nearest integer value is the resulting nearest integer to number. If the input is a time stamp value, the function rounds to the nearest second. When number is in the form of a + bi, that is, when number is complex, the function returns a complex number defined by the nearest integer to the real and imaginary parts of number. The following equation defines nearest integer value: nearest integer value(x) = nearest integer value(a) + i * nearest integer value(b) Examples Refer to the following exa",
           "default_value": null,
           "enum_values": null,
@@ -242,8 +210,6 @@
         },
         {
           "name": "labview\\examples\\Numerics\\Numeric Functions.vi",
-          "direction": "in",
-          "type": null,
           "description": "",
           "default_value": null,
           "enum_values": null,
@@ -263,8 +229,6 @@
       "terminals": [
         {
           "name": "floor(x): largest int <= x",
-          "direction": "out",
-          "type": "I32",
           "description": "floor(x): largest int \u2264 x is the resulting lowest integer, closest to x. If the input is a time stamp value, the function rounds to the previous second. When x is of the form x = a + bi, that is, when x is complex, the function returns a complex number defined by the next lowest integers to the real and imaginary parts of x. The following equation defines floor(x): largest int \u2264 x: floor(x) = floor(a) + i floor(b) Round Toward +Infinity Function Round Toward +Infinity Function Rounds the input t",
           "default_value": "data types for this polymorphic function",
           "enum_values": null,
@@ -284,8 +248,6 @@
       "terminals": [
         {
           "name": "ceil(x): smallest int >= x",
-          "direction": "out",
-          "type": "I32",
           "description": "ceil(x): smallest int >= x is the resulting highest integer, closest to x. If the input is a time stamp value, the function rounds to the next second. When x is of the form x = a + bi, that is, when x is complex, the function returns a complex number defined by the next highest integers to the real and imaginary parts of x. The following equation defines ceil(x): smallest int >= x: ceil(x) = ceil(a) + i ceil(b)",
           "default_value": null,
           "enum_values": null,
@@ -305,8 +267,6 @@
       "terminals": [
         {
           "name": "x*2^n",
-          "direction": "in",
-          "type": null,
           "description": "x*2^n is the result of multiplying x by 2, raised to the power of n. If you wire a fixed-point value to this function, the resulting output value retains the Functions 574 ni.com fixed-point configuration settings of the input value. However, the value is likely to truncate or wrap. Examples Refer to the following example files included with LabVIEW.",
           "default_value": null,
           "enum_values": null,
@@ -314,8 +274,6 @@
         },
         {
           "name": "labview\\examples\\Numerics\\Numeric Functions.vi",
-          "direction": "in",
-          "type": null,
           "description": "",
           "default_value": null,
           "enum_values": null,
@@ -335,8 +293,6 @@
       "terminals": [
         {
           "name": "x + iy",
-          "direction": "in",
-          "type": "I32",
           "description": "x + iy can be a complex number, array or cluster of complex numbers, an array of cluster of complex numbers, and so on.",
           "default_value": null,
           "enum_values": null,
@@ -344,8 +300,6 @@
         },
         {
           "name": "x - iy",
-          "direction": "in",
-          "type": null,
           "description": "x - iy is the complex conjugate of x + iy.",
           "default_value": null,
           "enum_values": null,
@@ -365,8 +319,6 @@
       "terminals": [
         {
           "name": "theta",
-          "direction": "in",
-          "type": "I32",
           "description": "Functions 576 ni.com theta can be a scalar number, an array or cluster of numbers, array of clusters of numbers, and so on. theta is in radians.",
           "default_value": null,
           "enum_values": null,
@@ -374,8 +326,6 @@
         },
         {
           "name": "r * e^(i*theta)",
-          "direction": "in",
-          "type": null,
           "description": "r * e^(i*theta) is of the same data type structure as r and theta, with complex representation instead of scalar. Given z in rectangular form z = a + bi, this function converts the polar components according to the following equation: z = r*cos(theta) + i r*sin(theta) When you wire matrix data as an input to this function, a VI that includes subVIs that work with the matrix data type replaces the function. The resulting VI has the same icon but contains a matrix-specific algorithm. The node rema",
           "default_value": null,
           "enum_values": null,
@@ -395,8 +345,6 @@
       "terminals": [
         {
           "name": "r * e^(i*theta)",
-          "direction": "in",
-          "type": "I32",
           "description": "r * e^(i*theta) can be a complex number, a cluster of complex numbers, an array of complex numbers, an array of clusters of complex numbers, and so on.",
           "default_value": null,
           "enum_values": null,
@@ -404,8 +352,6 @@
         },
         {
           "name": "theta",
-          "direction": "in",
-          "type": null,
           "description": "theta is of the same data type structure as r * e^(i*theta), with scalar representation instead of complex. theta is in radians. Given z in rectangular form z = a + bi, this function converts the polar components of z = r * e^(i*theta) according to the following equations: r = |z| = sqrt(a\u00b2 + b\u00b2) theta = arg(z) = arctan2(b,a) When you wire matrix data as an input to this function, a VI that includes subVIs that work with the matrix data type replaces the function. The resulting VI has the same i",
           "default_value": null,
           "enum_values": null,
@@ -425,8 +371,6 @@
       "terminals": [
         {
           "name": "x + iy",
-          "direction": "in",
-          "type": null,
           "description": "x + iy has the same structure as the input, with complex representation instead of scalar. When you wire matrix data as an input to this function, a VI that includes subVIs that work with the matrix data type replaces the function. The resulting VI has the same icon but contains a matrix-specific algorithm. The node remains a VI if you disconnect the matrix from the input(s). Wire other data types as inputs to restore the original function. If you wire a data type to a function and that data typ",
           "default_value": null,
           "enum_values": null,
@@ -446,8 +390,6 @@
       "terminals": [
         {
           "name": "x + iy",
-          "direction": "in",
-          "type": "I32",
           "description": "x + iy can be a complex number, array or cluster of complex numbers, an array of cluster of complex numbers, and so on.",
           "default_value": null,
           "enum_values": null,
@@ -467,8 +409,6 @@
       "terminals": [
         {
           "name": "theta",
-          "direction": "in",
-          "type": null,
           "description": "theta is of the same data type structure as x and y. theta is in radians. This function converts the rectangular components to polar components using the following equations: r = sqrt(x\u00b2 + y\u00b2) theta = arctan2(y,x) radians Functions 580 ni.com",
           "default_value": null,
           "enum_values": null,
@@ -488,8 +428,6 @@
       "terminals": [
         {
           "name": "theta",
-          "direction": "in",
-          "type": "I32",
           "description": "theta can be a scalar number, an array or cluster of numbers, array of clusters of numbers, and so on. theta is in radians.",
           "default_value": null,
           "enum_values": null,
@@ -509,8 +447,6 @@
       "terminals": [
         {
           "name": "sqrt(x)",
-          "direction": "in",
-          "type": "I32",
           "description": "sqrt(x) is a double-precision, floating-point number if x is an integer. If x is less than 0, sqrt(x) is not a number (NaN), unless x is complex. When x is of the form x = a + bi, that is, when x is complex, the function defines the magnitude and phase with the following equations: where |x| is the magnitude of x and arg(x) is the phase of x: arg(x) = arctan2(b,a) When you wire matrix data as an input to this function, a VI that includes subVIs that work with the matrix data type replaces the fu",
           "default_value": null,
           "enum_values": null,
@@ -518,8 +454,6 @@
         },
         {
           "name": "labview\\examples\\Numerics\\Numeric Functions.vi",
-          "direction": "in",
-          "type": null,
           "description": "",
           "default_value": null,
           "enum_values": null,
@@ -539,8 +473,6 @@
       "terminals": [
         {
           "name": "x^2",
-          "direction": "in",
-          "type": null,
           "description": "x^2 is of the same numeric representation as x. Note You can manually configure this function to output data of a type you want. To specify the output data type, right-click the function and select Properties to display Functions \u00a9 National Instruments 583 If you wire fixed-point values to Numeric functions such as Add, Subtract, Multiply, and Square, the functions usually return values that do not lose any bits of word length. However, if the operation creates a value that exceeds the maximum w",
           "default_value": null,
           "enum_values": null,
@@ -548,8 +480,6 @@
         },
         {
           "name": "labview\\examples\\Numerics\\Numeric Functions.vi",
-          "direction": "in",
-          "type": null,
           "description": "",
           "default_value": null,
           "enum_values": null,
@@ -569,8 +499,6 @@
       "terminals": [
         {
           "name": "-x",
-          "direction": "in",
-          "type": null,
           "description": "the Object Properties dialog box. On the Output Configuration page, click the Representation icon and select the data type you want. A blue coercion dot appears on the output terminal of the function to indicate that you have configured the output data type. Functions 584 ni.com -x is the negative value of x. Examples Refer to the following example files included with LabVIEW.",
           "default_value": null,
           "enum_values": null,
@@ -578,8 +506,6 @@
         },
         {
           "name": "labview\\examples\\Numerics\\Numeric Functions.vi",
-          "direction": "in",
-          "type": null,
           "description": "",
           "default_value": null,
           "enum_values": null,
@@ -599,8 +525,6 @@
       "terminals": [
         {
           "name": "1/x",
-          "direction": "in",
-          "type": "I32",
           "description": "1/x is infinity if x is 0. If x is an integer, 1/x is a double-precision, floating-point number. Fixed-Point Details If you wire a fixed-point value to this function, by default LabVIEW configures the integer word length of the reciprocal to avoid overflow. However, because the precision of the reciprocal can be infinite, rounding conditions always occur. Use the Numeric Node Properties dialog box to configure how LabVIEW handles rounding of fixed-point data. This function always uses the Satura",
           "default_value": "LabVIEW configures the integer word length of the reciprocal to avoid overflow",
           "enum_values": null,
@@ -620,8 +544,6 @@
       "terminals": [
         {
           "name": "number",
-          "direction": "in",
-          "type": "I32",
           "description": "number can be a scalar number, array or cluster of numbers, array of clusters of numbers, and so on.",
           "default_value": null,
           "enum_values": null,
@@ -629,8 +551,6 @@
         },
         {
           "name": "-1, 0, 1",
-          "direction": "out",
-          "type": "I32",
           "description": "\u20131, 0, 1 returns 1 if the input value is greater than 0, returns 0 if the input value is equal to 0, and returns \u20131 if the input value is less than 0. When number is in the form of a + bi, that is, when number is complex, the following defines -1, 0, 1: Examples Refer to the following example files included with LabVIEW. Note For nonzero complex numbers, this function returns a complex value with the same phase as the input and with a magnitude of 1. Functions 586 ni.com",
           "default_value": null,
           "enum_values": null,
@@ -638,8 +558,6 @@
         },
         {
           "name": "labview\\examples\\Numerics\\Numeric Functions.vi",
-          "direction": "in",
-          "type": null,
           "description": "",
           "default_value": null,
           "enum_values": null,
@@ -659,8 +577,6 @@
       "terminals": [
         {
           "name": "Ro",
-          "direction": "in",
-          "type": null,
           "description": "Functions 588 ni.com Ro is the RTD resistance at 0\u00b0 C. The default is 100 \u03a9.",
           "default_value": "100 \u03a9",
           "enum_values": null,
@@ -668,8 +584,6 @@
         },
         {
           "name": "RTDvolts",
-          "direction": "in",
-          "type": null,
           "description": "RTDvolts is the voltage you read from the RTD.",
           "default_value": null,
           "enum_values": null,
@@ -677,8 +591,6 @@
         },
         {
           "name": "Iex",
-          "direction": "in",
-          "type": null,
           "description": "Iex is the excitation current you used with the RTD. This parameter defaults to an excitation current of 0.15 mA.",
           "default_value": null,
           "enum_values": null,
@@ -686,8 +598,6 @@
         },
         {
           "name": "RTDtemp",
-          "direction": "in",
-          "type": null,
           "description": "RTDtemp is the return temperature value in degrees Celsius. Convert RTD Reading (scaler) VI Convert RTD Reading (scaler) VI Converts a voltage you read from an RTD into temperature in Celsius. Wire data to the RTDvolts input to determine the polymorphic instance to use or manually select the instance. Inputs/Outputs",
           "default_value": null,
           "enum_values": null,
@@ -695,8 +605,6 @@
         },
         {
           "name": "Ro",
-          "direction": "in",
-          "type": null,
           "description": "Functions",
           "default_value": null,
           "enum_values": null,
@@ -727,8 +635,6 @@
       "terminals": [
         {
           "name": "Type of Excitation",
-          "direction": "in",
-          "type": null,
           "description": "Type of Excitation distinguishes the two modes of operation of the VI. This VI defaults to the Voltage Reference mode. Use the Voltage Reference (VREF) and the R1 values only in this mode. You use the Current Excitation (IEX) value only in the Current Reference mode. This input accepts the following values. 0 Voltage Reference 1 Current Reference",
           "default_value": null,
           "enum_values": null,
@@ -736,8 +642,6 @@
         },
         {
           "name": "Voltage",
-          "direction": "in",
-          "type": null,
           "description": "Voltage is the voltage read from a thermistor.",
           "default_value": null,
           "enum_values": null,
@@ -745,8 +649,6 @@
         },
         {
           "name": "Voltage Reference",
-          "direction": "in",
-          "type": null,
           "description": "Voltage Reference (VREF) is the reference you apply across a resistor of known value in series with your thermistor. The default is 2.5 V. Use this input only when you set Type of Excitation to Voltage Reference.",
           "default_value": "2",
           "enum_values": null,
@@ -754,8 +656,6 @@
         },
         {
           "name": "R1",
-          "direction": "in",
-          "type": null,
           "description": "R1 is the value of the resistor in series with your thermistor expressed in Ohms. The default is 5 k\u03a9. Use this input only when you set Type of Excitation to Voltage Reference.",
           "default_value": "5 k\u03a9",
           "enum_values": null,
@@ -763,8 +663,6 @@
         },
         {
           "name": "Excitation Current",
-          "direction": "in",
-          "type": null,
           "description": "Excitation Current (IEX) is the current excitation applied to the thermistor. The default is 100 \u00b5A. Use this input only when you set Type of Excitation to Current Reference.",
           "default_value": "100 \u00b5A",
           "enum_values": null,
@@ -772,8 +670,6 @@
         },
         {
           "name": "Temperature Units (C)",
-          "direction": "in",
-          "type": null,
           "description": "Temperature Units is the units of temperature the VI outputs. This input accepts the following values. 0 Celsius 1 Fahrenheit 2 Kelvin Functions",
           "default_value": null,
           "enum_values": null,
@@ -793,8 +689,6 @@
       "terminals": [
         {
           "name": "Temperature Units (C)",
-          "direction": "in",
-          "type": null,
           "description": "Temperature Units is the units of temperature the VI outputs. This input accepts the following values. 0 Celsius 1 Fahrenheit 2 Kelvin 3 Rankine",
           "default_value": null,
           "enum_values": null,
@@ -802,8 +696,6 @@
         },
         {
           "name": "Voltage Waveform",
-          "direction": "in",
-          "type": null,
           "description": "Voltage Waveform is a waveform of voltages read from a thermocouple.",
           "default_value": null,
           "enum_values": null,
@@ -811,8 +703,6 @@
         },
         {
           "name": "ThermocoupleType",
-          "direction": "in",
-          "type": null,
           "description": "ThermocoupleType can be B, E, J, K, R, S, T, or N. This input accepts the following values. Refer to your thermocouple user manual for more information about thermocouple types. 0 B 1 E Note This VI does not work with the NI 9211 C Series module. Instead, use the NI 9211 Convert to Temperature VI located in the labview\\examples\\ CompactRIO\\Module Specific\\NI 9211\\NI 9211 Support Files.llb directory. Functions",
           "default_value": null,
           "enum_values": null,
@@ -865,8 +755,6 @@
       "terminals": [
         {
           "name": "number (0 to 1)",
-          "direction": "in",
-          "type": "I32",
           "description": "number (0 to 1) is a double-precision, floating-point number between 0 and 1. Random Number (Range) Random Number (Range) Generates a random value from a specified range. Wire data to the upper bound or lower bound input to determine the polymorphic instance to use or manually select the instance. Functions 618 ni.com",
           "default_value": null,
           "enum_values": null,
@@ -874,8 +762,6 @@
         },
         {
           "name": "Random Number (Range) U64 VI",
-          "direction": "in",
-          "type": null,
           "description": "",
           "default_value": null,
           "enum_values": null,
@@ -883,8 +769,6 @@
         },
         {
           "name": "Random Number (Range) I64 VI",
-          "direction": "in",
-          "type": null,
           "description": "",
           "default_value": null,
           "enum_values": null,
@@ -892,8 +776,6 @@
         },
         {
           "name": "Random Number (Range) DBL VI",
-          "direction": "in",
-          "type": null,
           "description": "",
           "default_value": null,
           "enum_values": null,
@@ -901,8 +783,6 @@
         },
         {
           "name": "upper bound (100)",
-          "direction": "in",
-          "type": null,
           "description": "upper bound specifies the upper limit of the range. The default is 100.",
           "default_value": "100",
           "enum_values": null,
@@ -910,8 +790,6 @@
         },
         {
           "name": "lower bound (0)",
-          "direction": "in",
-          "type": null,
           "description": "lower bound specifies the lower limit of the range. The default is 0.",
           "default_value": "0",
           "enum_values": null,
@@ -919,8 +797,6 @@
         },
         {
           "name": "number",
-          "direction": "out",
-          "type": "I32",
           "description": "number returns a random number greater than or equal to lower bound and less than or equal to upper bound. If upper bound is less than or equal to lower bound, this output returns lower bound. Random Number (Range) I64 VI Random Number (Range) I64 VI Generates a random value from a specified range. Wire data to the upper bound or lower bound input to determine the polymorphic instance to use or manually select the instance. Functions",
           "default_value": null,
           "enum_values": null,
@@ -940,8 +816,6 @@
       "terminals": [
         {
           "name": "upper bound (100)",
-          "direction": "in",
-          "type": null,
           "description": "upper bound specifies the upper limit of the range. The default is 100.",
           "default_value": "100",
           "enum_values": null,
@@ -949,8 +823,6 @@
         },
         {
           "name": "lower bound (0)",
-          "direction": "in",
-          "type": null,
           "description": "lower bound specifies the lower limit of the range. The default is 0.",
           "default_value": "0",
           "enum_values": null,
@@ -958,8 +830,6 @@
         },
         {
           "name": "number",
-          "direction": "out",
-          "type": "I32",
           "description": "number returns a random number greater than or equal to lower bound and less than or equal to upper bound. If upper bound is less than or equal to lower bound, this output returns lower bound. Random Number (Range) I64 VI Random Number (Range) I64 VI Generates a random value from a specified range. Wire data to the upper bound or lower bound input to determine the polymorphic instance to use or manually select the instance. Functions",
           "default_value": null,
           "enum_values": null,
@@ -979,8 +849,6 @@
       "terminals": [
         {
           "name": "upper bound (100)",
-          "direction": "in",
-          "type": null,
           "description": "upper bound specifies the upper limit of the range. The default is 100.",
           "default_value": "100",
           "enum_values": null,
@@ -988,8 +856,6 @@
         },
         {
           "name": "lower bound (0)",
-          "direction": "in",
-          "type": null,
           "description": "lower bound specifies the lower limit of the range. The default is 0.",
           "default_value": "0",
           "enum_values": null,
@@ -997,8 +863,6 @@
         },
         {
           "name": "number",
-          "direction": "out",
-          "type": "I32",
           "description": "number returns a random number greater than or equal to lower bound and less than or equal to upper bound. If upper bound is less than or equal to lower bound, this output returns lower bound. Random Number (Range) I64 VI Random Number (Range) I64 VI Generates a random value from a specified range. Wire data to the upper bound or lower bound input to determine the polymorphic instance to use or manually select the instance. Functions",
           "default_value": null,
           "enum_values": null,
@@ -1018,8 +882,6 @@
       "terminals": [
         {
           "name": "upper bound (100)",
-          "direction": "in",
-          "type": null,
           "description": "upper bound specifies the upper limit of the range. The default is 100.",
           "default_value": "100",
           "enum_values": null,
@@ -1027,8 +889,6 @@
         },
         {
           "name": "lower bound (0)",
-          "direction": "in",
-          "type": null,
           "description": "lower bound specifies the lower limit of the range. The default is 0.",
           "default_value": "0",
           "enum_values": null,
@@ -1036,8 +896,6 @@
         },
         {
           "name": "number",
-          "direction": "out",
-          "type": "I32",
           "description": "number returns a random number greater than or equal to lower bound and less than or equal to upper bound. If upper bound is less than or equal to lower bound, this output returns lower bound. Random Number (Range) I64 VI Random Number (Range) I64 VI Generates a random value from a specified range. Wire data to the upper bound or lower bound input to determine the polymorphic instance to use or manually select the instance. Functions",
           "default_value": null,
           "enum_values": null,
@@ -1057,8 +915,6 @@
       "terminals": [
         {
           "name": "upper bound (100)",
-          "direction": "in",
-          "type": null,
           "description": "upper bound specifies the upper limit of the range. The default is 100.",
           "default_value": "100",
           "enum_values": null,
@@ -1066,8 +922,6 @@
         },
         {
           "name": "lower bound (0)",
-          "direction": "in",
-          "type": null,
           "description": "lower bound specifies the lower limit of the range. The default is 0.",
           "default_value": "0",
           "enum_values": null,
@@ -1075,8 +929,6 @@
         },
         {
           "name": "number",
-          "direction": "out",
-          "type": "I32",
           "description": "number returns a random number greater than or equal to lower bound and less than upper bound. Functions 620 ni.com If upper bound is less than or equal to lower bound, this output returns lower bound.",
           "default_value": null,
           "enum_values": null,
@@ -1096,8 +948,6 @@
       "terminals": [
         {
           "name": "fixed-point",
-          "direction": "in",
-          "type": null,
           "description": "fixed-point is the data you want to scale. fixed-point can be any fixed-point data type.",
           "default_value": null,
           "enum_values": null,
@@ -1105,8 +955,6 @@
         },
         {
           "name": "integer",
-          "direction": "in",
-          "type": "I32",
           "description": "integer is the input data scaled to the smallest compatible integer type that prevents overflow. This output discards the overflow status. If fixed-point is a signed number, LabVIEW sign-extends the input data as necessary to ensure that the input and output data are always the same sign. Examples Refer to the following example files included with LabVIEW.",
           "default_value": null,
           "enum_values": null,
@@ -1114,8 +962,6 @@
         },
         {
           "name": "labview\\examples\\Numerics\\Fixed-Point Cast.vi",
-          "direction": "in",
-          "type": null,
           "description": "",
           "default_value": null,
           "enum_values": null,
@@ -1135,8 +981,6 @@
       "terminals": [
         {
           "name": "fixed-point type",
-          "direction": "in",
-          "type": "I32",
           "description": "fixed-point type is the fixed-point data type to which you want to convert the integer data. You can configure the fixed-point data type in the Data Type page of the Properties dialog box. LabVIEW ignores any data in the constant or control that you wire to fixed-point type. You also can leave this input unwired and configure the output data type in the Output Configuration page of the Properties dialog box.",
           "default_value": null,
           "enum_values": null,
@@ -1144,8 +988,6 @@
         },
         {
           "name": "integer",
-          "direction": "in",
-          "type": "I32",
           "description": "integer is the data you want to scale. integer can be any integer data type.",
           "default_value": null,
           "enum_values": null,
@@ -1153,8 +995,6 @@
         },
         {
           "name": "fixed-point",
-          "direction": "in",
-          "type": "I32",
           "description": "fixed-point is the input data scaled to the requested fixed-point data type. If the word length of integer is greater than or less than the word length of fixed-point type, LabVIEW first converts integer to the integer word length of fixed-point type before casting integer to the requested fixed-point type. The least significant bit of integer becomes the least significant bit of fixed-point, so rounding is never necessary. To override the default behavior of this function, right-click the funct",
           "default_value": "behavior of this function, right-click the function and select Properties from the shortcut menu to display the Output Configuration page of the Properties dialog box",
           "enum_values": null,
@@ -1174,8 +1014,6 @@
       "terminals": [
         {
           "name": "FXP",
-          "direction": "in",
-          "type": "I32",
           "description": "FXP specifies a fixed-point number.",
           "default_value": null,
           "enum_values": null,
@@ -1183,8 +1021,6 @@
         },
         {
           "name": "FXP with overflow cleared",
-          "direction": "out",
-          "type": "Boolean",
           "description": "FXP with overflow cleared returns FXP with an overflow status of FALSE. If FXP does not include an overflow status, FXP with overflow cleared returns FXP unchanged.",
           "default_value": null,
           "enum_values": null,
@@ -1192,8 +1028,6 @@
         },
         {
           "name": "overflow?",
-          "direction": "in",
-          "type": "Boolean",
           "description": "overflow? is TRUE if FXP includes an overflow status and FXP is the result of an operation that overflowed. If FXP does not include an overflow status, or if FXP includes an overflow status but is not the result of an operation that overflowed, overflow? is FALSE. Note The Integer to Fixed-Point Cast function combines elements of the Conversion functions, the Type Cast function, and the Scale by Power of 2 function. The Integer to Fixed-Point Cast function performs an operation that reinterprets",
           "default_value": null,
           "enum_values": null,
@@ -1213,8 +1047,6 @@
       "terminals": [
         {
           "name": "FXP",
-          "direction": "in",
-          "type": "I32",
           "description": "FXP specifies a fixed-point number.",
           "default_value": null,
           "enum_values": null,
@@ -1222,8 +1054,6 @@
         },
         {
           "name": "FXP with overflow removed",
-          "direction": "out",
-          "type": null,
           "description": "FXP with overflow removed returns FXP without an overflow status. If FXP does not include an overflow status, FXP with overflow removed returns FXP unchanged.",
           "default_value": null,
           "enum_values": null,
@@ -1231,8 +1061,6 @@
         },
         {
           "name": "overflow?",
-          "direction": "in",
-          "type": "Boolean",
           "description": "overflow? is TRUE if FXP includes an overflow status and FXP is the result of an operation that overflowed. If FXP does not include an overflow status, or if FXP includes an overflow status but is not the result of an operation that overflowed, overflow? is FALSE.",
           "default_value": null,
           "enum_values": null,
@@ -1252,8 +1080,6 @@
       "terminals": [
         {
           "name": "FXP",
-          "direction": "in",
-          "type": "I32",
           "description": "Functions \u00a9 National Instruments 625 FXP specifies a fixed-point number.",
           "default_value": null,
           "enum_values": null,
@@ -1261,8 +1087,6 @@
         },
         {
           "name": "overflow",
-          "direction": "in",
-          "type": "Boolean",
           "description": "overflow specifies whether the overflow status of FXP with overflow included is TRUE or FALSE.",
           "default_value": null,
           "enum_values": null,
@@ -1270,8 +1094,6 @@
         },
         {
           "name": "FXP with overflow included",
-          "direction": "out",
-          "type": null,
           "description": "FXP with overflow included returns FXP with an overflow status set to the value specified in overflow.",
           "default_value": null,
           "enum_values": null,
@@ -1291,8 +1113,6 @@
       "terminals": [
         {
           "name": "type",
-          "direction": "in",
-          "type": null,
           "description": "type specifies the data type. This input accepts any scalar numeric data type and enum.",
           "default_value": null,
           "enum_values": null,
@@ -1300,8 +1120,6 @@
         },
         {
           "name": "maximum value for type",
-          "direction": "in",
-          "type": null,
           "description": "Functions 628 ni.com",
           "default_value": null,
           "enum_values": null,
@@ -1321,8 +1139,6 @@
       "terminals": [
         {
           "name": "type",
-          "direction": "in",
-          "type": null,
           "description": "type specifies the data type. This input accepts any scalar numeric data type and enum.",
           "default_value": null,
           "enum_values": null,
@@ -1330,8 +1146,6 @@
         },
         {
           "name": "maximum value for type",
-          "direction": "out",
-          "type": "Enum",
           "description": "Functions 628 ni.com maximum value for type returns the maximum value of the data type wired to type. If type is an enum, this VI returns the last value of the enum. For example, if type is a 16-bit unsigned integer, this output returns 32767. If type is an enum with values {cat, dog, bird}, this output returns bird.",
           "default_value": null,
           "enum_values": null,
@@ -1339,8 +1153,6 @@
         },
         {
           "name": "minimum value for type",
-          "direction": "out",
-          "type": "Enum",
           "description": "minimum value for type returns the minimum value of the data type wired to type. If type is an enum, this VI returns the first value of the enum. For example, if type is a 16-bit unsigned integer, this output returns -32768. If type is an enum with values {cat, dog, bird}, this output returns cat.",
           "default_value": null,
           "enum_values": null,
@@ -1360,8 +1172,6 @@
       "terminals": [
         {
           "name": "type",
-          "direction": "in",
-          "type": null,
           "description": "type specifies the data type. This input accepts any scalar numeric data type and enum.",
           "default_value": null,
           "enum_values": null,
@@ -1369,8 +1179,6 @@
         },
         {
           "name": "maximum value for type",
-          "direction": "out",
-          "type": "Enum",
           "description": "Functions 628 ni.com maximum value for type returns the maximum value of the data type wired to type. If type is an enum, this VI returns the last value of the enum. For example, if type is a 16-bit unsigned integer, this output returns 32767. If type is an enum with values {cat, dog, bird}, this output returns bird.",
           "default_value": null,
           "enum_values": null,
@@ -1378,8 +1186,6 @@
         },
         {
           "name": "minimum value for type",
-          "direction": "out",
-          "type": "Enum",
           "description": "minimum value for type returns the minimum value of the data type wired to type. If type is an enum, this VI returns the first value of the enum. For example, if type is a 16-bit unsigned integer, this output returns -32768. If type is an enum with values {cat, dog, bird}, this output returns cat.",
           "default_value": null,
           "enum_values": null,
@@ -1399,8 +1205,6 @@
       "terminals": [
         {
           "name": "Expression Nodes accept any non-complex numeric data type.",
-          "direction": "in",
-          "type": null,
           "description": "",
           "default_value": null,
           "enum_values": null,
@@ -1408,8 +1212,6 @@
         },
         {
           "name": "Expression Nodes accept only the period (.) as a decimal separator. The nodes do",
-          "direction": "in",
-          "type": null,
           "description": "",
           "default_value": null,
           "enum_values": null,
@@ -1417,8 +1219,6 @@
         },
         {
           "name": "Expression Nodes accept only pi as a constant. The constant is case-sensitive.",
-          "direction": "in",
-          "type": null,
           "description": "",
           "default_value": null,
           "enum_values": null,
@@ -1426,8 +1226,6 @@
         },
         {
           "name": "You cannot add Expression Nodes to a VI on which you enable inlining.",
-          "direction": "in",
-          "type": null,
           "description": "",
           "default_value": null,
           "enum_values": null,
@@ -1447,8 +1245,6 @@
       "terminals": [
         {
           "name": "x .and. y?",
-          "direction": "in",
-          "type": "Boolean",
           "description": "x .and. y? is the logical AND of x and y. And Truth Table x y x .and. y?",
           "default_value": null,
           "enum_values": null,
@@ -1479,8 +1275,6 @@
       "terminals": [
         {
           "name": "x .xor. y?",
-          "direction": "in",
-          "type": "Boolean",
           "description": "x .xor. y? is the logical exclusive or (XOR) of x and y. Exclusive Or Truth Table x y x .xor. y?",
           "default_value": null,
           "enum_values": null,
@@ -1500,8 +1294,6 @@
       "terminals": [
         {
           "name": ".not. x?",
-          "direction": "in",
-          "type": "Boolean",
           "description": ".not. x? is the logical negation of x. Not Truth Table x .not. x? F",
           "default_value": null,
           "enum_values": null,
@@ -1521,8 +1313,6 @@
       "terminals": [
         {
           "name": ".not. (x .and. y)?",
-          "direction": "in",
-          "type": "Boolean",
           "description": ".not. (x .and. y)? is the logical NAND of x and y. Not And Truth Table x y .not. (x .and. y)?",
           "default_value": null,
           "enum_values": null,
@@ -1542,8 +1332,6 @@
       "terminals": [
         {
           "name": ".not. (x .or. y)?",
-          "direction": "in",
-          "type": "Boolean",
           "description": ".not. (x .or. y)? is the logical NOR of x and y. Not Or Truth Table x y .not. (x .or. y)?",
           "default_value": null,
           "enum_values": null,
@@ -1574,8 +1362,6 @@
       "terminals": [
         {
           "name": "x .implies. y?",
-          "direction": "in",
-          "type": "Boolean",
           "description": "x .implies. y? is the logical OR of y and of the logical negation of x. Implies Truth Table x y x .implies. y?",
           "default_value": null,
           "enum_values": null,
@@ -1595,8 +1381,6 @@
       "terminals": [
         {
           "name": "Boolean array",
-          "direction": "in",
-          "type": "Boolean",
           "description": "Boolean array can have any number of dimensions.",
           "default_value": null,
           "enum_values": null,
@@ -1604,8 +1388,6 @@
         },
         {
           "name": "logical AND",
-          "direction": "in",
-          "type": "Boolean",
           "description": "logical AND indicates if all elements in Boolean array are TRUE.",
           "default_value": null,
           "enum_values": null,
@@ -1625,8 +1407,6 @@
       "terminals": [
         {
           "name": "Boolean array",
-          "direction": "in",
-          "type": "Boolean",
           "description": "Boolean array can have any number of dimensions.",
           "default_value": null,
           "enum_values": null,
@@ -1634,8 +1414,6 @@
         },
         {
           "name": "logical OR",
-          "direction": "in",
-          "type": "Boolean",
           "description": "logical OR indicates if all of the elements in Boolean array are false.",
           "default_value": null,
           "enum_values": null,
@@ -1655,8 +1433,6 @@
       "terminals": [
         {
           "name": "number",
-          "direction": "in",
-          "type": "I32",
           "description": "number can be a number.",
           "default_value": null,
           "enum_values": null,
@@ -1664,8 +1440,6 @@
         },
         {
           "name": "Boolean array",
-          "direction": "in",
-          "type": "Boolean",
           "description": "Boolean array can have 8, 16, 32, or 64 elements if number is an integer. If number is a fixed- point number, Boolean array can have between 1 and 64 elements. If you wire a fixed-point number that includes an overflow status to number, this function ignores the overflow status and converts only the number to a Boolean array.",
           "default_value": null,
           "enum_values": null,
@@ -1685,8 +1459,6 @@
       "terminals": [
         {
           "name": "Boolean array",
-          "direction": "in",
-          "type": "Boolean",
           "description": "Boolean array is a one-dimensional array of Boolean values. This function truncates Boolean array if it is too long. If Boolean array is too short, this function Functions \u00a9 National Instruments 643 pads Boolean array according to the Sign Extension Mode you can select by right-clicking the function.",
           "default_value": null,
           "enum_values": null,
@@ -1694,8 +1466,6 @@
         },
         {
           "name": "Never",
-          "direction": "in",
-          "type": "Boolean",
           "description": "This function pads Boolean array with Boolean FALSE bits.",
           "default_value": null,
           "enum_values": null,
@@ -1703,8 +1473,6 @@
         },
         {
           "name": "If Output Is Signed",
-          "direction": "out",
-          "type": "Boolean",
           "description": "(default) For an output with an unsigned representation, this function pads Boolean array with Boolean FALSE bits. For an output with a signed representation, this function pads Boolean array with the last element of the array.",
           "default_value": null,
           "enum_values": null,
@@ -1712,8 +1480,6 @@
         },
         {
           "name": "Always",
-          "direction": "in",
-          "type": "Boolean",
           "description": "This function pads Boolean array with the last element of the array.",
           "default_value": null,
           "enum_values": null,
@@ -1721,8 +1487,6 @@
         },
         {
           "name": "number",
-          "direction": "in",
-          "type": "Boolean",
           "description": "number is an integer or a fixed-point number. You can change the numeric representation of number on the Output Configuration page of the Properties dialog box. Right-click the function and select Properties to display the Properties dialog box. The following table shows the relationship between Boolean array and number. Boolean array Output Representation Sign Extension Mode Binary Value number {FALSE, TRUE} I8 If Output Is Signed 11111110 -2 {FALSE, TRUE} U8 If Output Is Signed 00000010 2 {FAL",
           "default_value": null,
           "enum_values": null,
@@ -1730,8 +1494,6 @@
         },
         {
           "name": "Boolean",
-          "direction": "in",
-          "type": "Boolean",
           "description": "Boolean can be a scalar, an array, a cluster of Boolean values, an array of clusters of Boolean values, and so on. If Boolean is an error cluster, only the status parameter of the error cluster passes to the input terminal.",
           "default_value": null,
           "enum_values": null,
@@ -1739,8 +1501,6 @@
         },
         {
           "name": "0, 1",
-          "direction": "in",
-          "type": "Boolean",
           "description": "0, 1 is 0 if Boolean is FALSE and 1 if Boolean is TRUE.",
           "default_value": null,
           "enum_values": null,
@@ -1760,8 +1520,6 @@
       "terminals": [
         {
           "name": "Boolean",
-          "direction": "in",
-          "type": "Boolean",
           "description": "Boolean can be a scalar, an array, a cluster of Boolean values, an array of clusters of Boolean values, and so on. If Boolean is an error cluster, only the status parameter of the error cluster passes to the input terminal.",
           "default_value": null,
           "enum_values": null,
@@ -1769,8 +1527,6 @@
         },
         {
           "name": "0, 1",
-          "direction": "in",
-          "type": "Boolean",
           "description": "0, 1 is 0 if Boolean is FALSE and 1 if Boolean is TRUE.",
           "default_value": null,
           "enum_values": null,

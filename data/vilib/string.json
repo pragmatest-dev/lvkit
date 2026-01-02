@@ -14,8 +14,6 @@
       "terminals": [
         {
           "name": "string",
-          "direction": "in",
-          "type": "String",
           "description": "string can be a string or any data structure that contains only strings, such as an array or clusters of strings.",
           "default_value": null,
           "enum_values": null,
@@ -23,8 +21,6 @@
         },
         {
           "name": "length",
-          "direction": "in",
-          "type": "String",
           "description": "length has the same structure as string. Examples Refer to the following example files included with LabVIEW.",
           "default_value": null,
           "enum_values": null,
@@ -32,8 +28,6 @@
         },
         {
           "name": "labview\\examples\\Strings\\String Length.vi",
-          "direction": "in",
-          "type": null,
           "description": "",
           "default_value": null,
           "enum_values": null,
@@ -53,8 +47,6 @@
       "terminals": [
         {
           "name": "string",
-          "direction": "in",
-          "type": "String",
           "description": "string 0..n-1 are the strings you want to concatenate.",
           "default_value": null,
           "enum_values": null,
@@ -62,8 +54,6 @@
         },
         {
           "name": "string",
-          "direction": "in",
-          "type": null,
           "description": "",
           "default_value": null,
           "enum_values": null,
@@ -71,8 +61,6 @@
         },
         {
           "name": "concatenated string",
-          "direction": "in",
-          "type": "String",
           "description": "concatenated string contains the concatenated input strings in the order you wire them to the node from top to bottom. You can use this function to concatenate the output from Picture Functions VIs so that they draw on a single picture control. The pictures are drawn in order from top to bottom. Examples Refer to the following example files included with LabVIEW.",
           "default_value": null,
           "enum_values": null,
@@ -80,8 +68,6 @@
         },
         {
           "name": "labview\\examples\\Strings\\Concatenate Strings.vi",
-          "direction": "in",
-          "type": null,
           "description": "",
           "default_value": null,
           "enum_values": null,
@@ -101,8 +87,6 @@
       "terminals": [
         {
           "name": "string",
-          "direction": "in",
-          "type": "String",
           "description": "string is the input string.",
           "default_value": null,
           "enum_values": null,
@@ -110,8 +94,6 @@
         },
         {
           "name": "offset (0)",
-          "direction": "in",
-          "type": "String",
           "description": "offset specifies number of characters into string at which the function starts searching for a match. offset must be numeric. The offset of the first character in string is 0. If offset is unwired or less than 0, the function takes offset as 0.",
           "default_value": null,
           "enum_values": null,
@@ -119,8 +101,6 @@
         },
         {
           "name": "length (rest)",
-          "direction": "in",
-          "type": null,
           "description": "length must be numeric. If length is left unwired, the default is the length of string minus offset.",
           "default_value": "the length of string minus offset",
           "enum_values": null,
@@ -128,8 +108,6 @@
         },
         {
           "name": "substring",
-          "direction": "in",
-          "type": "String",
           "description": "substring is empty if offset is greater than the length of the string or if the length is less than or equal to 0. If length is greater than or equal to the length of string minus offset, substring is the remainder of string beginning at offset.",
           "default_value": null,
           "enum_values": null,
@@ -149,8 +127,6 @@
       "terminals": [
         {
           "name": "location (both)",
-          "direction": "in",
-          "type": null,
           "description": "Functions \u00a9 National Instruments 651 location determines if this function removes white space from the beginning, end, or both ends of string. The default is both. 0 Both\u2014Removes white space from both ends of the input string. 1 Start of string\u2014Removes white space from the start of the input string. 2 End of string\u2014Removes white space from the end of the input string.",
           "default_value": "both",
           "enum_values": [
@@ -167,8 +143,6 @@
         },
         {
           "name": "string",
-          "direction": "in",
-          "type": "String",
           "description": "string is the input string.",
           "default_value": null,
           "enum_values": null,
@@ -176,8 +150,6 @@
         },
         {
           "name": "trimmed string",
-          "direction": "in",
-          "type": "String",
           "description": "trimmed string contains the string with the white space removed.",
           "default_value": null,
           "enum_values": null,
@@ -197,8 +169,6 @@
       "terminals": [
         {
           "name": "end of line (Native)",
-          "direction": "in",
-          "type": null,
           "description": "end of line specifies the line ending to which to convert. Functions 652 ni.com 0 Native\u2014Specifies the native line ending of the current platform. 1 Native Command Line\u2014Specifies the native line ending of the command line of the current platform. 2 UNIX\u2014Specifies the UNIX line ending, used by Linux, macOS, and other UNIX derivatives, \\n. 3 Macintosh\u2014Specifies the Macintosh Classic line ending, \\r. 4 DOS\u2014Specifies the standard DOS/Windows line ending, \\r\\n.",
           "default_value": null,
           "enum_values": [
@@ -223,8 +193,6 @@
         },
         {
           "name": "string in",
-          "direction": "in",
-          "type": "String",
           "description": "string in specifies the string containing the line endings you want to convert.",
           "default_value": null,
           "enum_values": null,
@@ -232,8 +200,6 @@
         },
         {
           "name": "string out",
-          "direction": "out",
-          "type": "String",
           "description": "string out returns the string with converted line endings.",
           "default_value": null,
           "enum_values": null,
@@ -253,8 +219,6 @@
       "terminals": [
         {
           "name": "string",
-          "direction": "in",
-          "type": "String",
           "description": "string is the string in which you want to replace characters.",
           "default_value": null,
           "enum_values": null,
@@ -262,8 +226,6 @@
         },
         {
           "name": "substring (\"\")",
-          "direction": "in",
-          "type": "String",
           "description": "substring contains the substring that replaces length characters at offset in string.",
           "default_value": null,
           "enum_values": null,
@@ -271,8 +233,6 @@
         },
         {
           "name": "offset (0)",
-          "direction": "in",
-          "type": "Enum",
           "description": "Note In LabVIEW for macOS, Native and Native Command Line are equivalent to UNIX. In LabVIEW for OS X 32-bit, Native and Native Command Line are equivalent to Macintosh. Functions \u00a9 National Instruments 653 offset determines the number of characters into string at which the function places substring.",
           "default_value": null,
           "enum_values": null,
@@ -280,8 +240,6 @@
         },
         {
           "name": "length (len. of substring)",
-          "direction": "in",
-          "type": "I32",
           "description": "length determines the number of characters in string to replace with substring. If substring is empty, length characters are deleted starting at offset.",
           "default_value": null,
           "enum_values": null,
@@ -289,8 +247,6 @@
         },
         {
           "name": "result string",
-          "direction": "out",
-          "type": "String",
           "description": "result string contains the edited string with the replaced characters.",
           "default_value": null,
           "enum_values": null,
@@ -298,8 +254,6 @@
         },
         {
           "name": "replaced substring",
-          "direction": "in",
-          "type": "String",
           "description": "replaced substring contains the characters that were replaced in string. The Replace Substring function deletes length characters in string starting at offset, and replaces the deleted portion with substring. If length is 0, the Replace Substring function inserts substring at offset. If substring is empty, the Replace Substring function deletes length characters at offset.",
           "default_value": null,
           "enum_values": null,
@@ -319,8 +273,6 @@
       "terminals": [
         {
           "name": "multiline? (F)",
-          "direction": "in",
-          "type": "Boolean",
           "description": "multiline? specifies whether to treat the text in input string as a multiple-line string. This setting Functions 654 ni.com affects how the ^ and $ characters handle matches. If you set multiline? to FALSE (default), when you enter ^ at the beginning of a regular expression, the expression matches only the beginning of the string in input string. When you enter $ at the end of a regular expression, the expression matches only the end of the string in input string. If you set multiline? to TRUE, ",
           "default_value": null,
           "enum_values": null,
@@ -328,8 +280,6 @@
         },
         {
           "name": "ignore case? (F)",
-          "direction": "in",
-          "type": "Boolean",
           "description": "ignore case? specifies whether the string search is case sensitive. If FALSE (default), the string search is case sensitive.",
           "default_value": null,
           "enum_values": null,
@@ -337,8 +287,6 @@
         },
         {
           "name": "replace all? (F)",
-          "direction": "in",
-          "type": "Boolean",
           "description": "replace all? specifies whether the function replaces all occurrences of the search string or only the first occurrence. If FALSE (default), the function replaces only the first occurrence.",
           "default_value": null,
           "enum_values": null,
@@ -346,8 +294,6 @@
         },
         {
           "name": "input string",
-          "direction": "in",
-          "type": "String",
           "description": "input string specifies the input string you want the function to search.",
           "default_value": null,
           "enum_values": null,
@@ -355,8 +301,6 @@
         },
         {
           "name": "search string",
-          "direction": "in",
-          "type": "Boolean",
           "description": "search string specifies the string you want to search for and replace. If search string is an empty string and replace all? is FALSE, the function inserts replace string at the beginning of input string. If search string is an empty string and replace all? is TRUE, the function inserts replace string at the beginning, in between each character, and at the end of input string. To search using advanced regular expressions, right-click the function and select Regular Expression.",
           "default_value": null,
           "enum_values": null,
@@ -364,8 +308,6 @@
         },
         {
           "name": "replace string (\"\")",
-          "direction": "in",
-          "type": null,
           "description": "Note The ^ character anchors the match to the beginning of a string when used as the first character of a pattern. If you add ^ to the beginning of a character class immediately after an open square bracket, the expression matches any character not in a given character class. Functions",
           "default_value": null,
           "enum_values": null,
@@ -385,8 +327,6 @@
       "terminals": [
         {
           "name": "string",
-          "direction": "in",
-          "type": "String",
           "description": "string specifies the input string you want the function to search.",
           "default_value": null,
           "enum_values": null,
@@ -394,8 +334,6 @@
         },
         {
           "name": "regular expression",
-          "direction": "in",
-          "type": null,
           "description": "regular expression is the pattern for which you want to search in string. If the function does not find regular expression, match substring returns an empty string, before substring returns the entire string, after substring returns an empty string, and offset past match returns \u20131.",
           "default_value": null,
           "enum_values": null,
@@ -403,8 +341,6 @@
         },
         {
           "name": "offset (0)",
-          "direction": "in",
-          "type": "String",
           "description": "offset specifies number of characters into string at which the function starts searching for a match. offset must be numeric. The offset of the first character in string is 0. If offset is unwired or less than 0, the function takes offset as 0.",
           "default_value": null,
           "enum_values": null,
@@ -412,8 +348,6 @@
         },
         {
           "name": "before substring",
-          "direction": "out",
-          "type": "String",
           "description": "before substring returns a string containing all the characters before the match.",
           "default_value": null,
           "enum_values": null,
@@ -421,8 +355,6 @@
         },
         {
           "name": "match substring",
-          "direction": "in",
-          "type": "String",
           "description": "match substring is the matched string.",
           "default_value": null,
           "enum_values": null,
@@ -430,8 +362,6 @@
         },
         {
           "name": "after substring",
-          "direction": "in",
-          "type": "String",
           "description": "after substring contains all characters following the matched pattern.",
           "default_value": null,
           "enum_values": null,
@@ -439,8 +369,6 @@
         },
         {
           "name": "offset past match",
-          "direction": "out",
-          "type": "String",
           "description": "offset past match returns the index in string of the first character of after substring. If the function does not find a match, offset past match is \u20131. The offset input and the offset past match output might be equal when the empty string is a valid match for the regular expression. For example, if regular expression is b* and the string input is cdb, offset past match is 0. If string is bbbcd, offset past match is 3. This function is similar to the Search and Replace Pattern VI. The Match Patt",
           "default_value": null,
           "enum_values": null,
@@ -460,8 +388,6 @@
       "terminals": [
         {
           "name": "multiline? (F)",
-          "direction": "in",
-          "type": "Boolean",
           "description": "multiline? specifies whether to treat the text in input string as a multiple-line string. This setting affects how the ^ and $ characters handle matches. If you set multiline? to FALSE (default), when you enter ^ at the beginning of a regular expression, the expression matches only the beginning of the string in input string. When you enter $ at the end of a regular expression, the expression matches only the end of the string in input string. If you set multiline? to TRUE, ^ matches the beginni",
           "default_value": null,
           "enum_values": null,
@@ -469,8 +395,6 @@
         },
         {
           "name": "ignore case? (F)",
-          "direction": "in",
-          "type": "Boolean",
           "description": "ignore case? specifies whether the string search is case sensitive. If FALSE (default), the string search is case sensitive.",
           "default_value": null,
           "enum_values": null,
@@ -478,8 +402,6 @@
         },
         {
           "name": "input string",
-          "direction": "in",
-          "type": "String",
           "description": "input string specifies the input string the function searches. This string cannot contain null characters.",
           "default_value": null,
           "enum_values": null,
@@ -487,8 +409,6 @@
         },
         {
           "name": "regular expression",
-          "direction": "in",
-          "type": null,
           "description": "regular expression specifies the pattern you want to search for in input string. If the function does not find a match, whole match and after match contain empty strings, before match contains the entire input string, offset past match returns \u20131, and all submatches outputs return empty strings. Place any substrings you want to search for in parentheses. The function returns any substring expressions it finds in substring 1..n. This string cannot contain null characters.",
           "default_value": null,
           "enum_values": null,
@@ -496,8 +416,6 @@
         },
         {
           "name": "offset (0)",
-          "direction": "in",
-          "type": "I32",
           "description": "offset specifies the number of characters into input string at which the function starts searching for search string.",
           "default_value": null,
           "enum_values": null,
@@ -505,8 +423,6 @@
         },
         {
           "name": "error in",
-          "direction": "in",
-          "type": null,
           "description": "Note The ^ character anchors the match to the beginning of a string when used as the first character of a pattern. If you add ^ to the beginning of a character class immediately after an open square bracket, the expression matches any character not in a given character class. Functions 660 ni.com error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
           "default_value": null,
           "enum_values": null,
@@ -514,8 +430,6 @@
         },
         {
           "name": "before match",
-          "direction": "out",
-          "type": null,
           "description": "before match returns all the characters before the match.",
           "default_value": null,
           "enum_values": null,
@@ -523,8 +437,6 @@
         },
         {
           "name": "whole match",
-          "direction": "out",
-          "type": null,
           "description": "whole match returns all the characters that match the expression entered in regular expression. Any substring matches the function finds appear in the submatch outputs.",
           "default_value": null,
           "enum_values": null,
@@ -532,8 +444,6 @@
         },
         {
           "name": "after match",
-          "direction": "out",
-          "type": null,
           "description": "after match returns all the characters after the match.",
           "default_value": null,
           "enum_values": null,
@@ -541,8 +451,6 @@
         },
         {
           "name": "offset past match",
-          "direction": "out",
-          "type": "I32",
           "description": "offset past match returns the index in input string of the first character after the last match. If the VI does not find a match, offset past match returns \u20131.",
           "default_value": null,
           "enum_values": null,
@@ -550,8 +458,6 @@
         },
         {
           "name": "error out",
-          "direction": "in",
-          "type": null,
           "description": "error out contains error information. This output provides standard error out functionality. Regular expression support is provided by the PCRE library package. Refer to <National Instruments>\\_Legal Information directory for more information about the license under which the PCRE library package is redistributed. Refer to the PCRE website at www.pcre.org for more information about Perl Compatible Regular Expressions. The Match Regular Expression function gives you more options for matching stri",
           "default_value": null,
           "enum_values": null,
@@ -571,8 +477,6 @@
       "terminals": [
         {
           "name": "path",
-          "direction": "in",
-          "type": "Path",
           "description": "path is the path you want to convert to an array of strings. If path is <Not A Path>, the array of strings is empty and relative is FALSE.",
           "default_value": null,
           "enum_values": null,
@@ -580,8 +484,6 @@
         },
         {
           "name": "relative",
-          "direction": "in",
-          "type": "Path",
           "description": "relative indicates whether the path you converted is a relative path or an absolute path. If TRUE, it is a relative path. If FALSE, it is an absolute path.",
           "default_value": null,
           "enum_values": null,
@@ -589,8 +491,6 @@
         },
         {
           "name": "array of strings",
-          "direction": "in",
-          "type": "Path",
           "description": "array of strings contains the components of the path. The first element is the first step of the path hierarchy. For file systems that support multiple volumes, the first element is the volume name. If path is a network path, the first element of array of strings includes the name of the server in addition to the first step of the path hierarchy. The last element of array of strings is the file or directory specified by the path.",
           "default_value": null,
           "enum_values": null,
@@ -610,8 +510,6 @@
       "terminals": [
         {
           "name": "path",
-          "direction": "in",
-          "type": "Path",
           "description": "path is the path you want to convert to an array of strings. If path is <Not A Path>, the array of strings is empty and relative is FALSE.",
           "default_value": null,
           "enum_values": null,
@@ -619,8 +517,6 @@
         },
         {
           "name": "relative",
-          "direction": "in",
-          "type": "Path",
           "description": "relative indicates whether the path you converted is a relative path or an absolute path. If TRUE, it is a relative path. If FALSE, it is an absolute path.",
           "default_value": null,
           "enum_values": null,
@@ -628,8 +524,6 @@
         },
         {
           "name": "array of strings",
-          "direction": "in",
-          "type": "Path",
           "description": "array of strings contains the components of the path. The first element is the first step of the path hierarchy. For file systems that support multiple volumes, the first element is the volume name. If path is a network path, the first element of array of strings includes the name of the server in addition to the first step of the path hierarchy. The last element of array of strings is the file or directory specified by the path.",
           "default_value": null,
           "enum_values": null,
@@ -649,8 +543,6 @@
       "terminals": [
         {
           "name": "relative",
-          "direction": "in",
-          "type": "Path",
           "description": "relative indicates whether you want to create a relative path or an absolute path. If TRUE, the function creates a relative path. If FALSE (default), the function creates an absolute path. If FALSE and the path specified is not valid as an absolute path (for example, the path means go up a level), the function sets path to <Not A Path>.",
           "default_value": null,
           "enum_values": null,
@@ -658,8 +550,6 @@
         },
         {
           "name": "array of strings",
-          "direction": "in",
-          "type": "Path",
           "description": "array of strings contains the names of the components of the path you want to build. The first element is the highest level of the path hierarchy (the volume name, for file systems that support multiple volumes), and the last element is the last element of the hierarchy. An element that contains an empty string tells LabVIEW to go up a level in the hierarchy.",
           "default_value": null,
           "enum_values": null,
@@ -667,8 +557,6 @@
         },
         {
           "name": "path",
-          "direction": "out",
-          "type": "Path",
           "description": "path is the resulting path. Suppose the path to the VI containing this function is c:\\dir1\\main.vi. To use this function to build a relative path to another VI such as c:\\dir1\\dir2\\called.vi, wire TRUE to relative. In array of strings, enter dir2 as the first element and called.vi as the second element. The function returns a relative path of dir2\\ called.vi. You can use the Build Path function to append the relative path to the output of the Current VI's Path function. To build an absolute path",
           "default_value": null,
           "enum_values": null,
@@ -688,8 +576,6 @@
       "terminals": [
         {
           "name": "path",
-          "direction": "in",
-          "type": "Path",
           "description": "path is the path, array of paths, cluster of paths, or array of clusters of paths you want to convert to a string. If path is <Not A Path>, the function sets string to <Not A Path>.",
           "default_value": null,
           "enum_values": null,
@@ -697,8 +583,6 @@
         },
         {
           "name": "string",
-          "direction": "in",
-          "type": "Path",
           "description": "string is the path descriptor(s) represented by path in the standard format for the current platform. string is of the same data type structure as path.",
           "default_value": null,
           "enum_values": null,
@@ -718,8 +602,6 @@
       "terminals": [
         {
           "name": "string",
-          "direction": "in",
-          "type": "String",
           "description": "Functions 666 ni.com string can be a string or any data structure that contains only strings, such as an array or clusters of strings.",
           "default_value": null,
           "enum_values": null,
@@ -727,8 +609,6 @@
         },
         {
           "name": "path",
-          "direction": "in",
-          "type": "Path",
           "description": "path is the platform-independent representation of the path described by string. If string is not a valid path descriptor on the current platform, the function sets path to <Not a Path>. path is of the same data type structure as string.",
           "default_value": null,
           "enum_values": null,
@@ -748,8 +628,6 @@
       "terminals": [
         {
           "name": "string",
-          "direction": "in",
-          "type": "String",
           "description": "string is the input string the function converts.",
           "default_value": null,
           "enum_values": null,
@@ -757,8 +635,6 @@
         },
         {
           "name": "unsigned byte array",
-          "direction": "out",
-          "type": "Array",
           "description": "unsigned byte array is the output array. The first byte in the array has the ASCII value of the first character in string, the second byte has the second value, and so on.",
           "default_value": null,
           "enum_values": null,
@@ -778,8 +654,6 @@
       "terminals": [
         {
           "name": "unsigned byte array",
-          "direction": "in",
-          "type": "Array",
           "description": "unsigned byte array is the array of ASCII values you want to convert.",
           "default_value": null,
           "enum_values": null,
@@ -787,8 +661,6 @@
         },
         {
           "name": "string",
-          "direction": "in",
-          "type": "String",
           "description": "string is the result of interpreting each array element as an ASCII value and forming a string out of the corresponding characters. Refer to ASCII Codes for the numbers that correspond to each character.",
           "default_value": null,
           "enum_values": null,
@@ -808,8 +680,6 @@
       "terminals": [
         {
           "name": "format string",
-          "direction": "in",
-          "type": "String",
           "description": "format string specifies how to convert the input string into the output arguments. The default is to scan the string according to the default format for the data types of the outputs. Formatting a time stamp as anything other than time returns an error. Right-click the function Functions 668 ni.com and select Edit Scan String from the shortcut menu to create and edit the format string. A space in format string matches any amount of white space, such as spaces, tabs, linefeeds, and form feeds. Th",
           "default_value": "to scan the string according to the default format for the data types of the outputs",
           "enum_values": null,
@@ -817,8 +687,6 @@
         },
         {
           "name": "input string",
-          "direction": "in",
-          "type": "Path",
           "description": "input string is the string, path, enumerated type, time stamp, or numeric data to scan.",
           "default_value": null,
           "enum_values": null,
@@ -826,8 +694,6 @@
         },
         {
           "name": "initial scan location",
-          "direction": "in",
-          "type": null,
           "description": "initial scan location is the offset into the string where the scan begins. The default is 0.",
           "default_value": "0",
           "enum_values": null,
@@ -835,8 +701,6 @@
         },
         {
           "name": "error in",
-          "direction": "in",
-          "type": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
           "default_value": null,
           "enum_values": null,
@@ -844,8 +708,6 @@
         },
         {
           "name": "default value 1",
-          "direction": "in",
-          "type": "Boolean",
           "description": "default 1..n specifies the type and default value for the output parameters. If this function cannot scan the input value from format string, the function uses the default. If you do not wire default 1 and you wire a constant to format string, the function uses format string to determine the type of the output. Otherwise, the default data type is double-precision, floating-point. The default value is 0 or an empty string, depending on the output data type. If you wire an enumerated type to defau",
           "default_value": "1",
           "enum_values": null,
@@ -865,8 +727,6 @@
       "terminals": [
         {
           "name": "format string",
-          "direction": "in",
-          "type": "String",
           "description": "format string specifies how you want the function to convert the input arguments into resulting string. Defaults match the data type of the input arguments. Right-click the function and select Edit Format String from the shortcut menu to create and edit the format string. Use special escape codes to insert non-displayable characters, the backslash, and the percent characters.",
           "default_value": null,
           "enum_values": null,
@@ -874,8 +734,6 @@
         },
         {
           "name": "initial string",
-          "direction": "in",
-          "type": null,
           "description": "Note This function interprets backslashes as escape characters. To use a literal backslash in format string, you must enter \\\\. Functions 672 ni.com initial string specifies the base string to which you can append any arguments to form the resulting string.",
           "default_value": null,
           "enum_values": null,
@@ -883,8 +741,6 @@
         },
         {
           "name": "error in",
-          "direction": "in",
-          "type": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
           "default_value": null,
           "enum_values": null,
@@ -892,8 +748,6 @@
         },
         {
           "name": "input 1",
-          "direction": "in",
-          "type": "Boolean",
           "description": "input 1..n specifies the input parameters you want the function to convert. This parameter accepts a string, path, enumerated type, time stamp, Boolean, or any numeric data type. For complex numeric data types, this function converts only the real component. You cannot use arrays and clusters with this function. You can specify up to 4,096 characters for each input. If you specify a Boolean value for this parameter and %s as the format code, the Format Into String function outputs the value as T",
           "default_value": null,
           "enum_values": null,
@@ -901,8 +755,6 @@
         },
         {
           "name": "resulting string",
-          "direction": "out",
-          "type": "String",
           "description": "resulting string contains the concatenation of initial string and the formatted output.",
           "default_value": null,
           "enum_values": null,
@@ -910,8 +762,6 @@
         },
         {
           "name": "error out",
-          "direction": "in",
-          "type": "I32",
           "description": "error out contains error information. This output provides standard error out functionality. To increase the number of parameters, right-click input 1 and select Add Parameter from the shortcut menu or resize the function. If you wire a block diagram constant string to format string, LabVIEW uses format string to determine the number of outputs and the data type of each output at Note If an error occurs, the error out cluster element source contains a string of the form Format Into String (arg n",
           "default_value": null,
           "enum_values": null,
@@ -931,8 +781,6 @@
       "terminals": [
         {
           "name": "time format string (%c)",
-          "direction": "in",
-          "type": "String",
           "description": "time format string specifies the format of the output string. Time format codes (beginning with %) not recognized by the function as a format code return the character literally. The default code is %c, which corresponds to the date/time representation appropriate for the configured time zone for the computer. If time format string is an empty string, the function uses the default.",
           "default_value": "code is %c, which corresponds to the date/time representation appropriate for the configured time zone for the computer",
           "enum_values": null,
@@ -940,8 +788,6 @@
         },
         {
           "name": "time stamp",
-          "direction": "in",
-          "type": "Enum",
           "description": "time stamp can be a timestamp or a numeric. If numeric, this number is the time-zone- independent number of seconds that have elapsed since 12:00 a.m., Friday, January 1, 1904, Universal Time [01-01-1904 00:00:00]. The default is the current date and time. If year is before 1904, time stamp is negative.",
           "default_value": "the current date and time",
           "enum_values": null,
@@ -949,8 +795,6 @@
         },
         {
           "name": "UTC format",
-          "direction": "in",
-          "type": "Boolean",
           "description": "UTC format specifies if the output string is in Universal Time or in the configured time zone for the computer. If TRUE, date/time string is in Universal Time. The default is FALSE.",
           "default_value": "FALSE",
           "enum_values": null,
@@ -958,8 +802,6 @@
         },
         {
           "name": "date/time string",
-          "direction": "in",
-          "type": null,
           "description": "Functions",
           "default_value": null,
           "enum_values": null,
@@ -990,8 +832,6 @@
       "terminals": [
         {
           "name": "number",
-          "direction": "in",
-          "type": "I32",
           "description": "number can be a scalar number, array or cluster of numbers, array of clusters of numbers, and so on.",
           "default_value": null,
           "enum_values": null,
@@ -999,8 +839,6 @@
         },
         {
           "name": "width (-)",
-          "direction": "in",
-          "type": "I32",
           "description": "width must be numeric. If unwired, the function uses exactly as many digits as are needed to represent the number, with no extra padding.",
           "default_value": null,
           "enum_values": null,
@@ -1008,8 +846,6 @@
         },
         {
           "name": "decimal integer string",
-          "direction": "out",
-          "type": "String",
           "description": "decimal integer string is the resulting decimal string. The following table shows how the values of number and width affect decimal integer string. In this table, the underline character ( _ ) represents spaces in decimal integer string. number width decimal integer string Comments 4.6 2 _5 Floating-point and fixed-point numbers are rounded to integers. 3.0 4 _ _ _3 If width is larger than needed, spaces are added on the left. \u2013311 3 \u2013311 If width is inadequate, decimal integer string is as larg",
           "default_value": null,
           "enum_values": null,
@@ -1029,8 +865,6 @@
       "terminals": [
         {
           "name": "number",
-          "direction": "in",
-          "type": "I32",
           "description": "number can be a scalar number, array or cluster of numbers, array of clusters of numbers, and so on.",
           "default_value": null,
           "enum_values": null,
@@ -1038,8 +872,6 @@
         },
         {
           "name": "width (-)",
-          "direction": "in",
-          "type": "I32",
           "description": "width must be numeric. If unwired, the function uses exactly as many digits as are needed to represent the number, with no extra padding.",
           "default_value": null,
           "enum_values": null,
@@ -1047,8 +879,6 @@
         },
         {
           "name": "decimal integer string",
-          "direction": "out",
-          "type": "String",
           "description": "decimal integer string is the resulting decimal string. The following table shows how the values of number and width affect decimal integer string. In this table, the underline character ( _ ) represents spaces in decimal integer string. number width decimal integer string Comments 4.6 2 _5 Floating-point and fixed-point numbers are rounded to integers. 3.0 4 _ _ _3 If width is larger than needed, spaces are added on the left. \u2013311 3 \u2013311 If width is inadequate, decimal integer string is as larg",
           "default_value": null,
           "enum_values": null,
@@ -1068,8 +898,6 @@
       "terminals": [
         {
           "name": "number",
-          "direction": "in",
-          "type": "I32",
           "description": "number can be a scalar number, array or cluster of numbers, array of clusters of numbers, and so on.",
           "default_value": null,
           "enum_values": null,
@@ -1077,8 +905,6 @@
         },
         {
           "name": "width (-)",
-          "direction": "in",
-          "type": "I32",
           "description": "width must be numeric. If unwired, the function uses exactly as many digits as are needed to represent the number, with no extra padding.",
           "default_value": null,
           "enum_values": null,
@@ -1086,8 +912,6 @@
         },
         {
           "name": "hex integer string",
-          "direction": "out",
-          "type": "String",
           "description": "hex integer string is the resulting hexadecimal string. The following table shows how the values of number and width affect hex integer string. number width hex integer string Comments 3 4 0003 If width is larger than needed, zeros are added on the left. 42 3 02A \u2014 \u20134.2 3 FFFFFFFC \u20134.2 is rounded up to \u20134 in 64-bit integer format. Width is too small to represent the hex version of a negative number, so the field width is extended. Functions 684 ni.com",
           "default_value": null,
           "enum_values": null,
@@ -1107,8 +931,6 @@
       "terminals": [
         {
           "name": "number",
-          "direction": "in",
-          "type": "I32",
           "description": "number can be a scalar number, array or cluster of numbers, array of clusters of numbers, and so on.",
           "default_value": null,
           "enum_values": null,
@@ -1116,8 +938,6 @@
         },
         {
           "name": "width (-)",
-          "direction": "in",
-          "type": "I32",
           "description": "width must be numeric. If unwired, the function uses exactly as many digits as are needed to represent the number, with no extra padding.",
           "default_value": null,
           "enum_values": null,
@@ -1125,8 +945,6 @@
         },
         {
           "name": "octal integer string",
-          "direction": "out",
-          "type": "String",
           "description": "octal integer string is the resulting octal string. The following table shows how the values of number and width affect octal integer string. number width octal integer string Comments 3 4 0003 \u2014 42 3 052 \u2014 \u20134.2 3 37777777774 \u20134.2 is rounded up to \u20134 in 64-bit integer format. width is too small to represent the octal version of a negative number, so the field width is extended.",
           "default_value": null,
           "enum_values": null,
@@ -1146,8 +964,6 @@
       "terminals": [
         {
           "name": "use system decimal point (T)",
-          "direction": "in",
-          "type": "Boolean",
           "description": "use system decimal point defines the decimal separator. If TRUE (default), the decimal separator uses the localized decimal separator. If FALSE, the decimal separator is a period.",
           "default_value": null,
           "enum_values": null,
@@ -1155,8 +971,6 @@
         },
         {
           "name": "number",
-          "direction": "in",
-          "type": "I32",
           "description": "number can be a scalar number, array or cluster of numbers, array of clusters of numbers, and so on.",
           "default_value": null,
           "enum_values": null,
@@ -1164,8 +978,6 @@
         },
         {
           "name": "width (-)",
-          "direction": "in",
-          "type": "I32",
           "description": "width must be numeric. If unwired, the function uses exactly as many digits as are needed to represent the number, with no extra padding.",
           "default_value": null,
           "enum_values": null,
@@ -1173,8 +985,6 @@
         },
         {
           "name": "precision (6)",
-          "direction": "in",
-          "type": "I32",
           "description": "precision must be numeric. The function rounds the number of digits after the decimal point of the output string to precision.",
           "default_value": null,
           "enum_values": null,
@@ -1182,8 +992,6 @@
         },
         {
           "name": "F-format string",
-          "direction": "out",
-          "type": "String",
           "description": "F-format string is the resulting fractional string. F-format string can be Inf, -Inf, or NaN if the value you wire to number is infinity or is not a number. The following table shows how the values of number, width, and precision affect F-format string. In this table, the underline character ( _ ) represents a space in F-format string. number width precision F-format string Comments 4.925 6 2 _ _4.92 number is rounded, padded with spaces on the left. .003926 8 4 _ _0.0039 number is rounded, padd",
           "default_value": null,
           "enum_values": null,
@@ -1203,8 +1011,6 @@
       "terminals": [
         {
           "name": "use system decimal point (T)",
-          "direction": "in",
-          "type": "Boolean",
           "description": "use system decimal point defines the decimal separator. If TRUE (default), the decimal separator uses the localized decimal separator. If FALSE, the decimal separator is a period.",
           "default_value": null,
           "enum_values": null,
@@ -1212,8 +1018,6 @@
         },
         {
           "name": "number",
-          "direction": "in",
-          "type": "I32",
           "description": "number can be a scalar number, array or cluster of numbers, array of clusters of numbers, and so on.",
           "default_value": null,
           "enum_values": null,
@@ -1221,8 +1025,6 @@
         },
         {
           "name": "width (-)",
-          "direction": "in",
-          "type": "I32",
           "description": "width must be numeric. If unwired, the function uses exactly as many digits as are needed to represent the number, with no extra padding.",
           "default_value": null,
           "enum_values": null,
@@ -1230,8 +1032,6 @@
         },
         {
           "name": "precision (6)",
-          "direction": "in",
-          "type": "I32",
           "description": "precision must be numeric. The function rounds the number of digits after the decimal point of the output string to precision.",
           "default_value": null,
           "enum_values": null,
@@ -1239,8 +1039,6 @@
         },
         {
           "name": "E-format string",
-          "direction": "out",
-          "type": "String",
           "description": "E-format string is the resulting string. The following table shows how the values of number, width, and precision affect E-format string. In this table, the underline character ( _ ) represents Functions",
           "default_value": null,
           "enum_values": null,
@@ -1260,8 +1058,6 @@
       "terminals": [
         {
           "name": "use system decimal point (T)",
-          "direction": "in",
-          "type": "Boolean",
           "description": "use system decimal point defines the decimal separator. If TRUE (default), the decimal separator uses the localized decimal separator. If FALSE, the decimal separator is a period.",
           "default_value": null,
           "enum_values": null,
@@ -1269,8 +1065,6 @@
         },
         {
           "name": "number",
-          "direction": "in",
-          "type": "I32",
           "description": "number can be a scalar number, array or cluster of numbers, array of clusters of numbers, and so on.",
           "default_value": null,
           "enum_values": null,
@@ -1278,8 +1072,6 @@
         },
         {
           "name": "width (-)",
-          "direction": "in",
-          "type": "I32",
           "description": "width must be numeric. If unwired, the function uses exactly as many digits as are needed to represent the number, with no extra padding.",
           "default_value": null,
           "enum_values": null,
@@ -1287,8 +1079,6 @@
         },
         {
           "name": "precision (6)",
-          "direction": "in",
-          "type": "I32",
           "description": "Functions 688 ni.com precision must be numeric. The function rounds the number of digits after the decimal point of the output string to precision.",
           "default_value": null,
           "enum_values": null,
@@ -1296,8 +1086,6 @@
         },
         {
           "name": "Engineering string",
-          "direction": "out",
-          "type": "String",
           "description": "Engineering string is the resulting string. The following table shows how the values of number, width, and precision affect Engineering string. In this table, the underline character ( _ ) represents a space in Engineering string. number width precision Engineering string Comments 4.93 10 2 _ _ _4.93E+0 number is rounded, padded with spaces on the left. .49 10 2 _490.00E-3 number is rounded, padded with a space on the left. 61.96 8 1 _62.0E+0 number is rounded, padded with a space on the left. 1",
           "default_value": null,
           "enum_values": null,
@@ -1317,8 +1105,6 @@
       "terminals": [
         {
           "name": "string (\"\")",
-          "direction": "in",
-          "type": "String",
           "description": "string is the input string to which LabVIEW appends the formatted string. The default is an empty string. Note The Format Into String function has the same functionality as Format Value but can use multiple inputs. Consider using Format Into String instead of this function to simplify your block diagram. Functions \u00a9 National Instruments 689",
           "default_value": "an empty string",
           "enum_values": null,
@@ -1326,8 +1112,6 @@
         },
         {
           "name": "format string",
-          "direction": "in",
-          "type": "String",
           "description": "format string specifies how to convert value into output string. Use the format string syntax.",
           "default_value": null,
           "enum_values": null,
@@ -1335,8 +1119,6 @@
         },
         {
           "name": "value (0)",
-          "direction": "in",
-          "type": null,
           "description": "value must be numeric but can be a physical quantity. A physical quantity is a value with a unit.",
           "default_value": null,
           "enum_values": null,
@@ -1344,8 +1126,6 @@
         },
         {
           "name": "output string",
-          "direction": "out",
-          "type": "String",
           "description": "output string is the result of converting value to a string, and appending this to string.",
           "default_value": null,
           "enum_values": null,
@@ -1365,8 +1145,6 @@
       "terminals": [
         {
           "name": "string",
-          "direction": "in",
-          "type": "String",
           "description": "string can be a string, a cluster of strings, an array of strings, or an array of clusters of strings.",
           "default_value": null,
           "enum_values": null,
@@ -1374,8 +1152,6 @@
         },
         {
           "name": "offset",
-          "direction": "in",
-          "type": "String",
           "description": "offset specifies number of characters into string at which the function starts searching for a match. offset must be numeric. The offset of the first character in string is 0. If offset is unwired or less than 0, the function takes offset as 0. Functions 690 ni.com",
           "default_value": null,
           "enum_values": null,
@@ -1383,8 +1159,6 @@
         },
         {
           "name": "default (0 I32)",
-          "direction": "in",
-          "type": "Enum",
           "description": "default is any object of numeric representation and specifies the numeric representation for number. The default is a 32-bit signed integer value of 0.",
           "default_value": "any object of numeric representation and specifies the numeric representation for number",
           "enum_values": null,
@@ -1392,8 +1166,6 @@
         },
         {
           "name": "offset past number",
-          "direction": "in",
-          "type": "String",
           "description": "offset past number is the index in string of the first character following the number. offset past number reflects the value from the last string if you input an array of strings.",
           "default_value": null,
           "enum_values": null,
@@ -1401,8 +1173,6 @@
         },
         {
           "name": "number",
-          "direction": "in",
-          "type": "Enum",
           "description": "number can be a number, a cluster, or an array of numbers, depending on the structure of string. If number is an integer, it can overflow if the input is out of range. In that case, number is set to the maximum or minimum value for the data type. For example, if the input string is 300, and the data type is a 8-bit signed integer, LabVIEW sets the value to 127. The following table shows how the values of string, offset, and default affect number. string offset default offset past number number C",
           "default_value": "affect number",
           "enum_values": null,
@@ -1422,8 +1192,6 @@
       "terminals": [
         {
           "name": "string",
-          "direction": "in",
-          "type": "String",
           "description": "string can be a string, a cluster of strings, an array of strings, or an array of clusters of strings.",
           "default_value": null,
           "enum_values": null,
@@ -1431,8 +1199,6 @@
         },
         {
           "name": "offset",
-          "direction": "in",
-          "type": "String",
           "description": "offset specifies number of characters into string at which the function starts searching for a match. offset must be numeric. The offset of the first character in string is 0. If offset is unwired or less than 0, the function takes offset as 0.",
           "default_value": null,
           "enum_values": null,
@@ -1440,8 +1206,6 @@
         },
         {
           "name": "default (0 U32)",
-          "direction": "in",
-          "type": "Enum",
           "description": "default is any object of numeric representation and specifies the numeric representation for number. The default is a 32-bit unsigned integer value of 0. To return a 64-bit integer output, wire a 64-bit integer to default.",
           "default_value": "any object of numeric representation and specifies the numeric representation for number",
           "enum_values": null,
@@ -1449,8 +1213,6 @@
         },
         {
           "name": "offset past number",
-          "direction": "in",
-          "type": "String",
           "description": "offset past number is the index in string of the first character following the number. offset past number reflects the value from the last string if you input an array of strings.",
           "default_value": null,
           "enum_values": null,
@@ -1458,8 +1220,6 @@
         },
         {
           "name": "number",
-          "direction": "in",
-          "type": "Enum",
           "description": "number can be a number, a cluster, an array of numbers, or an array of clusters depending on the structure of string and offset. If the input string represents a number outside the range of the representation of number, number is set to the maximum value for that data type. The following table illustrates how string, offset, and default affect number. string offset default offset past number number Comments 3ab 0 3 939 The conversion starts from the first character 3, as offset specifies. Functi",
           "default_value": "affect number",
           "enum_values": null,
@@ -1479,8 +1239,6 @@
       "terminals": [
         {
           "name": "string",
-          "direction": "in",
-          "type": "String",
           "description": "string can be a string, a cluster of strings, an array of strings, or an array of clusters of strings. Functions \u00a9 National Instruments 693",
           "default_value": null,
           "enum_values": null,
@@ -1488,8 +1246,6 @@
         },
         {
           "name": "offset",
-          "direction": "in",
-          "type": "String",
           "description": "offset specifies number of characters into string at which the function starts searching for a match. offset must be numeric. The offset of the first character in string is 0. If offset is unwired or less than 0, the function takes offset as 0.",
           "default_value": null,
           "enum_values": null,
@@ -1497,8 +1253,6 @@
         },
         {
           "name": "default (0 U32)",
-          "direction": "in",
-          "type": "Enum",
           "description": "default is any object of numeric representation and specifies the numeric representation for number. The default is a 32-bit unsigned integer value of 0. To return a 64-bit integer output, wire a 64-bit integer to default.",
           "default_value": "any object of numeric representation and specifies the numeric representation for number",
           "enum_values": null,
@@ -1506,8 +1260,6 @@
         },
         {
           "name": "offset past number",
-          "direction": "in",
-          "type": "String",
           "description": "offset past number is the index in string of the first character following the number. offset past number reflects the value from the last string if you input an array of strings.",
           "default_value": null,
           "enum_values": null,
@@ -1515,8 +1267,6 @@
         },
         {
           "name": "number",
-          "direction": "in",
-          "type": "I32",
           "description": "number can be a number, a cluster, an array of numbers, or an array of clusters, depending on the structure of string. If the input string represents a number outside the range of the representation of number, number is set to the maximum value for that data type. The following table shows how the values of string, offset, and default affect number. string offset default offset past number number Comments 92 0 0 0 0 9 is not an octal digit. 071a 0 0 3 57 a is not an octal digit, so conversion st",
           "default_value": "affect number",
           "enum_values": null,
@@ -1536,8 +1286,6 @@
       "terminals": [
         {
           "name": "use system decimal point (T)",
-          "direction": "in",
-          "type": "Boolean",
           "description": "use system decimal point defines the decimal separator. If TRUE (default), the decimal separator uses the localized decimal separator. If FALSE, the decimal separator is a period.",
           "default_value": null,
           "enum_values": null,
@@ -1545,8 +1293,6 @@
         },
         {
           "name": "string",
-          "direction": "in",
-          "type": "String",
           "description": "string can be a string, a cluster of strings, an array of strings, or an array of clusters of strings. If string contains the characters Inf or NaN, this function returns the LabVIEW values Inf and NaN, respectively.",
           "default_value": null,
           "enum_values": null,
@@ -1554,8 +1300,6 @@
         },
         {
           "name": "offset",
-          "direction": "in",
-          "type": "String",
           "description": "offset specifies number of characters into string at which the function starts searching for a match. offset must be numeric. The offset of the first character in string is 0. If offset is unwired or less than 0, the function takes offset as 0.",
           "default_value": null,
           "enum_values": null,
@@ -1563,8 +1307,6 @@
         },
         {
           "name": "default (0 DBL)",
-          "direction": "in",
-          "type": "I32",
           "description": "default is any object of numeric representation and specifies the numeric representation for number. The default is a double-precision, floating-point value of 0.",
           "default_value": "any object of numeric representation and specifies the numeric representation for number",
           "enum_values": null,
@@ -1572,8 +1314,6 @@
         },
         {
           "name": "offset past number",
-          "direction": "in",
-          "type": "String",
           "description": "offset past number is the index in string of the first character following the number. offset past number reflects the value from the last string if you input an array of strings.",
           "default_value": null,
           "enum_values": null,
@@ -1581,8 +1321,6 @@
         },
         {
           "name": "number",
-          "direction": "in",
-          "type": "I32",
           "description": "number can be a number, a cluster, an array of numbers, or an array of clusters, depending on the structure of string. The following table shows how the values of string, offset, and default affect number. Functions",
           "default_value": "affect number",
           "enum_values": null,
@@ -1602,8 +1340,6 @@
       "terminals": [
         {
           "name": "string",
-          "direction": "in",
-          "type": "String",
           "description": "string is the input string the function scans.",
           "default_value": null,
           "enum_values": null,
@@ -1611,8 +1347,6 @@
         },
         {
           "name": "format string",
-          "direction": "in",
-          "type": "String",
           "description": "Functions 696 ni.com format string specifies how to convert the input arguments into value. Use the format string syntax.",
           "default_value": null,
           "enum_values": null,
@@ -1620,8 +1354,6 @@
         },
         {
           "name": "default (0 dbl)",
-          "direction": "in",
-          "type": null,
           "description": "default is the numeric representation for value. The default is a double-precision, floating-point value of 0.",
           "default_value": "the numeric representation for value",
           "enum_values": null,
@@ -1629,8 +1361,6 @@
         },
         {
           "name": "output string",
-          "direction": "out",
-          "type": "String",
           "description": "output string is the remaining characters in string after the match or string if there is no match.",
           "default_value": null,
           "enum_values": null,
@@ -1638,8 +1368,6 @@
         },
         {
           "name": "value",
-          "direction": "in",
-          "type": "Enum",
           "description": "value is the converted value or the value in default if there is no match. If value is an integer, it can overflow if the input is out of range. In that case, value is set to the maximum or minimum value for the data type. For example, if the input string is 300 and the data type is an 8-bit signed integer, LabVIEW sets the value to 127.",
           "default_value": "if there is no match",
           "enum_values": null,
@@ -1659,8 +1387,6 @@
       "terminals": [
         {
           "name": "delimiter (Tab)",
-          "direction": "in",
-          "type": null,
           "description": "delimiter specifies the value or values used to separate fields in the spreadsheet file. The default is a single tab character. You can specify multiple delimiters by wiring an array of strings to delimiter. Each element of the array should contain a different delimiter. For example, if you wire an array that contains two elements \u2014 a space character in one and a tab character in the other \u2014 the function allows either a space character or a tab character to Functions",
           "default_value": "a single tab character",
           "enum_values": null,
@@ -1680,8 +1406,6 @@
       "terminals": [
         {
           "name": "delimiter (Tab)",
-          "direction": "in",
-          "type": null,
           "description": "delimiter is the value used to separate fields in the spreadsheet file. The default is a single tab character.",
           "default_value": "a single tab character",
           "enum_values": null,
@@ -1689,8 +1413,6 @@
         },
         {
           "name": "format string",
-          "direction": "in",
-          "type": "String",
           "description": "format string specifies how to convert the input array into a string. Use %s to convert an array of strings to spreadsheet string. Use %d or %f to convert arrays of numbers to spreadsheet string. Use the format string syntax.",
           "default_value": null,
           "enum_values": null,
@@ -1698,8 +1420,6 @@
         },
         {
           "name": "array",
-          "direction": "in",
-          "type": "Array",
           "description": "array specifies the input samples.",
           "default_value": null,
           "enum_values": null,
@@ -1707,8 +1427,6 @@
         },
         {
           "name": "spreadsheet string",
-          "direction": "in",
-          "type": "String",
           "description": "spreadsheet string is separated into columns by delimiters, such as tabs, and an end-of-line (EOL) character separates rows. For arrays of three dimensions or more, each page is preceded by a series of indexes of the following format. [n,m,\u2026,0,0] where n is the highest dimension index, m is the next highest dimension index, a comma (,) separates indexes, 0,0 refers to the first row and column elements of page n,m,\u2026, and represents the end-of-line character. Note This function allows you to use o",
           "default_value": null,
           "enum_values": null,
@@ -1728,8 +1446,6 @@
       "terminals": [
         {
           "name": "string",
-          "direction": "in",
-          "type": "String",
           "description": "string can be a string, a cluster of strings, an array of strings, or an array of clusters of strings.",
           "default_value": null,
           "enum_values": null,
@@ -1737,8 +1453,6 @@
         },
         {
           "name": "all upper case string",
-          "direction": "in",
-          "type": "String",
           "description": "all upper case string has the same structure as string. If string is a numeric value or an array of numeric values, each number is evaluated as an ASCII value. The To Upper Case function translates all values in the range of 97 to 122 into values over the range of 65 to 90. It also translates any other value in the extended ASCII character set that has an uppercase counterpart, such as lowercase alphabetic characters with accents.",
           "default_value": null,
           "enum_values": null,
@@ -1758,8 +1472,6 @@
       "terminals": [
         {
           "name": "string",
-          "direction": "in",
-          "type": "String",
           "description": "string can be a string, a cluster of strings, an array of strings, or an array of clusters of strings.",
           "default_value": null,
           "enum_values": null,
@@ -1767,8 +1479,6 @@
         },
         {
           "name": "all lower case string",
-          "direction": "in",
-          "type": "String",
           "description": "Functions 702 ni.com all lower case string has the same structure as string. If string is a numeric value or an array of numeric values, each number is evaluated as an ASCII value. The To Lower Case function translates all values in the range of 65 to 90 into values over the range of 97 to 122. It also translates any other value in the extended ASCII character set that has a lowercase counterpart, such as uppercase alphabetic characters with accents.",
           "default_value": null,
           "enum_values": null,
@@ -1788,8 +1498,6 @@
       "terminals": [
         {
           "name": "anything",
-          "direction": "in",
-          "type": "Boolean",
           "description": "anything contains the data you want to convert to a UTF-8 JSON string. This input accepts arrays and clusters of Booleans, floating-point numbers, and strings. anything can also accept an array of clusters, or a cluster of arrays, of these data types. This input does not support other data types, such as enums, refnums, file paths, and fixed-point numbers. Cluster elements may be named or unnamed, but not a combination of both. If cluster elements are named, then each name must be unique to that",
           "default_value": null,
           "enum_values": null,
@@ -1797,8 +1505,6 @@
         },
         {
           "name": "prepend array or string size? (T)",
-          "direction": "in",
-          "type": "Boolean",
           "description": "prepend array or string size? specifies whether LabVIEW includes data size information at the Functions 704 ni.com beginning of data string when anything is an array or string. If prepend array or string size? is FALSE, LabVIEW does not include the size information. The default is TRUE. The string created by the Flatten To String function is a LabVIEW string. If prepend array or string size? is TRUE, the LabVIEW string has a 4-byte (I32) number at the beginning of the string that tells how long ",
           "default_value": "TRUE",
           "enum_values": null,
@@ -1806,8 +1512,6 @@
         },
         {
           "name": "byte order (0:big-endian, network order)",
-          "direction": "in",
-          "type": "I32",
           "description": "byte order sets the endian format of the data in the resulting flattened string. Byte order, or endian form, indicates whether integers are represented in memory from most significant byte to least significant byte or vice versa. 0 big-endian, network order (default)\u2014The most significant byte occupies the lowest memory address. 1 native, host order\u2014Uses the byte-ordering format of the host computer. 2 little-endian\u2014The least significant byte occupies the lowest memory address.",
           "default_value": null,
           "enum_values": [
@@ -1828,8 +1532,6 @@
         },
         {
           "name": "error in (no error)",
-          "direction": "in",
-          "type": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
           "default_value": null,
           "enum_values": null,
@@ -1837,8 +1539,6 @@
         },
         {
           "name": "data string",
-          "direction": "in",
-          "type": "String",
           "description": "data string is the flattened data generated by the function. data string might contain header information before each non-scalar component describing its size. Such a string can be stored in a file or sent over a network. If you send the string over a network, the receiver must be able to interpret it. Usually, LabVIEW stores data as noncontiguous, indirectly referenced pieces. This function copies the data in LabVIEW form into a contiguous buffer data string. Use the Unflatten From String funct",
           "default_value": null,
           "enum_values": null,
@@ -1846,8 +1546,6 @@
         },
         {
           "name": "type string (7.x only)",
-          "direction": "in",
-          "type": "String",
           "description": "type string (7.x only) is visible only if the terminal is already wired from a previous version of Functions",
           "default_value": null,
           "enum_values": null,
@@ -1867,8 +1565,6 @@
       "terminals": [
         {
           "name": "anything",
-          "direction": "in",
-          "type": "Boolean",
           "description": "anything contains the data you want to convert to a UTF-8 JSON string. This input accepts arrays and clusters of Booleans, floating-point numbers, and strings. anything can also accept an array of clusters, or a cluster of arrays, of these data types. This input does not support other data types, such as enums, refnums, file paths, and fixed-point numbers. Cluster elements may be named or unnamed, but not a combination of both. If cluster elements are named, then each name must be unique to that",
           "default_value": null,
           "enum_values": null,
@@ -1876,8 +1572,6 @@
         },
         {
           "name": "prepend array or string size? (T)",
-          "direction": "in",
-          "type": "Boolean",
           "description": "prepend array or string size? specifies whether LabVIEW includes data size information at the Functions 704 ni.com beginning of data string when anything is an array or string. If prepend array or string size? is FALSE, LabVIEW does not include the size information. The default is TRUE. The string created by the Flatten To String function is a LabVIEW string. If prepend array or string size? is TRUE, the LabVIEW string has a 4-byte (I32) number at the beginning of the string that tells how long ",
           "default_value": "TRUE",
           "enum_values": null,
@@ -1885,8 +1579,6 @@
         },
         {
           "name": "byte order (0:big-endian, network order)",
-          "direction": "in",
-          "type": "I32",
           "description": "byte order sets the endian format of the data in the resulting flattened string. Byte order, or endian form, indicates whether integers are represented in memory from most significant byte to least significant byte or vice versa. 0 big-endian, network order (default)\u2014The most significant byte occupies the lowest memory address. 1 native, host order\u2014Uses the byte-ordering format of the host computer. 2 little-endian\u2014The least significant byte occupies the lowest memory address.",
           "default_value": null,
           "enum_values": [
@@ -1907,8 +1599,6 @@
         },
         {
           "name": "error in (no error)",
-          "direction": "in",
-          "type": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
           "default_value": null,
           "enum_values": null,
@@ -1916,8 +1606,6 @@
         },
         {
           "name": "data string",
-          "direction": "in",
-          "type": "String",
           "description": "data string is the flattened data generated by the function. data string might contain header information before each non-scalar component describing its size. Such a string can be stored in a file or sent over a network. If you send the string over a network, the receiver must be able to interpret it. Usually, LabVIEW stores data as noncontiguous, indirectly referenced pieces. This function copies the data in LabVIEW form into a contiguous buffer data string. Use the Unflatten From String funct",
           "default_value": null,
           "enum_values": null,
@@ -1925,8 +1613,6 @@
         },
         {
           "name": "type string (7.x only)",
-          "direction": "in",
-          "type": "String",
           "description": "type string (7.x only) is visible only if the terminal is already wired from a previous version of Functions",
           "default_value": null,
           "enum_values": null,
@@ -1946,8 +1632,6 @@
       "terminals": [
         {
           "name": "type",
-          "direction": "in",
-          "type": null,
           "description": "type is a normally constructed LabVIEW type. type is not the type string output in the Flatten To String function.",
           "default_value": null,
           "enum_values": null,
@@ -1955,8 +1639,6 @@
         },
         {
           "name": "binary string",
-          "direction": "in",
-          "type": "Boolean",
           "description": "binary string is a flattened string that is typically generated by the Flatten To String function. If data includes array or string size? is TRUE, binary string contains header information describing its size.",
           "default_value": null,
           "enum_values": null,
@@ -1964,8 +1646,6 @@
         },
         {
           "name": "data includes array or string size? (T)",
-          "direction": "in",
-          "type": "Boolean",
           "description": "data includes array or string size? indicates whether LabVIEW reads data size information from the beginning of an incoming array or string. If data includes array or string size? is TRUE, LabVIEW reads the size information from the beginning of binary string. If data includes array or string size? is FALSE, LabVIEW detects the size information from the memory size of binary string. Functions",
           "default_value": null,
           "enum_values": null,
@@ -1985,8 +1665,6 @@
       "terminals": [
         {
           "name": "variant",
-          "direction": "in",
-          "type": null,
           "description": "variant is the variant data you want converted to a string of flattened data.",
           "default_value": null,
           "enum_values": null,
@@ -1994,8 +1672,6 @@
         },
         {
           "name": "type string",
-          "direction": "in",
-          "type": "String",
           "description": "type string is an array of numeric integers that identifies the data type of the flattened string.",
           "default_value": null,
           "enum_values": null,
@@ -2003,8 +1679,6 @@
         },
         {
           "name": "data string",
-          "direction": "out",
-          "type": "String",
           "description": "data string is the resulting flattened data you converted from variant data. Functions \u00a9 National Instruments 709 If you use this function to flatten variant data, LabVIEW flattens only the variant and discards all its contents, including attributes. However, if you use the Flatten To String function, LabVIEW flattens the variant and all of its attributes.",
           "default_value": null,
           "enum_values": null,
@@ -2024,8 +1698,6 @@
       "terminals": [
         {
           "name": "type string",
-          "direction": "in",
-          "type": "String",
           "description": "type string is an array of numeric integers that identifies the data type of the flattened string if the data type existed in LabVIEW 7.x or earlier.",
           "default_value": null,
           "enum_values": null,
@@ -2033,8 +1705,6 @@
         },
         {
           "name": "data string",
-          "direction": "in",
-          "type": "String",
           "description": "data string is the flattened data you want to convert to variant data.",
           "default_value": null,
           "enum_values": null,
@@ -2042,8 +1712,6 @@
         },
         {
           "name": "error in",
-          "direction": "in",
-          "type": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
           "default_value": null,
           "enum_values": null,
@@ -2051,8 +1719,6 @@
         },
         {
           "name": "variant",
-          "direction": "out",
-          "type": null,
           "description": "variant is the resulting variant data.",
           "default_value": null,
           "enum_values": null,
@@ -2060,8 +1726,6 @@
         },
         {
           "name": "error out",
-          "direction": "in",
-          "type": null,
           "description": "error out contains error information. This output provides standard error out functionality.",
           "default_value": null,
           "enum_values": null,
@@ -2081,8 +1745,6 @@
       "terminals": [
         {
           "name": "anything",
-          "direction": "in",
-          "type": null,
           "description": "anything is any LabVIEW data you want to convert. This parameter is polymorphic.",
           "default_value": null,
           "enum_values": null,
@@ -2090,8 +1752,6 @@
         },
         {
           "name": "xml string",
-          "direction": "out",
-          "type": "String",
           "description": "xml string is the resulting XML string that represents the LabVIEW data type. When converting decimal values, this function uses only the period (.) as a decimal separator. The function does not use localized decimal separators. Examples Refer to the following example files included with LabVIEW.",
           "default_value": null,
           "enum_values": null,
@@ -2099,8 +1759,6 @@
         },
         {
           "name": "labview\\examples\\File IO\\XML\\Flatten and Unflatten XML\\",
-          "direction": "in",
-          "type": null,
           "description": "",
           "default_value": null,
           "enum_values": null,
@@ -2120,8 +1778,6 @@
       "terminals": [
         {
           "name": "xml string",
-          "direction": "in",
-          "type": "String",
           "description": "xml string is the XML string that includes the data you want to convert. xml string must conform to the LabVIEW XML schema, including the case and order of tags in the schema. If xml string does not conform to the schema, the function returns an error and value contains the default value for the data type wired to type. If the VI containing the function previously completed execution, value contains the value from the previous execution. In xml string, this function accepts only the period (.) a",
           "default_value": "value for the data type wired to type",
           "enum_values": null,
@@ -2129,8 +1785,6 @@
         },
         {
           "name": "type",
-          "direction": "in",
-          "type": null,
           "description": "type is the data type to which you want to convert xml string.",
           "default_value": null,
           "enum_values": null,
@@ -2138,8 +1792,6 @@
         },
         {
           "name": "error in (no error)",
-          "direction": "in",
-          "type": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
           "default_value": null,
           "enum_values": null,
@@ -2147,8 +1799,6 @@
         },
         {
           "name": "value",
-          "direction": "in",
-          "type": null,
           "description": "value is the data type you specified in type and the data in xml string.",
           "default_value": null,
           "enum_values": null,
@@ -2156,8 +1806,6 @@
         },
         {
           "name": "error out",
-          "direction": "in",
-          "type": null,
           "description": "error out contains error information. This output provides standard error out functionality.",
           "default_value": null,
           "enum_values": null,
@@ -2177,8 +1825,6 @@
       "terminals": [
         {
           "name": "enable LabVIEW extensions? (T)",
-          "direction": "in",
-          "type": "I32",
           "description": "enable LabVIEW extensions enables LabVIEW JSON extensions to support NaN and Inf values of floating-point numbers. Not all JSON parsers support these extensions.",
           "default_value": null,
           "enum_values": null,
@@ -2186,8 +1832,6 @@
         },
         {
           "name": "anything",
-          "direction": "in",
-          "type": "Boolean",
           "description": "anything contains the data you want to convert to a UTF-8 JSON string. This input accepts arrays and clusters of Booleans, floating-point numbers, and strings. anything can also accept an array of clusters, or a cluster of arrays, of these data types. This input does not support other data types, such as enums, refnums, file paths, and fixed-point numbers. Cluster elements may be named or unnamed, but not a combination of both. If cluster elements are named, then each name must be unique to that",
           "default_value": null,
           "enum_values": null,
@@ -2195,8 +1839,6 @@
         },
         {
           "name": "error in (no error)",
-          "direction": "in",
-          "type": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
           "default_value": null,
           "enum_values": null,
@@ -2204,8 +1846,6 @@
         },
         {
           "name": "JSON string",
-          "direction": "in",
-          "type": "String",
           "description": "JSON string is the flattened data encoded in UTF-8. UTF-8 encoded strings may not display correctly in LabVIEW controls.",
           "default_value": null,
           "enum_values": null,
@@ -2213,8 +1853,6 @@
         },
         {
           "name": "error out",
-          "direction": "in",
-          "type": null,
           "description": "error out contains error information. This output provides standard error out functionality.",
           "default_value": null,
           "enum_values": null,
@@ -2234,8 +1872,6 @@
       "terminals": [
         {
           "name": "enable LabVIEW extensions? (T)",
-          "direction": "in",
-          "type": "I32",
           "description": "enable LabVIEW extensions enables LabVIEW JSON extensions to support NaN and Inf values of floating-point numbers. Not all JSON parsers support these extensions.",
           "default_value": null,
           "enum_values": null,
@@ -2243,8 +1879,6 @@
         },
         {
           "name": "path",
-          "direction": "in",
-          "type": "Path",
           "description": "path identifies a specific item in JSON string. Use path if your JSON string contains multiple items, and you would like to extract a specific item from it. path uses an array of strings to identify the item, where each element in the array references either the name of a cluster element or an integer index of an array. If you specify an item using path, you must wire a data type to type/defaults that corresponds to the data type of the specified item. For example, consider the JSON string {\"0\":",
           "default_value": null,
           "enum_values": null,
@@ -2252,8 +1886,6 @@
         },
         {
           "name": "JSON string",
-          "direction": "in",
-          "type": "String",
           "description": "Functions 714 ni.com JSON string is the flattened UTF-8 string that you want to unflatten. You can use the Flatten To JSON function to generate this string.",
           "default_value": null,
           "enum_values": null,
@@ -2261,8 +1893,6 @@
         },
         {
           "name": "type and defaults",
-          "direction": "in",
-          "type": "Boolean",
           "description": "type/defaults specifies the data type and default values to which you want to unflatten the JSON string. This input accepts Booleans, integers, floating-point numbers, strings, and arrays or clusters of these types. Cluster elements may be labeled or unlabeled, but not a combination of both. If the elements in a cluster are labeled, then each name must be unique to that cluster. If you wire an unsupported data type, LabVIEW breaks the VI. If the elements in your JSON string are labeled, the elem",
           "default_value": "values to which you want to unflatten the JSON string",
           "enum_values": null,
@@ -2270,8 +1900,6 @@
         },
         {
           "name": "error in (no error)",
-          "direction": "in",
-          "type": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
           "default_value": null,
           "enum_values": null,
@@ -2279,8 +1907,6 @@
         },
         {
           "name": "default null elements? (F)",
-          "direction": "in",
-          "type": "Boolean",
           "description": "default null elements specifies whether LabVIEW uses default values from the input cluster for null values in JSON. If default null elements is FALSE, LabVIEW returns an error for null values.",
           "default_value": "null elements specifies whether LabVIEW uses default values from the input cluster for null values in JSON",
           "enum_values": null,
@@ -2288,8 +1914,6 @@
         },
         {
           "name": "strict validation? (F)",
-          "direction": "out",
-          "type": "Boolean",
           "description": "strict validation determines whether LabVIEW returns an error when the JSON object contains items not defined in the input cluster. If strict validation is FALSE, JSON objects may contain items not defined in the cluster.",
           "default_value": null,
           "enum_values": null,
@@ -2297,8 +1921,6 @@
         },
         {
           "name": "value",
-          "direction": "out",
-          "type": "String",
           "description": "value returns JSON string as unflattened data of the same data type and structure as type/ defaults.",
           "default_value": null,
           "enum_values": null,
@@ -2306,8 +1928,6 @@
         },
         {
           "name": "error out",
-          "direction": "in",
-          "type": null,
           "description": "error out contains error information. This output provides standard error out functionality. Functions",
           "default_value": null,
           "enum_values": null,
@@ -2327,8 +1947,6 @@
       "terminals": [
         {
           "name": "string",
-          "direction": "in",
-          "type": "String",
           "description": "string is the input string the function searches or splits. Functions \u00a9 National Instruments 719",
           "default_value": null,
           "enum_values": null,
@@ -2348,8 +1966,6 @@
       "terminals": [
         {
           "name": "string",
-          "direction": "in",
-          "type": "String",
           "description": "string is the input string the function searches or splits. Functions \u00a9 National Instruments 719",
           "default_value": null,
           "enum_values": null,
@@ -2357,8 +1973,6 @@
         },
         {
           "name": "search string/char (-)",
-          "direction": "in",
-          "type": "String",
           "description": "search string/char is the string or character to search for in string. If you do not wire this input or it contains an empty string, the function splits string at offset. You must wire either search char or offset.",
           "default_value": null,
           "enum_values": null,
@@ -2366,8 +1980,6 @@
         },
         {
           "name": "offset (0)",
-          "direction": "in",
-          "type": "String",
           "description": "offset specifies number of characters into string at which the function starts searching for a match. offset must be numeric. The offset of the first character in string is 0. If offset is unwired or less than 0, the function takes offset as 0.",
           "default_value": null,
           "enum_values": null,
@@ -2375,8 +1987,6 @@
         },
         {
           "name": "substring before match",
-          "direction": "out",
-          "type": "String",
           "description": "substring before match returns the portion of string before search string/char or before offset if search string/char is unwired. If this function does not find the search string, substring before match returns the entire original string.",
           "default_value": null,
           "enum_values": null,
@@ -2384,8 +1994,6 @@
         },
         {
           "name": "match + rest of string",
-          "direction": "in",
-          "type": "String",
           "description": "match + rest of string consists of search string/char and all subsequent characters in string. If this function does not find the search string, match + rest of string returns an empty string.",
           "default_value": null,
           "enum_values": null,
@@ -2393,8 +2001,6 @@
         },
         {
           "name": "offset of match",
-          "direction": "in",
-          "type": "String",
           "description": "offset of match is the position of search string/char in string. If this function does not find the search string, offset of match returns -1. If you enable the Match Single Character option, this function uses only the first character in search string/char and searches string for this character. When finding the first match in string, this function splits string and returns the resulting two strings. To enable the Match Single Character option, right-click this function and select Match Single ",
           "default_value": null,
           "enum_values": null,
@@ -2414,8 +2020,6 @@
       "terminals": [
         {
           "name": "string (\"\")",
-          "direction": "in",
-          "type": "String",
           "description": "string is the string to which LabVIEW appends the string selected from multi-line string. The default is an empty string.",
           "default_value": "an empty string",
           "enum_values": null,
@@ -2423,8 +2027,6 @@
         },
         {
           "name": "multi-line string",
-          "direction": "in",
-          "type": "String",
           "description": "multi-line string contains one or more substrings separated by linefeeds.",
           "default_value": null,
           "enum_values": null,
@@ -2432,8 +2034,6 @@
         },
         {
           "name": "line index",
-          "direction": "in",
-          "type": "I32",
           "description": "line index selects the line the function appends from multi-line string. line index must be numeric. A line index of 0 selects the first line. If line index is negative or is greater than or equal to the number of lines in multi-line string, the function sets output string to string.",
           "default_value": null,
           "enum_values": null,
@@ -2441,8 +2041,6 @@
         },
         {
           "name": "output string",
-          "direction": "out",
-          "type": "String",
           "description": "output string is the resulting string.",
           "default_value": null,
           "enum_values": null,
@@ -2462,8 +2060,6 @@
       "terminals": [
         {
           "name": "string",
-          "direction": "in",
-          "type": "String",
           "description": "string specifies the string to match to the prefixes in string array. The default is an empty string.",
           "default_value": "an empty string",
           "enum_values": null,
@@ -2471,8 +2067,6 @@
         },
         {
           "name": "string array",
-          "direction": "in",
-          "type": "String",
           "description": "string array specifies the array of strings that you want to match with string. If the function encounters an empty string in string array, the function considers that string a match.",
           "default_value": null,
           "enum_values": null,
@@ -2480,8 +2074,6 @@
         },
         {
           "name": "output string",
-          "direction": "out",
-          "type": "String",
           "description": "output string returns the original string with the matching prefix removed. If the beginning of string does not match any string in string array, output string returns the original string.",
           "default_value": null,
           "enum_values": null,
@@ -2489,8 +2081,6 @@
         },
         {
           "name": "index",
-          "direction": "out",
-          "type": "I32",
           "description": "index returns the numeric index of the matching prefix in string array. If the beginning of string does not match any string in string array, index is \u20131. This function compares each string in string array to string in the order in which the elements are indexed. This function always searches from the beginning of string and matches the first string prefix that appears at the beginning of string. For example, this function matches Error 1 in the string Error 16: error occurred if Error 1 comes b",
           "default_value": null,
           "enum_values": null,
@@ -2510,8 +2100,6 @@
       "terminals": [
         {
           "name": "string",
-          "direction": "in",
-          "type": "String",
           "description": "string is the input string. The default is an empty string.",
           "default_value": "an empty string",
           "enum_values": null,
@@ -2519,8 +2107,6 @@
         },
         {
           "name": "true string",
-          "direction": "in",
-          "type": "Boolean",
           "description": "If true string matches string, selection is TRUE.",
           "default_value": null,
           "enum_values": null,
@@ -2528,8 +2114,6 @@
         },
         {
           "name": "false string",
-          "direction": "in",
-          "type": "Boolean",
           "description": "If false string matches string, selection is FALSE.",
           "default_value": null,
           "enum_values": null,
@@ -2537,8 +2121,6 @@
         },
         {
           "name": "output string",
-          "direction": "out",
-          "type": "String",
           "description": "output string is a shortened version of string with the matching substring removed if either true string or false string matches the beginning of string. If neither true string nor false string matches the beginning of string, output string returns string unchanged.",
           "default_value": null,
           "enum_values": null,
@@ -2546,8 +2128,6 @@
         },
         {
           "name": "selection",
-          "direction": "in",
-          "type": "Boolean",
           "description": "selection is TRUE if true string matches the beginning of string, and FALSE if false string matches the beginning of string, or if neither string matches.",
           "default_value": null,
           "enum_values": null,
@@ -2567,8 +2147,6 @@
       "terminals": [
         {
           "name": "allow empty tokens? (F)",
-          "direction": "in",
-          "type": "Boolean",
           "description": "allow empty tokens? determines whether the function recognizes a token when it encounters multiple adjacent delimiters. If allow empty tokens? is FALSE (default), multiple adjacent delimiters can separate two tokens in input string. If allow empty tokens? is TRUE, an empty token string is returned between every pair of adjacent delimiters.",
           "default_value": null,
           "enum_values": null,
@@ -2576,8 +2154,6 @@
         },
         {
           "name": "input string",
-          "direction": "in",
-          "type": "String",
           "description": "input string is the string to scan for tokens.",
           "default_value": null,
           "enum_values": null,
@@ -2585,8 +2161,6 @@
         },
         {
           "name": "offset",
-          "direction": "in",
-          "type": "String",
           "description": "offset is the point in input string to begin scanning. The default is 0, which specifies the beginning of the string.",
           "default_value": "0, which specifies the beginning of the string",
           "enum_values": null,
@@ -2594,8 +2168,6 @@
         },
         {
           "name": "operators (none)",
-          "direction": "in",
-          "type": "String",
           "description": "operators is an array of strings that the function identifies as tokens when they appear in input string, even if they are not surrounded by delimiters. If a portion of input string matches more than one defined operator, the function chooses the longest match as a token. For example, if >, = and >= are defined operators, the input string 4>=0 produces >= as the next token string with an offset of 1. A string in operators might contain the following special format codes, which you can use to sca",
           "default_value": null,
           "enum_values": null,
@@ -2603,8 +2175,6 @@
         },
         {
           "name": "delimiters (\\s,\\t,\\r,\\n)",
-          "direction": "in",
-          "type": "String",
           "description": "Note If the strings + or \u2013 are defined as operators, the function does not recognize leading, or unary, + and \u2013 signs. The function always returns them as separate tokens. This is an exception to the \"longest match\" rule. Functions 724 ni.com delimiters is an array of strings that act as separators between tokens. Strings in delimiters are not returned as tokens but serve to separate adjacent tokens from each other. The default delimiters are the white space characters: space, tab, linefeed, and",
           "default_value": "delimiters are the white space characters: space, tab, linefeed, and carriage return",
           "enum_values": null,
@@ -2612,8 +2182,6 @@
         },
         {
           "name": "use cached delim/oper data? (F)",
-          "direction": "in",
-          "type": "Boolean",
           "description": "use cached delim/oper data? is an advanced optional input. If unwired, token string still behaves correctly. However, you can use use cached delim/oper data? to greatly improve string parsing performance. Set use cached delim/oper data? to FALSE the first time token string is executed, and TRUE each subsequent time as long as operators and delimiters have not changed. Use a shift register with a constant FALSE coming in and a constant TRUE going out to ensure correct behavior if operators and de",
           "default_value": null,
           "enum_values": null,
@@ -2621,8 +2189,6 @@
         },
         {
           "name": "string out",
-          "direction": "out",
-          "type": "String",
           "description": "string out returns input string unchanged.",
           "default_value": null,
           "enum_values": null,
@@ -2630,8 +2196,6 @@
         },
         {
           "name": "offset past token",
-          "direction": "in",
-          "type": "I32",
           "description": "offset past token identifies the point in the input string immediately following the most recently found token and any trailing delimiters. Any subsequent scanning of the same input string should begin at this offset. If offset is less than 0 or greater than the number of characters in input string, or if the end of the string was reached, offset past token is \u20131.",
           "default_value": null,
           "enum_values": null,
@@ -2639,8 +2203,6 @@
         },
         {
           "name": "token string",
-          "direction": "in",
-          "type": "String",
           "description": "token string is the matched token. It can be one of the strings in operators or any text string in input string that appears between delimiters.",
           "default_value": null,
           "enum_values": null,
@@ -2648,8 +2210,6 @@
         },
         {
           "name": "token index",
-          "direction": "in",
-          "type": "String",
           "description": "token index is the index of token string in operators if token string matches one of the elements in operators. Functions",
           "default_value": null,
           "enum_values": null,
@@ -2669,8 +2229,6 @@
       "terminals": [
         {
           "name": "replace all? (F)",
-          "direction": "in",
-          "type": "Boolean",
           "description": "If replace all? is TRUE, the VI replaces all substrings in string that match regular expression. If FALSE (default), the VI replaces only the first substring in string.",
           "default_value": null,
           "enum_values": null,
@@ -2678,8 +2236,6 @@
         },
         {
           "name": "string",
-          "direction": "in",
-          "type": "String",
           "description": "Functions 728 ni.com string specifies the input string you want the function to search.",
           "default_value": null,
           "enum_values": null,
@@ -2687,8 +2243,6 @@
         },
         {
           "name": "regular expression (\"\")",
-          "direction": "in",
-          "type": "Boolean",
           "description": "regular expression is the pattern for which you want to search in string. You can use special characters in regular expression. If the VI does not find regular expression, result string is string and offset past match is \u20131. If regular expression matches the empty string, the function makes no replacements, result string is string, and offset past match returns 0 or the length of the string, depending on whether replace all? is FALSE or TRUE, respectively.",
           "default_value": null,
           "enum_values": null,
@@ -2696,8 +2250,6 @@
         },
         {
           "name": "replace string (\"\")",
-          "direction": "in",
-          "type": "String",
           "description": "replace string replaces the substring in string that matches regular expression. The default is an empty string.",
           "default_value": "an empty string",
           "enum_values": null,
@@ -2705,8 +2257,6 @@
         },
         {
           "name": "offset (0)",
-          "direction": "in",
-          "type": "String",
           "description": "offset specifies number of characters into string at which the function starts searching for a match. offset must be numeric. The offset of the first character in string is 0. If offset is unwired or less than 0, the function takes offset as 0.",
           "default_value": null,
           "enum_values": null,
@@ -2714,8 +2264,6 @@
         },
         {
           "name": "result string",
-          "direction": "out",
-          "type": "String",
           "description": "result string contains the edited string with the replaced characters.",
           "default_value": null,
           "enum_values": null,
@@ -2723,8 +2271,6 @@
         },
         {
           "name": "offset past match",
-          "direction": "in",
-          "type": "String",
           "description": "offset past match is the index in string of the first character after the last match. If the VI does not find a match, offset past match is \u20131. This VI is similar to the Match Pattern function. This VI can perform a case-insensitive search or search for more complex patterns than the Search and Replace String function. Functions",
           "default_value": null,
           "enum_values": null,
@@ -2744,8 +2290,6 @@
       "terminals": [
         {
           "name": "string (\"\")",
-          "direction": "in",
-          "type": "String",
           "description": "string is the string to which LabVIEW appends the string selected from string array. The default is an empty string.",
           "default_value": "an empty string",
           "enum_values": null,
@@ -2753,8 +2297,6 @@
         },
         {
           "name": "string array",
-          "direction": "in",
-          "type": "String",
           "description": "string array is the array from which LabVIEW selects a string according to index to append to string.",
           "default_value": null,
           "enum_values": null,
@@ -2762,8 +2304,6 @@
         },
         {
           "name": "index",
-          "direction": "in",
-          "type": "I32",
           "description": "index must be numeric.",
           "default_value": null,
           "enum_values": null,
@@ -2771,8 +2311,6 @@
         },
         {
           "name": "output string",
-          "direction": "out",
-          "type": "String",
           "description": "output string is string with the string in string array at offset index appended. If index is less than zero or greater than the number of elements in string array, output string returns string unchanged.",
           "default_value": null,
           "enum_values": null,
@@ -2792,8 +2330,6 @@
       "terminals": [
         {
           "name": "string (\"\")",
-          "direction": "in",
-          "type": "String",
           "description": "string is the input string. The default is an empty string.",
           "default_value": "an empty string",
           "enum_values": null,
@@ -2801,8 +2337,6 @@
         },
         {
           "name": "true string",
-          "direction": "in",
-          "type": "Boolean",
           "description": "true string is the string to append if selector is TRUE.",
           "default_value": null,
           "enum_values": null,
@@ -2810,8 +2344,6 @@
         },
         {
           "name": "false string",
-          "direction": "in",
-          "type": "Boolean",
           "description": "false string is the string to append if selector is FALSE.",
           "default_value": null,
           "enum_values": null,
@@ -2819,8 +2351,6 @@
         },
         {
           "name": "selector",
-          "direction": "in",
-          "type": "Boolean",
           "description": "selector determines whether the function appends true string (TRUE) or false string (FALSE) to string.",
           "default_value": null,
           "enum_values": null,
@@ -2828,8 +2358,6 @@
         },
         {
           "name": "output string",
-          "direction": "out",
-          "type": "String",
           "description": "output string is the resulting string.",
           "default_value": null,
           "enum_values": null,
@@ -2849,8 +2377,6 @@
       "terminals": [
         {
           "name": "string",
-          "direction": "in",
-          "type": "String",
           "description": "string can be a string or any data structure that contains only strings, such as an array or clusters of strings.",
           "default_value": null,
           "enum_values": null,
@@ -2858,8 +2384,6 @@
         },
         {
           "name": "first char last",
-          "direction": "in",
-          "type": null,
           "description": "Functions \u00a9 National Instruments 731 first char last is the rotated string and has the same structure as string.",
           "default_value": null,
           "enum_values": null,
@@ -2879,8 +2403,6 @@
       "terminals": [
         {
           "name": "string",
-          "direction": "in",
-          "type": "String",
           "description": "string can be a string or any data structure that contains only strings, such as an array or clusters of strings.",
           "default_value": null,
           "enum_values": null,
@@ -2888,8 +2410,6 @@
         },
         {
           "name": "reversed",
-          "direction": "in",
-          "type": "String",
           "description": "reversed is the reversed string and has the same structure as string.",
           "default_value": null,
           "enum_values": null,
@@ -2909,8 +2429,6 @@
       "terminals": [
         {
           "name": "delimited string",
-          "direction": "in",
-          "type": "String",
           "description": "delimited string specifies the string with a delimiting character between substrings.",
           "default_value": null,
           "enum_values": null,
@@ -2918,8 +2436,6 @@
         },
         {
           "name": "delimiter",
-          "direction": "in",
-          "type": null,
           "description": "Functions 732 ni.com delimiter specifies the character that separates substrings in a delimited string. The default is \\t, which specifies a single tab character.",
           "default_value": "\\t, which specifies a single tab character",
           "enum_values": null,
@@ -2927,8 +2443,6 @@
         },
         {
           "name": "string array",
-          "direction": "out",
-          "type": "String",
           "description": "string array returns an array of strings constructed from delimited string. 1D String Array to Delimited String 1D String Array to Delimited String Converts the elements of a one-dimensional string array to a single string with input array elements separated by a delimiting character. Inputs/Outputs",
           "default_value": null,
           "enum_values": null,
@@ -2936,8 +2450,6 @@
         },
         {
           "name": "string array",
-          "direction": "in",
-          "type": "String",
           "description": "string array specifies the one-dimensional array of strings on which the node operates.",
           "default_value": null,
           "enum_values": null,
@@ -2945,8 +2457,6 @@
         },
         {
           "name": "delimiter",
-          "direction": "in",
-          "type": null,
           "description": "delimiter specifies the character that separates substrings in a delimited string. The default is \\t, which specifies a single tab character.",
           "default_value": "\\t, which specifies a single tab character",
           "enum_values": null,
@@ -2954,8 +2464,6 @@
         },
         {
           "name": "delimited string",
-          "direction": "out",
-          "type": "String",
           "description": "delimited string returns a string of concatenated array elements separated by the delimiter you specify.",
           "default_value": null,
           "enum_values": null,
@@ -2975,8 +2483,6 @@
       "terminals": [
         {
           "name": "NI GUID",
-          "direction": "out",
-          "type": "Enum",
           "description": "NI GUID returns a globally unique identifier (GUID) string of the following format: 12345678-1234-1234-1234-1234567890AB.",
           "default_value": null,
           "enum_values": null,
@@ -2996,8 +2502,6 @@
       "terminals": [
         {
           "name": "x = y?",
-          "direction": "in",
-          "type": "Boolean",
           "description": "When you compare arrays, x = y? is a scalar in Compare Aggregates mode and a Boolean array in Compare Elements mode (default). When comparing VI Server references, this function returns TRUE when the two references refer to the same object, regardless of whether the references have the same capability or the same value. For example, one might be a strict reference to a digital numeric control and the other might be a generic reference but if they refer to the same object, they are equal. To comp",
           "default_value": null,
           "enum_values": null,
@@ -3005,8 +2509,6 @@
         },
         {
           "name": "labview\\examples\\Comparison\\Comparison Functions.vi",
-          "direction": "in",
-          "type": null,
           "description": "",
           "default_value": null,
           "enum_values": null,
@@ -3014,8 +2516,6 @@
         },
         {
           "name": "x != y?",
-          "direction": "out",
-          "type": "Boolean",
           "description": "x!=y? returns the Boolean result of the operation. When you compare arrays, x!=y? is a scalar in Compare Aggregates mode and a Boolean array in Compare Elements mode (default). When comparing VI Server references, this function returns FALSE when the two references refer to the same object, regardless of whether the references have the same capability or the same value. For example, one might be a strict reference to a digital numeric control and the other might be a generic reference but if the",
           "default_value": null,
           "enum_values": null,
@@ -3035,8 +2535,6 @@
       "terminals": [
         {
           "name": "x != y?",
-          "direction": "out",
-          "type": "Boolean",
           "description": "x!=y? returns the Boolean result of the operation. When you compare arrays, x!=y? is a scalar in Compare Aggregates mode and a Boolean array in Compare Elements mode (default). When comparing VI Server references, this function returns FALSE when the two references refer to the same object, regardless of whether the references have the same capability or the same value. For example, one might be a strict reference to a digital numeric control and the other might be a generic reference but if the",
           "default_value": null,
           "enum_values": null,
@@ -3056,8 +2554,6 @@
       "terminals": [
         {
           "name": "x > y?",
-          "direction": "out",
-          "type": "Boolean",
           "description": "x > y? returns the Boolean result of the operation. When you compare arrays, x > y? is a scalar in Compare Aggregates mode and a Boolean array in Compare Elements mode (default). Less? Function Less? Function Returns TRUE if x is less than y. Otherwise, this function returns FALSE. You can change the comparison mode of this function. You can compare an array or cluster of a data type to a scalar of the same data type and produce an array or cluster of Boolean values. The connector pane displays ",
           "default_value": "data types for this polymorphic function",
           "enum_values": null,
@@ -3065,8 +2561,6 @@
         },
         {
           "name": "x < y?",
-          "direction": "in",
-          "type": "Boolean",
           "description": "Functions",
           "default_value": null,
           "enum_values": null,
@@ -3086,8 +2580,6 @@
       "terminals": [
         {
           "name": "x < y?",
-          "direction": "out",
-          "type": "Boolean",
           "description": "Functions \u00a9 National Instruments 749 x < y? returns the Boolean result of the operation. When you compare arrays, x < y? is a scalar in Compare Aggregates mode and a Boolean array in Compare Elements mode (default). Greater Or Equal? Function Greater Or Equal? Function Returns TRUE if x is greater than or equal to y. Otherwise, this function returns FALSE. You can change the comparison mode of this function. You can compare an array or cluster of a data type to a scalar of the same data type and",
           "default_value": "data types for this polymorphic function",
           "enum_values": null,
@@ -3095,8 +2587,6 @@
         },
         {
           "name": "x >= y?",
-          "direction": "out",
-          "type": "Boolean",
           "description": "x >= y? returns the Boolean result of the operation. When you compare arrays, x >= y? is a scalar in Compare Aggregates mode and a Boolean array in Compare Elements mode (default). Less Or Equal? Function Less Or Equal? Function Returns TRUE if x is less than or equal to y. Otherwise, this function returns FALSE. You can change the comparison mode of this function. Functions 750 ni.com You can compare an array or cluster of a data type to a scalar of the same data type and produce an array or cl",
           "default_value": "data types for this polymorphic function",
           "enum_values": null,
@@ -3104,8 +2594,6 @@
         },
         {
           "name": "x <= y?",
-          "direction": "out",
-          "type": "Boolean",
           "description": "x \u2264 y? returns the Boolean result of the operation. When you compare arrays, x \u2264 y? is a scalar in Compare Aggregates mode and a Boolean array in Compare Elements mode (default). Equal To 0? Function Equal To 0? Function Returns TRUE if x is equal to 0. Otherwise, this function returns FALSE. The connector pane displays the default data types for this polymorphic function. Inputs/Outputs",
           "default_value": "data types for this polymorphic function",
           "enum_values": null,
@@ -3113,8 +2601,6 @@
         },
         {
           "name": "x = 0?",
-          "direction": "in",
-          "type": "Boolean",
           "description": "Functions \u00a9 National Instruments 751",
           "default_value": null,
           "enum_values": null,
@@ -3134,8 +2620,6 @@
       "terminals": [
         {
           "name": "x >= y?",
-          "direction": "out",
-          "type": "Boolean",
           "description": "x >= y? returns the Boolean result of the operation. When you compare arrays, x >= y? is a scalar in Compare Aggregates mode and a Boolean array in Compare Elements mode (default). Less Or Equal? Function Less Or Equal? Function Returns TRUE if x is less than or equal to y. Otherwise, this function returns FALSE. You can change the comparison mode of this function. Functions 750 ni.com You can compare an array or cluster of a data type to a scalar of the same data type and produce an array or cl",
           "default_value": "data types for this polymorphic function",
           "enum_values": null,
@@ -3143,8 +2627,6 @@
         },
         {
           "name": "x <= y?",
-          "direction": "out",
-          "type": "Boolean",
           "description": "x \u2264 y? returns the Boolean result of the operation. When you compare arrays, x \u2264 y? is a scalar in Compare Aggregates mode and a Boolean array in Compare Elements mode (default). Equal To 0? Function Equal To 0? Function Returns TRUE if x is equal to 0. Otherwise, this function returns FALSE. The connector pane displays the default data types for this polymorphic function. Inputs/Outputs",
           "default_value": "data types for this polymorphic function",
           "enum_values": null,
@@ -3152,8 +2634,6 @@
         },
         {
           "name": "x = 0?",
-          "direction": "in",
-          "type": "Boolean",
           "description": "Functions",
           "default_value": null,
           "enum_values": null,
@@ -3173,8 +2653,6 @@
       "terminals": [
         {
           "name": "x <= y?",
-          "direction": "out",
-          "type": "Boolean",
           "description": "x \u2264 y? returns the Boolean result of the operation. When you compare arrays, x \u2264 y? is a scalar in Compare Aggregates mode and a Boolean array in Compare Elements mode (default). Equal To 0? Function Equal To 0? Function Returns TRUE if x is equal to 0. Otherwise, this function returns FALSE. The connector pane displays the default data types for this polymorphic function. Inputs/Outputs",
           "default_value": "data types for this polymorphic function",
           "enum_values": null,
@@ -3182,8 +2660,6 @@
         },
         {
           "name": "x = 0?",
-          "direction": "in",
-          "type": "Boolean",
           "description": "Functions",
           "default_value": null,
           "enum_values": null,
@@ -3203,8 +2679,6 @@
       "terminals": [
         {
           "name": "x = 0?",
-          "direction": "in",
-          "type": "Boolean",
           "description": "Functions \u00a9 National Instruments 751 x = 0? is a Boolean value of the same data type structure as x. Not Equal To 0? Function Not Equal To 0? Function Returns TRUE if x is not equal to 0. Otherwise, this function returns FALSE. The connector pane displays the default data types for this polymorphic function. Inputs/Outputs",
           "default_value": "data types for this polymorphic function",
           "enum_values": null,
@@ -3212,8 +2686,6 @@
         },
         {
           "name": "x != 0?",
-          "direction": "in",
-          "type": "Boolean",
           "description": "x!= 0? is a Boolean value of the same data type structure as x. Greater Than 0? Function Greater Than 0? Function Returns TRUE if x is greater than 0. Otherwise, this function returns FALSE. The connector pane displays the default data types for this polymorphic function. Inputs/Outputs",
           "default_value": "data types for this polymorphic function",
           "enum_values": null,
@@ -3221,8 +2693,6 @@
         },
         {
           "name": "x > 0?",
-          "direction": "in",
-          "type": "Boolean",
           "description": "Functions 752 ni.com x > 0? is a Boolean value of the same data type structure as x. Less Than 0? Function Less Than 0? Function Returns TRUE if x is less than 0. Otherwise, this function returns FALSE. The connector pane displays the default data types for this polymorphic function. Inputs/Outputs",
           "default_value": "data types for this polymorphic function",
           "enum_values": null,
@@ -3230,8 +2700,6 @@
         },
         {
           "name": "x < 0?",
-          "direction": "in",
-          "type": "Boolean",
           "description": "x < 0? is a Boolean value of the same data type structure as x. Greater Or Equal To 0? Function Greater Or Equal To 0? Function Returns TRUE if x is greater than or equal to 0. Otherwise, this function returns FALSE. The connector pane displays the default data types for this polymorphic function. Inputs/Outputs",
           "default_value": "data types for this polymorphic function",
           "enum_values": null,
@@ -3239,8 +2707,6 @@
         },
         {
           "name": "x >= 0?",
-          "direction": "in",
-          "type": "Boolean",
           "description": "Functions \u00a9 National Instruments 753",
           "default_value": null,
           "enum_values": null,
@@ -3260,8 +2726,6 @@
       "terminals": [
         {
           "name": "x != 0?",
-          "direction": "in",
-          "type": "Boolean",
           "description": "x!= 0? is a Boolean value of the same data type structure as x. Greater Than 0? Function Greater Than 0? Function Returns TRUE if x is greater than 0. Otherwise, this function returns FALSE. The connector pane displays the default data types for this polymorphic function. Inputs/Outputs",
           "default_value": "data types for this polymorphic function",
           "enum_values": null,
@@ -3269,8 +2733,6 @@
         },
         {
           "name": "x > 0?",
-          "direction": "in",
-          "type": "Boolean",
           "description": "Functions 752 ni.com x > 0? is a Boolean value of the same data type structure as x. Less Than 0? Function Less Than 0? Function Returns TRUE if x is less than 0. Otherwise, this function returns FALSE. The connector pane displays the default data types for this polymorphic function. Inputs/Outputs",
           "default_value": "data types for this polymorphic function",
           "enum_values": null,
@@ -3278,8 +2740,6 @@
         },
         {
           "name": "x < 0?",
-          "direction": "in",
-          "type": "Boolean",
           "description": "x < 0? is a Boolean value of the same data type structure as x. Greater Or Equal To 0? Function Greater Or Equal To 0? Function Returns TRUE if x is greater than or equal to 0. Otherwise, this function returns FALSE. The connector pane displays the default data types for this polymorphic function. Inputs/Outputs",
           "default_value": "data types for this polymorphic function",
           "enum_values": null,
@@ -3287,8 +2747,6 @@
         },
         {
           "name": "x >= 0?",
-          "direction": "in",
-          "type": "Boolean",
           "description": "Functions",
           "default_value": null,
           "enum_values": null,
@@ -3308,8 +2766,6 @@
       "terminals": [
         {
           "name": "x > 0?",
-          "direction": "in",
-          "type": "Boolean",
           "description": "Functions 752 ni.com x > 0? is a Boolean value of the same data type structure as x. Less Than 0? Function Less Than 0? Function Returns TRUE if x is less than 0. Otherwise, this function returns FALSE. The connector pane displays the default data types for this polymorphic function. Inputs/Outputs",
           "default_value": "data types for this polymorphic function",
           "enum_values": null,
@@ -3317,8 +2773,6 @@
         },
         {
           "name": "x < 0?",
-          "direction": "in",
-          "type": "Boolean",
           "description": "x < 0? is a Boolean value of the same data type structure as x. Greater Or Equal To 0? Function Greater Or Equal To 0? Function Returns TRUE if x is greater than or equal to 0. Otherwise, this function returns FALSE. The connector pane displays the default data types for this polymorphic function. Inputs/Outputs",
           "default_value": "data types for this polymorphic function",
           "enum_values": null,
@@ -3326,8 +2780,6 @@
         },
         {
           "name": "x >= 0?",
-          "direction": "in",
-          "type": "Boolean",
           "description": "Functions",
           "default_value": null,
           "enum_values": null,
@@ -3347,8 +2799,6 @@
       "terminals": [
         {
           "name": "x < 0?",
-          "direction": "in",
-          "type": "Boolean",
           "description": "x < 0? is a Boolean value of the same data type structure as x. Greater Or Equal To 0? Function Greater Or Equal To 0? Function Returns TRUE if x is greater than or equal to 0. Otherwise, this function returns FALSE. The connector pane displays the default data types for this polymorphic function. Inputs/Outputs",
           "default_value": "data types for this polymorphic function",
           "enum_values": null,
@@ -3356,8 +2806,6 @@
         },
         {
           "name": "x >= 0?",
-          "direction": "in",
-          "type": "Boolean",
           "description": "Functions",
           "default_value": null,
           "enum_values": null,
@@ -3377,8 +2825,6 @@
       "terminals": [
         {
           "name": "x >= 0?",
-          "direction": "in",
-          "type": "Boolean",
           "description": "Functions \u00a9 National Instruments 753 x >= 0? is a Boolean value of the same data type structure as x. Less Or Equal To 0? Function Less Or Equal To 0? Function Returns TRUE if x is less than or equal to 0. Otherwise, this function returns FALSE. The connector pane displays the default data types for this polymorphic function. Inputs/Outputs",
           "default_value": "data types for this polymorphic function",
           "enum_values": null,
@@ -3386,8 +2832,6 @@
         },
         {
           "name": "x <= 0?",
-          "direction": "in",
-          "type": "Boolean",
           "description": "x \u2264 0? is a Boolean value of the same data type structure as x.",
           "default_value": null,
           "enum_values": null,
@@ -3407,8 +2851,6 @@
       "terminals": [
         {
           "name": "x <= 0?",
-          "direction": "in",
-          "type": "Boolean",
           "description": "x \u2264 0? is a Boolean value of the same data type structure as x.",
           "default_value": null,
           "enum_values": null,
@@ -3428,8 +2870,6 @@
       "terminals": [
         {
           "name": "s? t:f",
-          "direction": "in",
-          "type": "Boolean",
           "description": "s? t:f is the value wired to t if s is TRUE. s? t:f is the value wired to f if s is FALSE.",
           "default_value": null,
           "enum_values": null,
@@ -3449,8 +2889,6 @@
       "terminals": [
         {
           "name": "max(x,y)",
-          "direction": "in",
-          "type": null,
           "description": "max(x, y) is the larger value. When you compare arrays in Compare Elements mode (default), this function compares corresponding elements in each input array and returns the element with the maximum value. max(x, y) is an array consisting of the maximum value elements. When you compare arrays in Compare Aggregates mode, this function compares corresponding elements in each input array starting at the beginning of the array. When this function reaches a pair of unequal corresponding elements, max(",
           "default_value": null,
           "enum_values": null,
@@ -3458,8 +2896,6 @@
         },
         {
           "name": "min(x,y)",
-          "direction": "in",
-          "type": "I32",
           "description": "min(x, y) is the smaller value. When you compare arrays in Compare Elements mode (default), this function compares corresponding elements in each input array and returns the element with the minimum value. min(x, y) is an array consisting of the minimum value elements. When you compare arrays in Compare Aggregates mode, this function compares corresponding elements in each input array starting at the beginning of the array. When this function reaches a pair of unequal corresponding elements, min",
           "default_value": null,
           "enum_values": null,
@@ -3467,8 +2903,6 @@
         },
         {
           "name": "Both inputs are NaN",
-          "direction": "in",
-          "type": null,
           "description": "Both max(x,y) and min(x,y) return NaN",
           "default_value": null,
           "enum_values": null,
@@ -3476,8 +2910,6 @@
         },
         {
           "name": "Only one input is NaN",
-          "direction": "in",
-          "type": null,
           "description": "Both max(x,y) and min(x,y) return the non-NaN value",
           "default_value": null,
           "enum_values": null,
@@ -3485,8 +2917,6 @@
         },
         {
           "name": "Inputs are arrays",
-          "direction": "in",
-          "type": "I32",
           "description": "The function evaluates each pair of elements according to the previous rules In Compare Aggregates mode, when one or both inputs are NaN (Not-a-Number), this function produces the following results:",
           "default_value": null,
           "enum_values": null,
@@ -3494,8 +2924,6 @@
         },
         {
           "name": "Both inputs are NaN",
-          "direction": "in",
-          "type": null,
           "description": "Both max(x,y) and min(x,y) return NaN",
           "default_value": null,
           "enum_values": null,
@@ -3503,8 +2931,6 @@
         },
         {
           "name": "Only one input is NaN",
-          "direction": "out",
-          "type": null,
           "description": "max(x,y) returns x and min(x,y) returns y",
           "default_value": null,
           "enum_values": null,
@@ -3512,8 +2938,6 @@
         },
         {
           "name": "Inputs are arrays",
-          "direction": "out",
-          "type": "I32",
           "description": "If the function encounters a NaN element in either input array, max(x,y) returns x and min(x,y) returns y Functions 756 ni.com",
           "default_value": null,
           "enum_values": null,
@@ -3533,8 +2957,6 @@
       "terminals": [
         {
           "name": "upper limit",
-          "direction": "in",
-          "type": null,
           "description": "upper limit of the range.",
           "default_value": null,
           "enum_values": null,
@@ -3542,8 +2964,6 @@
         },
         {
           "name": "lower limit",
-          "direction": "in",
-          "type": null,
           "description": "lower limit of the range.",
           "default_value": null,
           "enum_values": null,
@@ -3551,8 +2971,6 @@
         },
         {
           "name": "coerced(x)",
-          "direction": "out",
-          "type": null,
           "description": "coerced(x) returns the coerced or unchanged value of x. If x is within the range set by the upper limit and lower limit inputs or if the function is in Compare Aggregates mode, the value is Functions \u00a9 National Instruments 757 unchanged. If x is not in range and the function is in Compare Elements mode, the function converts the value to the same value as upper limit or lower limit. If upper limit, x, or lower limit is NaN, coerced(x) is NaN.",
           "default_value": null,
           "enum_values": null,
@@ -3560,8 +2978,6 @@
         },
         {
           "name": "In Range?",
-          "direction": "in",
-          "type": "Boolean",
           "description": "In Range? is a Boolean value in Compare Aggregates mode. In Compare Elements mode, the data type structure of In Range? matches the data type structure of x, with each scalar replaced by a Boolean value. If upper limit, x, or lower limit is NaN, In Range? is FALSE. This function compares the input data values according to the Boolean comparison rules. If the function is in Compare Aggregates mode, it returns the unchanged value of x in coerced(x) rather than a coerced value. The function conside",
           "default_value": null,
           "enum_values": null,
@@ -3569,8 +2985,6 @@
         },
         {
           "name": "labview\\examples\\Comparison\\In Range and Coerce.vi",
-          "direction": "in",
-          "type": null,
           "description": "",
           "default_value": null,
           "enum_values": null,
@@ -3578,8 +2992,6 @@
         },
         {
           "name": "number/path/refnum",
-          "direction": "in",
-          "type": "Path",
           "description": "number/path/refnum can be a scalar number, path, or refnum, or it can be a cluster or array of numbers, paths, or refnums.",
           "default_value": null,
           "enum_values": null,
@@ -3587,8 +2999,6 @@
         },
         {
           "name": "NaN/Path/Refnum?",
-          "direction": "in",
-          "type": "Path",
           "description": "NaN/Path/Refnum? is a Boolean value of the same data type structure as number/path/refnum. This function works only on references generated by LabVIEW functions. Do not use this function to determine the validity of a rendezvous refnum, semaphore refnum, or any refnum created by the GOOP wizard, LabVIEW Database Connectivity Toolkit, or LabVIEW Internet Toolkit. For rendezvous refnums, use the Not A Rendezvous VI. For semaphore refnums, use the Not A Semaphore VI. For all other GOOP refnums or t",
           "default_value": null,
           "enum_values": null,
@@ -3596,8 +3006,6 @@
         },
         {
           "name": "Do not use this function to evaluate whether a refnum is invalid before using the",
-          "direction": "in",
-          "type": null,
           "description": "",
           "default_value": null,
           "enum_values": null,
@@ -3605,8 +3013,6 @@
         },
         {
           "name": "Use this function in custom probes to get the refnum status.",
-          "direction": "in",
-          "type": null,
           "description": "",
           "default_value": null,
           "enum_values": null,
@@ -3614,8 +3020,6 @@
         },
         {
           "name": "Use this function to evaluate the status of an existing invalid refnum before",
-          "direction": "in",
-          "type": null,
           "description": "",
           "default_value": null,
           "enum_values": null,
@@ -3635,8 +3039,6 @@
       "terminals": [
         {
           "name": "number/path/refnum",
-          "direction": "in",
-          "type": "Path",
           "description": "number/path/refnum can be a scalar number, path, or refnum, or it can be a cluster or array of numbers, paths, or refnums.",
           "default_value": null,
           "enum_values": null,
@@ -3644,8 +3046,6 @@
         },
         {
           "name": "NaN/Path/Refnum?",
-          "direction": "in",
-          "type": "Path",
           "description": "NaN/Path/Refnum? is a Boolean value of the same data type structure as number/path/refnum. This function works only on references generated by LabVIEW functions. Do not use this function to determine the validity of a rendezvous refnum, semaphore refnum, or any refnum created by the GOOP wizard, LabVIEW Database Connectivity Toolkit, or LabVIEW Internet Toolkit. For rendezvous refnums, use the Not A Rendezvous VI. For semaphore refnums, use the Not A Semaphore VI. For all other GOOP refnums or t",
           "default_value": null,
           "enum_values": null,
@@ -3653,8 +3053,6 @@
         },
         {
           "name": "Do not use this function to evaluate whether a refnum is invalid before using the",
-          "direction": "in",
-          "type": null,
           "description": "",
           "default_value": null,
           "enum_values": null,
@@ -3662,8 +3060,6 @@
         },
         {
           "name": "Use this function in custom probes to get the refnum status.",
-          "direction": "in",
-          "type": null,
           "description": "",
           "default_value": null,
           "enum_values": null,
@@ -3671,8 +3067,6 @@
         },
         {
           "name": "Use this function to evaluate the status of an existing invalid refnum before",
-          "direction": "in",
-          "type": null,
           "description": "",
           "default_value": null,
           "enum_values": null,
@@ -3692,8 +3086,6 @@
       "terminals": [
         {
           "name": "array",
-          "direction": "in",
-          "type": "Array",
           "description": "array specifies an n-dimensional array of any type.",
           "default_value": null,
           "enum_values": null,
@@ -3701,8 +3093,6 @@
         },
         {
           "name": "empty?",
-          "direction": "in",
-          "type": "Path",
           "description": "empty? is TRUE if array is empty. Otherwise, empty? is FALSE. Empty String/Path? Function Empty String/Path? Function Returns TRUE if string/path is an empty string or an empty path. Otherwise, this function returns FALSE. This function is also designed to work with variants, pictures, and DSC tags. The connector pane displays the default data types for this polymorphic function. Inputs/Outputs",
           "default_value": "data types for this polymorphic function",
           "enum_values": null,
@@ -3710,8 +3100,6 @@
         },
         {
           "name": "string/path",
-          "direction": "in",
-          "type": "Path",
           "description": "Functions 760 ni.com string/path can be a string, a path, a variant, a picture string, a DSC tag, or an array or a cluster of these types.",
           "default_value": null,
           "enum_values": null,
@@ -3719,8 +3107,6 @@
         },
         {
           "name": "empty?",
-          "direction": "in",
-          "type": "Path",
           "description": "empty? is a Boolean value of the same data type structure as string/path. Decimal Digit? Function Decimal Digit? Function Returns TRUE if char represents a decimal digit ranging from 0 through 9. If char is a string, this function uses the first character in the string. If char is a number, this function interprets it as the ASCII value of a character. If char is a floating-point number, this function rounds to the nearest integer. Otherwise, this function returns FALSE. The connector pane displ",
           "default_value": "data types for this polymorphic function",
           "enum_values": null,
@@ -3728,8 +3114,6 @@
         },
         {
           "name": "char",
-          "direction": "in",
-          "type": "String",
           "description": "char can be a scalar string or number, clusters of strings or numbers, arrays of strings or numbers, and so on.",
           "default_value": null,
           "enum_values": null,
@@ -3737,8 +3121,6 @@
         },
         {
           "name": "digit?",
-          "direction": "in",
-          "type": "Boolean",
           "description": "digit? is a Boolean value of the same data type structure as char. Examples Refer to the following example files included with LabVIEW.",
           "default_value": null,
           "enum_values": null,
@@ -3746,8 +3128,6 @@
         },
         {
           "name": "labview\\examples\\Comparison\\Compare Character Types.vi",
-          "direction": "in",
-          "type": null,
           "description": "",
           "default_value": null,
           "enum_values": null,
@@ -3767,8 +3147,6 @@
       "terminals": [
         {
           "name": "string/path",
-          "direction": "in",
-          "type": "Path",
           "description": "Functions 760 ni.com string/path can be a string, a path, a variant, a picture string, a DSC tag, or an array or a cluster of these types.",
           "default_value": null,
           "enum_values": null,
@@ -3776,8 +3154,6 @@
         },
         {
           "name": "empty?",
-          "direction": "in",
-          "type": "Path",
           "description": "empty? is a Boolean value of the same data type structure as string/path. Decimal Digit? Function Decimal Digit? Function Returns TRUE if char represents a decimal digit ranging from 0 through 9. If char is a string, this function uses the first character in the string. If char is a number, this function interprets it as the ASCII value of a character. If char is a floating-point number, this function rounds to the nearest integer. Otherwise, this function returns FALSE. The connector pane displ",
           "default_value": "data types for this polymorphic function",
           "enum_values": null,
@@ -3785,8 +3161,6 @@
         },
         {
           "name": "char",
-          "direction": "in",
-          "type": "String",
           "description": "char can be a scalar string or number, clusters of strings or numbers, arrays of strings or numbers, and so on.",
           "default_value": null,
           "enum_values": null,
@@ -3794,8 +3168,6 @@
         },
         {
           "name": "digit?",
-          "direction": "in",
-          "type": "Boolean",
           "description": "digit? is a Boolean value of the same data type structure as char. Examples Refer to the following example files included with LabVIEW.",
           "default_value": null,
           "enum_values": null,
@@ -3803,8 +3175,6 @@
         },
         {
           "name": "labview\\examples\\Comparison\\Compare Character Types.vi",
-          "direction": "in",
-          "type": null,
           "description": "",
           "default_value": null,
           "enum_values": null,
@@ -3824,8 +3194,6 @@
       "terminals": [
         {
           "name": "char",
-          "direction": "in",
-          "type": "String",
           "description": "char can be a scalar string or number, clusters of strings or numbers, arrays of strings or numbers, and so on.",
           "default_value": null,
           "enum_values": null,
@@ -3833,8 +3201,6 @@
         },
         {
           "name": "digit?",
-          "direction": "in",
-          "type": "Boolean",
           "description": "digit? is a Boolean value of the same data type structure as char. Examples Refer to the following example files included with LabVIEW.",
           "default_value": null,
           "enum_values": null,
@@ -3842,8 +3208,6 @@
         },
         {
           "name": "labview\\examples\\Comparison\\Compare Character Types.vi",
-          "direction": "in",
-          "type": null,
           "description": "",
           "default_value": null,
           "enum_values": null,
@@ -3851,8 +3215,6 @@
         },
         {
           "name": "char",
-          "direction": "in",
-          "type": "String",
           "description": "char can be a scalar string or number, clusters of strings or numbers, arrays of strings or numbers, and so on.",
           "default_value": null,
           "enum_values": null,
@@ -3860,8 +3222,6 @@
         },
         {
           "name": "hex?",
-          "direction": "in",
-          "type": "Boolean",
           "description": "hex? is a Boolean value of the same data type structure as char. Examples Refer to the following example files included with LabVIEW.",
           "default_value": null,
           "enum_values": null,
@@ -3869,8 +3229,6 @@
         },
         {
           "name": "labview\\examples\\Comparison\\Compare Character Types.vi",
-          "direction": "in",
-          "type": null,
           "description": "",
           "default_value": null,
           "enum_values": null,
@@ -3878,8 +3236,6 @@
         },
         {
           "name": "char",
-          "direction": "in",
-          "type": "String",
           "description": "char can be a scalar string or number, clusters of strings or numbers, arrays of strings or numbers, and so on.",
           "default_value": null,
           "enum_values": null,
@@ -3887,8 +3243,6 @@
         },
         {
           "name": "octal?",
-          "direction": "in",
-          "type": "Boolean",
           "description": "octal? is a Boolean value of the same data type structure as char. Examples Refer to the following example files included with LabVIEW.",
           "default_value": null,
           "enum_values": null,
@@ -3896,8 +3250,6 @@
         },
         {
           "name": "labview\\examples\\Comparison\\Compare Character Types.vi",
-          "direction": "in",
-          "type": null,
           "description": "",
           "default_value": null,
           "enum_values": null,
@@ -3905,8 +3257,6 @@
         },
         {
           "name": "char",
-          "direction": "in",
-          "type": null,
           "description": "Functions \u00a9 National Instruments 763",
           "default_value": null,
           "enum_values": null,
@@ -3926,8 +3276,6 @@
       "terminals": [
         {
           "name": "char",
-          "direction": "in",
-          "type": "String",
           "description": "char can be a scalar string or number, clusters of strings or numbers, arrays of strings or numbers, and so on.",
           "default_value": null,
           "enum_values": null,
@@ -3935,8 +3283,6 @@
         },
         {
           "name": "hex?",
-          "direction": "in",
-          "type": "Boolean",
           "description": "hex? is a Boolean value of the same data type structure as char. Examples Refer to the following example files included with LabVIEW.",
           "default_value": null,
           "enum_values": null,
@@ -3944,8 +3290,6 @@
         },
         {
           "name": "labview\\examples\\Comparison\\Compare Character Types.vi",
-          "direction": "in",
-          "type": null,
           "description": "",
           "default_value": null,
           "enum_values": null,
@@ -3953,8 +3297,6 @@
         },
         {
           "name": "char",
-          "direction": "in",
-          "type": "String",
           "description": "char can be a scalar string or number, clusters of strings or numbers, arrays of strings or numbers, and so on.",
           "default_value": null,
           "enum_values": null,
@@ -3962,8 +3304,6 @@
         },
         {
           "name": "octal?",
-          "direction": "in",
-          "type": "Boolean",
           "description": "octal? is a Boolean value of the same data type structure as char. Examples Refer to the following example files included with LabVIEW.",
           "default_value": null,
           "enum_values": null,
@@ -3971,8 +3311,6 @@
         },
         {
           "name": "labview\\examples\\Comparison\\Compare Character Types.vi",
-          "direction": "in",
-          "type": null,
           "description": "",
           "default_value": null,
           "enum_values": null,
@@ -3980,8 +3318,6 @@
         },
         {
           "name": "char",
-          "direction": "in",
-          "type": null,
           "description": "Functions",
           "default_value": null,
           "enum_values": null,
@@ -4001,8 +3337,6 @@
       "terminals": [
         {
           "name": "char",
-          "direction": "in",
-          "type": "String",
           "description": "char can be a scalar string or number, clusters of strings or numbers, arrays of strings or numbers, and so on.",
           "default_value": null,
           "enum_values": null,
@@ -4010,8 +3344,6 @@
         },
         {
           "name": "octal?",
-          "direction": "in",
-          "type": "Boolean",
           "description": "octal? is a Boolean value of the same data type structure as char. Examples Refer to the following example files included with LabVIEW.",
           "default_value": null,
           "enum_values": null,
@@ -4019,8 +3351,6 @@
         },
         {
           "name": "labview\\examples\\Comparison\\Compare Character Types.vi",
-          "direction": "in",
-          "type": null,
           "description": "",
           "default_value": null,
           "enum_values": null,
@@ -4028,8 +3358,6 @@
         },
         {
           "name": "char",
-          "direction": "in",
-          "type": null,
           "description": "Functions",
           "default_value": null,
           "enum_values": null,
@@ -4049,8 +3377,6 @@
       "terminals": [
         {
           "name": "char",
-          "direction": "in",
-          "type": "I32",
           "description": "Functions \u00a9 National Instruments 763 char can be a scalar string or number, clusters of strings or numbers, arrays of strings or numbers, and so on.",
           "default_value": null,
           "enum_values": null,
@@ -4058,8 +3384,6 @@
         },
         {
           "name": "printable ASCII?",
-          "direction": "in",
-          "type": "Boolean",
           "description": "printable ASCII? is a Boolean value of the same data type structure as char. Examples Refer to the following example files included with LabVIEW.",
           "default_value": null,
           "enum_values": null,
@@ -4067,8 +3391,6 @@
         },
         {
           "name": "labview\\examples\\Comparison\\Compare Character Types.vi",
-          "direction": "in",
-          "type": null,
           "description": "",
           "default_value": null,
           "enum_values": null,
@@ -4076,8 +3398,6 @@
         },
         {
           "name": "char",
-          "direction": "in",
-          "type": "String",
           "description": "char can be a scalar string or number, clusters of strings or numbers, arrays of strings or numbers, and so on.",
           "default_value": null,
           "enum_values": null,
@@ -4085,8 +3405,6 @@
         },
         {
           "name": "space, h/v tab, cr, lf, ff?",
-          "direction": "in",
-          "type": "Boolean",
           "description": "space, h/v tab, cr, lf, ff? is a Boolean value of the same data type structure as char. Functions 764 ni.com Examples Refer to the following example files included with LabVIEW.",
           "default_value": null,
           "enum_values": null,
@@ -4094,8 +3412,6 @@
         },
         {
           "name": "labview\\examples\\Comparison\\Compare Character Types.vi",
-          "direction": "in",
-          "type": null,
           "description": "",
           "default_value": null,
           "enum_values": null,
@@ -4115,8 +3431,6 @@
       "terminals": [
         {
           "name": "char",
-          "direction": "in",
-          "type": "String",
           "description": "char can be a scalar string or number, clusters of strings or numbers, arrays of strings or numbers, and so on.",
           "default_value": null,
           "enum_values": null,
@@ -4124,8 +3438,6 @@
         },
         {
           "name": "space, h/v tab, cr, lf, ff?",
-          "direction": "in",
-          "type": "Boolean",
           "description": "space, h/v tab, cr, lf, ff? is a Boolean value of the same data type structure as char. Functions 764 ni.com Examples Refer to the following example files included with LabVIEW.",
           "default_value": null,
           "enum_values": null,
@@ -4133,8 +3445,6 @@
         },
         {
           "name": "labview\\examples\\Comparison\\Compare Character Types.vi",
-          "direction": "in",
-          "type": null,
           "description": "",
           "default_value": null,
           "enum_values": null,
@@ -4154,8 +3464,6 @@
       "terminals": [
         {
           "name": "char",
-          "direction": "in",
-          "type": "String",
           "description": "char can be a scalar string or number, clusters of strings or numbers, arrays of strings or numbers, and so on.",
           "default_value": null,
           "enum_values": null,
@@ -4163,8 +3471,6 @@
         },
         {
           "name": "class number",
-          "direction": "in",
-          "type": "I32",
           "description": "class number is a number that corresponds to the lexical class. Refer to the ASCII Codes table for the numbers that correspond to each character. Class Number Lexical Class 0 Extended characters (codes 128 through 255) 1 Non-displayable ASCII characters (codes 0 to 31 excluding 9 through 13) 2 White space characters: Space, Tab, Carriage Return, Form Feed, Newline, and Vertical Tab (codes 32, 9, 13, 12, 10, and 11, respectively) 3 Digits 0 through 9 4 Uppercase characters A through Z 5 Lowercase",
           "default_value": null,
           "enum_values": null,
@@ -4195,8 +3501,6 @@
       "terminals": [
         {
           "name": "anything",
-          "direction": "in",
-          "type": null,
           "description": "anything specifies the first input data type. LabVIEW ignores any run-time value on the wire connected to this input.",
           "default_value": null,
           "enum_values": null,
@@ -4204,8 +3508,6 @@
         },
         {
           "name": "reference",
-          "direction": "in",
-          "type": "Enum",
           "description": "reference specifies the second input data type, which you want to compare against x. To set the data type of this input, wire a constant or control of the desired data type to reference. LabVIEW ignores any run-time value on the wire connected to this input. For data types with subtypes, such as arrays, clusters, and some refnums, this function also checks array dimensions and subtypes, but not the subtype names. For example, this function causes the calling VI to break if one input data type is",
           "default_value": null,
           "enum_values": null,
@@ -4225,8 +3527,6 @@
       "terminals": [
         {
           "name": "anything",
-          "direction": "in",
-          "type": null,
           "description": "anything specifies the first input data type. LabVIEW ignores any run-time value on the wire connected to this input.",
           "default_value": null,
           "enum_values": null,
@@ -4234,8 +3534,6 @@
         },
         {
           "name": "reference",
-          "direction": "in",
-          "type": "Enum",
           "description": "reference specifies the second input data type, which you want to compare against x. To set the data type of this input, wire a constant or control of the desired data type to reference. LabVIEW ignores any run-time value on the wire connected to this input. For data types with subtypes, such as arrays, clusters, and some refnums, this function also checks array dimensions and subtypes, but not the subtype names. For example, this function causes the calling VI to break if one input data type is",
           "default_value": null,
           "enum_values": null,
@@ -4255,8 +3553,6 @@
       "terminals": [
         {
           "name": "type",
-          "direction": "in",
-          "type": null,
           "description": "type specifies the input data type. LabVIEW ignores any run-time value on the wire connected to this input.",
           "default_value": null,
           "enum_values": null,
@@ -4264,8 +3560,6 @@
         },
         {
           "name": "mismatch",
-          "direction": "in",
-          "type": "Enum",
           "description": "mismatch specifies the data type that you want to compare against type. To set the data type of this input, wire a constant or control of the desired data type to mismatch. Wire one data type to each mismatch input you want to compare against type. LabVIEW ignores any run-time value on the wire connected to this input. Avoiding Unexpected Behavior in Your Malleable VI To avoid unexpected behavior in your malleable VI, you can use this function to force a specific subdiagram of your Type Speciali",
           "default_value": null,
           "enum_values": null,

@@ -24,6 +24,9 @@ class CodeGenContext:
     # Flow map for quick lookup: dest_terminal → source info
     _flow_map: dict[str, dict] = field(default_factory=dict, repr=False)
 
+    # Set of terminal IDs that have wires connected
+    _wired_terminals: set[str] = field(default_factory=set, repr=False)
+
     # Optional: callable to look up callee VI contexts for parameter names
     # Signature: (vi_name: str) -> dict | None
     vi_context_lookup: Any = field(default=None, repr=False)
@@ -31,6 +34,7 @@ class CodeGenContext:
     def __post_init__(self):
         """Build flow map from data flow."""
         self._build_flow_map()
+        self._build_wired_set()
 
     def _build_flow_map(self) -> None:
         """Build terminal→source mapping from data flow."""
@@ -44,6 +48,20 @@ class CodeGenContext:
                     "src_parent_name": flow.get("from_parent_name"),
                     "src_parent_labels": flow.get("from_parent_labels", []),
                 }
+
+    def _build_wired_set(self) -> None:
+        """Build set of terminals that have wires connected."""
+        for flow in self.data_flow:
+            src_id = flow.get("from_terminal_id")
+            dest_id = flow.get("to_terminal_id")
+            if src_id:
+                self._wired_terminals.add(src_id)
+            if dest_id:
+                self._wired_terminals.add(dest_id)
+
+    def is_wired(self, terminal_id: str) -> bool:
+        """Check if a terminal has any wire connected."""
+        return terminal_id in self._wired_terminals
 
     def bind(self, terminal_id: str, var_name: str) -> None:
         """Register a variable for a terminal."""

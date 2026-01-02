@@ -14,8 +14,6 @@
       "terminals": [
         {
           "name": "waveform",
-          "direction": "in",
-          "type": null,
           "description": "waveform is the waveform for which you want to retrieve an attribute(s) and value(s).",
           "default_value": null,
           "enum_values": null,
@@ -23,8 +21,6 @@
         },
         {
           "name": "name",
-          "direction": "in",
-          "type": "Boolean",
           "description": "name is the name of the attribute whose value you want to retrieve. Do not wire this parameter if you want to retrieve all the attributes associated with the specified waveform. If you wire name, the names output changes to a Boolean output found, the array output values changes to an output called value of the same type as default value, and the function searches for only the specified attribute.",
           "default_value": "value, and the function searches for only the specified attribute",
           "enum_values": null,
@@ -32,8 +28,6 @@
         },
         {
           "name": "default value (empty Variant)",
-          "direction": "in",
-          "type": null,
           "description": "default value is a value and data type that you specify. If the function does not find the attribute specified in name, it returns the default value. If you wire default value, you must wire name.",
           "default_value": "value is a value and data type that you specify",
           "enum_values": null,
@@ -41,8 +35,6 @@
         },
         {
           "name": "error in (no error)",
-          "direction": "in",
-          "type": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
           "default_value": null,
           "enum_values": null,
@@ -50,8 +42,6 @@
         },
         {
           "name": "duplicate waveform",
-          "direction": "in",
-          "type": null,
           "description": "duplicate waveform is the waveform data you input in waveform.",
           "default_value": null,
           "enum_values": null,
@@ -59,8 +49,6 @@
         },
         {
           "name": "names",
-          "direction": "out",
-          "type": "Boolean",
           "description": "Functions 802 ni.com names returns a 1D array containing the names of all attributes associated with the waveform. If you wire the name parameter, this output changes to a Boolean value found. found returns TRUE if the function finds the attribute that you specify in name.",
           "default_value": null,
           "enum_values": null,
@@ -68,8 +56,6 @@
         },
         {
           "name": "values",
-          "direction": "out",
-          "type": "Array",
           "description": "values returns a 1D array containing the values associated with each attribute of the specified waveform in variant format. You must unflatten each attribute value to an appropriate data type. If you wire name, this output changes to a single variant value. If the function does not find the attribute that you specify in name, it returns the value passed to default value.",
           "default_value": "value",
           "enum_values": null,
@@ -77,8 +63,6 @@
         },
         {
           "name": "error out",
-          "direction": "in",
-          "type": "Boolean",
           "description": "error out contains error information. This output provides standard error out functionality. This function has two modes of behavior depending on whether you wire the name parameter. By default, the function returns the names of all attributes and their corresponding values in 1D arrays. If you wire name, the names output changes to a Boolean output found, the values output changes to a variant output value, and the function searches for only the specified attribute. If the function does not fin",
           "default_value": "value, found is FALSE, and value displays the contents of default value",
           "enum_values": null,
@@ -98,8 +82,6 @@
       "terminals": [
         {
           "name": "compress digital (T)",
-          "direction": "in",
-          "type": "Boolean",
           "description": "compress digital specifies whether to compress the digital waveform or digital data. The default is TRUE.",
           "default_value": "TRUE",
           "enum_values": null,
@@ -107,8 +89,6 @@
         },
         {
           "name": "analog waveform",
-          "direction": "in",
-          "type": null,
           "description": "analog waveform is the waveform you want to convert to digital waveform or digital data.",
           "default_value": null,
           "enum_values": null,
@@ -116,8 +96,6 @@
         },
         {
           "name": "resolution (16 bit)",
-          "direction": "in",
-          "type": "I32",
           "description": "resolution specifies the number of bits represented in the digital waveform or digital data.",
           "default_value": null,
           "enum_values": null,
@@ -125,8 +103,6 @@
         },
         {
           "name": "full-scale range (pk-pk)",
-          "direction": "in",
-          "type": null,
           "description": "full-scale range (pk-pk) specifies the total peak-to-peak range, or the difference between the minimum and maximum, for the digital waveform or digital data. For example, if the maximum range of a waveform is 1 and the minimum is \u20131, the full-scale range for the waveform is 2. The default is 2.",
           "default_value": "2",
           "enum_values": null,
@@ -134,8 +110,6 @@
         },
         {
           "name": "error in (no error)",
-          "direction": "in",
-          "type": null,
           "description": "error in describes error conditions that occur before this node runs. With the following exception, this input provides standard error in functionality. If an error occurred before this node runs, this node outputs an empty waveform.",
           "default_value": null,
           "enum_values": null,
@@ -143,8 +117,6 @@
         },
         {
           "name": "data format (offset binary)",
-          "direction": "in",
-          "type": null,
           "description": "data format specifies which binary representation you want to use for the digital waveform or digital data. 0 unsigned binary\u2014Converts the data to unsigned binary. 1 offset binary (default)\u2014The largest negative full-scale value is represented by all zeros, and the largest positive full-scale value is represented by all ones. Zero-scale is represented by a one (MSB) followed by all zeros, for example, binary 1000. 2 2's complement\u2014Uses two's complement format, which is a common format for represe",
           "default_value": null,
           "enum_values": [
@@ -161,8 +133,6 @@
         },
         {
           "name": "digital waveform",
-          "direction": "in",
-          "type": null,
           "description": "Functions",
           "default_value": null,
           "enum_values": null,
@@ -182,8 +152,6 @@
       "terminals": [
         {
           "name": "compress digital (T)",
-          "direction": "in",
-          "type": "Boolean",
           "description": "compress digital specifies whether to compress the digital waveform or digital data. The default is TRUE.",
           "default_value": "TRUE",
           "enum_values": null,
@@ -191,8 +159,6 @@
         },
         {
           "name": "analog waveform",
-          "direction": "in",
-          "type": null,
           "description": "analog waveform is the waveform you want to convert to digital waveform or digital data.",
           "default_value": null,
           "enum_values": null,
@@ -200,8 +166,6 @@
         },
         {
           "name": "resolution (16 bit)",
-          "direction": "in",
-          "type": "I32",
           "description": "resolution specifies the number of bits represented in the digital waveform or digital data.",
           "default_value": null,
           "enum_values": null,
@@ -209,8 +173,6 @@
         },
         {
           "name": "full-scale range (pk-pk)",
-          "direction": "in",
-          "type": null,
           "description": "full-scale range (pk-pk) specifies the total peak-to-peak range, or the difference between the minimum and maximum, for the digital waveform or digital data. For example, if the maximum range of a waveform is 1 and the minimum is \u20131, the full-scale range for the waveform is 2. The default is 2.",
           "default_value": "2",
           "enum_values": null,
@@ -218,8 +180,6 @@
         },
         {
           "name": "error in (no error)",
-          "direction": "in",
-          "type": null,
           "description": "error in describes error conditions that occur before this node runs. With the following exception, this input provides standard error in functionality. If an error occurred before this node runs, this node outputs an empty waveform.",
           "default_value": null,
           "enum_values": null,
@@ -227,8 +187,6 @@
         },
         {
           "name": "data format (offset binary)",
-          "direction": "in",
-          "type": null,
           "description": "data format specifies which binary representation you want to use for the digital waveform or digital data. 0 unsigned binary\u2014Converts the data to unsigned binary. 1 offset binary (default)\u2014The largest negative full-scale value is represented by all zeros, and the largest positive full-scale value is represented by all ones. Zero-scale is represented by a one (MSB) followed by all zeros, for example, binary 1000. 2 2's complement\u2014Uses two's complement format, which is a common format for represe",
           "default_value": null,
           "enum_values": [
@@ -245,8 +203,6 @@
         },
         {
           "name": "digital waveform",
-          "direction": "in",
-          "type": null,
           "description": "Functions",
           "default_value": null,
           "enum_values": null,
@@ -266,8 +222,6 @@
       "terminals": [
         {
           "name": "compress digital (T)",
-          "direction": "in",
-          "type": "Boolean",
           "description": "compress digital specifies whether to compress the digital waveform or digital data. The default is TRUE.",
           "default_value": "TRUE",
           "enum_values": null,
@@ -275,8 +229,6 @@
         },
         {
           "name": "analog waveform",
-          "direction": "in",
-          "type": null,
           "description": "analog waveform is the waveform you want to convert to digital waveform or digital data. Functions \u00a9 National Instruments 809",
           "default_value": null,
           "enum_values": null,
@@ -284,8 +236,6 @@
         },
         {
           "name": "resolution (16 bit)",
-          "direction": "in",
-          "type": "I32",
           "description": "resolution specifies the number of bits represented in the digital waveform or digital data.",
           "default_value": null,
           "enum_values": null,
@@ -293,8 +243,6 @@
         },
         {
           "name": "full scale range (pk-pk)",
-          "direction": "in",
-          "type": null,
           "description": "full-scale range (pk-pk) specifies the total peak-to-peak range, or the difference between the minimum and maximum, for the digital waveform or digital data. For example, if the maximum range of a waveform is 1 and the minimum is \u20131, the full-scale range for the waveform is 2. The default is 2.",
           "default_value": "2",
           "enum_values": null,
@@ -302,8 +250,6 @@
         },
         {
           "name": "error in (no error)",
-          "direction": "in",
-          "type": null,
           "description": "error in describes error conditions that occur before this node runs. With the following exception, this input provides standard error in functionality. If an error occurred before this node runs, this node outputs an empty waveform.",
           "default_value": null,
           "enum_values": null,
@@ -311,8 +257,6 @@
         },
         {
           "name": "data format (offset binary)",
-          "direction": "in",
-          "type": null,
           "description": "data format specifies which binary representation you want to use for the digital waveform or digital data. 0 unsigned binary\u2014Converts the data to unsigned binary. 1 offset binary (default)\u2014The largest negative full-scale value is represented by all zeros, and the largest positive full-scale value is represented by all ones. Zero-scale is represented by a one (MSB) followed by all zeros, for example, binary 1000. 2 2's complement\u2014Uses two's complement format, which is a common format for represe",
           "default_value": null,
           "enum_values": [
@@ -329,8 +273,6 @@
         },
         {
           "name": "digital data",
-          "direction": "out",
-          "type": null,
           "description": "digital data returns the data resulting from the conversion of analog waveform.",
           "default_value": null,
           "enum_values": null,
@@ -338,8 +280,6 @@
         },
         {
           "name": "resolution (out)",
-          "direction": "out",
-          "type": "I32",
           "description": "resolution (out) returns the number of bits represented in the digital waveform or digital data.",
           "default_value": null,
           "enum_values": null,
@@ -347,8 +287,6 @@
         },
         {
           "name": "full-scale range (out)",
-          "direction": "out",
-          "type": null,
           "description": "full-scale range (out) returns the total peak-to-peak range for the digital waveform or digital data.",
           "default_value": null,
           "enum_values": null,
@@ -356,8 +294,6 @@
         },
         {
           "name": "error out",
-          "direction": "in",
-          "type": null,
           "description": "Functions 810 ni.com error out contains error information. This output provides standard error out functionality. To create digital data from an analog waveform or to graph an analog signal in a digital waveform graph, you must convert the raw analog data into digital data or the digital waveform data type. Use the Analog to Digital VI to convert the data to digital waveform. Use the Get Waveform Components function to extract the digital data from the digital waveform. The block diagram below s",
           "default_value": null,
           "enum_values": null,
@@ -377,8 +313,6 @@
       "terminals": [
         {
           "name": "digital waveform",
-          "direction": "in",
-          "type": null,
           "description": "digital waveform is the waveform you want to convert to analog waveform.",
           "default_value": null,
           "enum_values": null,
@@ -386,8 +320,6 @@
         },
         {
           "name": "full-scale range (pk-pk)",
-          "direction": "in",
-          "type": null,
           "description": "full-scale range (pk-pk) specifies the total peak-to-peak range, or the difference between the minimum and maximum, for the digital waveform or digital data. For example, if the maximum range of a waveform is 1 and the minimum is \u20131, the full-scale range for the waveform is 2. The default is 2.",
           "default_value": "2",
           "enum_values": null,
@@ -395,8 +327,6 @@
         },
         {
           "name": "error in (no error)",
-          "direction": "in",
-          "type": null,
           "description": "error in describes error conditions that occur before this node runs. With the following exception, this input provides standard error in functionality. If an error occurred before this node runs, this node outputs an empty waveform.",
           "default_value": null,
           "enum_values": null,
@@ -404,8 +334,6 @@
         },
         {
           "name": "data format (offset binary)",
-          "direction": "in",
-          "type": null,
           "description": "data format specifies which binary representation you want to use for the digital waveform or digital data. Functions 812 ni.com 0 unsigned binary\u2014Converts the data to unsigned binary. 1 offset binary (default)\u2014The largest negative full-scale value is represented by all zeros, and the largest positive full-scale value is represented by all ones. Zero-scale is represented by a one (MSB) followed by all zeros, for example, binary 1000. 2 2's complement\u2014Uses two's complement format, which is a comm",
           "default_value": null,
           "enum_values": null,
@@ -413,8 +341,6 @@
         },
         {
           "name": "analog waveform",
-          "direction": "out",
-          "type": null,
           "description": "analog waveform returns the waveform resulting from the conversion of digital waveform or digital table.",
           "default_value": null,
           "enum_values": null,
@@ -422,8 +348,6 @@
         },
         {
           "name": "resolution (out)",
-          "direction": "out",
-          "type": "I32",
           "description": "resolution (out) returns the number of bits represented in the digital waveform or digital data.",
           "default_value": null,
           "enum_values": null,
@@ -431,8 +355,6 @@
         },
         {
           "name": "full-scale range (out)",
-          "direction": "out",
-          "type": null,
           "description": "full-scale range (out) returns the total peak-to-peak range for the digital waveform or digital data.",
           "default_value": null,
           "enum_values": null,
@@ -440,8 +362,6 @@
         },
         {
           "name": "error out",
-          "direction": "in",
-          "type": null,
           "description": "error out contains error information. This output provides standard error out functionality.",
           "default_value": null,
           "enum_values": null,
@@ -461,8 +381,6 @@
       "terminals": [
         {
           "name": "digital waveform",
-          "direction": "in",
-          "type": null,
           "description": "digital waveform is the waveform you want to convert to analog waveform.",
           "default_value": null,
           "enum_values": null,
@@ -470,8 +388,6 @@
         },
         {
           "name": "full-scale range (pk-pk)",
-          "direction": "in",
-          "type": null,
           "description": "full-scale range (pk-pk) specifies the total peak-to-peak range, or the difference between the minimum and maximum, for the digital waveform or digital data. For example, if the maximum range of a waveform is 1 and the minimum is \u20131, the full-scale range for the waveform is 2. The default is 2.",
           "default_value": "2",
           "enum_values": null,
@@ -479,8 +395,6 @@
         },
         {
           "name": "error in (no error)",
-          "direction": "in",
-          "type": null,
           "description": "error in describes error conditions that occur before this node runs. With the following exception, this input provides standard error in functionality. If an error occurred before this node runs, this node outputs an empty waveform.",
           "default_value": null,
           "enum_values": null,
@@ -488,8 +402,6 @@
         },
         {
           "name": "data format (offset binary)",
-          "direction": "in",
-          "type": null,
           "description": "data format specifies which binary representation you want to use for the digital waveform or digital data. Functions 812 ni.com 0 unsigned binary\u2014Converts the data to unsigned binary. 1 offset binary (default)\u2014The largest negative full-scale value is represented by all zeros, and the largest positive full-scale value is represented by all ones. Zero-scale is represented by a one (MSB) followed by all zeros, for example, binary 1000. 2 2's complement\u2014Uses two's complement format, which is a comm",
           "default_value": null,
           "enum_values": null,
@@ -497,8 +409,6 @@
         },
         {
           "name": "analog waveform",
-          "direction": "out",
-          "type": null,
           "description": "analog waveform returns the waveform resulting from the conversion of digital waveform or digital table.",
           "default_value": null,
           "enum_values": null,
@@ -506,8 +416,6 @@
         },
         {
           "name": "resolution (out)",
-          "direction": "out",
-          "type": "I32",
           "description": "resolution (out) returns the number of bits represented in the digital waveform or digital data.",
           "default_value": null,
           "enum_values": null,
@@ -515,8 +423,6 @@
         },
         {
           "name": "full-scale range (out)",
-          "direction": "out",
-          "type": null,
           "description": "full-scale range (out) returns the total peak-to-peak range for the digital waveform or digital data.",
           "default_value": null,
           "enum_values": null,
@@ -524,8 +430,6 @@
         },
         {
           "name": "error out",
-          "direction": "in",
-          "type": null,
           "description": "error out contains error information. This output provides standard error out functionality.",
           "default_value": null,
           "enum_values": null,
@@ -545,8 +449,6 @@
       "terminals": [
         {
           "name": "digital table",
-          "direction": "in",
-          "type": null,
           "description": "digital table is the digital data you want to convert to analog waveform. Functions \u00a9 National Instruments 813",
           "default_value": null,
           "enum_values": null,
@@ -554,8 +456,6 @@
         },
         {
           "name": "full-scale range (pk-pk)",
-          "direction": "in",
-          "type": null,
           "description": "full-scale range (pk-pk) specifies the total peak-to-peak range, or the difference between the minimum and maximum, for the digital waveform or digital data. For example, if the maximum range of a waveform is 1 and the minimum is \u20131, the full-scale range for the waveform is 2. The default is 2.",
           "default_value": "2",
           "enum_values": null,
@@ -563,8 +463,6 @@
         },
         {
           "name": "error in (no error)",
-          "direction": "in",
-          "type": null,
           "description": "error in describes error conditions that occur before this node runs. With the following exception, this input provides standard error in functionality. If an error occurred before this node runs, this node outputs an empty waveform.",
           "default_value": null,
           "enum_values": null,
@@ -572,8 +470,6 @@
         },
         {
           "name": "data format (offset binary)",
-          "direction": "in",
-          "type": null,
           "description": "data format specifies which binary representation you want to use for the digital waveform or digital data. 0 unsigned binary\u2014Converts the data to unsigned binary. 1 offset binary (default)\u2014The largest negative full-scale value is represented by all zeros, and the largest positive full-scale value is represented by all ones. Zero-scale is represented by a one (MSB) followed by all zeros, for example, binary 1000. 2 2's complement\u2014Uses two's complement format, which is a common format for represe",
           "default_value": null,
           "enum_values": [
@@ -590,8 +486,6 @@
         },
         {
           "name": "analog waveform",
-          "direction": "out",
-          "type": null,
           "description": "analog waveform returns the waveform resulting from the conversion of digital waveform or digital table.",
           "default_value": null,
           "enum_values": null,
@@ -599,8 +493,6 @@
         },
         {
           "name": "resolution (out)",
-          "direction": "out",
-          "type": "I32",
           "description": "resolution (out) returns the number of bits represented in the digital waveform or digital data.",
           "default_value": null,
           "enum_values": null,
@@ -608,8 +500,6 @@
         },
         {
           "name": "full-scale range (out)",
-          "direction": "out",
-          "type": null,
           "description": "full-scale range (out) returns the total peak-to-peak range for the digital waveform or digital data.",
           "default_value": null,
           "enum_values": null,
@@ -617,8 +507,6 @@
         },
         {
           "name": "error out",
-          "direction": "in",
-          "type": null,
           "description": "error out contains error information. This output provides standard error out functionality. Functions 814 ni.com",
           "default_value": null,
           "enum_values": null,
@@ -638,8 +526,6 @@
       "terminals": [
         {
           "name": "waveform array",
-          "direction": "in",
-          "type": "Array",
           "description": "waveform array is an array of analog waveforms from which to extract a single waveform.",
           "default_value": null,
           "enum_values": null,
@@ -647,8 +533,6 @@
         },
         {
           "name": "index",
-          "direction": "in",
-          "type": "I32",
           "description": "index is the index of the waveform to extract from waveform array.",
           "default_value": null,
           "enum_values": null,
@@ -656,8 +540,6 @@
         },
         {
           "name": "error in (no error)",
-          "direction": "in",
-          "type": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
           "default_value": null,
           "enum_values": null,
@@ -665,8 +547,6 @@
         },
         {
           "name": "waveform",
-          "direction": "in",
-          "type": null,
           "description": "waveform is the analog waveform selected from the array of waveforms.",
           "default_value": null,
           "enum_values": null,
@@ -674,8 +554,6 @@
         },
         {
           "name": "error out",
-          "direction": "in",
-          "type": null,
           "description": "error out contains error information. This output provides standard error out functionality. Examples Refer to the following example files included with LabVIEW.",
           "default_value": null,
           "enum_values": null,
@@ -683,8 +561,6 @@
         },
         {
           "name": "labview\\examples\\Waveform\\Waveform - Index Array.vi",
-          "direction": "in",
-          "type": null,
           "description": "",
           "default_value": null,
           "enum_values": null,
@@ -704,8 +580,6 @@
       "terminals": [
         {
           "name": "waveform array",
-          "direction": "in",
-          "type": "Array",
           "description": "waveform array is an array of analog waveforms from which to extract a single waveform.",
           "default_value": null,
           "enum_values": null,
@@ -713,8 +587,6 @@
         },
         {
           "name": "index",
-          "direction": "in",
-          "type": "I32",
           "description": "index is the index of the waveform to extract from waveform array.",
           "default_value": null,
           "enum_values": null,
@@ -722,8 +594,6 @@
         },
         {
           "name": "error in (no error)",
-          "direction": "in",
-          "type": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
           "default_value": null,
           "enum_values": null,
@@ -731,8 +601,6 @@
         },
         {
           "name": "waveform",
-          "direction": "in",
-          "type": null,
           "description": "waveform is the analog waveform selected from the array of waveforms.",
           "default_value": null,
           "enum_values": null,
@@ -740,8 +608,6 @@
         },
         {
           "name": "error out",
-          "direction": "in",
-          "type": null,
           "description": "error out contains error information. This output provides standard error out functionality. Examples Refer to the following example files included with LabVIEW.",
           "default_value": null,
           "enum_values": null,
@@ -749,8 +615,6 @@
         },
         {
           "name": "labview\\examples\\Waveform\\Waveform - Index Array.vi",
-          "direction": "in",
-          "type": null,
           "description": "",
           "default_value": null,
           "enum_values": null,
@@ -770,8 +634,6 @@
       "terminals": [
         {
           "name": "waveform array",
-          "direction": "in",
-          "type": "Array",
           "description": "waveform array is an array of analog waveforms from which to extract a single waveform.",
           "default_value": null,
           "enum_values": null,
@@ -779,8 +641,6 @@
         },
         {
           "name": "index",
-          "direction": "in",
-          "type": "I32",
           "description": "index is the index of the waveform to extract from waveform array.",
           "default_value": null,
           "enum_values": null,
@@ -788,8 +648,6 @@
         },
         {
           "name": "error in (no error)",
-          "direction": "in",
-          "type": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
           "default_value": null,
           "enum_values": null,
@@ -797,8 +655,6 @@
         },
         {
           "name": "waveform",
-          "direction": "in",
-          "type": null,
           "description": "waveform is the analog waveform selected from the array of waveforms.",
           "default_value": null,
           "enum_values": null,
@@ -806,8 +662,6 @@
         },
         {
           "name": "error out",
-          "direction": "in",
-          "type": null,
           "description": "error out contains error information. This output provides standard error out functionality. Examples Refer to the following example files included with LabVIEW.",
           "default_value": null,
           "enum_values": null,
@@ -815,8 +669,6 @@
         },
         {
           "name": "labview\\examples\\Waveform\\Waveform - Index Array.vi",
-          "direction": "in",
-          "type": null,
           "description": "",
           "default_value": null,
           "enum_values": null,
@@ -836,8 +688,6 @@
       "terminals": [
         {
           "name": "waveform array",
-          "direction": "in",
-          "type": "Array",
           "description": "waveform array is an array of analog waveforms from which to extract a single waveform.",
           "default_value": null,
           "enum_values": null,
@@ -845,8 +695,6 @@
         },
         {
           "name": "index",
-          "direction": "in",
-          "type": "I32",
           "description": "index is the index of the waveform to extract from waveform array.",
           "default_value": null,
           "enum_values": null,
@@ -854,8 +702,6 @@
         },
         {
           "name": "error in (no error)",
-          "direction": "in",
-          "type": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
           "default_value": null,
           "enum_values": null,
@@ -863,8 +709,6 @@
         },
         {
           "name": "waveform",
-          "direction": "in",
-          "type": null,
           "description": "waveform is the analog waveform selected from the array of waveforms.",
           "default_value": null,
           "enum_values": null,
@@ -872,8 +716,6 @@
         },
         {
           "name": "error out",
-          "direction": "in",
-          "type": null,
           "description": "error out contains error information. This output provides standard error out functionality. Examples Refer to the following example files included with LabVIEW.",
           "default_value": null,
           "enum_values": null,
@@ -881,8 +723,6 @@
         },
         {
           "name": "labview\\examples\\Waveform\\Waveform - Index Array.vi",
-          "direction": "in",
-          "type": null,
           "description": "",
           "default_value": null,
           "enum_values": null,
@@ -902,8 +742,6 @@
       "terminals": [
         {
           "name": "waveform array",
-          "direction": "in",
-          "type": "Array",
           "description": "waveform array is an array of analog waveforms from which to extract a single waveform.",
           "default_value": null,
           "enum_values": null,
@@ -911,8 +749,6 @@
         },
         {
           "name": "index",
-          "direction": "in",
-          "type": "I32",
           "description": "index is the index of the waveform to extract from waveform array.",
           "default_value": null,
           "enum_values": null,
@@ -920,8 +756,6 @@
         },
         {
           "name": "error in (no error)",
-          "direction": "in",
-          "type": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
           "default_value": null,
           "enum_values": null,
@@ -929,8 +763,6 @@
         },
         {
           "name": "waveform",
-          "direction": "in",
-          "type": null,
           "description": "waveform is the analog waveform selected from the array of waveforms.",
           "default_value": null,
           "enum_values": null,
@@ -938,8 +770,6 @@
         },
         {
           "name": "error out",
-          "direction": "in",
-          "type": null,
           "description": "error out contains error information. This output provides standard error out functionality. Examples Refer to the following example files included with LabVIEW.",
           "default_value": null,
           "enum_values": null,
@@ -947,8 +777,6 @@
         },
         {
           "name": "labview\\examples\\Waveform\\Waveform - Index Array.vi",
-          "direction": "in",
-          "type": null,
           "description": "",
           "default_value": null,
           "enum_values": null,
@@ -968,8 +796,6 @@
       "terminals": [
         {
           "name": "waveform array",
-          "direction": "in",
-          "type": "Array",
           "description": "waveform array is an array of analog waveforms from which to extract a single waveform.",
           "default_value": null,
           "enum_values": null,
@@ -977,8 +803,6 @@
         },
         {
           "name": "index",
-          "direction": "in",
-          "type": "I32",
           "description": "index is the index of the waveform to extract from waveform array.",
           "default_value": null,
           "enum_values": null,
@@ -986,8 +810,6 @@
         },
         {
           "name": "error in (no error)",
-          "direction": "in",
-          "type": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
           "default_value": null,
           "enum_values": null,
@@ -995,8 +817,6 @@
         },
         {
           "name": "waveform",
-          "direction": "in",
-          "type": null,
           "description": "waveform is the analog waveform selected from the array of waveforms.",
           "default_value": null,
           "enum_values": null,
@@ -1004,8 +824,6 @@
         },
         {
           "name": "error out",
-          "direction": "in",
-          "type": null,
           "description": "error out contains error information. This output provides standard error out functionality. Examples Refer to the following example files included with LabVIEW.",
           "default_value": null,
           "enum_values": null,
@@ -1013,8 +831,6 @@
         },
         {
           "name": "labview\\examples\\Waveform\\Waveform - Index Array.vi",
-          "direction": "in",
-          "type": null,
           "description": "",
           "default_value": null,
           "enum_values": null,
@@ -1034,8 +850,6 @@
       "terminals": [
         {
           "name": "waveform array",
-          "direction": "in",
-          "type": "Array",
           "description": "waveform array is an array of analog waveforms from which to extract a single waveform.",
           "default_value": null,
           "enum_values": null,
@@ -1043,8 +857,6 @@
         },
         {
           "name": "channel name",
-          "direction": "in",
-          "type": null,
           "description": "channel name is the channel name of the waveform to extract from waveform array. To use this input, the waveform must have a channel name attribute. If you are using a virtual channel, you do not have to set the channel name attribute manually.",
           "default_value": null,
           "enum_values": null,
@@ -1052,8 +864,6 @@
         },
         {
           "name": "error in (no error)",
-          "direction": "in",
-          "type": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
           "default_value": null,
           "enum_values": null,
@@ -1061,8 +871,6 @@
         },
         {
           "name": "waveform",
-          "direction": "in",
-          "type": null,
           "description": "waveform is the analog waveform selected from the array of waveforms.",
           "default_value": null,
           "enum_values": null,
@@ -1070,8 +878,6 @@
         },
         {
           "name": "error out",
-          "direction": "in",
-          "type": null,
           "description": "error out contains error information. This output provides standard error out functionality. Examples Refer to the following example files included with LabVIEW.",
           "default_value": null,
           "enum_values": null,
@@ -1079,8 +885,6 @@
         },
         {
           "name": "labview\\examples\\Waveform\\Waveform - Index Array.vi",
-          "direction": "in",
-          "type": null,
           "description": "",
           "default_value": null,
           "enum_values": null,
@@ -1100,8 +904,6 @@
       "terminals": [
         {
           "name": "waveform array",
-          "direction": "in",
-          "type": "Array",
           "description": "waveform array is an array of analog waveforms from which to extract a single waveform.",
           "default_value": null,
           "enum_values": null,
@@ -1109,8 +911,6 @@
         },
         {
           "name": "channel name",
-          "direction": "in",
-          "type": null,
           "description": "channel name is the channel name of the waveform to extract from waveform array. To use this input, the waveform must have a channel name attribute. If you are using a virtual channel, you do not have to set the channel name attribute manually.",
           "default_value": null,
           "enum_values": null,
@@ -1118,8 +918,6 @@
         },
         {
           "name": "error in (no error)",
-          "direction": "in",
-          "type": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
           "default_value": null,
           "enum_values": null,
@@ -1127,8 +925,6 @@
         },
         {
           "name": "waveform",
-          "direction": "in",
-          "type": null,
           "description": "waveform is the analog waveform selected from the array of waveforms.",
           "default_value": null,
           "enum_values": null,
@@ -1136,8 +932,6 @@
         },
         {
           "name": "error out",
-          "direction": "in",
-          "type": null,
           "description": "error out contains error information. This output provides standard error out functionality. Examples Refer to the following example files included with LabVIEW.",
           "default_value": null,
           "enum_values": null,
@@ -1145,8 +939,6 @@
         },
         {
           "name": "labview\\examples\\Waveform\\Waveform - Index Array.vi",
-          "direction": "in",
-          "type": null,
           "description": "",
           "default_value": null,
           "enum_values": null,
@@ -1166,8 +958,6 @@
       "terminals": [
         {
           "name": "waveform array",
-          "direction": "in",
-          "type": "Array",
           "description": "waveform array is an array of analog waveforms from which to extract a single waveform.",
           "default_value": null,
           "enum_values": null,
@@ -1175,8 +965,6 @@
         },
         {
           "name": "channel name",
-          "direction": "in",
-          "type": null,
           "description": "channel name is the channel name of the waveform to extract from waveform array. To use this input, the waveform must have a channel name attribute. If you are using a virtual channel, you do not have to set the channel name attribute manually.",
           "default_value": null,
           "enum_values": null,
@@ -1184,8 +972,6 @@
         },
         {
           "name": "error in (no error)",
-          "direction": "in",
-          "type": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
           "default_value": null,
           "enum_values": null,
@@ -1193,8 +979,6 @@
         },
         {
           "name": "waveform",
-          "direction": "in",
-          "type": null,
           "description": "waveform is the analog waveform selected from the array of waveforms.",
           "default_value": null,
           "enum_values": null,
@@ -1202,8 +986,6 @@
         },
         {
           "name": "error out",
-          "direction": "in",
-          "type": null,
           "description": "error out contains error information. This output provides standard error out functionality. Examples Refer to the following example files included with LabVIEW.",
           "default_value": null,
           "enum_values": null,
@@ -1211,8 +993,6 @@
         },
         {
           "name": "labview\\examples\\Waveform\\Waveform - Index Array.vi",
-          "direction": "in",
-          "type": null,
           "description": "",
           "default_value": null,
           "enum_values": null,
@@ -1232,8 +1012,6 @@
       "terminals": [
         {
           "name": "waveform array",
-          "direction": "in",
-          "type": "Array",
           "description": "waveform array is an array of analog waveforms from which to extract a single waveform.",
           "default_value": null,
           "enum_values": null,
@@ -1241,8 +1019,6 @@
         },
         {
           "name": "channel name",
-          "direction": "in",
-          "type": null,
           "description": "channel name is the channel name of the waveform to extract from waveform array. To use this input, the waveform must have a channel name attribute. If you are using a virtual channel, you do not have to set the channel name attribute manually.",
           "default_value": null,
           "enum_values": null,
@@ -1250,8 +1026,6 @@
         },
         {
           "name": "error in (no error)",
-          "direction": "in",
-          "type": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
           "default_value": null,
           "enum_values": null,
@@ -1259,8 +1033,6 @@
         },
         {
           "name": "waveform",
-          "direction": "in",
-          "type": null,
           "description": "waveform is the analog waveform selected from the array of waveforms.",
           "default_value": null,
           "enum_values": null,
@@ -1268,8 +1040,6 @@
         },
         {
           "name": "error out",
-          "direction": "in",
-          "type": null,
           "description": "error out contains error information. This output provides standard error out functionality. Examples Refer to the following example files included with LabVIEW.",
           "default_value": null,
           "enum_values": null,
@@ -1277,8 +1047,6 @@
         },
         {
           "name": "labview\\examples\\Waveform\\Waveform - Index Array.vi",
-          "direction": "in",
-          "type": null,
           "description": "",
           "default_value": null,
           "enum_values": null,
@@ -1298,8 +1066,6 @@
       "terminals": [
         {
           "name": "waveform array",
-          "direction": "in",
-          "type": "Array",
           "description": "waveform array is an array of analog waveforms from which to extract a single waveform.",
           "default_value": null,
           "enum_values": null,
@@ -1307,8 +1073,6 @@
         },
         {
           "name": "channel name",
-          "direction": "in",
-          "type": null,
           "description": "channel name is the channel name of the waveform to extract from waveform array. To use this input, the waveform must have a channel name attribute. If you are using a virtual channel, you do not have to set the channel name attribute manually.",
           "default_value": null,
           "enum_values": null,
@@ -1316,8 +1080,6 @@
         },
         {
           "name": "error in (no error)",
-          "direction": "in",
-          "type": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
           "default_value": null,
           "enum_values": null,
@@ -1325,8 +1087,6 @@
         },
         {
           "name": "waveform",
-          "direction": "in",
-          "type": null,
           "description": "waveform is the analog waveform selected from the array of waveforms.",
           "default_value": null,
           "enum_values": null,
@@ -1334,8 +1094,6 @@
         },
         {
           "name": "error out",
-          "direction": "in",
-          "type": null,
           "description": "error out contains error information. This output provides standard error out functionality. Examples Refer to the following example files included with LabVIEW. Functions",
           "default_value": null,
           "enum_values": null,
@@ -1355,8 +1113,6 @@
       "terminals": [
         {
           "name": "waveform array",
-          "direction": "in",
-          "type": "Array",
           "description": "waveform array is an array of digital waveforms from which to extract a single digital waveform.",
           "default_value": null,
           "enum_values": null,
@@ -1364,8 +1120,6 @@
         },
         {
           "name": "index",
-          "direction": "in",
-          "type": "I32",
           "description": "index is the index of the waveform to extract from waveform array.",
           "default_value": null,
           "enum_values": null,
@@ -1373,8 +1127,6 @@
         },
         {
           "name": "error in (no error)",
-          "direction": "in",
-          "type": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
           "default_value": null,
           "enum_values": null,
@@ -1382,8 +1134,6 @@
         },
         {
           "name": "waveform",
-          "direction": "in",
-          "type": null,
           "description": "waveform is the digital waveform selected from the array of digital waveforms.",
           "default_value": null,
           "enum_values": null,
@@ -1391,8 +1141,6 @@
         },
         {
           "name": "error out",
-          "direction": "in",
-          "type": null,
           "description": "error out contains error information. This output provides standard error out functionality. Examples Refer to the following example files included with LabVIEW.",
           "default_value": null,
           "enum_values": null,
@@ -1400,8 +1148,6 @@
         },
         {
           "name": "labview\\examples\\Waveform\\Waveform - Index Array.vi",
-          "direction": "in",
-          "type": null,
           "description": "",
           "default_value": null,
           "enum_values": null,
@@ -1421,8 +1167,6 @@
       "terminals": [
         {
           "name": "waveform array",
-          "direction": "in",
-          "type": "Array",
           "description": "waveform array is an array of digital waveforms from which to extract a single digital waveform.",
           "default_value": null,
           "enum_values": null,
@@ -1430,8 +1174,6 @@
         },
         {
           "name": "channel name",
-          "direction": "in",
-          "type": null,
           "description": "channel name is the channel name of the waveform to extract from waveform array. To use this input, the waveform must have a channel name attribute. If you are using a virtual channel, you do not have to set the channel name attribute manually.",
           "default_value": null,
           "enum_values": null,
@@ -1439,8 +1181,6 @@
         },
         {
           "name": "error in (no error)",
-          "direction": "in",
-          "type": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
           "default_value": null,
           "enum_values": null,
@@ -1448,8 +1188,6 @@
         },
         {
           "name": "waveform",
-          "direction": "in",
-          "type": null,
           "description": "waveform is the digital waveform selected from the array of digital waveforms.",
           "default_value": null,
           "enum_values": null,
@@ -1457,8 +1195,6 @@
         },
         {
           "name": "error out",
-          "direction": "in",
-          "type": null,
           "description": "error out contains error information. This output provides standard error out functionality. Examples Refer to the following example files included with LabVIEW. Functions",
           "default_value": null,
           "enum_values": null,
@@ -1478,8 +1214,6 @@
       "terminals": [
         {
           "name": "waveforms in",
-          "direction": "in",
-          "type": "I32",
           "description": "waveforms in contains the analog waveforms for which the time increment values are replaced by the time increment of the analog waveform indicated by index. The default is empty.",
           "default_value": "empty",
           "enum_values": null,
@@ -1487,8 +1221,6 @@
         },
         {
           "name": "index",
-          "direction": "in",
-          "type": "I32",
           "description": "Functions 828 ni.com index is the specifier that the waveform in the waveforms in array uses for the dt value. The default is 0.",
           "default_value": "0",
           "enum_values": null,
@@ -1496,8 +1228,6 @@
         },
         {
           "name": "error in (no error)",
-          "direction": "in",
-          "type": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
           "default_value": null,
           "enum_values": null,
@@ -1505,8 +1235,6 @@
         },
         {
           "name": "waveforms out",
-          "direction": "in",
-          "type": null,
           "description": "waveforms out contains analog waveforms for which the dt values are all identical.",
           "default_value": null,
           "enum_values": null,
@@ -1514,8 +1242,6 @@
         },
         {
           "name": "error out",
-          "direction": "in",
-          "type": null,
           "description": "error out contains error information. This output provides standard error out functionality.",
           "default_value": null,
           "enum_values": null,
@@ -1535,8 +1261,6 @@
       "terminals": [
         {
           "name": "waveforms in",
-          "direction": "in",
-          "type": "I32",
           "description": "waveforms in contains the analog waveforms for which the time increment values are replaced by the time increment of the analog waveform indicated by index. The default is empty.",
           "default_value": "empty",
           "enum_values": null,
@@ -1544,8 +1268,6 @@
         },
         {
           "name": "index",
-          "direction": "in",
-          "type": "I32",
           "description": "Functions 828 ni.com index is the specifier that the waveform in the waveforms in array uses for the dt value. The default is 0.",
           "default_value": "0",
           "enum_values": null,
@@ -1553,8 +1275,6 @@
         },
         {
           "name": "error in (no error)",
-          "direction": "in",
-          "type": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
           "default_value": null,
           "enum_values": null,
@@ -1562,8 +1282,6 @@
         },
         {
           "name": "waveforms out",
-          "direction": "in",
-          "type": null,
           "description": "waveforms out contains analog waveforms for which the dt values are all identical.",
           "default_value": null,
           "enum_values": null,
@@ -1571,8 +1289,6 @@
         },
         {
           "name": "error out",
-          "direction": "in",
-          "type": null,
           "description": "error out contains error information. This output provides standard error out functionality.",
           "default_value": null,
           "enum_values": null,
@@ -1592,8 +1308,6 @@
       "terminals": [
         {
           "name": "waveforms in",
-          "direction": "in",
-          "type": "I32",
           "description": "waveforms in contains the analog waveforms for which the time increment values are replaced by the time increment of the analog waveform indicated by index. The default is empty.",
           "default_value": "empty",
           "enum_values": null,
@@ -1601,8 +1315,6 @@
         },
         {
           "name": "index",
-          "direction": "in",
-          "type": "I32",
           "description": "index is the specifier that the waveform in the waveforms in array uses for the dt value. The default is 0.",
           "default_value": "0",
           "enum_values": null,
@@ -1610,8 +1322,6 @@
         },
         {
           "name": "error in (no error)",
-          "direction": "in",
-          "type": null,
           "description": "Functions \u00a9 National Instruments 829 error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
           "default_value": null,
           "enum_values": null,
@@ -1619,8 +1329,6 @@
         },
         {
           "name": "waveforms out",
-          "direction": "in",
-          "type": null,
           "description": "waveforms out contains analog waveforms for which the dt values are all identical.",
           "default_value": null,
           "enum_values": null,
@@ -1628,8 +1336,6 @@
         },
         {
           "name": "error out",
-          "direction": "in",
-          "type": null,
           "description": "error out contains error information. This output provides standard error out functionality.",
           "default_value": null,
           "enum_values": null,
@@ -1649,8 +1355,6 @@
       "terminals": [
         {
           "name": "waveforms in",
-          "direction": "in",
-          "type": "I32",
           "description": "waveforms in contains the analog waveforms for which the time increment values are replaced by the time increment of the analog waveform indicated by index. The default is empty.",
           "default_value": "empty",
           "enum_values": null,
@@ -1658,8 +1362,6 @@
         },
         {
           "name": "index",
-          "direction": "in",
-          "type": "I32",
           "description": "index is the specifier that the waveform in the waveforms in array uses for the dt value. The default is 0.",
           "default_value": "0",
           "enum_values": null,
@@ -1667,8 +1369,6 @@
         },
         {
           "name": "error in (no error)",
-          "direction": "in",
-          "type": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
           "default_value": null,
           "enum_values": null,
@@ -1676,8 +1376,6 @@
         },
         {
           "name": "waveforms out",
-          "direction": "in",
-          "type": null,
           "description": "Functions 830 ni.com waveforms out contains analog waveforms for which the dt values are all identical.",
           "default_value": null,
           "enum_values": null,
@@ -1685,8 +1383,6 @@
         },
         {
           "name": "error out",
-          "direction": "in",
-          "type": null,
           "description": "error out contains error information. This output provides standard error out functionality.",
           "default_value": null,
           "enum_values": null,
@@ -1706,8 +1402,6 @@
       "terminals": [
         {
           "name": "waveforms in",
-          "direction": "in",
-          "type": "I32",
           "description": "waveforms in contains the analog waveforms for which the time increment values are replaced by the time increment of the analog waveform indicated by index. The default is empty.",
           "default_value": "empty",
           "enum_values": null,
@@ -1715,8 +1409,6 @@
         },
         {
           "name": "index",
-          "direction": "in",
-          "type": "I32",
           "description": "index is the specifier that the waveform in the waveforms in array uses for the dt value. The default is 0.",
           "default_value": "0",
           "enum_values": null,
@@ -1724,8 +1416,6 @@
         },
         {
           "name": "error in (no error)",
-          "direction": "in",
-          "type": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
           "default_value": null,
           "enum_values": null,
@@ -1733,8 +1423,6 @@
         },
         {
           "name": "waveforms out",
-          "direction": "in",
-          "type": null,
           "description": "waveforms out contains analog waveforms for which the dt values are all identical.",
           "default_value": null,
           "enum_values": null,
@@ -1742,8 +1430,6 @@
         },
         {
           "name": "error out",
-          "direction": "in",
-          "type": null,
           "description": "error out contains error information. This output provides standard error out functionality. Functions",
           "default_value": null,
           "enum_values": null,
@@ -1763,8 +1449,6 @@
       "terminals": [
         {
           "name": "waveforms in",
-          "direction": "in",
-          "type": "I32",
           "description": "waveforms in contains the analog waveforms for which the time increment values are replaced by the time increment of the analog waveform indicated by index. The default is empty.",
           "default_value": "empty",
           "enum_values": null,
@@ -1772,8 +1456,6 @@
         },
         {
           "name": "index",
-          "direction": "in",
-          "type": "I32",
           "description": "index is the specifier that the waveform in the waveforms in array uses for the dt value. The default is 0.",
           "default_value": "0",
           "enum_values": null,
@@ -1781,8 +1463,6 @@
         },
         {
           "name": "error in (no error)",
-          "direction": "in",
-          "type": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
           "default_value": null,
           "enum_values": null,
@@ -1790,8 +1470,6 @@
         },
         {
           "name": "waveforms out",
-          "direction": "in",
-          "type": null,
           "description": "waveforms out contains analog waveforms for which the dt values are all identical.",
           "default_value": null,
           "enum_values": null,
@@ -1799,8 +1477,6 @@
         },
         {
           "name": "error out",
-          "direction": "in",
-          "type": null,
           "description": "error out contains error information. This output provides standard error out functionality.",
           "default_value": null,
           "enum_values": null,
@@ -1820,8 +1496,6 @@
       "terminals": [
         {
           "name": "waveforms in",
-          "direction": "in",
-          "type": "I32",
           "description": "waveforms in contains the analog waveforms for which the time increment values are replaced by the time increment of the analog waveform indicated by index. The default is empty.",
           "default_value": "empty",
           "enum_values": null,
@@ -1829,8 +1503,6 @@
         },
         {
           "name": "index",
-          "direction": "in",
-          "type": "I32",
           "description": "index is the specifier that the waveform in the waveforms in array uses for the dt value. The default is 0.",
           "default_value": "0",
           "enum_values": null,
@@ -1838,8 +1510,6 @@
         },
         {
           "name": "error in (no error)",
-          "direction": "in",
-          "type": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
           "default_value": null,
           "enum_values": null,
@@ -1847,8 +1517,6 @@
         },
         {
           "name": "waveforms out",
-          "direction": "in",
-          "type": null,
           "description": "waveforms out contains analog waveforms for which the dt values are all identical.",
           "default_value": null,
           "enum_values": null,
@@ -1856,8 +1524,6 @@
         },
         {
           "name": "error out",
-          "direction": "in",
-          "type": null,
           "description": "error out contains error information. This output provides standard error out functionality.",
           "default_value": null,
           "enum_values": null,
@@ -1877,8 +1543,6 @@
       "terminals": [
         {
           "name": "waveforms in",
-          "direction": "in",
-          "type": "I32",
           "description": "waveforms in contains the analog waveforms for which the time increment values are replaced by the time increment of the analog waveform indicated by index. The default is empty.",
           "default_value": "empty",
           "enum_values": null,
@@ -1886,8 +1550,6 @@
         },
         {
           "name": "index",
-          "direction": "in",
-          "type": "I32",
           "description": "index is the specifier that the waveform in the waveforms in array uses for the dt value. The default is 0.",
           "default_value": "0",
           "enum_values": null,
@@ -1895,8 +1557,6 @@
         },
         {
           "name": "error in (no error)",
-          "direction": "in",
-          "type": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
           "default_value": null,
           "enum_values": null,
@@ -1904,8 +1564,6 @@
         },
         {
           "name": "waveforms out",
-          "direction": "in",
-          "type": null,
           "description": "waveforms out contains analog waveforms for which the dt values are all identical.",
           "default_value": null,
           "enum_values": null,
@@ -1913,8 +1571,6 @@
         },
         {
           "name": "error out",
-          "direction": "in",
-          "type": null,
           "description": "error out contains error information. This output provides standard error out functionality.",
           "default_value": null,
           "enum_values": null,
@@ -1934,8 +1590,6 @@
       "terminals": [
         {
           "name": "waveforms in",
-          "direction": "in",
-          "type": "I32",
           "description": "waveforms in contains the digital waveforms for which the time increment values are replaced by the time increment of the digital waveform indicated by index. The default is empty. Functions 834 ni.com",
           "default_value": "empty",
           "enum_values": null,
@@ -1943,8 +1597,6 @@
         },
         {
           "name": "index",
-          "direction": "in",
-          "type": "I32",
           "description": "index is the specifier that the waveform in the waveforms in array uses for the dt value. The default is 0.",
           "default_value": "0",
           "enum_values": null,
@@ -1952,8 +1604,6 @@
         },
         {
           "name": "error in (no error)",
-          "direction": "in",
-          "type": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
           "default_value": null,
           "enum_values": null,
@@ -1961,8 +1611,6 @@
         },
         {
           "name": "waveforms out",
-          "direction": "in",
-          "type": null,
           "description": "waveforms out contains digital waveforms for which the dt values are all identical.",
           "default_value": null,
           "enum_values": null,
@@ -1970,8 +1618,6 @@
         },
         {
           "name": "error out",
-          "direction": "in",
-          "type": null,
           "description": "error out contains error information. This output provides standard error out functionality.",
           "default_value": null,
           "enum_values": null,
@@ -1991,8 +1637,6 @@
       "terminals": [
         {
           "name": "waveforms in",
-          "direction": "in",
-          "type": null,
           "description": "waveforms in contains all the analog waveforms for which time stamps (t0) are to be changed.",
           "default_value": null,
           "enum_values": null,
@@ -2000,8 +1644,6 @@
         },
         {
           "name": "index",
-          "direction": "in",
-          "type": "I32",
           "description": "index selects which waveform to extract the time stamp from. The time stamps of all elements of waveforms in are changed to this time stamp.",
           "default_value": null,
           "enum_values": null,
@@ -2009,8 +1651,6 @@
         },
         {
           "name": "error in (no error)",
-          "direction": "in",
-          "type": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
           "default_value": null,
           "enum_values": null,
@@ -2018,8 +1658,6 @@
         },
         {
           "name": "waveforms out",
-          "direction": "in",
-          "type": "I32",
           "description": "waveforms out contains the waveforms in array with all time stamps on the elements changed to the time stamp of the element indicated by index.",
           "default_value": null,
           "enum_values": null,
@@ -2027,8 +1665,6 @@
         },
         {
           "name": "error out",
-          "direction": "in",
-          "type": null,
           "description": "error out contains error information. This output provides standard error out functionality. Functions 836 ni.com Examples Refer to the following example files included with LabVIEW.",
           "default_value": null,
           "enum_values": null,
@@ -2036,8 +1672,6 @@
         },
         {
           "name": "labview\\examples\\Waveform\\Waveform - Align Timestamps.vi",
-          "direction": "in",
-          "type": null,
           "description": "",
           "default_value": null,
           "enum_values": null,
@@ -2057,8 +1691,6 @@
       "terminals": [
         {
           "name": "waveforms in",
-          "direction": "in",
-          "type": null,
           "description": "waveforms in contains all the analog waveforms for which time stamps (t0) are to be changed.",
           "default_value": null,
           "enum_values": null,
@@ -2066,8 +1698,6 @@
         },
         {
           "name": "index",
-          "direction": "in",
-          "type": "I32",
           "description": "index selects which waveform to extract the time stamp from. The time stamps of all elements of waveforms in are changed to this time stamp.",
           "default_value": null,
           "enum_values": null,
@@ -2075,8 +1705,6 @@
         },
         {
           "name": "error in (no error)",
-          "direction": "in",
-          "type": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
           "default_value": null,
           "enum_values": null,
@@ -2084,8 +1712,6 @@
         },
         {
           "name": "waveforms out",
-          "direction": "in",
-          "type": "I32",
           "description": "waveforms out contains the waveforms in array with all time stamps on the elements changed to the time stamp of the element indicated by index.",
           "default_value": null,
           "enum_values": null,
@@ -2093,8 +1719,6 @@
         },
         {
           "name": "error out",
-          "direction": "in",
-          "type": null,
           "description": "error out contains error information. This output provides standard error out functionality. Functions 836 ni.com Examples Refer to the following example files included with LabVIEW.",
           "default_value": null,
           "enum_values": null,
@@ -2102,8 +1726,6 @@
         },
         {
           "name": "labview\\examples\\Waveform\\Waveform - Align Timestamps.vi",
-          "direction": "in",
-          "type": null,
           "description": "",
           "default_value": null,
           "enum_values": null,
@@ -2123,8 +1745,6 @@
       "terminals": [
         {
           "name": "waveforms in",
-          "direction": "in",
-          "type": null,
           "description": "waveforms in contains all the analog waveforms for which time stamps (t0) are to be changed.",
           "default_value": null,
           "enum_values": null,
@@ -2132,8 +1752,6 @@
         },
         {
           "name": "index",
-          "direction": "in",
-          "type": "I32",
           "description": "index selects which waveform to extract the time stamp from. The time stamps of all elements of waveforms in are changed to this time stamp.",
           "default_value": null,
           "enum_values": null,
@@ -2141,8 +1759,6 @@
         },
         {
           "name": "error in (no error)",
-          "direction": "in",
-          "type": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
           "default_value": null,
           "enum_values": null,
@@ -2150,8 +1766,6 @@
         },
         {
           "name": "waveforms out",
-          "direction": "in",
-          "type": "I32",
           "description": "waveforms out contains the waveforms in array with all time stamps on the elements changed to the time stamp of the element indicated by index.",
           "default_value": null,
           "enum_values": null,
@@ -2159,8 +1773,6 @@
         },
         {
           "name": "error out",
-          "direction": "in",
-          "type": null,
           "description": "error out contains error information. This output provides standard error out functionality. Functions",
           "default_value": null,
           "enum_values": null,
@@ -2180,8 +1792,6 @@
       "terminals": [
         {
           "name": "waveforms in",
-          "direction": "in",
-          "type": null,
           "description": "waveforms in contains all the analog waveforms for which time stamps (t0) are to be changed.",
           "default_value": null,
           "enum_values": null,
@@ -2189,8 +1799,6 @@
         },
         {
           "name": "index",
-          "direction": "in",
-          "type": "I32",
           "description": "index selects which waveform to extract the time stamp from. The time stamps of all elements of waveforms in are changed to this time stamp.",
           "default_value": null,
           "enum_values": null,
@@ -2198,8 +1806,6 @@
         },
         {
           "name": "error in (no error)",
-          "direction": "in",
-          "type": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
           "default_value": null,
           "enum_values": null,
@@ -2207,8 +1813,6 @@
         },
         {
           "name": "waveforms out",
-          "direction": "in",
-          "type": "I32",
           "description": "waveforms out contains the waveforms in array with all time stamps on the elements changed to the time stamp of the element indicated by index.",
           "default_value": null,
           "enum_values": null,
@@ -2216,8 +1820,6 @@
         },
         {
           "name": "error out",
-          "direction": "in",
-          "type": null,
           "description": "error out contains error information. This output provides standard error out functionality. Functions 838 ni.com Examples Refer to the following example files included with LabVIEW.",
           "default_value": null,
           "enum_values": null,
@@ -2225,8 +1827,6 @@
         },
         {
           "name": "labview\\examples\\Waveform\\Waveform - Align Timestamps.vi",
-          "direction": "in",
-          "type": null,
           "description": "",
           "default_value": null,
           "enum_values": null,
@@ -2246,8 +1846,6 @@
       "terminals": [
         {
           "name": "waveforms in",
-          "direction": "in",
-          "type": null,
           "description": "waveforms in contains all the analog waveforms for which time stamps (t0) are to be changed.",
           "default_value": null,
           "enum_values": null,
@@ -2255,8 +1853,6 @@
         },
         {
           "name": "index",
-          "direction": "in",
-          "type": "I32",
           "description": "index selects which waveform to extract the time stamp from. The time stamps of all elements of waveforms in are changed to this time stamp.",
           "default_value": null,
           "enum_values": null,
@@ -2264,8 +1860,6 @@
         },
         {
           "name": "error in (no error)",
-          "direction": "in",
-          "type": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
           "default_value": null,
           "enum_values": null,
@@ -2273,8 +1867,6 @@
         },
         {
           "name": "waveforms out",
-          "direction": "in",
-          "type": "I32",
           "description": "waveforms out contains the waveforms in array with all time stamps on the elements changed to the time stamp of the element indicated by index.",
           "default_value": null,
           "enum_values": null,
@@ -2282,8 +1874,6 @@
         },
         {
           "name": "error out",
-          "direction": "in",
-          "type": null,
           "description": "error out contains error information. This output provides standard error out functionality. Functions",
           "default_value": null,
           "enum_values": null,
@@ -2303,8 +1893,6 @@
       "terminals": [
         {
           "name": "waveforms in",
-          "direction": "in",
-          "type": null,
           "description": "waveforms in contains all the analog waveforms for which time stamps (t0) are to be changed.",
           "default_value": null,
           "enum_values": null,
@@ -2312,8 +1900,6 @@
         },
         {
           "name": "index",
-          "direction": "in",
-          "type": "I32",
           "description": "index selects which waveform to extract the time stamp from. The time stamps of all elements of waveforms in are changed to this time stamp.",
           "default_value": null,
           "enum_values": null,
@@ -2321,8 +1907,6 @@
         },
         {
           "name": "error in (no error)",
-          "direction": "in",
-          "type": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
           "default_value": null,
           "enum_values": null,
@@ -2330,8 +1914,6 @@
         },
         {
           "name": "waveforms out",
-          "direction": "in",
-          "type": "I32",
           "description": "waveforms out contains the waveforms in array with all time stamps on the elements changed to the time stamp of the element indicated by index.",
           "default_value": null,
           "enum_values": null,
@@ -2339,8 +1921,6 @@
         },
         {
           "name": "error out",
-          "direction": "in",
-          "type": null,
           "description": "error out contains error information. This output provides standard error out functionality. Functions 840 ni.com Examples Refer to the following example files included with LabVIEW.",
           "default_value": null,
           "enum_values": null,
@@ -2348,8 +1928,6 @@
         },
         {
           "name": "labview\\examples\\Waveform\\Waveform - Align Timestamps.vi",
-          "direction": "in",
-          "type": null,
           "description": "",
           "default_value": null,
           "enum_values": null,
@@ -2369,8 +1947,6 @@
       "terminals": [
         {
           "name": "waveforms in",
-          "direction": "in",
-          "type": null,
           "description": "waveforms in contains all the analog waveforms for which time stamps (t0) are to be changed.",
           "default_value": null,
           "enum_values": null,
@@ -2378,8 +1954,6 @@
         },
         {
           "name": "index",
-          "direction": "in",
-          "type": "I32",
           "description": "index selects which waveform to extract the time stamp from. The time stamps of all elements of waveforms in are changed to this time stamp.",
           "default_value": null,
           "enum_values": null,
@@ -2387,8 +1961,6 @@
         },
         {
           "name": "error in (no error)",
-          "direction": "in",
-          "type": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
           "default_value": null,
           "enum_values": null,
@@ -2396,8 +1968,6 @@
         },
         {
           "name": "waveforms out",
-          "direction": "in",
-          "type": "I32",
           "description": "waveforms out contains the waveforms in array with all time stamps on the elements changed to the time stamp of the element indicated by index.",
           "default_value": null,
           "enum_values": null,
@@ -2405,8 +1975,6 @@
         },
         {
           "name": "error out",
-          "direction": "in",
-          "type": null,
           "description": "error out contains error information. This output provides standard error out functionality. Functions",
           "default_value": null,
           "enum_values": null,
@@ -2426,8 +1994,6 @@
       "terminals": [
         {
           "name": "waveforms in",
-          "direction": "in",
-          "type": null,
           "description": "waveforms in contains all the analog waveforms for which time stamps (t0) are to be changed.",
           "default_value": null,
           "enum_values": null,
@@ -2435,8 +2001,6 @@
         },
         {
           "name": "index",
-          "direction": "in",
-          "type": "I32",
           "description": "index selects which waveform to extract the time stamp from. The time stamps of all elements of waveforms in are changed to this time stamp.",
           "default_value": null,
           "enum_values": null,
@@ -2444,8 +2008,6 @@
         },
         {
           "name": "error in (no error)",
-          "direction": "in",
-          "type": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
           "default_value": null,
           "enum_values": null,
@@ -2453,8 +2015,6 @@
         },
         {
           "name": "waveforms out",
-          "direction": "in",
-          "type": "I32",
           "description": "waveforms out contains the waveforms in array with all time stamps on the elements changed to the time stamp of the element indicated by index.",
           "default_value": null,
           "enum_values": null,
@@ -2462,8 +2022,6 @@
         },
         {
           "name": "error out",
-          "direction": "in",
-          "type": null,
           "description": "error out contains error information. This output provides standard error out functionality. Functions 842 ni.com Examples Refer to the following example files included with LabVIEW.",
           "default_value": null,
           "enum_values": null,
@@ -2471,8 +2029,6 @@
         },
         {
           "name": "labview\\examples\\Waveform\\Waveform - Align Timestamps.vi",
-          "direction": "in",
-          "type": null,
           "description": "",
           "default_value": null,
           "enum_values": null,
@@ -2492,8 +2048,6 @@
       "terminals": [
         {
           "name": "waveforms in",
-          "direction": "in",
-          "type": null,
           "description": "waveforms in contains all the digital waveforms for which time stamps (t0) are to be changed.",
           "default_value": null,
           "enum_values": null,
@@ -2501,8 +2055,6 @@
         },
         {
           "name": "index",
-          "direction": "in",
-          "type": "I32",
           "description": "index selects which waveform to extract the time stamp from. The time stamps of all elements of waveforms in are changed to this time stamp.",
           "default_value": null,
           "enum_values": null,
@@ -2510,8 +2062,6 @@
         },
         {
           "name": "error in (no error)",
-          "direction": "in",
-          "type": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
           "default_value": null,
           "enum_values": null,
@@ -2519,8 +2069,6 @@
         },
         {
           "name": "waveforms out",
-          "direction": "in",
-          "type": "I32",
           "description": "waveforms out contains the waveforms in array with all time stamps on the elements changed to the time stamp of the element indicated by index.",
           "default_value": null,
           "enum_values": null,
@@ -2528,8 +2076,6 @@
         },
         {
           "name": "error out",
-          "direction": "in",
-          "type": null,
           "description": "error out contains error information. This output provides standard error out functionality. Functions",
           "default_value": null,
           "enum_values": null,
@@ -2549,8 +2095,6 @@
       "terminals": [
         {
           "name": "open interval? (T)",
-          "direction": "in",
-          "type": "Boolean",
           "description": "open interval? defines whether the waveform subset extracted is an open or closed interval. The default is TRUE, which selects an open interval. For example, if t0 = 0, dt = 1, Y = {0, 1, 2}, start/duration format is Relative Time, start samples/ time is 0, and duration is 2, an open interval returns {0, 1}. A closed interval returns {0, 1, 2}.",
           "default_value": "TRUE, which selects an open interval",
           "enum_values": null,
@@ -2558,8 +2102,6 @@
         },
         {
           "name": "start/duration format",
-          "direction": "in",
-          "type": null,
           "description": "start/duration format specifies if you want to retrieve the data value of the specified element or at a specified time. 0 Samples (default)\u2014Returns the data value of the specified element in the waveform data. 1 Relative Time\u2014Returns the data value at a specified time relative to the first point in the waveform. In this mode, the dt of the waveform affects actual start samples/time and actual duration.",
           "default_value": null,
           "enum_values": [
@@ -2576,8 +2118,6 @@
         },
         {
           "name": "waveform in",
-          "direction": "in",
-          "type": null,
           "description": "waveform in is the waveform for which you want to retrieve a subset.",
           "default_value": null,
           "enum_values": null,
@@ -2585,8 +2125,6 @@
         },
         {
           "name": "start samples/time",
-          "direction": "in",
-          "type": null,
           "description": "start samples/time is the data element or time value where you want to start acquiring a waveform subset.",
           "default_value": null,
           "enum_values": null,
@@ -2594,8 +2132,6 @@
         },
         {
           "name": "duration",
-          "direction": "in",
-          "type": null,
           "description": "Functions",
           "default_value": null,
           "enum_values": null,
@@ -2615,8 +2151,6 @@
       "terminals": [
         {
           "name": "open interval? (T)",
-          "direction": "in",
-          "type": "Boolean",
           "description": "open interval? defines whether the waveform subset extracted is an open or closed interval. The default is TRUE, which selects an open interval. For example, if t0 = 0, dt = 1, Y = {0, 1, 2}, start/duration format is Relative Time, start samples/ time is 0, and duration is 2, an open interval returns {0, 1}. A closed interval returns {0, 1, 2}.",
           "default_value": "TRUE, which selects an open interval",
           "enum_values": null,
@@ -2624,8 +2158,6 @@
         },
         {
           "name": "start/duration format",
-          "direction": "in",
-          "type": null,
           "description": "start/duration format specifies if you want to retrieve the data value of the specified element or at a specified time. 0 Samples (default)\u2014Returns the data value of the specified element in the waveform data. 1 Relative Time\u2014Returns the data value at a specified time relative to the first point in the waveform. In this mode, the dt of the waveform affects actual start samples/time and actual duration.",
           "default_value": null,
           "enum_values": [
@@ -2642,8 +2174,6 @@
         },
         {
           "name": "waveform in",
-          "direction": "in",
-          "type": null,
           "description": "waveform in is the waveform for which you want to retrieve a subset.",
           "default_value": null,
           "enum_values": null,
@@ -2651,8 +2181,6 @@
         },
         {
           "name": "start samples/time",
-          "direction": "in",
-          "type": null,
           "description": "start samples/time is the data element or time value where you want to start acquiring a waveform subset.",
           "default_value": null,
           "enum_values": null,
@@ -2660,8 +2188,6 @@
         },
         {
           "name": "duration",
-          "direction": "in",
-          "type": null,
           "description": "Functions",
           "default_value": null,
           "enum_values": null,
@@ -2681,8 +2207,6 @@
       "terminals": [
         {
           "name": "open interval? (T)",
-          "direction": "in",
-          "type": "Boolean",
           "description": "open interval? defines whether the waveform subset extracted is an open or closed interval. The default is TRUE, which selects an open interval. For example, if t0 = 0, dt = 1, Y = {0, 1, 2}, start/duration format is Relative Time, start samples/ time is 0, and duration is 2, an open interval returns {0, 1}. A closed interval returns {0, 1, 2}.",
           "default_value": "TRUE, which selects an open interval",
           "enum_values": null,
@@ -2690,8 +2214,6 @@
         },
         {
           "name": "start/duration format",
-          "direction": "in",
-          "type": null,
           "description": "start/duration format specifies if you want to retrieve the data value of the specified element or at a specified time. 0 Samples (default)\u2014Returns the data value of the specified element in the waveform data. 1 Relative Time\u2014Returns the data value at a specified time relative to the first point in the waveform. In this mode, the dt of the waveform affects actual start samples/time and actual duration.",
           "default_value": null,
           "enum_values": [
@@ -2708,8 +2230,6 @@
         },
         {
           "name": "waveform in",
-          "direction": "in",
-          "type": null,
           "description": "waveform in is the waveform for which you want to retrieve a subset.",
           "default_value": null,
           "enum_values": null,
@@ -2717,8 +2237,6 @@
         },
         {
           "name": "start samples/time",
-          "direction": "in",
-          "type": null,
           "description": "start samples/time is the data element or time value where you want to start acquiring a waveform subset.",
           "default_value": null,
           "enum_values": null,
@@ -2726,8 +2244,6 @@
         },
         {
           "name": "duration",
-          "direction": "in",
-          "type": "I32",
           "description": "duration is the amount of time to retrieve data or the number of elements of data you want to retrieve, depending on the start/duration format you select.",
           "default_value": null,
           "enum_values": null,
@@ -2735,8 +2251,6 @@
         },
         {
           "name": "error in (no error)",
-          "direction": "in",
-          "type": null,
           "description": "Functions",
           "default_value": null,
           "enum_values": null,
@@ -2756,8 +2270,6 @@
       "terminals": [
         {
           "name": "open interval? (T)",
-          "direction": "in",
-          "type": "Boolean",
           "description": "open interval? defines whether the waveform subset extracted is an open or closed interval. The default is TRUE, which selects an open interval. For example, if t0 = 0, dt = 1, Y = {0, 1, 2}, start/duration format is Relative Time, start samples/ time is 0, and duration is 2, an open interval returns {0, 1}. A closed interval returns {0, 1, 2}.",
           "default_value": "TRUE, which selects an open interval",
           "enum_values": null,
@@ -2765,8 +2277,6 @@
         },
         {
           "name": "start/duration format",
-          "direction": "in",
-          "type": null,
           "description": "start/duration format specifies if you want to retrieve the data value of the specified element or at a specified time. 0 Samples (default)\u2014Returns the data value of the specified element in the waveform data. 1 Relative Time\u2014Returns the data value at a specified time relative to the first point in the waveform. In this mode, the dt of the waveform affects actual start samples/time and actual duration.",
           "default_value": null,
           "enum_values": [
@@ -2783,8 +2293,6 @@
         },
         {
           "name": "waveform in",
-          "direction": "in",
-          "type": null,
           "description": "waveform in is the waveform for which you want to retrieve a subset.",
           "default_value": null,
           "enum_values": null,
@@ -2792,8 +2300,6 @@
         },
         {
           "name": "start samples/time",
-          "direction": "in",
-          "type": null,
           "description": "start samples/time is the data element or time value where you want to start acquiring a waveform subset.",
           "default_value": null,
           "enum_values": null,
@@ -2801,8 +2307,6 @@
         },
         {
           "name": "duration",
-          "direction": "in",
-          "type": "I32",
           "description": "duration is the amount of time to retrieve data or the number of elements of data you want to retrieve, depending on the start/duration format you select.",
           "default_value": null,
           "enum_values": null,
@@ -2810,8 +2314,6 @@
         },
         {
           "name": "error in (no error)",
-          "direction": "in",
-          "type": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides Functions",
           "default_value": null,
           "enum_values": null,
@@ -2831,8 +2333,6 @@
       "terminals": [
         {
           "name": "open interval? (T)",
-          "direction": "in",
-          "type": "Boolean",
           "description": "open interval? defines whether the waveform subset extracted is an open or closed interval. The default is TRUE, which selects an open interval. For example, if t0 = 0, dt = 1, Y = {0, 1, 2}, start/duration format is Relative Time, start samples/ time is 0, and duration is 2, an open interval returns {0, 1}. A closed interval returns {0, 1, 2}.",
           "default_value": "TRUE, which selects an open interval",
           "enum_values": null,
@@ -2840,8 +2340,6 @@
         },
         {
           "name": "start/duration format",
-          "direction": "in",
-          "type": null,
           "description": "start/duration format specifies if you want to retrieve the data value of the specified element or at a specified time. 0 Samples (default)\u2014Returns the data value of the specified element in the waveform data. 1 Relative Time\u2014Returns the data value at a specified time relative to the first point in the waveform. In this mode, the dt of the waveform affects actual start samples/time and actual duration.",
           "default_value": null,
           "enum_values": [
@@ -2858,8 +2356,6 @@
         },
         {
           "name": "waveform in",
-          "direction": "in",
-          "type": null,
           "description": "waveform in is the waveform for which you want to retrieve a subset.",
           "default_value": null,
           "enum_values": null,
@@ -2867,8 +2363,6 @@
         },
         {
           "name": "start samples/time",
-          "direction": "in",
-          "type": null,
           "description": "start samples/time is the data element or time value where you want to start acquiring a waveform subset.",
           "default_value": null,
           "enum_values": null,
@@ -2876,8 +2370,6 @@
         },
         {
           "name": "duration",
-          "direction": "in",
-          "type": "I32",
           "description": "duration is the amount of time to retrieve data or the number of elements of data you want to retrieve, depending on the start/duration format you select.",
           "default_value": null,
           "enum_values": null,
@@ -2885,8 +2377,6 @@
         },
         {
           "name": "error in (no error)",
-          "direction": "in",
-          "type": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides Functions",
           "default_value": null,
           "enum_values": null,

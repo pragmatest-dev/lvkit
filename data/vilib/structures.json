@@ -69,8 +69,6 @@
       "terminals": [
         {
           "name": "name (in)",
-          "direction": "in",
-          "type": null,
           "description": "name is the name of the timing source you want to create.",
           "default_value": null,
           "enum_values": null,
@@ -78,8 +76,6 @@
         },
         {
           "name": "error in (no error)",
-          "direction": "in",
-          "type": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
           "default_value": null,
           "enum_values": null,
@@ -87,8 +83,6 @@
         },
         {
           "name": "name (out)",
-          "direction": "in",
-          "type": null,
           "description": "Functions 350 ni.com name (out) is the name of the timing source the VI created.",
           "default_value": null,
           "enum_values": null,
@@ -96,8 +90,6 @@
         },
         {
           "name": "error out",
-          "direction": "in",
-          "type": null,
           "description": "error out contains error information. This output provides standard error out functionality.",
           "default_value": null,
           "enum_values": null,
@@ -117,8 +109,6 @@
       "terminals": [
         {
           "name": "trigger ID",
-          "direction": "in",
-          "type": "Enum",
           "description": "trigger ID is the numeric identifier of the software-triggered timing source. The valid range of trigger ID values is 0-127. Because this parameter is implemented as an integer rather than a string, it is safe to use the Fire Software-Triggered Timing Source VI in time-critical code.",
           "default_value": null,
           "enum_values": null,
@@ -126,8 +116,6 @@
         },
         {
           "name": "number of ticks",
-          "direction": "in",
-          "type": "I32",
           "description": "number of ticks specifies the number of ticks to increment the internal tick counter of the timing source. The default value is 1 tick.",
           "default_value": "value is 1 tick",
           "enum_values": null,
@@ -135,8 +123,6 @@
         },
         {
           "name": "error in (no error)",
-          "direction": "in",
-          "type": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
           "default_value": null,
           "enum_values": null,
@@ -144,8 +130,6 @@
         },
         {
           "name": "trigger ID out",
-          "direction": "out",
-          "type": null,
           "description": "trigger ID out returns trigger ID unchanged.",
           "default_value": null,
           "enum_values": null,
@@ -153,8 +137,6 @@
         },
         {
           "name": "error out",
-          "direction": "in",
-          "type": "I32",
           "description": "error out contains error information. This output provides standard error out functionality. When you use a software-triggered timing source to control a Timed Loop, you can use the number of ticks input to trigger multiple successive Timed Loop iterations. When the internal tick counter jumps past one or more Timed Loop periods, the Timed Loop regards those periods as missed periods. If you remove the checkmark from the Discard missed periods checkbox on the Configure Timed Loop dialog box, a s",
           "default_value": null,
           "enum_values": null,
@@ -174,8 +156,6 @@
       "terminals": [
         {
           "name": "name",
-          "direction": "in",
-          "type": null,
           "description": "name is the name of the timing source you want to stop and delete.",
           "default_value": null,
           "enum_values": null,
@@ -183,8 +163,6 @@
         },
         {
           "name": "error in (no error)",
-          "direction": "in",
-          "type": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
           "default_value": null,
           "enum_values": null,
@@ -192,8 +170,6 @@
         },
         {
           "name": "parent",
-          "direction": "in",
-          "type": null,
           "description": "parent is the name of the parent of the timing source the VI deleted. If the timing source has no parent, parent is empty.",
           "default_value": null,
           "enum_values": null,
@@ -201,8 +177,6 @@
         },
         {
           "name": "error out",
-          "direction": "in",
-          "type": null,
           "description": "error out contains error information. This output provides standard error out functionality.",
           "default_value": null,
           "enum_values": null,
@@ -222,8 +196,6 @@
       "terminals": [
         {
           "name": "clear (F)",
-          "direction": "in",
-          "type": "Boolean",
           "description": "clear, if TRUE, removes all timed structures from synchronization group name before adding the timed structures in timed structure names to the group. Set clear to TRUE to remove any timed structures that do not correspond to a Timed Loop. The default is FALSE.",
           "default_value": "FALSE",
           "enum_values": null,
@@ -231,8 +203,6 @@
         },
         {
           "name": "replace (T)",
-          "direction": "in",
-          "type": "Boolean",
           "description": "replace replaces the timed structures in synchronization group name with the timed structures you enter in timed structure names. If replace is FALSE and the timing source is a member of another hierarchy, the VI returns an error.",
           "default_value": null,
           "enum_values": null,
@@ -240,8 +210,6 @@
         },
         {
           "name": "synchronization group name",
-          "direction": "in",
-          "type": null,
           "description": "synchronization group name is the name for the group of timed structures you want to synchronize.",
           "default_value": null,
           "enum_values": null,
@@ -249,8 +217,6 @@
         },
         {
           "name": "timeout ms (10000)",
-          "direction": "in",
-          "type": null,
           "description": "timeout ms specifies the time, in milliseconds, that a timed structure waits on other members of the synchronization group to arrive at the synchronization point. If any of the timed structures in the group do not arrive in time, the timed structure returns an error. The default is 10,000 ms. A value of \u20131 indicates to wait indefinitely.",
           "default_value": "10,000 ms",
           "enum_values": null,
@@ -258,8 +224,6 @@
         },
         {
           "name": "timed structure names",
-          "direction": "in",
-          "type": "Boolean",
           "description": "timed structure names specifies the names of the timed structures you want to synchronize. By default, the VI deletes the timed structure from its current group and adds it to the group you specify in synchronization group name. If you set replace to FALSE and a timed structure you specify in timed structure names is a member of another group, the VI returns an error to indicate that it could not add the timed structure to the synchronization group.",
           "default_value": null,
           "enum_values": null,
@@ -267,8 +231,6 @@
         },
         {
           "name": "error in (no error)",
-          "direction": "in",
-          "type": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality. Functions",
           "default_value": null,
           "enum_values": null,
@@ -288,8 +250,6 @@
       "terminals": [
         {
           "name": "priority",
-          "direction": "in",
-          "type": null,
           "description": "priority changes the priority of the timed structure you are stopping. Use priority when you want to stop two or more timed structures and want to ensure one stops before the other.",
           "default_value": null,
           "enum_values": null,
@@ -297,8 +257,6 @@
         },
         {
           "name": "name",
-          "direction": "in",
-          "type": null,
           "description": "Functions 356 ni.com name is the name of the timed structure you want to stop.",
           "default_value": null,
           "enum_values": null,
@@ -306,8 +264,6 @@
         },
         {
           "name": "error in (no error)",
-          "direction": "in",
-          "type": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
           "default_value": null,
           "enum_values": null,
@@ -315,8 +271,6 @@
         },
         {
           "name": "error out",
-          "direction": "in",
-          "type": null,
           "description": "error out contains error information. This output provides standard error out functionality. Examples Refer to the following example files included with LabVIEW.",
           "default_value": null,
           "enum_values": null,
@@ -324,8 +278,6 @@
         },
         {
           "name": "labview\\examples\\Structures\\Timed Loop\\Timed Loop",
-          "direction": "in",
-          "type": null,
           "description": "",
           "default_value": null,
           "enum_values": null,
@@ -345,8 +297,6 @@
       "terminals": [
         {
           "name": "replace (F)",
-          "direction": "in",
-          "type": null,
           "description": "replace (F) replaces any timing source you entered in timing source names if a timing source by that name already exists in the hierarchy of timing sources.",
           "default_value": null,
           "enum_values": null,
@@ -354,8 +304,6 @@
         },
         {
           "name": "hierarchy name",
-          "direction": "in",
-          "type": null,
           "description": "hierarchy name is the name of the timing source hierarchy you want to create. Functions \u00a9 National Instruments 357",
           "default_value": null,
           "enum_values": null,
@@ -363,8 +311,6 @@
         },
         {
           "name": "parent",
-          "direction": "in",
-          "type": null,
           "description": "parent is the valid timing source you want to start after the all the timing sources in hierarchy name start.",
           "default_value": null,
           "enum_values": null,
@@ -372,8 +318,6 @@
         },
         {
           "name": "timing source names",
-          "direction": "in",
-          "type": "Boolean",
           "description": "timing source names is an array of names of the timing sources you want to add to the timing source hierarchy. If replace is TRUE, the new timing source replaces any timing source with the same name that already exists in the timing source hierarchy. These timing sources start before the timing source you enter in parent.",
           "default_value": null,
           "enum_values": null,
@@ -381,8 +325,6 @@
         },
         {
           "name": "error in (no error)",
-          "direction": "in",
-          "type": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
           "default_value": null,
           "enum_values": null,
@@ -390,8 +332,6 @@
         },
         {
           "name": "error out",
-          "direction": "in",
-          "type": "I32",
           "description": "error out contains error information. This output provides standard error out functionality. The hierarchy determines the order in which the timing sources start. The parent timing source does not start until after the timing sources in hierarchy name start. Use this VI when you have timing sources that have signal dependencies, such as DAQ counters routed to drive analog input connections. In such a case, the counter timing source acts as the parent.",
           "default_value": null,
           "enum_values": null,
@@ -433,8 +373,6 @@
       "terminals": [
         {
           "name": "array",
-          "direction": "in",
-          "type": "Array",
           "description": "array specifies an n-dimensional array of any type.",
           "default_value": null,
           "enum_values": null,
@@ -442,8 +380,6 @@
         },
         {
           "name": "index",
-          "direction": "in",
-          "type": "I32",
           "description": "index specifies the element you want to replace in the array. This border node gains an additional index parameter for each additional dimension of the array in the array input.",
           "default_value": null,
           "enum_values": null,
@@ -451,8 +387,6 @@
         },
         {
           "name": "element",
-          "direction": "in",
-          "type": null,
           "description": "",
           "default_value": null,
           "enum_values": null,
@@ -460,8 +394,6 @@
         },
         {
           "name": "element",
-          "direction": "in",
-          "type": null,
           "description": "",
           "default_value": null,
           "enum_values": null,
@@ -469,8 +401,6 @@
         },
         {
           "name": "array",
-          "direction": "out",
-          "type": "Array",
           "description": "array returns the array you input with the replaced element(s).",
           "default_value": null,
           "enum_values": null,
@@ -478,8 +408,6 @@
         },
         {
           "name": "index",
-          "direction": "out",
-          "type": "I32",
           "description": "Functions 364 ni.com index returns the element(s) you replaced in the array. Use this border node to perform operations on an element or elements of an array and return the elements to the same location or locations in the array. Each array element you index with the border node on the left side of the structure must be placed back into the array with the border node on the right side of the structure by wiring the element back into the array. This border node allows the LabVIEW compiler to avoi",
           "default_value": null,
           "enum_values": null,
@@ -499,8 +427,6 @@
       "terminals": [
         {
           "name": "array",
-          "direction": "in",
-          "type": "Array",
           "description": "array specifies an n-dimensional array of any type.",
           "default_value": null,
           "enum_values": null,
@@ -508,8 +434,6 @@
         },
         {
           "name": "index",
-          "direction": "in",
-          "type": "I32",
           "description": "index specifies the element you want to replace in the array. This border node gains an additional index parameter for each additional dimension of the array in the array input.",
           "default_value": null,
           "enum_values": null,
@@ -517,8 +441,6 @@
         },
         {
           "name": "element",
-          "direction": "in",
-          "type": null,
           "description": "",
           "default_value": null,
           "enum_values": null,
@@ -526,8 +448,6 @@
         },
         {
           "name": "element",
-          "direction": "in",
-          "type": null,
           "description": "",
           "default_value": null,
           "enum_values": null,
@@ -535,8 +455,6 @@
         },
         {
           "name": "array",
-          "direction": "out",
-          "type": "Array",
           "description": "array returns the array you input with the replaced element(s).",
           "default_value": null,
           "enum_values": null,
@@ -544,8 +462,6 @@
         },
         {
           "name": "index",
-          "direction": "out",
-          "type": "I32",
           "description": "Functions 364 ni.com index returns the element(s) you replaced in the array. Use this border node to perform operations on an element or elements of an array and return the elements to the same location or locations in the array. Each array element you index with the border node on the left side of the structure must be placed back into the array with the border node on the right side of the structure by wiring the element back into the array. This border node allows the LabVIEW compiler to avoi",
           "default_value": null,
           "enum_values": null,
@@ -565,8 +481,6 @@
       "terminals": [
         {
           "name": "input cluster",
-          "direction": "in",
-          "type": null,
           "description": "input cluster is the cluster whose elements you want to access.",
           "default_value": null,
           "enum_values": null,
@@ -574,8 +488,6 @@
         },
         {
           "name": "element",
-          "direction": "in",
-          "type": null,
           "description": "",
           "default_value": null,
           "enum_values": null,
@@ -583,8 +495,6 @@
         },
         {
           "name": "element",
-          "direction": "in",
-          "type": null,
           "description": "",
           "default_value": null,
           "enum_values": null,
@@ -592,8 +502,6 @@
         },
         {
           "name": "output cluster",
-          "direction": "out",
-          "type": null,
           "description": "output cluster is the resulting cluster. Functions \u00a9 National Instruments 365 Use this border node to perform operations on one or more cluster elements and replace the elements in the same location in the cluster. Each cluster element you unbundle with the border node on the left side of the structure must be bundled back into the cluster with the border node on the right side of the structure. This node allows the LabVIEW compiler to avoid storing a complete value copy of the cluster and clust",
           "default_value": null,
           "enum_values": null,
@@ -613,8 +521,6 @@
       "terminals": [
         {
           "name": "variant",
-          "direction": "in",
-          "type": null,
           "description": "variant is the variant data you want to convert to the LabVIEW data type specified in type.",
           "default_value": null,
           "enum_values": null,
@@ -622,8 +528,6 @@
         },
         {
           "name": "type",
-          "direction": "in",
-          "type": "I32",
           "description": "type is the LabVIEW data type to which you want to convert the variant data. type can be any data type. However, this function returns an error if LabVIEW cannot convert the data wired to variant to the data type you wire to this input. If the data is integers, you can coerce the data to another numeric representation, such as an extended-precision, floating- point number.",
           "default_value": null,
           "enum_values": null,
@@ -631,8 +535,6 @@
         },
         {
           "name": "data",
-          "direction": "in",
-          "type": null,
           "description": "",
           "default_value": null,
           "enum_values": null,
@@ -640,8 +542,6 @@
         },
         {
           "name": "error out",
-          "direction": "in",
-          "type": null,
           "description": "Functions 366 ni.com error out contains error information. This output provides standard error out functionality. This border node has error out terminals on both sides of the structure. The error output on the left returns the actual error and the error output on the right duplicates the error from the left. You need to wire only one of the error out terminals because they have the same error output.",
           "default_value": null,
           "enum_values": null,
@@ -649,8 +549,6 @@
         },
         {
           "name": "data",
-          "direction": "in",
-          "type": null,
           "description": "",
           "default_value": null,
           "enum_values": null,
@@ -658,8 +556,6 @@
         },
         {
           "name": "variant",
-          "direction": "out",
-          "type": null,
           "description": "variant is the resulting variant data.",
           "default_value": null,
           "enum_values": null,
@@ -667,8 +563,6 @@
         },
         {
           "name": "error out",
-          "direction": "in",
-          "type": null,
           "description": "Use this border node to perform operations on one or more variant data elements and replace the variant data with the new data type in the same location in memory. Each variant data element you retrieve with the border node on the left side of the structure must be converted back to a variant with the border node on the right side of the structure. This border node allows the LabVIEW compiler to avoid storing a complete value copy of the variant and variant data elements in memory. The border no",
           "default_value": null,
           "enum_values": null,
@@ -699,8 +593,6 @@
       "terminals": [
         {
           "name": "waveform",
-          "direction": "in",
-          "type": null,
           "description": "waveform is the waveform from which you want to retrieve components.",
           "default_value": null,
           "enum_values": null,
@@ -708,8 +600,6 @@
         },
         {
           "name": "output waveform",
-          "direction": "out",
-          "type": null,
           "description": "Functions 368 ni.com output waveform is the resulting waveform. If you did not wire an existing waveform, this is a new waveform. If you wired an existing waveform, this is the edited waveform. Use this border node to perform operations on one or more waveform components and replace the components to the same location in the waveform. Each waveform component you retrieve with the border node on the left side of the structure must be replaced back into the waveform with the border node on the rig",
           "default_value": null,
           "enum_values": null,
@@ -729,8 +619,6 @@
       "terminals": [
         {
           "name": "data value reference",
-          "direction": "in",
-          "type": null,
           "description": "Functions \u00a9 National Instruments 369 data value reference is the reference that points to the data you want to access.",
           "default_value": null,
           "enum_values": null,
@@ -738,8 +626,6 @@
         },
         {
           "name": "data value",
-          "direction": "in",
-          "type": null,
           "description": "data value is the data the reference points to.",
           "default_value": null,
           "enum_values": null,
@@ -747,8 +633,6 @@
         },
         {
           "name": "error out",
-          "direction": "in",
-          "type": null,
           "description": "error out contains error information. This output provides standard error out functionality. This border node has error out terminals on both sides of the structure. The error output on the left returns the actual error and the error output on the right duplicates the error from the left. You need to wire only one of the error out terminals because they have the same error output.",
           "default_value": null,
           "enum_values": null,
@@ -756,8 +640,6 @@
         },
         {
           "name": "data value",
-          "direction": "in",
-          "type": null,
           "description": "",
           "default_value": null,
           "enum_values": null,
@@ -765,8 +647,6 @@
         },
         {
           "name": "data value reference",
-          "direction": "in",
-          "type": null,
           "description": "data value reference is the reference that points to the new data.",
           "default_value": null,
           "enum_values": null,
@@ -774,8 +654,6 @@
         },
         {
           "name": "error out",
-          "direction": "in",
-          "type": null,
           "description": "Use this border node to operate on the data in place. If a data value reference points to a class object, you cannot replace that class object with a different LabVIEW class object inside the In Place Element structure. However, you can replace any other object with an object of the same type. Note LabVIEW cannot resize the data in an external data value reference. This node produces an error if the array in an external data value reference is a different size than the array you wire to the righ",
           "default_value": "data to the reference array until it is filled",
           "enum_values": null,
@@ -795,8 +673,6 @@
       "terminals": [
         {
           "name": "array",
-          "direction": "in",
-          "type": "Array",
           "description": "array can be an n-dimensional array of any type.",
           "default_value": null,
           "enum_values": null,
@@ -804,8 +680,6 @@
         },
         {
           "name": "split length",
-          "direction": "in",
-          "type": null,
           "description": "split length specifies the length of the resulting subarray. Each split length results in an additional subarray. You must wire all or none of the split length inputs. If you do not wire any split length inputs, LabVIEW automatically determines the length of the resulting subarray.",
           "default_value": null,
           "enum_values": null,
@@ -813,8 +687,6 @@
         },
         {
           "name": "element",
-          "direction": "in",
-          "type": null,
           "description": "",
           "default_value": null,
           "enum_values": null,
@@ -822,8 +694,6 @@
         },
         {
           "name": "element",
-          "direction": "in",
-          "type": null,
           "description": "",
           "default_value": null,
           "enum_values": null,
@@ -831,8 +701,6 @@
         },
         {
           "name": "element",
-          "direction": "in",
-          "type": null,
           "description": "",
           "default_value": null,
           "enum_values": null,
@@ -840,8 +708,6 @@
         },
         {
           "name": "element",
-          "direction": "in",
-          "type": null,
           "description": "",
           "default_value": null,
           "enum_values": null,
@@ -849,8 +715,6 @@
         },
         {
           "name": "array",
-          "direction": "out",
-          "type": null,
           "description": "to access a reference twice at the same time in the same structure, LabVIEW returns a run-time error. If you attempt to access the reference after you obtain access inside the In Place Element structure, the VI might hang. You can enable multiple, concurrent read-only operations that do not modify the data value reference by right-clicking the border node on the right of the structure and selecting Allow Parallel Read-only Access. Functions",
           "default_value": null,
           "enum_values": null,
@@ -870,8 +734,6 @@
       "terminals": [
         {
           "name": "variant",
-          "direction": "in",
-          "type": null,
           "description": "variant specifies the variant for which you want to retrieve or change an attribute.",
           "default_value": null,
           "enum_values": null,
@@ -879,8 +741,6 @@
         },
         {
           "name": "attribute name",
-          "direction": "in",
-          "type": null,
           "description": "Functions 372 ni.com attribute name specifies the name of the attribute whose value you want to retrieve or change.",
           "default_value": null,
           "enum_values": null,
@@ -888,8 +748,6 @@
         },
         {
           "name": "attribute",
-          "direction": "out",
-          "type": "Boolean",
           "description": "attribute returns the original value of the attribute if found? is TRUE. This parameter returns an empty attribute if found? is FALSE.",
           "default_value": null,
           "enum_values": null,
@@ -897,8 +755,6 @@
         },
         {
           "name": "found?",
-          "direction": "out",
-          "type": "Boolean",
           "description": "found? returns TRUE if the attribute was found with the specified attribute name and the specified attribute name is not a duplicate name of a previously found attribute. The indicator returns FALSE if the specified attribute name was not found, or if the specified attribute name was a duplicate name of a previously found attribute.",
           "default_value": null,
           "enum_values": null,
@@ -906,8 +762,6 @@
         },
         {
           "name": "attribute",
-          "direction": "in",
-          "type": null,
           "description": "attribute specifies the retrieved or changed value of the attribute.",
           "default_value": null,
           "enum_values": null,
@@ -915,8 +769,6 @@
         },
         {
           "name": "variant",
-          "direction": "out",
-          "type": null,
           "description": "variant returns the variant with the retrieved or changed attribute.",
           "default_value": null,
           "enum_values": null,
@@ -924,8 +776,6 @@
         },
         {
           "name": "attribute name",
-          "direction": "out",
-          "type": null,
           "description": "attribute name returns the name of the retrieved or changed attribute.",
           "default_value": null,
           "enum_values": null,
@@ -933,8 +783,6 @@
         },
         {
           "name": "found?",
-          "direction": "in",
-          "type": "Boolean",
           "description": "Use this border node to access and modify one or more attributes of a variant without copying the attributes out of the variant. Each attribute value you retrieve with the border node on the left side of the structure must be replaced with an attribute value using the border node on the right side of the structure. The border node on the left side of the structure is similar to the Get Variant Attribute function. The border node on the right side of the structure is similar to the Set Variant At",
           "default_value": null,
           "enum_values": null,
@@ -954,8 +802,6 @@
       "terminals": [
         {
           "name": "map",
-          "direction": "in",
-          "type": "Enum",
           "description": "map specifies the map in which you want to look for a key. This input accepts a map of any data type. The default data type is a map of 32-bit signed integers.",
           "default_value": "data type is a map of 32-bit signed integers",
           "enum_values": null,
@@ -963,8 +809,6 @@
         },
         {
           "name": "key",
-          "direction": "in",
-          "type": null,
           "description": "key specifies the key to look for in the map. The key must be of the same data type as the attribute to the variant if the attribute was not found, refer to the example listed in the Example section for an illustration of how to add the syntax to this border node. Functions 374 ni.com existing keys in the map.",
           "default_value": null,
           "enum_values": null,
@@ -972,8 +816,6 @@
         },
         {
           "name": "default value",
-          "direction": "in",
-          "type": null,
           "description": "default value specifies the value to return in value if the specified key does not exist in the map. This input must be of the same data type as the existing values in the map.",
           "default_value": "value specifies the value to return in value if the specified key does not exist in the map",
           "enum_values": null,
@@ -981,8 +823,6 @@
         },
         {
           "name": "key not found?",
-          "direction": "out",
-          "type": "Boolean",
           "description": "key not found? returns TRUE if map does not include an entry with the specified key. Otherwise, key not found? returns FALSE . This output exists on both the left and right border nodes. The two key not found? outputs return the same value.",
           "default_value": null,
           "enum_values": null,
@@ -990,8 +830,6 @@
         },
         {
           "name": "value",
-          "direction": "out",
-          "type": "Boolean",
           "description": "value returns the value of the entry with the associated key if key not found? is FALSE. If key not found? is TRUE, this output returns the value in default value.",
           "default_value": "value",
           "enum_values": null,
@@ -999,8 +837,6 @@
         },
         {
           "name": "action",
-          "direction": "in",
-          "type": "Boolean",
           "description": "action specifies the operation to perform on the map based on the TRUE or FALSE value of key not found?. This input assumes the value 0 if unwired. 2 Delete Entry\u2014If key not found? is FALSE, this node deletes the entry with the specified key from the map. If key not found? is TRUE, this node does nothing. 0 Modify Entry only if found (default)\u2014If key not found? is FALSE, this node replaces the existing associated value with the new value. If key not found? is TRUE, this node does nothing. 1 Add ",
           "default_value": null,
           "enum_values": [
@@ -1021,8 +857,6 @@
         },
         {
           "name": "value",
-          "direction": "in",
-          "type": null,
           "description": "value specifies the new value of the entry with the associated key.",
           "default_value": null,
           "enum_values": null,
@@ -1030,8 +864,6 @@
         },
         {
           "name": "map",
-          "direction": "out",
-          "type": null,
           "description": "map returns the resulting map.",
           "default_value": null,
           "enum_values": null,
@@ -1039,8 +871,6 @@
         },
         {
           "name": "key",
-          "direction": "in",
-          "type": null,
           "description": "Functions",
           "default_value": null,
           "enum_values": null,
@@ -1104,8 +934,6 @@
       "terminals": [
         {
           "name": "ms timeout (0)",
-          "direction": "in",
-          "type": null,
           "description": "ms timeout specifies a timeout period in milliseconds for a Shared Variable node configured to read data. The shared variable waits the specified amount of time for updated data, and the timed out? indicator returns whether the shared variable received updated data in the specified time period or timed out. Updated data can represent a new value or an existing value that simply confirms a valid connection with the shared variable in the active project. To add a ms timeout input to the Shared Var",
           "default_value": null,
           "enum_values": null,
@@ -1113,8 +941,6 @@
         },
         {
           "name": "error in (no error)",
-          "direction": "in",
-          "type": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality. Note The behavior of the Shared Variable node differs when it is bound to a physical I/O channel. Refer to the Using I/O Variables topic for information about I/O variables. Functions 382 ni.com",
           "default_value": null,
           "enum_values": null,
@@ -1134,8 +960,6 @@
       "terminals": [
         {
           "name": "ms timeout (0)",
-          "direction": "in",
-          "type": null,
           "description": "ms timeout specifies a timeout period in milliseconds for a Shared Variable node configured to read data. The shared variable waits the specified amount of time for updated data, and the timed out? indicator returns whether the shared variable received updated data in the specified time period or timed out. Updated data can represent a new value or an existing value that simply confirms a valid connection with the shared variable in the active project. To add a ms timeout input to the Shared Var",
           "default_value": null,
           "enum_values": null,
@@ -1143,8 +967,6 @@
         },
         {
           "name": "error in (no error)",
-          "direction": "in",
-          "type": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality. Note The behavior of the Shared Variable node differs when it is bound to a physical I/O channel. Refer to the Using I/O Variables topic for information about I/O variables. Functions 382 ni.com",
           "default_value": null,
           "enum_values": null,
@@ -1152,8 +974,6 @@
         },
         {
           "name": "timed out?",
-          "direction": "in",
-          "type": "Boolean",
           "description": "timed out? displays whether a Shared Variable node read new data within the specified timeout period or timed out. To add a timed out? output to the Shared Variable node, right-click the Shared Variable node and select Show Timeout from the shortcut menu. You only can enable a timeout period for Shared Variable nodes configured to read data. You cannot enable a timeout period for nodes that access I/O variables locally. If the timeout expires, the Shared Variable node returns the last value writ",
           "default_value": null,
           "enum_values": null,
@@ -1161,8 +981,6 @@
         },
         {
           "name": "timestamp",
-          "direction": "in",
-          "type": null,
           "description": "timestamp displays the timestamp data for the shared variable. To add a timestamp output to the Shared Variable node for a single-process shared variable or an I/O variable, you must first place a checkmark in the Enable timestamp checkbox on the Variable page of the Shared Variable Properties dialog box, and then right-click the Shared Variable node and select Show Timestamp from the shortcut menu. You can use this output only with shared variable nodes that are configured to read data.",
           "default_value": null,
           "enum_values": null,
@@ -1170,8 +988,6 @@
         },
         {
           "name": "error out",
-          "direction": "in",
-          "type": null,
           "description": "error out contains error information. This output provides standard error out functionality. When you drag a shared variable from the Project Explorer window to the block diagram or place a Shared Variable node on the block diagram, LabVIEW configures the Shared Variable node to read data. To configure the Shared Variable node to write data, right-click the Shared Variable node and select Change to Write from the shortcut menu. Note You can create, configure, and host shared variables only on Wi",
           "default_value": null,
           "enum_values": null,
@@ -1213,8 +1029,6 @@
       "terminals": [
         {
           "name": "labview\\examples\\Structures\\Feedback Node\\Feedback Node -",
-          "direction": "in",
-          "type": null,
           "description": "",
           "default_value": null,
           "enum_values": null,
