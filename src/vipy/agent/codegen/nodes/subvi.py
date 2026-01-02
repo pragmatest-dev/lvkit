@@ -271,7 +271,7 @@ class SubVICodeGen(NodeCodeGen):
         vilib_inputs: dict[int, str] = {}
         if vilib_vi:
             for vt in vilib_vi.terminals:
-                if vt.direction == "in":
+                if vt.direction == "input":
                     vilib_inputs[vt.index] = vt.python_param or vt.name
 
         args = []
@@ -339,7 +339,7 @@ class SubVICodeGen(NodeCodeGen):
         vilib_outputs: dict[int, str] = {}
         if vilib_vi:
             for vt in vilib_vi.terminals:
-                if vt.direction == "out":
+                if vt.direction == "output":
                     vilib_outputs[vt.index] = vt.python_param or vt.name
 
         bindings = {}

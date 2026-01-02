@@ -341,13 +341,13 @@ def {func_name}(*args, **kwargs) -> Any:
                 # Get from graph context for AST-generated VIs
                 vi_context = graph.get_vi_context(vi_name)
                 for inp in vi_context.get("inputs", []):
-                    name = inp.get("name", "input")
-                    ctrl_type = inp.get("control_type", "Any")
+                    name = inp.name or "input"
+                    ctrl_type = inp.control_type or "Any"
                     ui_inputs.append((name, ctrl_type))
 
                 for out in vi_context.get("outputs", []):
-                    name = out.get("name", "output")
-                    ctrl_type = out.get("control_type", "Any")
+                    name = out.name or "output"
+                    ctrl_type = out.control_type or "Any"
                     ui_outputs.append((name, ctrl_type))
 
             if ui_inputs or ui_outputs:

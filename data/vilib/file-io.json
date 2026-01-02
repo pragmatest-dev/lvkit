@@ -1175,7 +1175,9 @@
             ]
           ],
           "python_param": "directory_type",
-          "enum": "SystemDirectoryType"
+          "enum": "SystemDirectoryType",
+          "index": 11,
+          "direction": "input"
         },
         {
           "name": "create directory if not found? (F)",
@@ -1189,7 +1191,9 @@
           "description": "system directory returns the specified system directory of the current target. If errors occur while accessing or creating a directory, or the current target does not support the specified system directory type, the VI returns Not a Path.",
           "default_value": null,
           "enum_values": null,
-          "python_param": "system_directory_path"
+          "python_param": "system_directory_path",
+          "index": 2,
+          "direction": "output"
         }
       ],
       "imports": [

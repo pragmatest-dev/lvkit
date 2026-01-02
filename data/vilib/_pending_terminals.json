@@ -37,6 +37,24 @@
               "wire_type": "TypeDef"
             }
           ]
+        },
+        {
+          "caller_vi": "unknown",
+          "timestamp": "2026-01-02T11:22:20.981742",
+          "terminals": [
+            {
+              "index": 2,
+              "direction": "output",
+              "name": null,
+              "wire_type": "Path"
+            },
+            {
+              "index": 11,
+              "direction": "input",
+              "name": null,
+              "wire_type": "NumInt32"
+            }
+          ]
         }
       ],
       "terminal_map": {
@@ -46,15 +64,16 @@
           "observed_types": [
             "Path"
           ],
-          "count": 2
+          "count": 3
         },
         "11": {
           "direction": "input",
           "observed_names": [],
           "observed_types": [
-            "TypeDef"
+            "TypeDef",
+            "NumInt32"
           ],
-          "count": 2
+          "count": 3
         }
       },
       "vilib_terminals": [
