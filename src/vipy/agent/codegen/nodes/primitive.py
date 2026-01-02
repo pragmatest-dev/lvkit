@@ -5,6 +5,8 @@ from __future__ import annotations
 import ast
 from typing import TYPE_CHECKING, Any
 
+from vipy.graph_types import Operation
+
 from ..ast_utils import (
     build_assign,
     parse_expr,
@@ -25,11 +27,11 @@ class PrimitiveCodeGen(NodeCodeGen):
     Handles both simple (string) and complex (dict) hints.
     """
 
-    def generate(self, node: dict[str, Any], ctx: CodeGenContext) -> CodeFragment:
+    def generate(self, node: Operation, ctx: CodeGenContext) -> CodeFragment:
         """Generate code for a primitive node."""
         from ....primitive_resolver import get_resolver
 
-        prim_id = node.get("primResID")
+        prim_id = node.primResID
         if prim_id is None:
             return CodeFragment.empty()
 
@@ -66,7 +68,7 @@ class PrimitiveCodeGen(NodeCodeGen):
             )
 
     def _build_input_map(
-        self, node: dict[str, Any], ctx: CodeGenContext, resolved: Any
+        self, node: Operation, ctx: CodeGenContext, resolved: Any
     ) -> dict[str, str]:
         """Build mapping from terminal names to resolved variable names.
 
@@ -81,13 +83,13 @@ class PrimitiveCodeGen(NodeCodeGen):
                 if rt.direction == "in":
                     resolved_inputs[rt.index] = rt.name
 
-        for term in node.get("terminals", []):
-            if term.get("direction") != "input":
+        for term in node.terminals:
+            if term.direction != "input":
                 continue
 
-            term_id = term.get("id")
-            term_index = term.get("index", -1)
-            term_name = term.get("name", "")
+            term_id = term.id
+            term_index = term.index
+            term_name = term.name or ""
 
             # Priority: node terminal name > resolved terminal name
             if not term_name and term_index in resolved_inputs:
@@ -105,7 +107,7 @@ class PrimitiveCodeGen(NodeCodeGen):
         return input_map
 
     def _get_wired_outputs(
-        self, node: dict[str, Any], resolved: Any, ctx: CodeGenContext
+        self, node: Operation, resolved: Any, ctx: CodeGenContext
     ) -> list[tuple[str, str, str]]:
         """Get list of (terminal_id, terminal_name, var_name) for wired outputs.
 
@@ -119,13 +121,13 @@ class PrimitiveCodeGen(NodeCodeGen):
                     resolved_outputs[rt.index] = rt.name
 
         outputs = []
-        for term in node.get("terminals", []):
-            if term.get("direction") != "output":
+        for term in node.terminals:
+            if term.direction != "output":
                 continue
 
-            term_id = term.get("id")
-            term_index = term.get("index", -1)
-            term_name = term.get("name", "")
+            term_id = term.id
+            term_index = term.index
+            term_name = term.name or ""
 
             # Priority: node terminal name > resolved terminal name > generic
             if not term_name and term_index in resolved_outputs:
@@ -277,15 +279,15 @@ class PrimitiveCodeGen(NodeCodeGen):
         return result
 
     def _emit_unknown(
-        self, node: dict[str, Any], prim_id: int, ctx: CodeGenContext
+        self, node: Operation, prim_id: int, ctx: CodeGenContext
     ) -> CodeFragment:
         """Emit placeholder for unknown primitive.
 
         In non-strict mode, emits a placeholder comment. The generated code
         will have a string literal that makes it obvious something is missing.
         """
-        op_id = node.get("id", "?")
-        node_name = node.get("name", "unknown")
+        op_id = node.id
+        node_name = node.name or "unknown"
 
         # Create a raise statement so it fails at runtime with clear message
         # This is better than silent None returns

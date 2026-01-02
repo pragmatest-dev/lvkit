@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import ast
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
+
+from vipy.graph_types import Operation
 
 from ..ast_utils import build_assign, parse_expr
 from ..fragment import CodeFragment
@@ -25,25 +27,25 @@ class CompoundArithCodeGen(NodeCodeGen):
     - All inputs combined with OR to produce output
     """
 
-    def generate(self, node: dict[str, Any], ctx: CodeGenContext) -> CodeFragment:
+    def generate(self, node: Operation, ctx: CodeGenContext) -> CodeFragment:
         """Generate code for compound arithmetic (OR of inputs)."""
-        terminals = node.get("terminals", [])
-        node_id = node.get("id", "?")
+        terminals = node.terminals
+        node_id = node.id
 
         # Separate inputs and output
-        inputs = [t for t in terminals if t.get("direction") == "input"]
-        outputs = [t for t in terminals if t.get("direction") == "output"]
+        inputs = [t for t in terminals if t.direction == "input"]
+        outputs = [t for t in terminals if t.direction == "output"]
 
         if not outputs:
             return CodeFragment()
 
         output_term = outputs[0]
-        output_id = output_term.get("id")
+        output_id = output_term.id
 
         # Resolve input values
         input_exprs = []
-        for inp in sorted(inputs, key=lambda t: t.get("index", 0)):
-            inp_id = inp.get("id")
+        for inp in sorted(inputs, key=lambda t: t.index):
+            inp_id = inp.id
             val = ctx.resolve(inp_id)
             if val:
                 input_exprs.append(val)
@@ -88,25 +90,25 @@ class ArrayBuildCodeGen(NodeCodeGen):
     - One output terminal (the array)
     """
 
-    def generate(self, node: dict[str, Any], ctx: CodeGenContext) -> CodeFragment:
+    def generate(self, node: Operation, ctx: CodeGenContext) -> CodeFragment:
         """Generate code for array building."""
-        terminals = node.get("terminals", [])
-        node_id = node.get("id", "?")
+        terminals = node.terminals
+        node_id = node.id
 
         # Separate inputs and output
-        inputs = [t for t in terminals if t.get("direction") == "input"]
-        outputs = [t for t in terminals if t.get("direction") == "output"]
+        inputs = [t for t in terminals if t.direction == "input"]
+        outputs = [t for t in terminals if t.direction == "output"]
 
         if not outputs:
             return CodeFragment()
 
         output_term = outputs[0]
-        output_id = output_term.get("id")
+        output_id = output_term.id
 
         # Resolve input values
         elements = []
-        for inp in sorted(inputs, key=lambda t: t.get("index", 0)):
-            inp_id = inp.get("id")
+        for inp in sorted(inputs, key=lambda t: t.index):
+            inp_id = inp.id
             val = ctx.resolve(inp_id)
             if val:
                 elements.append(parse_expr(val))

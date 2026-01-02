@@ -5,6 +5,8 @@ from __future__ import annotations
 import ast
 from typing import TYPE_CHECKING, Any
 
+from vipy.graph_types import Operation
+
 from ..ast_utils import to_function_name, to_var_name
 from ..fragment import CodeFragment
 from .base import NodeCodeGen
@@ -22,9 +24,9 @@ class SubVICodeGen(NodeCodeGen):
     Uses vilib resolver to get proper field names for known SubVIs.
     """
 
-    def generate(self, node: dict[str, Any], ctx: CodeGenContext) -> CodeFragment:
+    def generate(self, node: Operation, ctx: CodeGenContext) -> CodeFragment:
         """Generate code for a SubVI call."""
-        subvi_name = node.get("name", "")
+        subvi_name = node.name or ""
         if not subvi_name:
             return CodeFragment.empty()
 
@@ -80,7 +82,7 @@ class SubVICodeGen(NodeCodeGen):
         )
 
     def _generate_inline(
-        self, node: dict[str, Any], ctx: CodeGenContext, vilib_vi: Any
+        self, node: Operation, ctx: CodeGenContext, vilib_vi: Any
     ) -> CodeFragment:
         """Generate inline Python code instead of function call.
 
@@ -93,7 +95,7 @@ class SubVICodeGen(NodeCodeGen):
         With binding: size_terminal_id -> "get_array_size_0_size"
         """
         template = vilib_vi.python_code
-        func_name = to_function_name(node.get("name", "inline"))
+        func_name = to_function_name(node.name or "inline")
 
         # Build index → param name mappings for inputs and outputs
         vilib_inputs: dict[int, str] = {}
@@ -106,12 +108,12 @@ class SubVICodeGen(NodeCodeGen):
                 vilib_outputs[vt.index] = param_key
 
         # Substitute input placeholders with wired values
-        for term in node.get("terminals", []):
-            if term.get("direction") != "input":
+        for term in node.terminals:
+            if term.direction != "input":
                 continue
 
-            term_index = term.get("index", 0)
-            term_id = term.get("id")
+            term_index = term.index
+            term_id = term.id
             value = ctx.resolve(term_id)
 
             if term_index in vilib_inputs:
@@ -124,12 +126,12 @@ class SubVICodeGen(NodeCodeGen):
         bindings = {}
         output_var_map: dict[str, str] = {}  # param_key -> generated var name
 
-        for term in node.get("terminals", []):
-            if term.get("direction") != "output":
+        for term in node.terminals:
+            if term.direction != "output":
                 continue
 
-            term_index = term.get("index", 0)
-            term_id = term.get("id")
+            term_index = term.index
+            term_id = term.id
 
             if term_index in vilib_outputs:
                 param_key = vilib_outputs[term_index]
@@ -165,7 +167,7 @@ class SubVICodeGen(NodeCodeGen):
         )
 
     def _get_vilib_vi(
-        self, subvi_name: str, node: dict[str, Any] | None = None,
+        self, subvi_name: str, node: Operation | None = None,
         ctx: CodeGenContext | None = None
     ) -> Any | None:
         """Look up SubVI in vilib resolver.
@@ -187,9 +189,9 @@ class SubVICodeGen(NodeCodeGen):
             if has_terminals and node and ctx:
                 # Get indices the caller is actually wiring (not just connector slots)
                 caller_indices = set()
-                for term in node.get("terminals", []):
-                    term_id = term.get("id")
-                    term_index = term.get("index")
+                for term in node.terminals:
+                    term_id = term.id
+                    term_index = term.index
                     # Only count terminals that have wires connected
                     if term_id and term_index is not None and ctx.is_wired(term_id):
                         caller_indices.add(term_index)
@@ -212,8 +214,8 @@ class SubVICodeGen(NodeCodeGen):
 
                 # Filter to only wired terminals for observation
                 wired_node_terminals = [
-                    term for term in node.get("terminals", [])
-                    if ctx and ctx.is_wired(term.get("id"))
+                    term for term in node.terminals
+                    if ctx and ctx.is_wired(term.id)
                 ] if node else []
 
                 if node and wired_node_terminals:
@@ -241,8 +243,8 @@ class SubVICodeGen(NodeCodeGen):
                 if wired_node_terminals:
                     wire_types = []
                     for term in wired_node_terminals:
-                        term_name = term.get("name", f"idx_{term.get('index', '?')}")
-                        term_dir = term.get("direction", "?")
+                        term_name = term.name or f"idx_{term.index}"
+                        term_dir = term.direction
                         wire_types.append(f"{term_name} ({term_dir})")
                     context["wire_types"] = wire_types
 
@@ -257,12 +259,12 @@ class SubVICodeGen(NodeCodeGen):
 
     def _build_arguments(
         self,
-        node: dict[str, Any],
+        node: Operation,
         ctx: CodeGenContext,
         vilib_vi: Any | None,
     ) -> tuple[list[str], dict[str, str]]:
         """Build input arguments, using vilib names if available."""
-        subvi_name = node.get("name", "")
+        subvi_name = node.name or ""
 
         # Build index → vilib terminal name mapping
         # Prefer python_param if available, otherwise use terminal name
@@ -275,14 +277,14 @@ class SubVICodeGen(NodeCodeGen):
         args = []
         keywords: dict[str, str] = {}
 
-        for term in node.get("terminals", []):
-            if term.get("direction") != "input":
+        for term in node.terminals:
+            if term.direction != "input":
                 continue
 
-            term_id = term.get("id")
-            term_index = term.get("index", 0)
-            term_name = term.get("name", "")
-            callee_param = term.get("callee_param_name", "")
+            term_id = term.id
+            term_index = term.index
+            term_name = term.name or ""
+            callee_param = term.callee_param_name or ""
             value = ctx.resolve(term_id)
 
             # Skip unwired terminals - they'll use default values
@@ -324,13 +326,13 @@ class SubVICodeGen(NodeCodeGen):
 
     def _build_output_bindings(
         self,
-        node: dict[str, Any],
+        node: Operation,
         result_var: str,
         vilib_vi: Any | None,
         ctx: CodeGenContext,
     ) -> dict[str, str]:
         """Build output terminal bindings using vilib names."""
-        subvi_name = node.get("name", "")
+        subvi_name = node.name or ""
 
         # Build index → vilib terminal name mapping
         # Prefer python_param if available, otherwise use terminal name
@@ -341,13 +343,13 @@ class SubVICodeGen(NodeCodeGen):
                     vilib_outputs[vt.index] = vt.python_param or vt.name
 
         bindings = {}
-        for term in node.get("terminals", []):
-            if term.get("direction") != "output":
+        for term in node.terminals:
+            if term.direction != "output":
                 continue
 
-            term_id = term.get("id")
-            term_index = term.get("index", 0)
-            term_name = term.get("name", "")
+            term_id = term.id
+            term_index = term.index
+            term_name = term.name or ""
 
             # Priority: vilib name > terminal name > callee context lookup
             field = None

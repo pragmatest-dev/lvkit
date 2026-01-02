@@ -109,6 +109,7 @@ The "Wire types from dataflow" section shows what terminal indices the caller is
 - Ruff for linting (rules: E, F, I, UP)
 - mypy with strict mode for type checking
 - Line length: 88 characters
+- **Prefer dataclasses over dicts** - Use typed dataclasses from `graph_types.py` instead of raw dictionaries. Use attribute access (`obj.field`) not `.get("field")`
 
 ## Bash Commands
 

@@ -6,6 +6,8 @@ import ast
 
 import pytest
 
+from vipy.graph_types import Constant, FPTerminalNode, Operation, Terminal, Tunnel, Wire
+
 
 def test_build_module_minimal():
     """Test build_module with minimal VI context."""
@@ -14,11 +16,11 @@ def test_build_module_minimal():
     vi_context = {
         "name": "Simple Add.vi",
         "inputs": [
-            {"id": "inp:1", "name": "A", "type": "int"},
-            {"id": "inp:2", "name": "B", "type": "int"},
+            FPTerminalNode(id="inp:1", kind="input", name="A", is_indicator=False, is_public=True, type="int"),
+            FPTerminalNode(id="inp:2", kind="input", name="B", is_indicator=False, is_public=True, type="int"),
         ],
         "outputs": [
-            {"id": "out:1", "name": "Sum", "type": "int"},
+            FPTerminalNode(id="out:1", kind="output", name="Sum", is_indicator=True, is_public=True, type="int"),
         ],
         "constants": [],
         "operations": [],
@@ -44,26 +46,16 @@ def test_build_module_with_constant():
         "name": "Constant Test.vi",
         "inputs": [],
         "outputs": [
-            {"id": "out:1", "name": "Value", "type": "int"},
+            FPTerminalNode(id="out:1", kind="output", name="Value", is_indicator=True, is_public=True, type="int"),
         ],
         "constants": [
-            {"id": "const:1", "name": "MyConst", "value": 42, "type": "int"},
+            Constant(id="const:1", value=42, type="int", label="MyConst"),
         ],
         "operations": [
-            {
-                "id": "op:1",
-                "name": "Constant",
-                "labels": ["Constant"],
-                "terminals": [],
-            }
+            Operation(id="op:1", name="Constant", labels=["Constant"]),
         ],
         "data_flow": [
-            {
-                "src_terminal": "const:1",
-                "dst_terminal": "out:1",
-                "from_parent_labels": ["Constant"],
-                "to_parent_labels": ["Output"],
-            }
+            Wire(from_terminal_id="const:1", to_terminal_id="out:1", from_parent_labels=["Constant"], to_parent_labels=["Output"]),
         ],
     }
 
@@ -81,45 +73,30 @@ def test_build_module_with_primitive():
     vi_context = {
         "name": "Add Numbers.vi",
         "inputs": [
-            {"id": "inp:1", "name": "X", "type": "float"},
-            {"id": "inp:2", "name": "Y", "type": "float"},
+            FPTerminalNode(id="inp:1", kind="input", name="X", is_indicator=False, is_public=True, type="float"),
+            FPTerminalNode(id="inp:2", kind="input", name="Y", is_indicator=False, is_public=True, type="float"),
         ],
         "outputs": [
-            {"id": "out:1", "name": "Result", "type": "float"},
+            FPTerminalNode(id="out:1", kind="output", name="Result", is_indicator=True, is_public=True, type="float"),
         ],
         "constants": [],
         "operations": [
-            {
-                "id": "op:1",
-                "name": "Add",
-                "labels": ["Primitive"],
-                "primResID": 1,  # Add primitive
-                "terminals": [
-                    {"id": "term:1", "name": "x", "direction": "input"},
-                    {"id": "term:2", "name": "y", "direction": "input"},
-                    {"id": "term:3", "name": "x+y", "direction": "output"},
+            Operation(
+                id="op:1",
+                name="Add",
+                labels=["Primitive"],
+                primResID=1,
+                terminals=[
+                    Terminal(id="term:1", index=0, direction="input", name="x"),
+                    Terminal(id="term:2", index=1, direction="input", name="y"),
+                    Terminal(id="term:3", index=2, direction="output", name="x+y"),
                 ],
-            }
+            ),
         ],
         "data_flow": [
-            {
-                "src_terminal": "inp:1",
-                "dst_terminal": "term:1",
-                "from_parent_labels": ["Input"],
-                "to_parent_labels": ["Primitive"],
-            },
-            {
-                "src_terminal": "inp:2",
-                "dst_terminal": "term:2",
-                "from_parent_labels": ["Input"],
-                "to_parent_labels": ["Primitive"],
-            },
-            {
-                "src_terminal": "term:3",
-                "dst_terminal": "out:1",
-                "from_parent_labels": ["Primitive"],
-                "to_parent_labels": ["Output"],
-            },
+            Wire(from_terminal_id="inp:1", to_terminal_id="term:1", from_parent_labels=["Input"], to_parent_labels=["Primitive"]),
+            Wire(from_terminal_id="inp:2", to_terminal_id="term:2", from_parent_labels=["Input"], to_parent_labels=["Primitive"]),
+            Wire(from_terminal_id="term:3", to_terminal_id="out:1", from_parent_labels=["Primitive"], to_parent_labels=["Output"]),
         ],
     }
 
@@ -137,36 +114,26 @@ def test_build_module_with_subvi():
     vi_context = {
         "name": "Call Helper.vi",
         "inputs": [
-            {"id": "inp:1", "name": "Input Value", "type": "str"},
+            FPTerminalNode(id="inp:1", kind="input", name="Input Value", is_indicator=False, is_public=True, type="str"),
         ],
         "outputs": [
-            {"id": "out:1", "name": "Output Value", "type": "str"},
+            FPTerminalNode(id="out:1", kind="output", name="Output Value", is_indicator=True, is_public=True, type="str"),
         ],
         "constants": [],
         "operations": [
-            {
-                "id": "op:1",
-                "name": "Helper VI.vi",
-                "labels": ["SubVI"],
-                "terminals": [
-                    {"id": "term:1", "name": "input", "direction": "input"},
-                    {"id": "term:2", "name": "output", "direction": "output"},
+            Operation(
+                id="op:1",
+                name="Helper VI.vi",
+                labels=["SubVI"],
+                terminals=[
+                    Terminal(id="term:1", index=0, direction="input", name="input"),
+                    Terminal(id="term:2", index=1, direction="output", name="output"),
                 ],
-            }
+            ),
         ],
         "data_flow": [
-            {
-                "src_terminal": "inp:1",
-                "dst_terminal": "term:1",
-                "from_parent_labels": ["Input"],
-                "to_parent_labels": ["SubVI"],
-            },
-            {
-                "src_terminal": "term:2",
-                "dst_terminal": "out:1",
-                "from_parent_labels": ["SubVI"],
-                "to_parent_labels": ["Output"],
-            },
+            Wire(from_terminal_id="inp:1", to_terminal_id="term:1", from_parent_labels=["Input"], to_parent_labels=["SubVI"]),
+            Wire(from_terminal_id="term:2", to_terminal_id="out:1", from_parent_labels=["SubVI"], to_parent_labels=["Output"]),
         ],
     }
 
@@ -228,14 +195,14 @@ def test_context_from_vi_context():
 
     vi_context = {
         "inputs": [
-            {"id": "inp:1", "name": "Path In"},
-            {"id": "inp:2", "name": "Count"},
+            FPTerminalNode(id="inp:1", kind="input", name="Path In", is_indicator=False, is_public=True),
+            FPTerminalNode(id="inp:2", kind="input", name="Count", is_indicator=False, is_public=True),
         ],
         "constants": [
-            {"id": "const:1", "value": 42},
+            Constant(id="const:1", value=42, type="int"),
         ],
         "data_flow": [
-            {"src_terminal": "inp:1", "dst_terminal": "term:1"},
+            Wire(from_terminal_id="inp:1", to_terminal_id="term:1"),
         ],
     }
 
@@ -256,46 +223,27 @@ def test_build_module_with_while_loop():
     vi_context = {
         "name": "Loop Counter.vi",
         "inputs": [
-            {"id": "inp:1", "name": "Max Count", "type": "int"},
+            FPTerminalNode(id="inp:1", kind="input", name="Max Count", is_indicator=False, is_public=True, type="int"),
         ],
         "outputs": [
-            {"id": "out:1", "name": "Final Count", "type": "int"},
+            FPTerminalNode(id="out:1", kind="output", name="Final Count", is_indicator=True, is_public=True, type="int"),
         ],
         "constants": [],
         "operations": [
-            {
-                "id": "loop:1",
-                "name": "While Loop",
-                "labels": ["Loop"],
-                "loop_type": "whileLoop",
-                "inner_nodes": [],
-                "tunnels": [
-                    {
-                        "tunnel_type": "lpTun",
-                        "outer_terminal_uid": "tun:outer1",
-                        "inner_terminal_uid": "tun:inner1",
-                    },
-                    {
-                        "tunnel_type": "lMax",
-                        "outer_terminal_uid": "tun:outer2",
-                        "inner_terminal_uid": "tun:inner2",
-                    },
+            Operation(
+                id="loop:1",
+                name="While Loop",
+                labels=["Loop"],
+                loop_type="whileLoop",
+                tunnels=[
+                    Tunnel(tunnel_type="lpTun", outer_terminal_uid="tun:outer1", inner_terminal_uid="tun:inner1"),
+                    Tunnel(tunnel_type="lMax", outer_terminal_uid="tun:outer2", inner_terminal_uid="tun:inner2"),
                 ],
-            }
+            ),
         ],
         "data_flow": [
-            {
-                "src_terminal": "inp:1",
-                "dst_terminal": "tun:outer1",
-                "from_parent_labels": ["Input"],
-                "to_parent_labels": ["Loop"],
-            },
-            {
-                "src_terminal": "tun:outer2",
-                "dst_terminal": "out:1",
-                "from_parent_labels": ["Loop"],
-                "to_parent_labels": ["Output"],
-            },
+            Wire(from_terminal_id="inp:1", to_terminal_id="tun:outer1", from_parent_labels=["Input"], to_parent_labels=["Loop"]),
+            Wire(from_terminal_id="tun:outer2", to_terminal_id="out:1", from_parent_labels=["Loop"], to_parent_labels=["Output"]),
         ],
     }
 
@@ -318,14 +266,12 @@ def test_build_module_with_for_loop():
         "outputs": [],
         "constants": [],
         "operations": [
-            {
-                "id": "loop:1",
-                "name": "For Loop",
-                "labels": ["Loop"],
-                "loop_type": "forLoop",
-                "inner_nodes": [],
-                "tunnels": [],
-            }
+            Operation(
+                id="loop:1",
+                name="For Loop",
+                labels=["Loop"],
+                loop_type="forLoop",
+            ),
         ],
         "data_flow": [],
     }
@@ -385,13 +331,12 @@ def test_unknown_primitive_raises_at_runtime():
         "outputs": [],
         "constants": [],
         "operations": [
-            {
-                "id": "op:1",
-                "name": "Mystery Primitive",
-                "labels": ["Primitive"],
-                "primResID": 99999,  # Unknown primitive
-                "terminals": [],
-            }
+            Operation(
+                id="op:1",
+                name="Mystery Primitive",
+                labels=["Primitive"],
+                primResID=99999,
+            ),
         ],
         "data_flow": [],
     }
@@ -416,11 +361,7 @@ def test_unknown_node_type_emits_warning():
         "outputs": [],
         "constants": [],
         "operations": [
-            {
-                "id": "op:1",
-                "name": "Weird Node",
-                "labels": ["SomethingWeird"],  # Unknown label
-            }
+            Operation(id="op:1", name="Weird Node", labels=["SomethingWeird"]),
         ],
         "data_flow": [],
     }
@@ -532,7 +473,7 @@ def test_context_flow_map_tracing():
     from vipy.agent.codegen import CodeGenContext
 
     data_flow = [
-        {"from_terminal_id": "source", "to_terminal_id": "dest", "from_parent_id": "p1"},
+        Wire(from_terminal_id="source", to_terminal_id="dest", from_parent_id="p1"),
     ]
 
     ctx = CodeGenContext(data_flow=data_flow)
@@ -549,8 +490,8 @@ def test_context_cycle_detection():
 
     # Create a cycle: a -> b -> a
     data_flow = [
-        {"from_terminal_id": "a", "to_terminal_id": "b", "from_parent_id": "p1"},
-        {"from_terminal_id": "b", "to_terminal_id": "a", "from_parent_id": "p2"},
+        Wire(from_terminal_id="a", to_terminal_id="b", from_parent_id="p1"),
+        Wire(from_terminal_id="b", to_terminal_id="a", from_parent_id="p2"),
     ]
 
     ctx = CodeGenContext(data_flow=data_flow)
@@ -614,12 +555,12 @@ def test_dataflow_tracer_basic():
 
     vi_context = {
         "terminals": [
-            {"id": "t1", "index": 0, "direction": "input", "parent_id": "op1"},
-            {"id": "t2", "index": 1, "direction": "output", "parent_id": "op1"},
+            Terminal(id="t1", index=0, direction="input"),
+            Terminal(id="t2", index=1, direction="output"),
         ],
         "operations": [],
         "data_flow": [
-            {"from_terminal_id": "source", "to_terminal_id": "t1", "from_parent_id": "input1"},
+            Wire(from_terminal_id="source", to_terminal_id="t1", from_parent_id="input1"),
         ],
     }
 
@@ -654,11 +595,11 @@ def test_dataflow_tracer_resolve_source():
 
     vi_context = {
         "terminals": [
-            {"id": "t1", "index": 0, "direction": "input", "parent_id": "op1"},
+            Terminal(id="t1", index=0, direction="input"),
         ],
         "operations": [],
         "data_flow": [
-            {"from_terminal_id": "source", "to_terminal_id": "t1", "from_parent_id": "input1"},
+            Wire(from_terminal_id="source", to_terminal_id="t1", from_parent_id="input1"),
         ],
     }
 
@@ -674,15 +615,22 @@ def test_dataflow_tracer_wired_inputs():
     from vipy.agent.codegen import DataFlowTracer
 
     vi_context = {
-        "terminals": [
-            {"id": "t1", "index": 0, "direction": "input", "parent_id": "op1"},
-            {"id": "t2", "index": 1, "direction": "input", "parent_id": "op1"},
-            {"id": "t3", "index": 2, "direction": "output", "parent_id": "op1"},
+        "terminals": [],
+        "operations": [
+            Operation(
+                id="op1",
+                name="Test Op",
+                labels=["Operation"],
+                terminals=[
+                    Terminal(id="t1", index=0, direction="input"),
+                    Terminal(id="t2", index=1, direction="input"),
+                    Terminal(id="t3", index=2, direction="output"),
+                ],
+            ),
         ],
-        "operations": [],
         "data_flow": [
-            {"from_terminal_id": "src1", "to_terminal_id": "t1", "from_parent_id": "p1"},
-            {"from_terminal_id": "src2", "to_terminal_id": "t2", "from_parent_id": "p2"},
+            Wire(from_terminal_id="src1", to_terminal_id="t1", from_parent_id="p1", to_parent_id="op1"),
+            Wire(from_terminal_id="src2", to_terminal_id="t2", from_parent_id="p2", to_parent_id="op1"),
         ],
     }
 
@@ -701,13 +649,20 @@ def test_dataflow_tracer_wired_outputs():
     from vipy.agent.codegen import DataFlowTracer
 
     vi_context = {
-        "terminals": [
-            {"id": "t1", "index": 0, "direction": "input", "parent_id": "op1"},
-            {"id": "t2", "index": 1, "direction": "output", "parent_id": "op1"},
+        "terminals": [],
+        "operations": [
+            Operation(
+                id="op1",
+                name="Test Op",
+                labels=["Operation"],
+                terminals=[
+                    Terminal(id="t1", index=0, direction="input"),
+                    Terminal(id="t2", index=1, direction="output"),
+                ],
+            ),
         ],
-        "operations": [],
         "data_flow": [
-            {"from_terminal_id": "t2", "to_terminal_id": "dest", "from_parent_id": "op1"},
+            Wire(from_terminal_id="t2", to_terminal_id="dest", from_parent_id="op1"),
         ],
     }
 
@@ -845,19 +800,14 @@ def test_build_module_with_case_structure():
     vi_context = {
         "name": "Case Test.vi",
         "inputs": [
-            {"id": "inp:1", "name": "Selector", "type": "int"},
+            FPTerminalNode(id="inp:1", kind="input", name="Selector", is_indicator=False, is_public=True, type="int"),
         ],
         "outputs": [
-            {"id": "out:1", "name": "Result", "type": "int"},
+            FPTerminalNode(id="out:1", kind="output", name="Result", is_indicator=True, is_public=True, type="int"),
         ],
         "constants": [],
         "operations": [
-            {
-                "id": "case:1",
-                "name": "Case Structure",
-                "labels": ["Case"],
-                "terminals": [],
-            }
+            Operation(id="case:1", name="Case Structure", labels=["Case"]),
         ],
         "data_flow": [],
     }
@@ -876,12 +826,12 @@ def test_build_module_with_multiple_outputs():
     vi_context = {
         "name": "Multi Output.vi",
         "inputs": [
-            {"id": "inp:1", "name": "Input", "type": "int"},
+            FPTerminalNode(id="inp:1", kind="input", name="Input", is_indicator=False, is_public=True, type="int"),
         ],
         "outputs": [
-            {"id": "out:1", "name": "Output A", "type": "int"},
-            {"id": "out:2", "name": "Output B", "type": "str"},
-            {"id": "out:3", "name": "Output C", "type": "float"},
+            FPTerminalNode(id="out:1", kind="output", name="Output A", is_indicator=True, is_public=True, type="int"),
+            FPTerminalNode(id="out:2", kind="output", name="Output B", is_indicator=True, is_public=True, type="str"),
+            FPTerminalNode(id="out:3", kind="output", name="Output C", is_indicator=True, is_public=True, type="float"),
         ],
         "constants": [],
         "operations": [],
@@ -905,12 +855,15 @@ def test_build_module_with_enum_input():
     vi_context = {
         "name": "Enum Input.vi",
         "inputs": [
-            {
-                "id": "inp:1",
-                "name": "Mode",
-                "type": "enum",
-                "enum_values": ["Read", "Write", "Append"],
-            },
+            FPTerminalNode(
+                id="inp:1",
+                kind="input",
+                name="Mode",
+                is_indicator=False,
+                is_public=True,
+                type="enum",
+                enum_values=["Read", "Write", "Append"],
+            ),
         ],
         "outputs": [],
         "constants": [],
@@ -955,23 +908,20 @@ def test_build_module_with_nested_loops():
         "outputs": [],
         "constants": [],
         "operations": [
-            {
-                "id": "outer:1",
-                "name": "Outer For",
-                "labels": ["Loop"],
-                "loop_type": "forLoop",
-                "inner_nodes": [
-                    {
-                        "id": "inner:1",
-                        "name": "Inner While",
-                        "labels": ["Loop"],
-                        "loop_type": "whileLoop",
-                        "inner_nodes": [],
-                        "tunnels": [],
-                    }
+            Operation(
+                id="outer:1",
+                name="Outer For",
+                labels=["Loop"],
+                loop_type="forLoop",
+                inner_nodes=[
+                    Operation(
+                        id="inner:1",
+                        name="Inner While",
+                        labels=["Loop"],
+                        loop_type="whileLoop",
+                    ),
                 ],
-                "tunnels": [],
-            }
+            ),
         ],
         "data_flow": [],
     }

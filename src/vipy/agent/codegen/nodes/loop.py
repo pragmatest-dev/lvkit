@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import ast
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
+
+from vipy.graph_types import Operation, Tunnel
 
 from ..ast_utils import build_assign, parse_expr, to_var_name
 from ..fragment import CodeFragment
@@ -27,11 +29,11 @@ class LoopCodeGen(NodeCodeGen):
     - lMax (accumulator): Output, builds array from all iterations
     """
 
-    def generate(self, node: dict[str, Any], ctx: CodeGenContext) -> CodeFragment:
+    def generate(self, node: Operation, ctx: CodeGenContext) -> CodeFragment:
         """Generate code for a loop structure."""
-        loop_type = node.get("loop_type", "whileLoop")
-        tunnels = node.get("tunnels", [])
-        inner_nodes = node.get("inner_nodes", [])
+        loop_type = node.loop_type or "whileLoop"
+        tunnels = node.tunnels
+        inner_nodes = node.inner_nodes
 
         pre_loop_stmts: list[ast.stmt] = []
         bindings: dict[str, str] = {}
@@ -44,9 +46,9 @@ class LoopCodeGen(NodeCodeGen):
 
         # 1. Process INPUT tunnels (lSR, lpTun)
         for tunnel in tunnels:
-            tunnel_type = tunnel.get("tunnel_type")
-            outer_term = tunnel.get("outer_terminal_uid")
-            inner_term = tunnel.get("inner_terminal_uid")
+            tunnel_type = tunnel.tunnel_type
+            outer_term = tunnel.outer_terminal_uid
+            inner_term = tunnel.inner_terminal_uid
 
             if not outer_term or not inner_term:
                 continue
@@ -77,13 +79,13 @@ class LoopCodeGen(NodeCodeGen):
         # Note: lMax can be either:
         # - The N terminal (iteration count) - outer has input, inner has no input
         # - Auto-indexed output (accumulator) - inner receives values from loop body
-        accum_tunnels: list[tuple[dict, str]] = []  # (tunnel, accum_var)
+        accum_tunnels: list[tuple[Tunnel, str]] = []  # (tunnel, accum_var)
         n_terminal_var: str | None = None  # For loop count
 
         for tunnel in tunnels:
-            tunnel_type = tunnel.get("tunnel_type")
-            outer_term = tunnel.get("outer_terminal_uid")
-            inner_term = tunnel.get("inner_terminal_uid")
+            tunnel_type = tunnel.tunnel_type
+            outer_term = tunnel.outer_terminal_uid
+            inner_term = tunnel.inner_terminal_uid
 
             if not outer_term or not inner_term:
                 continue
@@ -113,7 +115,7 @@ class LoopCodeGen(NodeCodeGen):
 
         # 4. Add accumulator appends for lMax at end of loop body
         for tunnel, accum_var in accum_tunnels:
-            inner_term = tunnel.get("inner_terminal_uid")
+            inner_term = tunnel.inner_terminal_uid
             inner_val = inner_ctx.resolve(inner_term)
             if inner_val and inner_val != accum_var:
                 # accum_var.append(inner_val)
@@ -133,10 +135,10 @@ class LoopCodeGen(NodeCodeGen):
 
         # 5. Handle shift register updates (rSR) at end of loop body
         for tunnel in tunnels:
-            tunnel_type = tunnel.get("tunnel_type")
-            outer_term = tunnel.get("outer_terminal_uid")
-            inner_term = tunnel.get("inner_terminal_uid")
-            paired_uid = tunnel.get("paired_terminal_uid")
+            tunnel_type = tunnel.tunnel_type
+            outer_term = tunnel.outer_terminal_uid
+            inner_term = tunnel.inner_terminal_uid
+            paired_uid = tunnel.paired_terminal_uid
 
             if tunnel_type != "rSR" or not outer_term or not inner_term:
                 continue
@@ -146,8 +148,8 @@ class LoopCodeGen(NodeCodeGen):
             if paired_uid:
                 # paired_uid is the lSR's DCO uid, need to find matching lSR tunnel
                 for t in tunnels:
-                    if t.get("tunnel_type") == "lSR":
-                        lsr_outer = t.get("outer_terminal_uid")
+                    if t.tunnel_type == "lSR":
+                        lsr_outer = t.outer_terminal_uid
                         if lsr_outer in shift_reg_vars:
                             shift_var = shift_reg_vars[lsr_outer]
                             break
@@ -172,9 +174,9 @@ class LoopCodeGen(NodeCodeGen):
 
         # 7. Handle lpTun outputs (last value)
         for tunnel in tunnels:
-            tunnel_type = tunnel.get("tunnel_type")
-            outer_term = tunnel.get("outer_terminal_uid")
-            inner_term = tunnel.get("inner_terminal_uid")
+            tunnel_type = tunnel.tunnel_type
+            outer_term = tunnel.outer_terminal_uid
+            inner_term = tunnel.inner_terminal_uid
 
             if tunnel_type != "lpTun" or not outer_term or not inner_term:
                 continue
@@ -199,15 +201,15 @@ class LoopCodeGen(NodeCodeGen):
             imports=inner_ctx.imports,
         )
 
-    def _make_var_name(self, tunnel: dict) -> str:
+    def _make_var_name(self, tunnel: Tunnel) -> str:
         """Generate a variable name from tunnel info."""
-        outer = tunnel.get("outer_terminal_uid", "")
+        outer = tunnel.outer_terminal_uid
         # Use last part of UID for uniqueness
         uid_suffix = outer.split(":")[-1] if ":" in outer else outer[-4:]
         return to_var_name(uid_suffix)
 
     def _generate_inner(
-        self, inner_nodes: list[dict], ctx: CodeGenContext
+        self, inner_nodes: list[Operation], ctx: CodeGenContext
     ) -> list[ast.stmt]:
         """Generate code for inner loop nodes."""
         statements = []
@@ -223,7 +225,7 @@ class LoopCodeGen(NodeCodeGen):
         return statements
 
     def _build_while_loop(
-        self, node: dict, body: list[ast.stmt], ctx: CodeGenContext
+        self, node: Operation, body: list[ast.stmt], ctx: CodeGenContext
     ) -> ast.While:
         """Build a while loop AST node.
 
@@ -237,7 +239,7 @@ class LoopCodeGen(NodeCodeGen):
             body = [ast.Pass()]
 
         # Get stop condition from the lTst terminal
-        stop_terminal = node.get("stop_condition_terminal")
+        stop_terminal = node.stop_condition_terminal
         stop_condition = None
 
         if stop_terminal:
@@ -269,10 +271,10 @@ class LoopCodeGen(NodeCodeGen):
 
     def _build_for_loop(
         self,
-        node: dict,
+        node: Operation,
         body: list[ast.stmt],
         ctx: CodeGenContext,
-        tunnels: list[dict],
+        tunnels: list[Tunnel],
         n_terminal_var: str | None = None,
     ) -> ast.For:
         """Build a for loop AST node.
@@ -319,8 +321,8 @@ class LoopCodeGen(NodeCodeGen):
 
         # Try to find count from first lpTun input's length
         for tunnel in tunnels:
-            if tunnel.get("tunnel_type") == "lpTun":
-                outer_var = ctx.resolve(tunnel.get("outer_terminal_uid"))
+            if tunnel.tunnel_type == "lpTun":
+                outer_var = ctx.resolve(tunnel.outer_terminal_uid)
                 if outer_var:
                     # Use len(first_input) as iteration count
                     return ast.For(
@@ -353,15 +355,15 @@ class LoopCodeGen(NodeCodeGen):
         )
 
     def _find_count_source(
-        self, tunnels: list[dict], ctx: CodeGenContext
+        self, tunnels: list[Tunnel], ctx: CodeGenContext
     ) -> str | None:
         """Find the iteration count source from tunnels.
 
         Looks for lMax tunnel with input wired to it (N terminal).
         """
         for tunnel in tunnels:
-            tunnel_type = tunnel.get("tunnel_type")
-            outer_term = tunnel.get("outer_terminal_uid")
+            tunnel_type = tunnel.tunnel_type
+            outer_term = tunnel.outer_terminal_uid
 
             # lMax on input side provides count (it's the N terminal)
             # Note: lMax is typically output for accumulation, but for
@@ -374,16 +376,16 @@ class LoopCodeGen(NodeCodeGen):
         return None
 
     def _find_autoindex_array(
-        self, tunnels: list[dict], ctx: CodeGenContext
+        self, tunnels: list[Tunnel], ctx: CodeGenContext
     ) -> tuple[str, str] | None:
         """Find an array input for autoindexing.
 
         Returns (array_var, inner_terminal_uid) if found.
         """
         for tunnel in tunnels:
-            tunnel_type = tunnel.get("tunnel_type")
-            outer_term = tunnel.get("outer_terminal_uid")
-            inner_term = tunnel.get("inner_terminal_uid")
+            tunnel_type = tunnel.tunnel_type
+            outer_term = tunnel.outer_terminal_uid
+            inner_term = tunnel.inner_terminal_uid
 
             if tunnel_type == "lpTun" and outer_term and inner_term:
                 outer_var = ctx.resolve(outer_term)

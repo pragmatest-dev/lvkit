@@ -12,6 +12,7 @@ from vipy.constants import (
     TERMINAL_CONTAINER_CLASSES,
 )
 
+from .front_panel import extract_fp_terminals
 from .models import (
     BlockDiagram,
     Constant,
@@ -22,7 +23,6 @@ from .models import (
 )
 from .nodes import extract_constants, extract_loops
 from .nodes.base import extract_label, extract_terminal_types
-from .front_panel import extract_fp_terminals
 
 
 def parse_block_diagram(xml_path: Path | str) -> BlockDiagram:

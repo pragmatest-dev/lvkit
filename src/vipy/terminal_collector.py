@@ -107,11 +107,23 @@ class TerminalCollector:
         # Build observation from node terminals
         terminals = []
         for term in node_terminals:
+            # Support both dict and Terminal dataclass
+            if hasattr(term, 'index'):  # Terminal dataclass
+                index = term.index
+                direction = term.direction
+                name = term.name
+                wire_type = term.type
+            else:  # dict
+                index = term.get("index", -1)
+                direction = term.get("direction", "unknown")
+                name = term.get("name")
+                wire_type = term.get("type")
+
             obs = TerminalObservation(
-                index=term.get("index", -1),
-                direction=term.get("direction", "unknown"),
-                name=term.get("name"),
-                wire_type=term.get("type"),
+                index=index,
+                direction=direction,
+                name=name,
+                wire_type=wire_type,
             )
             terminals.append(obs.to_dict())
 

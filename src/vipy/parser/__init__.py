@@ -4,6 +4,18 @@ This package provides backward-compatible exports from the original parser.py.
 """
 
 # Re-export all public APIs for backward compatibility
+from ..graph_types import Tunnel
+from .block_diagram import parse_block_diagram
+from .front_panel import (
+    extract_fp_terminals,
+    parse_connector_pane,
+    parse_connector_pane_types,
+)
+from .metadata import (
+    parse_polymorphic_info,
+    parse_subvi_paths,
+    parse_vi_metadata,
+)
 from .models import (
     BlockDiagram,
     ConnectorPane,
@@ -16,26 +28,10 @@ from .models import (
     ResolvedTypeDefValue,
     SubVIPathRef,
     TerminalInfo,
-    TunnelMapping,
     TypeDefRef,
     Wire,
     WiringRule,
 )
-
-from .block_diagram import parse_block_diagram
-
-from .front_panel import (
-    extract_fp_terminals,
-    parse_connector_pane,
-    parse_connector_pane_types,
-)
-
-from .metadata import (
-    parse_polymorphic_info,
-    parse_subvi_paths,
-    parse_vi_metadata,
-)
-
 from .types import (
     load_enum_reference,
     parse_dfds,
@@ -46,6 +42,9 @@ from .types import (
     resolve_type_to_typedef,
     resolve_typedef_value,
 )
+
+# Backward compatibility alias (after all imports)
+TunnelMapping = Tunnel
 
 __all__ = [
     # Models
@@ -60,7 +59,8 @@ __all__ = [
     "ResolvedTypeDefValue",
     "SubVIPathRef",
     "TerminalInfo",
-    "TunnelMapping",
+    "Tunnel",
+    "TunnelMapping",  # Backward compat alias for Tunnel
     "TypeDefRef",
     "Wire",
     "WiringRule",

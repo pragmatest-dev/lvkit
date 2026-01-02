@@ -1,48 +1,19 @@
 """Shared dataclasses for VI graph representation.
 
-These dataclasses provide typed access to graph nodes while maintaining
-backward compatibility with dict-style access patterns (.get(), [], 'in').
+These dataclasses are the canonical types used across:
+- memory_graph.py (creates/enriches instances)
+- parser/ (uses Tunnel)
+- codegen/ (consumes for code generation)
 """
 
 from __future__ import annotations
 
-from collections.abc import Iterator
 from dataclasses import dataclass, field
 from typing import Any
 
 
-class DictMixin:
-    """Mixin to provide dict-like access to dataclass fields.
-
-    Allows gradual migration from dict['key'] to obj.key syntax.
-    """
-
-    def get(self, key: str, default: Any = None) -> Any:
-        """Dict-style get for backward compatibility."""
-        return getattr(self, key, default)
-
-    def __getitem__(self, key: str) -> Any:
-        """Dict-style [] access."""
-        if hasattr(self, key):
-            return getattr(self, key)
-        raise KeyError(key)
-
-    def __contains__(self, key: str) -> bool:
-        """Support 'in' operator."""
-        return hasattr(self, key)
-
-    def items(self) -> Iterator[tuple[str, Any]]:
-        """Iterate over field name-value pairs."""
-        for k in self.__dataclass_fields__:  # type: ignore
-            yield k, getattr(self, k)
-
-    def keys(self) -> Iterator[str]:
-        """Iterate over field names."""
-        return iter(self.__dataclass_fields__)  # type: ignore
-
-
 @dataclass
-class Terminal(DictMixin):
+class Terminal:
     """A terminal on an operation node."""
 
     id: str
@@ -56,17 +27,34 @@ class Terminal(DictMixin):
 
 
 @dataclass
-class Tunnel(DictMixin):
-    """A tunnel connecting loop outer/inner terminals."""
+class Tunnel:
+    """A tunnel connecting loop outer/inner terminals.
+
+    In LabVIEW loops, data enters/exits via tunnels:
+    - lSR (left shift register): Input tunnel, value persists across iterations
+    - rSR (right shift register): Output tunnel, paired with lSR
+    - lpTun (loop tunnel): Simple pass-through
+    - lMax: Accumulator/max output
+    """
 
     outer_terminal_uid: str
     inner_terminal_uid: str
     tunnel_type: str  # "lSR", "rSR", "lpTun", "lMax"
     paired_terminal_uid: str | None = None
 
+    @property
+    def direction(self) -> str:
+        """Return 'in' or 'out' based on tunnel type."""
+        if self.tunnel_type == "lSR":
+            return "in"
+        if self.tunnel_type in ("rSR", "lMax"):
+            return "out"
+        # lpTun can be either - caller must determine from context
+        return "unknown"
+
 
 @dataclass
-class Operation(DictMixin):
+class Operation:
     """An operation node (SubVI, primitive, loop)."""
 
     id: str
@@ -82,7 +70,7 @@ class Operation(DictMixin):
 
 
 @dataclass
-class Constant(DictMixin):
+class Constant:
     """A constant value node."""
 
     id: str
@@ -93,7 +81,7 @@ class Constant(DictMixin):
 
 
 @dataclass
-class FPTerminalNode(DictMixin):
+class FPTerminalNode:
     """A front panel terminal (input/output)."""
 
     id: str
@@ -112,7 +100,7 @@ class FPTerminalNode(DictMixin):
 
 
 @dataclass
-class Wire(DictMixin):
+class Wire:
     """A wire (edge) in the dataflow graph."""
 
     from_terminal_id: str

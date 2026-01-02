@@ -6,11 +6,14 @@ Builds mappings from terminals to source variables by tracing wires.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Any
+
+from vipy.graph_types import Terminal, Wire
 
 
 @dataclass
 class TerminalInfo:
-    """Information about a terminal."""
+    """Information about a terminal with parent context."""
     id: str
     index: int
     direction: str  # "input" or "output"
@@ -56,49 +59,94 @@ class DataFlowTracer:
 
     def _build_terminal_index(self) -> None:
         """Index all terminals by ID."""
-        # Index terminals from all sources
+        # Index terminals from all sources (list of Terminal dataclasses)
         for term in self._context.get("terminals", []):
-            self._terminals[term["id"]] = TerminalInfo(
-                id=term["id"],
-                index=term.get("index", 0),
-                direction=term.get("direction", "unknown"),
-                parent_id=term.get("parent_id", ""),
+            # Check if term is a Terminal dataclass or a dict
+            if hasattr(term, 'id'):
+                term_id = term.id
+                term_index = term.index
+                term_dir = term.direction
+                term_name = term.name
+                term_type = term.type
+            else:
+                term_id = term.get("id")
+                term_index = term.get("index", 0)
+                term_dir = term.get("direction", "unknown")
+                term_name = term.get("name")
+                term_type = term.get("type")
+
+            self._terminals[term_id] = TerminalInfo(
+                id=term_id,
+                index=term_index,
+                direction=term_dir,
+                parent_id="",  # Standalone terminals don't have parent context
                 parent_type="unknown",
-                name=term.get("name"),
-                type_hint=term.get("type"),
+                name=term_name,
+                type_hint=term_type,
             )
 
-        # Also capture terminals embedded in operations
+        # Also capture terminals embedded in operations (Operation dataclasses)
         for op in self._context.get("operations", []):
-            for term in op.get("terminals", []):
-                if term["id"] not in self._terminals:
-                    labels = op.get("labels", [])
-                    parent_type = "primitive" if "Primitive" in labels else "subvi" if "SubVI" in labels else "operation"
-                    self._terminals[term["id"]] = TerminalInfo(
-                        id=term["id"],
-                        index=term.get("index", 0),
-                        direction=term.get("direction", "unknown"),
-                        parent_id=op.get("id", ""),
+            # Check if op is an Operation dataclass or a dict
+            if hasattr(op, 'terminals'):
+                op_id = op.id
+                op_labels = op.labels
+                terminals = op.terminals
+            else:
+                op_id = op.get("id")
+                op_labels = op.get("labels", [])
+                terminals = op.get("terminals", [])
+
+            for term in terminals:
+                if hasattr(term, 'id'):
+                    term_id = term.id
+                    term_index = term.index
+                    term_dir = term.direction
+                    term_name = term.name
+                    term_type = term.type
+                else:
+                    term_id = term.get("id")
+                    term_index = term.get("index", 0)
+                    term_dir = term.get("direction", "unknown")
+                    term_name = term.get("name")
+                    term_type = term.get("type")
+
+                if term_id not in self._terminals:
+                    parent_type = "primitive" if "Primitive" in op_labels else "subvi" if "SubVI" in op_labels else "operation"
+                    self._terminals[term_id] = TerminalInfo(
+                        id=term_id,
+                        index=term_index,
+                        direction=term_dir,
+                        parent_id=op_id,
                         parent_type=parent_type,
-                        name=term.get("name"),
-                        type_hint=term.get("type"),
+                        name=term_name,
+                        type_hint=term_type,
                     )
 
     def _build_flow_map(self) -> None:
         """Build mapping from destination terminals to their sources."""
-        for flow in self._context.get("data_flow", []):
-            from_term = flow.get("from_terminal_id")
-            to_term = flow.get("to_terminal_id")
+        for wire in self._context.get("data_flow", []):
+            # Check if wire is a Wire dataclass or a dict
+            if hasattr(wire, 'from_terminal_id'):
+                from_term = wire.from_terminal_id
+                to_term = wire.to_terminal_id
+                from_parent_id = wire.from_parent_id or ""
+                to_parent_id = wire.to_parent_id or ""
+            else:
+                from_term = wire.get("from_terminal_id")
+                to_term = wire.get("to_terminal_id")
+                from_parent_id = wire.get("from_parent_id", "")
+                to_parent_id = wire.get("to_parent_id", "")
 
             if from_term and to_term:
-                wire = WireInfo(
+                wire_info = WireInfo(
                     from_terminal=from_term,
                     to_terminal=to_term,
-                    from_parent_id=flow.get("from_parent_id", ""),
-                    to_parent_id=flow.get("to_parent_id", ""),
+                    from_parent_id=from_parent_id,
+                    to_parent_id=to_parent_id,
                 )
-                self._wires.append(wire)
-                self._flow_map[to_term] = wire
+                self._wires.append(wire_info)
+                self._flow_map[to_term] = wire_info
                 self._wired_terminals.add(from_term)
                 self._wired_terminals.add(to_term)
 

@@ -5,9 +5,9 @@ from __future__ import annotations
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
-from .models import ConnectorPane, ConnectorPaneSlot, FPTerminal
-
 from vipy.constants import FP_TERMINAL_CLASS
+
+from .models import ConnectorPane, ConnectorPaneSlot, FPTerminal
 
 
 def extract_fp_terminals(root: ET.Element) -> list[FPTerminal]:

@@ -13,6 +13,14 @@ from .cypher import from_vi as cypher_from_vi
 from .frontpanel import FPControl, FrontPanel, generate_nicegui_code, parse_front_panel
 from .graph import GraphConfig, VIGraph
 from .graph import connect as connect_graph
+from .graph_types import (
+    Constant as GraphConstant,
+    FPTerminalNode,
+    Operation,
+    Terminal,
+    Tunnel,
+    Wire as GraphWire,
+)
 from .llm import LLMConfig
 from .parser import (
     BlockDiagram,
@@ -69,4 +77,11 @@ __all__ = [
     "VIGraph",
     "GraphConfig",
     "connect_graph",
+    # Graph types (enriched dataclasses)
+    "Terminal",
+    "Operation",
+    "Tunnel",
+    "FPTerminalNode",
+    "GraphConstant",
+    "GraphWire",
 ]
