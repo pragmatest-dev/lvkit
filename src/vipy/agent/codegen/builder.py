@@ -31,6 +31,7 @@ def build_module(
     # Initialize context with inputs and constants
     ctx = CodeGenContext.from_vi_context(vi_context)
     ctx.vi_context_lookup = vi_context_lookup
+    ctx.vi_name = vi_name
 
     # Generate function body
     body = generate_body(vi_context.get("operations", []), ctx)
