@@ -217,6 +217,22 @@ class VILibResolver:
         lines.append(vi.python_code)
         return "\n".join(lines)
 
+    def _resolve_enum_values(self, enum_name: str | None) -> list[tuple[int, str]] | None:
+        """Resolve enum values from _enums.json by enum name.
+
+        Args:
+            enum_name: Name of the enum (e.g., "SystemDirectoryType")
+
+        Returns:
+            List of (value, name) tuples or None if not found
+        """
+        if not enum_name or enum_name not in self._enums:
+            return None
+
+        enum_def = self._enums[enum_name]
+        values = enum_def.get("values", {})
+        return [(v["value"], name) for name, v in values.items()]
+
     def get_context(self, vi_name: str) -> dict[str, Any] | None:
         """Get context for LLM code generation.
 
@@ -230,21 +246,27 @@ class VILibResolver:
         if not vi:
             return None
 
+        terminals = []
+        for t in vi.terminals:
+            # Resolve enum values from _enums.json if enum reference exists
+            enum_values = t.enum_values
+            if enum_values is None and t.enum:
+                enum_values = self._resolve_enum_values(t.enum)
+
+            terminals.append({
+                "index": t.index,
+                "direction": t.direction,
+                "name": t.name,
+                "type": t.type,
+                "enum": t.enum,
+                "enum_values": enum_values,
+                "python_param": t.python_param,
+            })
+
         return {
             "name": vi.name,
             "vi_path": vi.vi_path,
-            "terminals": [
-                {
-                    "index": t.index,
-                    "direction": t.direction,
-                    "name": t.name,
-                    "type": t.type,
-                    "enum": t.enum,
-                    "enum_values": t.enum_values,
-                    "python_param": t.python_param,
-                }
-                for t in vi.terminals
-            ],
+            "terminals": terminals,
             "python": vi.python,
             "python_code": vi.python_code,
             "inline": vi.inline,
