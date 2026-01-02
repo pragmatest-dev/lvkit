@@ -5,6 +5,8 @@ from __future__ import annotations
 import ast
 from typing import Any
 
+from vipy.graph_types import FPTerminalNode, Operation
+
 from .ast_utils import to_function_name, to_var_name
 from .context import CodeGenContext
 from .nodes import get_codegen
@@ -47,12 +49,12 @@ def build_module(
 
 
 def generate_body(
-    operations: list[dict[str, Any]], ctx: CodeGenContext
+    operations: list[Operation], ctx: CodeGenContext
 ) -> list[ast.stmt]:
     """Generate function body statements from operations.
 
     Args:
-        operations: List of operation nodes
+        operations: List of Operation nodes
         ctx: Code generation context
 
     Returns:
@@ -60,8 +62,8 @@ def generate_body(
     """
     statements: list[ast.stmt] = []
 
-    # Filter to top-level operations (not inside loops)
-    top_level = [op for op in operations if not op.get("parent_loop")]
+    # All operations passed here are top-level (inner loop ops are in inner_nodes)
+    top_level = operations
 
     # Topologically sort operations
     sorted_ops = topological_sort(top_level, ctx)
@@ -77,7 +79,9 @@ def generate_body(
     return statements
 
 
-def topological_sort(operations: list[dict], ctx: CodeGenContext) -> list[dict]:
+def topological_sort(
+    operations: list[Operation], ctx: CodeGenContext
+) -> list[Operation]:
     """Sort operations by data dependencies.
 
     An operation can execute when all its input wires have data.
@@ -85,34 +89,31 @@ def topological_sort(operations: list[dict], ctx: CodeGenContext) -> list[dict]:
     if not operations:
         return []
 
-    op_by_id = {op.get("id"): op for op in operations}
-    dependencies: dict[str, set[str]] = {op.get("id"): set() for op in operations}
+    op_by_id = {op.id: op for op in operations}
+    dependencies: dict[str, set[str]] = {op.id: set() for op in operations}
 
     # Build output terminal → operation mapping
     output_to_op: dict[str, str] = {}
     for op in operations:
-        op_id = op.get("id")
-        for term in op.get("terminals", []):
-            if term.get("direction") == "output":
-                output_to_op[term.get("id")] = op_id
+        for term in op.terminals:
+            if term.direction == "output":
+                output_to_op[term.id] = op.id
 
     # Build dependencies from data flow
     for op in operations:
-        op_id = op.get("id")
-        for term in op.get("terminals", []):
-            if term.get("direction") != "input":
+        for term in op.terminals:
+            if term.direction != "input":
                 continue
-            term_id = term.get("id")
             # Look up source in flow map
-            if term_id in ctx._flow_map:
-                src_term = ctx._flow_map[term_id]["src_terminal"]
+            if term.id in ctx._flow_map:
+                src_term = ctx._flow_map[term.id]["src_terminal"]
                 if src_term in output_to_op:
                     dep_op_id = output_to_op[src_term]
-                    if dep_op_id != op_id and dep_op_id in dependencies:
-                        dependencies[op_id].add(dep_op_id)
+                    if dep_op_id != op.id and dep_op_id in dependencies:
+                        dependencies[op.id].add(dep_op_id)
 
     # Kahn's algorithm
-    result = []
+    result: list[Operation] = []
     ready = [op_id for op_id, deps in dependencies.items() if not deps]
     remaining = {op_id: set(deps) for op_id, deps in dependencies.items() if deps}
 
@@ -155,8 +156,8 @@ def build_return_stmt(
     # Resolve output values
     keywords = []
     for out in outputs:
-        out_id = out.get("id")
-        out_name = out.get("name", "output")
+        out_id = out.id
+        out_name = out.name or "output"
         var_name = to_var_name(out_name)
 
         # Try to resolve from context
@@ -245,10 +246,8 @@ def build_result_class(vi_context: dict[str, Any]) -> ast.ClassDef | None:
     # Build fields
     fields = []
     for out in outputs:
-        name = to_var_name(out.get("name", "output"))
-        type_hint = out.get("type", "Any")
-        if isinstance(type_hint, dict):
-            type_hint = type_hint.get("python_type", "Any")
+        name = to_var_name(out.name or "output")
+        type_hint = out.type or "Any"
         fields.append((name, type_hint))
 
     # Build class body with type annotations
@@ -301,16 +300,14 @@ def build_function_def(
     )
 
 
-def build_args(inputs: list[dict[str, Any]]) -> ast.arguments:
+def build_args(inputs: list[FPTerminalNode]) -> ast.arguments:
     """Build function arguments from inputs."""
     args = []
     defaults = []
 
     for inp in inputs:
-        name = to_var_name(inp.get("name", "input"))
-        type_hint = inp.get("type", "Any")
-        if isinstance(type_hint, dict):
-            type_hint = type_hint.get("python_type", "Any")
+        name = to_var_name(inp.name or "input")
+        type_hint = inp.type or "Any"
 
         arg = ast.arg(
             arg=name,

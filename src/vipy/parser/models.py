@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from ..graph_types import Tunnel
 
 
 @dataclass
@@ -66,30 +69,7 @@ class WiringRule:
     DYNAMIC_DISPATCH = 4
 
 
-@dataclass
-class TunnelMapping:
-    """Maps outer loop terminal to inner terminal.
-
-    In LabVIEW loops, data enters/exits via tunnels:
-    - lSR (left shift register): Input tunnel, value persists across iterations
-    - rSR (right shift register): Output tunnel, value persists across iterations
-    - lpTun (loop tunnel): Simple pass-through, same value each iteration
-    - lMax: Accumulator/max output
-    """
-    outer_terminal_uid: str  # Terminal on loop boundary (outside)
-    inner_terminal_uid: str  # Terminal inside the loop diagram
-    tunnel_type: str  # "lSR", "rSR", "lpTun", "lMax"
-    paired_terminal_uid: str | None = None  # For shift registers: the other side
-
-    @property
-    def direction(self) -> str:
-        """Return 'in' or 'out' based on tunnel type."""
-        if self.tunnel_type == "lSR":
-            return "in"
-        if self.tunnel_type in ("rSR", "lMax"):
-            return "out"
-        # lpTun can be either - caller must determine from context
-        return "unknown"
+# TunnelMapping moved to graph_types.Tunnel - import from there
 
 
 @dataclass
@@ -105,7 +85,7 @@ class LoopStructure:
     uid: str
     loop_type: str  # "whileLoop" or "forLoop"
     boundary_terminal_uids: list[str] = field(default_factory=list)
-    tunnels: list[TunnelMapping] = field(default_factory=list)
+    tunnels: list[Tunnel] = field(default_factory=list)
     inner_diagram_uid: str | None = None
     inner_node_uids: list[str] = field(default_factory=list)
     stop_condition_terminal_uid: str | None = None  # While loop stop condition (lTst terminal)
@@ -202,7 +182,7 @@ class BlockDiagram:
                 return loop
         return None
 
-    def get_tunnel_mapping(self, terminal_uid: str) -> TunnelMapping | None:
+    def get_tunnel_mapping(self, terminal_uid: str) -> Tunnel | None:
         """Find tunnel mapping for a terminal (either outer or inner)."""
         for loop in self.loops:
             for tunnel in loop.tunnels:

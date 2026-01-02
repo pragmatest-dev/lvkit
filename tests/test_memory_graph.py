@@ -291,7 +291,7 @@ class TestDataflowGraphQueries:
         """Test getting VI inputs."""
         inputs = graph_with_dataflow.get_inputs("Test.vi")
         assert len(inputs) == 2
-        names = {inp["name"] for inp in inputs}
+        names = {inp.name for inp in inputs}
         assert "X" in names
         assert "Y" in names
 
@@ -299,21 +299,21 @@ class TestDataflowGraphQueries:
         """Test getting VI outputs."""
         outputs = graph_with_dataflow.get_outputs("Test.vi")
         assert len(outputs) == 1
-        assert outputs[0]["name"] == "Sum"
+        assert outputs[0].name == "Sum"
 
     def test_get_constants(self, graph_with_dataflow: InMemoryVIGraph):
         """Test getting constants."""
         constants = graph_with_dataflow.get_constants("Test.vi")
         assert len(constants) == 1
-        assert constants[0]["value"] == 0
+        assert constants[0].value == 0
 
     def test_get_operations(self, graph_with_dataflow: InMemoryVIGraph):
         """Test getting operations."""
         ops = graph_with_dataflow.get_operations("Test.vi")
         assert len(ops) == 1
-        assert ops[0]["name"] == "Add"
-        assert ops[0]["labels"] == ["Primitive"]
-        assert ops[0]["primResID"] == 1
+        assert ops[0].name == "Add"
+        assert ops[0].labels == ["Primitive"]
+        assert ops[0].primResID == 1
 
     def test_get_node(self, graph_with_dataflow: InMemoryVIGraph):
         """Test getting a specific node."""
@@ -391,10 +391,10 @@ class TestWiresAndDataFlow:
 
         # Check wire structure
         wire = wires[0]
-        assert "from_terminal_id" in wire
-        assert "to_terminal_id" in wire
-        assert "from_parent_labels" in wire
-        assert "to_parent_labels" in wire
+        assert wire.from_terminal_id is not None
+        assert wire.to_terminal_id is not None
+        assert wire.from_parent_labels is not None
+        assert wire.to_parent_labels is not None
 
     def test_get_source_of_output(self, graph_with_wires: InMemoryVIGraph):
         """Test tracing output back to source."""
@@ -458,14 +458,14 @@ class TestLoopStructures:
         ops = graph_with_loop.get_operations("Loop.vi")
 
         # Should have the while loop
-        loop_ops = [op for op in ops if op.get("loop_type") == "whileLoop"]
+        loop_ops = [op for op in ops if op.loop_type == "whileLoop"]
         assert len(loop_ops) == 1
 
         loop_op = loop_ops[0]
-        assert loop_op["labels"] == ["Loop"]
-        assert "tunnels" in loop_op
-        assert "inner_nodes" in loop_op
-        assert "stop_condition_terminal" in loop_op
+        assert loop_op.labels == ["Loop"]
+        assert loop_op.tunnels is not None
+        assert loop_op.inner_nodes is not None
+        assert loop_op.stop_condition_terminal is not None
 
 
 class TestCrossVIBindings:

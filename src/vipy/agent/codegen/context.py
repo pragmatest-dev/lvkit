@@ -5,6 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
+from vipy.graph_types import Constant, FPTerminalNode, Wire
+
 
 @dataclass
 class CodeGenContext:
@@ -18,7 +20,7 @@ class CodeGenContext:
     """
 
     bindings: dict[str, str] = field(default_factory=dict)
-    data_flow: list[dict[str, Any]] = field(default_factory=list)
+    data_flow: list[Wire] = field(default_factory=list)
     imports: set[str] = field(default_factory=set)
 
     # Flow map for quick lookup: dest_terminal → source info
@@ -38,22 +40,22 @@ class CodeGenContext:
 
     def _build_flow_map(self) -> None:
         """Build terminal→source mapping from data flow."""
-        for flow in self.data_flow:
-            dest_id = flow.get("to_terminal_id")
-            src_id = flow.get("from_terminal_id")
+        for wire in self.data_flow:
+            dest_id = wire.to_terminal_id
+            src_id = wire.from_terminal_id
             if dest_id and src_id:
                 self._flow_map[dest_id] = {
                     "src_terminal": src_id,
-                    "src_parent_id": flow.get("from_parent_id"),
-                    "src_parent_name": flow.get("from_parent_name"),
-                    "src_parent_labels": flow.get("from_parent_labels", []),
+                    "src_parent_id": wire.from_parent_id,
+                    "src_parent_name": wire.from_parent_name,
+                    "src_parent_labels": wire.from_parent_labels,
                 }
 
     def _build_wired_set(self) -> None:
         """Build set of terminals that have wires connected."""
-        for flow in self.data_flow:
-            src_id = flow.get("from_terminal_id")
-            dest_id = flow.get("to_terminal_id")
+        for wire in self.data_flow:
+            src_id = wire.from_terminal_id
+            dest_id = wire.to_terminal_id
             if src_id:
                 self._wired_terminals.add(src_id)
             if dest_id:
@@ -141,8 +143,10 @@ class CodeGenContext:
 
         # Look in inputs for matching slot_index
         for inp in callee_ctx.get("inputs", []):
-            if inp.get("slot_index") == slot_index:
-                return inp.get("name")
+            slot_idx = inp.slot_index if hasattr(inp, 'slot_index') else inp.get("slot_index")
+            if slot_idx == slot_index:
+                name = inp.name if hasattr(inp, 'name') else inp.get("name")
+                return name
 
         # If no inputs found, check if this is a polymorphic wrapper
         # and look for variant VIs (named "Base - Variant.vi")
@@ -159,8 +163,10 @@ class CodeGenContext:
                 variant_ctx = self.vi_context_lookup(variant_vi)
                 if variant_ctx and variant_ctx.get("inputs"):
                     for inp in variant_ctx.get("inputs", []):
-                        if inp.get("slot_index") == slot_index:
-                            return inp.get("name")
+                        slot_idx = inp.slot_index if hasattr(inp, 'slot_index') else inp.get("slot_index")
+                        if slot_idx == slot_index:
+                            name = inp.name if hasattr(inp, 'name') else inp.get("name")
+                            return name
 
         return None
 
@@ -185,8 +191,10 @@ class CodeGenContext:
 
         # Look in outputs for matching slot_index
         for out in callee_ctx.get("outputs", []):
-            if out.get("slot_index") == slot_index:
-                return out.get("name")
+            slot_idx = out.slot_index if hasattr(out, 'slot_index') else out.get("slot_index")
+            if slot_idx == slot_index:
+                name = out.name if hasattr(out, 'name') else out.get("name")
+                return name
 
         # If no outputs found, check if this is a polymorphic wrapper
         if not callee_ctx.get("outputs"):
@@ -200,8 +208,10 @@ class CodeGenContext:
                 variant_ctx = self.vi_context_lookup(variant_vi)
                 if variant_ctx and variant_ctx.get("outputs"):
                     for out in variant_ctx.get("outputs", []):
-                        if out.get("slot_index") == slot_index:
-                            return out.get("name")
+                        slot_idx = out.slot_index if hasattr(out, 'slot_index') else out.get("slot_index")
+                        if slot_idx == slot_index:
+                            name = out.name if hasattr(out, 'name') else out.get("name")
+                            return name
 
         return None
 
@@ -217,17 +227,17 @@ class CodeGenContext:
         """
         ctx = cls(data_flow=vi_context.get("data_flow", []))
 
-        # Bind inputs
+        # Bind inputs (list of FPTerminalNode)
         for inp in vi_context.get("inputs", []):
-            inp_id = inp.get("id")
-            inp_name = inp.get("name", "input")
+            inp_id = inp.id
+            inp_name = inp.name or "input"
             if inp_id:
                 var_name = _to_var_name(inp_name)
                 ctx.bind(inp_id, var_name)
 
-        # Bind constants with proper formatting
+        # Bind constants with proper formatting (list of Constant)
         for const in vi_context.get("constants", []):
-            const_id = const.get("id")
+            const_id = const.id
             if const_id:
                 formatted = _format_constant(const)
                 ctx.bind(const_id, formatted)
@@ -235,7 +245,7 @@ class CodeGenContext:
         return ctx
 
 
-def _format_constant(const: dict[str, Any]) -> str:
+def _format_constant(const: Constant) -> str:
     """Format a constant value as a Python expression.
 
     Handles:
@@ -244,13 +254,13 @@ def _format_constant(const: dict[str, Any]) -> str:
     - Numeric strings
     - General values
     """
-    # Prefer python_hint if available
-    python_hint = const.get("python")
+    # Prefer python_hint if available (stored in raw_value for now)
+    python_hint = getattr(const, "python", None)
     if python_hint:
         return str(python_hint)
 
-    value = const.get("value")
-    const_type = const.get("type", "")
+    value = const.value
+    const_type = const.type or ""
 
     if value is None:
         return "None"

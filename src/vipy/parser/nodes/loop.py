@@ -5,8 +5,9 @@ from __future__ import annotations
 import xml.etree.ElementTree as ET
 
 from vipy.constants import LOOP_NODE_CLASSES, TERMINAL_CLASS, TUNNEL_DCO_CLASSES
+from vipy.graph_types import Tunnel
 
-from ..models import LoopStructure, TunnelMapping
+from ..models import LoopStructure
 
 
 def extract_loops(root: ET.Element) -> list[LoopStructure]:
@@ -39,7 +40,7 @@ def extract_loops(root: ET.Element) -> list[LoopStructure]:
                 continue
 
             boundary_terminals: list[str] = []
-            tunnels: list[TunnelMapping] = []
+            tunnels: list[Tunnel] = []
             inner_diagram_uid: str | None = None
             inner_node_uids: list[str] = []
 
@@ -103,7 +104,7 @@ def extract_loops(root: ET.Element) -> list[LoopStructure]:
     return loops
 
 
-def _extract_tunnel_mapping(dco: ET.Element, dco_class: str) -> TunnelMapping | None:
+def _extract_tunnel_mapping(dco: ET.Element, dco_class: str) -> Tunnel | None:
     """Extract tunnel mapping from a dco element.
 
     Args:
@@ -111,7 +112,7 @@ def _extract_tunnel_mapping(dco: ET.Element, dco_class: str) -> TunnelMapping | 
         dco_class: Class of the dco (lSR, rSR, lpTun, lMax)
 
     Returns:
-        TunnelMapping or None if invalid
+        Tunnel or None if invalid
     """
     dco_term_list = dco.find("termList")
     if dco_term_list is None:
@@ -127,7 +128,7 @@ def _extract_tunnel_mapping(dco: ET.Element, dco_class: str) -> TunnelMapping | 
     if len(term_refs) >= 2:
         inner_uid = term_refs[0]
         outer_uid = term_refs[1]
-        return TunnelMapping(
+        return Tunnel(
             outer_terminal_uid=outer_uid,
             inner_terminal_uid=inner_uid,
             tunnel_type=dco_class,
@@ -136,7 +137,7 @@ def _extract_tunnel_mapping(dco: ET.Element, dco_class: str) -> TunnelMapping | 
     return None
 
 
-def _pair_shift_registers(tunnels: list[TunnelMapping]) -> None:
+def _pair_shift_registers(tunnels: list[Tunnel]) -> None:
     """Pair lSR and rSR tunnels that belong together.
 
     Shift registers in LabVIEW come in pairs:
