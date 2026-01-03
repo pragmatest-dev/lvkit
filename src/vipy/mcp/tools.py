@@ -527,10 +527,10 @@ def document_library(
     search_paths: list[str] | None = None,
     expand_subvis: bool = True,
 ) -> str:
-    """Generate HTML documentation for a LabVIEW library, class, or directory.
+    """Generate HTML documentation for a LabVIEW library, class, directory, or single VI.
 
     Args:
-        library_path: Path to .lvlib, .lvclass, or directory
+        library_path: Path to .lvlib, .lvclass, directory, or .vi file
         output_dir: Output directory for HTML files
         search_paths: Optional list of search paths for dependencies
         expand_subvis: If True, load all SubVI dependencies for complete cross-references (slower).
@@ -551,7 +551,11 @@ def document_library(
     # Determine input type and collect VI paths
     print(f"[TIMING] Starting VI discovery...")
     t0 = time.time()
-    if library_path_obj.suffix == ".lvlib":
+    if library_path_obj.suffix == ".vi":
+        doc_type = "vi"
+        doc_title = library_path_obj.stem
+        vi_paths = [library_path_obj]
+    elif library_path_obj.suffix == ".lvlib":
         doc_type = "library"
         doc_title = library_path_obj.stem
         vi_paths = _collect_library_vis(library_path_obj)
@@ -566,7 +570,7 @@ def document_library(
     else:
         raise ValueError(
             f"Unsupported input type: {library_path}. "
-            "Expected .lvlib, .lvclass, or directory"
+            "Expected .lvlib, .lvclass, .vi, or directory"
         )
     print(f"[TIMING] VI discovery: {time.time() - t0:.2f}s - Found {len(vi_paths)} VIs")
 
