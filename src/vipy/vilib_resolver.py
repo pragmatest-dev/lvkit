@@ -76,13 +76,17 @@ class VIEntry(BaseModel):
     imports: list[str] = Field(default_factory=list)
     status: str = "needs_review"
     page: int | None = None
+    # Polymorphic variant support
+    variant_signature: str | None = None  # Signature key for this variant
+    is_variant: bool = False  # True if this is a variant entry
 
 
 class VILibResolver:
     """Resolve vilib VIs to Python equivalents.
 
     vilib VIs are standard SubVIs that ship with LabVIEW in the vi.lib folder.
-    They are identified by their path (e.g., "Utility/sysdir.llb/Get System Directory.vi").
+    They are identified by their path
+    (e.g., "Utility/sysdir.llb/Get System Directory.vi").
 
     Loads from two sources:
     1. data/vilib-vis.json - Hand-curated VIs with complete Python implementations
@@ -104,6 +108,7 @@ class VILibResolver:
         self._pdf_entries: dict[str, dict] = {}  # Raw PDF data for context
         self._types: dict[str, TypeDef] = {}  # Type definitions indexed by typedef path
         self._category_files: dict[str, Path] = {}  # VI name → category file
+        self._variants: dict[str, list[VIEntry]] = {}  # VI name → list of variants
 
         # Load vilib data from category files
         vilib_dir = data_dir / "vilib"
@@ -236,7 +241,8 @@ class VILibResolver:
         """Resolve a typedef path to its TypeDef dataclass.
 
         Args:
-            typedef_path: Full typedef path like "vi.lib/Utility/sysdir.llb/System Directory Type.ctl"
+            typedef_path: Full typedef path like
+                "vi.lib/Utility/sysdir.llb/System Directory Type.ctl"
 
         Returns:
             TypeDef dataclass if found, None otherwise.
@@ -247,7 +253,8 @@ class VILibResolver:
         """Resolve a vilib path to its VI mapping.
 
         Args:
-            vilib_path: Full vilib path like "Utility/sysdir.llb/Get System Directory.vi"
+            vilib_path: Full vilib path like
+                "Utility/sysdir.llb/Get System Directory.vi"
 
         Returns:
             VIEntry if found, None otherwise
@@ -288,7 +295,12 @@ class VILibResolver:
         if not vi or not vi.python_code or vi.inline:
             return None
 
-        lines = ['"""Generated from vilib VI."""', "", "from __future__ import annotations", ""]
+        lines = [
+            '"""Generated from vilib VI."""',
+            "",
+            "from __future__ import annotations",
+            "",
+        ]
 
         # Collect enum typedefs used by this VI's terminals
         enum_typedefs: set[str] = set()
@@ -317,7 +329,10 @@ class VILibResolver:
                 lines.append(f'    """{typedef.description or typedef.name}"""')
                 for name, enum_val in typedef.type.values.items():
                     if enum_val.description:
-                        lines.append(f"    {name} = {enum_val.value}  # {enum_val.description}")
+                        lines.append(
+                            f"    {name} = {enum_val.value}"
+                            f"  # {enum_val.description}"
+                        )
                     else:
                         lines.append(f"    {name} = {enum_val.value}")
 
@@ -355,7 +370,10 @@ class VILibResolver:
                     underlying_type = typedef.type.underlying_type
                     # Get enum values if not already set and typedef has them
                     if enum_values is None and typedef.type.values:
-                        enum_values = [(ev.value, name) for name, ev in typedef.type.values.items()]
+                        enum_values = [
+                            (ev.value, name)
+                            for name, ev in typedef.type.values.items()
+                        ]
 
             terminals.append({
                 "index": t.index,
@@ -384,6 +402,186 @@ class VILibResolver:
         """List all known vilib VI names."""
         return list(self._by_name.keys())
 
+    def _compute_signature(self, terminals: dict[int, dict[str, Any]]) -> str:
+        """Compute a signature from terminal observations.
+
+        The signature captures the terminal types at each index, which
+        is what distinguishes polymorphic variants.
+        """
+        parts = []
+        for idx in sorted(terminals.keys()):
+            term = terminals[idx]
+            type_str = term.get("type") or "any"
+            # Simplify typedef paths to just the filename
+            if "/" in type_str:
+                type_str = type_str.split("/")[-1].replace(".ctl", "")
+            direction = term.get("direction", "?")[0] if term.get("direction") else "?"
+            parts.append(f"{idx}:{direction}:{type_str}")
+        return "|".join(parts)
+
+    def find_matching_variant(
+        self,
+        vi_name: str,
+        observed_terminals: dict[int, dict[str, Any]],
+    ) -> VIEntry | None:
+        """Find the best matching variant for observed terminals.
+
+        Args:
+            vi_name: VI filename like "Get System Directory.vi"
+            observed_terminals: Dict of index -> terminal info from caller
+
+        Returns:
+            Best matching VIEntry, or None if no match
+        """
+        # Check base entry first
+        base = self.resolve_by_name(vi_name)
+        if base:
+            # Check if base entry matches all observed terminals
+            base_map = {t.index: t for t in base.terminals if t.index is not None}
+            all_match = True
+            for idx, obs in observed_terminals.items():
+                if idx in base_map:
+                    existing = base_map[idx]
+                    if (existing.name and obs.get("name") and
+                            existing.name != obs.get("name")):
+                        all_match = False
+                        break
+                    if (existing.direction and obs.get("direction") and
+                            existing.direction != obs.get("direction")):
+                        all_match = False
+                        break
+            if all_match:
+                return base
+
+        # Check variants
+        if vi_name not in self._variants:
+            return base  # No variants, return base even if imperfect
+
+        best_match: VIEntry | None = None
+        best_score = -1
+
+        for variant in self._variants[vi_name]:
+            variant_map = {t.index: t for t in variant.terminals if t.index is not None}
+            score = 0
+            mismatch = False
+
+            for idx, obs in observed_terminals.items():
+                if idx in variant_map:
+                    existing = variant_map[idx]
+                    # Check for conflicts
+                    if (existing.name and obs.get("name") and
+                            existing.name != obs.get("name")):
+                        mismatch = True
+                        break
+                    if (existing.direction and obs.get("direction") and
+                            existing.direction != obs.get("direction")):
+                        mismatch = True
+                        break
+                    # Matching terminal adds to score
+                    score += 1
+                    if existing.type == obs.get("type"):
+                        score += 1  # Extra point for type match
+
+            if not mismatch and score > best_score:
+                best_score = score
+                best_match = variant
+
+        return best_match or base
+
+    def _create_variant(
+        self,
+        vi_name: str,
+        observed_terminals: dict[int, dict[str, Any]],
+        base_entry: VIEntry,
+        caller_vi: str | None = None,
+    ) -> VIEntry:
+        """Create a new polymorphic variant from observations.
+
+        Args:
+            vi_name: VI filename
+            observed_terminals: Terminal observations from caller
+            base_entry: The base VI entry to clone from
+            caller_vi: Name of calling VI (for tracking)
+
+        Returns:
+            Newly created variant entry
+        """
+        signature = self._compute_signature(observed_terminals)
+
+        # Create variant entry
+        variant = VIEntry(
+            name=vi_name,
+            vi_path=base_entry.vi_path,
+            category=base_entry.category,
+            description=f"Variant observed from {caller_vi or 'unknown'}",
+            terminals=[],
+            python=base_entry.python,
+            inline=base_entry.inline,
+            imports=base_entry.imports.copy(),
+            status="auto_variant",
+            variant_signature=signature,
+            is_variant=True,
+        )
+
+        # Copy terminals from observed data
+        for idx, obs in observed_terminals.items():
+            variant.terminals.append(VITerminal(
+                name=obs.get("name", ""),
+                index=idx,
+                direction=obs.get("direction"),
+                type=obs.get("type"),
+            ))
+
+        # Store variant
+        if vi_name not in self._variants:
+            self._variants[vi_name] = []
+        self._variants[vi_name].append(variant)
+
+        # Save to pending for review (variants need human verification)
+        self._add_variant_to_pending(vi_name, variant, caller_vi)
+
+        return variant
+
+    def _add_variant_to_pending(
+        self,
+        vi_name: str,
+        variant: VIEntry,
+        caller_vi: str | None,
+    ) -> None:
+        """Save discovered variant to _pending_terminals.json for review."""
+        pending_file = self.data_dir / "vilib" / "_pending_terminals.json"
+
+        if pending_file.exists():
+            with open(pending_file) as f:
+                pending_data = json.load(f)
+        else:
+            pending_data = {"conflicts": {}, "variants": {}}
+
+        if "variants" not in pending_data:
+            pending_data["variants"] = {}
+
+        if vi_name not in pending_data["variants"]:
+            pending_data["variants"][vi_name] = []
+
+        variant_entry = {
+            "signature": variant.variant_signature,
+            "caller_vi": caller_vi,
+            "terminals": [
+                {"index": t.index, "name": t.name, "direction": t.direction,
+                 "type": t.type}
+                for t in variant.terminals
+            ],
+        }
+
+        # Don't add duplicate signatures
+        existing_sigs = {v.get("signature") for v in pending_data["variants"][vi_name]}
+        if variant.variant_signature not in existing_sigs:
+            pending_data["variants"][vi_name].append(variant_entry)
+
+            pending_file.parent.mkdir(parents=True, exist_ok=True)
+            with open(pending_file, "w") as f:
+                json.dump(pending_data, f, indent=2)
+
     def auto_update_terminals(
         self,
         vi_name: str,
@@ -393,7 +591,8 @@ class VILibResolver:
         """Auto-update VI terminals from caller observations.
 
         Creates new typedefs in _types.json as needed.
-        Raises VILibConflict on conflicts (stops processing).
+        On conflicts, creates a polymorphic variant instead of failing.
+        Observations are always trusted - they come from actual wire connections.
         """
         vi = self.resolve_by_name(vi_name)
         if not vi:
@@ -424,35 +623,33 @@ class VILibResolver:
                 "type": type_str,
             }
 
-        # Check conflicts
-        conflicts = []
+        # Check for conflicts with base entry
+        has_conflict = False
         for idx, obs_data in observed_map.items():
             if idx in existing_map:
                 existing = existing_map[idx]
                 if (existing.name and obs_data["name"] and
                         existing.name != obs_data["name"]):
-                    conflicts.append({
-                        "index": idx,
-                        "field": "name",
-                        "existing": existing.name,
-                        "observed": obs_data["name"],
-                    })
+                    has_conflict = True
+                    break
                 if (existing.direction and obs_data["direction"] and
                         existing.direction != obs_data["direction"]):
-                    conflicts.append({
-                        "index": idx,
-                        "field": "direction",
-                        "existing": existing.direction,
-                        "observed": obs_data["direction"],
-                    })
+                    has_conflict = True
+                    break
 
-        if conflicts:
-            self._add_to_pending(
-                vi_name, caller_vi, conflicts, observed_map, existing_map
-            )
-            raise VILibConflict(vi_name, conflicts)
+        if has_conflict:
+            # Conflict detected - this is likely a polymorphic variant
+            # Check if we already have a matching variant
+            matching = self.find_matching_variant(vi_name, observed_map)
+            if matching and matching.is_variant:
+                # Update existing variant with any new info
+                self._update_variant_terminals(matching, observed_map)
+                return matching
 
-        # Auto-update
+            # Create a new variant from observation
+            return self._create_variant(vi_name, observed_map, vi, caller_vi)
+
+        # No conflict - update base entry
         updated = False
         for idx, obs_data in observed_map.items():
             if idx in existing_map:
@@ -476,6 +673,33 @@ class VILibResolver:
             self._save_vi_entry(vi_name, vi)
 
         return vi
+
+    def _update_variant_terminals(
+        self,
+        variant: VIEntry,
+        observed_map: dict[int, dict[str, Any]],
+    ) -> None:
+        """Update variant with additional terminal observations."""
+        existing_indices = {t.index for t in variant.terminals if t.index is not None}
+        updated = False
+
+        for idx, obs in observed_map.items():
+            if idx not in existing_indices:
+                # New terminal observation
+                variant.terminals.append(VITerminal(
+                    name=obs.get("name", ""),
+                    index=idx,
+                    direction=obs.get("direction"),
+                    type=obs.get("type"),
+                ))
+                updated = True
+
+        if updated:
+            # Update signature
+            new_map = {t.index: {"name": t.name, "direction": t.direction,
+                                 "type": t.type}
+                       for t in variant.terminals if t.index is not None}
+            variant.variant_signature = self._compute_signature(new_map)
 
     def _ensure_typedef(self, lv_type: LVType) -> None:
         """Create typedef in _types.json if it doesn't exist."""

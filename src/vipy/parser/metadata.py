@@ -101,14 +101,15 @@ def parse_polymorphic_info(root: ET.Element) -> dict[str, Any]:
         "selectors": [],
     }
 
-    # Check for PolyVI type in VCTP section
-    poly_type = root.find(".//VCTP//TypeDesc[@Type='PolyVI']")
-    if poly_type is None:
-        return result
+    # Check for AllowPolyTypeAdapt flag - this indicates a polymorphic wrapper
+    # VIs that merely CALL polymorphic VIs have PolyVI TypeDesc but AllowPolyTypeAdapt="0"
+    exec2 = root.find(".//LVSR//Execution2")
+    if exec2 is None or exec2.get("AllowPolyTypeAdapt") != "1":
+        # Also check for selector-based polymorphic (ShowPolySelector)
+        if exec2 is None or exec2.get("ShowPolySelector") != "1":
+            return result
 
-    result["is_polymorphic"] = True
-
-    # Extract selector strings from CPST section
+    # Extract selector strings from CPST section (optional - adapt-to-type has none)
     cpst_section = root.find(".//CPST/Section")
     if cpst_section is not None:
         for string_elem in cpst_section.findall("String"):
@@ -119,6 +120,10 @@ def parse_polymorphic_info(root: ET.Element) -> dict[str, Any]:
     for vivi in root.findall(".//LIvi//VIVI/LinkSaveQualName/String"):
         if vivi.text:
             result["variants"].append(vivi.text)
+
+    # A VI is polymorphic if it has the flag AND variant references
+    if result["variants"]:
+        result["is_polymorphic"] = True
 
     return result
 

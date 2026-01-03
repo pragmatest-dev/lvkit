@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
-from vipy.graph_types import Constant, FPTerminalNode, Wire
+from vipy.graph_types import Constant, Wire
 
 
 @dataclass
@@ -146,30 +146,18 @@ class CodeGenContext:
 
         # Look in inputs for matching slot_index
         for inp in callee_ctx.get("inputs", []):
-            slot_idx = inp.slot_index if hasattr(inp, 'slot_index') else inp.get("slot_index")
-            if slot_idx == slot_index:
-                name = inp.name if hasattr(inp, 'name') else inp.get("name")
-                return name
+            if inp.slot_index == slot_index:
+                return inp.name
 
         # If no inputs found, check if this is a polymorphic wrapper
-        # and look for variant VIs (named "Base - Variant.vi")
-        if not callee_ctx.get("inputs"):
-            base_name = vi_name.replace(".vi", "").replace(".VI", "")
-            # Try common variant patterns
-            for variant_suffix in [" - Traditional", " - Arrays"]:
-                variant_vi = f"{base_name}{variant_suffix}.vi"
-                # Handle __ogtk suffix
-                if "__ogtk" in base_name:
-                    parts = base_name.split("__")
-                    variant_vi = f"{parts[0]}{variant_suffix}__{parts[1]}.vi"
-
-                variant_ctx = self.vi_context_lookup(variant_vi)
-                if variant_ctx and variant_ctx.get("inputs"):
-                    for inp in variant_ctx.get("inputs", []):
-                        slot_idx = inp.slot_index if hasattr(inp, 'slot_index') else inp.get("slot_index")
-                        if slot_idx == slot_index:
-                            name = inp.name if hasattr(inp, 'name') else inp.get("name")
-                            return name
+        # Use explicit poly_variants from VI metadata
+        poly_variants = callee_ctx.get("poly_variants", [])
+        for variant_vi in poly_variants:
+            variant_ctx = self.vi_context_lookup(variant_vi)
+            if variant_ctx:
+                for inp in variant_ctx.get("inputs", []):
+                    if inp.slot_index == slot_index:
+                        return inp.name
 
         return None
 
@@ -194,27 +182,18 @@ class CodeGenContext:
 
         # Look in outputs for matching slot_index
         for out in callee_ctx.get("outputs", []):
-            slot_idx = out.slot_index if hasattr(out, 'slot_index') else out.get("slot_index")
-            if slot_idx == slot_index:
-                name = out.name if hasattr(out, 'name') else out.get("name")
-                return name
+            if out.slot_index == slot_index:
+                return out.name
 
         # If no outputs found, check if this is a polymorphic wrapper
-        if not callee_ctx.get("outputs"):
-            base_name = vi_name.replace(".vi", "").replace(".VI", "")
-            for variant_suffix in [" - Traditional", " - Arrays"]:
-                variant_vi = f"{base_name}{variant_suffix}.vi"
-                if "__ogtk" in base_name:
-                    parts = base_name.split("__")
-                    variant_vi = f"{parts[0]}{variant_suffix}__{parts[1]}.vi"
-
-                variant_ctx = self.vi_context_lookup(variant_vi)
-                if variant_ctx and variant_ctx.get("outputs"):
-                    for out in variant_ctx.get("outputs", []):
-                        slot_idx = out.slot_index if hasattr(out, 'slot_index') else out.get("slot_index")
-                        if slot_idx == slot_index:
-                            name = out.name if hasattr(out, 'name') else out.get("name")
-                            return name
+        # Use explicit poly_variants from VI metadata
+        poly_variants = callee_ctx.get("poly_variants", [])
+        for variant_vi in poly_variants:
+            variant_ctx = self.vi_context_lookup(variant_vi)
+            if variant_ctx:
+                for out in variant_ctx.get("outputs", []):
+                    if out.slot_index == slot_index:
+                        return out.name
 
         return None
 
