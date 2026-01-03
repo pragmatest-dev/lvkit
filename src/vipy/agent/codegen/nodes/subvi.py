@@ -72,8 +72,12 @@ class SubVICodeGen(NodeCodeGen):
         # Build output bindings using vilib terminal names
         bindings = self._build_output_bindings(node, result_var, vilib_vi, ctx)
 
-        # Build import
-        imports = {f"from .{func_name} import {func_name}"}
+        # Build import - use resolver if available, otherwise default relative
+        if ctx.import_resolver:
+            import_stmt = ctx.import_resolver(subvi_name)
+        else:
+            import_stmt = f"from .{func_name} import {func_name}"
+        imports = {import_stmt}
 
         return CodeFragment(
             statements=[stmt],
@@ -347,9 +351,16 @@ class SubVICodeGen(NodeCodeGen):
             if enum_val.value == int_value:
                 # Found it! Generate enum reference
                 enum_class_name = typedef.name
-                # Add import for this enum (track in context)
-                module = self._to_module_name(vilib_vi.name)
-                ctx.add_import(f"from .{module} import {enum_class_name}")
+                # Add import for this enum using resolver or fallback
+                if ctx.import_resolver:
+                    # Get import statement and replace func name with enum class
+                    import_stmt = ctx.import_resolver(vilib_vi.name)
+                    # Replace the function import with enum class import
+                    import_stmt = import_stmt.rsplit(" import ", 1)[0] + f" import {enum_class_name}"
+                    ctx.add_import(import_stmt)
+                else:
+                    module = self._to_module_name(vilib_vi.name)
+                    ctx.add_import(f"from .{module} import {enum_class_name}")
                 return f"{enum_class_name}.{member_name}"
 
         # Value not in enum - return as-is
