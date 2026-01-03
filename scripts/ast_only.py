@@ -163,9 +163,18 @@ def main():
     parser.add_argument("--generate-ui", action="store_true", help="Generate NiceGUI wrappers")
     parser.add_argument("--ui-vilib", action="store_true", help="Generate UI for vilib VIs")
     parser.add_argument("--ui-primitives", action="store_true", help="Generate UI for primitives")
+    parser.add_argument("--auto-update", action="store_true",
+                        help="Auto-update vilib registry with terminal info from callers")
     args = parser.parse_args()
 
-    output_dir = Path(args.output)
+    # Create VI-named subfolder within output directory
+    input_path = Path(args.input)
+    vi_folder_name = input_path.stem  # Get filename without extension
+    # Remove special characters and whitespace
+    vi_folder_name = re.sub(r"[^\w]", "_", vi_folder_name).lower()
+    vi_folder_name = re.sub(r"_+", "_", vi_folder_name).strip("_")
+
+    output_dir = Path(args.output) / vi_folder_name
 
     # Clean output directory
     if output_dir.exists():

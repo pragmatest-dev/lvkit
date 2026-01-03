@@ -19,7 +19,7 @@ class PrimitiveTerminal(BaseModel):
     """A terminal on a primitive."""
     index: int
     direction: str  # "in" or "out"
-    name: str = ""
+    name: str | None = ""
 
 
 class PrimitiveEntry(BaseModel):

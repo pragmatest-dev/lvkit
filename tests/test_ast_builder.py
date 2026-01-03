@@ -504,16 +504,38 @@ def test_context_cycle_detection():
 def test_context_callee_param_lookup():
     """Test looking up callee parameter names."""
     from vipy.agent.codegen import CodeGenContext
+    from vipy.graph_types import FPTerminalNode
 
     def mock_lookup(vi_name: str) -> dict | None:
         if vi_name == "Helper.vi":
             return {
                 "inputs": [
-                    {"slot_index": 0, "name": "Input A"},
-                    {"slot_index": 1, "name": "Input B"},
+                    FPTerminalNode(
+                        id="in0",
+                        kind="input",
+                        name="Input A",
+                        is_indicator=False,
+                        is_public=True,
+                        slot_index=0,
+                    ),
+                    FPTerminalNode(
+                        id="in1",
+                        kind="input",
+                        name="Input B",
+                        is_indicator=False,
+                        is_public=True,
+                        slot_index=1,
+                    ),
                 ],
                 "outputs": [
-                    {"slot_index": 2, "name": "Output C"},
+                    FPTerminalNode(
+                        id="out0",
+                        kind="output",
+                        name="Output C",
+                        is_indicator=True,
+                        is_public=True,
+                        slot_index=2,
+                    ),
                 ],
             }
         return None
@@ -529,13 +551,21 @@ def test_context_callee_param_lookup():
 def test_context_callee_output_lookup():
     """Test looking up callee output names."""
     from vipy.agent.codegen import CodeGenContext
+    from vipy.graph_types import FPTerminalNode
 
     def mock_lookup(vi_name: str) -> dict | None:
         if vi_name == "Helper.vi":
             return {
                 "inputs": [],
                 "outputs": [
-                    {"slot_index": 0, "name": "Result"},
+                    FPTerminalNode(
+                        id="out0",
+                        kind="output",
+                        name="Result",
+                        is_indicator=True,
+                        is_public=True,
+                        slot_index=0,
+                    ),
                 ],
             }
         return None
