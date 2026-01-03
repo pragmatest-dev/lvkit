@@ -35,6 +35,10 @@ class CodeGenContext:
     # Signature: (vi_name: str) -> dict | None
     vi_context_lookup: Any = field(default=None, repr=False)
 
+    # Optional: callable to resolve import paths for SubVI dependencies
+    # Signature: (subvi_name: str) -> str (e.g., "from ..module import func")
+    import_resolver: Any = field(default=None, repr=False)
+
     def __post_init__(self):
         """Build flow map from data flow."""
         self._build_flow_map()
@@ -123,6 +127,7 @@ class CodeGenContext:
             vi_name=self.vi_name,  # Share (for observation tracking)
             _flow_map=self._flow_map,  # Share (read-only)
             vi_context_lookup=self.vi_context_lookup,  # Share
+            import_resolver=self.import_resolver,  # Share
         )
 
     def get_callee_param_name(self, vi_name: str, slot_index: int) -> str | None:

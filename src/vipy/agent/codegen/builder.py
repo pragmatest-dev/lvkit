@@ -17,6 +17,7 @@ def build_module(
     vi_context: dict[str, Any],
     vi_name: str,
     vi_context_lookup: Any = None,
+    import_resolver: Any = None,
 ) -> str:
     """Build complete Python module from VI context.
 
@@ -25,6 +26,7 @@ def build_module(
         vi_name: Name of the VI (used for function name)
         vi_context_lookup: Optional callable (vi_name) -> context for looking up
                           callee VI parameter names
+        import_resolver: Optional callable (subvi_name) -> import statement string
 
     Returns:
         Python source code as string
@@ -32,6 +34,7 @@ def build_module(
     # Initialize context with inputs and constants
     ctx = CodeGenContext.from_vi_context(vi_context)
     ctx.vi_context_lookup = vi_context_lookup
+    ctx.import_resolver = import_resolver
     ctx.vi_name = vi_name
 
     # Generate function body

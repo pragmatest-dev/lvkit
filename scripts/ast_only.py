@@ -18,20 +18,11 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 from vipy.memory_graph import InMemoryVIGraph
 from vipy.vilib_resolver import get_resolver as get_vilib_resolver
 from vipy.agent.codegen import build_module
-
-
-def to_function_name(vi_name: str) -> str:
-    name = vi_name.replace(".vi", "").replace(".VI", "")
-    if ":" in name:
-        name = name.split(":")[-1]
-    result = name.lower().replace(" ", "_").replace("-", "_")
-    result = "".join(c for c in result if c.isalnum() or c == "_")
-    if result and not result[0].isalpha():
-        result = "vi_" + result
-    return result or "vi_function"
+from vipy.agent.codegen.ast_utils import to_function_name, to_var_name
 
 
 def to_module_name(vi_name: str) -> str:
+    """Convert VI name to module name (strips library prefix)."""
     if ":" in vi_name:
         vi_name = vi_name.split(":")[-1]
     vi_name = vi_name.replace(".vi", "").replace(".VI", "")
@@ -40,11 +31,83 @@ def to_module_name(vi_name: str) -> str:
     return result or "module"
 
 
+def to_library_name(vi_name: str) -> str | None:
+    """Extract library name from qualified VI name (e.g., 'Lib.lvlib:VI.vi' -> 'lib')."""
+    if ":" not in vi_name:
+        return None
+    library = vi_name.split(":")[0]
+    library = library.replace(".lvlib", "").replace(".lvclass", "")
+    result = library.lower().replace(" ", "_").replace("-", "_")
+    result = "".join(c for c in result if c.isalnum() or c == "_")
+    return result or None
+
+
+def get_output_path(output_dir: Path, vi_name: str, create_dirs: bool = True) -> tuple[Path, str | None]:
+    """Get output path and library name for a VI.
+
+    Returns (path, library_name) where path includes library subdirectory if applicable.
+    """
+    module_name = to_module_name(vi_name)
+    library_name = to_library_name(vi_name)
+
+    if library_name:
+        lib_dir = output_dir / library_name
+        if create_dirs:
+            lib_dir.mkdir(parents=True, exist_ok=True)
+            # Ensure library __init__.py exists
+            init_path = lib_dir / "__init__.py"
+            if not init_path.exists():
+                init_path.write_text(f'"""Package for {library_name} library."""\n')
+        return (lib_dir / f"{module_name}.py", library_name)
+    else:
+        return (output_dir / f"{module_name}.py", None)
+
+
+def create_import_resolver(
+    package_name: str,
+    output_dir: Path,
+    vi_paths: dict[str, Path],
+) -> callable:
+    """Create an import resolver for a VI.
+
+    Args:
+        package_name: Name of the output package (e.g., "get_settings_path")
+        output_dir: Root output directory
+        vi_paths: Dict mapping fully qualified VI names to their output paths
+
+    Returns:
+        Callable that takes a SubVI name and returns the correct import statement
+    """
+    def resolver(subvi_name: str) -> str:
+        func_name = to_function_name(subvi_name)
+
+        # Look up the dependency's path
+        if subvi_name in vi_paths:
+            dep_path = vi_paths[subvi_name]
+        else:
+            # Not in our paths - compute it
+            dep_path, _ = get_output_path(output_dir, subvi_name, create_dirs=False)
+
+        # Build absolute package import
+        dep_module = dep_path.stem  # filename without .py
+        dep_library = to_library_name(subvi_name)
+
+        if dep_library:
+            return f"from {package_name}.{dep_library}.{dep_module} import {func_name}"
+        else:
+            return f"from {package_name}.{dep_module} import {func_name}"
+
+    return resolver
+
+
 def generate_polymorphic_module(
     wrapper_name: str,
     variants: list[str],
     graph: InMemoryVIGraph,
     vilib_resolver,
+    package_name: str,
+    output_dir: Path,
+    vi_paths: dict[str, Path],
 ) -> str:
     """Generate a module containing all variants and wrapper."""
     lines = [
@@ -67,7 +130,8 @@ def generate_polymorphic_module(
         variant_funcs.append(func_name)
 
         try:
-            code = build_module(vi_context, variant_name, graph.get_vi_context)
+            import_resolver = create_import_resolver(package_name, output_dir, vi_paths)
+            code = build_module(vi_context, variant_name, graph.get_vi_context, import_resolver)
             # Extract just the function and result class (skip imports)
             tree = ast.parse(code)
             for node in tree.body:
@@ -198,6 +262,12 @@ def main():
     for variants in poly_groups.values():
         poly_variants.update(variants)
 
+    # Pre-compute all output paths for import resolution
+    vi_paths: dict[str, Path] = {}
+    for vi_name in order:
+        path, _ = get_output_path(output_dir, vi_name, create_dirs=False)
+        vi_paths[vi_name] = path
+
     generated = []
 
     for i, vi_name in enumerate(order, 1):
@@ -211,8 +281,8 @@ def main():
         has_vilib = vilib_resolver.has_implementation(vi_name)
         has_inline = vilib_resolver.has_inline(vi_name)
 
+        output_path, library_name = get_output_path(output_dir, vi_name)
         module_name = to_module_name(vi_name)
-        output_path = output_dir / f"{module_name}.py"
 
         print(f"  [{i}/{len(order)}] {vi_name}")
 
@@ -252,7 +322,7 @@ def {func_name}(*args, **kwargs) -> Any:
 
             # Generate polymorphic module with all variants
             try:
-                code = generate_polymorphic_module(vi_name, variants, graph, vilib_resolver)
+                code = generate_polymorphic_module(vi_name, variants, graph, vilib_resolver, vi_folder_name, output_dir, vi_paths)
                 ast.parse(code)  # Validate syntax
                 output_path.write_text(code)
                 print(f"         -> polymorphic: {output_path.name} ({len(variants)} variants)")
@@ -273,7 +343,8 @@ def {func_name}(*args, **kwargs) -> Any:
             vi_context = graph.get_vi_context(vi_name)
 
             try:
-                code = build_module(vi_context, vi_name, graph.get_vi_context)
+                import_resolver = create_import_resolver(vi_folder_name, output_dir, vi_paths)
+                code = build_module(vi_context, vi_name, graph.get_vi_context, import_resolver)
 
                 # Validate syntax
                 ast.parse(code)
@@ -291,15 +362,10 @@ def {func_name}(*args, **kwargs) -> Any:
                 print(f"         -> FAILED: {e}")
                 generated.append((vi_name, None, "failed"))
 
-    # Generate __init__.py
-    init_lines = ['"""Generated package."""', ""]
-    for vi_name, path, status in generated:
-        if path and status in ("vilib", "ast"):
-            func_name = to_function_name(vi_name)
-            module_name = to_module_name(vi_name)
-            init_lines.append(f"from .{module_name} import {func_name}")
-    init_lines.append("")
-    (output_dir / "__init__.py").write_text("\n".join(init_lines))
+    # Generate minimal __init__.py (just makes it a package)
+    init_path = output_dir / "__init__.py"
+    if not init_path.exists():
+        init_path.write_text('"""Generated package."""\n')
 
     print(f"\nOutput: {output_dir}")
     print(f"  vilib: {sum(1 for _, _, s in generated if s == 'vilib')}")
@@ -342,9 +408,10 @@ def {func_name}(*args, **kwargs) -> Any:
                     for term in vilib_ctx.get("terminals", []):
                         name = term.get("name", "")
                         term_type = term.get("type") or "Any"
-                        if term.get("direction") == "in":
+                        direction = term.get("direction", "")
+                        if direction in ("in", "input"):
                             ui_inputs.append((name, term_type))
-                        elif term.get("direction") == "out":
+                        elif direction in ("out", "output"):
                             ui_outputs.append((name, term_type))
             else:
                 # Get from graph context for AST-generated VIs
@@ -362,6 +429,8 @@ def {func_name}(*args, **kwargs) -> Any:
             if ui_inputs or ui_outputs:
                 module_name = to_module_name(vi_name)
                 func_name = to_function_name(vi_name)
+                library_name = to_library_name(vi_name)
+
                 # Get enum definitions for vilib VIs
                 enums = {}
                 if status == "vilib":
@@ -393,7 +462,14 @@ def {func_name}(*args, **kwargs) -> Any:
                     outputs=ui_outputs,
                     enums=enums,
                 )
-                ui_path = output_dir / f"{module_name}_ui.py"
+
+                # Write UI file to same directory as module
+                if library_name:
+                    lib_dir = output_dir / library_name
+                    lib_dir.mkdir(parents=True, exist_ok=True)
+                    ui_path = lib_dir / f"{module_name}_ui.py"
+                else:
+                    ui_path = output_dir / f"{module_name}_ui.py"
                 ui_path.write_text(ui_code)
                 ui_count += 1
 

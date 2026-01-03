@@ -132,7 +132,7 @@ class ProjectExplorer:
 
             with splitter.after:
                 with ui.column().classes("w-full h-full"):
-                    self.tabs = ui.tabs().classes("w-full")
+                    self.tabs = ui.tabs().classes("justify-start")
                     self.panels = ui.tab_panels(self.tabs).classes("w-full flex-grow")
                     with self.panels:
                         with ui.tab_panel("_welcome").classes("p-8"):
@@ -170,11 +170,10 @@ class ProjectExplorer:
             ui.notify(f"Could not load UI for {module_id}", type="warning")
             return
 
-        label = self._to_vi_name(module_id.split("/")[-1])
+        func_name = module_id.split("/")[-1]  # e.g. get_settings_path
 
         with self.tabs:
-            with ui.tab(module_id).classes("pr-0"):
-                ui.label(label).classes("mr-1")
+            with ui.tab(module_id, label=func_name).classes("pr-0"):
                 ui.button(
                     icon="close",
                     on_click=lambda _, mid=module_id: self.close_tab(mid),
@@ -187,7 +186,7 @@ class ProjectExplorer:
                 except Exception as e:
                     ui.label(f"Error: {e}").classes("text-red-500")
 
-        self.open_tabs[module_id] = label
+        self.open_tabs[module_id] = func_name
         self.tabs.value = module_id
 
     def close_tab(self, module_id: str) -> None:
