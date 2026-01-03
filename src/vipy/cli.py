@@ -180,6 +180,12 @@ def main() -> int:
         help="Port to run the server on (default: 8080)",
     )
 
+    # MCP server command
+    mcp_parser = subparsers.add_parser(
+        "mcp",
+        help="Run MCP server for VI analysis",
+    )
+
     args = parser.parse_args()
 
     if args.command == "convert":
@@ -200,6 +206,8 @@ def main() -> int:
         return cmd_claude(args)
     elif args.command == "explore":
         return cmd_explore(args)
+    elif args.command == "mcp":
+        return cmd_mcp(args)
     else:
         parser.print_help()
         return 0
@@ -873,6 +881,22 @@ def cmd_explore(args: argparse.Namespace) -> int:
 
     try:
         run_explorer(args.directory, args.port)
+        return 0
+    except Exception as e:
+        print(f"Error: {e}", file=sys.stderr)
+        return 1
+
+
+def cmd_mcp(args: argparse.Namespace) -> int:
+    """Handle the mcp command - run MCP server."""
+    from .mcp.server import main as mcp_main
+
+    try:
+        print("Starting MCP server...", file=sys.stderr)
+        mcp_main()
+        return 0
+    except KeyboardInterrupt:
+        print("\nShutting down MCP server...", file=sys.stderr)
         return 0
     except Exception as e:
         print(f"Error: {e}", file=sys.stderr)
