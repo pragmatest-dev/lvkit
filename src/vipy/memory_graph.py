@@ -73,6 +73,8 @@ class InMemoryVIGraph:
         self._loop_structures: dict[str, dict[str, Any]] = {}
         # Polymorphic VI info: vi_name -> {is_polymorphic, variants}
         self._poly_info: dict[str, dict[str, Any]] = {}
+        # Qualified name aliases: "Lib.lvlib:VI.vi" -> "VI.vi" (for library VIs)
+        self._qualified_aliases: dict[str, str] = {}
 
     def clear(self) -> None:
         """Clear all loaded data."""
@@ -81,6 +83,7 @@ class InMemoryVIGraph:
         self._stubs.clear()
         self._bindings.clear()
         self._loop_structures.clear()
+        self._qualified_aliases.clear()
         self._poly_info.clear()
 
     def query(self, cypher: str, params: dict | None = None) -> list[dict]:
@@ -264,9 +267,32 @@ class InMemoryVIGraph:
         # Store loop structures for later lookup
         self._loop_structures[vi_name] = {loop.uid: loop for loop in bd.loops}
 
-        # Parse and store polymorphic VI metadata
+        # Parse VI metadata including qualified name
         if main_xml and main_xml.exists():
             metadata = parse_vi_metadata(main_xml)
+
+            # Use qualified name as primary key if available (prevents collisions)
+            qualified_name = metadata.get("qualified_name")
+            if qualified_name and qualified_name != vi_name:
+                # Re-key the dataflow graph with qualified name
+                self._dataflow[qualified_name] = self._dataflow.pop(vi_name)
+                self._loop_structures[qualified_name] = self._loop_structures.pop(vi_name)
+                # Update dependency graph node
+                if vi_name in self._dep_graph:
+                    # Add new node and transfer edges
+                    self._dep_graph.add_node(qualified_name)
+                    for pred in list(self._dep_graph.predecessors(vi_name)):
+                        self._dep_graph.add_edge(pred, qualified_name)
+                    for succ in list(self._dep_graph.successors(vi_name)):
+                        self._dep_graph.add_edge(qualified_name, succ)
+                    self._dep_graph.remove_node(vi_name)
+                # Also store alias from filename -> qualified for fallback lookups
+                self._qualified_aliases[vi_name] = qualified_name
+                vi_name = qualified_name
+                # Update visited set
+                visited.discard(metadata.get("name", ""))
+                visited.add(vi_name)
+
             if metadata.get("is_polymorphic"):
                 self._poly_info[vi_name] = {
                     "is_polymorphic": True,
@@ -639,6 +665,26 @@ class InMemoryVIGraph:
         return g
 
     # === Dependency Graph Queries ===
+
+    def resolve_vi_name(self, vi_name: str) -> str:
+        """Resolve a VI name to its canonical form.
+
+        Handles both qualified names (MyLib.lvlib:VI.vi) and simple filenames.
+        Returns the name as stored in the graph.
+        """
+        # Direct match
+        if vi_name in self._dataflow:
+            return vi_name
+        # Check if it's a filename that maps to a qualified name
+        if vi_name in self._qualified_aliases:
+            return self._qualified_aliases[vi_name]
+        # Check if it's a qualified name where we only have filename
+        # (strip library prefix and try)
+        if ":" in vi_name:
+            simple_name = vi_name.split(":")[-1]
+            if simple_name in self._dataflow:
+                return simple_name
+        return vi_name  # Return as-is, let caller handle not-found
 
     def list_vis(self) -> list[str]:
         """List all VIs in the graph (excluding stubs)."""
@@ -1306,6 +1352,8 @@ class InMemoryVIGraph:
         Returns a dict with inputs, outputs, constants, operations, etc.
         Includes TypeInfo objects for structured type handling.
         """
+        # Resolve to canonical name (handles qualified names and aliases)
+        vi_name = self.resolve_vi_name(vi_name)
         g = self._dataflow.get(vi_name)
         if g is None:
             return {}
@@ -1346,6 +1394,7 @@ class InMemoryVIGraph:
             "terminals": terminals,
             "data_flow": self.get_wires(vi_name),
             "subvi_calls": subvi_calls,
+            "poly_variants": self.get_poly_variants(vi_name),
         }
 
     def get_subvi_calls(self, vi_name: str) -> list[dict]:
