@@ -7,7 +7,7 @@ from typing import Any
 
 from vipy.graph_types import FPTerminalNode, Operation
 
-from .ast_optimizer import eliminate_dead_code
+from .ast_optimizer import optimize_module
 from .ast_utils import to_function_name, to_var_name
 from .context import CodeGenContext
 from .nodes import get_codegen
@@ -45,8 +45,8 @@ def build_module(
     # Build module structure
     module = build_module_ast(vi_context, vi_name, body, ctx)
 
-    # Optimize AST (dead code elimination)
-    module = eliminate_dead_code(module)
+    # Optimize AST (duplicate imports, dead code)
+    module = optimize_module(module)
 
     # Fix locations and unparse
     ast.fix_missing_locations(module)

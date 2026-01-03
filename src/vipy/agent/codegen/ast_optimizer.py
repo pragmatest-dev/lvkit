@@ -2,7 +2,7 @@
 
 Provides post-generation cleanup of generated Python AST:
 - Dead code elimination (unused variable assignments)
-- Future passes can be added here
+- Duplicate import removal
 """
 
 from __future__ import annotations
@@ -113,6 +113,92 @@ class DeadCodeEliminator(ast.NodeTransformer):
         return target.id in self.dead_vars
 
 
+class DuplicateImportRemover(ast.NodeTransformer):
+    """Remove duplicate import statements from AST.
+
+    Tracks imported names and removes duplicate imports, keeping only the first
+    occurrence of each import.
+
+    Handles:
+    - `import X` statements
+    - `from X import Y` statements
+    - `from X import Y as Z` statements
+
+    Example:
+        # Before:
+        from pathlib import Path
+        from .module import func
+        from pathlib import Path  # Duplicate
+
+        # After:
+        from pathlib import Path
+        from .module import func
+    """
+
+    def __init__(self) -> None:
+        # Track (module, name, asname) tuples for ImportFrom
+        self.seen_from_imports: set[tuple[str | None, str, str | None]] = set()
+        # Track module names for plain imports
+        self.seen_imports: set[tuple[str, str | None]] = set()
+
+    def optimize(self, module: ast.Module) -> ast.Module:
+        """Remove duplicate imports from module.
+
+        Args:
+            module: The module AST to optimize
+
+        Returns:
+            Module with duplicate imports removed
+        """
+        new_body = []
+        for stmt in module.body:
+            if isinstance(stmt, ast.ImportFrom):
+                # Filter out already-seen names
+                new_names = []
+                for alias in stmt.names:
+                    key = (stmt.module, alias.name, alias.asname)
+                    if key not in self.seen_from_imports:
+                        self.seen_from_imports.add(key)
+                        new_names.append(alias)
+
+                if new_names:
+                    stmt.names = new_names
+                    new_body.append(stmt)
+                # else: entire import was duplicates, skip it
+
+            elif isinstance(stmt, ast.Import):
+                # Filter out already-seen modules
+                new_names = []
+                for alias in stmt.names:
+                    key = (alias.name, alias.asname)
+                    if key not in self.seen_imports:
+                        self.seen_imports.add(key)
+                        new_names.append(alias)
+
+                if new_names:
+                    stmt.names = new_names
+                    new_body.append(stmt)
+
+            else:
+                new_body.append(stmt)
+
+        module.body = new_body
+        return module
+
+
+def remove_duplicate_imports(module: ast.Module) -> ast.Module:
+    """Remove duplicate imports from module AST.
+
+    Args:
+        module: Module AST to optimize
+
+    Returns:
+        Module with duplicate imports removed
+    """
+    remover = DuplicateImportRemover()
+    return remover.optimize(module)
+
+
 def eliminate_dead_code(module: ast.Module) -> ast.Module:
     """Eliminate dead code from module AST.
 
@@ -124,3 +210,17 @@ def eliminate_dead_code(module: ast.Module) -> ast.Module:
     """
     eliminator = DeadCodeEliminator()
     return eliminator.optimize(module)
+
+
+def optimize_module(module: ast.Module) -> ast.Module:
+    """Run all optimization passes on module.
+
+    Args:
+        module: Module AST to optimize
+
+    Returns:
+        Fully optimized module
+    """
+    module = remove_duplicate_imports(module)
+    module = eliminate_dead_code(module)
+    return module
