@@ -75,6 +75,8 @@ class InMemoryVIGraph:
         self._poly_info: dict[str, dict[str, Any]] = {}
         # Qualified name aliases: "Lib.lvlib:VI.vi" -> "VI.vi" (for library VIs)
         self._qualified_aliases: dict[str, str] = {}
+        # Track loaded VIs across multiple load_vi() calls to prevent re-parsing
+        self._loaded_vis: set[str] = set()
 
     def clear(self) -> None:
         """Clear all loaded data."""
@@ -85,6 +87,7 @@ class InMemoryVIGraph:
         self._loop_structures.clear()
         self._qualified_aliases.clear()
         self._poly_info.clear()
+        self._loaded_vis.clear()
 
     def query(self, cypher: str, params: dict | None = None) -> list[dict]:
         """Cypher query compatibility - routes to native methods.
@@ -205,6 +208,11 @@ class InMemoryVIGraph:
         else:
             raise ValueError(f"Expected .vi or *_BDHb.xml file: {vi_path}")
 
+        # Early return if already loaded (prevents re-parsing)
+        vi_name = bd_xml.name.replace("_BDHb.xml", ".vi")
+        if vi_name in self._loaded_vis:
+            return
+
         # Build search paths
         if search_paths is None:
             search_paths = [vi_path.parent]
@@ -240,6 +248,9 @@ class InMemoryVIGraph:
         vi_name = bd_xml.name.replace("_BDHb.xml", ".vi")
         if vi_name in visited:
             return None
+        # Also check instance-level cache to prevent re-parsing across load_vi() calls
+        if vi_name in self._loaded_vis:
+            return vi_name
         visited.add(vi_name)
 
         # Parse block diagram, front panel, and connector pane
@@ -302,6 +313,9 @@ class InMemoryVIGraph:
 
         # Add to dependency graph
         self._dep_graph.add_node(vi_name)
+
+        # Mark as loaded to prevent re-parsing in recursive calls
+        self._loaded_vis.add(vi_name)
 
         # Process SubVIs - only those actually CALLED in the block diagram
         # Both iUse and polyIUse are SubVI calls
