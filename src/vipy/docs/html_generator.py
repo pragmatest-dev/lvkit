@@ -406,28 +406,36 @@ class HTMLDocGenerator:
         """
 
     def _render_dependencies_section(self, dependencies: dict[str, str], link_fn: Callable[[str], str]) -> str:
-        """Render dependencies with links."""
+        """Render dependencies with links.
+
+        Args:
+            dependencies: Dict mapping QUALIFIED VI names to descriptions
+            link_fn: Function to generate link paths from qualified names
+        """
         if not dependencies:
             return "<p>No SubVI calls</p>"
 
         items = []
-        for vi_name, description in dependencies.items():
+        for qualified_name, description in dependencies.items():
+            # Display the short name but link using qualified name
+            display_name = qualified_name.split(":")[-1] if ":" in qualified_name else qualified_name
+
             # Only create link if this VI has a documentation page
-            if vi_name in self.all_vis:
-                link = link_fn(vi_name)
+            if qualified_name in self.all_vis:
+                link = link_fn(qualified_name)
                 items.append(
                     f"""
             <li>
-                <a href="{link}"><code>{vi_name}</code></a> - {description}
+                <a href="{link}"><code>{display_name}</code></a> - {description}
             </li>
             """
                 )
             else:
-                # Just show the name without a link for vilib VIs
+                # Just show the name without a link for vilib VIs or external deps
                 items.append(
                     f"""
             <li>
-                <code>{vi_name}</code> - {description}
+                <code>{display_name}</code> - {description}
             </li>
             """
                 )
@@ -439,16 +447,23 @@ class HTMLDocGenerator:
         """
 
     def _render_callers_section(self, callers: list[str], link_fn: Callable[[str], str]) -> str:
-        """Render reverse links (who calls this VI)."""
+        """Render reverse links (who calls this VI).
+
+        Args:
+            callers: List of QUALIFIED VI names that call this VI
+            link_fn: Function to generate link paths from qualified names
+        """
         if not callers:
             return "<p>Not called by any VI in this documentation</p>"
 
         items = []
-        for caller_name in callers:
-            link = link_fn(caller_name)
+        for qualified_name in callers:
+            # Display the short name but link using qualified name
+            display_name = qualified_name.split(":")[-1] if ":" in qualified_name else qualified_name
+            link = link_fn(qualified_name)
             items.append(
                 f"""
-            <li><a href="{link}"><code>{caller_name}</code></a></li>
+            <li><a href="{link}"><code>{display_name}</code></a></li>
             """
             )
 
@@ -606,7 +621,7 @@ class HTMLDocGenerator:
         # Sort libraries and VIs within each library
         sorted_libraries = sorted(grouped_vis.keys())
 
-        # Build grouped sections
+        # Build grouped sections as accordions
         library_sections = []
         for library in sorted_libraries:
             vis_in_library = sorted(grouped_vis[library])
@@ -617,12 +632,17 @@ class HTMLDocGenerator:
                 vi_links.append(f'<li><a href="{link}">{display_name}</a></li>')
 
             library_sections.append(f"""
-            <section class="library-group">
-                <h3>{library}</h3>
+            <details class="library-accordion" open>
+                <summary class="library-header">
+                    <div class="library-header-content">
+                        <span class="library-name">{library}</span>
+                        <span class="library-count">{len(vis_in_library)} VI{"s" if len(vis_in_library) != 1 else ""}</span>
+                    </div>
+                </summary>
                 <ul class="vi-list">
                     {''.join(vi_links)}
                 </ul>
-            </section>
+            </details>
             """)
 
         return f"""<!DOCTYPE html>

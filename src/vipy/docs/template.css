@@ -285,3 +285,77 @@ footer {
 .library-group .vi-list li:last-child {
     border-bottom: none;
 }
+
+/* Accordion styles for library groups */
+.library-accordion {
+    margin-bottom: 15px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    border-left: 3px solid var(--secondary-color);
+    overflow: hidden;
+}
+
+.library-accordion[open] {
+    border-left-color: var(--primary-color);
+}
+
+.library-header {
+    display: block;
+    padding: 15px 20px;
+    cursor: pointer;
+    user-select: none;
+    background: #f8f9fa;
+    transition: background 0.2s ease;
+}
+
+.library-header-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.library-header:hover {
+    background: #e9ecef;
+}
+
+.library-accordion[open] .library-header {
+    background: var(--primary-color);
+    color: white;
+}
+
+.library-name {
+    font-weight: 600;
+    font-size: 1.1em;
+}
+
+.library-count {
+    font-size: 0.85em;
+    color: #6c757d;
+    background: white;
+    padding: 3px 10px;
+    border-radius: 12px;
+}
+
+.library-accordion[open] .library-count {
+    color: var(--primary-color);
+}
+
+.library-accordion > .vi-list {
+    background: white;
+    padding: 15px 20px;
+    margin: 0;
+}
+
+.library-accordion .vi-list li {
+    border-bottom-color: #e9ecef;
+}
+
+.library-accordion .vi-list li:last-child {
+    border-bottom: none;
+}
+
+/* Hide default marker */
+.library-header::marker,
+.library-header::-webkit-details-marker {
+    display: none;
+}
