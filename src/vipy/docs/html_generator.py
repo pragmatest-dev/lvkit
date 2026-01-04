@@ -240,6 +240,9 @@ class HTMLDocGenerator:
         dependencies = vi_data.get("dependencies", {})
         callers = vi_data.get("callers", [])
         graph = vi_data.get("graph", {})
+        is_poly = vi_data.get("is_polymorphic", False)
+        poly_variants = vi_data.get("poly_variants", [])
+        variant_params = vi_data.get("variant_params", [])
 
         # Build sections
         controls_html = self._render_controls_table(controls)
@@ -248,6 +251,11 @@ class HTMLDocGenerator:
         callers_html = self._render_callers_section(callers)
         self._mermaid.all_vis = self.all_vis
         dataflow_html = self._mermaid.render(graph, self._vi_name_to_filename)
+
+        # Polymorphic section if applicable
+        poly_html = ""
+        if is_poly and variant_params:
+            poly_html = self._render_polymorphic_section(variant_params)
 
         return f"""<!DOCTYPE html>
 <html lang="en">
@@ -273,14 +281,16 @@ class HTMLDocGenerator:
 
     <header>
         <h1>{vi_name}</h1>
-        <p class="vi-type">{self.doc_type.capitalize()}</p>
+        <p class="vi-type">{"Polymorphic " if is_poly else ""}{self.doc_type.capitalize()}</p>
     </header>
 
     <main>
         <section id="summary">
             <h2>Summary</h2>
-            <p>Takes {len(controls)} input(s), returns {len(indicators)} output(s)</p>
+            <p>{"⚡ Polymorphic VI with " + str(len(variant_params)) + " variant(s)" if is_poly else f"Takes {len(controls)} input(s), returns {len(indicators)} output(s)"}</p>
         </section>
+
+        {poly_html}
 
         <section id="inputs">
             <h2>Inputs (Controls)</h2>
@@ -433,16 +443,171 @@ class HTMLDocGenerator:
         </ul>
         """
 
+    def _render_polymorphic_section(self, variant_params: list[dict]) -> str:
+        """Render polymorphic variants section with parameter comparison.
+
+        Args:
+            variant_params: List of dicts with variant info (name, inputs, outputs)
+        """
+        if not variant_params:
+            return ""
+
+        # Collect all parameter names across all variants
+        all_input_names = set()
+        all_output_names = set()
+        for variant in variant_params:
+            for inp in variant["inputs"]:
+                all_input_names.add(inp["name"])
+            for out in variant["outputs"]:
+                all_output_names.add(out["name"])
+
+        # Check which params are common to ALL variants
+        common_inputs = set(all_input_names)
+        common_outputs = set(all_output_names)
+        for variant in variant_params:
+            variant_input_names = {inp["name"] for inp in variant["inputs"]}
+            variant_output_names = {out["name"] for out in variant["outputs"]}
+            common_inputs &= variant_input_names
+            common_outputs &= variant_output_names
+
+        # Build variant links
+        variant_links = []
+        for variant in variant_params:
+            link = self._vi_name_to_filename(variant["name"])
+            variant_links.append(f'<li><a href="{link}"><code>{variant["name"]}</code></a></li>')
+
+        # Build parameter comparison table
+        param_rows = []
+
+        # Input parameters
+        for param_name in sorted(all_input_names):
+            is_common = param_name in common_inputs
+            present_in = []
+            for variant in variant_params:
+                if any(inp["name"] == param_name for inp in variant["inputs"]):
+                    present_in.append("✓")
+                else:
+                    present_in.append("—")
+
+            common_badge = '<span class="param-common">All</span>' if is_common else '<span class="param-some">Some</span>'
+            cells = "".join(f"<td>{mark}</td>" for mark in present_in)
+            param_rows.append(f"<tr><td><strong>{param_name}</strong> (input)</td><td>{common_badge}</td>{cells}</tr>")
+
+        # Output parameters
+        for param_name in sorted(all_output_names):
+            is_common = param_name in common_outputs
+            present_in = []
+            for variant in variant_params:
+                if any(out["name"] == param_name for out in variant["outputs"]):
+                    present_in.append("✓")
+                else:
+                    present_in.append("—")
+
+            common_badge = '<span class="param-common">All</span>' if is_common else '<span class="param-some">Some</span>'
+            cells = "".join(f"<td>{mark}</td>" for mark in present_in)
+            param_rows.append(f"<tr><td><strong>{param_name}</strong> (output)</td><td>{common_badge}</td>{cells}</tr>")
+
+        # Build table header with variant names
+        variant_headers = "".join(f"<th>{v['name'].split(':')[-1] if ':' in v['name'] else v['name']}</th>" for v in variant_params)
+
+        return f"""
+        <section id="polymorphic-variants" class="poly-section">
+            <h2>⚡ Polymorphic Variants</h2>
+            <p>This VI has {len(variant_params)} implementation variant(s):</p>
+            <ul class="variant-list">
+                {''.join(variant_links)}
+            </ul>
+
+            <h3>Parameter Comparison</h3>
+            <table class="param-comparison">
+                <thead>
+                    <tr>
+                        <th>Parameter</th>
+                        <th>Availability</th>
+                        {variant_headers}
+                    </tr>
+                </thead>
+                <tbody>
+                    {''.join(param_rows)}
+                </tbody>
+            </table>
+        </section>
+        """
+
+    def _extract_library_group(self, vi_name: str) -> str:
+        """Extract library/group name from VI name for grouping.
+
+        Examples:
+            "GraphicalTestRunner.lvlib:Get Settings Path.vi" -> "GraphicalTestRunner.lvlib"
+            "Build Path__ogtk.vi" -> "OpenG"
+            "Get System Directory.vi" -> "vi.lib"
+        """
+        # Check for library-qualified name (Library.lvlib:VI.vi or Library.lvclass:VI.vi)
+        if ".lvlib:" in vi_name:
+            return vi_name.split(":")[0]
+        if ".lvclass:" in vi_name:
+            return vi_name.split(":")[0]
+
+        # Check for OpenG naming convention (__ogtk)
+        if "__ogtk" in vi_name:
+            return "OpenG"
+
+        # Default to vi.lib for system VIs
+        return "vi.lib"
+
+    def _extract_display_name(self, vi_name: str) -> str:
+        """Extract display name from full VI name.
+
+        Examples:
+            "GraphicalTestRunner.lvlib:Get Settings Path.vi" -> "Get Settings Path"
+            "Build Path__ogtk.vi" -> "Build Path"
+            "Get System Directory.vi" -> "Get System Directory"
+        """
+        # Handle library-qualified names
+        if ":" in vi_name:
+            name = vi_name.split(":")[-1]
+        else:
+            name = vi_name
+
+        # Remove .vi extension
+        name = name.replace(".vi", "").replace(".VI", "")
+
+        # Remove __ogtk suffix
+        name = name.replace("__ogtk", "")
+
+        return name.strip()
+
     def _render_index_page(self, all_vis: list[str]) -> str:
-        """Render index page with table of contents."""
-        vi_links = []
-        for vi_name in sorted(all_vis):
-            link = self._vi_name_to_filename(vi_name)
-            vi_links.append(
-                f"""
-            <li><a href="{link}">{vi_name}</a></li>
-            """
-            )
+        """Render index page with table of contents, grouped by library."""
+        # Group VIs by library
+        grouped_vis: dict[str, list[str]] = {}
+        for vi_name in all_vis:
+            library = self._extract_library_group(vi_name)
+            if library not in grouped_vis:
+                grouped_vis[library] = []
+            grouped_vis[library].append(vi_name)
+
+        # Sort libraries and VIs within each library
+        sorted_libraries = sorted(grouped_vis.keys())
+
+        # Build grouped sections
+        library_sections = []
+        for library in sorted_libraries:
+            vis_in_library = sorted(grouped_vis[library])
+            vi_links = []
+            for vi_name in vis_in_library:
+                link = self._vi_name_to_filename(vi_name)
+                display_name = self._extract_display_name(vi_name)
+                vi_links.append(f'<li><a href="{link}">{display_name}</a></li>')
+
+            library_sections.append(f"""
+            <section class="library-group">
+                <h3>{library}</h3>
+                <ul class="vi-list">
+                    {''.join(vi_links)}
+                </ul>
+            </section>
+            """)
 
         return f"""<!DOCTYPE html>
 <html lang="en">
@@ -461,10 +626,8 @@ class HTMLDocGenerator:
     <main>
         <section id="toc">
             <h2>Table of Contents</h2>
-            <p>Total VIs: {len(all_vis)}</p>
-            <ul class="vi-list">
-                {''.join(vi_links)}
-            </ul>
+            <p>Total VIs: {len(all_vis)} across {len(sorted_libraries)} librar{"y" if len(sorted_libraries) == 1 else "ies"}</p>
+            {''.join(library_sections)}
         </section>
     </main>
 
@@ -492,172 +655,6 @@ class HTMLDocGenerator:
         return f"{safe_name}.html"
 
     def _get_css(self) -> str:
-        """Return CSS stylesheet."""
-        return """/* vipy documentation stylesheet */
-
-:root {
-    --primary-color: #2c3e50;
-    --secondary-color: #3498db;
-    --bg-color: #ecf0f1;
-    --text-color: #2c3e50;
-    --border-color: #bdc3c7;
-    --code-bg: #f8f9fa;
-}
-
-* {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
-}
-
-body {
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, sans-serif;
-    line-height: 1.6;
-    color: var(--text-color);
-    background: var(--bg-color);
-    padding: 20px;
-}
-
-.breadcrumb {
-    background: white;
-    padding: 10px 20px;
-    margin-bottom: 20px;
-    border-radius: 5px;
-    font-size: 14px;
-}
-
-.breadcrumb a {
-    color: var(--secondary-color);
-    text-decoration: none;
-}
-
-.breadcrumb a:hover {
-    text-decoration: underline;
-}
-
-header {
-    background: white;
-    padding: 30px;
-    border-radius: 5px;
-    margin-bottom: 20px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-}
-
-h1 {
-    color: var(--primary-color);
-    margin-bottom: 10px;
-}
-
-h2 {
-    color: var(--primary-color);
-    margin-top: 20px;
-    margin-bottom: 10px;
-    border-bottom: 2px solid var(--border-color);
-    padding-bottom: 5px;
-}
-
-main {
-    background: white;
-    padding: 30px;
-    border-radius: 5px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-}
-
-section {
-    margin-bottom: 30px;
-}
-
-table {
-    width: 100%;
-    border-collapse: collapse;
-    margin: 15px 0;
-}
-
-table th,
-table td {
-    text-align: left;
-    padding: 12px;
-    border-bottom: 1px solid var(--border-color);
-}
-
-table th {
-    background: var(--code-bg);
-    font-weight: 600;
-}
-
-code {
-    background: var(--code-bg);
-    padding: 2px 6px;
-    border-radius: 3px;
-    font-family: "SF Mono", Monaco, "Courier New", monospace;
-    font-size: 0.9em;
-}
-
-pre {
-    background: var(--code-bg);
-    padding: 15px;
-    border-radius: 5px;
-    overflow-x: auto;
-    font-family: "SF Mono", Monaco, "Courier New", monospace;
-}
-
-ul, ol {
-    margin-left: 30px;
-    margin-top: 10px;
-}
-
-li {
-    margin-bottom: 8px;
-}
-
-a {
-    color: var(--secondary-color);
-    text-decoration: none;
-}
-
-a:hover {
-    text-decoration: underline;
-}
-
-.vi-type {
-    color: #7f8c8d;
-    font-size: 14px;
-}
-
-.subtitle {
-    color: #7f8c8d;
-    font-size: 18px;
-}
-
-footer {
-    text-align: center;
-    margin-top: 40px;
-    color: #7f8c8d;
-    font-size: 14px;
-}
-
-.dataflow {
-    font-family: monospace;
-    line-height: 1.4;
-}
-
-.dependency-list,
-.caller-list,
-.vi-list {
-    list-style: none;
-    margin-left: 0;
-}
-
-.dependency-list li,
-.caller-list li,
-.vi-list li {
-    padding: 8px 0;
-    border-bottom: 1px solid var(--border-color);
-}
-
-.dependency-list li:last-child,
-.caller-list li:last-child,
-.vi-list li:last-child {
-    border-bottom: none;
-}
-"""
+        """Return CSS stylesheet by reading from template file."""
+        template_path = Path(__file__).parent / "template.css"
+        return template_path.read_text(encoding="utf-8")
