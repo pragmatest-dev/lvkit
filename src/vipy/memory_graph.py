@@ -34,15 +34,11 @@ from .parser import (
     parse_block_diagram,
     parse_connector_pane,
     parse_connector_pane_types,
-    parse_subvi_paths,
     parse_vi_metadata,
 )
 from .parser.models import ParsedType
 from .parser.node_types import CpdArithNode, PrimitiveNode
-from .parser.types import (
-    parse_type_map_rich,
-    resolve_type_rich,
-)
+from .parser.types import resolve_type_rich
 from .primitive_resolver import get_resolver as get_prim_resolver, resolve_primitive
 from .vilib_resolver import get_resolver as get_vilib_resolver
 
@@ -317,10 +313,8 @@ class InMemoryVIGraph:
             if main_xml and main_xml.exists() and conpane:
                 wiring_rules = parse_connector_pane_types(main_xml, conpane)
 
-        # Parse type map for resolving TypeID references (with typedef info)
-        type_map: dict[int, LVType] = {}
-        if main_xml and main_xml.exists():
-            type_map = parse_type_map_rich(main_xml)
+        # Use type_map from block diagram (already parsed)
+        type_map = bd.type_map
 
         # Build dataflow graph for this VI
         self._dataflow[vi_name] = self._build_dataflow_graph(
@@ -350,10 +344,8 @@ class InMemoryVIGraph:
         # Process SubVIs using qualified names from VIVI entries
         # ALWAYS record dependencies, only load SubVI files when expand_subvis=True
         if main_xml and main_xml.exists():
-            # Get path hints from main XML for resolving locations
-            # Map by qualified name for proper lookup
-            subvi_refs = parse_subvi_paths(main_xml)
-            subvi_ref_map = {ref.qualified_name: ref for ref in subvi_refs if ref.qualified_name}
+            # Use path refs from block diagram (already parsed)
+            subvi_ref_map = {ref.qualified_name: ref for ref in bd.subvi_path_refs if ref.qualified_name}
 
             # Caller directory for relative path resolution
             caller_dir = bd_xml.parent

@@ -20,6 +20,7 @@ from .models import (
     FPTerminal,
     Node,
     ParsedType,
+    SubVIPathRef,
     TerminalInfo,
     Wire,
 )
@@ -51,6 +52,7 @@ def parse_block_diagram(
     qualified_name: str | None = None
     subvi_qualified_names: list[str] = []
     iuse_to_qualified_name: dict[str, str] = {}
+    subvi_path_refs: list[SubVIPathRef] = []
 
     if main_xml_path:
         main_xml = Path(main_xml_path)
@@ -68,8 +70,8 @@ def parse_block_diagram(
                 if lvsr is not None:
                     qualified_name = lvsr.get("Name")
 
-            # Extract SubVI qualified names and iUse→qualified_name map
-            subvi_qualified_names, iuse_to_qualified_name = _extract_subvi_info(main_root)
+            # Extract SubVI qualified names, iUse→qualified_name map, and path refs
+            subvi_qualified_names, iuse_to_qualified_name, subvi_path_refs = _extract_subvi_info(main_root)
 
             # Parse type map
             type_map = parse_type_map_rich(main_xml)
@@ -93,6 +95,8 @@ def parse_block_diagram(
         qualified_name=qualified_name,
         subvi_qualified_names=subvi_qualified_names,
         iuse_to_qualified_name=iuse_to_qualified_name,
+        type_map=type_map or {},
+        subvi_path_refs=subvi_path_refs,
     )
 
 
@@ -294,8 +298,8 @@ def _extract_terminal_info(
     return terminal_info
 
 
-def _extract_subvi_info(main_root: ET.Element) -> tuple[list[str], dict[str, str]]:
-    """Extract SubVI qualified names and iUse→qualified_name mapping from main XML.
+def _extract_subvi_info(main_root: ET.Element) -> tuple[list[str], dict[str, str], list[SubVIPathRef]]:
+    """Extract SubVI qualified names, iUse→qualified_name mapping, and path refs from main XML.
 
     Args:
         main_root: Root element of main .xml file
@@ -304,9 +308,11 @@ def _extract_subvi_info(main_root: ET.Element) -> tuple[list[str], dict[str, str
         Tuple of:
         - subvi_qualified_names: List of unique SubVI qualified names from VIVI entries
         - iuse_to_qualified_name: Dict mapping iUse UID to qualified name from BDHP
+        - subvi_path_refs: List of SubVIPathRef for file resolution
     """
     subvi_qualified_names: list[str] = []
     iuse_to_qualified_name: dict[str, str] = {}
+    subvi_path_refs: list[SubVIPathRef] = []
 
     # Get caller's library for qualifying same-library references
     caller_library = None
@@ -329,6 +335,24 @@ def _extract_subvi_info(main_root: ET.Element) -> tuple[list[str], dict[str, str
             else:
                 qname = ":".join(strings)
             subvi_qualified_names.append(qname)
+
+            # Also build path ref for file resolution
+            # Get the VI name (last string)
+            name = strings[-1] if strings[-1].endswith(".vi") else None
+            if name:
+                # Extract path tokens from LinkSavePath
+                path_elem = vivi.find("LinkSavePath/String")
+                path_text = path_elem.text if path_elem is not None else ""
+                path_parts = [p for p in path_text.split("/") if p] if path_text else []
+                is_vilib = path_text.startswith("<vilib>") if path_text else False
+                is_userlib = path_text.startswith("<userlib>") if path_text else False
+                subvi_path_refs.append(SubVIPathRef(
+                    name=name,
+                    path_tokens=path_parts,
+                    is_vilib=is_vilib,
+                    is_userlib=is_userlib,
+                    qualified_name=qname,
+                ))
 
     # Also include polymorphic VIs (VIPV)
     for vipv in main_root.findall(".//LIvi//VIPV"):
@@ -371,4 +395,4 @@ def _extract_subvi_info(main_root: ET.Element) -> tuple[list[str], dict[str, str
                     uid = str(int(offset_elem.text, 16))
                     iuse_to_qualified_name[uid] = qname
 
-    return subvi_qualified_names, iuse_to_qualified_name
+    return subvi_qualified_names, iuse_to_qualified_name, subvi_path_refs
