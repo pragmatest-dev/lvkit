@@ -6,11 +6,60 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 
 from vipy.constants import FP_TERMINAL_CLASS
+from vipy.graph_types import LVType
 
-from .models import ConnectorPane, ConnectorPaneSlot, FPTerminal
+from .models import ConnectorPane, ConnectorPaneSlot, FPTerminal, ParsedType
+from .types import resolve_type_rich
 
 
-def extract_fp_terminals(root: ET.Element) -> list[FPTerminal]:
+def _lvtype_to_parsed(lv_type: LVType) -> ParsedType:
+    """Convert LVType to ParsedType for parser output.
+
+    Parser outputs ParsedType (clean, no external resolution).
+    Graph layer enriches to LVType with values/fields from vilib_resolver.
+    """
+    return ParsedType(
+        kind=lv_type.kind,
+        type_name=lv_type.underlying_type or "unknown",
+        typedef_path=lv_type.typedef_path,
+        typedef_name=lv_type.typedef_name,
+    )
+
+
+def extract_fp_dco_types(fp_xml_path: Path | str) -> dict[str, str]:
+    """Extract typeDesc from FP DCO elements.
+
+    The FP XML contains fPDCO elements with typeDesc that specify the actual
+    LabVIEW type for each front panel control/indicator.
+
+    Args:
+        fp_xml_path: Path to the *_FPHb.xml file
+
+    Returns:
+        Dict mapping DCO UID -> typeDesc (e.g., "166" -> "TypeID(1)")
+    """
+    tree = ET.parse(fp_xml_path)
+    root = tree.getroot()
+
+    dco_types: dict[str, str] = {}
+
+    # fPDCO elements have typeDesc children with the actual type
+    for dco in root.findall(".//*[@class='fPDCO']"):
+        uid = dco.get("uid")
+        if not uid:
+            continue
+        type_desc_elem = dco.find("typeDesc")
+        if type_desc_elem is not None and type_desc_elem.text:
+            dco_types[uid] = type_desc_elem.text
+
+    return dco_types
+
+
+def extract_fp_terminals(
+    root: ET.Element,
+    fp_xml_path: Path | str | None = None,
+    type_map: dict[int, LVType] | None = None,
+) -> list[FPTerminal]:
     """Extract front panel terminals (VI inputs and outputs) from block diagram.
 
     In LabVIEW, fPTerm elements on the block diagram represent connections to
@@ -21,11 +70,18 @@ def extract_fp_terminals(root: ET.Element) -> list[FPTerminal]:
     - If wires flow FROM the fPTerm, it's an input (control)
 
     Args:
-        root: XML root element
+        root: XML root element (BD XML)
+        fp_xml_path: Optional path to FP XML for extracting typeDesc from DCOs
+        type_map: Optional type map for resolving TypeID references to LVType
 
     Returns:
-        List of FPTerminal
+        List of FPTerminal with resolved types
     """
+    # Get DCO types from FP XML if available
+    dco_types: dict[str, str] = {}
+    if fp_xml_path:
+        dco_types = extract_fp_dco_types(fp_xml_path)
+
     # First, collect all fPTerm UIDs
     fp_term_uids = set()
     fp_term_data = {}
@@ -42,10 +98,14 @@ def extract_fp_terminals(root: ET.Element) -> list[FPTerminal]:
         label_elem = fp_term.find(".//label/textRec/text")
         name = label_elem.text.strip('"') if label_elem is not None and label_elem.text else None
 
+        # Look up typeDesc from FP DCO
+        type_desc = dco_types.get(fp_dco_uid) if fp_dco_uid else None
+
         fp_term_data[uid] = {
             "fp_dco_uid": fp_dco_uid or "",
             "name": name,
             "is_indicator": False,
+            "type_desc": type_desc,
         }
 
     # Analyze signals to determine input vs output
@@ -57,14 +117,22 @@ def extract_fp_terminals(root: ET.Element) -> list[FPTerminal]:
                 if dest in fp_term_uids:
                     fp_term_data[dest]["is_indicator"] = True
 
-    # Build the result list
+    # Build the result list with resolved types
     terminals = []
     for uid, data in fp_term_data.items():
+        # Resolve TypeID string to ParsedType
+        parsed_type = None
+        type_desc_str = data["type_desc"]
+        if type_desc_str and type_map:
+            lv_type = resolve_type_rich(type_desc_str, type_map)
+            parsed_type = _lvtype_to_parsed(lv_type)
+
         terminals.append(FPTerminal(
             uid=uid,
             fp_dco_uid=data["fp_dco_uid"],
             name=data["name"],
             is_indicator=data["is_indicator"],
+            parsed_type=parsed_type,
         ))
 
     return terminals

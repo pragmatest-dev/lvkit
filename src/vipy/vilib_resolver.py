@@ -8,7 +8,57 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-from vipy.graph_types import ClusterField, EnumValue, LVType, TypeDef
+from vipy.graph_types import ClusterField, EnumValue, LVType
+
+
+def derive_python_name(typedef_name: str) -> str:
+    """Derive Python class name from typedef qualified name.
+
+    Args:
+        typedef_name: Qualified name like "sysdir.llb:System Directory Type.ctl"
+
+    Returns:
+        Python class name like "SystemDirectoryType"
+    """
+    # Extract filename from qualified name
+    if ":" in typedef_name:
+        filename = typedef_name.split(":")[-1]
+    else:
+        filename = typedef_name
+
+    # Remove .ctl extension
+    name = filename.replace(".ctl", "")
+
+    # Convert to CamelCase: "System Directory Type" -> "SystemDirectoryType"
+    return "".join(word.capitalize() for word in name.replace("_", " ").split())
+
+
+def derive_python_location(typedef_name: str) -> tuple[str, str]:
+    """Derive Python package and class name from qualified name.
+
+    The qualified name determines the package structure - types belong to
+    their containing library, just like VIs do.
+
+    Args:
+        typedef_name: Qualified name like "sysdir.llb:System Directory Type.ctl"
+
+    Returns:
+        Tuple of (package_name, class_name) like ("sysdir", "SystemDirectoryType")
+    """
+    if ":" in typedef_name:
+        container, filename = typedef_name.split(":", 1)
+    else:
+        container = ""
+        filename = typedef_name
+
+    # Container becomes package: "sysdir.llb" -> "sysdir"
+    package = container.replace(".llb", "").replace(".lvlib", "").replace(".lvclass", "").lower()
+    package = package.replace(" ", "_").replace("-", "_")
+
+    # Filename becomes class name
+    class_name = derive_python_name(filename)
+
+    return (package, class_name)
 
 
 class VILibResolutionNeeded(Exception):
@@ -106,7 +156,7 @@ class VILibResolver:
         self._vis: dict[str, VIEntry] = {}
         self._by_name: dict[str, VIEntry] = {}  # Lookup by VI name only
         self._pdf_entries: dict[str, dict] = {}  # Raw PDF data for context
-        self._types: dict[str, TypeDef] = {}  # Type definitions indexed by typedef path
+        self._types: dict[str, LVType] = {}  # Type definitions indexed by qualified name
         self._category_files: dict[str, Path] = {}  # VI name → category file
         self._variants: dict[str, list[VIEntry]] = {}  # VI name → list of variants
 
@@ -171,7 +221,7 @@ class VILibResolver:
                         self._vis[entry.vi_path] = entry
 
     def _load_types(self, types_path: Path) -> None:
-        """Load type definitions from _types.json into TypeDef dataclasses."""
+        """Load type definitions from _types.json into LVType dataclasses."""
         with open(types_path) as f:
             raw_types = json.load(f)
 
@@ -202,7 +252,7 @@ class VILibResolver:
             if "element_type" in type_data:
                 element_type = self._parse_field_type(type_data["element_type"])
 
-            # Create the LVType structure
+            # Create the LVType structure with typedef metadata
             lv_type = LVType(
                 kind=type_data["kind"],
                 underlying_type=type_data["underlying_type"],
@@ -210,15 +260,13 @@ class VILibResolver:
                 fields=fields,
                 element_type=element_type,
                 dimensions=type_data.get("dimensions"),
-            )
-
-            # Wrap in TypeDef with path metadata
-            self._types[typedef_path] = TypeDef(
-                type=lv_type,
                 typedef_path=typedef_path,
-                name=type_data["name"],
+                typedef_name=typedef_path,  # Qualified name = key
                 description=type_data.get("description"),
             )
+
+            # Store LVType directly (indexed by qualified name)
+            self._types[typedef_path] = lv_type
 
     def _parse_field_type(self, type_spec: str) -> LVType:
         """Parse a field type specification into an LVType.
@@ -237,15 +285,15 @@ class VILibResolver:
             # It's a primitive type
             return LVType(kind="primitive", underlying_type=type_spec)
 
-    def resolve_type(self, typedef_path: str) -> TypeDef | None:
-        """Resolve a typedef path to its TypeDef dataclass.
+    def resolve_type(self, typedef_path: str) -> LVType | None:
+        """Resolve a typedef path to its LVType.
 
         Args:
-            typedef_path: Full typedef path like
-                "vi.lib/Utility/sysdir.llb/System Directory Type.ctl"
+            typedef_path: Qualified name like
+                "sysdir.llb:System Directory Type.ctl"
 
         Returns:
-            TypeDef dataclass if found, None otherwise.
+            LVType if found, None otherwise.
         """
         return self._types.get(typedef_path)
 
@@ -302,13 +350,13 @@ class VILibResolver:
             "",
         ]
 
-        # Collect enum typedefs used by this VI's terminals
+        # Collect enum LVTypes used by this VI's terminals
         enum_typedefs: set[str] = set()
         needs_intenum = False
         for terminal in vi.terminals:
             if terminal.type and terminal.type.endswith('.ctl'):
-                typedef = self.resolve_type(terminal.type)
-                if typedef and typedef.type.kind == 'enum':
+                lv_type = self.resolve_type(terminal.type)
+                if lv_type and lv_type.kind == 'enum':
                     enum_typedefs.add(terminal.type)
                     needs_intenum = True
 
@@ -320,14 +368,16 @@ class VILibResolver:
         if vi.imports or needs_intenum:
             lines.append("")
 
-        # Generate IntEnum classes for typedef enums
+        # Generate IntEnum classes for enum types
         for typedef_path in sorted(enum_typedefs):
-            typedef = self.resolve_type(typedef_path)
-            if typedef and typedef.type.values:
+            lv_type = self.resolve_type(typedef_path)
+            if lv_type and lv_type.values:
+                # Derive Python class name from typedef_name
+                class_name = derive_python_name(lv_type.typedef_name) if lv_type.typedef_name else "Unknown"
                 lines.append("")
-                lines.append(f"class {typedef.name}(IntEnum):")
-                lines.append(f'    """{typedef.description or typedef.name}"""')
-                for name, enum_val in typedef.type.values.items():
+                lines.append(f"class {class_name}(IntEnum):")
+                lines.append(f'    """{lv_type.description or class_name}"""')
+                for name, enum_val in lv_type.values.items():
                     if enum_val.description:
                         lines.append(
                             f"    {name} = {enum_val.value}"
@@ -359,20 +409,21 @@ class VILibResolver:
             enum_values = t.enum_values
             type_name = t.enum  # Python type name (e.g., "SystemDirectoryType")
             underlying_type = None
-            typedef: TypeDef | None = None
+            lv_type: LVType | None = None
 
             # If terminal has a typedef path, resolve it for full type info
             if t.type and t.type.endswith(".ctl"):
-                typedef = self.resolve_type(t.type)
-                if typedef:
-                    # Get Python type name from resolved typedef
-                    type_name = typedef.name or type_name
-                    underlying_type = typedef.type.underlying_type
-                    # Get enum values if not already set and typedef has them
-                    if enum_values is None and typedef.type.values:
+                lv_type = self.resolve_type(t.type)
+                if lv_type:
+                    # Get Python type name from typedef_name
+                    if lv_type.typedef_name:
+                        type_name = derive_python_name(lv_type.typedef_name)
+                    underlying_type = lv_type.underlying_type
+                    # Get enum values if not already set and lv_type has them
+                    if enum_values is None and lv_type.values:
                         enum_values = [
                             (ev.value, name)
-                            for name, ev in typedef.type.values.items()
+                            for name, ev in lv_type.values.items()
                         ]
 
             terminals.append({
@@ -384,7 +435,7 @@ class VILibResolver:
                 "type_name": type_name,  # Python type name
                 "enum_values": enum_values,
                 "python_param": t.python_param,
-                "typedef": typedef,  # Full TypeDef dataclass if resolved
+                "lv_type": lv_type,  # Full LVType if resolved
             })
 
         return {
@@ -709,21 +760,16 @@ class VILibResolver:
         if lv_type.typedef_path in self._types:
             return
 
-        # Create new typedef
-        name = lv_type.typedef_path.split("/")[-1].replace(".ctl", "")
-        name = "".join(w.capitalize() for w in name.replace(" ", "_").split("_"))
+        # Set typedef metadata on LVType
+        if not lv_type.typedef_name:
+            lv_type.typedef_name = lv_type.typedef_path
+        if not lv_type.description:
+            lv_type.description = f"Auto-discovered typedef from {lv_type.typedef_path}"
 
-        typedef = TypeDef(
-            type=lv_type,
-            typedef_path=lv_type.typedef_path,
-            name=name,
-            description=f"Auto-discovered typedef from {lv_type.typedef_path}",
-        )
+        self._types[lv_type.typedef_path] = lv_type
+        self._save_typedef(lv_type)
 
-        self._types[lv_type.typedef_path] = typedef
-        self._save_typedef(typedef)
-
-    def _save_typedef(self, typedef: TypeDef) -> None:
+    def _save_typedef(self, lv_type: LVType) -> None:
         """Save typedef to _types.json."""
         types_path = self.data_dir / "vilib" / "_types.json"
 
@@ -733,32 +779,35 @@ class VILibResolver:
         else:
             data = {}
 
-        # Serialize typedef
+        # Derive Python name from typedef_name
+        python_name = derive_python_name(lv_type.typedef_name) if lv_type.typedef_name else "Unknown"
+
+        # Serialize LVType
         type_data: dict[str, Any] = {
-            "name": typedef.name,
-            "kind": typedef.type.kind,
-            "underlying_type": typedef.type.underlying_type,
+            "name": python_name,
+            "kind": lv_type.kind,
+            "underlying_type": lv_type.underlying_type,
         }
 
-        if typedef.description:
-            type_data["description"] = typedef.description
+        if lv_type.description:
+            type_data["description"] = lv_type.description
 
-        if typedef.type.values:
+        if lv_type.values:
             type_data["values"] = {
                 name: {
                     "value": ev.value,
                     "description": ev.description,
                 }
-                for name, ev in typedef.type.values.items()
+                for name, ev in lv_type.values.items()
             }
 
-        if typedef.type.fields:
+        if lv_type.fields:
             type_data["fields"] = [
                 {"name": f.name, "type": f.type.underlying_type or "Any"}
-                for f in typedef.type.fields
+                for f in lv_type.fields
             ]
 
-        data[typedef.typedef_path] = type_data
+        data[lv_type.typedef_path] = type_data
 
         types_path.parent.mkdir(parents=True, exist_ok=True)
         with open(types_path, "w") as f:

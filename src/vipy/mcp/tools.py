@@ -177,6 +177,7 @@ def build_graph_structure(vi_name: str, graph: InMemoryVIGraph) -> dict[str, Any
                 label=f"Control: {inp.name or 'input'}",
                 type="control",
                 name=inp.name,
+                lv_type=inp.type,  # Use string field
             ).model_dump()
         )
 
@@ -188,6 +189,7 @@ def build_graph_structure(vi_name: str, graph: InMemoryVIGraph) -> dict[str, Any
                 label=f"Indicator: {out.name or 'output'}",
                 type="indicator",
                 name=out.name,
+                lv_type=out.type,  # Use string field
             ).model_dump()
         )
 
@@ -216,10 +218,26 @@ def build_graph_structure(vi_name: str, graph: InMemoryVIGraph) -> dict[str, Any
 
     # Add constant nodes
     for const in vi_context.get("constants", []):
-        value_str = str(const.value) if const.value is not None else "None"
+        # Format enum display if this is an enum constant
+        if const.lv_type and const.lv_type.values:
+            # lv_type.values is {name: EnumValue(value=N, ...)}
+            member_name = None
+            try:
+                int_value = int(const.value)
+                for name, enum_val in const.lv_type.values.items():
+                    if enum_val.value == int_value:
+                        member_name = name
+                        break
+            except (ValueError, TypeError, AttributeError):
+                pass
+            value_str = member_name if member_name else str(const.value)
+        else:
+            value_str = str(const.value) if const.value is not None else "None"
+
         # Truncate long values
         if len(value_str) > 30:
             value_str = value_str[:27] + "..."
+
         nodes.append(
             GraphNodeSchema(
                 id=const.id,
@@ -229,16 +247,33 @@ def build_graph_structure(vi_name: str, graph: InMemoryVIGraph) -> dict[str, Any
             ).model_dump()
         )
 
-    # Add edges (wires)
+    # Build set of all node IDs for edge validation
+    node_ids = {str(node["id"]) for node in nodes}
+
+    # Add edges (wires) - use parent node IDs, falling back to terminal IDs for constants
     for wire in vi_context.get("data_flow", []):
+        # For the source node:
+        # - Use from_parent_id if it's a valid node
+        # - Otherwise use from_terminal_id (for constants, the terminal IS the node)
+        from_id = wire.from_parent_id
+        if str(from_id) not in node_ids and wire.from_terminal_id:
+            from_id = wire.from_terminal_id
+
+        # For the target node:
+        # - Use to_parent_id if it's a valid node
+        # - Otherwise use to_terminal_id
+        to_id = wire.to_parent_id
+        if str(to_id) not in node_ids and wire.to_terminal_id:
+            to_id = wire.to_terminal_id
+
         # Build human-readable labels
         from_label = _get_node_label(wire.from_parent_id, wire.from_parent_name, wire.from_parent_labels)
         to_label = _get_node_label(wire.to_parent_id, wire.to_parent_name, wire.to_parent_labels)
 
         edges.append(
             GraphEdgeSchema(
-                from_node=wire.from_terminal_id,
-                to_node=wire.to_terminal_id,
+                from_node=from_id,
+                to_node=to_id,
                 from_label=from_label,
                 to_label=to_label,
             ).model_dump()
@@ -483,10 +518,23 @@ def _prepare_vi_documentation_data(
     # Extract controls
     controls = []
     for inp in vi_context.get("inputs", []):
+        # Format default value with enum member name if applicable
+        default_val = inp.default_value
+        if default_val is not None and inp.lv_type and inp.lv_type.values:
+            # Enum type - look up member name from {name: EnumValue(value=N, ...)}
+            try:
+                int_value = int(default_val)
+                for name, enum_val in inp.lv_type.values.items():
+                    if enum_val.value == int_value:
+                        default_val = name
+                        break
+            except (ValueError, TypeError, AttributeError):
+                pass
+
         controls.append({
             "name": inp.name or f"input_{inp.slot_index}",
             "type": inp.type or "Any",
-            "default_value": inp.default_value,
+            "default_value": default_val,
         })
 
     # Extract indicators
@@ -521,7 +569,7 @@ def _prepare_vi_documentation_data(
     }
 
 
-def document_library(
+def generate_documents(
     library_path: str,
     output_dir: str,
     search_paths: list[str] | None = None,
@@ -622,6 +670,10 @@ def document_library(
     print(f"[TIMING] Generating HTML pages for {total_loaded} VIs...")
     t0 = time.time()
     all_vis = graph.list_vis()
+
+    # Pre-populate all_vis set so dependency links work correctly
+    generator.all_vis = set(all_vis)
+
     generated_count = 0
 
     for i, vi_name in enumerate(all_vis, 1):

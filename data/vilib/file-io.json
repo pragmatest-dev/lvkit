@@ -1115,7 +1115,7 @@
         {
           "name": "system directory type",
           "description": "system directory type specifies the type of directory you want LabVIEW to retrieve.",
-          "type": "vi.lib/Utility/sysdir.llb/System Directory Type.ctl",
+          "type": "sysdir.llb:System Directory Type.ctl",
           "python_param": "directory_type",
           "index": 11,
           "direction": "input"

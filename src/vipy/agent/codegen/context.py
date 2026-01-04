@@ -236,24 +236,42 @@ def _format_constant(const: Constant) -> str:
     """Format a constant value as a Python expression.
 
     Handles:
+    - Enum values (pre-resolved in graph via lv_type)
     - python_hint if available
     - Path types
     - Numeric strings
     - General values
     """
+    # If enum was resolved in graph, use it
+    if const.lv_type and const.lv_type.kind == "enum" and const.lv_type.values:
+        # Find which enum member matches this value
+        try:
+            int_value = int(const.value)
+            for member_name, enum_val in const.lv_type.values.items():
+                if enum_val.value == int_value:
+                    # Derive Python class name from typedef_name
+                    if const.lv_type.typedef_name:
+                        from vipy.vilib_resolver import derive_python_name
+                        class_name = derive_python_name(const.lv_type.typedef_name)
+                        return f"{class_name}.{member_name}"
+                    return str(const.value)
+        except (ValueError, TypeError):
+            pass
+
     # Prefer python_hint if available (stored in raw_value for now)
     python_hint = getattr(const, "python", None)
     if python_hint:
         return str(python_hint)
 
     value = const.value
-    const_type = const.type or ""
+    # Check if lv_type indicates this is a Path
+    is_path = const.lv_type and const.lv_type.underlying_type == "Path"
 
     if value is None:
         return "None"
 
     # Handle Path types
-    if const_type.lower() in ("path", "filepath"):
+    if is_path:
         return f"Path('{value}')"
 
     # Handle numeric values
