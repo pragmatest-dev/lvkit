@@ -1,5 +1,5 @@
 {
-  "vi.lib/Utility/sysdir.llb/System Directory Type.ctl": {
+  "sysdir.llb:System Directory Type.ctl": {
     "name": "SystemDirectoryType",
     "kind": "enum",
     "underlying_type": "UInt16",

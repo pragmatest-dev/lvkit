@@ -10,6 +10,24 @@ if TYPE_CHECKING:
 
 
 @dataclass
+class ParsedType:
+    """Type info extracted from XML - clean, no TypeID strings.
+
+    This is the parser's output format for types. It contains everything
+    that can be determined from the single VI's XML, without loading
+    external files.
+
+    The graph layer enriches this to LVType by adding:
+    - values (enum members from vilib_resolver)
+    - fields (cluster fields from vilib_resolver)
+    """
+    kind: str  # "primitive", "cluster", "array", "typedef_ref"
+    type_name: str  # "Path", "Cluster", "NumInt32"
+    typedef_path: str | None = None  # For typedefs: "vi.lib/Utility/sysdir.llb/..."
+    typedef_name: str | None = None  # Qualified name: "sysdir.llb:Type.ctl"
+
+
+@dataclass
 class Node:
     """A node in the block diagram (SubVI call, primitive, or terminal)."""
     uid: str
@@ -47,6 +65,7 @@ class FPTerminal:
     fp_dco_uid: str  # Links to front panel control/indicator
     name: str | None = None
     is_indicator: bool = False  # True = output, False = input (control)
+    parsed_type: ParsedType | None = None  # Type info from same VI's XML
 
 
 @dataclass
@@ -56,7 +75,7 @@ class TerminalInfo:
     parent_uid: str
     index: int  # Position in parent's termList
     is_output: bool  # True if output terminal (data flows out)
-    type_id: str | None = None  # e.g., "TypeID(5)" or resolved type name
+    parsed_type: ParsedType | None = None  # Type info from same VI's XML
     name: str | None = None  # Terminal name (from FP, primitive ref, or SubVI)
 
 
@@ -150,6 +169,26 @@ class SubVIPathRef:
         if self.path_tokens and self.path_tokens[0] in ("<vilib>", "<userlib>"):
             return "/".join(self.path_tokens[1:])
         return "/".join(self.path_tokens)
+
+
+@dataclass
+class FPDCOType:
+    """Type info for a front panel DCO (data container object)."""
+    uid: str
+    type_desc: str  # e.g., "TypeID(1)"
+
+
+@dataclass
+class FPDCOTypeMap:
+    """Collection of FP DCO types from an FP XML file."""
+    types: list[FPDCOType] = field(default_factory=list)
+
+    def get_type(self, dco_uid: str) -> str | None:
+        """Get typeDesc for a DCO by UID."""
+        for t in self.types:
+            if t.uid == dco_uid:
+                return t.type_desc
+        return None
 
 
 @dataclass

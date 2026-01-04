@@ -11,38 +11,54 @@ from vipy.constants import (
     TERMINAL_CLASS,
     TERMINAL_CONTAINER_CLASSES,
 )
+from vipy.graph_types import LVType
 
-from .front_panel import extract_fp_terminals
+from .front_panel import _lvtype_to_parsed, extract_fp_terminals
 from .models import (
     BlockDiagram,
     Constant,
     FPTerminal,
     Node,
+    ParsedType,
     TerminalInfo,
     Wire,
 )
 from .nodes import extract_constants, extract_loops
 from .nodes.base import extract_label, extract_terminal_types
+from .types import parse_type_map_rich, resolve_type_rich
 
 
-def parse_block_diagram(xml_path: Path | str) -> BlockDiagram:
+def parse_block_diagram(
+    xml_path: Path | str,
+    fp_xml_path: Path | str | None = None,
+    main_xml_path: Path | str | None = None,
+) -> BlockDiagram:
     """Parse a pylabview block diagram XML file.
 
     Args:
         xml_path: Path to the *_BDHb.xml file
+        fp_xml_path: Optional path to the *_FPHb.xml file (for extracting typeDesc from FP DCOs)
+        main_xml_path: Optional path to the main .xml file (for type resolution)
 
     Returns:
-        BlockDiagram with extracted nodes, constants, and wires
+        BlockDiagram with extracted nodes, constants, and wires (types as ParsedType)
     """
     tree = ET.parse(xml_path)
     root = tree.getroot()
 
+    # Load type map from main XML for resolving TypeID references
+    type_map: dict[int, LVType] | None = None
+    if main_xml_path:
+        main_xml = Path(main_xml_path)
+        if main_xml.exists():
+            type_map = parse_type_map_rich(main_xml)
+
     nodes = _extract_nodes(root)
     constants = extract_constants(root)
     wires = _extract_wires(root)
-    fp_terminals = extract_fp_terminals(root)
+    fp_terminals = extract_fp_terminals(root, fp_xml_path, type_map)
     enum_labels = _extract_enum_labels(root)
-    terminal_info = _extract_terminal_info(root, constants, fp_terminals, wires)
+    terminal_info = _extract_terminal_info(root, constants, fp_terminals, wires, type_map)
     loops = extract_loops(root)
 
     return BlockDiagram(
@@ -149,22 +165,24 @@ def _extract_terminal_info(
     constants: list[Constant],
     fp_terminals: list[FPTerminal],
     wires: list[Wire],
+    type_map: dict[int, LVType] | None = None,
 ) -> dict[str, TerminalInfo]:
     """Extract detailed terminal info for graph-native representation.
 
     Captures:
     - Terminal position (index) in parent's termList
     - Input vs output direction (from wire connectivity)
-    - Type information
+    - Type information (resolved to ParsedType)
 
     Args:
         root: XML root element
         constants: List of parsed constants
         fp_terminals: List of front panel terminals
         wires: List of parsed wires (for direction inference)
+        type_map: Optional type map for resolving TypeID references
 
     Returns:
-        Dict mapping terminal UID to TerminalInfo
+        Dict mapping terminal UID to TerminalInfo with ParsedType
     """
     terminal_info: dict[str, TerminalInfo] = {}
 
@@ -218,29 +236,40 @@ def _extract_terminal_info(
                     combined_flags = term_flags | dco_flags
                     is_output = bool(combined_flags & 0x1)
 
+                # Resolve TypeID to ParsedType
                 type_desc_elem = term.find(".//typeDesc")
-                type_id = type_desc_elem.text if type_desc_elem is not None else None
+                type_desc_str = type_desc_elem.text if type_desc_elem is not None else None
+                parsed_type = None
+                if type_desc_str and type_map:
+                    lv_type = resolve_type_rich(type_desc_str, type_map)
+                    parsed_type = _lvtype_to_parsed(lv_type)
 
                 terminal_info[term_uid] = TerminalInfo(
                     uid=term_uid,
                     parent_uid=elem_uid,
                     index=parm_index,
                     is_output=is_output,
-                    type_id=type_id,
+                    parsed_type=parsed_type,
                 )
 
     # Constants have a single output terminal
     for const in constants:
         if const.uid not in terminal_info:
+            # Resolve constant type
+            parsed_type = None
+            if const.type_desc and type_map:
+                lv_type = resolve_type_rich(const.type_desc, type_map)
+                parsed_type = _lvtype_to_parsed(lv_type)
+
             terminal_info[const.uid] = TerminalInfo(
                 uid=const.uid,
                 parent_uid=const.uid,
                 index=0,
                 is_output=True,
-                type_id=const.type_desc,
+                parsed_type=parsed_type,
             )
 
-    # Front panel terminals
+    # Front panel terminals (already have ParsedType from extract_fp_terminals)
     for fp_term in fp_terminals:
         if fp_term.uid not in terminal_info:
             terminal_info[fp_term.uid] = TerminalInfo(
@@ -248,7 +277,7 @@ def _extract_terminal_info(
                 parent_uid=fp_term.uid,
                 index=0,
                 is_output=not fp_term.is_indicator,
-                type_id=None,
+                parsed_type=fp_term.parsed_type,
                 name=fp_term.name,
             )
 

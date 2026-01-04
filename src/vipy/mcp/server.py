@@ -10,7 +10,7 @@ from mcp.server import Server
 from mcp.server.stdio import stdio_server
 from mcp.types import TextContent, Tool
 
-from .tools import analyze_vi, document_library
+from .tools import analyze_vi, generate_documents
 
 
 # Create MCP server instance
@@ -62,9 +62,9 @@ async def list_tools() -> list[Tool]:
             },
         ),
         Tool(
-            name="document_library",
+            name="generate_documents",
             description=(
-                "Generate static HTML documentation for a LabVIEW library (.lvlib), class (.lvclass), or directory. "
+                "Generate static HTML documentation for LabVIEW VIs, libraries, classes, or directories. "
                 "Creates a complete static website with individual pages for each VI, cross-references, "
                 "and a table of contents.\n\n"
                 "Each VI page includes:\n"
@@ -83,7 +83,7 @@ async def list_tools() -> list[Tool]:
                 "properties": {
                     "library_path": {
                         "type": "string",
-                        "description": "Path to .lvlib file, .lvclass file, or directory containing VIs",
+                        "description": "Path to .lvlib file, .lvclass file, .vi file, or directory containing VIs",
                     },
                     "output_dir": {
                         "type": "string",
@@ -126,7 +126,7 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
 
         return [TextContent(type="text", text=result_json)]
 
-    elif name == "document_library":
+    elif name == "generate_documents":
         library_path = arguments.get("library_path")
         output_dir = arguments.get("output_dir")
         search_paths = arguments.get("search_paths", [])
@@ -139,7 +139,7 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
 
         # Run documentation generation (synchronous function in async context)
         result = await asyncio.to_thread(
-            document_library, library_path, output_dir, search_paths, expand_subvis
+            generate_documents, library_path, output_dir, search_paths, expand_subvis
         )
 
         return [TextContent(type="text", text=result)]

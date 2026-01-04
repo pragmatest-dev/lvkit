@@ -34,6 +34,7 @@ class GraphNodeSchema(BaseModel):
     type: str  # "subvi", "primitive", "control", "indicator", "constant"
     name: str | None = None
     prim_id: int | None = None  # For primitives
+    lv_type: str | None = None  # LabVIEW type (for controls/indicators)
 
 
 class GraphEdgeSchema(BaseModel):

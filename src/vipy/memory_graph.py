@@ -37,10 +37,12 @@ from .parser import (
     parse_subvi_paths,
     parse_vi_metadata,
 )
+from .parser.models import ParsedType
 from .parser.types import (
     parse_type_map_rich,
     resolve_type_rich,
 )
+from .primitive_resolver import resolve_primitive
 from .vilib_resolver import get_resolver as get_vilib_resolver
 
 
@@ -88,6 +90,41 @@ class InMemoryVIGraph:
         self._qualified_aliases.clear()
         self._poly_info.clear()
         self._loaded_vis.clear()
+
+    def _enrich_type(self, parsed_type: ParsedType | None) -> LVType | None:
+        """Enrich ParsedType from parser to LVType with vilib data.
+
+        Parser outputs ParsedType with basic info from single VI's XML.
+        This enriches it with typedef details (enum values, cluster fields)
+        from vilib_resolver.
+
+        Args:
+            parsed_type: ParsedType from parser
+
+        Returns:
+            Enriched LVType with values/fields from vilib_resolver
+        """
+        if parsed_type is None:
+            return None
+
+        # Start with basic LVType from ParsedType
+        lv_type = LVType(
+            kind=parsed_type.kind,
+            underlying_type=parsed_type.type_name,
+            typedef_path=parsed_type.typedef_path,
+            typedef_name=parsed_type.typedef_name,
+        )
+
+        # Enrich typedefs with vilib_resolver data (enum values, cluster fields)
+        if parsed_type.typedef_name:
+            resolver = get_vilib_resolver()
+            resolved = resolver.resolve_type(parsed_type.typedef_name)
+            if resolved:
+                lv_type.values = resolved.values
+                lv_type.fields = resolved.fields
+                lv_type.description = resolved.description
+
+        return lv_type
 
     def query(self, cypher: str, params: dict | None = None) -> list[dict]:
         """Cypher query compatibility - routes to native methods.
@@ -254,7 +291,12 @@ class InMemoryVIGraph:
         visited.add(vi_name)
 
         # Parse block diagram, front panel, and connector pane
-        bd = parse_block_diagram(bd_xml)
+        # Pass main_xml so parser can resolve TypeID → ParsedType internally
+        bd = parse_block_diagram(
+            bd_xml,
+            fp_xml if fp_xml and fp_xml.exists() else None,
+            main_xml if main_xml and main_xml.exists() else None,
+        )
         fp: FrontPanel | None = None
         conpane: ConnectorPane | None = None
         wiring_rules: dict[int, int] = {}
@@ -472,6 +514,44 @@ class InMemoryVIGraph:
                             subvi_term_uid,
                         )
 
+    @staticmethod
+    def _format_lv_type_for_display(lv_type: LVType) -> str:
+        """Format LVType for human-readable display.
+
+        Args:
+            lv_type: The LVType to format
+
+        Returns:
+            Human-readable type string
+        """
+        if lv_type.kind == "primitive":
+            return lv_type.underlying_type or "Any"
+        elif lv_type.kind == "enum":
+            if lv_type.typedef_name:
+                # Extract just the filename from qualified name
+                name = lv_type.typedef_name.split(":")[-1].replace(".ctl", "")
+                return name
+            return "Enum"
+        elif lv_type.kind == "cluster":
+            if lv_type.typedef_name:
+                name = lv_type.typedef_name.split(":")[-1].replace(".ctl", "")
+                return name
+            return "Cluster"
+        elif lv_type.kind == "array":
+            if lv_type.element_type:
+                elem_str = InMemoryVIGraph._format_lv_type_for_display(lv_type.element_type)
+                return f"Array[{elem_str}]"
+            return "Array"
+        elif lv_type.kind == "ring":
+            return "Ring"
+        elif lv_type.kind == "typedef_ref":
+            if lv_type.typedef_name:
+                name = lv_type.typedef_name.split(":")[-1].replace(".ctl", "")
+                return name
+            return "TypeDef"
+        else:
+            return lv_type.underlying_type or "Any"
+
     def _build_dataflow_graph(
         self,
         bd: BlockDiagram,
@@ -515,15 +595,18 @@ class InMemoryVIGraph:
             # Get wiring rule for this slot (default to 0 = Invalid/optional)
             wiring_rule = wiring_rules.get(slot_index, 0) if slot_index else 0
 
-            # Resolve TypeID to LVType if available
+            # Get type from parser (already resolved TypeID → ParsedType)
+            # Then enrich with vilib_resolver data
             lv_type = None
-            type_desc_str = ctrl.type_desc if ctrl else None
             control_type_str = ctrl.control_type if ctrl else None
 
-            if type_desc_str and type_map:
-                lv_type = resolve_type_rich(type_desc_str, type_map)
-            elif control_type_str:
-                # Map control_type to LVType using shared mapping
+            # PRIMARY: Get parsed_type from block diagram terminal info
+            term_info = bd.terminal_info.get(fp_term.uid)
+            if term_info and term_info.parsed_type:
+                lv_type = self._enrich_type(term_info.parsed_type)
+
+            # FALLBACK: Try control_type (but this doesn't have typedef info)
+            if not lv_type and control_type_str:
                 lv_type = control_type_to_lvtype(control_type_str)
 
             node_attrs: dict[str, Any] = {
@@ -533,32 +616,43 @@ class InMemoryVIGraph:
                 "is_public": is_public,  # On connector pane = public interface
                 "slot_index": slot_index,  # Position on connector pane
                 "wiring_rule": wiring_rule,  # 0=Invalid, 1=Required, 2=Rec, 3=Opt
-                "type_desc": type_desc_str,
                 "control_type": ctrl.control_type if ctrl else None,
                 "default_value": ctrl.default_value if ctrl else None,
                 "enum_values": ctrl.enum_values if ctrl else [],
             }
             if lv_type:
                 node_attrs["lv_type"] = lv_type
-                node_attrs["type"] = lv_type.underlying_type or "Any"
+                node_attrs["type"] = self._format_lv_type_for_display(lv_type)
                 if lv_type.typedef_path:
                     node_attrs["typedef_path"] = lv_type.typedef_path
                 if lv_type.typedef_name:
                     node_attrs["typedef_name"] = lv_type.typedef_name
+            else:
+                node_attrs["type"] = "Any"
 
             g.add_node(fp_term.uid, **node_attrs)
 
         # Add constants WITH DECODED VALUES
         for const in bd.constants:
             val_type, decoded_value = decode_constant(const)
-            g.add_node(
-                const.uid,
-                kind="constant",
-                value=decoded_value,
-                type=val_type,
-                raw_value=const.value,
-                label=const.label,
-            )
+
+            # Get parsed_type from parser and enrich it
+            lv_type = None
+            term_info = bd.terminal_info.get(const.uid)
+            if term_info and term_info.parsed_type:
+                lv_type = self._enrich_type(term_info.parsed_type)
+
+            node_attrs = {
+                "kind": "constant",
+                "value": decoded_value,
+                "type": val_type,
+                "raw_value": const.value,
+                "label": const.label,
+            }
+            if lv_type:
+                node_attrs["lv_type"] = lv_type
+
+            g.add_node(const.uid, **node_attrs)
 
         # Add operations (SubVIs and primitives)
         for node in bd.nodes:
@@ -573,16 +667,15 @@ class InMemoryVIGraph:
             terminals = []
             for term_uid, term_info in bd.terminal_info.items():
                 if term_info.parent_uid == node.uid:
-                    # Resolve TypeID to LVType
-                    raw_type = term_info.type_id or "unknown"
-                    if type_map:
-                        lv_type = resolve_type_rich(raw_type, type_map)
-                    else:
-                        lv_type = LVType(kind="primitive", underlying_type=raw_type)
+                    # Get parsed_type and enrich it
+                    lv_type = None
+                    if term_info.parsed_type:
+                        lv_type = self._enrich_type(term_info.parsed_type)
+
                     term_dict: dict[str, Any] = {
                         "id": term_uid,
                         "index": term_info.index,
-                        "type": lv_type.underlying_type or "Any",
+                        "type": lv_type.underlying_type if lv_type else "Any",
                         "name": term_info.name,
                         "direction": "output" if term_info.is_output else "input",
                         "lv_type": lv_type,
@@ -593,37 +686,55 @@ class InMemoryVIGraph:
                         term_dict["typedef_name"] = lv_type.typedef_name
                     terminals.append(term_dict)
 
-            g.add_node(
-                node.uid,
-                kind=node_kind,
-                name=node.name,
-                prim_id=node.prim_res_id,
-                prim_index=node.prim_index,
-                node_type=node.node_type,
-                terminals=sorted(terminals, key=lambda t: t.get("index", 0)),
-            )
+            # Resolve primitive name if not set
+            node_name = node.name
+            if not node_name and node_kind == "primitive" and node.prim_res_id:
+                resolved = resolve_primitive(prim_id=node.prim_res_id)
+                if resolved:
+                    node_name = resolved.name
+
+            # Get description for SubVIs from vilib
+            description = None
+            if node_kind == "subvi" and node_name:
+                from .vilib_resolver import get_resolver
+                resolver = get_resolver()
+                vi_entry = resolver.resolve_by_name(node_name)
+                if vi_entry and vi_entry.description:
+                    description = vi_entry.description
+
+            node_attrs = {
+                "kind": node_kind,
+                "name": node_name,
+                "prim_id": node.prim_res_id,
+                "prim_index": node.prim_index,
+                "node_type": node.node_type,
+                "terminals": sorted(terminals, key=lambda t: t.get("index", 0)),
+            }
+            if description:
+                node_attrs["description"] = description
+
+            g.add_node(node.uid, **node_attrs)
 
         # Add terminal nodes (for wire routing)
         for term_uid, term_info in bd.terminal_info.items():
             if term_uid not in g:  # Don't override FP terminals
-                # Resolve TypeID to LVType
-                raw_type = term_info.type_id or "unknown"
-                if type_map:
-                    lv_type = resolve_type_rich(raw_type, type_map)
-                else:
-                    lv_type = LVType(kind="primitive", underlying_type=raw_type)
+                # Get parsed_type and enrich it
+                lv_type = None
+                if term_info.parsed_type:
+                    lv_type = self._enrich_type(term_info.parsed_type)
+
                 node_attrs: dict[str, Any] = {
                     "kind": "terminal",
                     "parent_id": term_info.parent_uid,
                     "index": term_info.index,
-                    "type": lv_type.underlying_type or "Any",
+                    "type": lv_type.underlying_type if lv_type else "Any",
                     "name": term_info.name,
                     "direction": "output" if term_info.is_output else "input",
                     "lv_type": lv_type,
                 }
-                if lv_type.typedef_path:
+                if lv_type and lv_type.typedef_path:
                     node_attrs["typedef_path"] = lv_type.typedef_path
-                if lv_type.typedef_name:
+                if lv_type and lv_type.typedef_name:
                     node_attrs["typedef_name"] = lv_type.typedef_name
                 g.add_node(term_uid, **node_attrs)
 
@@ -936,9 +1047,9 @@ class InMemoryVIGraph:
             results.append(Constant(
                 id=n,
                 value=d.get("value"),
-                type=d.get("type", "Any"),
+                lv_type=d.get("lv_type"),  # LVType from parsing
                 raw_value=d.get("raw_value"),
-                label=d.get("label"),
+                name=d.get("label"),  # Graph stores as "label", Constant uses "name"
             ))
         return results
 
@@ -1033,6 +1144,7 @@ class InMemoryVIGraph:
                 tunnels=tunnels,
                 inner_nodes=inner_nodes,
                 stop_condition_terminal=stop_cond,
+                description=d.get("description"),
             ))
         return result
 
@@ -1147,6 +1259,7 @@ class InMemoryVIGraph:
                 loop_type=loop_type,
                 tunnels=tunnels,
                 inner_nodes=nested_inner,
+                description=d.get("description"),
             ))
         return inner_ops
 

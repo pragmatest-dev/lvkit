@@ -317,6 +317,19 @@ class SubVICodeGen(NodeCodeGen):
         Returns:
             Either the original value or an enum reference like "EnumName.MEMBER"
         """
+        # Check if value is already an enum reference (pre-resolved in graph)
+        if '.' in value and not value.replace('.', '').replace('-', '').isdigit():
+            # Extract enum class name and add import
+            enum_class_name = value.split('.')[0]
+            if ctx.import_resolver:
+                import_stmt = ctx.import_resolver(vilib_vi.name)
+                import_stmt = import_stmt.rsplit(" import ", 1)[0] + f" import {enum_class_name}"
+                ctx.add_import(import_stmt)
+            else:
+                module = self._to_module_name(vilib_vi.name)
+                ctx.add_import(f"from .{module} import {enum_class_name}")
+            return value
+
         # Only process constant integers
         if not value.isdigit() and not (value.startswith('-') and value[1:].isdigit()):
             return value
@@ -338,30 +351,32 @@ class SubVICodeGen(NodeCodeGen):
         if not vilib_term.type.endswith('.ctl'):
             return value
 
-        # Get the typedef from vilib resolver
-        from vipy.vilib_resolver import get_resolver
+        # Get the LVType from vilib resolver
+        from vipy.vilib_resolver import derive_python_location, get_resolver
         resolver = get_resolver()
-        typedef = resolver.resolve_type(vilib_term.type)
+        lv_type = resolver.resolve_type(vilib_term.type)
 
-        if not typedef or typedef.type.kind != 'enum' or not typedef.type.values:
+        if not lv_type or lv_type.kind != 'enum' or not lv_type.values:
             return value
 
         # Reverse lookup: find enum member with this value
-        for member_name, enum_val in typedef.type.values.items():
+        for member_name, enum_val in lv_type.values.items():
             if enum_val.value == int_value:
                 # Found it! Generate enum reference
-                enum_class_name = typedef.name
-                # Add import for this enum using resolver or fallback
-                if ctx.import_resolver:
-                    # Get import statement and replace func name with enum class
-                    import_stmt = ctx.import_resolver(vilib_vi.name)
-                    # Replace the function import with enum class import
-                    import_stmt = import_stmt.rsplit(" import ", 1)[0] + f" import {enum_class_name}"
-                    ctx.add_import(import_stmt)
-                else:
-                    module = self._to_module_name(vilib_vi.name)
-                    ctx.add_import(f"from .{module} import {enum_class_name}")
-                return f"{enum_class_name}.{member_name}"
+                # Derive Python location from typedef_name
+                if lv_type.typedef_name:
+                    package, class_name = derive_python_location(lv_type.typedef_name)
+                    # Add import for this enum
+                    if ctx.import_resolver:
+                        # Get import statement and replace func name with enum class
+                        import_stmt = ctx.import_resolver(vilib_vi.name)
+                        # Replace the function import with enum class import
+                        import_stmt = import_stmt.rsplit(" import ", 1)[0] + f" import {class_name}"
+                        ctx.add_import(import_stmt)
+                    else:
+                        ctx.add_import(f"from {package} import {class_name}")
+                    return f"{class_name}.{member_name}"
+                return str(int_value)
 
         # Value not in enum - return as-is
         return value

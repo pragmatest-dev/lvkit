@@ -67,6 +67,7 @@ class Operation:
     tunnels: list[Tunnel] = field(default_factory=list)
     inner_nodes: list[Operation] = field(default_factory=list)
     stop_condition_terminal: str | None = None
+    description: str | None = None  # VI description/help text
 
 
 @dataclass
@@ -75,9 +76,9 @@ class Constant:
 
     id: str
     value: Any
-    type: str
+    lv_type: LVType | None = None  # Full type info (parsed from XML)
     raw_value: str | None = None
-    label: str | None = None
+    name: str | None = None  # Label text for the constant
 
 
 @dataclass
@@ -188,6 +189,7 @@ class LVType:
     dimensions: int | None = None  # array
     typedef_path: str | None = None  # typedef_ref - path to resolve
     typedef_name: str | None = None  # Qualified name (e.g., "sysdir.llb:Type.ctl")
+    description: str | None = None  # Documentation text from typedef
 
     def to_python(self) -> str:
         """Render as Python type annotation string."""
@@ -233,16 +235,3 @@ class ClusterField:
     """
     name: str
     type: LVType
-
-
-@dataclass
-class TypeDef:
-    """A shared type definition (.ctl file) = LVType + path metadata.
-
-    TypeDefs are just shared types - the LVType holds the actual structure,
-    and TypeDef adds the path/name metadata for the .ctl file.
-    """
-    type: LVType  # The actual type structure
-    typedef_path: str  # Path: "vi.lib/Utility/sysdir.llb/System Directory Type.ctl"
-    name: str  # Python-friendly name: "SystemDirectoryType"
-    description: str | None = None
