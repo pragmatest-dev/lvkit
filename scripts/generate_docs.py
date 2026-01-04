@@ -62,13 +62,17 @@ def collect_directory_vis(dir_path: Path) -> list[Path]:
 
 
 def collect_subvi_names(operations: list) -> list[str]:
-    """Recursively collect SubVI names from operations including inner nodes."""
+    """Recursively collect SubVI names from operations including inner nodes.
+
+    Args:
+        operations: List of Operation dataclasses
+    """
     names = []
     for op in operations:
-        if "SubVI" in op.get("labels", []) and op.get("name"):
-            names.append(op["name"])
-        if op.get("inner_nodes"):
-            names.extend(collect_subvi_names(op["inner_nodes"]))
+        if "SubVI" in op.labels and op.name:
+            names.append(op.name)
+        if op.inner_nodes:
+            names.extend(collect_subvi_names(op.inner_nodes))
     return names
 
 

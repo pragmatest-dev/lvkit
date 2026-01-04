@@ -1497,10 +1497,8 @@ class InMemoryVIGraph:
         """Get complete VI context for code generation.
 
         Returns a dict with inputs, outputs, constants, operations, etc.
-        All dataclasses are converted to dicts for codegen compatibility.
+        Returns dataclass instances for use with new AST-based codegen.
         """
-        from dataclasses import asdict
-
         # Resolve to canonical name (handles qualified names and aliases)
         vi_name = self.resolve_vi_name(vi_name)
         g = self._dataflow.get(vi_name)
@@ -1529,12 +1527,12 @@ class InMemoryVIGraph:
                     "direction": d.get("direction"),
                 })
 
-        # Get dataclasses and convert to dicts for codegen compatibility
-        inputs = [asdict(inp) for inp in self.get_inputs(vi_name)]
-        outputs = [asdict(out) for out in self.get_outputs(vi_name)]
-        constants = [asdict(c) for c in self.get_constants(vi_name)]
-        operations = [asdict(op) for op in self.get_operations(vi_name)]
-        data_flow = [asdict(w) for w in self.get_wires(vi_name)]
+        # Get dataclasses (keep as dataclasses for new codegen)
+        inputs = list(self.get_inputs(vi_name))
+        outputs = list(self.get_outputs(vi_name))
+        constants = list(self.get_constants(vi_name))
+        operations = list(self.get_operations(vi_name))
+        data_flow = list(self.get_wires(vi_name))
 
         return {
             "name": vi_name,

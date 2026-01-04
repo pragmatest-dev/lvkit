@@ -77,46 +77,51 @@ def analyze_vi(
                 vi_name = v
                 break
 
-    # Get VI context (already returns dicts)
+    # Get VI context (now returns dataclasses)
     vi_context = graph.get_vi_context(vi_name)
 
-    # Extract controls with descriptions
+    # Extract controls with descriptions (FPTerminalNode dataclasses)
     controls = []
     for inp in vi_context.get("inputs", []):
+        name = inp.name or f"input_{inp.slot_index}"
+        type_str = inp.type or "Any"
         controls.append({
-            "name": inp["name"] or f"input_{inp['slot_index']}",
-            "type": inp["type"] or "Any",
-            "default_value": inp.get("default_value"),
-            "description": infer_description(inp["name"], inp["type"], "input"),
-            "slot_index": inp.get("slot_index", 0),
+            "name": name,
+            "type": type_str,
+            "default_value": inp.default_value,
+            "description": infer_description(name, type_str, "input"),
+            "slot_index": inp.slot_index or 0,
         })
 
-    # Extract indicators with descriptions
+    # Extract indicators with descriptions (FPTerminalNode dataclasses)
     indicators = []
     for out in vi_context.get("outputs", []):
+        name = out.name or f"output_{out.slot_index}"
+        type_str = out.type or "Any"
         indicators.append({
-            "name": out["name"] or f"output_{out['slot_index']}",
-            "type": out["type"] or "Any",
-            "description": infer_description(out["name"], out["type"], "output"),
-            "slot_index": out.get("slot_index", 0),
+            "name": name,
+            "type": type_str,
+            "description": infer_description(name, type_str, "output"),
+            "slot_index": out.slot_index or 0,
         })
 
-    # Graph structure is already dicts from get_vi_context
+    # Convert dataclasses to dicts for JSON serialization
+    from dataclasses import asdict
+
     graph_data = {
-        "inputs": vi_context.get("inputs", []),
-        "outputs": vi_context.get("outputs", []),
-        "operations": vi_context.get("operations", []),
-        "constants": vi_context.get("constants", []),
-        "data_flow": vi_context.get("data_flow", []),
+        "inputs": [asdict(inp) for inp in vi_context.get("inputs", [])],
+        "outputs": [asdict(out) for out in vi_context.get("outputs", [])],
+        "operations": [asdict(op) for op in vi_context.get("operations", [])],
+        "constants": [asdict(c) for c in vi_context.get("constants", [])],
+        "data_flow": [asdict(w) for w in vi_context.get("data_flow", [])],
     }
 
-    # Generate dependency descriptions
+    # Generate dependency descriptions (Operation dataclasses)
     dependencies = {}
     for op in vi_context.get("operations", []):
-        if "SubVI" in op.get("labels", []) and op.get("name"):
-            dep_name = op["name"]
-            if dep_name not in dependencies:  # Avoid duplicates
-                dependencies[dep_name] = generate_dependency_description(dep_name, graph)
+        if "SubVI" in op.labels and op.name:
+            if op.name not in dependencies:  # Avoid duplicates
+                dependencies[op.name] = generate_dependency_description(op.name, graph)
 
     # Get execution order
     try:
