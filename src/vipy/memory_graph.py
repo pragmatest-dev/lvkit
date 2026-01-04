@@ -391,6 +391,22 @@ class InMemoryVIGraph:
                     lookup_path, search_paths, caller_dir, is_vilib, is_userlib
                 )
                 if subvi_path:
+                    # Detect self-calling VIs: when a VI in a library references itself by unqualified name
+                    # (e.g., Initialize Tests On Tree.vi calling "Initialize Tests On Tree.vi")
+                    # Check if the SubVI path resolves to a VI that's currently being processed
+                    subvi_filename = subvi_path.name.replace("_BDHb.xml", ".vi")
+
+                    # Self-call check: if this SubVI's filename matches any part of the visited set
+                    # For qualified names like "GraphicalTestRunner.lvlib:Initialize Tests On Tree.vi",
+                    # check if the unqualified name appears in any visited qualified name
+                    is_self_call = any(
+                        visited_vi.endswith(":" + subvi_filename) or visited_vi == subvi_filename
+                        for visited_vi in visited
+                    )
+                    if is_self_call:
+                        # Skip self-calls to prevent infinite recursion
+                        continue
+
                     # Recursively load SubVI
                     try:
                         subvi_bd_xml, subvi_fp_xml, subvi_main_xml = extract_vi_xml(
