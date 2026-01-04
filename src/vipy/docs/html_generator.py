@@ -212,6 +212,9 @@ class HTMLDocGenerator:
         html_filename = self._vi_name_to_filename(vi_name)
         html_path = self.output_dir / html_filename
 
+        # Create subdirectory if needed
+        html_path.parent.mkdir(parents=True, exist_ok=True)
+
         html = self._render_vi_page(vi_data)
 
         html_path.write_text(html, encoding="utf-8")
@@ -244,18 +247,30 @@ class HTMLDocGenerator:
         poly_variants = vi_data.get("poly_variants", [])
         variant_params = vi_data.get("variant_params", [])
 
-        # Build sections
+        # Create a relative link function for this VI's directory
+        current_lib = self._extract_library_group(vi_name)
+
+        def relative_link(target_vi_name: str) -> str:
+            target_path = self._vi_name_to_filename(target_vi_name)
+            target_lib = self._extract_library_group(target_vi_name)
+            # If same library, use just the filename
+            if target_lib == current_lib:
+                return target_path.split("/", 1)[1] if "/" in target_path else target_path
+            # Otherwise use relative path from subdirectory
+            return "../" + target_path
+
+        # Build sections with relative links
         controls_html = self._render_controls_table(controls)
         indicators_html = self._render_indicators_table(indicators)
-        dependencies_html = self._render_dependencies_section(dependencies)
-        callers_html = self._render_callers_section(callers)
+        dependencies_html = self._render_dependencies_section(dependencies, relative_link)
+        callers_html = self._render_callers_section(callers, relative_link)
         self._mermaid.all_vis = self.all_vis
-        dataflow_html = self._mermaid.render(graph, self._vi_name_to_filename)
+        dataflow_html = self._mermaid.render(graph, relative_link)
 
         # Polymorphic section if applicable
         poly_html = ""
         if is_poly and variant_params:
-            poly_html = self._render_polymorphic_section(variant_params)
+            poly_html = self._render_polymorphic_section(variant_params, relative_link)
 
         return f"""<!DOCTYPE html>
 <html lang="en">
@@ -263,7 +278,7 @@ class HTMLDocGenerator:
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{vi_name} - {self.doc_title}</title>
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="../style.css">
     <script type="module">
         import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
         mermaid.initialize({{
@@ -276,7 +291,7 @@ class HTMLDocGenerator:
 </head>
 <body>
     <nav class="breadcrumb">
-        <a href="index.html">{self.doc_title}</a> / <span>{vi_name}</span>
+        <a href="../index.html">{self.doc_title}</a> / <span>{vi_name}</span>
     </nav>
 
     <header>
@@ -390,7 +405,7 @@ class HTMLDocGenerator:
         </table>
         """
 
-    def _render_dependencies_section(self, dependencies: dict[str, str]) -> str:
+    def _render_dependencies_section(self, dependencies: dict[str, str], link_fn: Callable[[str], str]) -> str:
         """Render dependencies with links."""
         if not dependencies:
             return "<p>No SubVI calls</p>"
@@ -399,7 +414,7 @@ class HTMLDocGenerator:
         for vi_name, description in dependencies.items():
             # Only create link if this VI has a documentation page
             if vi_name in self.all_vis:
-                link = self._vi_name_to_filename(vi_name)
+                link = link_fn(vi_name)
                 items.append(
                     f"""
             <li>
@@ -423,14 +438,14 @@ class HTMLDocGenerator:
         </ul>
         """
 
-    def _render_callers_section(self, callers: list[str]) -> str:
+    def _render_callers_section(self, callers: list[str], link_fn: Callable[[str], str]) -> str:
         """Render reverse links (who calls this VI)."""
         if not callers:
             return "<p>Not called by any VI in this documentation</p>"
 
         items = []
         for caller_name in callers:
-            link = self._vi_name_to_filename(caller_name)
+            link = link_fn(caller_name)
             items.append(
                 f"""
             <li><a href="{link}"><code>{caller_name}</code></a></li>
@@ -443,11 +458,12 @@ class HTMLDocGenerator:
         </ul>
         """
 
-    def _render_polymorphic_section(self, variant_params: list[dict]) -> str:
+    def _render_polymorphic_section(self, variant_params: list[dict], link_fn: Callable[[str], str]) -> str:
         """Render polymorphic variants section with parameter comparison.
 
         Args:
             variant_params: List of dicts with variant info (name, inputs, outputs)
+            link_fn: Function to generate links to other VIs
         """
         if not variant_params:
             return ""
@@ -473,7 +489,7 @@ class HTMLDocGenerator:
         # Build variant links
         variant_links = []
         for variant in variant_params:
-            link = self._vi_name_to_filename(variant["name"])
+            link = link_fn(variant["name"])
             variant_links.append(f'<li><a href="{link}"><code>{variant["name"]}</code></a></li>')
 
         # Build parameter comparison table
@@ -639,7 +655,16 @@ class HTMLDocGenerator:
 """
 
     def _vi_name_to_filename(self, vi_name: str) -> str:
-        """Convert VI name to safe HTML filename."""
+        """Convert VI name to safe HTML filename with library subdirectory.
+
+        Returns path like "OpenG/Build_Path_ogtk.html" or "vi.lib/Get_System_Directory.html"
+        """
+        # Get library group for subdirectory
+        library_group = self._extract_library_group(vi_name)
+
+        # Sanitize library group name for filesystem
+        safe_lib = library_group.replace(".", "_").replace(":", "_").replace("/", "_")
+
         # Handle qualified names (Library.lvlib:VI.vi)
         safe_name = vi_name.replace(":", "_").replace("/", "_").replace("\\", "_")
         # Remove .vi extension if present
@@ -652,7 +677,8 @@ class HTMLDocGenerator:
         # Remove any consecutive underscores
         while "__" in safe_name:
             safe_name = safe_name.replace("__", "_")
-        return f"{safe_name}.html"
+
+        return f"{safe_lib}/{safe_name}.html"
 
     def _get_css(self) -> str:
         """Return CSS stylesheet by reading from template file."""
