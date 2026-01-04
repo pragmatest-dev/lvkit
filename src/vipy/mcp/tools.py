@@ -10,7 +10,9 @@ from ..structure import parse_lvclass, parse_lvlib
 from ..vilib_resolver import get_resolver as get_vilib_resolver
 from .html_generator import HTMLDocGenerator
 from .schemas import (
+    CodeGenResult,
     ControlSchema,
+    GeneratedFileSchema,
     GraphEdgeSchema,
     GraphNodeSchema,
     IndicatorSchema,
@@ -716,3 +718,326 @@ def generate_documents(
             summary_parts.append(f"  ... and {len(failed_vis) - 10} more")
 
     return "\n".join(summary_parts)
+
+
+# ========== Python Code Generation ==========
+
+
+def generate_python(
+    vi_path: str,
+    output_dir: str,
+    search_paths: list[str] | None = None,
+    include_code: bool = False,
+) -> CodeGenResult:
+    """Generate Python code from a LabVIEW VI using AST-based translation.
+
+    Args:
+        vi_path: Path to VI file (.vi) or block diagram XML (*_BDHb.xml)
+        output_dir: Output directory for generated Python files
+        search_paths: Optional list of search paths for dependencies
+        include_code: If True, include generated code in response (default: False, read files instead)
+
+    Returns:
+        CodeGenResult with generated files, errors, and review needs.
+        Files are written to output_dir - agent should read them for review.
+    """
+    import ast
+    import re
+    import shutil
+
+    from ..agent.codegen import build_module, MissingDependencyError, CodeGenError
+    from ..agent.codegen.ast_utils import to_function_name
+
+    def to_module_name(vi_name: str) -> str:
+        """Convert VI name to module name."""
+        if ":" in vi_name:
+            vi_name = vi_name.split(":")[-1]
+        vi_name = vi_name.replace(".vi", "").replace(".VI", "")
+        result = vi_name.lower().replace(" ", "_").replace("-", "_")
+        result = "".join(c for c in result if c.isalnum() or c == "_")
+        return result or "module"
+
+    def to_library_name(vi_name: str) -> str | None:
+        """Extract library name from qualified VI name."""
+        if ":" not in vi_name:
+            return None
+        library = vi_name.split(":")[0]
+        library = library.replace(".lvlib", "").replace(".lvclass", "")
+        result = library.lower().replace(" ", "_").replace("-", "_")
+        result = "".join(c for c in result if c.isalnum() or c == "_")
+        return result or None
+
+    def get_output_path(out_dir: Path, vi_name: str, create_dirs: bool = True) -> tuple[Path, str | None]:
+        """Get output path and library name for a VI."""
+        module_name = to_module_name(vi_name)
+        library_name = to_library_name(vi_name)
+
+        if library_name:
+            lib_dir = out_dir / library_name
+            if create_dirs:
+                lib_dir.mkdir(parents=True, exist_ok=True)
+                init_path = lib_dir / "__init__.py"
+                if not init_path.exists():
+                    init_path.write_text(f'"""Package for {library_name} library."""\n')
+            return (lib_dir / f"{module_name}.py", library_name)
+        else:
+            return (out_dir / f"{module_name}.py", None)
+
+    def create_import_resolver(package_name: str, out_dir: Path, vi_paths: dict[str, Path]):
+        """Create an import resolver for a VI."""
+        def resolver(subvi_name: str) -> str:
+            func_name = to_function_name(subvi_name)
+            if subvi_name in vi_paths:
+                dep_path = vi_paths[subvi_name]
+            else:
+                dep_path, _ = get_output_path(out_dir, subvi_name, create_dirs=False)
+
+            dep_module = dep_path.stem
+            dep_library = to_library_name(subvi_name)
+
+            if dep_library:
+                return f"from {package_name}.{dep_library}.{dep_module} import {func_name}"
+            else:
+                return f"from {package_name}.{dep_module} import {func_name}"
+        return resolver
+
+    # Setup
+    input_path = Path(vi_path)
+    if not input_path.exists():
+        return CodeGenResult(
+            success=False,
+            output_dir=output_dir,
+            package_name="",
+            errors=[f"VI file not found: {vi_path}"],
+        )
+
+    # Create package folder name from VI
+    vi_folder_name = input_path.stem
+    vi_folder_name = re.sub(r"[^\w]", "_", vi_folder_name).lower()
+    vi_folder_name = re.sub(r"_+", "_", vi_folder_name).strip("_")
+
+    output_dir_path = Path(output_dir) / vi_folder_name
+
+    # Clean and create output directory
+    if output_dir_path.exists():
+        shutil.rmtree(output_dir_path)
+    output_dir_path.mkdir(parents=True, exist_ok=True)
+
+    # Load VI
+    graph = InMemoryVIGraph()
+    search_path_objs = [Path(p) for p in (search_paths or [])]
+
+    try:
+        graph.load_vi(input_path, search_paths=search_path_objs or None)
+    except Exception as e:
+        return CodeGenResult(
+            success=False,
+            output_dir=str(output_dir_path),
+            package_name=vi_folder_name,
+            errors=[f"Failed to load VI: {e}"],
+        )
+
+    order = graph.get_conversion_order()
+    vilib_resolver = get_vilib_resolver()
+
+    # Identify polymorphic groups
+    poly_groups = graph.get_polymorphic_groups()
+    poly_variants = set()
+    for variants in poly_groups.values():
+        poly_variants.update(variants)
+
+    # Pre-compute output paths
+    vi_paths_map: dict[str, Path] = {}
+    for vi_name in order:
+        path, _ = get_output_path(output_dir_path, vi_name, create_dirs=False)
+        vi_paths_map[vi_name] = path
+
+    # Generate code
+    files: list[GeneratedFileSchema] = []
+    errors: list[str] = []
+    warnings: list[str] = []
+    needs_review: list[str] = []
+    missing_deps: dict[str, list[str]] = {}
+
+    for vi_name in order:
+        # Skip polymorphic variants
+        if vi_name in poly_variants:
+            continue
+
+        is_stub = graph.is_stub_vi(vi_name)
+        has_vilib = vilib_resolver.has_implementation(vi_name)
+        has_inline = vilib_resolver.has_inline(vi_name)
+
+        output_path, _ = get_output_path(output_dir_path, vi_name)
+        module_name = to_module_name(vi_name)
+        relative_path = str(output_path.relative_to(output_dir_path))
+
+        if has_inline:
+            # Inlined at call sites - skip
+            continue
+
+        if has_vilib:
+            # Use vilib implementation
+            code = vilib_resolver.get_implementation(vi_name)
+            output_path.write_text(code)
+            files.append(GeneratedFileSchema(
+                path=relative_path,
+                vi_name=vi_name,
+                status="ok",
+                code=code if include_code else None,
+                source_type="vilib",
+            ))
+
+        elif is_stub:
+            # Generate stub
+            func_name = to_function_name(vi_name)
+            code = f'''"""Stub: {vi_name} - NEEDS IMPLEMENTATION."""
+from __future__ import annotations
+from typing import Any
+
+
+def {func_name}(*args, **kwargs) -> Any:
+    """TODO: Implement {vi_name}.
+
+    This VI was not found in the search paths. You need to either:
+    1. Add the correct search path containing this VI
+    2. Provide a vilib implementation in data/vilib/
+    3. Implement this function manually
+    """
+    raise NotImplementedError("{vi_name}")
+'''
+            output_path.write_text(code)
+            files.append(GeneratedFileSchema(
+                path=relative_path,
+                vi_name=vi_name,
+                status="ok",
+                code=code if include_code else None,
+                source_type="stub",
+                error="Missing VI - needs implementation or correct search path",
+            ))
+            needs_review.append(vi_name)
+            if vi_name not in missing_deps:
+                missing_deps[vi_name] = []
+
+        elif vi_name in poly_groups:
+            # Polymorphic VI - generate wrapper with all variants
+            # For now, mark as needing review
+            warnings.append(f"Polymorphic VI {vi_name} - complex generation needed")
+            needs_review.append(vi_name)
+
+        else:
+            # Use AST builder
+            vi_context = graph.get_vi_context(vi_name)
+
+            try:
+                import_resolver = create_import_resolver(vi_folder_name, output_dir_path, vi_paths_map)
+                code = build_module(vi_context, vi_name, graph.get_vi_context, import_resolver)
+
+                # Validate syntax
+                ast.parse(code)
+                output_path.write_text(code)
+                files.append(GeneratedFileSchema(
+                    path=relative_path,
+                    vi_name=vi_name,
+                    status="ok",
+                    code=code if include_code else None,
+                    source_type="ast",
+                ))
+
+            except SyntaxError as e:
+                error_path = output_dir_path / f"{module_name}.error.py"
+                error_path.write_text(f"# SYNTAX ERROR: {e}\n\n{code}")
+                files.append(GeneratedFileSchema(
+                    path=str(error_path.relative_to(output_dir_path)),
+                    vi_name=vi_name,
+                    status="syntax_error",
+                    code=code if include_code else None,
+                    error=str(e),
+                    source_type="ast",
+                ))
+                errors.append(f"Syntax error in {vi_name}: {e}")
+                needs_review.append(vi_name)
+
+            except MissingDependencyError as e:
+                files.append(GeneratedFileSchema(
+                    path=relative_path,
+                    vi_name=vi_name,
+                    status="generation_error",
+                    error=f"Missing dependency: {e}",
+                    source_type="ast",
+                ))
+                errors.append(f"Missing dependency for {vi_name}: {e}")
+                needs_review.append(vi_name)
+                # Track which VIs are missing
+                missing_deps.setdefault(vi_name, []).append(str(e))
+
+            except CodeGenError as e:
+                files.append(GeneratedFileSchema(
+                    path=relative_path,
+                    vi_name=vi_name,
+                    status="generation_error",
+                    error=str(e),
+                    source_type="ast",
+                ))
+                errors.append(f"Code generation error for {vi_name}: {e}")
+                needs_review.append(vi_name)
+
+            except Exception as e:
+                files.append(GeneratedFileSchema(
+                    path=relative_path,
+                    vi_name=vi_name,
+                    status="generation_error",
+                    error=str(e),
+                    source_type="ast",
+                ))
+                errors.append(f"Unexpected error for {vi_name}: {e}")
+                needs_review.append(vi_name)
+
+    # Generate __init__.py
+    init_path = output_dir_path / "__init__.py"
+    if not init_path.exists():
+        init_path.write_text('"""Generated package."""\n')
+
+    # Count results
+    ok_count = sum(1 for f in files if f.status == "ok")
+    error_count = sum(1 for f in files if f.status != "ok")
+
+    # Build summary with actionable info for agent
+    summary_parts = [
+        f"Generated Python package: {vi_folder_name}",
+        f"Output: {output_dir_path}",
+        f"Total VIs: {len(files)}",
+        f"Successful: {ok_count}",
+        f"Failed: {error_count}",
+    ]
+
+    if missing_deps:
+        summary_parts.append("")
+        summary_parts.append("MISSING DEPENDENCIES (agent should help resolve):")
+        for vi, deps in missing_deps.items():
+            if deps:
+                summary_parts.append(f"  - {vi}: missing {', '.join(deps)}")
+            else:
+                summary_parts.append(f"  - {vi}: VI not found in search paths")
+
+    if needs_review:
+        summary_parts.append("")
+        summary_parts.append("FILES NEEDING REVIEW:")
+        for vi in needs_review[:10]:
+            summary_parts.append(f"  - {vi}")
+        if len(needs_review) > 10:
+            summary_parts.append(f"  ... and {len(needs_review) - 10} more")
+
+    return CodeGenResult(
+        success=error_count == 0,
+        output_dir=str(output_dir_path),
+        package_name=vi_folder_name,
+        files=files,
+        summary="\n".join(summary_parts),
+        errors=errors,
+        warnings=warnings,
+        total_vis=len(files),
+        successful=ok_count,
+        failed=error_count,
+        needs_review=needs_review,
+    )
