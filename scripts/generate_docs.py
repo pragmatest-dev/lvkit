@@ -101,9 +101,16 @@ def build_cross_references(graph: InMemoryVIGraph) -> dict:
 
 
 def prepare_vi_documentation_data(
-    vi_name: str, graph: InMemoryVIGraph, cross_refs: dict
+    vi_name: str, graph: InMemoryVIGraph, cross_refs: dict, poly_groups: dict
 ) -> dict:
-    """Prepare all data needed for one VI documentation page."""
+    """Prepare all data needed for one VI documentation page.
+
+    Args:
+        vi_name: Name of the VI
+        graph: InMemoryVIGraph containing the VI
+        cross_refs: Cross-reference dictionary from build_cross_references
+        poly_groups: Polymorphic groups from graph.get_polymorphic_groups()
+    """
     from vipy.graph_types import FPTerminalNode, Constant, Operation, Wire
 
     vi_context = graph.get_vi_context(vi_name)
@@ -161,6 +168,25 @@ def prepare_vi_documentation_data(
 
     callers = cross_refs["callers"].get(vi_name, [])
 
+    # Check if this is a polymorphic wrapper VI
+    is_poly = vi_name in poly_groups
+    poly_variants = poly_groups.get(vi_name, []) if is_poly else []
+
+    # If polymorphic, gather variant info
+    variant_params = []
+    if is_poly and poly_variants:
+        for variant_name in poly_variants:
+            try:
+                variant_inputs = graph.get_inputs(variant_name)
+                variant_outputs = graph.get_outputs(variant_name)
+                variant_params.append({
+                    "name": variant_name,
+                    "inputs": [{"name": inp.name, "type": inp.type} for inp in variant_inputs],
+                    "outputs": [{"name": out.name, "type": out.type} for out in variant_outputs],
+                })
+            except Exception:
+                pass  # Skip variants that can't be loaded
+
     return {
         "vi_name": vi_name,
         "controls": controls,
@@ -168,6 +194,9 @@ def prepare_vi_documentation_data(
         "graph": graph_data,
         "dependencies": dependencies,
         "callers": callers,
+        "is_polymorphic": is_poly,
+        "poly_variants": poly_variants,
+        "variant_params": variant_params,
     }
 
 
@@ -254,6 +283,10 @@ def generate_documents(
     cross_refs = build_cross_references(graph)
     print(f"[TIMING] Cross-reference building: {time.time() - t0:.2f}s")
 
+    # Get polymorphic VI info
+    poly_groups = graph.get_polymorphic_groups()
+    poly_variant_to_wrapper = graph.get_poly_variant_wrappers()
+
     # Create HTML generator
     generator = HTMLDocGenerator(output_dir_obj, doc_title, doc_type)
 
@@ -269,7 +302,7 @@ def generate_documents(
 
     for i, vi_name in enumerate(all_vis, 1):
         try:
-            vi_data = prepare_vi_documentation_data(vi_name, graph, cross_refs)
+            vi_data = prepare_vi_documentation_data(vi_name, graph, cross_refs, poly_groups)
             generator.generate_vi_page(vi_data)
             generated_count += 1
             if i % 50 == 0:
@@ -278,10 +311,11 @@ def generate_documents(
             failed_vis.append(f"{vi_name}: {str(e)}")
     print(f"[TIMING] HTML generation: {time.time() - t0:.2f}s - Generated {generated_count} pages")
 
-    # Generate index page
+    # Generate index page - filter out poly variants (only show wrappers)
     print(f"[TIMING] Generating index page...")
     t0 = time.time()
-    generator.generate_index_page(all_vis)
+    vis_for_index = [vi for vi in all_vis if vi not in poly_variant_to_wrapper]
+    generator.generate_index_page(vis_for_index)
     print(f"[TIMING] Index generation: {time.time() - t0:.2f}s")
 
     # Write CSS assets
