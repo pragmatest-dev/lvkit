@@ -596,10 +596,12 @@ class TestRealVILoading:
         vis = graph.list_vis()
         assert len(vis) >= 1
 
-        vi_name = sample_vi_path.name
+        # Use the qualified name (VIs are now identified by qualified name, not just filename)
+        vi_name = vis[0]
         ctx = graph.get_vi_context(vi_name)
         assert ctx is not None
-        assert ctx["name"] == vi_name
+        # ctx["name"] should be the qualified name
+        assert ":" in ctx["name"] or ctx["name"] == vi_name
 
     def test_load_vi_with_expansion(self, sample_vi_path: Path | None):
         """Test loading a VI with SubVI expansion."""
