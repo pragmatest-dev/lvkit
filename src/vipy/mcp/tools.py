@@ -13,8 +13,6 @@ from .schemas import (
     CodeGenResult,
     ControlSchema,
     GeneratedFileSchema,
-    GraphEdgeSchema,
-    GraphNodeSchema,
     IndicatorSchema,
     VIAnalysisResult,
 )
@@ -156,134 +154,28 @@ def generate_dependency_description(subvi_name: str, graph: InMemoryVIGraph) -> 
 
 
 def build_graph_structure(vi_name: str, graph: InMemoryVIGraph) -> dict[str, Any]:
-    """Build graph nodes and edges for visualization.
+    """Export the VI graph structure directly.
+
+    Returns the graph data from get_vi_context(), serialized to dicts.
+    This exports the full graph structure without transformation.
 
     Args:
         vi_name: Name of the VI
         graph: InMemoryVIGraph containing the VI
 
     Returns:
-        Dictionary with "nodes" and "edges" lists
+        Dictionary with inputs, outputs, operations, constants, data_flow
     """
-    nodes = []
-    edges = []
+    from dataclasses import asdict
 
-    # Get VI context
     vi_context = graph.get_vi_context(vi_name)
 
-    # Add input nodes (controls)
-    for inp in vi_context.get("inputs", []):
-        nodes.append(
-            GraphNodeSchema(
-                id=inp.id,
-                label=f"Control: {inp.name or 'input'}",
-                type="control",
-                name=inp.name,
-                lv_type=inp.type,  # Use string field
-            ).model_dump()
-        )
-
-    # Add output nodes (indicators)
-    for out in vi_context.get("outputs", []):
-        nodes.append(
-            GraphNodeSchema(
-                id=out.id,
-                label=f"Indicator: {out.name or 'output'}",
-                type="indicator",
-                name=out.name,
-                lv_type=out.type,  # Use string field
-            ).model_dump()
-        )
-
-    # Add operation nodes
-    for op in vi_context.get("operations", []):
-        if "SubVI" in op.labels:
-            label = f"SubVI: {op.name or 'Unknown'}"
-            node_type = "subvi"
-        elif "Primitive" in op.labels:
-            prim_name = op.name or f"prim_{op.primResID}"
-            label = f"Primitive: {prim_name}"
-            node_type = "primitive"
-        else:
-            label = f"Operation: {op.name or op.id[:8]}"
-            node_type = "operation"
-
-        nodes.append(
-            GraphNodeSchema(
-                id=op.id,
-                label=label,
-                type=node_type,
-                name=op.name,
-                prim_id=op.primResID,
-            ).model_dump()
-        )
-
-    # Add constant nodes
-    for const in vi_context.get("constants", []):
-        # Format enum display if this is an enum constant
-        if const.lv_type and const.lv_type.values:
-            # lv_type.values is {name: EnumValue(value=N, ...)}
-            member_name = None
-            try:
-                int_value = int(const.value)
-                for name, enum_val in const.lv_type.values.items():
-                    if enum_val.value == int_value:
-                        member_name = name
-                        break
-            except (ValueError, TypeError, AttributeError):
-                pass
-            value_str = member_name if member_name else str(const.value)
-        else:
-            value_str = str(const.value) if const.value is not None else "None"
-
-        # Truncate long values
-        if len(value_str) > 30:
-            value_str = value_str[:27] + "..."
-
-        nodes.append(
-            GraphNodeSchema(
-                id=const.id,
-                label=f"Constant: {value_str}",
-                type="constant",
-                name=value_str,
-            ).model_dump()
-        )
-
-    # Build set of all node IDs for edge validation
-    node_ids = {str(node["id"]) for node in nodes}
-
-    # Add edges (wires) - use parent node IDs, falling back to terminal IDs for constants
-    for wire in vi_context.get("data_flow", []):
-        # For the source node:
-        # - Use from_parent_id if it's a valid node
-        # - Otherwise use from_terminal_id (for constants, the terminal IS the node)
-        from_id = wire.from_parent_id
-        if str(from_id) not in node_ids and wire.from_terminal_id:
-            from_id = wire.from_terminal_id
-
-        # For the target node:
-        # - Use to_parent_id if it's a valid node
-        # - Otherwise use to_terminal_id
-        to_id = wire.to_parent_id
-        if str(to_id) not in node_ids and wire.to_terminal_id:
-            to_id = wire.to_terminal_id
-
-        # Build human-readable labels
-        from_label = _get_node_label(wire.from_parent_id, wire.from_parent_name, wire.from_parent_labels)
-        to_label = _get_node_label(wire.to_parent_id, wire.to_parent_name, wire.to_parent_labels)
-
-        edges.append(
-            GraphEdgeSchema(
-                from_node=from_id,
-                to_node=to_id,
-                from_label=from_label,
-                to_label=to_label,
-            ).model_dump()
-        )
-
     return {
-        "nodes": nodes,
-        "edges": edges,
+        "inputs": [asdict(inp) for inp in vi_context.get("inputs", [])],
+        "outputs": [asdict(out) for out in vi_context.get("outputs", [])],
+        "operations": [asdict(op) for op in vi_context.get("operations", [])],
+        "constants": [asdict(c) for c in vi_context.get("constants", [])],
+        "data_flow": [asdict(w) for w in vi_context.get("data_flow", [])],
     }
 
 
@@ -364,30 +256,6 @@ def _infer_from_context(vi_name: str, vi_context: dict[str, Any]) -> str:
     return f"Performs {name.lower()} operation"
 
 
-def _get_node_label(
-    parent_id: str | None, parent_name: str | None, parent_labels: list[str] | None
-) -> str | None:
-    """Build human-readable label for wire endpoint."""
-    if not parent_id:
-        return None
-
-    # Use parent name if available
-    if parent_name:
-        # For SubVIs, just use the name
-        if parent_labels and "SubVI" in parent_labels:
-            return parent_name
-        return parent_name
-
-    # For primitives, use label type
-    if parent_labels:
-        if "Primitive" in parent_labels:
-            return "Primitive"
-        if "Constant" in parent_labels:
-            return "Constant"
-
-    return parent_id[:8]  # Truncate ID
-
-
 # ========== Document Library Helper Functions ==========
 
 
@@ -457,6 +325,17 @@ def _collect_directory_vis(dir_path: Path) -> list[Path]:
     return vi_paths
 
 
+def _collect_subvi_names(operations: list) -> list[str]:
+    """Recursively collect SubVI names from operations including inner nodes."""
+    names = []
+    for op in operations:
+        if "SubVI" in op.labels and op.name:
+            names.append(op.name)
+        if op.inner_nodes:
+            names.extend(_collect_subvi_names(op.inner_nodes))
+    return names
+
+
 def _build_cross_references(graph: InMemoryVIGraph) -> dict[str, Any]:
     """Build caller/callee cross-reference maps.
 
@@ -478,19 +357,18 @@ def _build_cross_references(graph: InMemoryVIGraph) -> dict[str, Any]:
     for vi_name in graph.list_vis():
         try:
             vi_context = graph.get_vi_context(vi_name)
-            for operation in vi_context.get("operations", []):
-                if "SubVI" in operation.labels and operation.name:
-                    subvi_name = operation.name
+            subvi_names = _collect_subvi_names(vi_context.get("operations", []))
 
-                    # Add to callees (this VI calls subvi)
-                    if subvi_name not in callees[vi_name]:
-                        callees[vi_name].append(subvi_name)
+            for subvi_name in subvi_names:
+                # Add to callees (this VI calls subvi)
+                if subvi_name not in callees[vi_name]:
+                    callees[vi_name].append(subvi_name)
 
-                    # Add to callers (subvi is called by this VI)
-                    if subvi_name not in callers:
-                        callers[subvi_name] = []
-                    if vi_name not in callers[subvi_name]:
-                        callers[subvi_name].append(vi_name)
+                # Add to callers (subvi is called by this VI)
+                if subvi_name not in callers:
+                    callers[subvi_name] = []
+                if vi_name not in callers[subvi_name]:
+                    callers[subvi_name].append(vi_name)
         except Exception:
             # Skip VIs that can't be analyzed
             continue
@@ -550,13 +428,12 @@ def _prepare_vi_documentation_data(
     # Build graph structure
     graph_data = build_graph_structure(vi_name, graph)
 
-    # Extract dependencies with descriptions
-    dependencies = {}
-    for op in vi_context.get("operations", []):
-        if "SubVI" in op.labels and op.name:
-            dep_name = op.name
-            if dep_name not in dependencies:
-                dependencies[dep_name] = generate_dependency_description(dep_name, graph)
+    # Extract dependencies with descriptions (recursively, including inner nodes)
+    subvi_names = _collect_subvi_names(vi_context.get("operations", []))
+    dependencies = {
+        name: generate_dependency_description(name, graph)
+        for name in dict.fromkeys(subvi_names)  # dedupe while preserving order
+    }
 
     # Get callers from cross-references
     callers = cross_refs["callers"].get(vi_name, [])
@@ -692,7 +569,7 @@ def generate_documents(
     # Generate index page
     print(f"[TIMING] Generating index page...")
     t0 = time.time()
-    generator.generate_index_page(all_vis, cross_refs)
+    generator.generate_index_page(all_vis)
     print(f"[TIMING] Index generation: {time.time() - t0:.2f}s")
 
     # Write CSS assets
@@ -878,7 +755,7 @@ def generate_python(
 
         if has_vilib:
             # Use vilib implementation
-            code = vilib_resolver.get_implementation(vi_name)
+            code = vilib_resolver.get_implementation(vi_name) or ""
             output_path.write_text(code)
             files.append(GeneratedFileSchema(
                 path=relative_path,
@@ -928,6 +805,7 @@ def {func_name}(*args, **kwargs) -> Any:
         else:
             # Use AST builder
             vi_context = graph.get_vi_context(vi_name)
+            code = ""  # Initialize to avoid unbound variable
 
             try:
                 import_resolver = create_import_resolver(vi_folder_name, output_dir_path, vi_paths_map)

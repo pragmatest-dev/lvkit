@@ -2,8 +2,160 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
+
+
+@dataclass
+class MermaidRenderer:
+    """Renders graph data to Mermaid flowchart syntax."""
+
+    all_vis: set[str] = field(default_factory=set)
+    _lines: list[str] = field(default_factory=list)
+    _node_ids: dict[str, str] = field(default_factory=dict)
+    _node_styles: list[tuple[str, str]] = field(default_factory=list)
+    _subvi_nodes: list[tuple[str, str]] = field(default_factory=list)
+    _counter: int = 0
+
+    def _next_id(self) -> str:
+        nid = f"n{self._counter}"
+        self._counter += 1
+        return nid
+
+    @staticmethod
+    def _escape(s: str) -> str:
+        """Escape special chars for Mermaid labels."""
+        if s == "" or s == '""':
+            return "''"
+        return s.replace('"', "'")
+
+    def _render_operation(self, op: dict, indent: str = "    ") -> None:
+        """Render an operation, recursively handling loops."""
+        nid = self._next_id()
+        self._node_ids[op["id"]] = nid
+        labels = op.get("labels", [])
+        name = op.get("name") or ""
+        inner_nodes = op.get("inner_nodes", [])
+        loop_type = op.get("loop_type")
+
+        if "Loop" in labels and inner_nodes:
+            loop_label = "While Loop" if loop_type == "whileLoop" else "For Loop" if loop_type == "forLoop" else "Loop"
+            self._lines.append(f'{indent}subgraph {nid}["{loop_label}"]')
+            for inner_op in inner_nodes:
+                self._render_operation(inner_op, indent + "    ")
+            self._lines.append(f'{indent}end')
+            self._node_styles.append((nid, "loopStyle"))
+        elif "SubVI" in labels:
+            label = self._escape(name or "SubVI")
+            self._lines.append(f'{indent}{nid}["{label}"]')
+            self._node_styles.append((nid, "subviStyle"))
+            if name:
+                self._subvi_nodes.append((nid, name))
+        elif "Primitive" in labels:
+            label = self._escape(name or f"prim_{op.get('primResID', '?')}")
+            self._lines.append(f'{indent}{nid}["{label}"]')
+            self._node_styles.append((nid, "primitiveStyle"))
+        elif "Loop" in labels:
+            loop_label = "While Loop" if loop_type == "whileLoop" else "For Loop" if loop_type == "forLoop" else "Loop"
+            self._lines.append(f'{indent}{nid}(["{loop_label}"])')
+            self._node_styles.append((nid, "loopStyle"))
+        elif "CaseStructure" in labels:
+            label = self._escape(name or "Case")
+            self._lines.append(f'{indent}{nid}{{{{"{label}"}}}}')
+            self._node_styles.append((nid, "caseStyle"))
+        else:
+            label = self._escape(name or "Operation")
+            self._lines.append(f'{indent}{nid}["{label}"]')
+            self._node_styles.append((nid, "operationStyle"))
+
+    def render(self, graph: dict[str, Any], vi_name_to_filename: Callable[[str], str]) -> str:
+        """Render graph to Mermaid flowchart HTML."""
+        inputs = graph.get("inputs", [])
+        outputs = graph.get("outputs", [])
+        operations = graph.get("operations", [])
+        constants = graph.get("constants", [])
+        data_flow = graph.get("data_flow", [])
+
+        if not (inputs or outputs or operations or constants):
+            return "<p>No dataflow graph available</p>"
+
+        # Reset state
+        self._lines = ["<pre class='mermaid'>", "flowchart LR"]
+        self._node_ids = {}
+        self._node_styles = []
+        self._subvi_nodes = []
+        self._counter = 0
+
+        # Render inputs (controls)
+        for inp in inputs:
+            nid = self._next_id()
+            self._node_ids[inp["id"]] = nid
+            name = inp.get("name") or "input"
+            lv_type = inp.get("type") or ""
+            label = f"{name}: {lv_type}" if lv_type and lv_type != "Any" else name
+            self._lines.append(f'    {nid}[/"{self._escape(label)}"/]')
+            self._node_styles.append((nid, "controlStyle"))
+
+        # Render outputs (indicators)
+        for out in outputs:
+            nid = self._next_id()
+            self._node_ids[out["id"]] = nid
+            name = out.get("name") or "output"
+            lv_type = out.get("type") or ""
+            label = f"{name}: {lv_type}" if lv_type and lv_type != "Any" else name
+            self._lines.append(f'    {nid}[\\"{self._escape(label)}"\\]')
+            self._node_styles.append((nid, "indicatorStyle"))
+
+        # Render constants
+        for const in constants:
+            nid = self._next_id()
+            self._node_ids[const["id"]] = nid
+            value = const.get("value")
+            value_str = str(value) if value is not None else "None"
+            if len(value_str) > 30:
+                value_str = value_str[:27] + "..."
+            self._lines.append(f'    {nid}[["{self._escape(value_str)}"]]')
+            self._node_styles.append((nid, "constantStyle"))
+
+        # Render operations
+        for op in operations:
+            self._render_operation(op)
+
+        # Render edges
+        for wire in data_flow:
+            from_id = wire.get("from_parent_id")
+            if from_id not in self._node_ids:
+                from_id = wire.get("from_terminal_id")
+            to_id = wire.get("to_parent_id")
+            if to_id not in self._node_ids:
+                to_id = wire.get("to_terminal_id")
+
+            if from_id in self._node_ids and to_id in self._node_ids:
+                self._lines.append(f'    {self._node_ids[from_id]} --> {self._node_ids[to_id]}')
+
+        # Add click links for SubVIs
+        for nid, vi_name in self._subvi_nodes:
+            if vi_name in self.all_vis:
+                link = vi_name_to_filename(vi_name)
+                self._lines.append(f'    click {nid} href "{link}"')
+
+        # Style definitions
+        self._lines.append("    classDef controlStyle fill:#bbdefb,stroke:#1976d2,stroke-width:2px")
+        self._lines.append("    classDef indicatorStyle fill:#fff3e0,stroke:#f57c00,stroke-width:2px")
+        self._lines.append("    classDef constantStyle fill:#f3e5f5,stroke:#7b1fa2")
+        self._lines.append("    classDef subviStyle fill:#e8f5e9,stroke:#388e3c")
+        self._lines.append("    classDef primitiveStyle fill:#fffde7,stroke:#f9a825,stroke-width:2px")
+        self._lines.append("    classDef operationStyle fill:#e0e0e0,stroke:#616161,stroke-width:2px")
+        self._lines.append("    classDef loopStyle fill:#e1bee7,stroke:#8e24aa,stroke-width:2px")
+        self._lines.append("    classDef caseStyle fill:#b2ebf2,stroke:#00838f,stroke-width:2px")
+
+        # Apply styles
+        for nid, style in self._node_styles:
+            self._lines.append(f"    class {nid} {style}")
+
+        self._lines.append("</pre>")
+        return "\n".join(self._lines)
 
 
 class HTMLDocGenerator:
@@ -21,6 +173,7 @@ class HTMLDocGenerator:
         self.doc_title = doc_title
         self.doc_type = doc_type
         self.all_vis: set[str] = set()  # Track which VIs have pages
+        self._mermaid = MermaidRenderer()
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
     def generate_vi_page(self, vi_data: dict[str, Any]) -> None:
@@ -38,14 +191,11 @@ class HTMLDocGenerator:
 
         html_path.write_text(html, encoding="utf-8")
 
-    def generate_index_page(
-        self, all_vis: list[str], cross_refs: dict[str, Any]
-    ) -> None:
+    def generate_index_page(self, all_vis: list[str]) -> None:
         """Generate index.html with table of contents.
 
         Args:
             all_vis: List of all VI names
-            cross_refs: Cross-reference dictionary
         """
         html = self._render_index_page(all_vis)
         index_path = self.output_dir / "index.html"
@@ -71,7 +221,8 @@ class HTMLDocGenerator:
         indicators_html = self._render_indicators_table(indicators)
         dependencies_html = self._render_dependencies_section(dependencies)
         callers_html = self._render_callers_section(callers)
-        dataflow_html = self._render_dataflow_diagram(graph)
+        self._mermaid.all_vis = self.all_vis
+        dataflow_html = self._mermaid.render(graph, self._vi_name_to_filename)
 
         return f"""<!DOCTYPE html>
 <html lang="en">
@@ -256,108 +407,6 @@ class HTMLDocGenerator:
             {''.join(items)}
         </ul>
         """
-
-    def _render_dataflow_diagram(self, graph: dict[str, Any]) -> str:
-        """Render Mermaid flowchart dataflow diagram."""
-        nodes = graph.get("nodes", [])
-        edges = graph.get("edges", [])
-
-        if not nodes:
-            return "<p>No dataflow graph available</p>"
-
-        # Build Mermaid flowchart (left to right)
-        lines = ["<pre class='mermaid'>", "flowchart LR"]
-
-        # Define nodes with shapes based on type
-        node_ids = {}
-        for i, node in enumerate(nodes):
-            node_id = f"n{i}"
-            node_ids[str(node["id"])] = node_id
-            node_type = node["type"]
-            # Get node name, use fallback if missing or empty (except constants)
-            raw_name = node.get("name")
-            if node_type == "constant":
-                # Constants: use actual value, represent empty as ''
-                if raw_name is None or raw_name == "" or raw_name == '""':
-                    node_name = "''"
-                else:
-                    node_name = raw_name
-            elif raw_name is None or raw_name == "":
-                node_name = node_type.capitalize()
-            else:
-                node_name = raw_name
-
-            # Add type annotation for controls and indicators
-            lv_type = node.get("lv_type")
-            if lv_type and node_type in ("control", "indicator"):
-                node_name = f"{node_name}: {lv_type}"
-
-            # Different shapes for different node types
-            # All text wrapped in double quotes to handle special characters
-            if node_type == "control":
-                # Right-pointing trapezoid for inputs: [/"text"/]
-                lines.append(f'    {node_id}[/"{node_name}"/]')
-            elif node_type == "indicator":
-                # Left-pointing trapezoid for outputs: [\"text"\]
-                lines.append(f'    {node_id}[\\"{node_name}"\\]')
-            elif node_type == "constant":
-                # Rectangle with double border for constants
-                lines.append(f"    {node_id}[[\"{node_name}\"]]")
-            elif node_type == "subvi":
-                # Rectangle for SubVIs
-                lines.append(f'    {node_id}["{node_name}"]')
-            elif node_type == "primitive":
-                # Rectangle for primitives
-                lines.append(f'    {node_id}["{node_name}"]')
-            else:
-                # Default rectangle
-                lines.append(f'    {node_id}["{node_name}"]')
-
-        # Add edges (connections between nodes)
-        for edge in edges:
-            from_id = str(edge.get("from_node"))
-            to_id = str(edge.get("to_node"))
-
-            # Look up node IDs directly (edges now use parent node IDs)
-            if from_id in node_ids and to_id in node_ids:
-                lines.append(f'    {node_ids[from_id]} --> {node_ids[to_id]}')
-
-        # Add clickable links for SubVI nodes (only if they have pages)
-        for i, node in enumerate(nodes):
-            if node["type"] == "subvi":
-                node_id = f"n{i}"
-                vi_name = node.get("name", "")
-                # Only add click link if this VI has a documentation page
-                if vi_name and vi_name in self.all_vis:
-                    # Generate link to SubVI documentation page
-                    link = self._vi_name_to_filename(vi_name)
-                    lines.append(f'    click {node_id} href "{link}"')
-
-        # Style nodes by type
-        lines.append("    classDef controlStyle fill:#bbdefb,stroke:#1976d2,stroke-width:2px")
-        lines.append("    classDef indicatorStyle fill:#fff3e0,stroke:#f57c00,stroke-width:2px")
-        lines.append("    classDef constantStyle fill:#f3e5f5,stroke:#7b1fa2")
-        lines.append("    classDef subviStyle fill:#e8f5e9,stroke:#388e3c")
-        lines.append("    classDef primitiveStyle fill:#fffde7,stroke:#f9a825,stroke-width:2px")
-        lines.append("    classDef operationStyle fill:#e0e0e0,stroke:#616161,stroke-width:2px")
-
-        for i, node in enumerate(nodes):
-            node_id = f"n{i}"
-            if node["type"] == "control":
-                lines.append(f"    class {node_id} controlStyle")
-            elif node["type"] == "indicator":
-                lines.append(f"    class {node_id} indicatorStyle")
-            elif node["type"] == "constant":
-                lines.append(f"    class {node_id} constantStyle")
-            elif node["type"] == "subvi":
-                lines.append(f"    class {node_id} subviStyle")
-            elif node["type"] == "primitive":
-                lines.append(f"    class {node_id} primitiveStyle")
-            elif node["type"] == "operation":
-                lines.append(f"    class {node_id} operationStyle")
-
-        lines.append("</pre>")
-        return "\n".join(lines)
 
     def _render_index_page(self, all_vis: list[str]) -> str:
         """Render index page with table of contents."""

@@ -26,26 +26,6 @@ class IndicatorSchema(BaseModel):
     slot_index: int
 
 
-class GraphNodeSchema(BaseModel):
-    """Schema for a node in the dataflow graph."""
-
-    id: str
-    label: str  # Human-readable label
-    type: str  # "subvi", "primitive", "control", "indicator", "constant"
-    name: str | None = None
-    prim_id: int | None = None  # For primitives
-    lv_type: str | None = None  # LabVIEW type (for controls/indicators)
-
-
-class GraphEdgeSchema(BaseModel):
-    """Schema for an edge in the dataflow graph."""
-
-    from_node: str  # Terminal ID
-    to_node: str  # Terminal ID
-    from_label: str | None = None  # Human-readable source
-    to_label: str | None = None  # Human-readable destination
-
-
 class VIAnalysisResult(BaseModel):
     """Complete VI analysis result."""
 
