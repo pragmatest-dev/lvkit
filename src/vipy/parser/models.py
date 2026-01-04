@@ -29,12 +29,13 @@ class ParsedType:
 
 @dataclass
 class Node:
-    """A node in the block diagram (SubVI call, primitive, or terminal)."""
+    """A node in the block diagram (SubVI call, primitive, or terminal).
+
+    This is the base class. Subclasses in node_types.py add type-specific fields.
+    """
     uid: str
-    node_type: str  # "iUse" (SubVI), "prim" (primitive), "term" (terminal)
+    node_type: str  # XML class: "iUse", "prim", "cpdArith", "aBuild", etc.
     name: str | None = None
-    prim_index: int | None = None
-    prim_res_id: int | None = None
     inputs: list[str] = field(default_factory=list)
     outputs: list[str] = field(default_factory=list)
     input_types: list[str] = field(default_factory=list)

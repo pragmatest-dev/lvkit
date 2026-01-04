@@ -38,6 +38,7 @@ from .parser import (
     parse_vi_metadata,
 )
 from .parser.models import ParsedType
+from .parser.node_types import CpdArithNode, PrimitiveNode
 from .parser.types import (
     parse_type_map_rich,
     resolve_type_rich,
@@ -658,7 +659,7 @@ class InMemoryVIGraph:
         for node in bd.nodes:
             if node.node_type in ("iUse", "polyIUse"):
                 node_kind = "subvi"
-            elif node.node_type == "prim" or node.prim_index:
+            elif isinstance(node, PrimitiveNode):
                 node_kind = "primitive"
             else:
                 node_kind = "operation"
@@ -686,9 +687,10 @@ class InMemoryVIGraph:
                         term_dict["typedef_name"] = lv_type.typedef_name
                     terminals.append(term_dict)
 
-            # Resolve primitive name if not set
+            # Resolve primitive name from registry
             node_name = node.name
-            if not node_name and node_kind == "primitive" and node.prim_res_id:
+            if isinstance(node, PrimitiveNode) and node.prim_res_id:
+                # Always resolve - parser may set generic name like "Primitive"
                 resolved = resolve_primitive(prim_id=node.prim_res_id)
                 if resolved:
                     node_name = resolved.name
@@ -708,14 +710,19 @@ class InMemoryVIGraph:
                 if vi_entry and vi_entry.description:
                     description = vi_entry.description
 
-            node_attrs = {
+            node_attrs: dict[str, Any] = {
                 "kind": node_kind,
                 "name": node_name,
-                "prim_id": node.prim_res_id,
-                "prim_index": node.prim_index,
                 "node_type": node.node_type,
                 "terminals": sorted(terminals, key=lambda t: t.get("index", 0)),
             }
+            # Add primitive-specific fields
+            if isinstance(node, PrimitiveNode):
+                node_attrs["prim_id"] = node.prim_res_id
+                node_attrs["prim_index"] = node.prim_index
+            # Add cpdArith-specific fields
+            if isinstance(node, CpdArithNode):
+                node_attrs["operation"] = node.operation
             if description:
                 node_attrs["description"] = description
 
@@ -1151,6 +1158,7 @@ class InMemoryVIGraph:
                 inner_nodes=inner_nodes,
                 stop_condition_terminal=stop_cond,
                 description=d.get("description"),
+                operation=d.get("operation"),
             ))
         return result
 
@@ -1271,6 +1279,7 @@ class InMemoryVIGraph:
                 tunnels=tunnels,
                 inner_nodes=nested_inner,
                 description=d.get("description"),
+                operation=d.get("operation"),
             ))
         return inner_ops
 
@@ -1488,8 +1497,10 @@ class InMemoryVIGraph:
         """Get complete VI context for code generation.
 
         Returns a dict with inputs, outputs, constants, operations, etc.
-        Includes TypeInfo objects for structured type handling.
+        All dataclasses are converted to dicts for codegen compatibility.
         """
+        from dataclasses import asdict
+
         # Resolve to canonical name (handles qualified names and aliases)
         vi_name = self.resolve_vi_name(vi_name)
         g = self._dataflow.get(vi_name)
@@ -1518,19 +1529,21 @@ class InMemoryVIGraph:
                     "direction": d.get("direction"),
                 })
 
-        # Get inputs/outputs (already enriched with lv_type during graph creation)
-        inputs = self.get_inputs(vi_name)
-        outputs = self.get_outputs(vi_name)
-        constants = self.get_constants(vi_name)
+        # Get dataclasses and convert to dicts for codegen compatibility
+        inputs = [asdict(inp) for inp in self.get_inputs(vi_name)]
+        outputs = [asdict(out) for out in self.get_outputs(vi_name)]
+        constants = [asdict(c) for c in self.get_constants(vi_name)]
+        operations = [asdict(op) for op in self.get_operations(vi_name)]
+        data_flow = [asdict(w) for w in self.get_wires(vi_name)]
 
         return {
             "name": vi_name,
             "inputs": inputs,
             "outputs": outputs,
             "constants": constants,
-            "operations": self.get_operations(vi_name),
+            "operations": operations,
             "terminals": terminals,
-            "data_flow": self.get_wires(vi_name),
+            "data_flow": data_flow,
             "subvi_calls": subvi_calls,
             "poly_variants": self.get_poly_variants(vi_name),
         }
