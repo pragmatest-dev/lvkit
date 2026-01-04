@@ -2580,5 +2580,18 @@
       "python_code": "objects = vi.get_objects()",
       "inline": true
     }
+  },
+  "node_types": {
+    "aBuild": {"name": "Build Array"},
+    "cpdArith": {"name": "Compound Arithmetic"},
+    "unbundle": {"name": "Unbundle"},
+    "bundle": {"name": "Bundle"},
+    "arrayIdx": {"name": "Index Array"},
+    "arrayRepl": {"name": "Replace Array Subset"},
+    "strIdx": {"name": "String Index"},
+    "strRepl": {"name": "Replace Substring"},
+    "strLen": {"name": "String Length"},
+    "concat": {"name": "Concatenate"},
+    "split": {"name": "Split"}
   }
 }
