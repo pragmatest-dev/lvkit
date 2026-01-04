@@ -275,20 +275,14 @@ class HTMLDocGenerator:
             node_ids[str(node["id"])] = node_id
             node_type = node["type"]
             # Sanitize node name for Mermaid (replace problematic characters)
-            node_name = (node.get("name") or "").replace('#', '').replace('"', '&quot;')
+            raw_name = node.get("name")
+            if raw_name is None:
+                raw_name = ""
+            node_name = raw_name.replace('#', '')
 
-            # Provide fallback names for empty names based on type
-            if not node_name or node_name == '&quot;&quot;':
-                if node_type == "subvi":
-                    node_name = "SubVI"
-                elif node_type == "primitive":
-                    node_name = "Primitive"
-                elif node_type == "operation":
-                    node_name = "Operation"
-                elif node_type == "constant":
-                    node_name = "(empty string)"
-                else:
-                    node_name = f"Node({node_type})"
+            # Provide fallback names ONLY for None/missing names (not empty strings)
+            if raw_name is None:
+                node_name = node_type.capitalize()
 
             # Add type annotation for controls and indicators
             lv_type = node.get("lv_type")
@@ -304,7 +298,9 @@ class HTMLDocGenerator:
                 lines.append(f'    {node_id}[\\{node_name}\\]')
             elif node_type == "constant":
                 # Rectangle with double border for constants
-                lines.append(f'    {node_id}[["{node_name}"]]')
+                # Escape quotes for Mermaid
+                escaped_name = node_name.replace('"', '#quot;')
+                lines.append(f'    {node_id}[["{escaped_name}"]]')
             elif node_type == "subvi":
                 # Rectangle for SubVIs
                 lines.append(f'    {node_id}["{node_name}"]')
