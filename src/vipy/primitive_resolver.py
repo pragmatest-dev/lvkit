@@ -65,6 +65,7 @@ class PrimitiveResolver:
         self._by_id: dict[str, dict] = {}
         self._by_name: dict[str, dict] = {}  # Normalized name -> primitive
         self._by_signature: dict[tuple, list[dict]] = {}
+        self._by_node_type: dict[str, dict] = {}  # node_type -> info (aBuild, cpdArith, etc.)
         self._type_aliases: dict[str, str] = {
             # Normalize type names
             "string": "String",
@@ -144,6 +145,11 @@ class PrimitiveResolver:
                 if sig not in self._by_signature:
                     self._by_signature[sig] = []
                 self._by_signature[sig].append({"id": prim_id, **prim_data})
+
+        # Load node_types section (aBuild, cpdArith, etc.)
+        node_types = data.get("node_types", {})
+        for node_type, info in node_types.items():
+            self._by_node_type[node_type] = info
 
     def _load_pdf(self, path: Path) -> None:
         """Load primitives from PDF extraction (no IDs, for name-based lookup)."""
@@ -249,6 +255,27 @@ class PrimitiveResolver:
                 terminals=[PrimitiveTerminal.model_validate(t) for t in prim.get("terminals", [])],
                 confidence="exact_name",
                 description=prim.get("guess_reason", prim.get("category", "")),
+            )
+        return None
+
+    def resolve_by_node_type(self, node_type: str) -> ResolvedPrimitive | None:
+        """Resolve by node_type (class name like aBuild, cpdArith).
+
+        Args:
+            node_type: The XML class name (e.g., "aBuild", "cpdArith")
+
+        Returns:
+            ResolvedPrimitive with name and any additional info, or None
+        """
+        if node_type in self._by_node_type:
+            info = self._by_node_type[node_type]
+            return ResolvedPrimitive(
+                name=info.get("name", node_type),
+                python_code=info.get("python_code"),
+                inline=info.get("inline", True),
+                terminals=[PrimitiveTerminal.model_validate(t) for t in info.get("terminals", [])],
+                confidence="node_type",
+                description=info.get("description", ""),
             )
         return None
 

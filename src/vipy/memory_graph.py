@@ -42,7 +42,7 @@ from .parser.types import (
     parse_type_map_rich,
     resolve_type_rich,
 )
-from .primitive_resolver import resolve_primitive
+from .primitive_resolver import get_resolver as get_prim_resolver, resolve_primitive
 from .vilib_resolver import get_resolver as get_vilib_resolver
 
 
@@ -693,6 +693,12 @@ class InMemoryVIGraph:
                 if resolved:
                     node_name = resolved.name
 
+            # Map node_type to friendly name from primitive registry
+            if not node_name and node.node_type:
+                resolved = get_prim_resolver().resolve_by_node_type(node.node_type)
+                if resolved:
+                    node_name = resolved.name
+
             # Get description for SubVIs from vilib
             description = None
             if node_kind == "subvi" and node_name:
@@ -1249,9 +1255,14 @@ class InMemoryVIGraph:
                         nested_struct.inner_node_uids, g, vi_name
                     )
 
+            # Get name, falling back to node_type mapping
+            node_name = d.get("name")
+            if not node_name and node_type:
+                node_name = _NODE_TYPE_NAMES.get(node_type)
+
             inner_ops.append(Operation(
                 id=uid,
-                name=d.get("name"),
+                name=node_name,
                 labels=labels,
                 primResID=d.get("prim_id"),
                 terminals=terminals,
