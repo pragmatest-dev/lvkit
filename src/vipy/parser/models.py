@@ -206,6 +206,8 @@ class BlockDiagram:
     qualified_name: str | None = None  # From LVIN Unk1 (e.g., "Library.lvlib:VI.vi")
     subvi_qualified_names: list[str] = field(default_factory=list)  # From VIVI entries
     iuse_to_qualified_name: dict[str, str] = field(default_factory=dict)  # iUse UID → qualified name from BDHP
+    type_map: dict = field(default_factory=dict)  # TypeID → LVType from parse_type_map_rich
+    subvi_path_refs: list = field(default_factory=list)  # SubVIPathRef list for file resolution
 
     def get_node(self, uid: str) -> Node | None:
         """Get a node by UID."""
