@@ -128,7 +128,7 @@ class ProjectExplorer:
                         tree_data,
                         label_key="label",
                         on_select=lambda e: self.on_tree_select(e),
-                    ).classes("w-full").props("dense")
+                    ).classes("w-full text-base").style("font-size: 16px")
 
             with splitter.after:
                 with ui.column().classes("w-full h-full"):
@@ -180,7 +180,7 @@ class ProjectExplorer:
                 ).props("flat dense round size=xs").classes("ml-1")
 
         with self.panels:
-            with ui.tab_panel(module_id).classes("p-4"):
+            with ui.tab_panel(module_id).classes("p-4").style("font-size: 16px"):
                 try:
                     ui_class().build()
                 except Exception as e:
