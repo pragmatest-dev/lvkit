@@ -25,8 +25,9 @@ def analyze_vi(
     Args:
         vi_path: Path to VI file (.vi) or block diagram XML (*_BDHb.xml)
         search_paths: Optional list of search paths for dependencies
-        expand_subvis: If True, recursively load all SubVI dependencies (slower but complete).
-                      If False, only load this VI (faster but limited cross-references).
+        expand_subvis: If True, recursively load all SubVI dependencies
+                      (slower but complete). If False, only load this VI
+                      (faster but limited cross-references).
 
     Returns:
         VIAnalysisResult with complete VI structure
@@ -62,7 +63,8 @@ def generate_documents(
     search_paths: list[str] | None = None,
     expand_subvis: bool = True,
 ) -> str:
-    """Generate HTML documentation for a LabVIEW library, class, directory, or single VI.
+    """Generate HTML documentation for a LabVIEW library, class, directory,
+    or single VI.
 
     This is a thin wrapper that calls the deterministic scripts/generate_docs.py script.
 
@@ -70,8 +72,9 @@ def generate_documents(
         library_path: Path to .lvlib, .lvclass, directory, or .vi file
         output_dir: Output directory for HTML files
         search_paths: Optional list of search paths for dependencies
-        expand_subvis: If True, load all SubVI dependencies for complete cross-references (slower).
-                      If False, only load VIs in the library/directory (faster).
+        expand_subvis: If True, load all SubVI dependencies for complete
+                      cross-references (slower). If False, only load VIs in
+                      the library/directory (faster).
 
     Returns:
         Summary message with statistics
@@ -114,7 +117,8 @@ def generate_python(
 ) -> CodeGenResult:
     """Generate Python code from a LabVIEW VI using AST-based translation.
 
-    This is a thin wrapper that calls the deterministic scripts/generate_python.py script.
+    This is a thin wrapper that calls the deterministic
+    scripts/generate_python.py script.
 
     Args:
         vi_path: Path to VI file (.vi) or block diagram XML (*_BDHb.xml)
@@ -125,8 +129,8 @@ def generate_python(
     Returns:
         CodeGenResult with generated files, errors, and review needs.
     """
-    import subprocess
     import json
+    import subprocess
     from pathlib import Path
 
     # Build command

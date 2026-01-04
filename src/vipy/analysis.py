@@ -78,7 +78,10 @@ def infer_description(name: str | None, type_str: str | None, direction: str) ->
 
 
 def generate_vi_summary(
-    vi_name: str, controls: list[ControlInfo], indicators: list[IndicatorInfo], dependencies: dict[str, str]
+    vi_name: str,
+    controls: list[ControlInfo],
+    indicators: list[IndicatorInfo],
+    dependencies: dict[str, str],
 ) -> str:
     """Generate brief summary of VI.
 
@@ -105,7 +108,9 @@ def generate_vi_summary(
 
 
 def analyze_vi(
-    vi_path: str | Path, search_paths: list[str | Path] | None = None, expand_subvis: bool = True
+    vi_path: str | Path,
+    search_paths: list[str] | None = None,
+    expand_subvis: bool = True,
 ) -> VIAnalysis:
     """Analyze a VI and return structured data with dataclasses.
 
@@ -115,8 +120,9 @@ def analyze_vi(
     Args:
         vi_path: Path to VI file (.vi) or block diagram XML (*_BDHb.xml)
         search_paths: Optional list of search paths for dependencies
-        expand_subvis: If True, recursively load all SubVI dependencies (slower but complete).
-                      If False, only load this VI (faster but limited cross-references).
+        expand_subvis: If True, recursively load all SubVI dependencies
+                      (slower but complete). If False, only load this VI
+                      (faster but limited cross-references).
 
     Returns:
         VIAnalysis with complete VI structure as dataclasses
@@ -129,7 +135,11 @@ def analyze_vi(
     if not vi_path_obj.exists():
         raise FileNotFoundError(f"VI file not found: {vi_path}")
 
-    graph.load_vi(vi_path_obj, expand_subvis=expand_subvis, search_paths=search_path_objs or None)
+    graph.load_vi(
+        vi_path_obj,
+        expand_subvis=expand_subvis,
+        search_paths=search_path_objs or None,
+    )
 
     # Get main VI name - resolve from path
     if str(vi_path).endswith("_BDHb.xml"):
