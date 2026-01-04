@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 import sys
+from dataclasses import asdict
 from pathlib import Path
-from typing import Any
 
-from ..memory_graph import InMemoryVIGraph
+from ..analysis import analyze_vi as core_analyze_vi
 from .schemas import (
     CodeGenResult,
     ControlSchema,
@@ -20,7 +20,7 @@ def analyze_vi(
 ) -> VIAnalysisResult:
     """Analyze a VI and return structured data.
 
-    This is a thin wrapper that calls the deterministic scripts/analyze_vi.py script.
+    Calls the core analysis.analyze_vi() function and converts to pydantic model.
 
     Args:
         vi_path: Path to VI file (.vi) or block diagram XML (*_BDHb.xml)
@@ -31,69 +31,29 @@ def analyze_vi(
     Returns:
         VIAnalysisResult with complete VI structure
     """
-    import subprocess
-    import json
-
-    # Build command
-    script_path = Path(__file__).parent.parent.parent / "scripts" / "analyze_vi.py"
-    cmd = [sys.executable, str(script_path), vi_path]
-
-    if search_paths:
-        for sp in search_paths:
-            cmd.extend(["--search-path", sp])
-
-    if not expand_subvis:
-        cmd.append("--no-expand")
-
-    # Run the deterministic script
-    result = subprocess.run(cmd, capture_output=True, text=True)
-
-    if result.returncode != 0:
-        error_msg = result.stderr or result.stdout
-        raise RuntimeError(f"VI analysis failed: {error_msg}")
-
-    # Parse JSON output from script
-    try:
-        data = json.loads(result.stdout)
-    except json.JSONDecodeError as e:
-        raise RuntimeError(f"Failed to parse script output: {e}\nOutput: {result.stdout}")
-
-    # Convert to VIAnalysisResult
-    return VIAnalysisResult(
-        vi_name=data["vi_name"],
-        summary=data["summary"],
-        controls=[ControlSchema(**c) for c in data["controls"]],
-        indicators=[IndicatorSchema(**i) for i in data["indicators"]],
-        graph=data["graph"],
-        dependencies=data["dependencies"],
-        execution_order=data["execution_order"],
+    # Call core analysis function (returns VIAnalysis dataclass)
+    result = core_analyze_vi(
+        vi_path=vi_path,
+        search_paths=search_paths,
+        expand_subvis=expand_subvis,
     )
 
-
-def build_graph_structure(vi_name: str, graph: InMemoryVIGraph) -> dict[str, Any]:
-    """Export the VI graph structure as dicts for agents.
-
-    Converts dataclasses to dicts using asdict() for JSON serialization.
-    Used when passing graph data to MCP agents.
-
-    Args:
-        vi_name: Name of the VI
-        graph: InMemoryVIGraph containing the VI
-
-    Returns:
-        Dictionary with inputs, outputs, operations, constants, data_flow as dicts
-    """
-    from dataclasses import asdict
-
-    vi_context = graph.get_vi_context(vi_name)
-
-    return {
-        "inputs": [asdict(inp) for inp in vi_context.get("inputs", [])],
-        "outputs": [asdict(out) for out in vi_context.get("outputs", [])],
-        "operations": [asdict(op) for op in vi_context.get("operations", [])],
-        "constants": [asdict(c) for c in vi_context.get("constants", [])],
-        "data_flow": [asdict(w) for w in vi_context.get("data_flow", [])],
-    }
+    # Convert to pydantic schema for MCP protocol
+    return VIAnalysisResult(
+        vi_name=result.vi_name,
+        summary=result.summary,
+        controls=[ControlSchema(**asdict(c)) for c in result.controls],
+        indicators=[IndicatorSchema(**asdict(i)) for i in result.indicators],
+        graph={
+            "inputs": [asdict(inp) for inp in result.graph.inputs],
+            "outputs": [asdict(out) for out in result.graph.outputs],
+            "operations": [asdict(op) for op in result.graph.operations],
+            "constants": [asdict(c) for c in result.graph.constants],
+            "data_flow": [asdict(w) for w in result.graph.data_flow],
+        },
+        dependencies=result.dependencies,
+        execution_order=result.execution_order,
+    )
 
 
 def generate_documents(
