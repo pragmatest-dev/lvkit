@@ -274,15 +274,18 @@ class HTMLDocGenerator:
             node_id = f"n{i}"
             node_ids[str(node["id"])] = node_id
             node_type = node["type"]
-            # Sanitize node name for Mermaid (replace problematic characters)
+            # Get node name, use fallback if missing or empty (except constants)
             raw_name = node.get("name")
-            if raw_name is None:
-                raw_name = ""
-            node_name = raw_name.replace('#', '')
-
-            # Provide fallback names ONLY for None/missing names (not empty strings)
-            if raw_name is None:
+            if node_type == "constant":
+                # Constants: use actual value, represent empty as ''
+                if raw_name is None or raw_name == "" or raw_name == '""':
+                    node_name = "''"
+                else:
+                    node_name = raw_name
+            elif raw_name is None or raw_name == "":
                 node_name = node_type.capitalize()
+            else:
+                node_name = raw_name
 
             # Add type annotation for controls and indicators
             lv_type = node.get("lv_type")
@@ -290,17 +293,16 @@ class HTMLDocGenerator:
                 node_name = f"{node_name}: {lv_type}"
 
             # Different shapes for different node types
+            # All text wrapped in double quotes to handle special characters
             if node_type == "control":
-                # Right-pointing trapezoid for inputs
-                lines.append(f'    {node_id}[/{node_name}/]')
+                # Right-pointing trapezoid for inputs: [/"text"/]
+                lines.append(f'    {node_id}[/"{node_name}"/]')
             elif node_type == "indicator":
-                # Left-pointing trapezoid for outputs
-                lines.append(f'    {node_id}[\\{node_name}\\]')
+                # Left-pointing trapezoid for outputs: [\"text"\]
+                lines.append(f'    {node_id}[\\"{node_name}"\\]')
             elif node_type == "constant":
                 # Rectangle with double border for constants
-                # Escape quotes for Mermaid
-                escaped_name = node_name.replace('"', '#quot;')
-                lines.append(f'    {node_id}[["{escaped_name}"]]')
+                lines.append(f"    {node_id}[[\"{node_name}\"]]")
             elif node_type == "subvi":
                 # Rectangle for SubVIs
                 lines.append(f'    {node_id}["{node_name}"]')
