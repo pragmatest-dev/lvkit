@@ -30,14 +30,19 @@ class MermaidRenderer:
             return "''"
         return s.replace('"', "'")
 
-    def _render_operation(self, op: dict, indent: str = "    ") -> None:
-        """Render an operation, recursively handling loops."""
+    def _render_operation(self, op, indent: str = "    ") -> None:
+        """Render an operation, recursively handling loops.
+
+        Args:
+            op: Operation dataclass instance
+            indent: Indentation string for nested elements
+        """
         nid = self._next_id()
-        self._node_ids[op["id"]] = nid
-        labels = op.get("labels", [])
-        name = op.get("name") or ""
-        inner_nodes = op.get("inner_nodes", [])
-        loop_type = op.get("loop_type")
+        self._node_ids[op.id] = nid
+        labels = op.labels
+        name = op.name or ""
+        inner_nodes = op.inner_nodes
+        loop_type = op.loop_type
 
         if "Loop" in labels and inner_nodes:
             loop_label = "While Loop" if loop_type == "whileLoop" else "For Loop" if loop_type == "forLoop" else "Loop"
@@ -53,7 +58,7 @@ class MermaidRenderer:
             if name:
                 self._subvi_nodes.append((nid, name))
         elif "Primitive" in labels:
-            label = self._escape(name or f"prim_{op.get('primResID', '?')}")
+            label = self._escape(name or f"prim_{op.primResID or '?'}")
             self._lines.append(f'{indent}{nid}["{label}"]')
             self._node_styles.append((nid, "primitiveStyle"))
         elif "Loop" in labels:
@@ -65,7 +70,12 @@ class MermaidRenderer:
             self._lines.append(f'{indent}{nid}{{{{"{label}"}}}}')
             self._node_styles.append((nid, "caseStyle"))
         else:
-            label = self._escape(name or "Operation")
+            # Include operation type for compound arithmetic
+            operation = op.operation
+            if operation and name:
+                label = self._escape(f"{name} ({operation.upper()})")
+            else:
+                label = self._escape(name or "Operation")
             self._lines.append(f'{indent}{nid}["{label}"]')
             self._node_styles.append((nid, "operationStyle"))
 
@@ -90,9 +100,9 @@ class MermaidRenderer:
         # Render inputs (controls)
         for inp in inputs:
             nid = self._next_id()
-            self._node_ids[inp["id"]] = nid
-            name = inp.get("name") or "input"
-            lv_type = inp.get("type") or ""
+            self._node_ids[inp.id] = nid
+            name = inp.name or "input"
+            lv_type = inp.type or ""
             label = f"{name}: {lv_type}" if lv_type and lv_type != "Any" else name
             self._lines.append(f'    {nid}[/"{self._escape(label)}"/]')
             self._node_styles.append((nid, "controlStyle"))
@@ -100,9 +110,9 @@ class MermaidRenderer:
         # Render outputs (indicators)
         for out in outputs:
             nid = self._next_id()
-            self._node_ids[out["id"]] = nid
-            name = out.get("name") or "output"
-            lv_type = out.get("type") or ""
+            self._node_ids[out.id] = nid
+            name = out.name or "output"
+            lv_type = out.type or ""
             label = f"{name}: {lv_type}" if lv_type and lv_type != "Any" else name
             self._lines.append(f'    {nid}[\\"{self._escape(label)}"\\]')
             self._node_styles.append((nid, "indicatorStyle"))
@@ -110,9 +120,24 @@ class MermaidRenderer:
         # Render constants
         for const in constants:
             nid = self._next_id()
-            self._node_ids[const["id"]] = nid
-            value = const.get("value")
-            value_str = str(value) if value is not None else "None"
+            self._node_ids[const.id] = nid
+            value = const.value
+
+            # Check if this is an enum constant - display member name instead of raw value
+            if const.lv_type and const.lv_type.values and value is not None:
+                try:
+                    int_value = int(value)
+                    for member_name, enum_val in const.lv_type.values.items():
+                        if enum_val.value == int_value:
+                            value_str = member_name
+                            break
+                    else:
+                        value_str = str(value)
+                except (ValueError, TypeError, AttributeError):
+                    value_str = str(value)
+            else:
+                value_str = str(value) if value is not None else "None"
+
             if len(value_str) > 30:
                 value_str = value_str[:27] + "..."
             self._lines.append(f'    {nid}[["{self._escape(value_str)}"]]')
@@ -124,12 +149,12 @@ class MermaidRenderer:
 
         # Render edges
         for wire in data_flow:
-            from_id = wire.get("from_parent_id")
+            from_id = wire.from_parent_id
             if from_id not in self._node_ids:
-                from_id = wire.get("from_terminal_id")
-            to_id = wire.get("to_parent_id")
+                from_id = wire.from_terminal_id
+            to_id = wire.to_parent_id
             if to_id not in self._node_ids:
-                to_id = wire.get("to_terminal_id")
+                to_id = wire.to_terminal_id
 
             if from_id in self._node_ids and to_id in self._node_ids:
                 self._lines.append(f'    {self._node_ids[from_id]} --> {self._node_ids[to_id]}')

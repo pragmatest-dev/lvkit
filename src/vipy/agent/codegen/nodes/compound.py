@@ -28,9 +28,10 @@ class CompoundArithCodeGen(NodeCodeGen):
     """
 
     def generate(self, node: Operation, ctx: CodeGenContext) -> CodeFragment:
-        """Generate code for compound arithmetic (OR of inputs)."""
+        """Generate code for compound arithmetic."""
         terminals = node.terminals
         node_id = node.id
+        operation = node.operation or "or"  # Default to OR for backwards compat
 
         # Separate inputs and output
         inputs = [t for t in terminals if t.direction == "input"]
@@ -51,9 +52,10 @@ class CompoundArithCodeGen(NodeCodeGen):
                 input_exprs.append(val)
 
         if not input_exprs:
-            # No inputs resolved - bind output to False
+            # No inputs resolved - bind output to default value
             var_name = f"cpd_{node_id}"
-            stmt = build_assign(var_name, ast.Constant(value=False))
+            default_value = False if operation in ("or", "and") else 0
+            stmt = build_assign(var_name, ast.Constant(value=default_value))
             return CodeFragment(
                 statements=[stmt],
                 bindings={output_id: var_name},
@@ -63,15 +65,36 @@ class CompoundArithCodeGen(NodeCodeGen):
             # Single input - just pass through
             return CodeFragment(bindings={output_id: input_exprs[0]})
 
-        # Multiple inputs - combine with 'or'
-        # Build: input1 or input2 or input3 ...
+        # Multiple inputs - combine with appropriate operator
         var_name = f"cpd_{node_id}"
         combined = parse_expr(input_exprs[0])
-        for expr_str in input_exprs[1:]:
-            combined = ast.BoolOp(
-                op=ast.Or(),
-                values=[combined, parse_expr(expr_str)],
-            )
+
+        if operation == "or":
+            for expr_str in input_exprs[1:]:
+                combined = ast.BoolOp(
+                    op=ast.Or(),
+                    values=[combined, parse_expr(expr_str)],
+                )
+        elif operation == "and":
+            for expr_str in input_exprs[1:]:
+                combined = ast.BoolOp(
+                    op=ast.And(),
+                    values=[combined, parse_expr(expr_str)],
+                )
+        elif operation == "add":
+            for expr_str in input_exprs[1:]:
+                combined = ast.BinOp(
+                    left=combined,
+                    op=ast.Add(),
+                    right=parse_expr(expr_str),
+                )
+        else:
+            # Unknown operation - fall back to OR
+            for expr_str in input_exprs[1:]:
+                combined = ast.BoolOp(
+                    op=ast.Or(),
+                    values=[combined, parse_expr(expr_str)],
+                )
 
         stmt = build_assign(var_name, combined)
         return CodeFragment(

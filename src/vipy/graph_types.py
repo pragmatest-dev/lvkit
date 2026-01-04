@@ -68,6 +68,7 @@ class Operation:
     inner_nodes: list[Operation] = field(default_factory=list)
     stop_condition_terminal: str | None = None
     description: str | None = None  # VI description/help text
+    operation: str | None = None  # For cpdArith: "or", "and", "add"
 
 
 @dataclass

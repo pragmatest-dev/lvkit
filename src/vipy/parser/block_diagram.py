@@ -73,28 +73,14 @@ def parse_block_diagram(
 
 
 def _extract_nodes(root: ET.Element) -> list[Node]:
-    """Extract nodes from the block diagram."""
+    """Extract nodes from the block diagram using node type factory."""
+    from .node_types import parse_node
+
     nodes = []
 
     for cls in OPERATION_NODE_CLASSES:
         for elem in root.findall(f".//*[@class='{cls}']"):
-            uid = elem.get("uid")
-
-            name = extract_label(elem)
-            input_types, output_types = extract_terminal_types(elem)
-
-            prim_idx_elem = elem.find("primIndex")
-            prim_res_elem = elem.find("primResID")
-
-            node = Node(
-                uid=uid,
-                node_type=cls,
-                name=name,
-                prim_index=int(prim_idx_elem.text) if prim_idx_elem is not None else None,
-                prim_res_id=int(prim_res_elem.text) if prim_res_elem is not None else None,
-                input_types=input_types,
-                output_types=output_types,
-            )
+            node = parse_node(elem)
             nodes.append(node)
 
     return nodes
