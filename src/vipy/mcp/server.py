@@ -10,7 +10,7 @@ from mcp.server import Server
 from mcp.server.stdio import stdio_server
 from mcp.types import TextContent, Tool
 
-from .tools import analyze_vi, generate_documents
+from .tools import analyze_vi, generate_documents, generate_python
 
 
 # Create MCP server instance
@@ -104,6 +104,49 @@ async def list_tools() -> list[Tool]:
                 "required": ["library_path", "output_dir"],
             },
         ),
+        Tool(
+            name="generate_python",
+            description=(
+                "Generate Python code from a LabVIEW VI using AST-based translation.\n\n"
+                "This tool converts VI dataflow logic to executable Python code. "
+                "It handles SubVI dependencies, primitives, and control/indicator types.\n\n"
+                "OUTPUT REVIEW WORKFLOW:\n"
+                "1. Files are written to output_dir/<package_name>/\n"
+                "2. Response includes list of generated files with status (ok/error)\n"
+                "3. 'needs_review' list shows files requiring agent attention\n"
+                "4. 'errors' list shows specific problems to fix\n"
+                "5. Agent should READ the generated files and CORRECT any issues\n\n"
+                "COMMON ISSUES TO FIX:\n"
+                "- Missing dependencies: Add correct search_paths or implement stubs\n"
+                "- Syntax errors: Review and fix the generated code\n"
+                "- Stub functions: Implement missing VI logic\n\n"
+                "The agent receiving this output should:\n"
+                "1. Check if success=true\n"
+                "2. If not, read files in 'needs_review' to understand problems\n"
+                "3. Fix issues by editing the generated files\n"
+                "4. Re-run if search paths were missing"
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "vi_path": {
+                        "type": "string",
+                        "description": "Path to VI file (.vi) or block diagram XML (*_BDHb.xml)",
+                    },
+                    "output_dir": {
+                        "type": "string",
+                        "description": "Output directory for generated Python package",
+                    },
+                    "search_paths": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "Search paths for VI dependencies (e.g., OpenG libraries)",
+                        "default": [],
+                    },
+                },
+                "required": ["vi_path", "output_dir"],
+            },
+        ),
     ]
 
 
@@ -143,6 +186,25 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
         )
 
         return [TextContent(type="text", text=result)]
+
+    elif name == "generate_python":
+        vi_path = arguments.get("vi_path")
+        output_dir = arguments.get("output_dir")
+        search_paths = arguments.get("search_paths", [])
+
+        if not vi_path:
+            raise ValueError("vi_path is required")
+        if not output_dir:
+            raise ValueError("output_dir is required")
+
+        # Run code generation (synchronous function in async context)
+        result = await asyncio.to_thread(
+            generate_python, vi_path, output_dir, search_paths
+        )
+
+        # Return JSON for structured parsing by agent
+        result_json = result.model_dump_json(indent=2)
+        return [TextContent(type="text", text=result_json)]
 
     else:
         raise ValueError(f"Unknown tool: {name}")
