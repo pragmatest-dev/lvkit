@@ -32,14 +32,33 @@ def to_module_name(vi_name: str) -> str:
 
 
 def to_library_name(vi_name: str) -> str | None:
-    """Extract library name from qualified VI name (e.g., 'Lib.lvlib:VI.vi' -> 'lib')."""
-    if ":" not in vi_name:
-        return None
-    library = vi_name.split(":")[0]
-    library = library.replace(".lvlib", "").replace(".lvclass", "")
-    result = library.lower().replace(" ", "_").replace("-", "_")
-    result = "".join(c for c in result if c.isalnum() or c == "_")
-    return result or None
+    """Extract library name from VI name for directory organization.
+
+    Examples:
+        "GraphicalTestRunner.lvlib:Get Settings Path.vi" -> "graphicaltestrunner"
+        "Build Path__ogtk.vi" -> "openg"
+        "Get System Directory.vi" -> "vilib"
+    """
+    # Check for library-qualified name (Library.lvlib:VI.vi or Library.lvclass:VI.vi)
+    if ".lvlib:" in vi_name:
+        library = vi_name.split(":")[0]
+        library = library.replace(".lvlib", "")
+        result = library.lower().replace(" ", "_").replace("-", "_")
+        result = "".join(c for c in result if c.isalnum() or c == "_")
+        return result or None
+    elif ".lvclass:" in vi_name:
+        library = vi_name.split(":")[0]
+        library = library.replace(".lvclass", "")
+        result = library.lower().replace(" ", "_").replace("-", "_")
+        result = "".join(c for c in result if c.isalnum() or c == "_")
+        return result or None
+
+    # Check for OpenG naming convention (__ogtk)
+    if "__ogtk" in vi_name:
+        return "openg"
+
+    # Default to vilib for system VIs
+    return "vilib"
 
 
 def get_output_path(output_dir: Path, vi_name: str, create_dirs: bool = True) -> tuple[Path, str | None]:
