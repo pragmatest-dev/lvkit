@@ -280,24 +280,33 @@ class InMemoryVIGraph:
     ) -> str | None:
         """Recursively load a VI and its SubVIs.
 
-        Returns the VI name or None if already visited.
+        Returns the VI name (qualified if available) or None if already visited.
+        The visited set tracks qualified names (e.g., "Library.lvlib:VI.vi").
         """
-        # Determine VI name from path
-        vi_name = bd_xml.name.replace("_BDHb.xml", ".vi")
-        if vi_name in visited:
-            return None
-        # Also check instance-level cache to prevent re-parsing across load_vi() calls
-        if vi_name in self._loaded_vis:
-            return vi_name
-        visited.add(vi_name)
-
-        # Parse block diagram, front panel, and connector pane
-        # Pass main_xml so parser can resolve TypeID → ParsedType internally
+        # Parse block diagram first - it now includes qualified_name from metadata
         bd = parse_block_diagram(
             bd_xml,
             fp_xml if fp_xml and fp_xml.exists() else None,
             main_xml if main_xml and main_xml.exists() else None,
         )
+
+        # Use qualified name from parser, fall back to filename
+        unqualified_name = bd_xml.name.replace("_BDHb.xml", ".vi")
+        vi_name = bd.qualified_name or unqualified_name
+
+        # Check if already visited using qualified name
+        if vi_name in visited:
+            return None
+
+        # Also check instance-level cache to prevent re-parsing across load_vi() calls
+        if vi_name in self._loaded_vis:
+            return vi_name
+
+        # Store alias for unqualified -> qualified lookup
+        if bd.qualified_name and bd.qualified_name != unqualified_name:
+            self._qualified_aliases[unqualified_name] = bd.qualified_name
+
+        visited.add(vi_name)
         fp: FrontPanel | None = None
         conpane: ConnectorPane | None = None
         wiring_rules: dict[int, int] = {}
@@ -321,32 +330,10 @@ class InMemoryVIGraph:
         # Store loop structures for later lookup
         self._loop_structures[vi_name] = {loop.uid: loop for loop in bd.loops}
 
-        # Parse VI metadata including qualified name
+        # Parse VI metadata for polymorphic info
+        # Note: qualified_name already comes from parse_block_diagram, no re-keying needed
         if main_xml and main_xml.exists():
             metadata = parse_vi_metadata(main_xml)
-
-            # Use qualified name as primary key if available (prevents collisions)
-            qualified_name = metadata.get("qualified_name")
-            if qualified_name and qualified_name != vi_name:
-                # Re-key the dataflow graph with qualified name
-                self._dataflow[qualified_name] = self._dataflow.pop(vi_name)
-                self._loop_structures[qualified_name] = self._loop_structures.pop(vi_name)
-                # Update dependency graph node
-                if vi_name in self._dep_graph:
-                    # Add new node and transfer edges
-                    self._dep_graph.add_node(qualified_name)
-                    for pred in list(self._dep_graph.predecessors(vi_name)):
-                        self._dep_graph.add_edge(pred, qualified_name)
-                    for succ in list(self._dep_graph.successors(vi_name)):
-                        self._dep_graph.add_edge(qualified_name, succ)
-                    self._dep_graph.remove_node(vi_name)
-                # Also store alias from filename -> qualified for fallback lookups
-                self._qualified_aliases[vi_name] = qualified_name
-                vi_name = qualified_name
-                # Update visited set
-                visited.discard(metadata.get("name", ""))
-                visited.add(vi_name)
-
             if metadata.get("is_polymorphic"):
                 self._poly_info[vi_name] = {
                     "is_polymorphic": True,
@@ -360,78 +347,76 @@ class InMemoryVIGraph:
         # Mark as loaded to prevent re-parsing in recursive calls
         self._loaded_vis.add(vi_name)
 
-        # Process SubVIs - only those actually CALLED in the block diagram
-        # Both iUse and polyIUse are SubVI calls
-        if expand_subvis and main_xml and main_xml.exists():
-            # Get names of SubVIs actually called (iUse and polyIUse nodes)
-            called_subvis = {
-                node.name for node in bd.nodes
-                if node.node_type in ("iUse", "polyIUse") and node.name
-            }
-
+        # Process SubVIs using qualified names from VIVI entries
+        # ALWAYS record dependencies, only load SubVI files when expand_subvis=True
+        if main_xml and main_xml.exists():
             # Get path hints from main XML for resolving locations
+            # Map by qualified name for proper lookup
             subvi_refs = parse_subvi_paths(main_xml)
-            subvi_ref_map = {ref.name: ref for ref in subvi_refs}
+            subvi_ref_map = {ref.qualified_name: ref for ref in subvi_refs if ref.qualified_name}
 
             # Caller directory for relative path resolution
             caller_dir = bd_xml.parent
 
-            for subvi_name in called_subvis:
-                ref = subvi_ref_map.get(subvi_name)
+            # Use bd.subvi_qualified_names from VIVI entries (authoritative source)
+            for subvi_qname in bd.subvi_qualified_names:
+                # Self-call check: exact qualified name match
+                if subvi_qname == vi_name:
+                    # Skip self-calls to prevent infinite recursion
+                    continue
+
+                # Also check visited set (for other VIs in the call chain)
+                if subvi_qname in visited:
+                    continue
+
+                ref = subvi_ref_map.get(subvi_qname)
                 # Use relative path from ref if available for better resolution
                 if ref and ref.path_tokens:
                     lookup_path = ref.get_relative_path()
                     is_vilib = ref.is_vilib
                     is_userlib = ref.is_userlib
                 else:
-                    lookup_path = subvi_name
+                    # Fall back to extracting filename from qualified name
+                    lookup_path = subvi_qname.split(":")[-1] if ":" in subvi_qname else subvi_qname
                     is_vilib = False
                     is_userlib = False
-                subvi_path = self._find_subvi(
-                    lookup_path, search_paths, caller_dir, is_vilib, is_userlib
-                )
-                if subvi_path:
-                    # Detect self-calling VIs: when a VI in a library references itself by unqualified name
-                    # (e.g., Initialize Tests On Tree.vi calling "Initialize Tests On Tree.vi")
-                    # Check if the SubVI path resolves to a VI that's currently being processed
-                    subvi_filename = subvi_path.name.replace("_BDHb.xml", ".vi")
 
-                    # Self-call check: if this SubVI's filename matches any part of the visited set
-                    # For qualified names like "GraphicalTestRunner.lvlib:Initialize Tests On Tree.vi",
-                    # check if the unqualified name appears in any visited qualified name
-                    is_self_call = any(
-                        visited_vi.endswith(":" + subvi_filename) or visited_vi == subvi_filename
-                        for visited_vi in visited
+                if expand_subvis:
+                    # Try to find and load the SubVI
+                    subvi_path = self._find_subvi(
+                        lookup_path, search_paths, caller_dir, is_vilib, is_userlib
                     )
-                    if is_self_call:
-                        # Skip self-calls to prevent infinite recursion
-                        continue
-
-                    # Recursively load SubVI
-                    try:
-                        subvi_bd_xml, subvi_fp_xml, subvi_main_xml = extract_vi_xml(
-                            subvi_path
-                        )
-                        loaded_name = self._load_vi_recursive(
-                            subvi_bd_xml,
-                            subvi_fp_xml,
-                            subvi_main_xml,
-                            expand_subvis=True,
-                            search_paths=search_paths,
-                            visited=visited,
-                        )
-                        if loaded_name:
-                            self._dep_graph.add_edge(vi_name, loaded_name)
-                    except (RuntimeError, OSError):
-                        # SubVI extraction failed (corrupt file) - treat as stub
-                        self._stubs.add(subvi_name)
-                        self._dep_graph.add_node(subvi_name)
-                        self._dep_graph.add_edge(vi_name, subvi_name)
+                    if subvi_path:
+                        # Recursively load SubVI
+                        try:
+                            subvi_bd_xml, subvi_fp_xml, subvi_main_xml = extract_vi_xml(
+                                subvi_path
+                            )
+                            loaded_name = self._load_vi_recursive(
+                                subvi_bd_xml,
+                                subvi_fp_xml,
+                                subvi_main_xml,
+                                expand_subvis=True,
+                                search_paths=search_paths,
+                                visited=visited,
+                            )
+                            if loaded_name:
+                                self._dep_graph.add_edge(vi_name, loaded_name)
+                        except (RuntimeError, OSError):
+                            # SubVI extraction failed (corrupt file) - treat as stub
+                            self._stubs.add(subvi_qname)
+                            self._dep_graph.add_node(subvi_qname)
+                            self._dep_graph.add_edge(vi_name, subvi_qname)
+                    else:
+                        # Mark as stub (file not found)
+                        self._stubs.add(subvi_qname)
+                        self._dep_graph.add_node(subvi_qname)
+                        self._dep_graph.add_edge(vi_name, subvi_qname)
                 else:
-                    # Mark as stub
-                    self._stubs.add(subvi_name)
-                    self._dep_graph.add_node(subvi_name)
-                    self._dep_graph.add_edge(vi_name, subvi_name)
+                    # Not expanding - record dependency as stub
+                    self._stubs.add(subvi_qname)
+                    self._dep_graph.add_node(subvi_qname)
+                    self._dep_graph.add_edge(vi_name, subvi_qname)
 
         return vi_name
 
@@ -697,9 +682,9 @@ class InMemoryVIGraph:
                         "direction": "output" if term_info.is_output else "input",
                         "lv_type": lv_type,
                     }
-                    if lv_type.typedef_path:
+                    if lv_type and lv_type.typedef_path:
                         term_dict["typedef_path"] = lv_type.typedef_path
-                    if lv_type.typedef_name:
+                    if lv_type and lv_type.typedef_name:
                         term_dict["typedef_name"] = lv_type.typedef_name
                     terminals.append(term_dict)
 

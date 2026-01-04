@@ -164,6 +164,7 @@ class SubVIPathRef:
     path_tokens: list[str]  # Path components
     is_vilib: bool = False  # True if from <vilib>
     is_userlib: bool = False  # True if from <userlib>
+    qualified_name: str | None = None  # Full qualified name (e.g., "Library.lvlib:VI.vi")
 
     def get_relative_path(self) -> str:
         """Get the relative path under vilib/userlib."""
@@ -202,6 +203,9 @@ class BlockDiagram:
     enum_labels: dict[str, list[str]] = field(default_factory=dict)
     terminal_info: dict[str, TerminalInfo] = field(default_factory=dict)
     loops: list[LoopStructure] = field(default_factory=list)
+    qualified_name: str | None = None  # From LVIN Unk1 (e.g., "Library.lvlib:VI.vi")
+    subvi_qualified_names: list[str] = field(default_factory=list)  # From VIVI entries
+    iuse_to_qualified_name: dict[str, str] = field(default_factory=dict)  # iUse UID → qualified name from BDHP
 
     def get_node(self, uid: str) -> Node | None:
         """Get a node by UID."""

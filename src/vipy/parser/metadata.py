@@ -10,6 +10,35 @@ from .models import SubVIPathRef
 from .types import parse_typedef_refs
 
 
+def get_qualified_name(xml_path: Path | str) -> str | None:
+    """Fast extraction of just the qualified name from main XML.
+
+    Use this for checking visited set before full parsing.
+
+    Args:
+        xml_path: Path to the main .xml file (not BDHb)
+
+    Returns:
+        Qualified name like "Library.lvlib:VI.vi" or None if not found
+    """
+    tree = ET.parse(xml_path)
+    root = tree.getroot()
+
+    # Try LIvi section first (most reliable for library VIs)
+    lvin = root.find(".//LIvi/Section/LVIN")
+    if lvin is not None:
+        qualified = lvin.get("Unk1")
+        if qualified:
+            return qualified
+
+    # Fall back to LVSR name
+    lvsr = root.find(".//LVSR/Section")
+    if lvsr is not None:
+        return lvsr.get("Name")
+
+    return None
+
+
 def parse_vi_metadata(xml_path: Path | str) -> dict[str, Any]:
     """Parse the main VI XML file for metadata and SubVI references.
 
@@ -146,11 +175,18 @@ def parse_subvi_paths(xml_path: Path | str) -> list[SubVIPathRef]:
     refs: list[SubVIPathRef] = []
 
     for vivi in root.findall(".//LIvi//VIVI"):
-        # Take the LAST string - first may be library name, last is the VI name
+        # Extract qualified name from all strings in LinkSaveQualName
         qual_name_strings = vivi.findall("LinkSaveQualName/String")
         if not qual_name_strings:
             continue
-        # Find last non-empty string (the actual VI name)
+
+        # Build qualified name (e.g., "Library.lvlib:VI.vi")
+        qual_parts = [s.text for s in qual_name_strings if s.text]
+        if not qual_parts:
+            continue
+        qualified_name = ":".join(qual_parts)
+
+        # Find last non-empty string (the actual VI name) for unqualified lookup
         name = None
         for s in reversed(qual_name_strings):
             if s.text and s.text.endswith(".vi"):
@@ -175,6 +211,7 @@ def parse_subvi_paths(xml_path: Path | str) -> list[SubVIPathRef]:
             path_tokens=path_parts,
             is_vilib=is_vilib,
             is_userlib=is_userlib,
+            qualified_name=qualified_name,
         ))
 
     return refs

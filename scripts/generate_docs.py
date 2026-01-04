@@ -105,14 +105,13 @@ def build_cross_references(graph: InMemoryVIGraph) -> dict:
 
 
 def prepare_vi_documentation_data(
-    vi_name: str, graph: InMemoryVIGraph, cross_refs: dict, poly_groups: dict
+    vi_name: str, graph: InMemoryVIGraph, poly_groups: dict
 ) -> dict:
     """Prepare all data needed for one VI documentation page.
 
     Args:
-        vi_name: Name of the VI
+        vi_name: Name of the VI (qualified name)
         graph: InMemoryVIGraph containing the VI
-        cross_refs: Cross-reference dictionary from build_cross_references
         poly_groups: Polymorphic groups from graph.get_polymorphic_groups()
     """
     from vipy.graph_types import FPTerminalNode, Constant, Operation, Wire
@@ -163,14 +162,16 @@ def prepare_vi_documentation_data(
         "data_flow": dataflow_dc,
     }
 
-    # Extract dependencies
-    subvi_names = collect_subvi_names(vi_context.get("operations", []))
+    # Extract dependencies using QUALIFIED names from the dependency graph
+    # The dependency graph contains qualified names as the unique identifier
+    qualified_deps = graph.get_vi_dependencies(vi_name)
     dependencies = {
-        name: generate_dependency_description(name, graph)
-        for name in dict.fromkeys(subvi_names)
+        dep_name: generate_dependency_description(dep_name, graph)
+        for dep_name in qualified_deps
     }
 
-    callers = cross_refs["callers"].get(vi_name, [])
+    # Get callers using QUALIFIED names from the dependency graph
+    callers = graph.get_vi_dependents(vi_name)
 
     # Check if this is a polymorphic wrapper VI
     is_poly = vi_name in poly_groups
@@ -281,11 +282,8 @@ def generate_documents(
     if not loaded_vis:
         return f"Failed to load any VIs. Errors:\n" + "\n".join(failed_vis)
 
-    # Build cross-references
-    print(f"[TIMING] Building cross-references...")
-    t0 = time.time()
-    cross_refs = build_cross_references(graph)
-    print(f"[TIMING] Cross-reference building: {time.time() - t0:.2f}s")
+    # Cross-references now come from the dependency graph (qualified names)
+    # No need for separate cross_refs building
 
     # Get polymorphic VI info
     poly_groups = graph.get_polymorphic_groups()
@@ -306,7 +304,7 @@ def generate_documents(
 
     for i, vi_name in enumerate(all_vis, 1):
         try:
-            vi_data = prepare_vi_documentation_data(vi_name, graph, cross_refs, poly_groups)
+            vi_data = prepare_vi_documentation_data(vi_name, graph, poly_groups)
             generator.generate_vi_page(vi_data)
             generated_count += 1
             if i % 50 == 0:

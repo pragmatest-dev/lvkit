@@ -176,7 +176,7 @@ class SkeletonGenerator:
             outputs.append((name, type_hint))
 
         # Build operation lookup for enum resolution
-        ops_by_id = {op.get("id"): op for op in vi_context.get("operations", [])}
+        ops_by_id = {op.id: op for op in vi_context.get("operations", [])}
 
         # Process constants - resolve enums via data flow
         constants = []

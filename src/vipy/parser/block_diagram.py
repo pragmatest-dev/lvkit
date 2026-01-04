@@ -46,11 +46,32 @@ def parse_block_diagram(
     tree = ET.parse(xml_path)
     root = tree.getroot()
 
-    # Load type map from main XML for resolving TypeID references
+    # Load type map and qualified name from main XML (single parse)
     type_map: dict[int, LVType] | None = None
+    qualified_name: str | None = None
+    subvi_qualified_names: list[str] = []
+    iuse_to_qualified_name: dict[str, str] = {}
+
     if main_xml_path:
         main_xml = Path(main_xml_path)
         if main_xml.exists():
+            # Parse main XML once for all extractions
+            main_tree = ET.parse(main_xml)
+            main_root = main_tree.getroot()
+
+            # Extract qualified name from LVIN or LVSR
+            lvin = main_root.find(".//LIvi/Section/LVIN")
+            if lvin is not None:
+                qualified_name = lvin.get("Unk1")
+            if not qualified_name:
+                lvsr = main_root.find(".//LVSR/Section")
+                if lvsr is not None:
+                    qualified_name = lvsr.get("Name")
+
+            # Extract SubVI qualified names and iUse→qualified_name map
+            subvi_qualified_names, iuse_to_qualified_name = _extract_subvi_info(main_root)
+
+            # Parse type map
             type_map = parse_type_map_rich(main_xml)
 
     nodes = _extract_nodes(root)
@@ -69,6 +90,9 @@ def parse_block_diagram(
         enum_labels=enum_labels,
         terminal_info=terminal_info,
         loops=loops,
+        qualified_name=qualified_name,
+        subvi_qualified_names=subvi_qualified_names,
+        iuse_to_qualified_name=iuse_to_qualified_name,
     )
 
 
@@ -268,3 +292,83 @@ def _extract_terminal_info(
             )
 
     return terminal_info
+
+
+def _extract_subvi_info(main_root: ET.Element) -> tuple[list[str], dict[str, str]]:
+    """Extract SubVI qualified names and iUse→qualified_name mapping from main XML.
+
+    Args:
+        main_root: Root element of main .xml file
+
+    Returns:
+        Tuple of:
+        - subvi_qualified_names: List of unique SubVI qualified names from VIVI entries
+        - iuse_to_qualified_name: Dict mapping iUse UID to qualified name from BDHP
+    """
+    subvi_qualified_names: list[str] = []
+    iuse_to_qualified_name: dict[str, str] = {}
+
+    # Get caller's library for qualifying same-library references
+    caller_library = None
+    lvin = main_root.find(".//LIvi/Section/LVIN")
+    if lvin is not None:
+        caller_qname = lvin.get("Unk1")
+        if caller_qname and ":" in caller_qname:
+            caller_library = caller_qname.split(":")[0]
+
+    # Extract SubVI qualified names from VIVI entries
+    # LinkSaveFlag="2" means same-library reference (needs caller's library prepended)
+    # LinkSaveFlag="0" means different library (already has full qualified name)
+    for vivi in main_root.findall(".//LIvi//VIVI"):
+        strings = [s.text for s in vivi.findall("LinkSaveQualName/String") if s.text]
+        if strings:
+            link_save_flag = vivi.get("LinkSaveFlag", "0")
+            if link_save_flag == "2" and caller_library and len(strings) == 1:
+                # Same-library reference - prepend caller's library
+                qname = f"{caller_library}:{strings[0]}"
+            else:
+                qname = ":".join(strings)
+            subvi_qualified_names.append(qname)
+
+    # Also include polymorphic VIs (VIPV)
+    for vipv in main_root.findall(".//LIvi//VIPV"):
+        strings = [s.text for s in vipv.findall("LinkSaveQualName/String") if s.text]
+        if strings:
+            link_save_flag = vipv.get("LinkSaveFlag", "0")
+            if link_save_flag == "2" and caller_library and len(strings) == 1:
+                qname = f"{caller_library}:{strings[0]}"
+            else:
+                qname = ":".join(strings)
+            subvi_qualified_names.append(qname)
+
+    # Extract iUse UID → qualified name map from BDHP section
+    # LinkOffsetList/Offset values are iUse UIDs in hex
+    for iuvi in main_root.findall(".//LIbd//BDHP/IUVI"):
+        strings = [s.text for s in iuvi.findall("LinkSaveQualName/String") if s.text]
+        if strings:
+            link_save_flag = iuvi.get("LinkSaveFlag", "0")
+            if link_save_flag == "2" and caller_library and len(strings) == 1:
+                qname = f"{caller_library}:{strings[0]}"
+            else:
+                qname = ":".join(strings)
+            for offset_elem in iuvi.findall("LinkOffsetList/Offset"):
+                if offset_elem.text:
+                    # Convert hex offset to decimal string (= iUse UID)
+                    uid = str(int(offset_elem.text, 16))
+                    iuse_to_qualified_name[uid] = qname
+
+    # Also handle polymorphic iUse (PUPV)
+    for pupv in main_root.findall(".//LIbd//BDHP/PUPV"):
+        strings = [s.text for s in pupv.findall("LinkSaveQualName/String") if s.text]
+        if strings:
+            link_save_flag = pupv.get("LinkSaveFlag", "0")
+            if link_save_flag == "2" and caller_library and len(strings) == 1:
+                qname = f"{caller_library}:{strings[0]}"
+            else:
+                qname = ":".join(strings)
+            for offset_elem in pupv.findall("LinkOffsetList/Offset"):
+                if offset_elem.text:
+                    uid = str(int(offset_elem.text, 16))
+                    iuse_to_qualified_name[uid] = qname
+
+    return subvi_qualified_names, iuse_to_qualified_name
