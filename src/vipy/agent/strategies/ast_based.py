@@ -1,10 +1,11 @@
-"""AST-based strategy: Deterministic code generation from VI graph.
+"""Baseline strategy: Deterministic AST-based code generation from VI graph.
 
-This approach:
-1. Generate syntactically valid Python directly from VI graph using AST
-2. Optionally refine with LLM for complex cases
-3. Validate (syntax, imports, types, completeness)
-4. On failure, fall back to LLM refinement
+This is the default strategy. It:
+1. Generates syntactically valid Python directly from VI graph using AST
+2. Validates (syntax, imports, types, completeness)
+3. On failure, optionally falls back to LLM refinement
+
+No LLM required for basic conversion - fully deterministic.
 """
 
 from __future__ import annotations
@@ -21,19 +22,15 @@ from .base import ConversionStrategy, StrategyResult
 
 
 @register_strategy
-class ASTBasedStrategy(ConversionStrategy):
-    """AST-based deterministic code generation.
+class BaselineStrategy(ConversionStrategy):
+    """AST-based deterministic code generation (default).
 
-    This strategy generates syntactically valid Python code directly from
-    the VI graph structure using AST nodes. The code is guaranteed to be
-    valid Python syntax, though it may need refinement for:
-    - Unknown primitives (placeholders)
-    - Complex type conversions
-    - Missing data flow connections
+    Generates syntactically valid Python code directly from the VI graph
+    using AST nodes. No LLM required. Code is guaranteed valid Python syntax.
     """
 
-    name = "ast"
-    description = "AST-based deterministic code generation"
+    name = "baseline"
+    description = "Deterministic AST-based code generation (default)"
 
     def convert(
         self,

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import copy
 import json
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
@@ -321,67 +320,66 @@ def create() -> {class_name}UI:
         primitive_mappings: dict[int, str] | None = None,
         primitive_context: dict[int, dict] | None = None,
     ) -> dict:
-        """Clean VI context for LLM consumption.
+        """Build enriched context for LLM consumption.
 
-        - Filter Void terminals (unwired) from operations
-        - Add SubVI function signatures for reference
-        - Add primitive function names and Python hints for reference
+        Works with dataclasses from vi_context. TypeInfoEncoder handles
+        dataclass → dict conversion at json.dumps.
+
+        Builds a separate enrichment dict for SubVI/primitive info rather
+        than modifying operations directly.
 
         Args:
-            ctx: Raw context from graph.get_vi_context()
+            ctx: Raw context from graph.get_vi_context() (contains dataclasses)
             converted_deps: Already-converted SubVIs with their signatures
             primitive_mappings: Mapping of primResID -> generated function name
             primitive_context: Rich primitive context with hints and terminals
 
         Returns:
-            Cleaned context dict
+            Context with dataclasses + enrichment dict for LLM
         """
-        cleaned = copy.deepcopy(ctx)
         primitive_mappings = primitive_mappings or {}
         primitive_context = primitive_context or {}
 
-        # Filter Void terminals from operations
-        if "operations" in cleaned:
-            for op in cleaned["operations"]:
-                if "terminals" in op:
-                    op["terminals"] = [
-                        t for t in op["terminals"]
-                        if t.get("type") != "Void"
-                    ]
+        # Build enrichment mapping: op_id -> extra info for LLM
+        enrichment: dict[str, dict] = {}
 
-        # Add SubVI signatures to operations for reference
-        if converted_deps and "operations" in cleaned:
-            for op in cleaned["operations"]:
-                if "SubVI" in op.get("labels", []):
-                    vi_name = op.get("name", "")
-                    if vi_name in converted_deps:
-                        sig = converted_deps[vi_name]
-                        op["python_function"] = sig.function_name
-                        op["python_signature"] = sig.signature
+        for op in ctx.get("operations", []):
+            # Operation dataclass - use attribute access
+            op_info: dict = {}
 
-        # Add primitive function names and hints to operations
-        if "operations" in cleaned:
-            for op in cleaned["operations"]:
-                if "Primitive" in op.get("labels", []):
-                    prim_id = op.get("primResID")
-                    if prim_id:
-                        # Use rich context if available
-                        if prim_id in primitive_context:
-                            pctx = primitive_context[prim_id]
-                            op["python_function"] = pctx.get("python_function", "")
-                            op["primitive_name"] = pctx.get("name", "")
-                            if pctx.get("python_hint"):
-                                op["python_hint"] = pctx["python_hint"]
-                            if pctx.get("terminals"):
-                                op["terminal_names"] = [
-                                    {"name": t.get("name"), "direction": t.get("direction")}
-                                    for t in pctx["terminals"]
-                                ]
-                        # Fall back to simple mapping
-                        elif prim_id in primitive_mappings:
-                            op["python_function"] = primitive_mappings[prim_id]
+            if converted_deps and "SubVI" in op.labels:
+                vi_name = op.name or ""
+                if vi_name in converted_deps:
+                    sig = converted_deps[vi_name]
+                    op_info["python_function"] = sig.function_name
+                    op_info["python_signature"] = sig.signature
 
-        return cleaned
+            if "Primitive" in op.labels and op.primResID:
+                prim_id = op.primResID
+                if prim_id in primitive_context:
+                    pctx = primitive_context[prim_id]
+                    op_info["python_function"] = pctx.get("python_function", "")
+                    op_info["primitive_name"] = pctx.get("name", "")
+                    if pctx.get("python_hint"):
+                        op_info["python_hint"] = pctx["python_hint"]
+                elif prim_id in primitive_mappings:
+                    op_info["python_function"] = primitive_mappings[prim_id]
+
+            if op_info:
+                enrichment[op.id] = op_info
+
+        # Return context as-is (dataclasses), with enrichment alongside
+        # TypeInfoEncoder will serialize dataclasses at json.dumps
+        return {
+            "inputs": ctx.get("inputs", []),
+            "outputs": ctx.get("outputs", []),
+            "constants": ctx.get("constants", []),
+            "operations": ctx.get("operations", []),
+            "data_flow": ctx.get("data_flow", []),
+            "terminals": ctx.get("terminals", []),
+            "subvi_calls": ctx.get("subvi_calls", []),
+            "enrichment": enrichment,
+        }
 
     @staticmethod
     def _format_inputs(inputs: list[dict]) -> str:
@@ -792,14 +790,14 @@ Output ONLY the corrected Python code, no explanations."""
         return "\n".join(lines)
 
     @staticmethod
-    def _format_key_constants(constants: list[dict]) -> str:
+    def _format_key_constants(constants: list) -> str:
         """Format key constants with their Python equivalents prominently.
 
         This extracts constants that have python hints or meaningful values
         and presents them in a way that's easy for the LLM to use.
 
         Args:
-            constants: List of constant dicts from vi_context
+            constants: List of Constant dataclasses from vi_context
 
         Returns:
             Formatted string highlighting key constants
@@ -811,9 +809,15 @@ Output ONLY the corrected Python code, no explanations."""
         has_hints = False
 
         for const in constants:
-            value = const.get("value", "")
-            python_hint = const.get("python")
-            const_type = const.get("type", "")
+            # Support both Constant dataclass and dict (after conversion)
+            if hasattr(const, 'value'):
+                value = str(const.value) if const.value is not None else ""
+                python_hint = getattr(const, 'python', None)
+                const_type = const.lv_type.underlying_type if const.lv_type else ""
+            else:
+                value = const.get("value", "")
+                python_hint = const.get("python")
+                const_type = const.get("type", "")
 
             if python_hint:
                 # This constant has a Python equivalent - highlight it!

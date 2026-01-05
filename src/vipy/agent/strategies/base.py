@@ -111,11 +111,11 @@ class ConversionStrategy(ABC):
         return response.strip()
 
     def _get_expected_subvis(self, vi_context: dict[str, Any]) -> list[str]:
-        """Extract expected SubVI names from operations."""
+        """Extract expected SubVI names from operations (Operation dataclasses)."""
         return [
-            op["name"]
+            op.name
             for op in vi_context.get("operations", [])
-            if "SubVI" in op.get("labels", []) and op.get("name")
+            if "SubVI" in op.labels and op.name
         ]
 
     def _get_library_name(self, vi_name: str) -> str | None:
