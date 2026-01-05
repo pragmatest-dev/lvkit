@@ -1,9 +1,15 @@
-"""MCP server for VI analysis tools."""
+"""MCP server for VI analysis tools.
+
+Supports two modes:
+1. Stateless tools (analyze_vi, generate_documents, generate_python) - subprocess-based
+2. Stateful graph tools (load_vi, get_vi_context, etc.) - in-memory graph persists across calls
+"""
 
 from __future__ import annotations
 
 import asyncio
 import json
+from pathlib import Path
 from typing import Any
 
 from mcp.server import Server
@@ -15,6 +21,20 @@ from .tools import analyze_vi, generate_documents, generate_python
 
 # Create MCP server instance
 app = Server("vipy-mcp")
+
+# Stateful graph - persists across tool calls in the session
+_graph = None
+
+
+def _get_graph():
+    """Get or create the in-memory graph."""
+    global _graph
+    if _graph is None:
+        from ..memory_graph import InMemoryVIGraph
+        _graph = InMemoryVIGraph()
+    return _graph
+
+
 
 
 @app.list_tools()
@@ -151,6 +171,81 @@ async def list_tools() -> list[Tool]:
                 "required": ["vi_path", "output_dir"],
             },
         ),
+        # ===== Stateful Graph Tools =====
+        Tool(
+            name="load_vi",
+            description=(
+                "Load a VI into the in-memory graph. The graph persists across tool calls.\n\n"
+                "Use this to load VIs before querying them with get_vi_context, "
+                "get_primitive_info, or generate_ast_code.\n\n"
+                "Returns list of loaded VIs (includes dependencies if expand_subvis=true)."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "vi_path": {
+                        "type": "string",
+                        "description": "Path to VI file (.vi)",
+                    },
+                    "search_paths": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "Directories to search for SubVI dependencies",
+                        "default": [],
+                    },
+                    "expand_subvis": {
+                        "type": "boolean",
+                        "description": "Load all SubVI dependencies recursively",
+                        "default": True,
+                    },
+                },
+                "required": ["vi_path"],
+            },
+        ),
+        Tool(
+            name="list_loaded_vis",
+            description="List all VIs currently loaded in the graph.",
+            inputSchema={
+                "type": "object",
+                "properties": {},
+            },
+        ),
+        Tool(
+            name="get_vi_context",
+            description=(
+                "Get the full context for a loaded VI including inputs, outputs, "
+                "operations, wires, and constants. Use after load_vi."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "vi_name": {
+                        "type": "string",
+                        "description": "Name of the VI (e.g., 'Strip Path.vi')",
+                    },
+                },
+                "required": ["vi_name"],
+            },
+        ),
+        Tool(
+            name="generate_ast_code",
+            description=(
+                "Generate Python code from a loaded VI using deterministic AST translation.\n\n"
+                "Always produces valid Python syntax. May have PRIMITIVE_xxx stubs for "
+                "unknown primitives that need manual implementation.\n\n"
+                "Use after load_vi to generate code for a specific VI."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "vi_name": {
+                        "type": "string",
+                        "description": "Name of the VI to generate code for",
+                    },
+                },
+                "required": ["vi_name"],
+            },
+        ),
     ]
 
 
@@ -209,6 +304,75 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
         # Return JSON for structured parsing by agent
         result_json = result.model_dump_json(indent=2)
         return [TextContent(type="text", text=result_json)]
+
+    # ===== Stateful Graph Tools =====
+
+    elif name == "load_vi":
+        vi_path = arguments.get("vi_path")
+        search_paths = arguments.get("search_paths", [])
+        expand_subvis = arguments.get("expand_subvis", True)
+
+        if not vi_path:
+            raise ValueError("vi_path is required")
+
+        def _load():
+            graph = _get_graph()
+            search_path_objs = [Path(p) for p in search_paths] if search_paths else None
+            graph.load_vi(Path(vi_path), expand_subvis=expand_subvis, search_paths=search_path_objs)
+            return list(graph.get_all_vi_names())
+
+        loaded = await asyncio.to_thread(_load)
+        return [TextContent(type="text", text=json.dumps({"loaded_vis": loaded}, indent=2))]
+
+    elif name == "list_loaded_vis":
+        graph = _get_graph()
+        vis = list(graph.get_all_vi_names())
+        return [TextContent(type="text", text=json.dumps({"loaded_vis": vis}, indent=2))]
+
+    elif name == "get_vi_context":
+        vi_name = arguments.get("vi_name")
+        if not vi_name:
+            raise ValueError("vi_name is required")
+
+        graph = _get_graph()
+        context = graph.get_vi_context(vi_name)
+        if not context:
+            return [TextContent(type="text", text=f"VI not found: {vi_name}")]
+
+        # Serialize with dataclass support
+        from dataclasses import asdict, is_dataclass
+
+        def _serialize(obj):
+            if is_dataclass(obj) and not isinstance(obj, type):
+                return asdict(obj)
+            elif isinstance(obj, list):
+                return [_serialize(x) for x in obj]
+            elif isinstance(obj, dict):
+                return {k: _serialize(v) for k, v in obj.items()}
+            return obj
+
+        serialized = _serialize(context)
+        return [TextContent(type="text", text=json.dumps(serialized, indent=2, default=str))]
+
+    elif name == "generate_ast_code":
+        vi_name = arguments.get("vi_name")
+        if not vi_name:
+            raise ValueError("vi_name is required")
+
+        graph = _get_graph()
+        context = graph.get_vi_context(vi_name)
+        if not context:
+            return [TextContent(type="text", text=f"VI not found: {vi_name}")]
+
+        def _generate():
+            from ..agent.codegen import build_module
+            return build_module(context, vi_name)
+
+        try:
+            code = await asyncio.to_thread(_generate)
+            return [TextContent(type="text", text=code)]
+        except Exception as e:
+            return [TextContent(type="text", text=f"AST generation failed: {e}")]
 
     else:
         raise ValueError(f"Unknown tool: {name}")

@@ -2,6 +2,10 @@
 
 Calls Anthropic's Claude API to generate Python code from VI context.
 Used by the /convert skill for each VI in dependency order.
+
+Supports two modes:
+1. Simple prompting (default): Claude generates code from context
+2. Tool-use mode: Claude can call analyze_vi/generate_python tools
 """
 
 from __future__ import annotations
@@ -34,6 +38,126 @@ try:
     import anthropic
 except ImportError:
     anthropic = None
+
+
+# Tool definitions for Claude tool-use mode
+VIPY_TOOLS = [
+    {
+        "name": "generate_ast_code",
+        "description": "Generate Python code from a VI using deterministic AST-based translation. Always produces valid syntax but may have PRIMITIVE_xxx stubs for unknown operations. Use this first, then refine.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "vi_name": {
+                    "type": "string",
+                    "description": "Name of the VI to generate code for"
+                }
+            },
+            "required": ["vi_name"]
+        }
+    },
+    {
+        "name": "get_vi_context",
+        "description": "Get the full context for a VI from the loaded graph, including resolved primitives, terminals, and dataflow. Use this to understand what a VI does.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "vi_name": {
+                    "type": "string",
+                    "description": "Name of the VI (e.g., 'Strip Path.vi')"
+                }
+            },
+            "required": ["vi_name"]
+        }
+    },
+    {
+        "name": "read_file",
+        "description": "Read the contents of a file.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "file_path": {
+                    "type": "string",
+                    "description": "Path to the file to read"
+                }
+            },
+            "required": ["file_path"]
+        }
+    },
+    {
+        "name": "write_file",
+        "description": "Write Python code to a file.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "file_path": {
+                    "type": "string",
+                    "description": "Path to the file to write"
+                },
+                "content": {
+                    "type": "string",
+                    "description": "The Python code to write"
+                }
+            },
+            "required": ["file_path", "content"]
+        }
+    }
+]
+
+
+class GraphToolExecutor:
+    """Execute tools against a loaded VI graph."""
+
+    def __init__(self, graph):
+        """Initialize with an InMemoryVIGraph instance."""
+        self.graph = graph
+
+    def execute(self, name: str, args: dict[str, Any]) -> str:
+        """Execute a tool and return the result as a string."""
+        from pathlib import Path
+
+        try:
+            if name == "generate_ast_code":
+                vi_name = args["vi_name"]
+                context = self.graph.get_vi_context(vi_name)
+                if not context:
+                    return f"VI not found: {vi_name}"
+                # Use AST code generator
+                from .codegen import build_module
+                try:
+                    code = build_module(context, vi_name)
+                    return code
+                except Exception as e:
+                    return f"AST generation failed: {e}"
+
+            elif name == "get_vi_context":
+                vi_name = args["vi_name"]
+                context = self.graph.get_vi_context(vi_name)
+                if not context:
+                    return f"VI not found: {vi_name}"
+                # Serialize context (TypeInfoEncoder handles dataclasses)
+                return json.dumps(context, indent=2, cls=TypeInfoEncoder)
+
+            elif name == "read_file":
+                path = Path(args["file_path"])
+                if not path.exists():
+                    return f"Error: File not found: {path}"
+                content = path.read_text()
+                if len(content) > 10000:
+                    content = content[:10000] + "\n... (truncated)"
+                return content
+
+            elif name == "write_file":
+                path = Path(args["file_path"])
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text(args["content"])
+                return f"Successfully wrote {len(args['content'])} bytes to {path}"
+
+            else:
+                return f"Unknown tool: {name}"
+
+        except Exception as e:
+            return f"Error executing {name}: {e}"
 
 
 @dataclass
@@ -285,4 +409,178 @@ def convert_with_retry(
         input_tokens=total_input_tokens,
         output_tokens=total_output_tokens,
         error=f"Validation failed after {max_attempts} attempts: {errors[0] if errors else 'unknown'}",
+    )
+
+
+TOOL_USE_SYSTEM_PROMPT = """You are an expert LabVIEW to Python converter.
+
+You have access to tools that query a loaded VI graph:
+
+1. `get_vi_context` - Get full VI context including inputs, outputs, operations, wires
+2. `get_primitive_info` - Look up a primitive by ID to get its Python implementation
+3. `get_vilib_info` - Look up a vi.lib VI to get terminal mappings and Python code
+4. `list_operations` - List all operations in a VI with resolved primitive info
+5. `get_execution_order` - Get topological execution order for a VI
+6. `read_file` - Read a file
+7. `write_file` - Write Python code to a file
+
+## Workflow
+
+1. Use `get_vi_context` to understand the VI structure
+2. Use `get_execution_order` to know the operation sequence
+3. For unknown primitives, use `get_primitive_info` to look them up
+4. For vilib VIs, use `get_vilib_info` to get implementation hints
+5. Write the Python code using `write_file`
+
+## Python Code Requirements
+
+- Use `from __future__ import annotations`
+- Type annotate all parameters and return types
+- Use NamedTuple for multiple outputs
+- Follow dataflow order from the graph
+- Handle error clusters appropriately
+
+When done, respond with a summary of the conversion.
+"""
+
+
+def convert_with_tools(
+    graph,
+    vi_name: str,
+    output_path: str,
+    model: str = "claude-sonnet-4-20250514",
+    max_tokens: int = 8192,
+    max_turns: int = 10,
+) -> ConversionResult:
+    """Convert a VI to Python using Claude with tool calling.
+
+    This gives Claude access to graph query tools. Claude will:
+    1. Query the graph to understand the VI
+    2. Look up primitives and vilib VIs
+    3. Write Python code based on the dataflow
+
+    Args:
+        graph: Loaded InMemoryVIGraph with the VI
+        vi_name: Name of the VI to convert
+        output_path: Path to write the generated Python file
+        model: Claude model to use
+        max_tokens: Max tokens per response
+        max_turns: Max tool-use turns
+
+    Returns:
+        ConversionResult with generated code
+    """
+    if anthropic is None:
+        return ConversionResult(
+            success=False,
+            code="",
+            time_seconds=0,
+            model=model,
+            error="anthropic package not installed. Run: pip install anthropic",
+        )
+
+    api_key = os.environ.get("ANTHROPIC_API_KEY")
+    if not api_key:
+        return ConversionResult(
+            success=False,
+            code="",
+            time_seconds=0,
+            model=model,
+            error="ANTHROPIC_API_KEY environment variable not set",
+        )
+
+    client = anthropic.Anthropic(api_key=api_key)
+    executor = GraphToolExecutor(graph)
+    start_time = time.time()
+    total_input_tokens = 0
+    total_output_tokens = 0
+
+    # Build initial prompt
+    initial_prompt = f"""Convert this LabVIEW VI to Python:
+
+VI name: {vi_name}
+Output file: {output_path}
+
+Start by using get_vi_context to understand the VI, then write the Python code.
+"""
+
+    messages = [{"role": "user", "content": initial_prompt}]
+
+    for turn in range(max_turns):
+        try:
+            response = client.messages.create(
+                model=model,
+                max_tokens=max_tokens,
+                system=TOOL_USE_SYSTEM_PROMPT,
+                tools=VIPY_TOOLS,
+                messages=messages,
+            )
+
+            total_input_tokens += response.usage.input_tokens
+            total_output_tokens += response.usage.output_tokens
+
+            # Check if we're done (no more tool use)
+            if response.stop_reason == "end_turn":
+                # Extract final message
+                final_text = ""
+                for block in response.content:
+                    if hasattr(block, "text"):
+                        final_text += block.text
+
+                # Read the generated code if it was written
+                from pathlib import Path
+                code = ""
+                if Path(output_path).exists():
+                    code = Path(output_path).read_text()
+
+                return ConversionResult(
+                    success=True,
+                    code=code,
+                    time_seconds=time.time() - start_time,
+                    model=model,
+                    input_tokens=total_input_tokens,
+                    output_tokens=total_output_tokens,
+                )
+
+            # Process tool calls
+            tool_results = []
+            assistant_content = []
+
+            for block in response.content:
+                if block.type == "tool_use":
+                    # Execute the tool using graph executor
+                    result = executor.execute(block.name, block.input)
+                    tool_results.append({
+                        "type": "tool_result",
+                        "tool_use_id": block.id,
+                        "content": result,
+                    })
+                    assistant_content.append(block)
+                elif hasattr(block, "text"):
+                    assistant_content.append(block)
+
+            # Add assistant message and tool results to conversation
+            messages.append({"role": "assistant", "content": assistant_content})
+            messages.append({"role": "user", "content": tool_results})
+
+        except Exception as e:
+            return ConversionResult(
+                success=False,
+                code="",
+                time_seconds=time.time() - start_time,
+                model=model,
+                input_tokens=total_input_tokens,
+                output_tokens=total_output_tokens,
+                error=str(e),
+            )
+
+    # Max turns exceeded
+    return ConversionResult(
+        success=False,
+        code="",
+        time_seconds=time.time() - start_time,
+        model=model,
+        input_tokens=total_input_tokens,
+        output_tokens=total_output_tokens,
+        error=f"Max turns ({max_turns}) exceeded without completion",
     )
