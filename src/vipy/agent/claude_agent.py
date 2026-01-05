@@ -40,141 +40,10 @@ except ImportError:
     anthropic = None
 
 
-# Tool definitions for Claude tool-use mode
-VIPY_TOOLS = [
-    # Stateless tools (call MCP tools module directly)
-    {
-        "name": "analyze_vi",
-        "description": "Analyze a LabVIEW VI file and return its structure (inputs, outputs, dataflow graph, dependencies).",
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "vi_path": {
-                    "type": "string",
-                    "description": "Path to VI file (.vi) or block diagram XML"
-                },
-                "search_paths": {
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "Directories to search for SubVI dependencies"
-                },
-                "expand_subvis": {
-                    "type": "boolean",
-                    "description": "Load all SubVI dependencies recursively",
-                    "default": True
-                }
-            },
-            "required": ["vi_path"]
-        }
-    },
-    {
-        "name": "generate_documents",
-        "description": "Generate static HTML documentation for VIs, libraries, or directories.",
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "library_path": {
-                    "type": "string",
-                    "description": "Path to .lvlib, .lvclass, .vi, or directory"
-                },
-                "output_dir": {
-                    "type": "string",
-                    "description": "Output directory for HTML files"
-                },
-                "search_paths": {
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "Directories to search for dependencies"
-                }
-            },
-            "required": ["library_path", "output_dir"]
-        }
-    },
-    {
-        "name": "generate_python",
-        "description": "Generate Python code from a VI using AST translation. Writes files to output_dir.",
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "vi_path": {
-                    "type": "string",
-                    "description": "Path to VI file (.vi)"
-                },
-                "output_dir": {
-                    "type": "string",
-                    "description": "Output directory for generated Python"
-                },
-                "search_paths": {
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "Directories to search for dependencies"
-                }
-            },
-            "required": ["vi_path", "output_dir"]
-        }
-    },
-    # Graph-based tools (require loaded graph)
-    {
-        "name": "generate_ast_code",
-        "description": "Generate Python code from a loaded VI. Use after loading with analyze_vi or when graph is pre-loaded.",
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "vi_name": {
-                    "type": "string",
-                    "description": "Name of the VI to generate code for"
-                }
-            },
-            "required": ["vi_name"]
-        }
-    },
-    {
-        "name": "get_vi_context",
-        "description": "Get the full context for a loaded VI including resolved primitives, terminals, and dataflow.",
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "vi_name": {
-                    "type": "string",
-                    "description": "Name of the VI (e.g., 'Strip Path.vi')"
-                }
-            },
-            "required": ["vi_name"]
-        }
-    },
-    {
-        "name": "read_file",
-        "description": "Read the contents of a file.",
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "file_path": {
-                    "type": "string",
-                    "description": "Path to the file to read"
-                }
-            },
-            "required": ["file_path"]
-        }
-    },
-    {
-        "name": "write_file",
-        "description": "Write Python code to a file.",
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "file_path": {
-                    "type": "string",
-                    "description": "Path to the file to write"
-                },
-                "content": {
-                    "type": "string",
-                    "description": "The Python code to write"
-                }
-            },
-            "required": ["file_path", "content"]
-        }
-    }
-]
+# Tool definitions - import from shared schemas
+from ..mcp.schemas import get_all_tool_schemas
+
+VIPY_TOOLS = get_all_tool_schemas()
 
 
 class GraphToolExecutor:
@@ -229,6 +98,17 @@ class GraphToolExecutor:
                 }, indent=2)
 
             # Graph-based tools
+            elif name == "load_vi":
+                # Graph is typically pre-loaded, but support loading more VIs
+                from pathlib import Path as P
+                vi_path = P(args["vi_path"])
+                search_paths = [P(p) for p in args.get("search_paths", [])] or None
+                self.graph.load_vi(vi_path, expand_subvis=args.get("expand_subvis", True), search_paths=search_paths)
+                return json.dumps({"loaded_vis": list(self.graph.get_all_vi_names())}, indent=2)
+
+            elif name == "list_loaded_vis":
+                return json.dumps({"loaded_vis": list(self.graph.get_all_vi_names())}, indent=2)
+
             elif name == "generate_ast_code":
                 vi_name = args["vi_name"]
                 context = self.graph.get_vi_context(vi_name)

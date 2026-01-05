@@ -1,10 +1,123 @@
-"""JSON schemas for MCP tool outputs."""
+"""JSON schemas for MCP tool outputs and tool definitions."""
 
 from __future__ import annotations
 
 from typing import Any
 
 from pydantic import BaseModel, Field
+
+
+# ===== Tool Definitions (shared by MCP server and Claude agent) =====
+
+TOOL_DEFINITIONS = {
+    "analyze_vi": {
+        "description": "Analyze a LabVIEW VI file and return its structure (inputs, outputs, dataflow graph, dependencies).",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "vi_path": {"type": "string", "description": "Path to VI file (.vi) or block diagram XML"},
+                "search_paths": {"type": "array", "items": {"type": "string"}, "description": "Directories to search for SubVI dependencies"},
+                "expand_subvis": {"type": "boolean", "description": "Load all SubVI dependencies recursively", "default": True},
+            },
+            "required": ["vi_path"],
+        },
+    },
+    "generate_documents": {
+        "description": "Generate static HTML documentation for VIs, libraries, or directories.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "library_path": {"type": "string", "description": "Path to .lvlib, .lvclass, .vi, or directory"},
+                "output_dir": {"type": "string", "description": "Output directory for HTML files"},
+                "search_paths": {"type": "array", "items": {"type": "string"}, "description": "Directories to search for dependencies"},
+                "expand_subvis": {"type": "boolean", "description": "Load SubVI dependencies", "default": True},
+            },
+            "required": ["library_path", "output_dir"],
+        },
+    },
+    "generate_python": {
+        "description": "Generate Python code from a VI using AST translation. Writes files to output_dir.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "vi_path": {"type": "string", "description": "Path to VI file (.vi)"},
+                "output_dir": {"type": "string", "description": "Output directory for generated Python"},
+                "search_paths": {"type": "array", "items": {"type": "string"}, "description": "Directories to search for dependencies"},
+            },
+            "required": ["vi_path", "output_dir"],
+        },
+    },
+    "load_vi": {
+        "description": "Load a VI into the in-memory graph. Graph persists across tool calls.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "vi_path": {"type": "string", "description": "Path to VI file (.vi)"},
+                "search_paths": {"type": "array", "items": {"type": "string"}, "description": "Directories to search for SubVI dependencies"},
+                "expand_subvis": {"type": "boolean", "description": "Load all SubVI dependencies recursively", "default": True},
+            },
+            "required": ["vi_path"],
+        },
+    },
+    "list_loaded_vis": {
+        "description": "List all VIs currently loaded in the graph.",
+        "input_schema": {"type": "object", "properties": {}},
+    },
+    "get_vi_context": {
+        "description": "Get the full context for a loaded VI including resolved primitives, terminals, and dataflow.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "vi_name": {"type": "string", "description": "Name of the VI (e.g., 'Strip Path.vi')"},
+            },
+            "required": ["vi_name"],
+        },
+    },
+    "generate_ast_code": {
+        "description": "Generate Python code from a loaded VI using deterministic AST translation.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "vi_name": {"type": "string", "description": "Name of the VI to generate code for"},
+            },
+            "required": ["vi_name"],
+        },
+    },
+    "read_file": {
+        "description": "Read the contents of a file.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "file_path": {"type": "string", "description": "Path to the file to read"},
+            },
+            "required": ["file_path"],
+        },
+    },
+    "write_file": {
+        "description": "Write content to a file.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "file_path": {"type": "string", "description": "Path to the file to write"},
+                "content": {"type": "string", "description": "Content to write"},
+            },
+            "required": ["file_path", "content"],
+        },
+    },
+}
+
+
+def get_tool_schema(name: str) -> dict[str, Any]:
+    """Get a tool schema by name, formatted for Anthropic API."""
+    defn = TOOL_DEFINITIONS.get(name)
+    if not defn:
+        raise ValueError(f"Unknown tool: {name}")
+    return {"name": name, **defn}
+
+
+def get_all_tool_schemas() -> list[dict[str, Any]]:
+    """Get all tool schemas formatted for Anthropic API."""
+    return [{"name": name, **defn} for name, defn in TOOL_DEFINITIONS.items()]
 
 
 class ControlSchema(BaseModel):
