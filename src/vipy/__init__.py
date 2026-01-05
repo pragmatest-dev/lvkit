@@ -10,7 +10,8 @@ from .cypher import from_lvclass as cypher_from_lvclass
 from .cypher import from_lvlib as cypher_from_lvlib
 from .cypher import from_project as cypher_from_project
 from .cypher import from_vi as cypher_from_vi
-from .frontpanel import FPControl, FrontPanel, generate_nicegui_code, parse_front_panel
+from .frontpanel import generate_nicegui_code
+from .parser import FPControl, FrontPanel
 from .graph import GraphConfig, VIGraph
 from .graph import connect as connect_graph
 from .graph_types import (
@@ -28,9 +29,10 @@ from .parser import (
     ConnectorPaneSlot,
     Constant,
     Node,
+    ParsedVI,
+    VIMetadata,
     Wire,
-    parse_block_diagram,
-    parse_connector_pane,
+    parse_vi,
 )
 from .structure import (
     LVClass,
@@ -54,8 +56,9 @@ __all__ = [
     "cypher_from_lvlib",
     "cypher_from_lvclass",
     "cypher_from_project",
-    "parse_block_diagram",
-    "parse_connector_pane",
+    "parse_vi",
+    "ParsedVI",
+    "VIMetadata",
     "BlockDiagram",
     "ConnectorPane",
     "ConnectorPaneSlot",
@@ -70,7 +73,6 @@ __all__ = [
     "LVClass",
     "LVLibrary",
     "LVMethod",
-    "parse_front_panel",
     "generate_nicegui_code",
     "FrontPanel",
     "FPControl",

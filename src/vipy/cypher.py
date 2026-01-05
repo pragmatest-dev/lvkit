@@ -25,17 +25,17 @@ from .blockdiagram import (
     decode_constant,
 )
 from .extractor import extract_vi_xml
-from .frontpanel import FPControl, parse_front_panel
 from .parser import (
     BlockDiagram,
     ConnectorPane,
     Constant,
+    FPControl,
     Node,
     SubVIPathRef,
-    parse_block_diagram,
     parse_connector_pane,
     parse_subvi_paths,
     parse_type_map,
+    parse_vi,
     parse_vi_metadata,
     resolve_type,
 )
@@ -55,26 +55,17 @@ def from_blockdiagram(
         Cypher CREATE statements representing the VI as a graph
     """
     bd_xml_path = Path(bd_xml_path)
-    bd = parse_block_diagram(bd_xml_path)
+    vi = parse_vi(bd_xml=bd_xml_path, main_xml=main_xml_path)
+    bd = vi.block_diagram
+    metadata = vi.metadata
 
     # Try to get front panel terminal names
     fp_names = _get_fp_terminal_names(bd_xml_path)
 
     # Get VI name, qualified name, and type mappings from metadata
-    vi_name = "Unknown VI"
-    qualified_name = None
-    type_map: dict[int, str] = {}
-    if main_xml_path:
-        meta = parse_vi_metadata(main_xml_path)
-        vi_name = meta.get("name", vi_name)
-        qualified_name = meta.get("qualified_name", vi_name)
-        # Parse type mappings to resolve TypeID references
-        type_map = parse_type_map(main_xml_path)
-    else:
-        vi_name = bd_xml_path.stem.replace("_BDHb", "")
-
-    if qualified_name is None:
-        qualified_name = vi_name
+    vi_name = metadata.qualified_name or bd_xml_path.stem.replace("_BDHb", "")
+    qualified_name = vi_name
+    type_map = metadata.type_map
 
     # Sanitize name for Cypher variable
     vi_var = _sanitize_name(qualified_name)
@@ -705,33 +696,21 @@ def from_vi(
     else:
         fp_xml_path = Path(fp_xml_path)
 
-    # Parse block diagram
-    bd = parse_block_diagram(bd_xml_path)
-
-    # Parse front panel if available
-    fp = None
-    connector_pane = None
-    if fp_xml_path and fp_xml_path.exists():
-        fp = parse_front_panel(fp_xml_path, bd_xml_path)
-        connector_pane = parse_connector_pane(fp_xml_path)
+    # Parse VI using unified parse_vi()
+    vi = parse_vi(
+        bd_xml=bd_xml_path,
+        fp_xml=fp_xml_path if fp_xml_path and fp_xml_path.exists() else None,
+        main_xml=main_xml_path,
+    )
+    bd = vi.block_diagram
+    metadata = vi.metadata
+    fp = vi.front_panel
+    connector_pane = vi.connector_pane
 
     # Get VI name, qualified name, type mappings, and SubVI path hints from metadata
-    vi_name = "Unknown VI"
-    type_map: dict[int, str] = {}
-    path_hints: dict[str, SubVIPathRef] = {}
-    if main_xml_path:
-        meta = parse_vi_metadata(main_xml_path)
-        vi_name = meta.get("name", vi_name)
-        # Get qualified_name from VI's own metadata (it knows its library)
-        if qualified_name is None:
-            qualified_name = meta.get("qualified_name", vi_name)
-        # Parse type mappings to resolve TypeID references
-        type_map = parse_type_map(main_xml_path)
-        # Parse SubVI path hints from LinkSavePathRef elements
-        subvi_path_refs = parse_subvi_paths(main_xml_path)
-        path_hints = {ref.name: ref for ref in subvi_path_refs}
-    else:
-        vi_name = bd_xml_path.stem.replace("_BDHb", "")
+    vi_name = metadata.qualified_name or bd_xml_path.stem.replace("_BDHb", "")
+    type_map = metadata.type_map
+    path_hints = {ref.name: ref for ref in metadata.subvi_path_refs}
 
     # Fall back to vi_name if no qualified_name available
     if qualified_name is None:

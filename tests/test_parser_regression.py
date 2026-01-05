@@ -2,7 +2,7 @@
 
 import pytest
 from pathlib import Path
-from vipy.parser.block_diagram import parse_block_diagram
+from vipy.parser import parse_vi, VIMetadata, ParsedVI
 from vipy.parser.types import parse_type_map_rich
 from vipy.parser.metadata import parse_vi_metadata, parse_subvi_paths
 from vipy.memory_graph import InMemoryVIGraph
@@ -19,9 +19,22 @@ def extracted_xml():
 
 
 @pytest.fixture(scope="module")
-def parsed_bd(extracted_xml):
+def parsed_vi(extracted_xml) -> ParsedVI:
+    """Parse VI once for all tests."""
     bd_xml, fp_xml, main_xml = extracted_xml
-    return parse_block_diagram(bd_xml, fp_xml, main_xml)
+    return parse_vi(bd_xml=bd_xml, fp_xml=fp_xml, main_xml=main_xml)
+
+
+@pytest.fixture(scope="module")
+def parsed_bd(parsed_vi):
+    """Get block diagram from parsed VI."""
+    return parsed_vi.block_diagram
+
+
+@pytest.fixture(scope="module")
+def parsed_metadata(parsed_vi) -> VIMetadata:
+    """Get metadata from parsed VI."""
+    return parsed_vi.metadata
 
 
 @pytest.fixture(scope="module")
@@ -31,17 +44,27 @@ def graph():
     return g
 
 
-class TestBlockDiagram:
-    def test_qualified_name(self, parsed_bd):
-        assert parsed_bd.qualified_name == "GraphicalTestRunner.lvlib:Get Settings Path.vi"
+class TestVIMetadata:
+    """Tests for VIMetadata (qualified_name, subvi refs, source_path)."""
 
-    def test_subvi_qualified_names_not_empty(self, parsed_bd):
-        assert len(parsed_bd.subvi_qualified_names) > 0
+    def test_qualified_name(self, parsed_metadata):
+        assert parsed_metadata.qualified_name == "GraphicalTestRunner.lvlib:Get Settings Path.vi"
 
-    def test_subvi_names_format(self, parsed_bd):
+    def test_subvi_qualified_names_not_empty(self, parsed_metadata):
+        assert len(parsed_metadata.subvi_qualified_names) > 0
+
+    def test_subvi_names_format(self, parsed_metadata):
         # SubVI qualified names should be in the format "name.vi" or "library:name.vi"
-        for name in parsed_bd.subvi_qualified_names:
+        for name in parsed_metadata.subvi_qualified_names:
             assert ".vi" in name
+
+    def test_source_path_exists(self, parsed_metadata):
+        assert parsed_metadata.source_path is not None
+        assert parsed_metadata.source_path.endswith(".vi")
+
+
+class TestBlockDiagram:
+    """Tests for BlockDiagram content (nodes, wires, terminals)."""
 
     def test_nodes_not_empty(self, parsed_bd):
         assert len(parsed_bd.nodes) > 0
@@ -51,10 +74,6 @@ class TestBlockDiagram:
 
     def test_terminal_info_not_empty(self, parsed_bd):
         assert len(parsed_bd.terminal_info) > 0
-
-    def test_source_path_exists(self, parsed_bd):
-        assert parsed_bd.source_path is not None
-        assert parsed_bd.source_path.endswith(".vi")
 
 
 class TestTypeMap:

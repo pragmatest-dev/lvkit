@@ -17,7 +17,6 @@ import networkx as nx
 
 from .blockdiagram import decode_constant
 from .extractor import extract_vi_xml
-from .frontpanel import FrontPanel, parse_front_panel
 from .graph_types import (
     Constant,
     FPTerminalNode,
@@ -31,9 +30,11 @@ from .graph_types import (
 from .parser import (
     BlockDiagram,
     ConnectorPane,
-    parse_block_diagram,
-    parse_connector_pane,
+    FrontPanel,
+    ParsedVI,
+    VIMetadata,
     parse_connector_pane_types,
+    parse_vi,
     parse_vi_metadata,
 )
 from .parser.models import ParsedType
@@ -282,16 +283,22 @@ class InMemoryVIGraph:
         Returns the VI name (qualified if available) or None if already visited.
         The visited set tracks qualified names (e.g., "Library.lvlib:VI.vi").
         """
-        # Parse block diagram first - it now includes qualified_name from metadata
-        bd = parse_block_diagram(
-            bd_xml,
-            fp_xml if fp_xml and fp_xml.exists() else None,
-            main_xml if main_xml and main_xml.exists() else None,
+        # Parse VI using unified parse_vi()
+        vi = parse_vi(
+            bd_xml=bd_xml,
+            fp_xml=fp_xml if fp_xml and fp_xml.exists() else None,
+            main_xml=main_xml if main_xml and main_xml.exists() else None,
         )
 
-        # Use qualified name from parser, fall back to filename
+        # Unpack components
+        metadata = vi.metadata
+        bd = vi.block_diagram
+        fp = vi.front_panel
+        conpane = vi.connector_pane
+
+        # Use qualified name from metadata, fall back to filename
         unqualified_name = bd_xml.name.replace("_BDHb.xml", ".vi")
-        vi_name = bd.qualified_name or unqualified_name
+        vi_name = metadata.qualified_name or unqualified_name
 
         # Check if already visited using qualified name
         if vi_name in visited:
@@ -302,27 +309,22 @@ class InMemoryVIGraph:
             return vi_name
 
         # Store alias for unqualified -> qualified lookup
-        if bd.qualified_name and bd.qualified_name != unqualified_name:
-            self._qualified_aliases[unqualified_name] = bd.qualified_name
+        if metadata.qualified_name and metadata.qualified_name != unqualified_name:
+            self._qualified_aliases[unqualified_name] = metadata.qualified_name
 
         visited.add(vi_name)
 
-        # Store source file path from parser
-        if bd.source_path:
-            self._source_paths[vi_name] = Path(bd.source_path)
+        # Store source file path from metadata
+        if metadata.source_path:
+            self._source_paths[vi_name] = Path(metadata.source_path)
 
-        fp: FrontPanel | None = None
-        conpane: ConnectorPane | None = None
+        # Parse wiring rules from main XML if available
         wiring_rules: dict[int, int] = {}
-        if fp_xml and fp_xml.exists():
-            fp = parse_front_panel(fp_xml, bd_xml)
-            conpane = parse_connector_pane(fp_xml)
-            # Parse wiring rules from main XML if available
-            if main_xml and main_xml.exists() and conpane:
-                wiring_rules = parse_connector_pane_types(main_xml, conpane)
+        if main_xml and main_xml.exists() and conpane:
+            wiring_rules = parse_connector_pane_types(main_xml, conpane)
 
-        # Use type_map from block diagram (already parsed)
-        type_map = bd.type_map
+        # Use type_map from metadata (already parsed)
+        type_map = metadata.type_map
 
         # Build dataflow graph for this VI
         self._dataflow[vi_name] = self._build_dataflow_graph(
@@ -333,14 +335,13 @@ class InMemoryVIGraph:
         self._loop_structures[vi_name] = {loop.uid: loop for loop in bd.loops}
 
         # Parse VI metadata for polymorphic info
-        # Note: qualified_name already comes from parse_block_diagram, no re-keying needed
         if main_xml and main_xml.exists():
-            metadata = parse_vi_metadata(main_xml)
-            if metadata.get("is_polymorphic"):
+            poly_metadata = parse_vi_metadata(main_xml)
+            if poly_metadata.get("is_polymorphic"):
                 self._poly_info[vi_name] = {
                     "is_polymorphic": True,
-                    "variants": metadata.get("poly_variants", []),
-                    "selectors": metadata.get("poly_selectors", []),
+                    "variants": poly_metadata.get("poly_variants", []),
+                    "selectors": poly_metadata.get("poly_selectors", []),
                 }
 
         # Add to dependency graph
@@ -349,17 +350,17 @@ class InMemoryVIGraph:
         # Mark as loaded to prevent re-parsing in recursive calls
         self._loaded_vis.add(vi_name)
 
-        # Process SubVIs using qualified names from VIVI entries
+        # Process SubVIs using qualified names from metadata
         # ALWAYS record dependencies, only load SubVI files when expand_subvis=True
         if main_xml and main_xml.exists():
-            # Use path refs from block diagram (already parsed)
-            subvi_ref_map = {ref.qualified_name: ref for ref in bd.subvi_path_refs if ref.qualified_name}
+            # Use path refs from metadata (already parsed)
+            subvi_ref_map = {ref.qualified_name: ref for ref in metadata.subvi_path_refs if ref.qualified_name}
 
             # Caller directory for relative path resolution
             caller_dir = bd_xml.parent
 
-            # Use bd.subvi_qualified_names from VIVI entries (authoritative source)
-            for subvi_qname in bd.subvi_qualified_names:
+            # Use metadata.subvi_qualified_names from VIVI entries (authoritative source)
+            for subvi_qname in metadata.subvi_qualified_names:
                 # Self-call check: exact qualified name match
                 if subvi_qname == vi_name:
                     # Skip self-calls to prevent infinite recursion

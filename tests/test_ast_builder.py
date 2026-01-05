@@ -49,7 +49,7 @@ def test_build_module_with_constant():
             FPTerminalNode(id="out:1", kind="output", name="Value", is_indicator=True, is_public=True, type="int"),
         ],
         "constants": [
-            Constant(id="const:1", value=42, type="int", label="MyConst"),
+            Constant(id="const:1", value=42, name="MyConst"),
         ],
         "operations": [
             Operation(id="op:1", name="Constant", labels=["Constant"]),
@@ -199,7 +199,7 @@ def test_context_from_vi_context():
             FPTerminalNode(id="inp:2", kind="input", name="Count", is_indicator=False, is_public=True),
         ],
         "constants": [
-            Constant(id="const:1", value=42, type="int"),
+            Constant(id="const:1", value=42),
         ],
         "data_flow": [
             Wire(from_terminal_id="inp:1", to_terminal_id="term:1"),
