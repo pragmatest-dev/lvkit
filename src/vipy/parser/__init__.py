@@ -1,11 +1,10 @@
 """Parser package - parse LabVIEW VI XML into structured representation.
 
-This package provides backward-compatible exports from the original parser.py.
+Main entry point: parse_vi() returns ParsedVI with all components.
 """
 
-# Re-export all public APIs for backward compatibility
+# Re-export all public APIs
 from ..graph_types import Tunnel
-from .block_diagram import parse_block_diagram
 from .front_panel import (
     extract_fp_terminals,
     parse_connector_pane,
@@ -22,13 +21,17 @@ from .models import (
     ConnectorPaneSlot,
     Constant,
     DefaultValue,
+    FPControl,
     FPTerminal,
+    FrontPanel,
     LoopStructure,
     Node,
+    ParsedVI,
     ResolvedTypeDefValue,
     SubVIPathRef,
     TerminalInfo,
     TypeDefRef,
+    VIMetadata,
     Wire,
     WiringRule,
 )
@@ -42,18 +45,25 @@ from .types import (
     resolve_type_to_typedef,
     resolve_typedef_value,
 )
+from .vi import parse_vi
 
-# Backward compatibility alias (after all imports)
+# Backward compatibility alias
 TunnelMapping = Tunnel
 
 __all__ = [
+    # Main entry point
+    "parse_vi",
+    "ParsedVI",
+    "VIMetadata",
     # Models
     "BlockDiagram",
     "ConnectorPane",
     "ConnectorPaneSlot",
     "Constant",
     "DefaultValue",
+    "FPControl",
     "FPTerminal",
+    "FrontPanel",
     "LoopStructure",
     "Node",
     "ResolvedTypeDefValue",
@@ -64,8 +74,6 @@ __all__ = [
     "TypeDefRef",
     "Wire",
     "WiringRule",
-    # Block diagram
-    "parse_block_diagram",
     # Front panel
     "extract_fp_terminals",
     "parse_connector_pane",

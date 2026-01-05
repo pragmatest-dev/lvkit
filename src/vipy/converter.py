@@ -11,7 +11,8 @@ from tempfile import TemporaryDirectory
 
 from .blockdiagram import create_llm_prompt, summarize_vi
 from .cypher import from_blockdiagram as summarize_vi_cypher
-from .frontpanel import generate_nicegui_code, parse_front_panel, summarize_front_panel
+from .frontpanel import generate_nicegui_code, summarize_front_panel
+from .parser import parse_vi
 from .llm import LLMConfig, generate_code
 
 
@@ -110,7 +111,8 @@ def convert_vi(
 
         if mode == "gui" and extracted.fp_xml:
             # Generate frontend code from front panel
-            fp = parse_front_panel(extracted.fp_xml)
+            vi = parse_vi(bd_xml=extracted.bd_xml, fp_xml=extracted.fp_xml)
+            fp = vi.front_panel
             frontend_code = generate_nicegui_code(
                 fp,
                 vi_name=vi_path.stem,
@@ -177,8 +179,10 @@ def convert_xml(
         summary = summarize_vi(bd_xml_path, main_xml_path)
 
     # Add front panel info to summary if available and in gui mode
+    vi = None
     if mode == "gui" and fp_xml_path:
-        fp = parse_front_panel(fp_xml_path)
+        vi = parse_vi(bd_xml=bd_xml_path, fp_xml=fp_xml_path)
+        fp = vi.front_panel
         fp_summary = summarize_front_panel(fp)
         summary = f"{summary}\n\n{fp_summary}"
 
@@ -187,7 +191,9 @@ def convert_xml(
 
     if mode == "gui" and fp_xml_path:
         # Generate frontend code
-        fp = parse_front_panel(fp_xml_path)
+        if vi is None:
+            vi = parse_vi(bd_xml=bd_xml_path, fp_xml=fp_xml_path)
+        fp = vi.front_panel
         vi_name = bd_xml_path.stem.replace("_BDHb", "")
         frontend_code = generate_nicegui_code(
             fp,

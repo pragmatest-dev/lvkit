@@ -194,8 +194,54 @@ class FPDCOTypeMap:
 
 
 @dataclass
+class FPControl:
+    """A control or indicator on the front panel.
+
+    Used for NiceGUI UI generation and rich control details.
+    """
+    uid: str
+    name: str
+    control_type: str  # stdString, stdNumeric, stdBool, stdPath, stdEnum, etc.
+    bounds: tuple[int, int, int, int]  # top, left, bottom, right
+    is_indicator: bool = False  # True if output, False if input
+    type_desc: str | None = None
+    default_value: str | None = None
+    enum_values: list[str] = field(default_factory=list)
+    children: list[FPControl] = field(default_factory=list)  # For clusters
+
+
+@dataclass
+class FrontPanel:
+    """Parsed front panel representation.
+
+    Contains rich control details for UI generation.
+    """
+    controls: list[FPControl]
+    panel_bounds: tuple[int, int, int, int]
+    title: str | None = None
+
+
+@dataclass
+class VIMetadata:
+    """VI-level metadata extracted from XML.
+
+    Contains identity and reference information about the VI.
+    Does NOT contain block diagram content.
+    """
+    qualified_name: str | None = None  # e.g., "Library.lvlib:VI.vi"
+    source_path: str | None = None  # Path to original .vi file
+    type_map: dict = field(default_factory=dict)  # TypeID → LVType mapping
+    subvi_qualified_names: list[str] = field(default_factory=list)  # From VIVI entries
+    iuse_to_qualified_name: dict[str, str] = field(default_factory=dict)  # iUse UID → qualified name
+    subvi_path_refs: list[SubVIPathRef] = field(default_factory=list)  # SubVI path hints
+
+
+@dataclass
 class BlockDiagram:
-    """Parsed block diagram representation."""
+    """Parsed block diagram representation.
+
+    Contains only block diagram content - metadata is in VIMetadata.
+    """
     nodes: list[Node]
     constants: list[Constant]
     wires: list[Wire]
@@ -203,12 +249,6 @@ class BlockDiagram:
     enum_labels: dict[str, list[str]] = field(default_factory=dict)
     terminal_info: dict[str, TerminalInfo] = field(default_factory=dict)
     loops: list[LoopStructure] = field(default_factory=list)
-    qualified_name: str | None = None  # From LVIN Unk1 (e.g., "Library.lvlib:VI.vi")
-    subvi_qualified_names: list[str] = field(default_factory=list)  # From VIVI entries
-    iuse_to_qualified_name: dict[str, str] = field(default_factory=dict)  # iUse UID → qualified name from BDHP
-    type_map: dict = field(default_factory=dict)  # TypeID → LVType from parse_type_map_rich
-    subvi_path_refs: list = field(default_factory=list)  # SubVIPathRef list for file resolution
-    source_path: str | None = None  # Path to original .vi file
 
     def get_node(self, uid: str) -> Node | None:
         """Get a node by UID."""
@@ -238,3 +278,15 @@ class BlockDiagram:
                 if tunnel.inner_terminal_uid == terminal_uid:
                     return tunnel
         return None
+
+
+@dataclass
+class ParsedVI:
+    """Complete parsed VI - everything needed for graph/codegen/docs.
+
+    Single return type from parse_vi() containing all VI components.
+    """
+    metadata: VIMetadata
+    block_diagram: BlockDiagram
+    front_panel: FrontPanel
+    connector_pane: ConnectorPane | None = None

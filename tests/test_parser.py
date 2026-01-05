@@ -20,11 +20,11 @@ from vipy.parser import (
     TunnelMapping,
     Wire,
     WiringRule,
-    parse_block_diagram,
     parse_connector_pane,
     parse_connector_pane_types,
     parse_polymorphic_info,
     parse_subvi_paths,
+    parse_vi,
     parse_vi_metadata,
 )
 
@@ -41,8 +41,6 @@ class TestNode:
         assert node.uid == "123"
         assert node.node_type == "prim"
         assert node.name is None
-        assert node.prim_index is None
-        assert node.prim_res_id is None
         assert node.inputs == []
         assert node.outputs == []
 
@@ -52,8 +50,6 @@ class TestNode:
             uid="456",
             node_type="iUse",
             name="MySubVI.vi",
-            prim_index=10,
-            prim_res_id=1419,
             inputs=["term1", "term2"],
             outputs=["term3"],
             input_types=["int", "float"],
@@ -62,8 +58,6 @@ class TestNode:
         assert node.uid == "456"
         assert node.node_type == "iUse"
         assert node.name == "MySubVI.vi"
-        assert node.prim_index == 10
-        assert node.prim_res_id == 1419
         assert len(node.inputs) == 2
         assert len(node.outputs) == 1
 
@@ -123,14 +117,13 @@ class TestTerminalInfo:
             parent_uid="node1",
             index=0,
             is_output=False,
-            type_id="TypeID(5)",
             name="x",
         )
         assert info.uid == "t1"
         assert info.parent_uid == "node1"
         assert info.index == 0
         assert info.is_output is False
-        assert info.type_id == "TypeID(5)"
+        assert info.parsed_type is None
         assert info.name == "x"
 
     def test_terminal_info_output(self):
@@ -411,8 +404,8 @@ class TestBlockDiagram:
 # === XML Parsing Tests ===
 
 
-class TestParseBlockDiagram:
-    """Tests for parse_block_diagram function."""
+class TestParseVI:
+    """Tests for parse_vi function."""
 
     def test_parse_minimal_block_diagram(self, tmp_path: Path):
         """Test parsing a minimal block diagram XML."""
@@ -423,7 +416,8 @@ class TestParseBlockDiagram:
         xml_file = tmp_path / "test_BDHb.xml"
         xml_file.write_text(xml_content)
 
-        bd = parse_block_diagram(xml_file)
+        vi = parse_vi(bd_xml=xml_file)
+        bd = vi.block_diagram
         assert bd is not None
         assert len(bd.nodes) == 0
         assert len(bd.constants) == 0
@@ -443,11 +437,13 @@ class TestParseBlockDiagram:
         xml_file = tmp_path / "test_BDHb.xml"
         xml_file.write_text(xml_content)
 
-        bd = parse_block_diagram(xml_file)
+        vi = parse_vi(bd_xml=xml_file)
+        bd = vi.block_diagram
         assert len(bd.nodes) == 1
         node = bd.nodes[0]
         assert node.uid == "prim1"
         assert node.node_type == "prim"
+        # PrimitiveNode subclass has prim_index and prim_res_id
         assert node.prim_index == 10
         assert node.prim_res_id == 1419
 
@@ -464,7 +460,8 @@ class TestParseBlockDiagram:
         xml_file = tmp_path / "test_BDHb.xml"
         xml_file.write_text(xml_content)
 
-        bd = parse_block_diagram(xml_file)
+        vi = parse_vi(bd_xml=xml_file)
+        bd = vi.block_diagram
         assert len(bd.nodes) == 1
         node = bd.nodes[0]
         assert node.uid == "subvi1"
@@ -487,7 +484,8 @@ class TestParseBlockDiagram:
         xml_file = tmp_path / "test_BDHb.xml"
         xml_file.write_text(xml_content)
 
-        bd = parse_block_diagram(xml_file)
+        vi = parse_vi(bd_xml=xml_file)
+        bd = vi.block_diagram
         assert len(bd.wires) == 1
         wire = bd.wires[0]
         assert wire.from_term == "t1"
@@ -510,7 +508,8 @@ class TestParseBlockDiagram:
         xml_file = tmp_path / "test_BDHb.xml"
         xml_file.write_text(xml_content)
 
-        bd = parse_block_diagram(xml_file)
+        vi = parse_vi(bd_xml=xml_file)
+        bd = vi.block_diagram
         assert len(bd.wires) == 2
         assert bd.wires[0].from_term == "source"
         assert bd.wires[0].to_term == "dest1"
@@ -535,7 +534,8 @@ class TestParseBlockDiagram:
         xml_file = tmp_path / "test_BDHb.xml"
         xml_file.write_text(xml_content)
 
-        bd = parse_block_diagram(xml_file)
+        vi = parse_vi(bd_xml=xml_file)
+        bd = vi.block_diagram
         assert len(bd.constants) == 1
         const = bd.constants[0]
         assert const.uid == "const1"
@@ -566,7 +566,8 @@ class TestParseBlockDiagram:
         xml_file = tmp_path / "test_BDHb.xml"
         xml_file.write_text(xml_content)
 
-        bd = parse_block_diagram(xml_file)
+        vi = parse_vi(bd_xml=xml_file)
+        bd = vi.block_diagram
         assert len(bd.fp_terminals) == 2
 
         # fp1 has no incoming wire - it's an input
@@ -737,6 +738,7 @@ class TestParsePolymorphicInfo:
         """Test parsing a polymorphic VI."""
         xml_content = """<?xml version="1.0"?>
 <root>
+    <LVSR><Section><Execution2 AllowPolyTypeAdapt="1"/></Section></LVSR>
     <VCTP><Section><TypeDesc Type="PolyVI"/></Section></VCTP>
     <CPST><Section>
         <String>I8</String>
@@ -790,8 +792,9 @@ class TestRealVIParsing:
 
         bd_xml, fp_xml, main_xml = extract_vi_xml(sample_vi_path)
 
-        # Parse block diagram
-        bd = parse_block_diagram(bd_xml)
+        # Parse VI
+        vi = parse_vi(bd_xml=bd_xml)
+        bd = vi.block_diagram
         assert bd is not None
         assert len(bd.nodes) > 0 or len(bd.constants) > 0 or len(bd.wires) > 0
 

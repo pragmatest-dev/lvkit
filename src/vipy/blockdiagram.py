@@ -8,7 +8,7 @@ from pathlib import Path
 from .constants import SYSTEM_DIR_TYPES
 from .parser import (
     Constant,
-    parse_block_diagram,
+    parse_vi,
     parse_vi_metadata,
 )
 
@@ -162,18 +162,13 @@ def summarize_vi(bd_xml_path: Path | str, main_xml_path: Path | str | None = Non
         Human-readable summary string
     """
     bd_xml_path = Path(bd_xml_path)
-    bd = parse_block_diagram(bd_xml_path)
+    vi = parse_vi(bd_xml=bd_xml_path, main_xml=main_xml_path)
+    bd = vi.block_diagram
+    metadata = vi.metadata
 
-    # Get metadata if available
-    vi_name = "Unknown VI"
-    subvi_refs: list[str] = []
-    if main_xml_path:
-        meta = parse_vi_metadata(main_xml_path)
-        vi_name = meta.get("name", vi_name)
-        subvi_refs = meta.get("subvi_refs", [])
-    else:
-        # Try to derive name from filename
-        vi_name = bd_xml_path.stem.replace("_BDHb", "")
+    # Get VI name from metadata
+    vi_name = metadata.qualified_name or bd_xml_path.stem.replace("_BDHb", "")
+    subvi_refs = metadata.subvi_qualified_names
 
     lines = [f'LabVIEW VI: "{vi_name}"', ""]
 
