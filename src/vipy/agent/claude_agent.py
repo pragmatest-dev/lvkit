@@ -42,9 +42,81 @@ except ImportError:
 
 # Tool definitions for Claude tool-use mode
 VIPY_TOOLS = [
+    # Stateless tools (call MCP tools module directly)
+    {
+        "name": "analyze_vi",
+        "description": "Analyze a LabVIEW VI file and return its structure (inputs, outputs, dataflow graph, dependencies).",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "vi_path": {
+                    "type": "string",
+                    "description": "Path to VI file (.vi) or block diagram XML"
+                },
+                "search_paths": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Directories to search for SubVI dependencies"
+                },
+                "expand_subvis": {
+                    "type": "boolean",
+                    "description": "Load all SubVI dependencies recursively",
+                    "default": True
+                }
+            },
+            "required": ["vi_path"]
+        }
+    },
+    {
+        "name": "generate_documents",
+        "description": "Generate static HTML documentation for VIs, libraries, or directories.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "library_path": {
+                    "type": "string",
+                    "description": "Path to .lvlib, .lvclass, .vi, or directory"
+                },
+                "output_dir": {
+                    "type": "string",
+                    "description": "Output directory for HTML files"
+                },
+                "search_paths": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Directories to search for dependencies"
+                }
+            },
+            "required": ["library_path", "output_dir"]
+        }
+    },
+    {
+        "name": "generate_python",
+        "description": "Generate Python code from a VI using AST translation. Writes files to output_dir.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "vi_path": {
+                    "type": "string",
+                    "description": "Path to VI file (.vi)"
+                },
+                "output_dir": {
+                    "type": "string",
+                    "description": "Output directory for generated Python"
+                },
+                "search_paths": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Directories to search for dependencies"
+                }
+            },
+            "required": ["vi_path", "output_dir"]
+        }
+    },
+    # Graph-based tools (require loaded graph)
     {
         "name": "generate_ast_code",
-        "description": "Generate Python code from a VI using deterministic AST-based translation. Always produces valid syntax but may have PRIMITIVE_xxx stubs for unknown operations. Use this first, then refine.",
+        "description": "Generate Python code from a loaded VI. Use after loading with analyze_vi or when graph is pre-loaded.",
         "input_schema": {
             "type": "object",
             "properties": {
@@ -58,7 +130,7 @@ VIPY_TOOLS = [
     },
     {
         "name": "get_vi_context",
-        "description": "Get the full context for a VI from the loaded graph, including resolved primitives, terminals, and dataflow. Use this to understand what a VI does.",
+        "description": "Get the full context for a loaded VI including resolved primitives, terminals, and dataflow.",
         "input_schema": {
             "type": "object",
             "properties": {
@@ -117,7 +189,47 @@ class GraphToolExecutor:
         from pathlib import Path
 
         try:
-            if name == "generate_ast_code":
+            # Stateless MCP tools
+            if name == "analyze_vi":
+                from ..mcp.tools import analyze_vi
+                result = analyze_vi(
+                    vi_path=args["vi_path"],
+                    search_paths=args.get("search_paths"),
+                    expand_subvis=args.get("expand_subvis", True),
+                )
+                return json.dumps({
+                    "vi_name": result.vi_name,
+                    "summary": result.summary,
+                    "controls": [{"name": c.name, "type": c.type} for c in result.controls],
+                    "indicators": [{"name": i.name, "type": i.type} for i in result.indicators],
+                    "dependencies": result.dependencies,
+                }, indent=2)
+
+            elif name == "generate_documents":
+                from ..mcp.tools import generate_documents
+                result = generate_documents(
+                    library_path=args["library_path"],
+                    output_dir=args["output_dir"],
+                    search_paths=args.get("search_paths"),
+                )
+                return result
+
+            elif name == "generate_python":
+                from ..mcp.tools import generate_python
+                result = generate_python(
+                    vi_path=args["vi_path"],
+                    output_dir=args["output_dir"],
+                    search_paths=args.get("search_paths"),
+                )
+                return json.dumps({
+                    "success": result.success,
+                    "files": result.files,
+                    "errors": result.errors,
+                    "needs_review": result.needs_review,
+                }, indent=2)
+
+            # Graph-based tools
+            elif name == "generate_ast_code":
                 vi_name = args["vi_name"]
                 context = self.graph.get_vi_context(vi_name)
                 if not context:
