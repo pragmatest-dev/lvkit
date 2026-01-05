@@ -1,10 +1,12 @@
-"""Baseline strategy: Skeleton-based generation with error retry.
+"""Skeleton strategy: Skeleton-based generation with LLM error retry.
 
 This approach:
 1. Generate deterministic skeleton from VI graph (topological order, known primitives)
 2. Ask LLM to fix/complete the skeleton (types, wiring, unknowns)
 3. Validate (syntax, imports, types, completeness)
 4. On failure, feed errors back and retry
+
+NOTE: Consider using "baseline" (AST-based) instead - it's fully deterministic.
 """
 
 from __future__ import annotations
@@ -21,11 +23,11 @@ from .base import ConversionStrategy, StrategyResult
 
 
 @register_strategy
-class BaselineStrategy(ConversionStrategy):
-    """Skeleton-based code generation with error-based retry."""
+class SkeletonStrategy(ConversionStrategy):
+    """Skeleton-based code generation with LLM error-based retry."""
 
-    name = "baseline"
-    description = "Skeleton-based generation with error retry"
+    name = "skeleton"
+    description = "Skeleton + LLM generation with error retry"
 
     def convert(
         self,

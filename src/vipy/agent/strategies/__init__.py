@@ -33,8 +33,8 @@ def list_strategies() -> list[str]:
 
 
 # Import strategies to register them
-from .ast_based import ASTBasedStrategy
-from .baseline import BaselineStrategy
+from .ast_based import BaselineStrategy  # AST-based is now the baseline
+from .baseline import SkeletonStrategy   # Old baseline renamed to skeleton
 from .tool_calling import ToolCallingStrategy
 from .rich_feedback import RichFeedbackStrategy
 from .two_phase import TwoPhaseStrategy
@@ -48,8 +48,8 @@ __all__ = [
     "register_strategy",
     "get_strategy",
     "list_strategies",
-    "ASTBasedStrategy",
     "BaselineStrategy",
+    "SkeletonStrategy",
     "ToolCallingStrategy",
     "RichFeedbackStrategy",
     "TwoPhaseStrategy",

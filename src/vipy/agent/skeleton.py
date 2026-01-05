@@ -13,13 +13,12 @@ import re
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
+from ..graph_types import Operation, Wire
+from ..primitive_resolver import PrimitiveTerminal, get_resolver as get_primitive_resolver
 from ..vilib_resolver import VILibResolver
 
 if TYPE_CHECKING:
     from .context import VISignature
-
-
-from ..primitive_resolver import get_resolver as get_primitive_resolver
 
 
 @dataclass
@@ -135,7 +134,7 @@ class SkeletonGenerator:
             dependencies.append(SkeletonDep(
                 vi_name=subvi_name,
                 func_name=func_name,
-                is_vilib=vilib_vi is not None and vilib_vi.python_impl is not None,
+                is_vilib=vilib_vi is not None and vilib_vi.python_code is not None,
                 is_converted=subvi_name in self.converted_deps,
                 result_class=result_class,
                 enums=enums,
@@ -144,10 +143,10 @@ class SkeletonGenerator:
         # Process inputs - these become function parameters
         inputs: list[SkeletonInput] = []
         for inp in vi_context.get("inputs", []):
-            name = self._to_var_name(inp.get("name", "input"))
-            type_hint = self._map_type(inp.get("type", "Any"))
-            wiring_rule = inp.get("wiring_rule", 0)
-            default_value = inp.get("default_value")
+            name = self._to_var_name(inp.name or "input")
+            type_hint = self._map_type(inp.type or "Any")
+            wiring_rule = inp.wiring_rule
+            default_value = inp.default_value
 
             inputs.append(SkeletonInput(
                 name=name,
@@ -156,22 +155,21 @@ class SkeletonGenerator:
                 default_value=default_value,
             ))
             # Register input node and its terminals
-            self._vars[inp.get("id", "")] = SkeletonVar(name, type_hint, "input")
-            # Find terminals for this input
+            self._vars[inp.id] = SkeletonVar(name, type_hint, "input")
+            # Find terminals for this input (terminals is a list of dicts)
             for term in vi_context.get("terminals", []):
-                if term.get("parent_id") == inp.get("id"):
+                if term.get("parent_id") == inp.id:
                     self._terminal_to_var[term.get("id", "")] = name
 
         # Process outputs
         outputs = []
         for out in vi_context.get("outputs", []):
-            name = self._to_var_name(out.get("name", "output"))
-            # Use TypeInfo if available, otherwise fall back to manual mapping
-            type_info = out.get("type_info")
-            if type_info:
-                type_hint = type_info.to_python()
+            name = self._to_var_name(out.name or "output")
+            # Use LVType if available, otherwise fall back to manual mapping
+            if out.lv_type:
+                type_hint = out.lv_type.to_python()
             else:
-                lv_type = out.get("type") or self._map_control_type(out.get("control_type"))
+                lv_type = out.type or self._map_control_type(out.control_type)
                 type_hint = self._map_type(lv_type) if lv_type else "Any"
             outputs.append((name, type_hint))
 
@@ -184,12 +182,14 @@ class SkeletonGenerator:
         used_const_names: set[str] = set()  # Track used names to avoid collisions
 
         for const in vi_context.get("constants", []):
-            const_id = const.get("id", "")
-            raw_value = const.get("value", "")
-            python_hint = const.get("python", "")
-            lv_type = const.get("type", "")
-            const_label = const.get("label")
-            type_hint = self._map_type(lv_type)
+            const_id = const.id
+            raw_value = str(const.value) if const.value is not None else ""
+            # Extract underlying type from LVType if available
+            lv_type_str = ""
+            if const.lv_type:
+                lv_type_str = const.lv_type.underlying_type or ""
+            type_hint = self._map_type(lv_type_str)
+            const_label = const.name
 
             # Try to resolve enum via data flow connection
             enum_value = self._resolve_constant_enum(
@@ -202,7 +202,7 @@ class SkeletonGenerator:
                 var_name = self._to_var_name(enum_value.split(".")[-1].lower())
             else:
                 # Format value based on type
-                value = self._format_constant(raw_value, python_hint, type_hint, lv_type)
+                value = self._format_constant(raw_value, "", type_hint, lv_type_str)
 
                 # Derive name from: label > destination terminal > type-based fallback
                 var_name = self._derive_constant_name(
@@ -219,7 +219,7 @@ class SkeletonGenerator:
 
             constants.append((var_name, value, type_hint))
             self._vars[const_id] = SkeletonVar(var_name, type_hint, "constant")
-            # Register constant terminals
+            # Register constant terminals (terminals is a list of dicts)
             for term in vi_context.get("terminals", []):
                 if term.get("parent_id") == const_id:
                     self._terminal_to_var[term.get("id", "")] = var_name
@@ -228,27 +228,27 @@ class SkeletonGenerator:
         # First pass: register all operation output terminals with semantic var names
         op_counter = 0
         for op in vi_context.get("operations", []):
-            op_id = op.get("id", "")
-            labels = op.get("labels", [])
-            prim_id = op.get("primResID")
+            op_id = op.id
+            labels = op.labels
+            prim_id = op.primResID
 
             # Get output terminals sorted by index (only wired ones)
             output_terms = sorted(
-                [t for t in op.get("terminals", [])
-                 if t.get("direction") == "output"
-                 and self._is_terminal_wired(t.get("id", ""))],
-                key=lambda t: t.get("index", 0)
+                [t for t in op.terminals
+                 if t.direction == "output"
+                 and self._is_terminal_wired(t.id)],
+                key=lambda t: t.index
             )
 
             # For SubVIs, look up vilib terminal names for output field access
             if "SubVI" in labels:
-                subvi_name = op.get("name", "")
+                subvi_name = op.name or ""
                 vilib_vi = self.vilib_resolver.resolve_by_name(subvi_name)
                 result_var = self._to_var_name(subvi_name.replace(".vi", "")) + "_result"
 
                 for term in output_terms:
-                    term_id = term.get("id", "")
-                    term_index = term.get("index")
+                    term_id = term.id
+                    term_index = term.index
 
                     # Look up field name from vilib
                     field_name = None
@@ -266,19 +266,19 @@ class SkeletonGenerator:
                         self._terminal_to_var[term_id] = f"{result_var}.output_{term_index}"
 
             elif "Primitive" in labels:
-                # Get output terminal names from primitive resolver
+                # Get output terminal names from primitive resolver (PrimitiveTerminal objects)
                 prim_resolver = get_primitive_resolver()
                 resolved = prim_resolver.resolve(prim_id=prim_id)
                 terminal_names: dict[int, str] = {}
                 if resolved:
                     for t in resolved.terminals:
-                        if t.get("direction") == "out":
-                            terminal_names[t.get("index")] = self._to_var_name(t.get("name", ""))
+                        if t.direction == "out":
+                            terminal_names[t.index] = self._to_var_name(t.name or "")
 
                 for term in output_terms:
-                    term_id = term.get("id", "")
-                    term_index = term.get("index")
-                    graph_name = term.get("name")
+                    term_id = term.id
+                    term_index = term.index
+                    graph_name = term.name
                     if graph_name:
                         out_var = self._to_var_name(graph_name)
                     elif term_index in terminal_names:
@@ -290,8 +290,8 @@ class SkeletonGenerator:
             else:
                 # Generic operation
                 for i, term in enumerate(output_terms):
-                    term_id = term.get("id", "")
-                    graph_name = term.get("name")
+                    term_id = term.id
+                    graph_name = term.name
                     if graph_name:
                         out_var = self._to_var_name(graph_name)
                     else:
@@ -307,32 +307,32 @@ class SkeletonGenerator:
         sorted_ops = self._topological_sort_ops(vi_context.get("operations", []), vi_context)
 
         for op in sorted_ops:
-            labels = op.get("labels", [])
-            op_id = op.get("id", "")
+            labels = op.labels
+            op_id = op.id
 
             # Get input/output variable names from terminals
             op_inputs = []
             op_outputs = []
 
             # Sort terminals by index for consistent ordering
-            terminals = sorted(op.get("terminals", []), key=lambda t: t.get("index", 0))
+            terminals = sorted(op.terminals, key=lambda t: t.index)
 
             for term in terminals:
-                term_id = term.get("id", "")
+                term_id = term.id
                 # Only include wired terminals
                 if not self._is_terminal_wired(term_id):
                     continue
-                if term.get("direction") == "input":
+                if term.direction == "input":
                     # Find source variable from data flow
                     source_var = self._find_source_var(term_id, vi_context)
                     op_inputs.append(source_var or "???")
-                elif term.get("direction") == "output":
-                    out_var = self._terminal_to_var.get(term_id, f"v_{op_id}_{term.get('index', 0)}")
+                elif term.direction == "output":
+                    out_var = self._terminal_to_var.get(term_id, f"v_{op_id}_{term.index}")
                     op_outputs.append(out_var)
 
             if "SubVI" in labels:
                 # SubVI call returns a NamedTuple result
-                subvi_name = op.get("name", "")
+                subvi_name = op.name or ""
                 result_var = self._to_var_name(subvi_name.replace(".vi", "")) + "_result"
 
                 # Check if we have vilib implementation
@@ -342,7 +342,7 @@ class SkeletonGenerator:
                 if subvi_name in self.converted_deps:
                     sig = self.converted_deps[subvi_name]
                     python_expr = f"{sig.function_name}({', '.join(op_inputs)})"
-                elif vilib_vi and vilib_vi.python_impl:
+                elif vilib_vi and vilib_vi.python_code:
                     # vilib VI with implementation
                     python_expr = f"{func_name}({', '.join(op_inputs)})"
                 else:
@@ -360,21 +360,21 @@ class SkeletonGenerator:
                 ))
 
             elif "Primitive" in labels:
-                prim_id = op.get("primResID")
+                prim_id = op.primResID
                 prim_resolver = get_primitive_resolver()
                 resolved = prim_resolver.resolve(prim_id=prim_id)
 
-                if resolved and resolved.python_hint:
+                if resolved and resolved.python_code:
                     # Build input map: terminal name -> value from data flow
                     input_map = self._build_primitive_input_map(
                         op, op_inputs, resolved.terminals, vi_context
                     )
 
                     pre_statements: list[str] = []
-                    if isinstance(resolved.python_hint, dict):
+                    if isinstance(resolved.python_code, dict):
                         # Dict format: {output_name: expr, ...}
                         python_expr, generated_outputs, pre_statements = self._handle_dict_primitive_hint(
-                            resolved.python_hint, input_map, op, resolved.terminals
+                            resolved.python_code, input_map, op, resolved.terminals
                         )
                         # Override op_outputs with generated ones
                         if generated_outputs:
@@ -382,12 +382,12 @@ class SkeletonGenerator:
                     else:
                         # String format: single expression
                         python_expr = self._substitute_primitive_hint(
-                            resolved.python_hint, input_map
+                            resolved.python_code, input_map
                         )
 
                     if "???" in python_expr or (
-                        isinstance(resolved.python_hint, str) and
-                        python_expr == resolved.python_hint
+                        isinstance(resolved.python_code, str) and
+                        python_expr == resolved.python_code
                     ):
                         # Couldn't substitute - mark as unknown
                         if prim_id:
@@ -403,7 +403,7 @@ class SkeletonGenerator:
                     op_id=op_id,
                     op_type="primitive",
                     prim_id=prim_id,
-                    name=resolved.name if resolved else op.get("name"),
+                    name=resolved.name if resolved else op.name,
                     inputs=op_inputs,
                     outputs=op_outputs,
                     python_expr=python_expr,
@@ -411,7 +411,7 @@ class SkeletonGenerator:
                 ))
 
             elif "Loop" in labels:
-                loop_type = op.get("type", "for")
+                loop_type = op.loop_type or "for"
                 operations.append(SkeletonOp(
                     op_id=op_id,
                     op_type="loop",
@@ -423,7 +423,7 @@ class SkeletonGenerator:
                 ))
 
             elif "Conditional" in labels:
-                cond_type = op.get("type", "case")
+                cond_type = op.node_type or "case"
                 operations.append(SkeletonOp(
                     op_id=op_id,
                     op_type="conditional",
@@ -437,8 +437,8 @@ class SkeletonGenerator:
         # Trace which operation outputs connect to VI outputs
         output_sources: dict[str, str] = {}
         for out in vi_context.get("outputs", []):
-            out_name = self._to_var_name(out.get("name", "output"))
-            out_id = out.get("id")
+            out_name = self._to_var_name(out.name or "output")
+            out_id = out.id
 
             # First try: output ID itself is the terminal (FP terminal)
             if out_id in self._flow_map:
@@ -567,30 +567,30 @@ class SkeletonGenerator:
 
         return "\n".join(lines)
 
-    def _topological_sort_ops(self, operations: list[dict], vi_context: dict) -> list[dict]:
+    def _topological_sort_ops(self, operations: list, vi_context: dict) -> list:
         """Sort operations in execution order based on data dependencies.
 
         An operation can execute when all its input wires have data.
         This means: operation B depends on A if any of B's inputs come from A's outputs.
         """
         # Build dependency graph: op_id -> set of op_ids it depends on
-        op_by_id = {op.get("id"): op for op in operations}
-        dependencies: dict[str, set[str]] = {op.get("id"): set() for op in operations}
+        op_by_id = {op.id: op for op in operations}
+        dependencies: dict[str, set[str]] = {op.id: set() for op in operations}
 
         # Map output terminal IDs to their parent operation IDs
         output_to_op: dict[str, str] = {}
         for op in operations:
-            op_id = op.get("id")
-            for term in op.get("terminals", []):
-                if term.get("direction") == "output":
-                    output_to_op[term.get("id", "")] = op_id
+            op_id = op.id
+            for term in op.terminals:
+                if term.direction == "output":
+                    output_to_op[term.id] = op_id
 
         # For each operation, find which operations provide its inputs
         for op in operations:
-            op_id = op.get("id")
-            for term in op.get("terminals", []):
-                if term.get("direction") == "input":
-                    term_id = term.get("id", "")
+            op_id = op.id
+            for term in op.terminals:
+                if term.direction == "input":
+                    term_id = term.id
                     # Find source of this input from data flow
                     if term_id in self._flow_map:
                         src_term = self._flow_map[term_id]["src_terminal"]
@@ -614,7 +614,7 @@ class SkeletonGenerator:
             for other_id, deps in dependencies.items():
                 if op_id in deps:
                     in_degree[other_id] -= 1
-                    if in_degree[other_id] == 0 and other_id not in [r.get("id") for r in result]:
+                    if in_degree[other_id] == 0 and other_id not in [r.id for r in result]:
                         queue.append(other_id)
 
         # Add any remaining (might have cycles or disconnected)
@@ -626,9 +626,9 @@ class SkeletonGenerator:
 
     def _build_primitive_input_map(
         self,
-        op: dict,
+        op: Operation,
         op_inputs: list[str],
-        prim_terminals: list[dict],
+        prim_terminals: list[PrimitiveTerminal],
         vi_context: dict,
     ) -> dict[str, str]:
         """Build map from primitive terminal names to actual input values.
@@ -638,7 +638,7 @@ class SkeletonGenerator:
         since primitive terminal indices in graph may differ from definition.
 
         Args:
-            op: The operation dict from vi_context
+            op: The Operation dataclass from vi_context
             op_inputs: Input values in wired order
             prim_terminals: Terminal definitions from primitive resolver
             vi_context: Full VI context
@@ -649,13 +649,13 @@ class SkeletonGenerator:
         result: dict[str, str] = {}
 
         # Get input terminals from primitive definition, sorted by index
-        input_terminals = [t for t in prim_terminals if t.get("direction") == "in"]
-        input_terminals.sort(key=lambda t: t.get("index", 0))
+        input_terminals = [t for t in prim_terminals if t.direction == "in"]
+        input_terminals.sort(key=lambda t: t.index)
 
         # Match by position: 1st wired input -> 1st defined input terminal
         for i, value in enumerate(op_inputs):
             if i < len(input_terminals):
-                name = input_terminals[i].get("name", "")
+                name = input_terminals[i].name or ""
                 # Normalize name for substitution
                 key = self._to_var_name(name)
                 result[key] = value
@@ -706,8 +706,8 @@ class SkeletonGenerator:
         self,
         hint_dict: dict[str, str],
         input_map: dict[str, str],
-        op: dict,
-        prim_terminals: list[dict],
+        op: Operation,
+        prim_terminals: list[PrimitiveTerminal],
     ) -> tuple[str, list[str], list[str]]:
         """Handle dict-format primitive hints for multi-output primitives.
 
@@ -722,14 +722,14 @@ class SkeletonGenerator:
         """
         # Get wired output terminals from the operation
         wired_outputs = []
-        for term in op.get("terminals", []):
-            if term.get("direction") == "output" and self._is_terminal_wired(term.get("id", "")):
-                term_index = term.get("index")
-                # Find matching primitive terminal by index
+        for term in op.terminals:
+            if term.direction == "output" and self._is_terminal_wired(term.id):
+                term_index = term.index
+                # Find matching primitive terminal by index (PrimitiveTerminal objects)
                 for pt in prim_terminals:
-                    if pt.get("index") == term_index and pt.get("direction") == "out":
-                        output_name = self._to_var_name(pt.get("name", ""))
-                        wired_outputs.append((term_index, output_name, term.get("id")))
+                    if pt.index == term_index and pt.direction == "out":
+                        output_name = self._to_var_name(pt.name or "")
+                        wired_outputs.append((term_index, output_name, term.id))
                         break
 
         # Sort by index for consistent ordering
@@ -792,14 +792,14 @@ class SkeletonGenerator:
         self._flow_map = {}  # dest_terminal_id -> source info
         self._wired_terminals: set[str] = set()  # All terminals with wires
         for flow in vi_context.get("data_flow", []):
-            dest_id = flow.get("to_terminal_id")
-            src_id = flow.get("from_terminal_id")
+            dest_id = flow.to_terminal_id
+            src_id = flow.from_terminal_id
             if dest_id and src_id:
                 self._flow_map[dest_id] = {
                     "src_terminal": src_id,
-                    "src_parent_id": flow.get("from_parent_id"),
-                    "src_parent_name": flow.get("from_parent_name"),
-                    "src_parent_labels": flow.get("from_parent_labels", []),
+                    "src_parent_id": flow.from_parent_id,
+                    "src_parent_name": flow.from_parent_name,
+                    "src_parent_labels": flow.from_parent_labels or [],
                 }
                 # Track both ends as wired
                 self._wired_terminals.add(src_id)
@@ -857,8 +857,8 @@ class SkeletonGenerator:
         self,
         const_id: str,
         raw_value: str,
-        data_flow: list[dict],
-        ops_by_id: dict[str, dict],
+        data_flow: list[Wire],
+        ops_by_id: dict[str, Operation],
     ) -> str | None:
         """Resolve a constant to an enum member via data flow.
 
@@ -868,7 +868,7 @@ class SkeletonGenerator:
         Args:
             const_id: ID of the constant node
             raw_value: Raw value of the constant (e.g., "7")
-            data_flow: List of data flow connections
+            data_flow: List of Wire dataclass instances
             ops_by_id: Operations indexed by ID
 
         Returns:
@@ -876,30 +876,30 @@ class SkeletonGenerator:
         """
         # Find where this constant flows to
         for flow in data_flow:
-            if flow.get("from_parent_id") != const_id:
+            if flow.from_parent_id != const_id:
                 continue
 
-            dest_op_id = flow.get("to_parent_id")
-            dest_term_id = flow.get("to_terminal_id")
+            dest_op_id = flow.to_parent_id
+            dest_term_id = flow.to_terminal_id
             dest_op = ops_by_id.get(dest_op_id)
 
             if not dest_op:
                 continue
 
             # Only handle SubVI calls
-            if "SubVI" not in dest_op.get("labels", []):
+            if "SubVI" not in dest_op.labels:
                 continue
 
-            subvi_name = dest_op.get("name", "")
+            subvi_name = dest_op.name or ""
             vilib_vi = self.vilib_resolver.resolve_by_name(subvi_name)
             if not vilib_vi:
                 continue
 
             # Find the destination terminal index
             dest_term_index = None
-            for term in dest_op.get("terminals", []):
-                if term.get("id") == dest_term_id:
-                    dest_term_index = term.get("index")
+            for term in dest_op.terminals:
+                if term.id == dest_term_id:
+                    dest_term_index = term.index
                     break
 
             if dest_term_index is None:
@@ -910,8 +910,6 @@ class SkeletonGenerator:
                 if vilib_term.index == dest_term_index and vilib_term.enum:
                     # Found enum terminal - resolve value to member
                     enum_name = vilib_term.enum
-                    enums = self.vilib_resolver.get_enums()
-                    enum_def = enums.get(enum_name, {})
 
                     # Find member with matching value
                     try:
@@ -919,10 +917,12 @@ class SkeletonGenerator:
                     except (ValueError, TypeError):
                         continue
 
-                    for member_name, member_info in enum_def.get("values", {}).items():
-                        if member_info.get("value") == int_value:
-                            self._enum_imports.add(enum_name)
-                            return f"{enum_name}.{member_name}"
+                    # enum_values is list[tuple[int, str]] on VITerminal
+                    if vilib_term.enum_values:
+                        for val, member_name in vilib_term.enum_values:
+                            if val == int_value:
+                                self._enum_imports.add(enum_name)
+                                return f"{enum_name}.{member_name}"
 
         return None
 
@@ -932,7 +932,7 @@ class SkeletonGenerator:
         label: str | None,
         type_hint: str,
         vi_context: dict,
-        ops_by_id: dict[str, dict],
+        ops_by_id: dict[str, Operation],
     ) -> str:
         """Derive a meaningful name for a constant.
 
@@ -946,7 +946,7 @@ class SkeletonGenerator:
             label: Label from the constant (if any)
             type_hint: Python type hint
             vi_context: Full VI context
-            ops_by_id: Operations indexed by ID
+            ops_by_id: Operations indexed by ID (Operation dataclass instances)
 
         Returns:
             A meaningful variable name
@@ -957,11 +957,11 @@ class SkeletonGenerator:
 
         # 2. Find destination terminal name via data flow
         for flow in vi_context.get("data_flow", []):
-            if flow.get("from_parent_id") != const_id:
+            if flow.from_parent_id != const_id:
                 continue
 
-            dest_op_id = flow.get("to_parent_id")
-            dest_term_id = flow.get("to_terminal_id")
+            dest_op_id = flow.to_parent_id
+            dest_term_id = flow.to_terminal_id
             dest_op = ops_by_id.get(dest_op_id)
 
             if not dest_op:
@@ -969,19 +969,19 @@ class SkeletonGenerator:
 
             # Find destination terminal index
             dest_term_index = None
-            for term in dest_op.get("terminals", []):
-                if term.get("id") == dest_term_id:
-                    dest_term_index = term.get("index")
+            for term in dest_op.terminals:
+                if term.id == dest_term_id:
+                    dest_term_index = term.index
                     break
 
             if dest_term_index is None:
                 continue
 
-            labels = dest_op.get("labels", [])
+            labels = dest_op.labels
 
             # Try vilib for SubVI terminal names
             if "SubVI" in labels:
-                subvi_name = dest_op.get("name", "")
+                subvi_name = dest_op.name or ""
                 vilib_vi = self.vilib_resolver.resolve_by_name(subvi_name)
                 if vilib_vi:
                     for vt in vilib_vi.terminals:
@@ -990,14 +990,14 @@ class SkeletonGenerator:
 
             # Try primitive resolver for primitive terminal names
             if "Primitive" in labels:
-                prim_id = dest_op.get("primResID")
+                prim_id = dest_op.primResID
                 if prim_id:
                     prim_resolver = get_primitive_resolver()
                     resolved = prim_resolver.resolve(prim_id=prim_id)
                     if resolved:
                         for t in resolved.terminals:
-                            if t.get("index") == dest_term_index and t.get("direction") == "in":
-                                term_name = t.get("name")
+                            if t.index == dest_term_index and t.direction == "in":
+                                term_name = t.name
                                 if term_name:
                                     return self._to_var_name(term_name)
 

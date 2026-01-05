@@ -8,6 +8,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from ..enum_resolver import EnumResolver
 from ..llm import LLMConfig, generate_code
 from ..vilib_resolver import get_resolver as get_vilib_resolver
 from .context import ContextBuilder, VISignature
@@ -186,8 +187,8 @@ class ConversionAgent:
         # Use strategy for conversion
         strategy_cls = get_strategy(self.config.strategy)
         if strategy_cls is None:
-            # Fallback to baseline if strategy not found
-            from .strategies import BaselineStrategy
+            # Fallback to baseline (AST-based) if strategy not found
+            from .strategies.ast_based import BaselineStrategy
             strategy_cls = BaselineStrategy
 
         strategy = strategy_cls(
@@ -558,8 +559,9 @@ def {func_name}({params_str}) -> {return_type}:
         outputs = vi_context.get("outputs", [])
         result = []
         for out in outputs:
-            name = out.get("name", "result")
-            typ = out.get("type", "Any")
+            # FPTerminalNode dataclass has name and type attributes
+            name = out.name or "result"
+            typ = out.type or "Any"
             result.append((name, self._map_type(typ)))
         return result
 
@@ -596,8 +598,9 @@ def {func_name}({params_str}) -> {return_type}:
 
         # Also check operations for SubVIs (handles stub/vilib VIs without CALLS relationships)
         for op in vi_context.get("operations", []):
-            if "SubVI" in op.get("labels", []):
-                subvi_name = op.get("name", "")
+            # Operation dataclass has labels and name attributes
+            if "SubVI" in op.labels:
+                subvi_name = op.name or ""
                 # Skip if already found via subvi_calls or not converted
                 if subvi_name and subvi_name not in signatures and self.state.is_converted(subvi_name):
                     module = self.state.get_module(subvi_name)
@@ -686,22 +689,19 @@ def {func_name}({params_str}) -> {return_type}:
         """
         result: dict[str, list[tuple[int, str]]] = {}
 
-        # Get enums from vilib data
-        vilib_enums = self.vilib_resolver.get_enums()
-        if not vilib_enums:
-            return result
+        # Use enum resolver to look up enums by type annotation name
+        enum_resolver = EnumResolver()
 
         # Match parameter type annotations to enum names
         for param_name, type_ann in func_inputs:
-            # Check if type annotation matches an enum name
-            if type_ann in vilib_enums:
-                enum_data = vilib_enums[type_ann]
+            # Try to resolve enum by name
+            resolved = enum_resolver.resolve(name=type_ann)
+            if resolved:
                 values: list[tuple[int, str]] = []
-                for name, val_info in enum_data.get("values", {}).items():
-                    value = val_info.get("value", 0)
+                for idx, enum_val in resolved.values.items():
                     # Use description as display name, fallback to enum member name
-                    display = val_info.get("description", name.replace("_", " ").title())
-                    values.append((value, display))
+                    display = enum_val.description or enum_val.name.replace("_", " ").title()
+                    values.append((idx, display))
 
                 # Sort by value
                 values.sort(key=lambda x: x[0])

@@ -9,18 +9,25 @@ from __future__ import annotations
 import json
 import os
 import time
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass, is_dataclass
 from typing import Any
 
 from ..types import TypeInfo
 
 
 class TypeInfoEncoder(json.JSONEncoder):
-    """JSON encoder that handles TypeInfo objects."""
+    """JSON encoder that handles TypeInfo objects and dataclasses.
+
+    This is the JSON serialization boundary - dataclasses are converted
+    to dicts only here, at the actual json.dumps call.
+    """
 
     def default(self, obj):
         if isinstance(obj, TypeInfo):
             return obj.to_dict()
+        # Handle dataclasses at JSON boundary
+        if is_dataclass(obj) and not isinstance(obj, type):
+            return asdict(obj)
         return super().default(obj)
 
 try:

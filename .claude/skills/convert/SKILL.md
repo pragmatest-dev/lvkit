@@ -90,6 +90,32 @@ Generated Python is a **functional transliteration**, not idiomatic code. It pre
 
 Workflow: VI → stilted Python → agent/human refactors → idiomatic code
 
+## Stubs and Agent Opportunities
+
+The AST generator creates **unimplemented stubs** when it encounters:
+- Unknown primitives (missing from `data/primitives/`)
+- Unrecognized vilib VIs (missing from `data/vilib/`)
+- Complex structures it doesn't fully understand
+
+These stubs look like:
+```python
+def PRIMITIVE_1234():
+    """Unknown primitive - needs implementation"""
+    raise NotImplementedError("Primitive 1234 not implemented")
+```
+
+**Stubs are opportunities for agent improvement.** When reviewing generated code:
+1. Look for `PRIMITIVE_*` functions or `NotImplementedError` stubs
+2. Search for `???` placeholders in variable assignments
+3. Check for type annotation gaps
+
+The agent can fill these in by:
+- Looking up the primitive in LabVIEW documentation
+- Inferring behavior from context and connected wires
+- Using LLM refinement to complete the logic
+
+This is the intended workflow: AST generates valid-but-incomplete code, agent completes the gaps.
+
 ## Troubleshooting
 
 - **Missing SubVI**: Add `--search-path` to VI library directory
