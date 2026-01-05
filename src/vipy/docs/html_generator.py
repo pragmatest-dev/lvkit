@@ -198,6 +198,7 @@ class HTMLDocGenerator:
         self.doc_title = doc_title
         self.doc_type = doc_type
         self.all_vis: set[str] = set()  # Track which VIs have pages
+        self.icon_map: dict[str, str] = {}  # VI name -> relative icon path
         self._mermaid = MermaidRenderer()
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -246,6 +247,7 @@ class HTMLDocGenerator:
         is_poly = vi_data.get("is_polymorphic", False)
         poly_variants = vi_data.get("poly_variants", [])
         variant_params = vi_data.get("variant_params", [])
+        icon_path = vi_data.get("icon_path")
 
         # Create a relative link function for this VI's directory
         current_lib = self._extract_library_group(vi_name)
@@ -295,8 +297,13 @@ class HTMLDocGenerator:
     </nav>
 
     <header>
-        <h1>{vi_name}</h1>
-        <p class="vi-type">{"Polymorphic " if is_poly else ""}{self.doc_type.capitalize()}</p>
+        <div class="vi-header">
+            {f'<img src="{icon_path}" alt="VI Icon" class="vi-icon">' if icon_path else ''}
+            <div class="vi-header-text">
+                <h1>{vi_name}</h1>
+                <p class="vi-type">{"Polymorphic " if is_poly else ""}{self.doc_type.capitalize()}</p>
+            </div>
+        </div>
     </header>
 
     <main>
@@ -629,7 +636,13 @@ class HTMLDocGenerator:
             for vi_name in vis_in_library:
                 link = self._vi_name_to_filename(vi_name)
                 display_name = self._extract_display_name(vi_name)
-                vi_links.append(f'<li><a href="{link}">{display_name}</a></li>')
+                # Get icon path (adjust from VI page relative to index relative)
+                icon_html = ""
+                if vi_name in self.icon_map:
+                    # icon_map paths are "../icons/..." for VI pages, need "icons/..." for index
+                    icon_path = self.icon_map[vi_name].replace("../", "")
+                    icon_html = f'<img src="{icon_path}" alt="" class="vi-icon-small">'
+                vi_links.append(f'<li>{icon_html}<a href="{link}">{display_name}</a></li>')
 
             library_sections.append(f"""
             <details class="library-accordion" open>
