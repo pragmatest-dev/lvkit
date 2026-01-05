@@ -61,6 +61,52 @@ def collect_directory_vis(dir_path: Path) -> list[Path]:
     return vi_paths
 
 
+def collect_icons(graph: InMemoryVIGraph, output_dir: Path) -> dict[str, str]:
+    """Collect and copy VI icons to the output directory.
+
+    Args:
+        graph: InMemoryVIGraph with loaded VIs
+        output_dir: Documentation output directory
+
+    Returns:
+        Dict mapping VI qualified name to relative icon path (for HTML)
+    """
+    import shutil
+
+    icons_dir = output_dir / "icons"
+    icons_dir.mkdir(parents=True, exist_ok=True)
+
+    icon_map: dict[str, str] = {}
+
+    for vi_name in graph.list_vis():
+        # Get the source file path for this VI
+        vi_path = graph.get_vi_source_path(vi_name)
+        if not vi_path:
+            continue
+
+        vi_path = Path(vi_path)
+
+        # Look for icon file (pylabview generates _ICON.png)
+        icon_source = vi_path.parent / f"{vi_path.stem}_ICON.png"
+        if not icon_source.exists():
+            # Try icl8 as fallback
+            icon_source = vi_path.parent / f"{vi_path.stem}_icl8.png"
+
+        if icon_source.exists():
+            # Create a safe filename for the icon
+            safe_name = vi_name.replace(":", "_").replace("/", "_").replace("\\", "_")
+            safe_name = safe_name.replace(" ", "_").replace(".", "_")
+            icon_dest = icons_dir / f"{safe_name}.png"
+
+            # Copy the icon
+            shutil.copy2(icon_source, icon_dest)
+
+            # Store relative path for HTML (from VI page subdirectory)
+            icon_map[vi_name] = f"../icons/{safe_name}.png"
+
+    return icon_map
+
+
 def collect_subvi_names(operations: list) -> list[str]:
     """Recursively collect SubVI names from operations including inner nodes.
 
@@ -105,7 +151,7 @@ def build_cross_references(graph: InMemoryVIGraph) -> dict:
 
 
 def prepare_vi_documentation_data(
-    vi_name: str, graph: InMemoryVIGraph, poly_groups: dict
+    vi_name: str, graph: InMemoryVIGraph, poly_groups: dict, icon_map: dict[str, str] | None = None
 ) -> dict:
     """Prepare all data needed for one VI documentation page.
 
@@ -192,6 +238,11 @@ def prepare_vi_documentation_data(
             except Exception:
                 pass  # Skip variants that can't be loaded
 
+    # Get icon path if available
+    icon_path = None
+    if icon_map and vi_name in icon_map:
+        icon_path = str(icon_map[vi_name])
+
     return {
         "vi_name": vi_name,
         "controls": controls,
@@ -202,6 +253,7 @@ def prepare_vi_documentation_data(
         "is_polymorphic": is_poly,
         "poly_variants": poly_variants,
         "variant_params": variant_params,
+        "icon_path": icon_path,
     }
 
 
@@ -289,8 +341,15 @@ def generate_documents(
     poly_groups = graph.get_polymorphic_groups()
     poly_variant_to_wrapper = graph.get_poly_variant_wrappers()
 
+    # Collect and copy icons
+    print(f"[TIMING] Collecting VI icons...")
+    t0 = time.time()
+    icon_map = collect_icons(graph, output_dir_obj)
+    print(f"[TIMING] Icon collection: {time.time() - t0:.2f}s - Found {len(icon_map)} icons")
+
     # Create HTML generator
     generator = HTMLDocGenerator(output_dir_obj, doc_title, doc_type)
+    generator.icon_map = icon_map  # Pass icon map to generator
 
     # Generate documentation for each VI
     print(f"[TIMING] Generating HTML pages for {total_loaded} VIs...")
@@ -304,7 +363,7 @@ def generate_documents(
 
     for i, vi_name in enumerate(all_vis, 1):
         try:
-            vi_data = prepare_vi_documentation_data(vi_name, graph, poly_groups)
+            vi_data = prepare_vi_documentation_data(vi_name, graph, poly_groups, icon_map)
             generator.generate_vi_page(vi_data)
             generated_count += 1
             if i % 50 == 0:

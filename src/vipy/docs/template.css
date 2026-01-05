@@ -359,3 +359,40 @@ footer {
 .library-header::-webkit-details-marker {
     display: none;
 }
+
+/* VI Icon styles */
+.vi-header {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+}
+
+.vi-header-text {
+    flex: 1;
+}
+
+.vi-icon {
+    width: 64px;
+    height: 64px;
+    image-rendering: pixelated;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    background: white;
+    padding: 4px;
+}
+
+.vi-icon-small {
+    width: 24px;
+    height: 24px;
+    image-rendering: pixelated;
+    vertical-align: middle;
+    margin-right: 8px;
+    border: 1px solid var(--border-color);
+    border-radius: 2px;
+    background: white;
+}
+
+.vi-list li {
+    display: flex;
+    align-items: center;
+}

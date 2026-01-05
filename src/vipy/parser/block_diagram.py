@@ -44,8 +44,13 @@ def parse_block_diagram(
     Returns:
         BlockDiagram with extracted nodes, constants, and wires (types as ParsedType)
     """
+    xml_path = Path(xml_path)
     tree = ET.parse(xml_path)
     root = tree.getroot()
+
+    # Derive source .vi path from BD XML path
+    source_path = xml_path.with_name(xml_path.name.replace("_BDHb.xml", ".vi"))
+    source_path_str = str(source_path) if source_path.exists() else None
 
     # Load type map and qualified name from main XML (single parse)
     type_map: dict[int, LVType] | None = None
@@ -97,6 +102,7 @@ def parse_block_diagram(
         iuse_to_qualified_name=iuse_to_qualified_name,
         type_map=type_map or {},
         subvi_path_refs=subvi_path_refs,
+        source_path=source_path_str,
     )
 
 

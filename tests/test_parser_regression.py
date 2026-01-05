@@ -52,6 +52,10 @@ class TestBlockDiagram:
     def test_terminal_info_not_empty(self, parsed_bd):
         assert len(parsed_bd.terminal_info) > 0
 
+    def test_source_path_exists(self, parsed_bd):
+        assert parsed_bd.source_path is not None
+        assert parsed_bd.source_path.endswith(".vi")
+
 
 class TestTypeMap:
     def test_type_map_not_empty(self, extracted_xml):

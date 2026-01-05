@@ -76,6 +76,8 @@ class InMemoryVIGraph:
         self._qualified_aliases: dict[str, str] = {}
         # Track loaded VIs across multiple load_vi() calls to prevent re-parsing
         self._loaded_vis: set[str] = set()
+        # Source file paths: vi_name -> Path to original .vi file
+        self._source_paths: dict[str, Path] = {}
 
     def clear(self) -> None:
         """Clear all loaded data."""
@@ -87,6 +89,7 @@ class InMemoryVIGraph:
         self._qualified_aliases.clear()
         self._poly_info.clear()
         self._loaded_vis.clear()
+        self._source_paths.clear()
 
     def _enrich_type(self, parsed_type: ParsedType | None) -> LVType | None:
         """Enrich ParsedType from parser to LVType with vilib data.
@@ -303,6 +306,11 @@ class InMemoryVIGraph:
             self._qualified_aliases[unqualified_name] = bd.qualified_name
 
         visited.add(vi_name)
+
+        # Store source file path from parser
+        if bd.source_path:
+            self._source_paths[vi_name] = Path(bd.source_path)
+
         fp: FrontPanel | None = None
         conpane: ConnectorPane | None = None
         wiring_rules: dict[int, int] = {}
@@ -820,6 +828,17 @@ class InMemoryVIGraph:
     def list_vis(self) -> list[str]:
         """List all VIs in the graph (excluding stubs)."""
         return list(self._dataflow.keys())
+
+    def get_vi_source_path(self, vi_name: str) -> Path | None:
+        """Get the source file path for a VI.
+
+        Args:
+            vi_name: Qualified VI name (e.g., "Library.lvlib:VI.vi")
+
+        Returns:
+            Path to the original .vi file, or None if not available
+        """
+        return self._source_paths.get(vi_name)
 
     def is_stub_vi(self, vi_name: str) -> bool:
         """Check if a VI is a stub (missing dependency)."""
