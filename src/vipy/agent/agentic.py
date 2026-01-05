@@ -17,8 +17,8 @@ from .tools import AgentTools, format_tools_for_prompt, parse_tool_call
 from .validator import CodeValidator, ValidatorConfig
 
 if TYPE_CHECKING:
-    from .state import ConversionState
     from ..graph import VIGraph
+    from .state import ConversionState
 
 
 @dataclass

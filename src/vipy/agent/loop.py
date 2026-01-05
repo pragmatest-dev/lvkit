@@ -86,7 +86,7 @@ class ConversionAgent:
 
     def __init__(
         self,
-        graph: "VIGraph | InMemoryVIGraph",
+        graph: VIGraph | InMemoryVIGraph,
         config: ConversionConfig,
     ) -> None:
         self.graph = graph

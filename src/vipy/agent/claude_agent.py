@@ -16,6 +16,7 @@ import time
 from dataclasses import asdict, dataclass, is_dataclass
 from typing import Any
 
+from ..mcp.schemas import get_all_tool_schemas
 from ..types import TypeInfo
 
 
@@ -34,15 +35,14 @@ class TypeInfoEncoder(json.JSONEncoder):
             return asdict(obj)
         return super().default(obj)
 
+
 try:
     import anthropic
 except ImportError:
     anthropic = None
 
 
-# Tool definitions - import from shared schemas
-from ..mcp.schemas import get_all_tool_schemas
-
+# Tool definitions from shared schemas
 VIPY_TOOLS = get_all_tool_schemas()
 
 
@@ -61,21 +61,30 @@ class GraphToolExecutor:
             # Stateless MCP tools
             if name == "analyze_vi":
                 from ..mcp.tools import analyze_vi
+
                 result = analyze_vi(
                     vi_path=args["vi_path"],
                     search_paths=args.get("search_paths"),
                     expand_subvis=args.get("expand_subvis", True),
                 )
-                return json.dumps({
-                    "vi_name": result.vi_name,
-                    "summary": result.summary,
-                    "controls": [{"name": c.name, "type": c.type} for c in result.controls],
-                    "indicators": [{"name": i.name, "type": i.type} for i in result.indicators],
-                    "dependencies": result.dependencies,
-                }, indent=2)
+                return json.dumps(
+                    {
+                        "vi_name": result.vi_name,
+                        "summary": result.summary,
+                        "controls": [
+                            {"name": c.name, "type": c.type} for c in result.controls
+                        ],
+                        "indicators": [
+                            {"name": i.name, "type": i.type} for i in result.indicators
+                        ],
+                        "dependencies": result.dependencies,
+                    },
+                    indent=2,
+                )
 
             elif name == "generate_documents":
                 from ..mcp.tools import generate_documents
+
                 result = generate_documents(
                     library_path=args["library_path"],
                     output_dir=args["output_dir"],
@@ -85,29 +94,40 @@ class GraphToolExecutor:
 
             elif name == "generate_python":
                 from ..mcp.tools import generate_python
+
                 result = generate_python(
                     vi_path=args["vi_path"],
                     output_dir=args["output_dir"],
                     search_paths=args.get("search_paths"),
                 )
-                return json.dumps({
-                    "success": result.success,
-                    "files": result.files,
-                    "errors": result.errors,
-                    "needs_review": result.needs_review,
-                }, indent=2)
+                return json.dumps(
+                    {
+                        "success": result.success,
+                        "files": result.files,
+                        "errors": result.errors,
+                        "needs_review": result.needs_review,
+                    },
+                    indent=2,
+                )
 
             # Graph-based tools
             elif name == "load_vi":
                 # Graph is typically pre-loaded, but support loading more VIs
                 from pathlib import Path as P
+
                 vi_path = P(args["vi_path"])
                 search_paths = [P(p) for p in args.get("search_paths", [])] or None
-                self.graph.load_vi(vi_path, expand_subvis=args.get("expand_subvis", True), search_paths=search_paths)
-                return json.dumps({"loaded_vis": list(self.graph.get_all_vi_names())}, indent=2)
+                self.graph.load_vi(
+                    vi_path,
+                    expand_subvis=args.get("expand_subvis", True),
+                    search_paths=search_paths,
+                )
+                vis = list(self.graph.get_all_vi_names())
+                return json.dumps({"loaded_vis": vis}, indent=2)
 
             elif name == "list_loaded_vis":
-                return json.dumps({"loaded_vis": list(self.graph.get_all_vi_names())}, indent=2)
+                vis = list(self.graph.get_all_vi_names())
+                return json.dumps({"loaded_vis": vis}, indent=2)
 
             elif name == "generate_ast_code":
                 vi_name = args["vi_name"]
@@ -116,6 +136,7 @@ class GraphToolExecutor:
                     return f"VI not found: {vi_name}"
                 # Use AST code generator
                 from .codegen import build_module
+
                 try:
                     code = build_module(context, vi_name)
                     return code
@@ -205,7 +226,9 @@ def build_prompt(
     if primitive_imports:
         imports.extend(primitive_imports)
 
-    imports_text = "\n".join(imports) if imports else "# No SubVI or primitive imports needed"
+    imports_text = (
+        "\n".join(imports) if imports else "# No SubVI or primitive imports needed"
+    )
 
     prompt = f"""Convert this LabVIEW VI to a Python function.
 
@@ -521,6 +544,7 @@ Start by using get_vi_context to understand the VI, then write the Python code.
 
                 # Read the generated code if it was written
                 from pathlib import Path
+
                 code = ""
                 if Path(output_path).exists():
                     code = Path(output_path).read_text()
@@ -542,11 +566,13 @@ Start by using get_vi_context to understand the VI, then write the Python code.
                 if block.type == "tool_use":
                     # Execute the tool using graph executor
                     result = executor.execute(block.name, block.input)
-                    tool_results.append({
-                        "type": "tool_result",
-                        "tool_use_id": block.id,
-                        "content": result,
-                    })
+                    tool_results.append(
+                        {
+                            "type": "tool_result",
+                            "tool_use_id": block.id,
+                            "content": result,
+                        }
+                    )
                     assistant_content.append(block)
                 elif hasattr(block, "text"):
                     assistant_content.append(block)

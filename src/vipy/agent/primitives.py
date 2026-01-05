@@ -186,8 +186,8 @@ class PrimitiveRegistry:
     def generate_primitives_package(
         self,
         output_dir: Path,
-        llm_config: "LLMConfig | None" = None,
-        strategy: "ConversionStrategy | None" = None,
+        llm_config: LLMConfig | None = None,
+        strategy: ConversionStrategy | None = None,
     ) -> Path:
         """Generate the primitives/ package with implementations.
 
@@ -284,8 +284,8 @@ from typing import Any
     def _generate_primitive_with_strategy(
         self,
         usage: PrimitiveUsage,
-        llm_config: "LLMConfig",
-        strategy: "ConversionStrategy | None" = None,
+        llm_config: LLMConfig,
+        strategy: ConversionStrategy | None = None,
     ) -> tuple[str | None, str | None]:
         """Generate a primitive using the same validation/retry loop as VI conversion.
 

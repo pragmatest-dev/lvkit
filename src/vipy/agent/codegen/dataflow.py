@@ -6,9 +6,6 @@ Builds mappings from terminals to source variables by tracing wires.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
-
-from vipy.graph_types import Terminal, Wire
 
 
 @dataclass

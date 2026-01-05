@@ -13,8 +13,8 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from .state import ConversionState
     from ..graph import VIGraph
+    from .state import ConversionState
 
 
 @dataclass

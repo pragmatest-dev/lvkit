@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import ast
 from typing import TYPE_CHECKING
 
 from vipy.graph_types import Operation

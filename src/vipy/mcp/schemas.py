@@ -6,7 +6,6 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-
 # ===== Tool Definitions (shared by MCP server and Claude agent) =====
 
 TOOL_DEFINITIONS = {
@@ -15,9 +14,20 @@ TOOL_DEFINITIONS = {
         "input_schema": {
             "type": "object",
             "properties": {
-                "vi_path": {"type": "string", "description": "Path to VI file (.vi) or block diagram XML"},
-                "search_paths": {"type": "array", "items": {"type": "string"}, "description": "Directories to search for SubVI dependencies"},
-                "expand_subvis": {"type": "boolean", "description": "Load all SubVI dependencies recursively", "default": True},
+                "vi_path": {
+                    "type": "string",
+                    "description": "Path to VI file (.vi) or block diagram XML",
+                },
+                "search_paths": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Directories to search for SubVI dependencies",
+                },
+                "expand_subvis": {
+                    "type": "boolean",
+                    "description": "Load all SubVI dependencies recursively",
+                    "default": True,
+                },
             },
             "required": ["vi_path"],
         },
@@ -27,10 +37,24 @@ TOOL_DEFINITIONS = {
         "input_schema": {
             "type": "object",
             "properties": {
-                "library_path": {"type": "string", "description": "Path to .lvlib, .lvclass, .vi, or directory"},
-                "output_dir": {"type": "string", "description": "Output directory for HTML files"},
-                "search_paths": {"type": "array", "items": {"type": "string"}, "description": "Directories to search for dependencies"},
-                "expand_subvis": {"type": "boolean", "description": "Load SubVI dependencies", "default": True},
+                "library_path": {
+                    "type": "string",
+                    "description": "Path to .lvlib, .lvclass, .vi, or directory",
+                },
+                "output_dir": {
+                    "type": "string",
+                    "description": "Output directory for HTML files",
+                },
+                "search_paths": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Directories to search for dependencies",
+                },
+                "expand_subvis": {
+                    "type": "boolean",
+                    "description": "Load SubVI dependencies",
+                    "default": True,
+                },
             },
             "required": ["library_path", "output_dir"],
         },
@@ -41,8 +65,15 @@ TOOL_DEFINITIONS = {
             "type": "object",
             "properties": {
                 "vi_path": {"type": "string", "description": "Path to VI file (.vi)"},
-                "output_dir": {"type": "string", "description": "Output directory for generated Python"},
-                "search_paths": {"type": "array", "items": {"type": "string"}, "description": "Directories to search for dependencies"},
+                "output_dir": {
+                    "type": "string",
+                    "description": "Output directory for generated Python",
+                },
+                "search_paths": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Directories to search for dependencies",
+                },
             },
             "required": ["vi_path", "output_dir"],
         },
@@ -53,8 +84,16 @@ TOOL_DEFINITIONS = {
             "type": "object",
             "properties": {
                 "vi_path": {"type": "string", "description": "Path to VI file (.vi)"},
-                "search_paths": {"type": "array", "items": {"type": "string"}, "description": "Directories to search for SubVI dependencies"},
-                "expand_subvis": {"type": "boolean", "description": "Load all SubVI dependencies recursively", "default": True},
+                "search_paths": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Directories to search for SubVI dependencies",
+                },
+                "expand_subvis": {
+                    "type": "boolean",
+                    "description": "Load all SubVI dependencies recursively",
+                    "default": True,
+                },
             },
             "required": ["vi_path"],
         },
@@ -68,7 +107,10 @@ TOOL_DEFINITIONS = {
         "input_schema": {
             "type": "object",
             "properties": {
-                "vi_name": {"type": "string", "description": "Name of the VI (e.g., 'Strip Path.vi')"},
+                "vi_name": {
+                    "type": "string",
+                    "description": "Name of the VI (e.g., 'Strip Path.vi')",
+                },
             },
             "required": ["vi_name"],
         },
@@ -78,7 +120,10 @@ TOOL_DEFINITIONS = {
         "input_schema": {
             "type": "object",
             "properties": {
-                "vi_name": {"type": "string", "description": "Name of the VI to generate code for"},
+                "vi_name": {
+                    "type": "string",
+                    "description": "Name of the VI to generate code for",
+                },
             },
             "required": ["vi_name"],
         },
@@ -88,7 +133,10 @@ TOOL_DEFINITIONS = {
         "input_schema": {
             "type": "object",
             "properties": {
-                "file_path": {"type": "string", "description": "Path to the file to read"},
+                "file_path": {
+                    "type": "string",
+                    "description": "Path to the file to read",
+                },
             },
             "required": ["file_path"],
         },
@@ -98,7 +146,10 @@ TOOL_DEFINITIONS = {
         "input_schema": {
             "type": "object",
             "properties": {
-                "file_path": {"type": "string", "description": "Path to the file to write"},
+                "file_path": {
+                    "type": "string",
+                    "description": "Path to the file to write",
+                },
                 "content": {"type": "string", "description": "Content to write"},
             },
             "required": ["file_path", "content"],
@@ -177,4 +228,6 @@ class CodeGenResult(BaseModel):
     total_vis: int = 0
     successful: int = 0
     failed: int = 0
-    needs_review: list[str] = Field(default_factory=list)  # Files that need human review
+    needs_review: list[str] = Field(
+        default_factory=list
+    )  # Files that need human review
