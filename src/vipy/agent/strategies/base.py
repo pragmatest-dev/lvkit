@@ -13,8 +13,8 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from ..validator import CodeValidator
     from ...llm import LLMConfig
+    from ..validator import CodeValidator
 
 
 @dataclass

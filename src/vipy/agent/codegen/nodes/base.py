@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import ast
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from vipy.graph_types import Operation
 

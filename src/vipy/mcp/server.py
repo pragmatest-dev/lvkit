@@ -18,7 +18,6 @@ from mcp.types import TextContent, Tool
 
 from .tools import analyze_vi, generate_documents, generate_python
 
-
 # Create MCP server instance
 app = Server("vipy-mcp")
 
@@ -31,10 +30,9 @@ def _get_graph():
     global _graph
     if _graph is None:
         from ..memory_graph import InMemoryVIGraph
+
         _graph = InMemoryVIGraph()
     return _graph
-
-
 
 
 @app.list_tools()
@@ -261,7 +259,9 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
             raise ValueError("vi_path is required")
 
         # Run analysis (synchronous function in async context)
-        result = await asyncio.to_thread(analyze_vi, vi_path, search_paths, expand_subvis)
+        result = await asyncio.to_thread(
+            analyze_vi, vi_path, search_paths, expand_subvis
+        )
 
         # Convert to JSON
         result_json = result.model_dump_json(indent=2)
@@ -318,16 +318,24 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
         def _load():
             graph = _get_graph()
             search_path_objs = [Path(p) for p in search_paths] if search_paths else None
-            graph.load_vi(Path(vi_path), expand_subvis=expand_subvis, search_paths=search_path_objs)
+            graph.load_vi(
+                Path(vi_path),
+                expand_subvis=expand_subvis,
+                search_paths=search_path_objs,
+            )
             return list(graph.get_all_vi_names())
 
         loaded = await asyncio.to_thread(_load)
-        return [TextContent(type="text", text=json.dumps({"loaded_vis": loaded}, indent=2))]
+        return [
+            TextContent(type="text", text=json.dumps({"loaded_vis": loaded}, indent=2))
+        ]
 
     elif name == "list_loaded_vis":
         graph = _get_graph()
         vis = list(graph.get_all_vi_names())
-        return [TextContent(type="text", text=json.dumps({"loaded_vis": vis}, indent=2))]
+        return [
+            TextContent(type="text", text=json.dumps({"loaded_vis": vis}, indent=2))
+        ]
 
     elif name == "get_vi_context":
         vi_name = arguments.get("vi_name")
@@ -352,7 +360,9 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
             return obj
 
         serialized = _serialize(context)
-        return [TextContent(type="text", text=json.dumps(serialized, indent=2, default=str))]
+        return [
+            TextContent(type="text", text=json.dumps(serialized, indent=2, default=str))
+        ]
 
     elif name == "generate_ast_code":
         vi_name = arguments.get("vi_name")
@@ -366,6 +376,7 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
 
         def _generate():
             from ..agent.codegen import build_module
+
             return build_module(context, vi_name)
 
         try:

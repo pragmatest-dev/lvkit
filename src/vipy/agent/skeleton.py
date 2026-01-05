@@ -14,7 +14,8 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 from ..graph_types import Operation, Wire
-from ..primitive_resolver import PrimitiveTerminal, get_resolver as get_primitive_resolver
+from ..primitive_resolver import PrimitiveTerminal
+from ..primitive_resolver import get_resolver as get_primitive_resolver
 from ..vilib_resolver import VILibResolver
 
 if TYPE_CHECKING:

@@ -39,7 +39,7 @@ class EnumRegistry:
         self._enums: dict[str, EnumUsage] = {}  # control_file -> usage
         self._vi_enums: dict[str, set[str]] = {}  # vi_name -> set of control_files
 
-    def discover_from_graph(self, graph: "VIGraph") -> None:
+    def discover_from_graph(self, graph: VIGraph) -> None:
         """Discover enums used in the graph from constants.
 
         Queries the graph for constants that might be enum values,
