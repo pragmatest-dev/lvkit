@@ -136,6 +136,10 @@ class ConversionAgent:
         if self.graph.is_stub_vi(vi_name):
             return self._generate_stub_vi(vi_name)
 
+        # Check if this is a polymorphic wrapper VI
+        if self.graph.is_polymorphic(vi_name):
+            return self._generate_polymorphic_vi(vi_name)
+
         # Get VI context from graph - structured data for LLM
         vi_context = self.graph.get_vi_context(vi_name)
 
@@ -325,6 +329,204 @@ def {func_name}({params_str}) -> {return_type}:
             is_stub=True,
             ui_path=ui_path,
         )
+
+    def _generate_polymorphic_vi(self, vi_name: str) -> ConversionResult:
+        """Generate a dispatch function for a polymorphic VI.
+
+        Polymorphic VIs are wrappers that dispatch to type-specific variants.
+        We generate a Python function that checks input types at runtime
+        and calls the appropriate variant.
+        """
+        variants = self.graph.get_poly_variants(vi_name)
+        if not variants:
+            # No variants found - treat as regular VI
+            return self._convert_regular_vi(vi_name)
+
+        func_name = self._to_function_name(vi_name)
+
+        # Get signature from the first variant (all variants should have same structure)
+        first_variant = variants[0]
+        variant_ctx = self.graph.get_vi_context(first_variant)
+
+        # Extract inputs and outputs from variant
+        inputs = variant_ctx.get("inputs", [])
+        outputs = variant_ctx.get("outputs", [])
+
+        # Build parameter list from first variant
+        params = []
+        for inp in inputs:
+            param_name = self._to_param_name(inp.name)
+            params.append(f"{param_name}: Any")
+
+        params_str = ", ".join(params) if params else ""
+
+        # Build return type
+        if not outputs:
+            return_type = "None"
+        elif len(outputs) == 1:
+            return_type = "Any"
+        else:
+            return_type = f"tuple[{', '.join(['Any'] * len(outputs))}]"
+
+        # Build dispatch logic based on variant names
+        # Common patterns: "Arrays" variants handle lists, "Traditional" handle scalars
+        dispatch_cases = []
+        variant_imports = []
+
+        for variant in variants:
+            variant_func = self._to_function_name(variant)
+            variant_imports.append(
+                f"from .{self._to_module_name(variant)} import {variant_func}"
+            )
+
+            # Infer dispatch condition from variant name
+            variant_lower = variant.lower()
+            if "array" in variant_lower or "1d" in variant_lower:
+                # Array variant - check if first input is a list
+                if params:
+                    first_param = self._to_param_name(inputs[0].name)
+                    condition = f"isinstance({first_param}, list)"
+                else:
+                    condition = "False"
+            elif "path" in variant_lower and "string" not in variant_lower:
+                # Path variant
+                if params:
+                    first_param = self._to_param_name(inputs[0].name)
+                    condition = f"isinstance({first_param}, Path)"
+                else:
+                    condition = "False"
+            else:
+                # Default/Traditional variant - use as fallback
+                condition = None  # Will be the else clause
+
+            dispatch_cases.append((condition, variant_func, variant))
+
+        # Build dispatch code - conditions first, then default
+        dispatch_code = []
+        default_case = None
+
+        for condition, variant_func, variant in dispatch_cases:
+            call_args = ", ".join(self._to_param_name(inp.name) for inp in inputs)
+            if condition is None:
+                default_case = (variant_func, call_args)
+            else:
+                if not dispatch_code:
+                    dispatch_code.append(f"    if {condition}:")
+                else:
+                    dispatch_code.append(f"    elif {condition}:")
+                dispatch_code.append(f"        return {variant_func}({call_args})")
+
+        # Add default case
+        if default_case:
+            variant_func, call_args = default_case
+            if dispatch_code:
+                dispatch_code.append("    else:")
+                dispatch_code.append(f"        return {variant_func}({call_args})")
+            else:
+                # Only one variant - just call it directly
+                dispatch_code.append(f"    return {variant_func}({call_args})")
+        elif dispatch_code:
+            # No default - add error for unhandled types
+            dispatch_code.append("    else:")
+            first_param = self._to_param_name(inputs[0].name) if inputs else "input"
+            dispatch_code.append(
+                f'        raise TypeError(f"No variant handles type: {{type({first_param})}}")'
+            )
+
+        imports_str = "\n".join(variant_imports)
+        dispatch_str = "\n".join(dispatch_code)
+
+        code = f'''"""Polymorphic dispatcher for: {vi_name}."""
+
+from __future__ import annotations
+
+from pathlib import Path
+from typing import Any
+
+{imports_str}
+
+
+def {func_name}({params_str}) -> {return_type}:
+    """Polymorphic VI - dispatches to type-specific variant.
+
+    Variants:
+{chr(10).join(f"    - {v}" for v in variants)}
+    """
+{dispatch_str}
+'''
+
+        # Write to file
+        output_path = self._write_vi_module(vi_name, code)
+
+        return ConversionResult(
+            vi_name=vi_name,
+            python_code=code,
+            output_path=output_path,
+            success=True,
+            errors=[],
+            attempts=1,
+            is_stub=False,
+        )
+
+    def _convert_regular_vi(self, vi_name: str) -> ConversionResult:
+        """Fallback to normal conversion for non-polymorphic VI."""
+        # This shouldn't happen but handle gracefully
+        vi_context = self.graph.get_vi_context(vi_name)
+        subvi_sigs = self._get_subvi_signatures(vi_context, vi_name)
+        primitive_names = self.primitive_registry.get_primitive_names(vi_name)
+        primitive_context = self.primitive_registry.get_primitive_context(vi_name)
+
+        from .strategies.ast_based import BaselineStrategy
+        strategy = BaselineStrategy(
+            validator=self.validator,
+            llm_config=self.config.llm_config,
+            output_dir=self.config.output_dir,
+            max_attempts=self.config.max_retries,
+        )
+
+        result = strategy.convert(
+            vi_name=vi_name,
+            vi_context=vi_context,
+            converted_deps=subvi_sigs,
+            primitive_names=primitive_names,
+            primitive_context=primitive_context,
+        )
+
+        if result.success:
+            output_path = self._write_vi_module(vi_name, result.code)
+            return ConversionResult(
+                vi_name=vi_name,
+                python_code=result.code,
+                output_path=output_path,
+                success=True,
+                attempts=result.attempts,
+            )
+
+        return ConversionResult(
+            vi_name=vi_name,
+            python_code=result.code,
+            output_path=None,
+            success=False,
+            errors=result.errors,
+            attempts=result.attempts,
+        )
+
+    def _to_param_name(self, name: str | None) -> str:
+        """Convert VI parameter name to valid Python parameter name."""
+        if not name:
+            return "arg"
+        # Convert to snake_case and remove invalid chars
+        import re
+        name = re.sub(r'[^\w\s]', '', name.lower())
+        name = re.sub(r'\s+', '_', name)
+        if name and name[0].isdigit():
+            name = f"param_{name}"
+        return name or "arg"
+
+    def _to_module_name(self, vi_name: str) -> str:
+        """Convert VI name to module name (file path)."""
+        # Use the same logic as _write_vi_module
+        return self._to_function_name(vi_name)
 
     def _type_to_param_name(self, lv_type: str) -> str:
         """Generate a meaningful parameter name from LabVIEW type."""

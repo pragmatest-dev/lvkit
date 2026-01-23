@@ -283,21 +283,25 @@ class SubVICodeGen(NodeCodeGen):
                 if callee_name:
                     param_name = to_var_name(callee_name)
 
-            if not param_name:
-                raise ValueError(
-                    f"Cannot resolve parameter name for SubVI '{subvi_name}' "
-                    f"terminal index={term_index}. "
-                    f"No vilib, callee_param, term_name, or context lookup available."
-                )
-
             # Check if this parameter is an enum typedef - generate enum reference
             final_value = self._resolve_enum_value(
                 value, term, vilib_vi, ctx
             ) if vilib_vi else value
 
-            keywords[param_name] = final_value
+            if param_name:
+                keywords[param_name] = final_value
+            else:
+                # Can't resolve name - will use positional arg
+                # Store with index for ordering
+                args.append((term_index, final_value))
 
-        return args, keywords
+        # If we have any positional args, use all positional (can't mix reliably)
+        if args:
+            # Sort by terminal index and extract just values
+            args.sort(key=lambda x: x[0])
+            return [v for _, v in args], {}
+
+        return [], keywords
 
     def _resolve_enum_value(
         self,
