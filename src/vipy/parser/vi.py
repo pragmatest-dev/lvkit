@@ -9,6 +9,7 @@ Architecture:
 
 from __future__ import annotations
 
+import re
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
@@ -34,8 +35,8 @@ from .models import (
     FPTerminal,
     FrontPanel,
     Node,
-    ParsedVI,
     ParsedType,
+    ParsedVI,
     SubVIPathRef,
     TerminalInfo,
     VIMetadata,
@@ -287,34 +288,21 @@ def _extract_wires(root: ET.Element) -> list[Wire]:
 
 
 def _extract_enum_labels(root: ET.Element) -> dict[str, list[str]]:
-    """Extract enum/ring labels from the XML."""
+    """Extract enum/ring labels from the XML.
+
+    Parses multi-label buffers like '(10)"Label1""Label2""Label3"'
+    where labels are quoted strings.
+    """
     enums: dict[str, list[str]] = {}
     for multi_label in root.findall(f".//*[@class='{MULTI_LABEL_CLASS}']"):
         buf = multi_label.find("buf")
         if buf is not None and buf.text:
-            text = buf.text
-            labels = []
-            i = 0
-            if text.startswith("("):
-                i = text.find(")") + 1
-            while i < len(text):
-                if text[i] == '"':
-                    end = text.find('"', i + 1)
-                    if end > i:
-                        labels.append(text[i + 1:end])
-                        i = end + 1
-                    else:
-                        break
-                else:
-                    i += 1
+            # Extract all quoted strings using regex
+            labels = re.findall(r'"([^"]*)"', buf.text)
             if labels:
-                parent = multi_label
-                while parent is not None:
-                    uid = parent.get("uid")
-                    if uid:
-                        enums[uid] = labels
-                        break
-                    break
+                uid = multi_label.get("uid")
+                if uid:
+                    enums[uid] = labels
     return enums
 
 
@@ -420,6 +408,32 @@ def _extract_terminal_info(
     return terminal_info
 
 
+def _resolve_qualified_name(
+    elem: ET.Element,
+    caller_library: str | None,
+) -> str | None:
+    """Resolve qualified name from an element with LinkSaveQualName.
+
+    Handles LinkSaveFlag to determine if same-library qualification is needed.
+
+    Args:
+        elem: Element with LinkSaveQualName and LinkSaveFlag attributes
+        caller_library: Library name of the calling VI, for same-library refs
+
+    Returns:
+        Qualified name string, or None if no name found
+    """
+    strings = [s.text for s in elem.findall("LinkSaveQualName/String") if s.text]
+    if not strings:
+        return None
+
+    link_save_flag = elem.get("LinkSaveFlag", "0")
+    # Flag "2" means same-library reference - qualify with caller's library
+    if link_save_flag == "2" and caller_library and len(strings) == 1:
+        return f"{caller_library}:{strings[0]}"
+    return ":".join(strings)
+
+
 def _extract_subvi_info(
     main_root: ET.Element,
     caller_qualified_name: str | None,
@@ -436,17 +450,13 @@ def _extract_subvi_info(
 
     # Extract SubVI qualified names from VIVI entries
     for vivi in main_root.findall(".//LIvi//VIVI"):
-        strings = [s.text for s in vivi.findall("LinkSaveQualName/String") if s.text]
-        if strings:
-            link_save_flag = vivi.get("LinkSaveFlag", "0")
-            if link_save_flag == "2" and caller_library and len(strings) == 1:
-                qname = f"{caller_library}:{strings[0]}"
-            else:
-                qname = ":".join(strings)
+        qname = _resolve_qualified_name(vivi, caller_library)
+        if qname:
             subvi_qualified_names.append(qname)
 
             # Build path ref for file resolution
-            name = strings[-1] if strings[-1].endswith(".vi") else None
+            strings = [s.text for s in vivi.findall("LinkSaveQualName/String") if s.text]
+            name = strings[-1] if strings and strings[-1].endswith(".vi") else None
             if name:
                 path_elem = vivi.find("LinkSavePath/String")
                 path_text = path_elem.text if path_elem is not None else ""
@@ -463,24 +473,14 @@ def _extract_subvi_info(
 
     # Also include polymorphic VIs (VIPV)
     for vipv in main_root.findall(".//LIvi//VIPV"):
-        strings = [s.text for s in vipv.findall("LinkSaveQualName/String") if s.text]
-        if strings:
-            link_save_flag = vipv.get("LinkSaveFlag", "0")
-            if link_save_flag == "2" and caller_library and len(strings) == 1:
-                qname = f"{caller_library}:{strings[0]}"
-            else:
-                qname = ":".join(strings)
+        qname = _resolve_qualified_name(vipv, caller_library)
+        if qname:
             subvi_qualified_names.append(qname)
 
     # Extract iUse UID → qualified name map from BDHP section
     for iuvi in main_root.findall(".//LIbd//BDHP/IUVI"):
-        strings = [s.text for s in iuvi.findall("LinkSaveQualName/String") if s.text]
-        if strings:
-            link_save_flag = iuvi.get("LinkSaveFlag", "0")
-            if link_save_flag == "2" and caller_library and len(strings) == 1:
-                qname = f"{caller_library}:{strings[0]}"
-            else:
-                qname = ":".join(strings)
+        qname = _resolve_qualified_name(iuvi, caller_library)
+        if qname:
             for offset_elem in iuvi.findall("LinkOffsetList/Offset"):
                 if offset_elem.text:
                     uid = str(int(offset_elem.text, 16))
@@ -488,13 +488,8 @@ def _extract_subvi_info(
 
     # Also handle polymorphic iUse (PUPV)
     for pupv in main_root.findall(".//LIbd//BDHP/PUPV"):
-        strings = [s.text for s in pupv.findall("LinkSaveQualName/String") if s.text]
-        if strings:
-            link_save_flag = pupv.get("LinkSaveFlag", "0")
-            if link_save_flag == "2" and caller_library and len(strings) == 1:
-                qname = f"{caller_library}:{strings[0]}"
-            else:
-                qname = ":".join(strings)
+        qname = _resolve_qualified_name(pupv, caller_library)
+        if qname:
             for offset_elem in pupv.findall("LinkOffsetList/Offset"):
                 if offset_elem.text:
                     uid = str(int(offset_elem.text, 16))

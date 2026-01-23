@@ -49,7 +49,7 @@ class TerminalObservation:
     def _serialize_type(self, type_obj: Any) -> dict[str, Any] | str:
         """Serialize LVType to JSON-compatible dict."""
         # Import here to avoid circular dependency
-        from vipy.graph_types import LVType, ClusterField, EnumValue
+        from vipy.graph_types import ClusterField, EnumValue, LVType
 
         if isinstance(type_obj, LVType):
             result = {

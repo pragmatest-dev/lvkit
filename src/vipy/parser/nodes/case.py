@@ -8,6 +8,7 @@ from vipy.constants import TERMINAL_CLASS
 from vipy.graph_types import Tunnel
 
 from ..models import CaseFrame, CaseStructure
+from .base import extract_tunnel_mapping
 
 # Tunnel DCO classes used in case structures
 CASE_TUNNEL_CLASSES = ("csTun",)  # Case structure tunnel
@@ -59,7 +60,7 @@ def extract_case_structures(root: ET.Element) -> list[CaseStructure]:
                 if dco is not None:
                     dco_class = dco.get("class", "")
                     if dco_class in CASE_TUNNEL_CLASSES or dco_class == "csTun":
-                        tunnel = _extract_tunnel_mapping(dco, dco_class)
+                        tunnel = extract_tunnel_mapping(dco, dco_class)
                         if tunnel:
                             tunnels.append(tunnel)
 
@@ -138,43 +139,6 @@ def _extract_frame(diag_elem: ET.Element, index: int) -> CaseFrame | None:
         inner_node_uids=inner_node_uids,
         is_default=is_default,
     )
-
-
-def _extract_tunnel_mapping(dco: ET.Element, dco_class: str) -> Tunnel | None:
-    """Extract tunnel mapping from a dco element.
-
-    Case structure tunnels connect outer terminals to inner terminals
-    across the case boundary.
-
-    Args:
-        dco: dco element with tunnel info
-        dco_class: Class of the dco (csTun)
-
-    Returns:
-        Tunnel or None if invalid
-    """
-    dco_term_list = dco.find("termList")
-    if dco_term_list is None:
-        return None
-
-    term_refs = [
-        e.get("uid")
-        for e in dco_term_list.findall("SL__arrayElement")
-        if e.get("uid")
-    ]
-
-    # Format is [inner_uid, outer_uid] (same as loops)
-    if len(term_refs) >= 2:
-        inner_uid = term_refs[0]
-        outer_uid = term_refs[1]
-        if inner_uid is not None and outer_uid is not None:
-            return Tunnel(
-                outer_terminal_uid=outer_uid,
-                inner_terminal_uid=inner_uid,
-                tunnel_type="csTun",
-            )
-
-    return None
 
 
 def _infer_selector_type(dco: ET.Element) -> str | None:

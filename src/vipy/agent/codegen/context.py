@@ -7,6 +7,8 @@ from typing import Any
 
 from vipy.graph_types import Constant, Wire
 
+from .ast_utils import to_var_name
+
 
 @dataclass
 class CodeGenContext:
@@ -236,7 +238,7 @@ class CodeGenContext:
             inp_id = inp.id
             inp_name = inp.name or "input"
             if inp_id:
-                var_name = _to_var_name(inp_name)
+                var_name = to_var_name(inp_name)
                 ctx.bind(inp_id, var_name)
 
         # Bind constants with proper formatting (list of Constant)
@@ -328,16 +330,3 @@ def _format_constant(const: Constant) -> str:
 
     # Default: repr
     return repr(value)
-
-
-def _to_var_name(name: str) -> str:
-    """Convert a name to a valid Python variable name."""
-    if not name:
-        return "var"
-    result = name.lower().replace(" ", "_").replace("-", "_")
-    result = "".join(c for c in result if c.isalnum() or c == "_")
-    if result and not result[0].isalpha() and result[0] != "_":
-        result = "var_" + result
-    if not result:
-        result = "var"
-    return result

@@ -8,6 +8,7 @@ from vipy.constants import LOOP_NODE_CLASSES, TERMINAL_CLASS, TUNNEL_DCO_CLASSES
 from vipy.graph_types import Tunnel
 
 from ..models import LoopStructure
+from .base import extract_tunnel_mapping
 
 
 def extract_loops(root: ET.Element) -> list[LoopStructure]:
@@ -59,7 +60,7 @@ def extract_loops(root: ET.Element) -> list[LoopStructure]:
                     if dco is not None:
                         dco_class = dco.get("class", "")
                         if dco_class in TUNNEL_DCO_CLASSES:
-                            tunnel = _extract_tunnel_mapping(dco, dco_class)
+                            tunnel = extract_tunnel_mapping(dco, dco_class)
                             if tunnel:
                                 tunnels.append(tunnel)
 
@@ -102,39 +103,6 @@ def extract_loops(root: ET.Element) -> list[LoopStructure]:
             ))
 
     return loops
-
-
-def _extract_tunnel_mapping(dco: ET.Element, dco_class: str) -> Tunnel | None:
-    """Extract tunnel mapping from a dco element.
-
-    Args:
-        dco: dco element with tunnel info
-        dco_class: Class of the dco (lSR, rSR, lpTun, lMax)
-
-    Returns:
-        Tunnel or None if invalid
-    """
-    dco_term_list = dco.find("termList")
-    if dco_term_list is None:
-        return None
-
-    term_refs = [
-        e.get("uid")
-        for e in dco_term_list.findall("SL__arrayElement")
-        if e.get("uid")
-    ]
-
-    # Format is [inner_uid, outer_uid]
-    if len(term_refs) >= 2:
-        inner_uid = term_refs[0]
-        outer_uid = term_refs[1]
-        return Tunnel(
-            outer_terminal_uid=outer_uid,
-            inner_terminal_uid=inner_uid,
-            tunnel_type=dco_class,
-        )
-
-    return None
 
 
 def _pair_shift_registers(tunnels: list[Tunnel]) -> None:

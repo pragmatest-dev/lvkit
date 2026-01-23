@@ -13,8 +13,8 @@ from . import __version__, convert_vi, convert_xml, summarize_vi
 from .cypher import from_blockdiagram as summarize_vi_cypher
 from .cypher import from_directory, from_lvclass, from_lvlib, from_project, from_vi
 from .graph import GraphConfig, VIGraph
-from .memory_graph import InMemoryVIGraph
 from .llm import LLMConfig, check_ollama_available, list_models
+from .memory_graph import InMemoryVIGraph
 from .structure import (
     discover_project_structure,
     generate_python_structure_plan,
@@ -693,7 +693,7 @@ def cmd_experiment(args: argparse.Namespace) -> int:
 
 def cmd_claude(args: argparse.Namespace) -> int:
     """Handle the claude command - convert using Anthropic Claude API."""
-    from .agent.claude_agent import convert_with_retry, ConversionResult
+    from .agent.claude_agent import ConversionResult, convert_with_retry
     from .agent.context import ContextBuilder, VISignature
     from .agent.validator import CodeValidator
 

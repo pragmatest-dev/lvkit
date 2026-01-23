@@ -12,8 +12,8 @@ from tempfile import TemporaryDirectory
 from .blockdiagram import create_llm_prompt, summarize_vi
 from .cypher import from_blockdiagram as summarize_vi_cypher
 from .frontpanel import generate_nicegui_code, summarize_front_panel
-from .parser import parse_vi
 from .llm import LLMConfig, generate_code
+from .parser import parse_vi
 
 
 @dataclass
