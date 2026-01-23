@@ -390,12 +390,16 @@ class InMemoryVIGraph:
         # ALWAYS record dependencies, only load SubVI files when expand_subvis=True
         if main_xml and main_xml.exists():
             # Use path refs from metadata (already parsed)
-            subvi_ref_map = {ref.qualified_name: ref for ref in metadata.subvi_path_refs if ref.qualified_name}
+            subvi_ref_map = {
+                ref.qualified_name: ref
+                for ref in metadata.subvi_path_refs
+                if ref.qualified_name
+            }
 
             # Caller directory for relative path resolution
             caller_dir = bd_xml.parent
 
-            # Use metadata.subvi_qualified_names from VIVI entries (authoritative source)
+            # Use subvi_qualified_names from VIVI entries (authoritative source)
             for subvi_qname in metadata.subvi_qualified_names:
                 # Self-call check: exact qualified name match
                 if subvi_qname == vi_name:
@@ -414,7 +418,10 @@ class InMemoryVIGraph:
                     is_userlib = ref.is_userlib
                 else:
                     # Fall back to extracting filename from qualified name
-                    lookup_path = subvi_qname.split(":")[-1] if ":" in subvi_qname else subvi_qname
+                    if ":" in subvi_qname:
+                        lookup_path = subvi_qname.split(":")[-1]
+                    else:
+                        lookup_path = subvi_qname
                     is_vilib = False
                     is_userlib = False
 
@@ -578,8 +585,10 @@ class InMemoryVIGraph:
             return "Cluster"
         elif lv_type.kind == "array":
             if lv_type.element_type:
-                elem_str = InMemoryVIGraph._format_lv_type_for_display(lv_type.element_type)
-                return f"Array[{elem_str}]"
+                elem = InMemoryVIGraph._format_lv_type_for_display(
+                    lv_type.element_type
+                )
+                return f"Array[{elem}]"
             return "Array"
         elif lv_type.kind == "ring":
             return "Ring"
@@ -1357,7 +1366,7 @@ class InMemoryVIGraph:
     ) -> list[CaseFrame]:
         """Build CaseFrame dataclasses from parser case frames.
 
-        Converts parser's CaseFrame (with UIDs) to graph_types.CaseFrame (with Operations).
+        Converts parser CaseFrame (UIDs) to graph_types CaseFrame (Operations).
         """
         result_frames: list[CaseFrame] = []
 
@@ -1481,6 +1490,17 @@ class InMemoryVIGraph:
             from_labels = self._kind_to_labels(from_kind)
             to_labels = self._kind_to_labels(to_kind)
 
+            # Look up slot_index from terminal node data (for SubVI param lookup)
+            # Prefer slot_index (connector pane), fall back to terminal index
+            from_term_data = g.nodes.get(u, {})
+            to_term_data = g.nodes.get(v, {})
+            from_slot_index = (
+                from_term_data.get("slot_index") or from_term_data.get("index")
+            )
+            to_slot_index = (
+                to_term_data.get("slot_index") or to_term_data.get("index")
+            )
+
             result.append(Wire(
                 from_terminal_id=u,
                 to_terminal_id=v,
@@ -1490,6 +1510,8 @@ class InMemoryVIGraph:
                 to_parent_name=to_node.get("name"),
                 from_parent_labels=from_labels,
                 to_parent_labels=to_labels,
+                from_slot_index=from_slot_index,
+                to_slot_index=to_slot_index,
             ))
         return result
 
