@@ -199,8 +199,16 @@ class WhileLoopHandler(NodeTypeHandler):
     display_name = "While Loop"
 
     def parse(self, elem: ET.Element) -> LoopNode:
-        common = self._extract_common(elem)
-        return LoopNode(**common, loop_type="whileLoop")
+        # Don't use extract_label for loops - it would find labels from inner nodes
+        input_types, output_types = extract_terminal_types(elem)
+        return LoopNode(
+            uid=elem.get("uid"),
+            node_type=self.xml_class,
+            name=self.display_name,  # Always use "While Loop"
+            input_types=input_types,
+            output_types=output_types,
+            loop_type="whileLoop",
+        )
 
 
 class ForLoopHandler(NodeTypeHandler):
@@ -210,8 +218,16 @@ class ForLoopHandler(NodeTypeHandler):
     display_name = "For Loop"
 
     def parse(self, elem: ET.Element) -> LoopNode:
-        common = self._extract_common(elem)
-        return LoopNode(**common, loop_type="forLoop")
+        # Don't use extract_label for loops - it would find labels from inner nodes
+        input_types, output_types = extract_terminal_types(elem)
+        return LoopNode(
+            uid=elem.get("uid"),
+            node_type=self.xml_class,
+            name=self.display_name,  # Always use "For Loop"
+            input_types=input_types,
+            output_types=output_types,
+            loop_type="forLoop",
+        )
 
 
 class SelectHandler(NodeTypeHandler):
