@@ -87,7 +87,7 @@ def parse_vi(
     block_diagram = _parse_block_diagram(bd_xml, fp_xml, metadata.type_map)
 
     # Parse front panel
-    front_panel = _parse_front_panel(fp_xml, block_diagram)
+    front_panel = _parse_front_panel(fp_xml, block_diagram, metadata.type_map)
 
     # Parse connector pane
     connector_pane = None
@@ -180,6 +180,7 @@ def _parse_block_diagram(
 def _parse_front_panel(
     fp_xml: Path | str | None,
     block_diagram: BlockDiagram,
+    type_map: dict[int, LVType] | None = None,
 ) -> FrontPanel:
     """Parse front panel from FP XML."""
     if fp_xml is None:
@@ -229,7 +230,14 @@ def _parse_front_panel(
         if default_elem is not None and default_elem.text:
             raw_data = default_elem.text.strip('"')
             control_type = ddo.get("class", "unknown")
-            default_value = _decode_default_data(raw_data, control_type)
+
+            # Resolve type for array/cluster decoding
+            lv_type = None
+            type_desc_elem = fpdco.find("typeDesc")
+            if type_desc_elem is not None and type_desc_elem.text and type_map:
+                lv_type = resolve_type_rich(type_desc_elem.text, type_map)
+
+            default_value = _decode_default_data(raw_data, control_type, lv_type)
 
         control = _parse_ddo(ddo, uid, indicator_dco_uids, default_value)
         if control:
@@ -623,8 +631,21 @@ def _decode_xml_entities_to_bytes(data: str) -> bytes:
     return bytes(result)
 
 
-def _decode_default_data(raw_data: str, control_type: str) -> str | None:
-    """Decode DefaultData from FPHb XML to a Python literal."""
+def _decode_default_data(
+    raw_data: str,
+    control_type: str,
+    lv_type: LVType | None = None,
+) -> str | None:
+    """Decode DefaultData from FPHb XML to a Python literal.
+
+    Args:
+        raw_data: Raw XML-encoded default data string
+        control_type: Control class like "stdString", "indArr", etc.
+        lv_type: Optional LVType with element/field info for arrays/clusters
+
+    Returns:
+        Python literal string or None if can't decode
+    """
     if not raw_data:
         return None
 
@@ -648,6 +669,14 @@ def _decode_default_data(raw_data: str, control_type: str) -> str | None:
     # Boolean: single byte
     if control_type == "stdBool" and len(raw_bytes) == 1:
         return "True" if raw_bytes[0] else "False"
+
+    # Array: decode using element type
+    if control_type in ("indArr", "stdArray") and lv_type:
+        return _decode_array_default(raw_bytes, lv_type)
+
+    # Cluster: decode using field types
+    if control_type == "stdClust" and lv_type:
+        return _decode_cluster_default(raw_bytes, lv_type)
 
     return None
 
@@ -706,5 +735,167 @@ def _decode_numeric_default(data: bytes) -> str | None:
     except (ValueError,):
         pass
     return None
+
+
+def _decode_array_default(data: bytes, lv_type: LVType) -> str | None:
+    """Decode an array default value from DefaultData bytes.
+
+    Format: 4-byte length + elements (each element encoded by type)
+    """
+    if len(data) < 4:
+        return None
+
+    try:
+        # Get array length
+        array_len = int.from_bytes(data[:4], 'big')
+        if array_len == 0:
+            return "[]"
+
+        # Get element type
+        elem_type = lv_type.element_type
+        if not elem_type:
+            return None
+
+        elements = []
+        idx = 4
+
+        for _ in range(array_len):
+            if idx >= len(data):
+                break
+
+            elem_val, bytes_consumed = _decode_element(data[idx:], elem_type)
+            if elem_val is None:
+                return None
+
+            elements.append(elem_val)
+            idx += bytes_consumed
+
+        return "[" + ", ".join(elements) + "]"
+    except (ValueError, IndexError):
+        return None
+
+
+def _decode_cluster_default(data: bytes, lv_type: LVType) -> str | None:
+    """Decode a cluster default value from DefaultData bytes.
+
+    Format: sequential fields encoded by their respective types
+    """
+    if not lv_type.fields:
+        return None
+
+    try:
+        field_values = {}
+        idx = 0
+
+        for field in lv_type.fields:
+            if idx >= len(data):
+                break
+
+            field_val, bytes_consumed = _decode_element(data[idx:], field.type)
+            if field_val is None:
+                # Use type default for this field
+                from ..type_defaults import get_default_for_type
+                field_val = get_default_for_type(field.type)
+
+            field_values[field.name] = field_val
+            idx += bytes_consumed
+
+        # Format as dict literal
+        items = [f"'{k}': {v}" for k, v in field_values.items()]
+        return "{" + ", ".join(items) + "}"
+    except (ValueError, IndexError):
+        return None
+
+
+def _decode_element(data: bytes, elem_type: LVType | None) -> tuple[str | None, int]:
+    """Decode a single element and return (value, bytes_consumed).
+
+    Args:
+        data: Bytes starting at this element
+        elem_type: Type of the element
+
+    Returns:
+        Tuple of (decoded value string, number of bytes consumed)
+    """
+    if not elem_type or len(data) == 0:
+        return None, 0
+
+    underlying = elem_type.underlying_type or ""
+
+    # String: 4-byte length prefix + string data
+    if underlying == "String":
+        if len(data) < 4:
+            return None, 0
+        str_len = int.from_bytes(data[:4], 'big')
+        if len(data) < 4 + str_len:
+            return None, 0
+        string_val = data[4:4 + str_len].decode('latin-1', errors='replace')
+        escaped = string_val.replace('\\', '\\\\').replace("'", "\\'")
+        return f"'{escaped}'", 4 + str_len
+
+    # Boolean: 1 byte
+    if underlying == "Boolean":
+        return ("True" if data[0] else "False"), 1
+
+    # Numeric types
+    if underlying.startswith("NumInt") or underlying.startswith("NumUInt"):
+        # Determine size from type name
+        size = _get_numeric_size(underlying)
+        if len(data) < size:
+            return None, 0
+        signed = underlying.startswith("NumInt")
+        val = int.from_bytes(data[:size], 'big', signed=signed)
+        return str(val), size
+
+    if underlying.startswith("NumFloat") or underlying.startswith("NumComplex"):
+        import struct
+        if underlying in ("NumFloat32", "NumComplex64"):
+            if len(data) < 4:
+                return None, 0
+            val = struct.unpack('>f', data[:4])[0]
+            return str(val), 4
+        else:  # NumFloat64, NumFloatExt, NumComplex128, NumComplexExt
+            if len(data) < 8:
+                return None, 0
+            val = struct.unpack('>d', data[:8])[0]
+            return str(val), 8
+
+    # Path: PTH0 prefix
+    if underlying == "Path":
+        if data.startswith(b'PTH0'):
+            path_val = _decode_path_default(data)
+            # Estimate bytes consumed - find end of path data
+            # Path format: PTH0 + 8 bytes header + length-prefixed segments
+            idx = 12
+            while idx < len(data):
+                if idx >= len(data):
+                    break
+                seg_len = data[idx]
+                if seg_len == 0:
+                    idx += 1
+                    break
+                idx += 1 + seg_len
+            return path_val, idx
+        return None, 0
+
+    # Nested array/cluster: can't track bytes consumed without full parsing
+    # Fall back to None for now - these are rare in practice
+    if elem_type.kind in ("array", "cluster"):
+        return None, 0
+
+    return None, 0
+
+
+def _get_numeric_size(type_name: str) -> int:
+    """Get byte size for a numeric type name."""
+    if "8" in type_name:
+        return 1
+    elif "16" in type_name:
+        return 2
+    elif "32" in type_name:
+        return 4
+    elif "64" in type_name:
+        return 8
+    return 4  # Default
 
 
