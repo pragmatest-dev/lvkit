@@ -9,7 +9,7 @@ from vipy.constants import FP_TERMINAL_CLASS
 from vipy.graph_types import LVType
 
 from .models import ConnectorPane, ConnectorPaneSlot, FPTerminal, ParsedType
-from .types import resolve_type_rich
+from .type_resolution import resolve_type_rich
 
 
 def _lvtype_to_parsed(lv_type: LVType) -> ParsedType:

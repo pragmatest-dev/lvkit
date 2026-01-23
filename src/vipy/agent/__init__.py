@@ -45,8 +45,10 @@ NiceGUI Integration:
 
 from __future__ import annotations
 
-from .context import ContextBuilder, VISignature
-from .loop import ConversionAgent, ConversionConfig, ConversionResult
+from .context import VISignature
+from .context_builder import ContextBuilder
+from .loop_agent import ConversionAgent
+from .loop_config import ConversionConfig, ConversionResult
 from .primitives import PrimitiveRegistry, PrimitiveUsage
 from .state import ConversionState, ConvertedModule
 from .types import SharedType, SharedTypeRegistry

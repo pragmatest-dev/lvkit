@@ -15,7 +15,7 @@ import time
 from typing import Any
 
 from ...llm import generate_code
-from ..context import ContextBuilder
+from ..context_builder import ContextBuilder
 from ..tools import AgentTools, format_tools_for_prompt, parse_tool_call
 from . import register_strategy
 from .base import ConversionStrategy, StrategyResult

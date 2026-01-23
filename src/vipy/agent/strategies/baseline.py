@@ -16,7 +16,7 @@ from pathlib import Path
 from typing import Any
 
 from ...llm import generate_code
-from ..context import ContextBuilder
+from ..context_builder import ContextBuilder
 from ..skeleton import generate_skeleton
 from . import register_strategy
 from .base import ConversionStrategy, StrategyResult
