@@ -18,11 +18,13 @@ import networkx as nx
 from .blockdiagram import decode_constant
 from .extractor import extract_vi_xml
 from .graph_types import (
+    BranchPoint,
     CaseFrame,
     Constant,
     FPTerminalNode,
     LVType,
     Operation,
+    ParallelBranch,
     Terminal,
     Tunnel,
     Wire,
@@ -32,16 +34,14 @@ from .parser import (
     BlockDiagram,
     ConnectorPane,
     FrontPanel,
-    ParsedVI,
-    VIMetadata,
     parse_connector_pane_types,
     parse_vi,
     parse_vi_metadata,
 )
 from .parser.models import ParsedType
 from .parser.node_types import CpdArithNode, PrimitiveNode
-from .parser.types import resolve_type_rich
-from .primitive_resolver import get_resolver as get_prim_resolver, resolve_primitive
+from .primitive_resolver import get_resolver as get_prim_resolver
+from .primitive_resolver import resolve_primitive
 from .vilib_resolver import get_resolver as get_vilib_resolver
 
 
@@ -1660,6 +1660,206 @@ class InMemoryVIGraph:
             for variant in variants.get("variants", []):
                 result[variant] = wrapper
         return result
+
+    # === Parallel Branch Detection ===
+
+    def find_branch_points(self, vi_name: str) -> list[BranchPoint]:
+        """Find terminals where one output feeds multiple inputs.
+
+        These are fork points in the dataflow graph where parallel
+        execution branches begin. Used for error handling to isolate
+        exceptions in each branch.
+
+        Args:
+            vi_name: Name of the VI to analyze
+
+        Returns:
+            List of BranchPoint objects describing fork points
+        """
+        g = self._dataflow.get(vi_name)
+        if g is None:
+            return []
+
+        branch_points: list[BranchPoint] = []
+
+        # Find terminals with multiple outgoing edges
+        for node_id in g.nodes():
+            successors = list(g.successors(node_id))
+            if len(successors) > 1:
+                # This is a branch point - one output feeds multiple inputs
+                node_data = g.nodes.get(node_id, {})
+
+                # Get the parent operation if this is a terminal
+                source_op = None
+                if node_data.get("kind") == "terminal":
+                    source_op = node_data.get("parent_id")
+                elif node_data.get("kind") in ("subvi", "primitive", "operation"):
+                    source_op = node_id
+
+                branch_points.append(BranchPoint(
+                    source_terminal=node_id,
+                    source_operation=source_op,
+                    destinations=successors,
+                    vi_name=vi_name,
+                ))
+
+        return branch_points
+
+    def trace_branch(
+        self,
+        vi_name: str,
+        start_terminal: str,
+        all_branch_starts: set[str],
+    ) -> ParallelBranch:
+        """Trace a single branch from a start terminal to its merge point.
+
+        Follows the dataflow from the start terminal until either:
+        1. Reaching a VI output terminal
+        2. Reaching a node that receives input from another branch
+           (merge point)
+        3. Reaching a node with no successors
+
+        Args:
+            vi_name: Name of the VI
+            start_terminal: Terminal ID where this branch starts
+            all_branch_starts: Set of all branch start terminals (to detect merges)
+
+        Returns:
+            ParallelBranch describing this branch's operations and merge point
+        """
+        g = self._dataflow.get(vi_name)
+        if g is None:
+            return ParallelBranch(
+                branch_id=0,
+                source_terminal=start_terminal,
+                operation_ids=[],
+                merge_terminal=None,
+                merge_operation=None,
+            )
+
+        visited: set[str] = set()
+        operations: list[str] = []
+        merge_terminal: str | None = None
+        merge_operation: str | None = None
+
+        def trace(terminal_id: str) -> bool:
+            """Trace from terminal, collecting operations.
+
+            Returns True if we found a merge point, False otherwise.
+            """
+            nonlocal merge_terminal, merge_operation
+
+            if terminal_id in visited:
+                return False
+            visited.add(terminal_id)
+
+            node_data = g.nodes.get(terminal_id, {})
+            kind = node_data.get("kind", "")
+
+            # If we hit an output terminal, branch ends at VI boundary
+            if kind == "output":
+                merge_terminal = terminal_id
+                return True
+
+            # If this is an operation, collect it
+            if kind in ("subvi", "primitive", "operation"):
+                operations.append(terminal_id)
+
+            # Check successors
+            successors = list(g.successors(terminal_id))
+
+            for succ in successors:
+                succ_data = g.nodes.get(succ, {})
+
+                # Check if this successor is fed by another branch (merge point)
+                predecessors = list(g.predecessors(succ))
+                other_inputs = [
+                    p for p in predecessors
+                    if p != terminal_id and p in all_branch_starts
+                ]
+                if other_inputs:
+                    # This is a merge point - stop here
+                    merge_terminal = succ
+                    if succ_data.get("kind") == "terminal":
+                        merge_operation = succ_data.get("parent_id")
+                    elif succ_data.get("kind") in ("subvi", "primitive", "operation"):
+                        merge_operation = succ
+                    return True
+
+                # Continue tracing
+                if trace(succ):
+                    return True
+
+            return False
+
+        trace(start_terminal)
+
+        return ParallelBranch(
+            branch_id=0,  # Will be set by caller
+            source_terminal=start_terminal,
+            operation_ids=operations,
+            merge_terminal=merge_terminal,
+            merge_operation=merge_operation,
+        )
+
+    def get_parallel_branches(
+        self, vi_name: str
+    ) -> list[tuple[BranchPoint, list[ParallelBranch]]]:
+        """Get all parallel branch structures in a VI.
+
+        Finds branch points and traces each branch to its merge point.
+        Returns a list of (BranchPoint, [ParallelBranch, ...]) tuples.
+
+        Args:
+            vi_name: Name of the VI to analyze
+
+        Returns:
+            List of (branch_point, branches) tuples
+        """
+        branch_points = self.find_branch_points(vi_name)
+        result: list[tuple[BranchPoint, list[ParallelBranch]]] = []
+
+        for bp in branch_points:
+            branches: list[ParallelBranch] = []
+            all_starts = set(bp.destinations)
+
+            for i, dest in enumerate(bp.destinations):
+                branch = self.trace_branch(vi_name, dest, all_starts)
+                branch = ParallelBranch(
+                    branch_id=i,
+                    source_terminal=branch.source_terminal,
+                    operation_ids=branch.operation_ids,
+                    merge_terminal=branch.merge_terminal,
+                    merge_operation=branch.merge_operation,
+                )
+                branches.append(branch)
+
+            result.append((bp, branches))
+
+        return result
+
+    def has_parallel_branches(self, vi_name: str) -> bool:
+        """Check if a VI has any parallel branch points.
+
+        Quick check without full branch tracing - useful for deciding
+        whether to enable the held error model.
+
+        Args:
+            vi_name: Name of the VI to check
+
+        Returns:
+            True if VI has at least one branch point
+        """
+        g = self._dataflow.get(vi_name)
+        if g is None:
+            return False
+
+        for node_id in g.nodes():
+            successors = list(g.successors(node_id))
+            if len(successors) > 1:
+                return True
+
+        return False
 
     # === Context Manager ===
 

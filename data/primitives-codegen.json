@@ -2428,16 +2428,32 @@
     },
     "2075": {
       "name": "Merge Errors",
-      "terminals": [],
-      "guess_reason": "2in/1out - combines errors",
-      "python_code": "error1 or error2",
+      "terminals": [
+        {"index": 0, "direction": "in", "name": "error in (no error)"},
+        {"index": 1, "direction": "in", "name": "error in 2 (no error)"},
+        {"index": 2, "direction": "out", "name": "error out"}
+      ],
+      "guess_reason": "Combines errors - first error wins. In held error model: first non-None error propagates.",
+      "python_code": {
+        "error_out": "error_in__no_error_ if (isinstance(error_in__no_error_, dict) and error_in__no_error_.get('status')) else error_in_2__no_error_"
+      },
       "inline": true
     },
     "2076": {
       "name": "Clear Error",
-      "terminals": [],
-      "guess_reason": "1in/2out - clears error",
-      "python_code": "None  # no error",
+      "terminals": [
+        {"index": 0, "direction": "in", "name": "error in (no error)"},
+        {"index": 1, "direction": "out", "name": "error out (no error)"},
+        {"index": 2, "direction": "out", "name": "error code"},
+        {"index": 3, "direction": "out", "name": "error source"}
+      ],
+      "guess_reason": "Clears error cluster. In held error model: _held_error = None",
+      "python_code": {
+        "_body": "_held_error = None",
+        "error_out__no_error_": "{'status': False, 'code': 0, 'source': ''}",
+        "error_code": "error_in__no_error_.get('code', 0) if isinstance(error_in__no_error_, dict) else 0",
+        "error_source": "error_in__no_error_.get('source', '') if isinstance(error_in__no_error_, dict) else ''"
+      },
       "inline": true
     },
     "9000": {
