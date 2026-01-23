@@ -15,7 +15,8 @@ from pathlib import Path
 
 from ..llm import LLMConfig
 from ..memory_graph import InMemoryVIGraph
-from .loop import ConversionAgent, ConversionConfig
+from .loop_agent import ConversionAgent
+from .loop_config import ConversionConfig
 from .strategies import list_strategies
 
 

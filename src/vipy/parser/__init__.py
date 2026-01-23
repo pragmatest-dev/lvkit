@@ -35,9 +35,9 @@ from .models import (
     Wire,
     WiringRule,
 )
-from .types import (
+from .defaults import parse_dfds
+from .type_resolution import (
     load_enum_reference,
-    parse_dfds,
     parse_type_chain,
     parse_type_map,
     parse_typedef_refs,

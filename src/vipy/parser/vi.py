@@ -43,7 +43,8 @@ from .models import (
     Wire,
 )
 from .nodes import extract_case_structures, extract_constants, extract_loops
-from .types import parse_type_map_rich, resolve_type_rich
+from .type_mapping import parse_type_map_rich
+from .type_resolution import resolve_type_rich
 
 
 def parse_vi(

@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from .models import SubVIPathRef
-from .types import parse_typedef_refs
+from .type_resolution import parse_typedef_refs
 
 
 def get_qualified_name(xml_path: Path | str) -> str | None:

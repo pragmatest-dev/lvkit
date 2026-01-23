@@ -694,7 +694,8 @@ def cmd_experiment(args: argparse.Namespace) -> int:
 def cmd_claude(args: argparse.Namespace) -> int:
     """Handle the claude command - convert using Anthropic Claude API."""
     from .agent.claude_agent import ConversionResult, convert_with_retry
-    from .agent.context import ContextBuilder, VISignature
+    from .agent.context import VISignature
+    from .agent.context_builder import ContextBuilder
     from .agent.validator import CodeValidator
 
     input_path = Path(args.input)

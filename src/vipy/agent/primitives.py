@@ -301,7 +301,7 @@ from typing import Any
             Tuple of (function_name, implementation) or (None, None)
         """
         from ..llm import generate_code
-        from .context import ContextBuilder
+        from .context_builder import ContextBuilder
         from .validator import CodeValidator
 
         # Build primitive context as a simplified VI context

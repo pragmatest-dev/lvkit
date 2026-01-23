@@ -3,7 +3,7 @@
 import pytest
 from pathlib import Path
 from vipy.parser import parse_vi, VIMetadata, ParsedVI
-from vipy.parser.types import parse_type_map_rich
+from vipy.parser.type_mapping import parse_type_map_rich
 from vipy.parser.metadata import parse_vi_metadata, parse_subvi_paths
 from vipy.memory_graph import InMemoryVIGraph
 from vipy.extractor import extract_vi_xml

@@ -10,7 +10,8 @@ from typing import TYPE_CHECKING
 from ..enum_resolver import EnumResolver
 from ..llm import generate_code
 from ..vilib_resolver import get_resolver as get_vilib_resolver
-from .context import ContextBuilder, VISignature
+from .context import VISignature
+from .context_builder import ContextBuilder
 from .enums import EnumRegistry
 from .loop_config import ConversionConfig, ConversionResult
 from .primitives import PrimitiveRegistry

@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from ..llm import LLMConfig, generate_code
-from .context import ContextBuilder
+from .context_builder import ContextBuilder
 from .tools import AgentTools, format_tools_for_prompt, parse_tool_call
 from .validator import CodeValidator, ValidatorConfig
 
