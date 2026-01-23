@@ -8,7 +8,6 @@ from typing import TYPE_CHECKING, Any
 from vipy.graph_types import Operation, Tunnel
 
 from ..ast_utils import build_assign, parse_expr, to_var_name
-from ..condition_builder import build_condition_expr
 from ..fragment import CodeFragment
 from .base import NodeCodeGen, get_codegen
 
@@ -118,13 +117,17 @@ class LoopCodeGen(NodeCodeGen):
         # 3. For forLoops: bind lpTun inner terminals based on loop style
         #    Must happen BEFORE generating inner statements
         if loop_type == "forLoop":
-            # Collect all lpTun input tunnels
-            lpTun_inputs: list[tuple[str, str, str]] = []  # (outer_var, inner_term, outer_term)
+            # Collect all lpTun input tunnels: (outer_var, inner_term, outer_term)
+            lpTun_inputs: list[tuple[str, str, str]] = []
             for tunnel in tunnels:
                 if tunnel.tunnel_type == "lpTun":
                     outer_var = ctx.resolve(tunnel.outer_terminal_uid)
                     if outer_var and tunnel.inner_terminal_uid:
-                        lpTun_inputs.append((outer_var, tunnel.inner_terminal_uid, tunnel.outer_terminal_uid))
+                        lpTun_inputs.append((
+                            outer_var,
+                            tunnel.inner_terminal_uid,
+                            tunnel.outer_terminal_uid,
+                        ))
 
             # Decide: enumerate (single array, no N) vs indexed access
             depth = ctx.loop_depth
@@ -342,8 +345,14 @@ class LoopCodeGen(NodeCodeGen):
     ) -> str | None:
         """Get the name of a destination this terminal flows to.
 
-        Traces forward through data flow to find a named destination (FP indicator).
+        Traces forward through data flow to find a named destination:
+        - FP indicator names
+        - SubVI parameter names (looked up via get_callee_param_name)
+
         Used when source has no name (e.g., unnamed constant).
+
+        Handles tunnel pass-through: when data flows to a tunnel inner terminal,
+        traces through the tunnel outer's other destinations.
         """
         if visited is None:
             visited = set()
@@ -355,10 +364,17 @@ class LoopCodeGen(NodeCodeGen):
         for dest_info in dest_list:
             dest_name: str | None = dest_info.get("dest_parent_name")
             dest_labels = dest_info.get("dest_parent_labels", [])
+            dest_slot_index = dest_info.get("dest_slot_index")
 
             # Check if it's a named indicator (output)
             if dest_name and "Indicator" in dest_labels:
                 return dest_name
+
+            # Check if it flows to a SubVI input - look up parameter name
+            if "SubVI" in dest_labels and dest_name and dest_slot_index is not None:
+                param_name = ctx.get_callee_param_name(dest_name, dest_slot_index)
+                if param_name:
+                    return param_name
 
             # Recurse through tunnels/connections
             dest_terminal = dest_info.get("dest_terminal")
@@ -366,6 +382,19 @@ class LoopCodeGen(NodeCodeGen):
                 found = self._get_dest_terminal_name(dest_terminal, ctx, visited)
                 if found:
                     return found
+
+        # If no forward flow found, check if this is a tunnel inner terminal
+        # by looking for sources that are tunnel outers (they also point here)
+        # and trace through those outers' other destinations
+        for src_id, src_dests in ctx._reverse_flow_map.items():
+            for d in src_dests:
+                if d['dest_terminal'] == terminal_uid:
+                    # src_id points to us - check if it has other destinations
+                    # (this handles tunnel outer -> inner + outer -> external)
+                    if src_id not in visited:
+                        found = self._get_dest_terminal_name(src_id, ctx, visited)
+                        if found:
+                            return found
 
         return None
 

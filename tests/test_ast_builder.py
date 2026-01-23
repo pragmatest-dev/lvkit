@@ -983,3 +983,232 @@ def test_build_module_special_characters_in_name():
     ast.parse(result)
     # Function name should be sanitized
     assert "def test_vi_copy(" in result or "def testvi_copy(" in result
+
+
+# === LVType Tests ===
+
+
+class TestLVTypeToPython:
+    """Tests for LVType.to_python() type annotation generation."""
+
+    def test_primitive_int_types(self):
+        """Test primitive integer types map to int."""
+        from vipy.graph_types import LVType
+
+        for int_type in ["NumInt8", "NumInt16", "NumInt32", "NumInt64",
+                         "NumUInt8", "NumUInt16", "NumUInt32", "NumUInt64"]:
+            lv_type = LVType(kind="primitive", underlying_type=int_type)
+            assert lv_type.to_python() == "int"
+
+    def test_primitive_float_types(self):
+        """Test primitive float types map to float."""
+        from vipy.graph_types import LVType
+
+        for float_type in ["NumFloat32", "NumFloat64"]:
+            lv_type = LVType(kind="primitive", underlying_type=float_type)
+            assert lv_type.to_python() == "float"
+
+    def test_primitive_string(self):
+        """Test String maps to str."""
+        from vipy.graph_types import LVType
+
+        lv_type = LVType(kind="primitive", underlying_type="String")
+        assert lv_type.to_python() == "str"
+
+    def test_primitive_boolean(self):
+        """Test Boolean maps to bool."""
+        from vipy.graph_types import LVType
+
+        lv_type = LVType(kind="primitive", underlying_type="Boolean")
+        assert lv_type.to_python() == "bool"
+
+    def test_primitive_path(self):
+        """Test Path maps to Path."""
+        from vipy.graph_types import LVType
+
+        lv_type = LVType(kind="primitive", underlying_type="Path")
+        assert lv_type.to_python() == "Path"
+
+    def test_primitive_variant(self):
+        """Test Variant maps to Any."""
+        from vipy.graph_types import LVType
+
+        lv_type = LVType(kind="primitive", underlying_type="Variant")
+        assert lv_type.to_python() == "Any"
+
+    def test_primitive_void(self):
+        """Test Void maps to None."""
+        from vipy.graph_types import LVType
+
+        lv_type = LVType(kind="primitive", underlying_type="Void")
+        assert lv_type.to_python() == "None"
+
+    def test_primitive_unknown(self):
+        """Test unknown primitive type maps to Any."""
+        from vipy.graph_types import LVType
+
+        lv_type = LVType(kind="primitive", underlying_type="UnknownType")
+        assert lv_type.to_python() == "Any"
+
+    def test_array_1d(self):
+        """Test 1D array type annotation."""
+        from vipy.graph_types import LVType
+
+        element = LVType(kind="primitive", underlying_type="NumInt32")
+        arr = LVType(kind="array", element_type=element, dimensions=1)
+        assert arr.to_python() == "list[int]"
+
+    def test_array_2d(self):
+        """Test 2D array type annotation."""
+        from vipy.graph_types import LVType
+
+        element = LVType(kind="primitive", underlying_type="NumFloat64")
+        arr = LVType(kind="array", element_type=element, dimensions=2)
+        assert arr.to_python() == "list[list[float]]"
+
+    def test_array_no_element_type(self):
+        """Test array with no element type defaults to Any."""
+        from vipy.graph_types import LVType
+
+        arr = LVType(kind="array")
+        assert arr.to_python() == "list[Any]"
+
+    def test_cluster_with_typedef_name(self):
+        """Test cluster with typedef name uses class name."""
+        from vipy.graph_types import LVType
+
+        cluster = LVType(
+            kind="cluster",
+            typedef_name="error.ctl:Error Cluster.ctl"
+        )
+        assert cluster.to_python() == "ErrorCluster"
+
+    def test_cluster_without_typedef_name(self):
+        """Test cluster without typedef name uses generic dict."""
+        from vipy.graph_types import LVType
+
+        cluster = LVType(kind="cluster")
+        assert cluster.to_python() == "dict[str, Any]"
+
+    def test_enum_with_typedef_name(self):
+        """Test enum with typedef name uses class name."""
+        from vipy.graph_types import LVType
+
+        enum = LVType(
+            kind="enum",
+            typedef_name="lib:FileMode.ctl"
+        )
+        assert enum.to_python() == "FileMode"
+
+    def test_enum_without_typedef_name(self):
+        """Test enum without typedef name uses int."""
+        from vipy.graph_types import LVType
+
+        enum = LVType(kind="enum")
+        assert enum.to_python() == "int"
+
+    def test_ring_with_typedef_name(self):
+        """Test ring with typedef name uses class name."""
+        from vipy.graph_types import LVType
+
+        ring = LVType(
+            kind="ring",
+            typedef_name="option.ctl:OptionRing.ctl"
+        )
+        assert ring.to_python() == "OptionRing"
+
+    def test_ring_without_typedef_name(self):
+        """Test ring without typedef name uses int."""
+        from vipy.graph_types import LVType
+
+        ring = LVType(kind="ring")
+        assert ring.to_python() == "int"
+
+    def test_typedef_ref_with_name(self):
+        """Test typedef_ref with name uses class name."""
+        from vipy.graph_types import LVType
+
+        # typedef_name uses ":" format like other typedef names
+        ref = LVType(
+            kind="typedef_ref",
+            typedef_name="vi.lib/Utility:TypeDef.ctl"
+        )
+        assert ref.to_python() == "TypeDef"
+
+    def test_typedef_ref_without_name(self):
+        """Test typedef_ref without name uses Any."""
+        from vipy.graph_types import LVType
+
+        ref = LVType(kind="typedef_ref")
+        assert ref.to_python() == "Any"
+
+    def test_unknown_kind(self):
+        """Test unknown kind returns Any."""
+        from vipy.graph_types import LVType
+
+        lv_type = LVType(kind="unknown_kind")
+        assert lv_type.to_python() == "Any"
+
+
+class TestWireSlotIndex:
+    """Tests for Wire slot_index fields."""
+
+    def test_wire_from_slot_index_stored(self):
+        """Test that from_slot_index is stored on Wire."""
+        wire = Wire(
+            from_terminal_id="src",
+            to_terminal_id="dest",
+            from_slot_index=3,
+        )
+        assert wire.from_slot_index == 3
+
+    def test_wire_to_slot_index_stored(self):
+        """Test that to_slot_index is stored on Wire."""
+        wire = Wire(
+            from_terminal_id="src",
+            to_terminal_id="dest",
+            to_slot_index=5,
+        )
+        assert wire.to_slot_index == 5
+
+    def test_wire_slot_indices_default_none(self):
+        """Test that slot indices default to None."""
+        wire = Wire(
+            from_terminal_id="src",
+            to_terminal_id="dest",
+        )
+        assert wire.from_slot_index is None
+        assert wire.to_slot_index is None
+
+    def test_wire_with_both_slot_indices(self):
+        """Test Wire with both slot indices set."""
+        wire = Wire(
+            from_terminal_id="src",
+            to_terminal_id="dest",
+            from_slot_index=0,
+            to_slot_index=2,
+        )
+        assert wire.from_slot_index == 0
+        assert wire.to_slot_index == 2
+
+    def test_wire_slot_index_in_context_flow_map(self):
+        """Test that slot indices are included in context flow maps."""
+        from vipy.agent.codegen.context import CodeGenContext
+
+        data_flow = [
+            Wire(
+                from_terminal_id="src",
+                to_terminal_id="dest",
+                from_slot_index=1,
+                to_slot_index=3,
+            ),
+        ]
+        ctx = CodeGenContext(data_flow=data_flow)
+
+        # Forward map should have src_slot_index
+        flow_info = ctx._flow_map["dest"]
+        assert flow_info["src_slot_index"] == 1
+
+        # Reverse map should have dest_slot_index
+        dest_info = ctx._reverse_flow_map["src"][0]
+        assert dest_info["dest_slot_index"] == 3

@@ -132,6 +132,8 @@ class Wire:
     to_parent_name: str | None = None
     from_parent_labels: list[str] = field(default_factory=list)
     to_parent_labels: list[str] = field(default_factory=list)
+    from_slot_index: int | None = None  # Connector pane slot for SubVI param lookup
+    to_slot_index: int | None = None  # Connector pane slot for SubVI param lookup
 
 
 # Type definition dataclasses

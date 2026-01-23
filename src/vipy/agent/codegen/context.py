@@ -64,6 +64,7 @@ class CodeGenContext:
                     "src_parent_id": wire.from_parent_id,
                     "src_parent_name": wire.from_parent_name,
                     "src_parent_labels": wire.from_parent_labels,
+                    "src_slot_index": wire.from_slot_index,
                 }
                 # Reverse map: source -> list of dests
                 if src_id not in self._reverse_flow_map:
@@ -73,6 +74,7 @@ class CodeGenContext:
                     "dest_parent_id": wire.to_parent_id,
                     "dest_parent_name": wire.to_parent_name,
                     "dest_parent_labels": wire.to_parent_labels,
+                    "dest_slot_index": wire.to_slot_index,
                 })
 
     def _build_wired_set(self) -> None:
