@@ -37,7 +37,7 @@ if TYPE_CHECKING:
     from neo4j import Driver
 
 from .cypher import from_vi
-from .extractor import extract_vi_xml
+from ..extractor import extract_vi_xml
 
 
 @dataclass

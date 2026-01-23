@@ -9,10 +9,10 @@ This module provides an agent-based conversion pipeline that:
 
 Usage:
     from vipy.agent import ConversionAgent, ConversionConfig
-    from vipy.graph import VIGraph, GraphConfig
+    from vipy.memory_graph import InMemoryVIGraph
 
     # Load VIs into graph
-    graph = VIGraph(GraphConfig())
+    graph = InMemoryVIGraph()
     graph.load_vi("path/to/vi.vi")
 
     # Configure and run agent
