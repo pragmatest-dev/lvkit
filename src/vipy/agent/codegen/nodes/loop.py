@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import ast
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from vipy.graph_types import Operation, Tunnel
 
@@ -239,8 +239,8 @@ class LoopCodeGen(NodeCodeGen):
 
         Priority:
         1. Use outer source terminal name (if available from context flow)
-        2. Semantic inference (counter, index, accumulator)
-        3. Fall back to UID-based naming
+        2. Semantic inference based on tunnel type and data type
+        3. Fall back to generic names
         """
         outer = tunnel.outer_terminal_uid
 
@@ -252,15 +252,25 @@ class LoopCodeGen(NodeCodeGen):
 
         # Semantic naming based on tunnel type
         if tunnel.tunnel_type == "lSR":
-            # Shift registers are often counters or accumulators
-            # Check if paired with numeric operations
-            return f"shift_{tunnel.outer_terminal_uid[-4:]}"
-        elif tunnel.tunnel_type == "lMax":
-            return f"accum_{tunnel.outer_terminal_uid[-4:]}"
+            # Shift registers: use semantic names based on common patterns
+            # Try to infer from the data type or use generic names
+            lv_type = self._get_terminal_type(outer, ctx) if ctx else None
+            if lv_type:
+                if lv_type.kind == "string":
+                    return "accumulated_str"
+                elif lv_type.kind == "array":
+                    return "collected"
+                elif lv_type.kind in ("int", "float", "numeric"):
+                    return "counter"
+            # Generic fallback for shift registers
+            return "state"
 
-        # Fall back to UID-based
-        uid_suffix = outer.split(":")[-1] if ":" in outer else outer[-4:]
-        return to_var_name(uid_suffix)
+        elif tunnel.tunnel_type == "lMax":
+            # Accumulators build up arrays
+            return "results"
+
+        # Fall back to generic tunnel name
+        return "value"
 
     def _singularize(self, array_var: str, ctx: CodeGenContext) -> str:
         """Derive singular item name from array variable name.
@@ -319,6 +329,18 @@ class LoopCodeGen(NodeCodeGen):
         if src_terminal and src_terminal != terminal_uid:
             return self._get_source_terminal_name(src_terminal, ctx)
 
+        return None
+
+    def _get_terminal_type(
+        self, terminal_uid: str, ctx: CodeGenContext
+    ) -> Any | None:
+        """Get the LVType for a terminal if available.
+
+        Currently returns None - type info requires access to VI context
+        which isn't stored in CodeGenContext.
+        """
+        # TODO: Could be enhanced to trace type info through data flow
+        # For now, return None and let callers use generic naming
         return None
 
     def _generate_inner(
