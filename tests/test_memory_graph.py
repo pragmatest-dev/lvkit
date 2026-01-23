@@ -685,3 +685,106 @@ class TestKindToLabels:
         """Test unknown kind returns empty list."""
         graph = InMemoryVIGraph()
         assert graph._kind_to_labels("unknown_kind") == []
+
+
+class TestParallelBranchDetection:
+    """Tests for parallel branch detection."""
+
+    @pytest.fixture
+    def graph_with_branches(self) -> InMemoryVIGraph:
+        """Create a graph with parallel branches.
+
+        Structure:
+            Input -> Op1 -> (branches to) -> Op2 -> Output
+                                          -> Op3 -> Output2
+        """
+        import networkx as nx
+
+        graph = InMemoryVIGraph()
+        g = nx.DiGraph()
+
+        # Input feeds op1
+        g.add_node("input1", kind="input", name="X")
+        g.add_node("op1", kind="primitive", name="Source")
+        g.add_node("t1_out", kind="terminal", parent_id="op1", direction="output")
+
+        # Op1 branches to op2 and op3
+        g.add_node("op2", kind="primitive", name="BranchA")
+        g.add_node("t2_in", kind="terminal", parent_id="op2", direction="input")
+        g.add_node("t2_out", kind="terminal", parent_id="op2", direction="output")
+
+        g.add_node("op3", kind="primitive", name="BranchB")
+        g.add_node("t3_in", kind="terminal", parent_id="op3", direction="input")
+        g.add_node("t3_out", kind="terminal", parent_id="op3", direction="output")
+
+        # Outputs
+        g.add_node("output1", kind="output", name="Result1")
+        g.add_node("output2", kind="output", name="Result2")
+
+        # Wires
+        g.add_edge("input1", "op1")
+        g.add_edge("t1_out", "t2_in")  # Branch 1
+        g.add_edge("t1_out", "t3_in")  # Branch 2 (this creates a fork)
+        g.add_edge("t2_out", "output1")
+        g.add_edge("t3_out", "output2")
+
+        graph._dataflow["Branching.vi"] = g
+        graph._dep_graph.add_node("Branching.vi")
+        return graph
+
+    @pytest.fixture
+    def graph_without_branches(self) -> InMemoryVIGraph:
+        """Create a graph without parallel branches (linear flow)."""
+        import networkx as nx
+
+        graph = InMemoryVIGraph()
+        g = nx.DiGraph()
+
+        g.add_node("input", kind="input", name="X")
+        g.add_node("op1", kind="primitive", name="Process")
+        g.add_node("output", kind="output", name="Result")
+
+        g.add_edge("input", "op1")
+        g.add_edge("op1", "output")
+
+        graph._dataflow["Linear.vi"] = g
+        graph._dep_graph.add_node("Linear.vi")
+        return graph
+
+    def test_has_parallel_branches_true(self, graph_with_branches: InMemoryVIGraph):
+        """Test detecting VI with parallel branches."""
+        assert graph_with_branches.has_parallel_branches("Branching.vi") is True
+
+    def test_has_parallel_branches_false(self, graph_without_branches: InMemoryVIGraph):
+        """Test detecting VI without parallel branches."""
+        assert graph_without_branches.has_parallel_branches("Linear.vi") is False
+
+    def test_has_parallel_branches_missing_vi(self):
+        """Test has_parallel_branches for non-existent VI."""
+        graph = InMemoryVIGraph()
+        assert graph.has_parallel_branches("Missing.vi") is False
+
+    def test_find_branch_points(self, graph_with_branches: InMemoryVIGraph):
+        """Test finding branch points."""
+        branch_points = graph_with_branches.find_branch_points("Branching.vi")
+
+        # Should find at least one branch point (t1_out branches to t2_in and t3_in)
+        assert len(branch_points) >= 1
+
+        # Find the specific branch point
+        bp = branch_points[0]
+        assert bp.source_terminal == "t1_out"
+        assert len(bp.destinations) == 2
+        assert set(bp.destinations) == {"t2_in", "t3_in"}
+
+    def test_vi_context_includes_branches(self, graph_with_branches: InMemoryVIGraph):
+        """Test that get_vi_context includes has_parallel_branches."""
+        ctx = graph_with_branches.get_vi_context("Branching.vi")
+        assert "has_parallel_branches" in ctx
+        assert ctx["has_parallel_branches"] is True
+
+    def test_vi_context_no_branches(self, graph_without_branches: InMemoryVIGraph):
+        """Test that get_vi_context returns False for linear VI."""
+        ctx = graph_without_branches.get_vi_context("Linear.vi")
+        assert "has_parallel_branches" in ctx
+        assert ctx["has_parallel_branches"] is False
