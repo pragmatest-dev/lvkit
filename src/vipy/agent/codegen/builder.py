@@ -294,7 +294,11 @@ def build_result_class(vi_context: dict[str, Any]) -> ast.ClassDef | None:
     fields = []
     for out in outputs:
         name = to_var_name(out.name or "output")
-        type_hint = out.type or "Any"
+        # Use LVType for Python type hints if available
+        if out.lv_type:
+            type_hint = out.lv_type.to_python()
+        else:
+            type_hint = out.type or "Any"
         fields.append((name, type_hint))
 
     # Build class body with type annotations
@@ -354,7 +358,11 @@ def build_args(inputs: list[FPTerminalNode]) -> ast.arguments:
 
     for inp in inputs:
         name = to_var_name(inp.name or "input")
-        type_hint = inp.type or "Any"
+        # Use LVType for Python type hints if available
+        if inp.lv_type:
+            type_hint = inp.lv_type.to_python()
+        else:
+            type_hint = inp.type or "Any"
 
         arg = ast.arg(
             arg=name,

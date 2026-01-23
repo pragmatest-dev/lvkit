@@ -342,13 +342,12 @@ class LoopCodeGen(NodeCodeGen):
     ) -> tuple[ast.While, str | None]:
         """Build a while loop AST node.
 
-        LabVIEW while loops run until stop condition is True.
-        We generate: while not <condition>: ...
+        LabVIEW while loops have do-while semantics: the body runs at least once,
+        then the stop condition is checked at the END of each iteration.
 
-        Priority for stop condition:
-        1. Try to build compound expression (e.g., counter < 10) from inner operations
-        2. Fall back to simple variable reference
-        3. Fallback: while True with break
+        We model this with: stop = False; while not stop: <body>
+        The stop variable is computed inside the loop body, and initialized to
+        False to ensure the first iteration runs.
 
         Returns:
             Tuple of (While AST node, stop condition variable name or None)
@@ -361,31 +360,14 @@ class LoopCodeGen(NodeCodeGen):
         stop_terminal = node.stop_condition_terminal
 
         if stop_terminal:
-            # First, try to build a compound condition expression
-            # This handles cases like: counter < 10, i >= array_size
-            cond_expr = build_condition_expr(
-                stop_terminal, ctx, node.inner_nodes
-            )
-
-            if cond_expr:
-                # LabVIEW stops when condition is True
-                # Python: while not <condition>
-                # But simplify double negation: not (not x) -> x
-                test_expr = _negate_condition(cond_expr)
-                return ast.While(
-                    test=test_expr,
-                    body=body,
-                    orelse=[],
-                ), None  # No pre-init needed for compound expression
-
-            # Fall back to simple variable reference
+            # Resolve the stop condition variable from the loop body
+            # The cpdArith or other operation computes this inside the loop
             stop_condition = ctx.resolve(stop_terminal)
             if stop_condition:
                 # LabVIEW stops when condition is True
-                # Python: while not stop_condition
-                # The condition is computed inside the loop, so we return:
-                # 1. An initialization statement (condition = False) - done by caller
-                # 2. The while loop
+                # Python: stop = False; while not stop: <body updates stop>
+                # This models do-while: first iteration always runs,
+                # condition checked after each iteration
                 return ast.While(
                     test=ast.UnaryOp(
                         op=ast.Not(),
