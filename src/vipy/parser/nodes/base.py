@@ -7,6 +7,12 @@ import xml.etree.ElementTree as ET
 from vipy.constants import TERMINAL_CLASS
 from vipy.graph_types import Tunnel
 
+from ..flags import is_output_terminal
+from ..utils import extract_label, safe_int, safe_text
+
+# Re-export extract_label for backward compatibility
+__all__ = ["extract_label", "extract_terminal_types", "extract_tunnel_mapping"]
+
 
 def extract_terminal_types(
     elem: ET.Element,
@@ -26,31 +32,15 @@ def extract_terminal_types(
         type_desc = term.find(".//typeDesc")
         obj_flags = term.find("objFlags")
 
-        type_str = type_desc.text if type_desc is not None and type_desc.text else None
+        type_str = safe_text(type_desc)
         if type_str:
-            flags = int(obj_flags.text) if obj_flags is not None and obj_flags.text else 0
-            # Bit 0 (isIndicator) = output, bit 0 clear = input
-            if flags & 0x1:
+            flags = safe_int(obj_flags)
+            if is_output_terminal(flags):
                 output_types.append(type_str)
             else:
                 input_types.append(type_str)
 
     return input_types, output_types
-
-
-def extract_label(elem: ET.Element) -> str | None:
-    """Extract label text from a node element.
-
-    Args:
-        elem: Node element with label child
-
-    Returns:
-        Label text or None
-    """
-    label = elem.find("label/textRec/text")
-    if label is not None and label.text:
-        return label.text.strip('"')
-    return None
 
 
 def extract_tunnel_mapping(dco: ET.Element, dco_class: str) -> Tunnel | None:

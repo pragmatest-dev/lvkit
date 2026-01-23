@@ -8,6 +8,7 @@ from pathlib import Path
 from vipy.constants import FP_TERMINAL_CLASS
 from vipy.graph_types import LVType
 
+from .flags import get_wiring_rule
 from .models import ConnectorPane, ConnectorPaneSlot, FPTerminal, ParsedType
 from .type_resolution import resolve_type_rich
 
@@ -233,7 +234,7 @@ def parse_connector_pane_types(
                 flags = int(flags_str, 16)
             except ValueError:
                 flags = 0
-            rules[idx] = (flags >> 8) & 0x03
+            rules[idx] = get_wiring_rule(flags)
 
         return rules
 
