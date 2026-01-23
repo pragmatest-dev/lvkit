@@ -255,3 +255,40 @@ class ClusterField:
     """
     name: str
     type: LVType
+
+
+# Branch point and parallel branch types for error handling
+
+
+@dataclass
+class BranchPoint:
+    """A point where one output feeds multiple inputs (fork).
+
+    In LabVIEW, when one output wire branches to multiple destinations,
+    those branches can execute independently. For error handling,
+    each branch needs to be wrapped in try/except to isolate failures.
+
+    Example:
+        source_output → Op A → Op B → merge_point
+                     ↘ Op C → Op D ↗
+    """
+
+    source_terminal: str  # Terminal ID where branch starts
+    source_operation: str | None  # Operation that produces the output
+    destinations: list[str]  # Terminal IDs that receive the branched data
+    vi_name: str | None = None  # VI containing this branch point
+
+
+@dataclass
+class ParallelBranch:
+    """A single branch from a branch point to a merge point.
+
+    Contains the operations that execute in this branch and the
+    terminal where the branch merges back (or VI output).
+    """
+
+    branch_id: int  # Index of this branch (0, 1, 2, ...)
+    source_terminal: str  # Where branch starts (same as BranchPoint.source_terminal)
+    operation_ids: list[str]  # Operations in this branch (in execution order)
+    merge_terminal: str | None  # Where branch merges back (None if goes to VI output)
+    merge_operation: str | None  # Operation at merge point (None if goes to VI output)

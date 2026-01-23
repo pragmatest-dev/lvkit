@@ -18,6 +18,7 @@ class CodeGenContext:
     - Imports accumulated during generation
     - Optional lookup for callee VI contexts (for SubVI parameter names)
     - VI name being generated (for terminal observation tracking)
+    - Error handling mode (held error model for parallel branches)
     """
 
     bindings: dict[str, str] = field(default_factory=dict)
@@ -25,6 +26,7 @@ class CodeGenContext:
     imports: set[str] = field(default_factory=set)
     vi_name: str | None = None  # Name of VI being generated
     loop_depth: int = 0  # Nesting depth for index variable naming (i, j, k, ...)
+    use_held_error_model: bool = False  # Enable held error model for parallel branches
 
     # Flow map for quick lookup: dest_terminal → source info
     _flow_map: dict[str, dict] = field(default_factory=dict, repr=False)
@@ -130,6 +132,7 @@ class CodeGenContext:
             imports=self.imports,  # Share (accumulate)
             vi_name=self.vi_name,  # Share (for observation tracking)
             loop_depth=self.loop_depth + (1 if increment_loop_depth else 0),
+            use_held_error_model=self.use_held_error_model,  # Inherit error model
             _flow_map=self._flow_map,  # Share (read-only)
             vi_context_lookup=self.vi_context_lookup,  # Share
             import_resolver=self.import_resolver,  # Share

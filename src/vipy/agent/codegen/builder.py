@@ -10,6 +10,12 @@ from vipy.graph_types import FPTerminalNode, Operation
 from .ast_optimizer import optimize_module
 from .ast_utils import to_function_name, to_var_name
 from .context import CodeGenContext
+from .error_handler import (
+    build_held_error_check,
+    build_held_error_init,
+    build_labview_error_import,
+    needs_error_handling,
+)
 from .nodes import get_codegen
 
 
@@ -18,6 +24,7 @@ def build_module(
     vi_name: str,
     vi_context_lookup: Any = None,
     import_resolver: Any = None,
+    has_parallel_branches: bool = False,
 ) -> str:
     """Build complete Python module from VI context.
 
@@ -27,6 +34,8 @@ def build_module(
         vi_context_lookup: Optional callable (vi_name) -> context for looking up
                           callee VI parameter names
         import_resolver: Optional callable (subvi_name) -> import statement string
+        has_parallel_branches: If True, enable held error model for parallel
+                              branch error handling
 
     Returns:
         Python source code as string
@@ -37,8 +46,23 @@ def build_module(
     ctx.import_resolver = import_resolver
     ctx.vi_name = vi_name
 
+    # Determine if we need error handling infrastructure
+    use_error_handling = needs_error_handling(has_parallel_branches)
+    ctx.use_held_error_model = use_error_handling
+
     # Generate function body
-    body = generate_body(vi_context.get("operations", []), ctx)
+    body: list[ast.stmt] = []
+
+    # Add held error initialization if needed
+    if use_error_handling:
+        body.append(build_held_error_init())
+
+    # Generate operation code
+    body.extend(generate_body(vi_context.get("operations", []), ctx))
+
+    # Add held error check before return if we have error handling
+    if use_error_handling:
+        body.append(build_held_error_check())
 
     # Add return statement
     return_stmt = build_return_stmt(vi_context, ctx)
@@ -46,7 +70,7 @@ def build_module(
         body.append(return_stmt)
 
     # Build module structure
-    module = build_module_ast(vi_context, vi_name, body, ctx)
+    module = build_module_ast(vi_context, vi_name, body, ctx, use_error_handling)
 
     # Optimize AST (duplicate imports, dead code)
     module = optimize_module(module)
@@ -191,12 +215,13 @@ def build_module_ast(
     vi_name: str,
     body: list[ast.stmt],
     ctx: CodeGenContext,
+    use_error_handling: bool = False,
 ) -> ast.Module:
     """Build complete module AST."""
     module_body: list[ast.stmt] = []
 
     # Imports
-    module_body.extend(build_imports(vi_context, ctx))
+    module_body.extend(build_imports(vi_context, ctx, use_error_handling))
 
     # Result class
     result_class = build_result_class(vi_context)
@@ -210,7 +235,11 @@ def build_module_ast(
     return ast.Module(body=module_body, type_ignores=[])
 
 
-def build_imports(vi_context: dict[str, Any], ctx: CodeGenContext) -> list[ast.stmt]:
+def build_imports(
+    vi_context: dict[str, Any],
+    ctx: CodeGenContext,
+    use_error_handling: bool = False,
+) -> list[ast.stmt]:
     """Build import statements."""
     imports: list[ast.stmt] = []
 
@@ -231,6 +260,10 @@ def build_imports(vi_context: dict[str, Any], ctx: CodeGenContext) -> list[ast.s
             imports.extend(tree.body)
         except SyntaxError:
             pass
+
+    # Add LabVIEWError import if using error handling
+    if use_error_handling:
+        imports.append(build_labview_error_import())
 
     # Context-accumulated imports
     for imp in sorted(ctx.imports):
