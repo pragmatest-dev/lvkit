@@ -15,7 +15,6 @@ from dataclasses import dataclass, field
 from .models import Node
 from .nodes.base import extract_label, extract_terminal_types
 
-
 # =============================================================================
 # Node Subclasses
 # =============================================================================

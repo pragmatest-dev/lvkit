@@ -12,7 +12,6 @@ from .parser import (
     parse_vi_metadata,
 )
 
-
 # === Primitive Tracking ===
 # Tracks primitives encountered during parsing (for analysis)
 _primitives_seen: dict[int, dict] = {}  # primResID -> {count, contexts, vi_names}

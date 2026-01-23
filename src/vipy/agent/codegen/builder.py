@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import ast
+from collections import deque
 from typing import Any
 
 from vipy.graph_types import FPTerminalNode, Operation
@@ -144,13 +145,15 @@ def topological_sort(
                     if dep_op_id != op.id and dep_op_id in dependencies:
                         dependencies[op.id].add(dep_op_id)
 
-    # Kahn's algorithm
+    # Kahn's algorithm with deque for O(1) popleft
     result: list[Operation] = []
-    ready = [op_id for op_id, deps in dependencies.items() if not deps]
+    ready: deque[str] = deque(
+        op_id for op_id, deps in dependencies.items() if not deps
+    )
     remaining = {op_id: set(deps) for op_id, deps in dependencies.items() if deps}
 
     while ready:
-        op_id = ready.pop(0)
+        op_id = ready.popleft()
         if op_id in op_by_id:
             result.append(op_by_id[op_id])
 

@@ -44,6 +44,33 @@ from .primitive_resolver import get_resolver as get_prim_resolver
 from .primitive_resolver import resolve_primitive
 from .vilib_resolver import get_resolver as get_vilib_resolver
 
+# Map node types to human-readable names for nodes without explicit names
+_NODE_TYPE_NAMES: dict[str, str] = {
+    "whileLoop": "While Loop",
+    "forLoop": "For Loop",
+    "caseStruct": "Case Structure",
+    "seqFrame": "Sequence Frame",
+    "eventStruct": "Event Structure",
+}
+
+# Map operation kind to labels
+_KIND_TO_LABELS: dict[str, list[str]] = {
+    "subvi": ["SubVI"],
+    "primitive": ["Primitive"],
+}
+
+
+def _get_operation_labels(kind: str) -> list[str]:
+    """Get labels for an operation based on its kind.
+
+    Args:
+        kind: Operation kind ("subvi", "primitive", or other)
+
+    Returns:
+        List of labels for the operation
+    """
+    return _KIND_TO_LABELS.get(kind, ["Operation"])
+
 
 class InMemoryVIGraph:
     """In-memory VI graph using NetworkX.
@@ -1130,12 +1157,7 @@ class InMemoryVIGraph:
             node_type = d.get("node_type", "")
 
             # Convert kind to labels for backward compatibility
-            if kind == "subvi":
-                labels = ["SubVI"]
-            elif kind == "primitive":
-                labels = ["Primitive"]
-            else:
-                labels = ["Operation"]
+            labels = _get_operation_labels(kind)
 
             # Enrich terminals with callee parameter names for SubVIs
             raw_terminals = d.get("terminals", [])
@@ -1279,12 +1301,7 @@ class InMemoryVIGraph:
             node_type = d.get("node_type", "")
 
             # Same labeling logic as get_operations
-            if kind == "subvi":
-                labels = ["SubVI"]
-            elif kind == "primitive":
-                labels = ["Primitive"]
-            else:
-                labels = ["Operation"]
+            labels = _get_operation_labels(kind)
 
             # Convert raw terminals to Terminal dataclasses
             terminals = self._to_terminal_list(d.get("terminals", []))

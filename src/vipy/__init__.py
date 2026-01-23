@@ -11,15 +11,18 @@ from .cypher import from_lvlib as cypher_from_lvlib
 from .cypher import from_project as cypher_from_project
 from .cypher import from_vi as cypher_from_vi
 from .frontpanel import generate_nicegui_code
-from .parser import FPControl, FrontPanel
 from .graph import GraphConfig, VIGraph
 from .graph import connect as connect_graph
 from .graph_types import (
     Constant as GraphConstant,
+)
+from .graph_types import (
     FPTerminalNode,
     Operation,
     Terminal,
     Tunnel,
+)
+from .graph_types import (
     Wire as GraphWire,
 )
 from .llm import LLMConfig
@@ -28,6 +31,8 @@ from .parser import (
     ConnectorPane,
     ConnectorPaneSlot,
     Constant,
+    FPControl,
+    FrontPanel,
     Node,
     ParsedVI,
     VIMetadata,

@@ -14,7 +14,6 @@ from pathlib import Path
 # Import dataclasses from parser
 from .parser import FPControl, FrontPanel, parse_vi
 
-
 # Map LabVIEW DDO classes to NiceGUI widgets
 WIDGET_MAP = {
     "stdString": "ui.input",

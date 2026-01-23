@@ -5,7 +5,7 @@ from __future__ import annotations
 import ast
 from typing import TYPE_CHECKING
 
-from vipy.graph_types import LVType, Operation, Tunnel
+from vipy.graph_types import Operation, Tunnel
 
 from ..ast_utils import build_assign, parse_expr, to_var_name
 from ..condition_builder import build_condition_expr
@@ -511,40 +511,6 @@ class LoopCodeGen(NodeCodeGen):
             orelse=[],
         )
 
-    def _find_count_source(
-        self, tunnels: list[Tunnel], ctx: CodeGenContext
-    ) -> str | None:
-        """Find the iteration count source from tunnels.
-
-        Looks for lMax tunnel with input wired to it (N terminal).
-        """
-        for tunnel in tunnels:
-            tunnel_type = tunnel.tunnel_type
-            outer_term = tunnel.outer_terminal_uid
-
-            # lMax on input side provides count (it's the N terminal)
-            # Note: lMax is typically output for accumulation, but for
-            # the iteration count it receives a value
-            if tunnel_type == "lMax" and outer_term:
-                source = ctx.resolve(outer_term)
-                if source:
-                    return source
-
-        return None
-
-    def _find_autoindex_array(
-        self, tunnels: list[Tunnel], ctx: CodeGenContext
-    ) -> tuple[str, str] | None:
-        """Find an array input for autoindexing.
-
-        LabVIEW automatically indexes arrays entering For loops through lpTun tunnels.
-        When an array enters a For loop, the loop iterates over elements.
-
-        Returns (array_var, inner_terminal_uid) if an array input is found.
-        """
-        arrays = self._find_all_autoindex_arrays(tunnels, ctx)
-        return arrays[0] if arrays else None
-
     def _find_all_autoindex_arrays(
         self, tunnels: list[Tunnel], ctx: CodeGenContext
     ) -> list[tuple[str, str]]:
@@ -572,18 +538,6 @@ class LoopCodeGen(NodeCodeGen):
                     results.append((outer_var, inner_term))
 
         return results
-
-    def _get_terminal_type(
-        self, terminal_uid: str, ctx: CodeGenContext
-    ) -> LVType | None:
-        """Get the LVType for a terminal from the data flow info.
-
-        Used to determine if a terminal carries an array for auto-indexing.
-        """
-        # The type info would be in the terminal's node data if available
-        # For now, return None - this would need to be hooked into the graph
-        # to get actual type information
-        return None
 
     def _has_incoming_flow(self, terminal_uid: str, ctx: CodeGenContext) -> bool:
         """Check if a terminal has any incoming data flow.
