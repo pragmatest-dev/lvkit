@@ -1045,32 +1045,26 @@
     },
     {
       "name": "Simple Error Handler",
-      "page": 1862,
       "category": "Application Control",
       "description": "Indicates whether an error occurred. If an error occurred, this VI returns a description of the error and optionally displays a dialog box. This VI calls the General Error Handler VI and has the same basic functionality as General Error Handler but with fewer options.",
-      "vi_path": null,
-      "is_polymorphic": false,
-      "python_hint": null,
-      "status": "needs_terminals",
       "terminals": [
         {
           "name": "error code (no error:0)",
-          "description": "error code is a numeric error code. If error in indicates an error, the VI ignores error code. If not, the VI tests it. A nonzero value signifies an error.",
-          "default_value": null,
-          "enum_values": null,
+          "index": 2,
+          "direction": "input",
           "python_param": "error_code_no_error_0"
         },
         {
           "name": "error source (\" \")",
-          "description": "error source is an optional string you can use to describe the source of error code.",
-          "default_value": null,
-          "enum_values": null,
+          "index": 3,
+          "direction": "input",
           "python_param": "error_source"
         },
         {
           "name": "type of dialog (OK msg:1)",
-          "description": "type of dialog determines what type of dialog box to display, if any. Regardless of its value, the VI outputs the error information and message describing the error. 0 no dialog\u2014Displays no dialog box. This is useful if you want to have programmatic control over handling errors. 1 OK message (default)\u2014Displays a dialog box with a single Continue button. After the user acknowledges the dialog box, the VI returns control to the main VI. 2 continue or stop message\u2014Displays a dialog box with buttons",
-          "default_value": null,
+          "index": 4,
+          "direction": "input",
+          "type": "String",
           "enum_values": [
             [
               0,
@@ -1093,47 +1087,49 @@
         },
         {
           "name": "error in (no error)",
-          "description": "error in describes error conditions that occur before this node runs. This input contains status, code, and source, which provide standard error in cluster element functionality.",
-          "default_value": null,
-          "enum_values": null,
+          "index": 8,
+          "direction": "input",
           "python_param": "error_in_no_error"
         },
         {
           "name": "error?",
-          "description": "error? returns TRUE if an error occurs. If this VI finds an error, it sets the parameters in the error cluster.",
-          "default_value": null,
-          "enum_values": null,
+          "index": 0,
+          "direction": "output",
           "python_param": "error"
         },
         {
           "name": "code out",
-          "description": "code out is the error code indicated by error in or error code.",
-          "default_value": null,
-          "enum_values": null,
+          "index": 1,
+          "direction": "output",
           "python_param": "code_out"
         },
         {
           "name": "source out",
-          "description": "source out indicates the source of the error. The source out string is a more descriptive string than the source string in the error in input.",
-          "default_value": null,
-          "enum_values": null,
+          "index": 5,
+          "direction": "output",
           "python_param": "source_out"
         },
         {
           "name": "error out",
-          "description": "error out contains error information. This output provides standard error out functionality.",
-          "default_value": null,
-          "enum_values": null,
+          "index": 6,
+          "direction": "output",
+          "type": "Cluster",
           "python_param": "error_out"
         },
         {
           "name": "message",
-          "description": "message describes the error code that occurred, the source of the error, and a description of the error. If the VI does not return a description of the error, you can take several actions to find the error code description. If more than one description exists for the same error code, the VI displays all the descriptions, separated by or.",
-          "default_value": null,
-          "enum_values": null,
+          "index": 7,
+          "direction": "output",
           "python_param": "message"
         }
-      ]
+      ],
+      "python": "",
+      "python_code": "if error_in and error_in.get(\"status\"):\n    raise RuntimeError(f\"{error_in.get('source', 'Unknown')}: {error_in.get('code', 0)}\")",
+      "inline": true,
+      "imports": [],
+      "status": "complete",
+      "page": 1862,
+      "is_variant": false
     },
     {
       "name": "General Error Handler",

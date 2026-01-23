@@ -112,6 +112,36 @@ class LoopStructure:
 
 
 @dataclass
+class CaseFrame:
+    """A single case frame in a case structure.
+
+    Each frame contains:
+    - selector_value: The value that triggers this case ("True", "False", "0", "Default")
+    - inner_node_uids: UIDs of nodes inside this frame
+    - is_default: Whether this is the default case
+    """
+    selector_value: str
+    inner_node_uids: list[str] = field(default_factory=list)
+    is_default: bool = False
+
+
+@dataclass
+class CaseStructure:
+    """A case structure on the block diagram.
+
+    Contains:
+    - Selector terminal that receives the selector value
+    - Multiple frames (cases) with their operations
+    - Input/output tunnels connecting outer<->inner terminals
+    """
+    uid: str
+    selector_terminal_uid: str | None = None  # Terminal receiving selector value
+    selector_type: str | None = None  # "boolean", "integer", "enum", "string"
+    frames: list[CaseFrame] = field(default_factory=list)
+    tunnels: list[Tunnel] = field(default_factory=list)  # Input/output tunnels
+
+
+@dataclass
 class ConnectorPaneSlot:
     """A slot on the connector pane."""
     index: int  # Slot position (0-based)
@@ -249,6 +279,7 @@ class BlockDiagram:
     enum_labels: dict[str, list[str]] = field(default_factory=dict)
     terminal_info: dict[str, TerminalInfo] = field(default_factory=dict)
     loops: list[LoopStructure] = field(default_factory=list)
+    case_structures: list[CaseStructure] = field(default_factory=list)
 
     def get_node(self, uid: str) -> Node | None:
         """Get a node by UID."""
@@ -277,6 +308,20 @@ class BlockDiagram:
                     return tunnel
                 if tunnel.inner_terminal_uid == terminal_uid:
                     return tunnel
+        # Also check case structure tunnels
+        for case_struct in self.case_structures:
+            for tunnel in case_struct.tunnels:
+                if tunnel.outer_terminal_uid == terminal_uid:
+                    return tunnel
+                if tunnel.inner_terminal_uid == terminal_uid:
+                    return tunnel
+        return None
+
+    def get_case_structure(self, uid: str) -> CaseStructure | None:
+        """Get a case structure by UID."""
+        for case_struct in self.case_structures:
+            if case_struct.uid == uid:
+                return case_struct
         return None
 
 

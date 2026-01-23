@@ -54,8 +54,24 @@ class Tunnel:
 
 
 @dataclass
+class CaseFrame:
+    """A single frame (case) in a LabVIEW case structure.
+
+    Each frame has:
+    - selector_value: The value that selects this frame ("0", "True", "Default")
+    - inner_node_uids: UIDs of nodes contained in this frame
+    - operations: Fully resolved Operation list for code generation
+    """
+
+    selector_value: str | int
+    inner_node_uids: list[str] = field(default_factory=list)
+    operations: list[Operation] = field(default_factory=list)
+    is_default: bool = False  # True if this is the default case
+
+
+@dataclass
 class Operation:
-    """An operation node (SubVI, primitive, loop)."""
+    """An operation node (SubVI, primitive, loop, case structure)."""
 
     id: str
     name: str | None
@@ -69,6 +85,9 @@ class Operation:
     stop_condition_terminal: str | None = None
     description: str | None = None  # VI description/help text
     operation: str | None = None  # For cpdArith: "or", "and", "add"
+    # Case structure specific fields
+    case_frames: list[CaseFrame] = field(default_factory=list)
+    selector_terminal: str | None = None  # Terminal receiving selector value
 
 
 @dataclass
