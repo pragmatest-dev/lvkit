@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import xml.etree.ElementTree as ET
 from abc import ABC, abstractmethod
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 from .models import Node
 from .nodes.base import extract_label, extract_terminal_types

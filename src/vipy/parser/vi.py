@@ -21,21 +21,19 @@ from vipy.constants import (
 )
 from vipy.graph_types import LVType
 
+from .flags import is_indicator, is_output_terminal
 from .front_panel import (
     _lvtype_to_parsed,
     extract_fp_terminals,
     parse_connector_pane,
-    parse_connector_pane_types,
 )
 from .models import (
     BlockDiagram,
-    ConnectorPane,
     Constant,
     FPControl,
     FPTerminal,
     FrontPanel,
     Node,
-    ParsedType,
     ParsedVI,
     SubVIPathRef,
     TerminalInfo,
@@ -45,6 +43,7 @@ from .models import (
 from .nodes import extract_case_structures, extract_constants, extract_loops
 from .type_mapping import parse_type_map_rich
 from .type_resolution import resolve_type_rich
+from .utils import extract_label, safe_int
 
 
 def parse_vi(
@@ -353,14 +352,10 @@ def _extract_terminal_info(
                     is_output = False
                 else:
                     # Unwired terminal - fall back to flag-based detection
-                    term_flags_elem = term.find("objFlags")
-                    term_flags = int(term_flags_elem.text) if term_flags_elem is not None and term_flags_elem.text else 0
-                    dco_flags = 0
-                    if dco is not None:
-                        dco_flags_elem = dco.find("objFlags")
-                        dco_flags = int(dco_flags_elem.text) if dco_flags_elem is not None and dco_flags_elem.text else 0
+                    term_flags = safe_int(term.find("objFlags"))
+                    dco_flags = safe_int(dco.find("objFlags") if dco is not None else None)
                     combined_flags = term_flags | dco_flags
-                    is_output = bool(combined_flags & 0x1)
+                    is_output = is_output_terminal(combined_flags)
 
                 # Resolve TypeID to ParsedType
                 type_desc_elem = term.find(".//typeDesc")
@@ -514,24 +509,6 @@ def _parse_bounds(bounds_str: str) -> tuple[int, int, int, int]:
     return (0, 0, 100, 200)
 
 
-def _extract_label(elem: ET.Element) -> str | None:
-    """Extract label text from a control element."""
-    for part in elem.findall(".//*[@class='label']"):
-        text_elem = part.find(".//text")
-        if text_elem is not None and text_elem.text:
-            text = text_elem.text.strip('"')
-            if text.lower() not in ("pane", ""):
-                return text
-
-    text_elem = elem.find(".//textRec/text")
-    if text_elem is not None and text_elem.text:
-        text = text_elem.text.strip('"')
-        if text.lower() not in ("pane", ""):
-            return text
-
-    return None
-
-
 def _parse_ddo(
     ddo: ET.Element,
     uid: str,
@@ -550,7 +527,7 @@ def _parse_ddo(
                 inner_ddo = child
                 break
         if inner_ddo is not None:
-            name = _extract_label(ddo) or f"control_{uid}"
+            name = extract_label(ddo) or f"control_{uid}"
             inner_control = _parse_ddo(inner_ddo, uid, indicator_dco_uids, default_data)
             if inner_control:
                 inner_control.name = name
@@ -565,20 +542,14 @@ def _parse_ddo(
         bounds = (0, 0, 100, 200)
 
     # Get label/name
-    name = _extract_label(ddo) or f"control_{uid}"
+    name = extract_label(ddo) or f"control_{uid}"
 
     # Determine if indicator
     if indicator_dco_uids:
-        is_indicator = uid in indicator_dco_uids
+        control_is_indicator = uid in indicator_dco_uids
     else:
-        obj_flags = ddo.find("objFlags")
-        is_indicator = False
-        if obj_flags is not None and obj_flags.text:
-            try:
-                flags = int(obj_flags.text)
-                is_indicator = bool(flags & 0x10000)
-            except ValueError:
-                pass
+        flags = safe_int(ddo.find("objFlags"))
+        control_is_indicator = is_indicator(flags)
 
     # Parse children for clusters
     children = []
@@ -597,7 +568,7 @@ def _parse_ddo(
         name=name,
         control_type=control_type,
         bounds=bounds,
-        is_indicator=is_indicator,
+        is_indicator=control_is_indicator,
         default_value=default_data,
         children=children,
     )

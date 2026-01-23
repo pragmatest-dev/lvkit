@@ -5,6 +5,7 @@ Main entry point: parse_vi() returns ParsedVI with all components.
 
 # Re-export all public APIs
 from ..graph_types import Tunnel
+from .defaults import parse_dfds
 from .front_panel import (
     extract_fp_terminals,
     parse_connector_pane,
@@ -35,7 +36,6 @@ from .models import (
     Wire,
     WiringRule,
 )
-from .defaults import parse_dfds
 from .type_resolution import (
     load_enum_reference,
     parse_type_chain,
