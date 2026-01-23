@@ -107,6 +107,11 @@ def _build_expr_from_op(
     Returns:
         AST expression or None
     """
+    # Check for compound arithmetic (cpdArith) first - these have no primResID
+    # but we can still build expressions from them
+    if op.node_type == "cpdArith" and op.operation:
+        return _build_cpd_arith(op, ctx, output_to_op)
+
     prim_id = op.primResID
     if prim_id is None:
         return None
@@ -122,10 +127,6 @@ def _build_expr_from_op(
     # Check for NOT
     if prim_id in NOT_PRIMITIVES:
         return _build_not(op, ctx, output_to_op)
-
-    # Check for compound arithmetic (cpdArith) which handles OR/AND of booleans
-    if op.node_type == "cpdArith" and op.operation:
-        return _build_cpd_arith(op, ctx)
 
     return None
 
@@ -263,14 +264,17 @@ def _build_not(
 def _build_cpd_arith(
     op: Operation,
     ctx: CodeGenContext,
+    output_to_op: dict[str, Operation],
 ) -> ast.expr | None:
     """Build AST expression from compound arithmetic node.
 
     Compound arithmetic (cpdArith) is used for OR/AND of multiple booleans.
+    Recursively expands inputs from other operations (comparisons, NOT, etc.).
 
     Args:
         op: Compound arithmetic operation
         ctx: Code generation context
+        output_to_op: Map from output terminal UIDs to operations
 
     Returns:
         AST BoolOp expression or None
@@ -294,9 +298,18 @@ def _build_cpd_arith(
     if len(inputs) < 2:
         return None
 
-    # Resolve all inputs
+    # Try to recursively build expressions for each input
     values: list[ast.expr] = []
     for inp in inputs:
+        # Check if this input comes from another operation we can expand
+        source = _trace_source(inp.id, ctx)
+        if source and source in output_to_op:
+            nested_expr = _build_expr_from_op(output_to_op[source], ctx, output_to_op)
+            if nested_expr:
+                values.append(nested_expr)
+                continue
+
+        # Fall back to resolved variable
         resolved = ctx.resolve(inp.id)
         if resolved:
             values.append(parse_expr(resolved))
