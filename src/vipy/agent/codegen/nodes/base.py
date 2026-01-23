@@ -73,6 +73,7 @@ def get_codegen(node: Operation, strict: bool = False) -> NodeCodeGen:
         UnknownNodeError: If strict=True and node type is not recognized
     """
     # Import here to avoid circular imports
+    from .case import CaseCodeGen
     from .compound import ArrayBuildCodeGen, CompoundArithCodeGen
     from .constant import ConstantCodeGen
     from .loop import LoopCodeGen
@@ -85,6 +86,10 @@ def get_codegen(node: Operation, strict: bool = False) -> NodeCodeGen:
     # Check for loop structures
     if node.loop_type in ("whileLoop", "forLoop"):
         return LoopCodeGen()
+
+    # Check for case structures
+    if node_type == "caseStruct" or "CaseStructure" in labels:
+        return CaseCodeGen()
 
     # Check for SubVI
     if "SubVI" in labels:

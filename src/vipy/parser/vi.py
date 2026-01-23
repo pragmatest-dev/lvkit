@@ -41,7 +41,7 @@ from .models import (
     VIMetadata,
     Wire,
 )
-from .nodes import extract_constants, extract_loops
+from .nodes import extract_case_structures, extract_constants, extract_loops
 from .types import parse_type_map_rich, resolve_type_rich
 
 
@@ -163,6 +163,7 @@ def _parse_block_diagram(
     enum_labels = _extract_enum_labels(root)
     terminal_info = _extract_terminal_info(root, constants, fp_terminals, wires, type_map)
     loops = extract_loops(root)
+    case_structures = extract_case_structures(root)
 
     return BlockDiagram(
         nodes=nodes,
@@ -172,6 +173,7 @@ def _parse_block_diagram(
         enum_labels=enum_labels,
         terminal_info=terminal_info,
         loops=loops,
+        case_structures=case_structures,
     )
 
 

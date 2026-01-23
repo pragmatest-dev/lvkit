@@ -24,6 +24,7 @@ class CodeGenContext:
     data_flow: list[Wire] = field(default_factory=list)
     imports: set[str] = field(default_factory=set)
     vi_name: str | None = None  # Name of VI being generated
+    loop_depth: int = 0  # Nesting depth for index variable naming (i, j, k, ...)
 
     # Flow map for quick lookup: dest_terminal → source info
     _flow_map: dict[str, dict] = field(default_factory=dict, repr=False)
@@ -115,20 +116,33 @@ class CodeGenContext:
         """Merge new bindings into context."""
         self.bindings.update(bindings)
 
-    def child(self) -> CodeGenContext:
+    def child(self, increment_loop_depth: bool = False) -> CodeGenContext:
         """Create a child context for nested scopes (e.g., loop interior).
 
         Child inherits bindings but has own copy that doesn't affect parent.
+
+        Args:
+            increment_loop_depth: If True, increment loop depth for nested loops
         """
         return CodeGenContext(
             bindings=dict(self.bindings),  # Copy
             data_flow=self.data_flow,  # Share (read-only)
             imports=self.imports,  # Share (accumulate)
             vi_name=self.vi_name,  # Share (for observation tracking)
+            loop_depth=self.loop_depth + (1 if increment_loop_depth else 0),
             _flow_map=self._flow_map,  # Share (read-only)
             vi_context_lookup=self.vi_context_lookup,  # Share
             import_resolver=self.import_resolver,  # Share
         )
+
+    def get_loop_index_var(self) -> str:
+        """Get index variable name for current loop depth.
+
+        Returns i, j, k, l, m, n for depths 0-5, then idx_6, idx_7, etc.
+        """
+        if self.loop_depth < 6:
+            return "ijklmn"[self.loop_depth]
+        return f"idx_{self.loop_depth}"
 
     def get_callee_param_name(self, vi_name: str, slot_index: int) -> str | None:
         """Look up parameter name from callee VI context.

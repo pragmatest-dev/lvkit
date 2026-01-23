@@ -18,6 +18,7 @@ import networkx as nx
 from .blockdiagram import decode_constant
 from .extractor import extract_vi_xml
 from .graph_types import (
+    CaseFrame,
     Constant,
     FPTerminalNode,
     LVType,
@@ -71,6 +72,8 @@ class InMemoryVIGraph:
         self._bindings: dict[tuple[str, str], tuple[str, str]] = {}
         # Loop structures: vi_name -> {loop_uid -> LoopStructure}
         self._loop_structures: dict[str, dict[str, Any]] = {}
+        # Case structures: vi_name -> {case_uid -> CaseStructure}
+        self._case_structures: dict[str, dict[str, Any]] = {}
         # Polymorphic VI info: vi_name -> {is_polymorphic, variants}
         self._poly_info: dict[str, dict[str, Any]] = {}
         # Qualified name aliases: "Lib.lvlib:VI.vi" -> "VI.vi" (for library VIs)
@@ -87,6 +90,7 @@ class InMemoryVIGraph:
         self._stubs.clear()
         self._bindings.clear()
         self._loop_structures.clear()
+        self._case_structures.clear()
         self._qualified_aliases.clear()
         self._poly_info.clear()
         self._loaded_vis.clear()
@@ -333,6 +337,11 @@ class InMemoryVIGraph:
 
         # Store loop structures for later lookup
         self._loop_structures[vi_name] = {loop.uid: loop for loop in bd.loops}
+
+        # Store case structures for later lookup
+        self._case_structures[vi_name] = {
+            cs.uid: cs for cs in bd.case_structures
+        }
 
         # Parse VI metadata for polymorphic info
         if main_xml and main_xml.exists():
@@ -1095,7 +1104,12 @@ class InMemoryVIGraph:
         for loop_struct in self._loop_structures.get(vi_name, {}).values():
             inner_node_uids.update(loop_struct.inner_node_uids)
 
-        # Get operations in dataflow order, excluding inner loop nodes
+        # Also collect inner node UIDs from case structures
+        for case_struct in self._case_structures.get(vi_name, {}).values():
+            for frame in case_struct.frames:
+                inner_node_uids.update(frame.inner_node_uids)
+
+        # Get operations in dataflow order, excluding inner loop/case nodes
         ordered_ids = [
             uid for uid in self.get_operation_order(vi_name)
             if uid not in inner_node_uids
@@ -1139,6 +1153,8 @@ class InMemoryVIGraph:
             inner_nodes: list[Operation] = []
             loop_type: str | None = None
             stop_cond: str | None = None
+            case_frames: list[CaseFrame] = []
+            selector_terminal: str | None = None
 
             if node_type in ("whileLoop", "forLoop"):
                 labels = ["Loop"]  # Override label for loops
@@ -1159,6 +1175,24 @@ class InMemoryVIGraph:
                     )
                     stop_cond = loop_struct.stop_condition_terminal_uid
 
+            elif node_type == "caseStruct":
+                labels = ["CaseStructure"]  # Override label for case structures
+                case_struct = self._case_structures.get(vi_name, {}).get(n)
+                if case_struct:
+                    tunnels = [
+                        Tunnel(
+                            outer_terminal_uid=t.outer_terminal_uid,
+                            inner_terminal_uid=t.inner_terminal_uid,
+                            tunnel_type=t.tunnel_type,
+                            paired_terminal_uid=t.paired_terminal_uid,
+                        )
+                        for t in case_struct.tunnels
+                    ]
+                    selector_terminal = case_struct.selector_terminal_uid
+                    case_frames = self._build_case_frames(
+                        case_struct.frames, g, vi_name
+                    )
+
             result.append(Operation(
                 id=n,
                 name=d.get("name"),
@@ -1172,6 +1206,8 @@ class InMemoryVIGraph:
                 stop_condition_terminal=stop_cond,
                 description=d.get("description"),
                 operation=d.get("operation"),
+                case_frames=case_frames,
+                selector_terminal=selector_terminal,
             ))
         return result
 
@@ -1295,6 +1331,33 @@ class InMemoryVIGraph:
                 operation=d.get("operation"),
             ))
         return inner_ops
+
+    def _build_case_frames(
+        self,
+        parser_frames: list,  # list[parser.models.CaseFrame]
+        g: nx.DiGraph,
+        vi_name: str,
+    ) -> list[CaseFrame]:
+        """Build CaseFrame dataclasses from parser case frames.
+
+        Converts parser's CaseFrame (with UIDs) to graph_types.CaseFrame (with Operations).
+        """
+        result_frames: list[CaseFrame] = []
+
+        for parser_frame in parser_frames:
+            # Build operations for this frame's inner nodes
+            frame_ops = self._build_inner_nodes(
+                parser_frame.inner_node_uids, g, vi_name
+            )
+
+            result_frames.append(CaseFrame(
+                selector_value=parser_frame.selector_value,
+                inner_node_uids=parser_frame.inner_node_uids,
+                operations=frame_ops,
+                is_default=parser_frame.is_default,
+            ))
+
+        return result_frames
 
     def get_operation_order(self, vi_name: str) -> list[str]:
         """Get operations in dataflow execution order.

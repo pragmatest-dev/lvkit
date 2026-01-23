@@ -5,9 +5,10 @@ from __future__ import annotations
 import ast
 from typing import TYPE_CHECKING
 
-from vipy.graph_types import Operation, Tunnel
+from vipy.graph_types import LVType, Operation, Tunnel
 
 from ..ast_utils import build_assign, parse_expr, to_var_name
+from ..condition_builder import build_condition_expr
 from ..fragment import CodeFragment
 from .base import NodeCodeGen, get_codegen
 
@@ -38,8 +39,8 @@ class LoopCodeGen(NodeCodeGen):
         pre_loop_stmts: list[ast.stmt] = []
         bindings: dict[str, str] = {}
 
-        # Create child context for loop interior
-        inner_ctx = ctx.child()
+        # Create child context for loop interior (increment depth for nested loops)
+        inner_ctx = ctx.child(increment_loop_depth=True)
 
         # Track shift register variable names for update statements
         shift_reg_vars: dict[str, str] = {}  # lSR outer_terminal -> var_name
@@ -57,7 +58,7 @@ class LoopCodeGen(NodeCodeGen):
                 # Shift register: init variable from outer, bind inner
                 outer_var = ctx.resolve(outer_term)
                 if outer_var:
-                    shift_var = f"shift_{self._make_var_name(tunnel)}"
+                    shift_var = self._make_var_name(tunnel, ctx)
                     pre_loop_stmts.append(
                         build_assign(shift_var, parse_expr(outer_var))
                     )
@@ -68,12 +69,11 @@ class LoopCodeGen(NodeCodeGen):
                 # Check if input tunnel (outer has a source)
                 outer_var = ctx.resolve(outer_term)
                 if outer_var:
-                    # For loops: auto-index using array[i]
                     # While loops: pass the whole value through
-                    if loop_type == "forLoop":
-                        inner_ctx.bind(inner_term, f"{outer_var}[i]")
-                    else:
+                    # For loops: defer binding until we know enumerate vs range
+                    if loop_type != "forLoop":
                         inner_ctx.bind(inner_term, outer_var)
+                    # For forLoop lpTun, binding happens after we determine loop style
 
         # 2. Process OUTPUT tunnels - set up accumulators for lMax
         # Note: lMax can be either:
@@ -97,7 +97,7 @@ class LoopCodeGen(NodeCodeGen):
 
                 if inner_has_source:
                     # Accumulator: init empty list before loop
-                    accum_var = f"accum_{self._make_var_name(tunnel)}"
+                    accum_var = self._make_var_name(tunnel, ctx)
                     pre_loop_stmts.append(
                         build_assign(accum_var, ast.List(elts=[], ctx=ast.Load()))
                     )
@@ -107,10 +107,40 @@ class LoopCodeGen(NodeCodeGen):
                     # N terminal: try to get count from outer terminal
                     outer_var = ctx.resolve(outer_term)
                     if outer_var:
-                        # len() if array, direct use if integer
-                        n_terminal_var = f"len({outer_var})"
+                        # Check if array type - use len(), otherwise direct
+                        lv_type = self._get_terminal_type(outer_term, ctx)
+                        if lv_type and lv_type.kind == "array":
+                            n_terminal_var = f"len({outer_var})"
+                        else:
+                            # Integer or unknown - use directly
+                            n_terminal_var = outer_var
 
-        # 3. Generate inner node code
+        # 3. For forLoops: bind lpTun inner terminals based on loop style
+        #    Must happen BEFORE generating inner statements
+        if loop_type == "forLoop":
+            # Collect all lpTun input tunnels
+            lpTun_inputs: list[tuple[str, str, str]] = []  # (outer_var, inner_term, outer_term)
+            for tunnel in tunnels:
+                if tunnel.tunnel_type == "lpTun":
+                    outer_var = ctx.resolve(tunnel.outer_terminal_uid)
+                    if outer_var and tunnel.inner_terminal_uid:
+                        lpTun_inputs.append((outer_var, tunnel.inner_terminal_uid, tunnel.outer_terminal_uid))
+
+            # Decide: enumerate (single array, no N) vs indexed access
+            depth = ctx.loop_depth
+            idx_var = "ijklmn"[depth] if depth < 6 else f"idx_{depth}"
+
+            if len(lpTun_inputs) == 1 and not n_terminal_var:
+                # Single array, no N terminal: use enumerate, bind to singular form
+                outer_var, inner_term, _ = lpTun_inputs[0]
+                item_var = self._singularize(outer_var, inner_ctx)
+                inner_ctx.bind(inner_term, item_var)
+            else:
+                # Multiple arrays or N terminal: use indexed access
+                for outer_var, inner_term, _ in lpTun_inputs:
+                    inner_ctx.bind(inner_term, f"{outer_var}[{idx_var}]")
+
+        # 4. Generate inner node code
         inner_stmts = self._generate_inner(inner_nodes, inner_ctx)
 
         # 4. Add accumulator appends for lMax at end of loop body
@@ -144,29 +174,32 @@ class LoopCodeGen(NodeCodeGen):
                 continue
 
             # Find paired lSR to get the shift variable name
-            shift_var = None
+            rsr_shift_var: str | None = None
             if paired_uid:
                 # paired_uid is the lSR's DCO uid, need to find matching lSR tunnel
                 for t in tunnels:
                     if t.tunnel_type == "lSR":
                         lsr_outer = t.outer_terminal_uid
                         if lsr_outer in shift_reg_vars:
-                            shift_var = shift_reg_vars[lsr_outer]
+                            rsr_shift_var = shift_reg_vars[lsr_outer]
                             break
 
-            if shift_var:
+            if rsr_shift_var:
                 inner_val = inner_ctx.resolve(inner_term)
-                if inner_val and inner_val != shift_var:
-                    # Update shift register: shift_var = new_value
+                if inner_val and inner_val != rsr_shift_var:
+                    # Update shift register: rsr_shift_var = new_value
                     inner_stmts.append(
-                        build_assign(shift_var, parse_expr(inner_val))
+                        build_assign(rsr_shift_var, parse_expr(inner_val))
                     )
-                bindings[outer_term] = shift_var
+                bindings[outer_term] = rsr_shift_var
 
         # 6. Build the loop
-        stop_condition_var = None
+        stop_condition_var: str | None = None
+        loop_ast: ast.While | ast.For
         if loop_type == "whileLoop":
-            loop_ast, stop_condition_var = self._build_while_loop(node, inner_stmts, inner_ctx)
+            loop_ast, stop_condition_var = self._build_while_loop(
+                node, inner_stmts, inner_ctx
+            )
         else:
             loop_ast = self._build_for_loop(
                 node, inner_stmts, inner_ctx, tunnels, n_terminal_var
@@ -201,12 +234,92 @@ class LoopCodeGen(NodeCodeGen):
             imports=inner_ctx.imports,
         )
 
-    def _make_var_name(self, tunnel: Tunnel) -> str:
-        """Generate a variable name from tunnel info."""
+    def _make_var_name(self, tunnel: Tunnel, ctx: CodeGenContext | None = None) -> str:
+        """Generate a variable name from tunnel info.
+
+        Priority:
+        1. Use outer source terminal name (if available from context flow)
+        2. Semantic inference (counter, index, accumulator)
+        3. Fall back to UID-based naming
+        """
         outer = tunnel.outer_terminal_uid
-        # Use last part of UID for uniqueness
+
+        # Try to get name from the source feeding this tunnel
+        if ctx:
+            source_name = self._get_source_terminal_name(outer, ctx)
+            if source_name:
+                return to_var_name(source_name)
+
+        # Semantic naming based on tunnel type
+        if tunnel.tunnel_type == "lSR":
+            # Shift registers are often counters or accumulators
+            # Check if paired with numeric operations
+            return f"shift_{tunnel.outer_terminal_uid[-4:]}"
+        elif tunnel.tunnel_type == "lMax":
+            return f"accum_{tunnel.outer_terminal_uid[-4:]}"
+
+        # Fall back to UID-based
         uid_suffix = outer.split(":")[-1] if ":" in outer else outer[-4:]
         return to_var_name(uid_suffix)
+
+    def _singularize(self, array_var: str, ctx: CodeGenContext) -> str:
+        """Derive singular item name from array variable name.
+
+        Examples:
+            methods -> method
+            items -> item
+            values -> value
+            data -> datum (or data_item)
+            array -> element
+
+        For nested loops with name conflicts, appends a number.
+        """
+        base = array_var.lower()
+
+        # Common plural -> singular transformations
+        if base.endswith("ies"):
+            singular = base[:-3] + "y"  # entries -> entry
+        elif base.endswith("ses") or base.endswith("xes") or base.endswith("ches"):
+            singular = base[:-2]  # boxes -> box, matches -> match
+        elif base.endswith("s") and len(base) > 1:
+            singular = base[:-1]  # methods -> method
+        elif base == "data":
+            singular = "datum"
+        elif base == "array":
+            singular = "element"
+        else:
+            singular = base + "_item"
+
+        # Check for conflicts with existing bindings
+        candidate = singular
+        suffix = 2
+        while candidate in ctx.bindings.values():
+            candidate = f"{singular}_{suffix}"
+            suffix += 1
+
+        return candidate
+
+    def _get_source_terminal_name(
+        self, terminal_uid: str, ctx: CodeGenContext
+    ) -> str | None:
+        """Get the name of the source feeding a terminal.
+
+        Traces back through data flow to find a named source (FP control, constant).
+        """
+        flow_info = ctx._flow_map.get(terminal_uid)
+        if not flow_info:
+            return None
+
+        src_parent_name: str | None = flow_info.get("src_parent_name")
+        if src_parent_name:
+            return src_parent_name
+
+        # Recurse to trace further back
+        src_terminal = flow_info.get("src_terminal")
+        if src_terminal and src_terminal != terminal_uid:
+            return self._get_source_terminal_name(src_terminal, ctx)
+
+        return None
 
     def _generate_inner(
         self, inner_nodes: list[Operation], ctx: CodeGenContext
@@ -226,13 +339,19 @@ class LoopCodeGen(NodeCodeGen):
 
     def _build_while_loop(
         self, node: Operation, body: list[ast.stmt], ctx: CodeGenContext
-    ) -> ast.While:
+    ) -> tuple[ast.While, str | None]:
         """Build a while loop AST node.
 
         LabVIEW while loops run until stop condition is True.
-        We generate: <condition> = False; while not <condition>: ... <condition> = ...
+        We generate: while not <condition>: ...
 
-        If no stop condition can be resolved, falls back to while True with break.
+        Priority for stop condition:
+        1. Try to build compound expression (e.g., counter < 10) from inner operations
+        2. Fall back to simple variable reference
+        3. Fallback: while True with break
+
+        Returns:
+            Tuple of (While AST node, stop condition variable name or None)
         """
         # Ensure non-empty body
         if not body:
@@ -240,34 +359,49 @@ class LoopCodeGen(NodeCodeGen):
 
         # Get stop condition from the lTst terminal
         stop_terminal = node.stop_condition_terminal
-        stop_condition = None
 
         if stop_terminal:
-            # Resolve what value flows into the stop terminal
-            stop_condition = ctx.resolve(stop_terminal)
+            # First, try to build a compound condition expression
+            # This handles cases like: counter < 10, i >= array_size
+            cond_expr = build_condition_expr(
+                stop_terminal, ctx, node.inner_nodes
+            )
 
-        if stop_condition:
-            # LabVIEW stops when condition is True
-            # Python: while not stop_condition
-            # The condition is computed inside the loop, so we return:
-            # 1. An initialization statement (condition = False)
-            # 2. The while loop
-            return ast.While(
-                test=ast.UnaryOp(
-                    op=ast.Not(),
-                    operand=parse_expr(stop_condition),
-                ),
-                body=body,
-                orelse=[],
-            ), stop_condition
-        else:
-            # Fallback: no stop condition found, use break to prevent infinite loop
-            body.append(ast.Break())
-            return ast.While(
-                test=ast.Constant(value=True),
-                body=body,
-                orelse=[],
-            ), None
+            if cond_expr:
+                # LabVIEW stops when condition is True
+                # Python: while not <condition>
+                # But simplify double negation: not (not x) -> x
+                test_expr = _negate_condition(cond_expr)
+                return ast.While(
+                    test=test_expr,
+                    body=body,
+                    orelse=[],
+                ), None  # No pre-init needed for compound expression
+
+            # Fall back to simple variable reference
+            stop_condition = ctx.resolve(stop_terminal)
+            if stop_condition:
+                # LabVIEW stops when condition is True
+                # Python: while not stop_condition
+                # The condition is computed inside the loop, so we return:
+                # 1. An initialization statement (condition = False) - done by caller
+                # 2. The while loop
+                return ast.While(
+                    test=ast.UnaryOp(
+                        op=ast.Not(),
+                        operand=parse_expr(stop_condition),
+                    ),
+                    body=body,
+                    orelse=[],
+                ), stop_condition
+
+        # Fallback: no stop condition found, use break to prevent infinite loop
+        body.append(ast.Break())
+        return ast.While(
+            test=ast.Constant(value=True),
+            body=body,
+            orelse=[],
+        ), None
 
     def _build_for_loop(
         self,
@@ -283,68 +417,91 @@ class LoopCodeGen(NodeCodeGen):
         1. Over a range (N terminal via lMax input)
         2. Over array elements (autoindexing via lpTun input)
 
+        LabVIEW behavior with multiple auto-indexing inputs:
+        - Iterates min(len(arr1), len(arr2), ..., N) times
+        - Each array is accessed by index
+
         Args:
-            n_terminal_var: Explicit count source (e.g., "len(array)")
+            n_terminal_var: Explicit count source (e.g., count or "len(array)")
         """
         # Ensure non-empty body
         if not body:
             body = [ast.Pass()]
 
-        # Check for array autoindexing first (using first lpTun input as array)
-        array_info = self._find_autoindex_array(tunnels, ctx)
+        # Find ALL auto-indexing array inputs
+        autoindex_arrays = self._find_all_autoindex_arrays(tunnels, ctx)
 
-        if array_info:
-            array_var, inner_term = array_info
-            item_var = "item"
-            # Bind inner terminal to item variable
-            ctx.bind(inner_term, item_var)
+        # Get index variable for this loop depth (i, j, k, ...)
+        # Use depth-1 because ctx was already incremented for loop interior
+        depth = max(0, ctx.loop_depth - 1)
+        idx_var = "ijklmn"[depth] if depth < 6 else f"idx_{depth}"
 
+        # Single array, no N terminal: use enumerate for both index and item
+        # Note: inner terminal already bound in generate()
+        if len(autoindex_arrays) == 1 and not n_terminal_var:
+            array_var, inner_term = autoindex_arrays[0]
+            # Get item_var from binding (set in generate())
+            item_var = ctx.resolve(inner_term) or "item"
             return ast.For(
-                target=ast.Name(id=item_var, ctx=ast.Store()),
-                iter=ast.Name(id=array_var, ctx=ast.Load()),
-                body=body,
-                orelse=[],
-            )
-
-        # Use explicit N terminal count if provided
-        if n_terminal_var:
-            return ast.For(
-                target=ast.Name(id="i", ctx=ast.Store()),
+                target=ast.Tuple(
+                    elts=[
+                        ast.Name(id=idx_var, ctx=ast.Store()),
+                        ast.Name(id=item_var, ctx=ast.Store()),
+                    ],
+                    ctx=ast.Store(),
+                ),
                 iter=ast.Call(
-                    func=ast.Name(id="range", ctx=ast.Load()),
-                    args=[parse_expr(n_terminal_var)],
+                    func=ast.Name(id="enumerate", ctx=ast.Load()),
+                    args=[ast.Name(id=array_var, ctx=ast.Load())],
                     keywords=[],
                 ),
                 body=body,
                 orelse=[],
             )
 
-        # Try to find count from first lpTun input's length
-        for tunnel in tunnels:
-            if tunnel.tunnel_type == "lpTun":
-                outer_var = ctx.resolve(tunnel.outer_terminal_uid)
-                if outer_var:
-                    # Use len(first_input) as iteration count
-                    return ast.For(
-                        target=ast.Name(id="i", ctx=ast.Store()),
-                        iter=ast.Call(
-                            func=ast.Name(id="range", ctx=ast.Load()),
-                            args=[
-                                ast.Call(
-                                    func=ast.Name(id="len", ctx=ast.Load()),
-                                    args=[parse_expr(outer_var)],
-                                    keywords=[],
-                                )
-                            ],
-                            keywords=[],
-                        ),
-                        body=body,
-                        orelse=[],
+        # Multiple arrays or N terminal: use indexed access with min()
+        if autoindex_arrays or n_terminal_var:
+            # Build min() arguments: len(arr1), len(arr2), ..., N
+            min_args: list[ast.expr] = []
+
+            for array_var, inner_term in autoindex_arrays:
+                # Add len(array) to min args
+                # Note: inner terminal already bound to array[idx] in generate()
+                min_args.append(
+                    ast.Call(
+                        func=ast.Name(id="len", ctx=ast.Load()),
+                        args=[parse_expr(array_var)],
+                        keywords=[],
                     )
+                )
+
+            if n_terminal_var:
+                min_args.append(parse_expr(n_terminal_var))
+
+            # Build range argument
+            if len(min_args) == 1:
+                range_arg = min_args[0]
+            else:
+                range_arg = ast.Call(
+                    func=ast.Name(id="min", ctx=ast.Load()),
+                    args=min_args,
+                    keywords=[],
+                )
+
+            return ast.For(
+                target=ast.Name(id=idx_var, ctx=ast.Store()),
+                iter=ast.Call(
+                    func=ast.Name(id="range", ctx=ast.Load()),
+                    args=[range_arg],
+                    keywords=[],
+                ),
+                body=body,
+                orelse=[],
+            )
 
         # Absolute fallback
         return ast.For(
-            target=ast.Name(id="i", ctx=ast.Store()),
+            target=ast.Name(id=idx_var, ctx=ast.Store()),
             iter=ast.Call(
                 func=ast.Name(id="range", ctx=ast.Load()),
                 args=[ast.Constant(value=10)],
@@ -380,22 +537,53 @@ class LoopCodeGen(NodeCodeGen):
     ) -> tuple[str, str] | None:
         """Find an array input for autoindexing.
 
-        Returns (array_var, inner_terminal_uid) if found.
+        LabVIEW automatically indexes arrays entering For loops through lpTun tunnels.
+        When an array enters a For loop, the loop iterates over elements.
+
+        Returns (array_var, inner_terminal_uid) if an array input is found.
         """
+        arrays = self._find_all_autoindex_arrays(tunnels, ctx)
+        return arrays[0] if arrays else None
+
+    def _find_all_autoindex_arrays(
+        self, tunnels: list[Tunnel], ctx: CodeGenContext
+    ) -> list[tuple[str, str]]:
+        """Find ALL array inputs for autoindexing.
+
+        LabVIEW For loops with multiple auto-indexing inputs iterate
+        min(len(arr1), len(arr2), ...) times.
+
+        In LabVIEW, lpTun inputs to For loops ARE auto-indexed arrays by default.
+        The tunnel type itself indicates auto-indexing behavior.
+
+        Returns list of (array_var, inner_terminal_uid) tuples.
+        """
+        results: list[tuple[str, str]] = []
+
         for tunnel in tunnels:
             tunnel_type = tunnel.tunnel_type
             outer_term = tunnel.outer_terminal_uid
             inner_term = tunnel.inner_terminal_uid
 
+            # In For loops, lpTun inputs are auto-indexed arrays
             if tunnel_type == "lpTun" and outer_term and inner_term:
                 outer_var = ctx.resolve(outer_term)
                 if outer_var:
-                    # TODO: Check if this is actually an array type
-                    # For now, assume any lpTun input could be autoindexed
-                    # This would need type info to be accurate
-                    pass
+                    results.append((outer_var, inner_term))
 
-        return None  # Conservative: don't autoindex without type info
+        return results
+
+    def _get_terminal_type(
+        self, terminal_uid: str, ctx: CodeGenContext
+    ) -> LVType | None:
+        """Get the LVType for a terminal from the data flow info.
+
+        Used to determine if a terminal carries an array for auto-indexing.
+        """
+        # The type info would be in the terminal's node data if available
+        # For now, return None - this would need to be hooked into the graph
+        # to get actual type information
+        return None
 
     def _has_incoming_flow(self, terminal_uid: str, ctx: CodeGenContext) -> bool:
         """Check if a terminal has any incoming data flow.
@@ -406,3 +594,46 @@ class LoopCodeGen(NodeCodeGen):
         """
         # Check if this terminal is the destination of any flow
         return terminal_uid in ctx._flow_map
+
+
+# Comparison operator inversions for cleaner negation
+_INVERT_CMPOP: dict[type, type] = {
+    ast.Eq: ast.NotEq,
+    ast.NotEq: ast.Eq,
+    ast.Lt: ast.GtE,
+    ast.LtE: ast.Gt,
+    ast.Gt: ast.LtE,
+    ast.GtE: ast.Lt,
+}
+
+
+def _negate_condition(expr: ast.expr) -> ast.expr:
+    """Negate a condition expression, simplifying where possible.
+
+    Produces cleaner Python by:
+    - Unwrapping double negation: not (not x) -> x
+    - Inverting comparisons: not (x < y) -> x >= y
+    - Applying De Morgan's law: not (a and b) -> (not a) or (not b)
+
+    Args:
+        expr: AST expression to negate
+
+    Returns:
+        Negated expression, simplified where possible
+    """
+    # Double negation: not (not x) -> x
+    if isinstance(expr, ast.UnaryOp) and isinstance(expr.op, ast.Not):
+        return expr.operand
+
+    # Invert comparison: not (x < y) -> x >= y
+    if isinstance(expr, ast.Compare) and len(expr.ops) == 1:
+        op_type = type(expr.ops[0])
+        if op_type in _INVERT_CMPOP:
+            return ast.Compare(
+                left=expr.left,
+                ops=[_INVERT_CMPOP[op_type]()],
+                comparators=expr.comparators,
+            )
+
+    # Default: wrap in not
+    return ast.UnaryOp(op=ast.Not(), operand=expr)
