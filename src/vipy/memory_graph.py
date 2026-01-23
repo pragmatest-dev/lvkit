@@ -1637,6 +1637,7 @@ class InMemoryVIGraph:
             "data_flow": data_flow,
             "subvi_calls": subvi_calls,
             "poly_variants": self.get_poly_variants(vi_name),
+            "has_parallel_branches": self.has_parallel_branches(vi_name),
         }
 
     def get_subvi_calls(self, vi_name: str) -> list[dict]:

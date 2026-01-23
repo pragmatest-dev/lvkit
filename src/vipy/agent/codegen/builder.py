@@ -25,7 +25,7 @@ def build_module(
     vi_name: str,
     vi_context_lookup: Any = None,
     import_resolver: Any = None,
-    has_parallel_branches: bool = False,
+    has_parallel_branches: bool | None = None,
 ) -> str:
     """Build complete Python module from VI context.
 
@@ -36,7 +36,7 @@ def build_module(
                           callee VI parameter names
         import_resolver: Optional callable (subvi_name) -> import statement string
         has_parallel_branches: If True, enable held error model for parallel
-                              branch error handling
+                              branch error handling. If None, reads from vi_context.
 
     Returns:
         Python source code as string
@@ -48,6 +48,9 @@ def build_module(
     ctx.vi_name = vi_name
 
     # Determine if we need error handling infrastructure
+    # Read from vi_context if not explicitly passed
+    if has_parallel_branches is None:
+        has_parallel_branches = vi_context.get("has_parallel_branches", False)
     use_error_handling = needs_error_handling(has_parallel_branches)
     ctx.use_held_error_model = use_error_handling
 
