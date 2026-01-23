@@ -19,13 +19,13 @@ warnings.warn(
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
-from .blockdiagram import (
+from ..blockdiagram import (
     _get_enum_value_label,
     _get_fp_terminal_names,
     decode_constant,
 )
-from .extractor import extract_vi_xml
-from .parser import (
+from ..extractor import extract_vi_xml
+from ..parser import (
     BlockDiagram,
     ConnectorPane,
     Constant,

@@ -10,9 +10,9 @@ import traceback
 from pathlib import Path
 
 from . import __version__, convert_vi, convert_xml, summarize_vi
-from .cypher import from_blockdiagram as summarize_vi_cypher
-from .cypher import from_directory, from_lvclass, from_lvlib, from_project, from_vi
-from .graph import GraphConfig, VIGraph
+from .legacy.cypher import from_blockdiagram as summarize_vi_cypher
+from .legacy.cypher import from_directory, from_lvclass, from_lvlib, from_project, from_vi
+from .legacy.graph import GraphConfig, VIGraph
 from .llm import LLMConfig, check_ollama_available, list_models
 from .memory_graph import InMemoryVIGraph
 from .structure import (
@@ -738,19 +738,19 @@ def cmd_claude(args: argparse.Namespace) -> int:
         if suffix == ".vi":
             graph.load_vi(input_path, expand_subvis=True, search_paths=search_paths or None)
         elif suffix == ".lvlib":
-            from .cypher import from_lvlib
+            from .legacy.cypher import from_lvlib
             cypher = from_lvlib(input_path, expand_subvis=True)
             graph._load_cypher(cypher)
         elif suffix == ".lvclass":
-            from .cypher import from_lvclass
+            from .legacy.cypher import from_lvclass
             cypher = from_lvclass(input_path, expand_subvis=True)
             graph._load_cypher(cypher)
         elif suffix == ".lvproj":
-            from .cypher import from_project
+            from .legacy.cypher import from_project
             cypher = from_project(input_path, expand_subvis=True)
             graph._load_cypher(cypher)
         elif input_path.is_dir():
-            from .cypher import from_directory
+            from .legacy.cypher import from_directory
             cypher = from_directory(input_path, expand_subvis=True)
             graph._load_cypher(cypher)
         else:
