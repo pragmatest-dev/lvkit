@@ -239,8 +239,9 @@ class LoopCodeGen(NodeCodeGen):
 
         Priority:
         1. Use outer source terminal name (if available from context flow)
-        2. Semantic inference based on tunnel type and data type
-        3. Fall back to generic names
+        2. Use downstream destination name (if source is unnamed)
+        3. Semantic inference based on tunnel type and data type
+        4. Fall back to generic names
         """
         outer = tunnel.outer_terminal_uid
 
@@ -249,6 +250,11 @@ class LoopCodeGen(NodeCodeGen):
             source_name = self._get_source_terminal_name(outer, ctx)
             if source_name:
                 return to_var_name(source_name)
+
+            # Try downstream: where does this value ultimately go?
+            dest_name = self._get_dest_terminal_name(outer, ctx)
+            if dest_name:
+                return to_var_name(dest_name)
 
         # Semantic naming based on tunnel type
         if tunnel.tunnel_type == "lSR":
@@ -328,6 +334,38 @@ class LoopCodeGen(NodeCodeGen):
         src_terminal = flow_info.get("src_terminal")
         if src_terminal and src_terminal != terminal_uid:
             return self._get_source_terminal_name(src_terminal, ctx)
+
+        return None
+
+    def _get_dest_terminal_name(
+        self, terminal_uid: str, ctx: CodeGenContext, visited: set[str] | None = None
+    ) -> str | None:
+        """Get the name of a destination this terminal flows to.
+
+        Traces forward through data flow to find a named destination (FP indicator).
+        Used when source has no name (e.g., unnamed constant).
+        """
+        if visited is None:
+            visited = set()
+        if terminal_uid in visited:
+            return None
+        visited.add(terminal_uid)
+
+        dest_list = ctx._reverse_flow_map.get(terminal_uid, [])
+        for dest_info in dest_list:
+            dest_name: str | None = dest_info.get("dest_parent_name")
+            dest_labels = dest_info.get("dest_parent_labels", [])
+
+            # Check if it's a named indicator (output)
+            if dest_name and "Indicator" in dest_labels:
+                return dest_name
+
+            # Recurse through tunnels/connections
+            dest_terminal = dest_info.get("dest_terminal")
+            if dest_terminal:
+                found = self._get_dest_terminal_name(dest_terminal, ctx, visited)
+                if found:
+                    return found
 
         return None
 

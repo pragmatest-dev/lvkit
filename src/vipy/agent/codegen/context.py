@@ -33,6 +33,9 @@ class CodeGenContext:
     # Flow map for quick lookup: dest_terminal → source info
     _flow_map: dict[str, dict] = field(default_factory=dict, repr=False)
 
+    # Reverse flow map: src_terminal → list of dest info (for downstream name lookup)
+    _reverse_flow_map: dict[str, list[dict]] = field(default_factory=dict, repr=False)
+
     # Set of terminal IDs that have wires connected
     _wired_terminals: set[str] = field(default_factory=set, repr=False)
 
@@ -45,22 +48,32 @@ class CodeGenContext:
     import_resolver: Any = field(default=None, repr=False)
 
     def __post_init__(self):
-        """Build flow map from data flow."""
+        """Build flow maps from data flow."""
         self._build_flow_map()
         self._build_wired_set()
 
     def _build_flow_map(self) -> None:
-        """Build terminal→source mapping from data flow."""
+        """Build terminal→source and source→dest mappings from data flow."""
         for wire in self.data_flow:
             dest_id = wire.to_terminal_id
             src_id = wire.from_terminal_id
             if dest_id and src_id:
+                # Forward map: dest -> source
                 self._flow_map[dest_id] = {
                     "src_terminal": src_id,
                     "src_parent_id": wire.from_parent_id,
                     "src_parent_name": wire.from_parent_name,
                     "src_parent_labels": wire.from_parent_labels,
                 }
+                # Reverse map: source -> list of dests
+                if src_id not in self._reverse_flow_map:
+                    self._reverse_flow_map[src_id] = []
+                self._reverse_flow_map[src_id].append({
+                    "dest_terminal": dest_id,
+                    "dest_parent_id": wire.to_parent_id,
+                    "dest_parent_name": wire.to_parent_name,
+                    "dest_parent_labels": wire.to_parent_labels,
+                })
 
     def _build_wired_set(self) -> None:
         """Build set of terminals that have wires connected."""
@@ -136,6 +149,8 @@ class CodeGenContext:
             loop_depth=self.loop_depth + (1 if increment_loop_depth else 0),
             use_held_error_model=self.use_held_error_model,  # Inherit error model
             _flow_map=self._flow_map,  # Share (read-only)
+            _reverse_flow_map=self._reverse_flow_map,  # Share (read-only)
+            _wired_terminals=self._wired_terminals,  # Share (read-only)
             vi_context_lookup=self.vi_context_lookup,  # Share
             import_resolver=self.import_resolver,  # Share
         )
