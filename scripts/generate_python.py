@@ -490,9 +490,15 @@ def {func_name}(*args, **kwargs) -> Any:
             if ctx:
                 method_contexts[method.name] = ctx
 
-        # Build class wrapper
+        # Build class wrapper with context lookup for SubVI resolution
+        import_resolver = create_import_resolver(vi_folder_name, output_dir, vi_paths)
         builder = ClassBuilder(config=ClassConfig())
-        module = builder.build_class_module(lvclass, method_contexts)
+        module = builder.build_class_module(
+            lvclass,
+            method_contexts,
+            vi_context_lookup=graph.get_vi_context,
+            import_resolver=import_resolver,
+        )
         ast.fix_missing_locations(module)
         class_code = ast.unparse(module)
 

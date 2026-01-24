@@ -198,6 +198,7 @@ def to_var_name(name: str) -> str:
     """Convert a name to a valid Python variable name."""
     if not name:
         return "var"
+
     result = name.lower().replace(" ", "_").replace("-", "_")
     result = "".join(c for c in result if c.isalnum() or c == "_")
     if result and not result[0].isalpha() and result[0] != "_":

@@ -6,7 +6,10 @@ import ast
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
-from .ast_utils import to_function_name, to_var_name
+from vipy.type_defaults import _is_class_refnum, _is_error_cluster
+
+from .ast_utils import parse_expr, to_function_name, to_var_name
+from .builder import build_args, generate_body, CodeGenContext
 
 if TYPE_CHECKING:
     from ...structure import LVClass, LVMethod
@@ -40,12 +43,16 @@ class ClassBuilder:
     ) -> None:
         self.config = config or ClassConfig()
         self._method_contexts: dict[str, dict[str, Any]] = {}
+        self._vi_context_lookup: Any = None
+        self._import_resolver: Any = None
 
     def build_class_module(
         self,
         lvclass: LVClass,
         method_contexts: dict[str, dict[str, Any]] | None = None,
         parent_class_name: str | None = None,
+        vi_context_lookup: Any = None,
+        import_resolver: Any = None,
     ) -> ast.Module:
         """Build complete module with class definition.
 
@@ -53,11 +60,15 @@ class ClassBuilder:
             lvclass: Parsed LVClass object
             method_contexts: Dict mapping method name to VI context
             parent_class_name: Parent class name (overrides lvclass.parent_class)
+            vi_context_lookup: Callable to look up VI contexts for SubVIs
+            import_resolver: Callable to resolve import paths for SubVIs
 
         Returns:
             AST Module with imports and class definition
         """
         self._method_contexts = method_contexts or {}
+        self._vi_context_lookup = vi_context_lookup
+        self._import_resolver = import_resolver
         parent = parent_class_name or lvclass.parent_class
 
         module_body: list[ast.stmt] = []
@@ -170,7 +181,7 @@ class ClassBuilder:
 
         # Build static methods
         for method in static_methods:
-            method_def = self._build_static_method(method)
+            method_def = self._build_static_method(method, lvclass.name)
             body.append(method_def)
 
         # Build public instance methods
@@ -487,6 +498,7 @@ class ClassBuilder:
     def _build_static_method(
         self,
         method: LVMethod,
+        class_name: str,
     ) -> ast.FunctionDef:
         """Build a static method."""
         func_name = to_function_name(method.name)
@@ -496,52 +508,36 @@ class ClassBuilder:
         inputs = vi_context.get("inputs", [])
         outputs = vi_context.get("outputs", [])
 
-        # Build args
-        args = []
-        for inp in inputs:
-            param_name = to_var_name(inp.name if hasattr(inp, "name") else str(inp))
-            arg_annotation = ast.Name(id="Any", ctx=ast.Load())
-            args.append(ast.arg(arg=param_name, annotation=arg_annotation))
-
-        # Build body - placeholder for now
-        msg = f"Static method {method.name} not implemented"
-        body: list[ast.stmt] = [
-            ast.Raise(
-                exc=ast.Call(
-                    func=ast.Name(id="NotImplementedError", ctx=ast.Load()),
-                    args=[ast.Constant(value=msg)],
-                    keywords=[],
-                ),
-                cause=None,
-            )
+        # Filter out class instance input (even for "static" methods in LabVIEW)
+        filtered_inputs = [
+            inp for inp in inputs if not self._is_self_input(inp, class_name)
         ]
 
-        # Build return annotation
-        if not outputs:
-            returns: ast.expr = ast.Constant(value=None)
-        elif len(outputs) == 1:
-            returns = ast.Name(id="Any", ctx=ast.Load())
-        else:
-            returns = ast.Subscript(
-                value=ast.Name(id="tuple", ctx=ast.Load()),
-                slice=ast.Tuple(
-                    elts=[ast.Name(id="Any", ctx=ast.Load()) for _ in outputs],
-                    ctx=ast.Load(),
-                ),
-                ctx=ast.Load(),
-            )
+        # Use existing build_args() - handles types and error filtering
+        args_obj = build_args(filtered_inputs)
+
+        # Generate method body from operations
+        operations = vi_context.get("operations", [])
+        ctx = CodeGenContext.from_vi_context(vi_context)
+        ctx.vi_context_lookup = self._vi_context_lookup
+        ctx.import_resolver = self._import_resolver
+        body = generate_body(operations, ctx)
+
+        # Ensure non-empty body
+        if not body:
+            body = [ast.Pass()]
+
+        # Build return annotation - filter error clusters and class output
+        filtered_outputs = [
+            out for out in outputs
+            if not self._is_error_output(out) and not self._is_self_output(out, class_name)
+        ]
+
+        returns = self._build_return_annotation(filtered_outputs)
 
         return ast.FunctionDef(
             name=func_name,
-            args=ast.arguments(
-                posonlyargs=[],
-                args=args,
-                vararg=None,
-                kwonlyargs=[],
-                kw_defaults=[],
-                kwarg=None,
-                defaults=[],
-            ),
+            args=args_obj,
             body=body,
             decorator_list=[ast.Name(id="staticmethod", ctx=ast.Load())],
             returns=returns,
@@ -567,101 +563,139 @@ class ClassBuilder:
         inputs = vi_context.get("inputs", [])
         outputs = vi_context.get("outputs", [])
 
-        # Build args - always starts with self
-        args = [ast.arg(arg="self", annotation=None)]
-
-        # Add other parameters (skip the class-typed input which becomes self)
+        # Find the class instance input by TYPE (becomes self)
+        instance_input = None
         for inp in inputs:
-            inp_name = inp.name if hasattr(inp, "name") else str(inp)
-            inp_type = getattr(inp, "type", "Any")
+            if self._is_self_input(inp, class_name):
+                instance_input = inp
+                break
 
-            # Skip class-typed input (it becomes self)
-            if self._is_class_input(inp_name, inp_type, class_name):
-                continue
-
-            param_name = to_var_name(inp_name)
-            args.append(
-                ast.arg(arg=param_name, annotation=ast.Name(id="Any", ctx=ast.Load()))
-            )
-
-        # Build body - placeholder for now
-        body: list[ast.stmt] = [
-            ast.Raise(
-                exc=ast.Call(
-                    func=ast.Name(id="NotImplementedError", ctx=ast.Load()),
-                    args=[ast.Constant(value=f"Method {method.name} not implemented")],
-                    keywords=[],
-                ),
-                cause=None,
-            )
+        # Filter out the class-typed input (becomes self)
+        filtered_inputs = [
+            inp for inp in inputs if not self._is_self_input(inp, class_name)
         ]
 
-        # Build return annotation
-        if not outputs:
-            returns: ast.expr = ast.Constant(value=None)
-        elif len(outputs) == 1:
-            returns = ast.Name(id="Any", ctx=ast.Load())
-        else:
-            returns = ast.Subscript(
-                value=ast.Name(id="tuple", ctx=ast.Load()),
-                slice=ast.Tuple(
-                    elts=[ast.Name(id="Any", ctx=ast.Load()) for _ in outputs],
-                    ctx=ast.Load(),
-                ),
-                ctx=ast.Load(),
-            )
+        # Use existing build_args() for proper types and error filtering
+        args_obj = build_args(filtered_inputs)
+
+        # Prepend self
+        args_obj.args.insert(0, ast.arg(arg="self", annotation=None))
+
+        # Generate method body from operations
+        operations = vi_context.get("operations", [])
+        ctx = CodeGenContext.from_vi_context(vi_context)
+        ctx.vi_context_lookup = self._vi_context_lookup
+        ctx.import_resolver = self._import_resolver
+        body = generate_body(operations, ctx)
+
+        # Get instance variable name from context bindings (not from input name!)
+        instance_var_name = None
+        if instance_input and instance_input.id:
+            instance_var_name = ctx.bindings.get(instance_input.id)
+
+        # Transform instance variable references to self
+        if instance_var_name:
+            body = self._transform_instance_to_self(body, instance_var_name)
+
+        # Ensure non-empty body
+        if not body:
+            body = [ast.Pass()]
+
+        # Build return annotation - filter error clusters and class output
+        filtered_outputs = [
+            out for out in outputs
+            if not self._is_error_output(out) and not self._is_self_output(out, class_name)
+        ]
+
+        returns = self._build_return_annotation(filtered_outputs)
 
         return ast.FunctionDef(
             name=func_name,
-            args=ast.arguments(
-                posonlyargs=[],
-                args=args,
-                vararg=None,
-                kwonlyargs=[],
-                kw_defaults=[],
-                kwarg=None,
-                defaults=[],
-            ),
+            args=args_obj,
             body=body,
             decorator_list=[],
             returns=returns,
         )
 
-    def _is_class_input(
-        self,
-        input_name: str,
-        input_type: str,
-        class_name: str,
-    ) -> bool:
-        """Check if an input is the class object (should become self).
+    def _transform_instance_to_self(
+        self, body: list[ast.stmt], instance_var: str
+    ) -> list[ast.stmt]:
+        """Transform references to instance variable into self.
 
-        In LabVIEW, instance methods have a class-typed input/output pair
-        for the object reference.
+        Walks the AST and replaces Name nodes matching instance_var with 'self'.
         """
-        # Common patterns for class object input
-        class_patterns = [
-            class_name.lower(),
-            f"{class_name.lower()} in",
-            "object",
-            "object in",
-            "class",
-            "class in",
-            "self",
-        ]
+        class InstanceToSelfTransformer(ast.NodeTransformer):
+            def visit_Name(self, node: ast.Name) -> ast.AST:
+                if node.id == instance_var:
+                    return ast.Name(id="self", ctx=node.ctx)
+                return node
 
-        name_lower = input_name.lower()
-        type_lower = input_type.lower()
+        transformer = InstanceToSelfTransformer()
+        return [transformer.visit(stmt) for stmt in body]
 
-        # Check if the input name or type indicates it's a class object
-        for pattern in class_patterns:
-            if pattern in name_lower or pattern in type_lower:
-                return True
+    def _is_self_input(self, inp: Any, class_name: str) -> bool:
+        """Check if input is the class instance (becomes self).
 
-        # Check if type contains the class name
-        if class_name.lower() in type_lower:
+        Uses lv_type to detect class refnums by type, not name.
+        """
+        lv_type = getattr(inp, "lv_type", None)
+        if lv_type and _is_class_refnum(lv_type, class_name):
+            return True
+        return False
+
+    def _is_self_output(self, out: Any, class_name: str) -> bool:
+        """Check if output is the class instance (filtered from return).
+
+        Uses lv_type to detect class refnums by type, not name.
+        """
+        lv_type = getattr(out, "lv_type", None)
+        if lv_type and _is_class_refnum(lv_type, class_name):
+            return True
+        return False
+
+    def _is_error_output(self, out: Any) -> bool:
+        """Check if output is an error cluster (should not be in return).
+
+        Python uses exceptions instead of error clusters.
+        """
+        # Check by lv_type if available
+        lv_type = getattr(out, "lv_type", None)
+        if lv_type and _is_error_cluster(lv_type):
+            return True
+
+        # Fallback: check name pattern
+        out_name = (out.name if hasattr(out, "name") else str(out)).lower()
+        if "error" in out_name and ("in" in out_name or "out" in out_name):
             return True
 
         return False
+
+    def _build_return_annotation(self, outputs: list[Any]) -> ast.expr:
+        """Build return type annotation from outputs using lv_type."""
+        if not outputs:
+            return ast.Constant(value=None)
+
+        if len(outputs) == 1:
+            out = outputs[0]
+            lv_type = getattr(out, "lv_type", None)
+            if lv_type:
+                return parse_expr(lv_type.to_python())
+            return ast.Name(id="Any", ctx=ast.Load())
+
+        # Multiple outputs - tuple
+        elts = []
+        for out in outputs:
+            lv_type = getattr(out, "lv_type", None)
+            if lv_type:
+                elts.append(parse_expr(lv_type.to_python()))
+            else:
+                elts.append(ast.Name(id="Any", ctx=ast.Load()))
+
+        return ast.Subscript(
+            value=ast.Name(id="tuple", ctx=ast.Load()),
+            slice=ast.Tuple(elts=elts, ctx=ast.Load()),
+            ctx=ast.Load(),
+        )
 
     def _is_constructor(self, method_name: str) -> bool:
         """Check if a method is a constructor-like method."""

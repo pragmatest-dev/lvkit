@@ -203,6 +203,8 @@ class LVType:
     """
     kind: str  # "primitive", "enum", "cluster", "array", "ring", "typedef_ref"
     underlying_type: str | None = None  # Base LabVIEW type (None for typedef_ref)
+    ref_type: str | None = None  # For Refnum: "UDClassInst", "Queue", "Notifier", etc.
+    classname: str | None = None  # For class refnums (UDClassInst): e.g., "TestCase.lvclass"
 
     # Kind-specific fields (all optional, set based on kind)
     values: dict[str, EnumValue] | None = None  # enum/ring

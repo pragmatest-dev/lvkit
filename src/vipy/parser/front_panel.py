@@ -24,6 +24,8 @@ def _lvtype_to_parsed(lv_type: LVType) -> ParsedType:
         type_name=lv_type.underlying_type or "unknown",
         typedef_path=lv_type.typedef_path,
         typedef_name=lv_type.typedef_name,
+        ref_type=lv_type.ref_type,
+        classname=lv_type.classname,
     )
 
 

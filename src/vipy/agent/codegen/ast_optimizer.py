@@ -199,6 +199,111 @@ def remove_duplicate_imports(module: ast.Module) -> ast.Module:
     return remover.optimize(module)
 
 
+class UnusedImportRemover(ast.NodeTransformer):
+    """Remove unused imports from AST.
+
+    Identifies imports where the imported name is never used in the code
+    and removes them.
+
+    Example:
+        # Before:
+        from pathlib import Path
+        from .module import unused_func
+        def foo():
+            return Path(".")
+
+        # After:
+        from pathlib import Path
+        def foo():
+            return Path(".")
+    """
+
+    # Names that should never be removed (always needed for type hints)
+    ALWAYS_KEEP = {"annotations", "Any", "NamedTuple"}
+
+    def __init__(self) -> None:
+        self.used_names: set[str] = set()
+
+    def optimize(self, module: ast.Module) -> ast.Module:
+        """Remove unused imports from module.
+
+        Args:
+            module: The module AST to optimize
+
+        Returns:
+            Module with unused imports removed
+        """
+        # First pass: collect all used names
+        self._collect_used_names(module)
+
+        # Second pass: filter imports
+        new_body = []
+        for stmt in module.body:
+            if isinstance(stmt, ast.ImportFrom):
+                # Keep only used names
+                new_names = []
+                for alias in stmt.names:
+                    name = alias.asname or alias.name
+                    if name in self.used_names or name in self.ALWAYS_KEEP:
+                        new_names.append(alias)
+
+                if new_names:
+                    stmt.names = new_names
+                    new_body.append(stmt)
+                # else: all names unused, skip entire import
+
+            elif isinstance(stmt, ast.Import):
+                # Keep only used modules
+                new_names = []
+                for alias in stmt.names:
+                    name = alias.asname or alias.name
+                    if name in self.used_names or name in self.ALWAYS_KEEP:
+                        new_names.append(alias)
+
+                if new_names:
+                    stmt.names = new_names
+                    new_body.append(stmt)
+
+            else:
+                new_body.append(stmt)
+
+        module.body = new_body
+        return module
+
+    def _collect_used_names(self, node: ast.AST) -> None:
+        """Collect all names used in Load context (excluding imports)."""
+        for child in ast.walk(node):
+            # Skip imports themselves
+            if isinstance(child, (ast.Import, ast.ImportFrom)):
+                continue
+
+            # Track name references
+            if isinstance(child, ast.Name) and isinstance(child.ctx, ast.Load):
+                self.used_names.add(child.id)
+
+            # Track attribute access (e.g., module.func)
+            elif isinstance(child, ast.Attribute) and isinstance(child.ctx, ast.Load):
+                # Get root name of attribute chain
+                value = child.value
+                while isinstance(value, ast.Attribute):
+                    value = value.value
+                if isinstance(value, ast.Name):
+                    self.used_names.add(value.id)
+
+
+def remove_unused_imports(module: ast.Module) -> ast.Module:
+    """Remove unused imports from module AST.
+
+    Args:
+        module: Module AST to optimize
+
+    Returns:
+        Module with unused imports removed
+    """
+    remover = UnusedImportRemover()
+    return remover.optimize(module)
+
+
 def eliminate_dead_code(module: ast.Module) -> ast.Module:
     """Eliminate dead code from module AST.
 
@@ -223,4 +328,5 @@ def optimize_module(module: ast.Module) -> ast.Module:
     """
     module = remove_duplicate_imports(module)
     module = eliminate_dead_code(module)
+    module = remove_unused_imports(module)
     return module

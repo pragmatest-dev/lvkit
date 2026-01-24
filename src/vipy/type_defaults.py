@@ -171,6 +171,30 @@ def _is_error_cluster(lv_type: LVType) -> bool:
     return False
 
 
+def _is_class_refnum(lv_type: LVType, class_name: str) -> bool:
+    """Check if type is a class refnum matching the given class.
+
+    Args:
+        lv_type: The type to check
+        class_name: The class name to match (e.g., "TestCase" or "TestCase.lvclass")
+
+    Returns:
+        True if this is a UDClassInst refnum for the specified class
+    """
+    if lv_type.underlying_type != "Refnum":
+        return False
+    if lv_type.ref_type != "UDClassInst":
+        return False
+    if not lv_type.classname:
+        return False
+
+    # Normalize for comparison (remove .lvclass suffix, case-insensitive)
+    class_base = class_name.lower().replace(".lvclass", "")
+    refnum_class = lv_type.classname.lower().replace(".lvclass", "")
+
+    return class_base == refnum_class
+
+
 def get_default_for_control_type(control_type: str) -> str:
     """Get default for a front panel control type (stdXxx).
 
