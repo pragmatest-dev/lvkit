@@ -9,7 +9,7 @@ from typing import Any
 from vipy.graph_types import FPTerminalNode, Operation
 
 from .ast_optimizer import optimize_module
-from .ast_utils import to_function_name, to_var_name
+from .ast_utils import parse_expr, to_function_name, to_var_name
 from .context import CodeGenContext
 from .error_handler import (
     build_held_error_check,
@@ -352,7 +352,14 @@ def build_function_def(
 
 
 def build_args(inputs: list[FPTerminalNode]) -> ast.arguments:
-    """Build function arguments from inputs."""
+    """Build function arguments from inputs.
+
+    Wiring rules:
+    - 0 = unknown (treat as required)
+    - 1 = required (no default)
+    - 2 = recommended (has default)
+    - 3 = optional (has default)
+    """
     args = []
     defaults = []
 
@@ -364,12 +371,17 @@ def build_args(inputs: list[FPTerminalNode]) -> ast.arguments:
         else:
             type_hint = inp.type or "Any"
 
+        # wiring_rule >= 2 means recommended or optional
+        is_optional = inp.wiring_rule >= 2
+
         arg = ast.arg(
             arg=name,
-            annotation=ast.Name(id=type_hint, ctx=ast.Load()),
+            annotation=parse_expr(type_hint),
         )
         args.append(arg)
-        defaults.append(ast.Constant(value=None))  # Default to None
+
+        if is_optional:
+            defaults.append(_get_default_for_type(inp.lv_type))
 
     return ast.arguments(
         posonlyargs=[],
@@ -380,6 +392,40 @@ def build_args(inputs: list[FPTerminalNode]) -> ast.arguments:
         kwarg=None,
         defaults=defaults,
     )
+
+
+def _get_default_for_type(lv_type) -> ast.expr:
+    """Get appropriate default value for a LabVIEW type."""
+    if lv_type is None:
+        return ast.Constant(value=None)
+
+    kind = lv_type.kind
+    underlying = lv_type.underlying_type
+
+    if kind == "array":
+        return ast.List(elts=[], ctx=ast.Load())
+    elif kind == "primitive":
+        if underlying == "Path":
+            return ast.Call(
+                func=ast.Name(id="Path", ctx=ast.Load()),
+                args=[],
+                keywords=[],
+            )
+        elif underlying == "String":
+            return ast.Constant(value="")
+        elif underlying == "Boolean":
+            return ast.Constant(value=False)
+        elif underlying in ("NumInt8", "NumInt16", "NumInt32", "NumInt64",
+                           "NumUInt8", "NumUInt16", "NumUInt32", "NumUInt64"):
+            return ast.Constant(value=0)
+        elif underlying in ("NumFloat32", "NumFloat64"):
+            return ast.Constant(value=0.0)
+    elif kind == "cluster":
+        return ast.Dict(keys=[], values=[])
+    elif kind in ("enum", "ring"):
+        return ast.Constant(value=0)
+
+    return ast.Constant(value=None)
 
 
 def build_result_class_name(vi_name: str) -> str:
