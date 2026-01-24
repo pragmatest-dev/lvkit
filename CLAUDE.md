@@ -48,14 +48,28 @@ vipy check
 
 # Show VI summary (for debugging)
 vipy summarize path/to/vi_BDHb.xml --main-xml path/to/vi.xml
+```
 
-# Convert VI to Python
-vipy convert path/to/file.vi
-vipy convert path/to/vi_BDHb.xml --main-xml path/to/vi.xml -o output.py
+## Current Development Focus: generate_python.py
 
-# Agent conversion (uses in-memory graph, no Neo4j required)
-# THE STANDARD TEST COMMAND - use this for testing/evaluating strategies:
-vipy agent "samples/JKI-VI-Tester/source/User Interfaces/Graphical Test Runner/Graphical Test Runner Support/Get Settings Path.vi" -o outputs --search-path samples/OpenG/extracted --generate-ui
+**We are testing `scripts/generate_python.py`'s ability to generate deterministic, working Python from various VI formats.**
+
+The goal is clean, syntactically valid Python output. Eventually an agent will improve the generated code, but for now ALL testing uses generate_python.py.
+
+### Standard Test Command
+
+```bash
+# Single VI
+python scripts/generate_python.py "path/to/file.vi" -o outputs --search-path samples/OpenG/extracted
+
+# LabVIEW class (.lvclass)
+python scripts/generate_python.py "path/to/MyClass.lvclass" -o outputs --search-path samples/OpenG/extracted
+
+# LabVIEW library (.lvlib)
+python scripts/generate_python.py "path/to/MyLib.lvlib" -o outputs --search-path samples/OpenG/extracted
+
+# Directory of VIs
+python scripts/generate_python.py "path/to/vi_folder/" -o outputs --search-path samples/OpenG/extracted
 ```
 
 ### Key Data Structures
@@ -110,6 +124,20 @@ The "Wire types from dataflow" section shows what terminal indices the caller is
 - mypy with strict mode for type checking
 - Line length: 88 characters
 - **Prefer dataclasses over dicts** - Use typed dataclasses from `graph_types.py` instead of raw dictionaries. Use attribute access (`obj.field`) not `.get("field")`
+
+## Output Directory
+
+**ALWAYS use `outputs/` for generated code.** NEVER use `/tmp/` or any other temporary directory.
+
+```bash
+# CORRECT - outputs go to outputs/ folder in the repo
+python scripts/generate_python.py "path/to/file.vi" -o outputs --search-path samples/OpenG/extracted
+
+# WRONG - never use /tmp/
+python scripts/generate_python.py "path/to/file.vi" -o /tmp/test
+```
+
+The `outputs/` folder is in the repo and accessible from the editor. Temporary directories are not.
 
 ## Bash Commands
 
