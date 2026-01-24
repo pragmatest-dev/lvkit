@@ -72,6 +72,49 @@ python scripts/generate_python.py "path/to/MyLib.lvlib" -o outputs --search-path
 python scripts/generate_python.py "path/to/vi_folder/" -o outputs --search-path samples/OpenG/extracted
 ```
 
+## Error Handling Strategy
+
+LabVIEW uses error clusters passed through wires. Python uses exceptions. The conversion strategy:
+
+1. **No error clusters → Natural Python exceptions** - Just let exceptions propagate
+2. **Error clusters + parallel branches → Held error model**
+
+### Held Error Model
+
+When a VI has parallel branches AND error terminals, we use this pattern:
+
+```python
+def my_vi(input_data):
+    _held_error = None  # Track errors from branches
+
+    # Parallel branch 0
+    try:
+        branch_0_result = branch_0_operations()
+    except LabVIEWError as e:
+        _held_error = _held_error or e
+        branch_0_result = None
+
+    # Parallel branch 1
+    try:
+        branch_1_result = branch_1_operations()
+    except LabVIEWError as e:
+        _held_error = _held_error or e
+        branch_1_result = None
+
+    # Merge point - raise first error
+    if _held_error:
+        raise _held_error
+
+    return result
+```
+
+This preserves LabVIEW's semantics where:
+- Branches continue executing even if one errors
+- First error is preserved and raised at merge point
+- All branches get a chance to clean up
+
+Implementation: `src/vipy/agent/codegen/error_handler.py`
+
 ### Key Data Structures
 
 - `Node`: SubVI call (`iUse`) or primitive (`prim`) with uid, name, primIndex
