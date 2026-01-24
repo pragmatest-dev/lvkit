@@ -223,18 +223,51 @@ def build_branch_execution(
     return statements
 
 
-def needs_error_handling(has_parallel_branches: bool) -> bool:
+def needs_error_handling(has_parallel_branches: bool, vi_context: dict | None = None) -> bool:
     """Determine if a VI needs error handling infrastructure.
+
+    The held error model is only needed when:
+    1. There are parallel branches that need error coordination, AND
+    2. The VI actually has error cluster terminals (input or output)
+
+    Without error terminals, Python's natural exception propagation is sufficient.
 
     Args:
         has_parallel_branches: True if VI has parallel branches
+        vi_context: Optional VI context with inputs/outputs to check for error terminals
 
     Returns:
         True if held error model should be enabled
     """
-    # For now, enable if there are parallel branches
-    # Later could check for error wires, Merge Errors primitives, etc.
-    return has_parallel_branches
+    if not has_parallel_branches:
+        return False
+
+    # Check if VI has any error cluster terminals
+    if vi_context:
+        if _has_error_terminals(vi_context):
+            return True
+        # No error terminals - just let exceptions propagate
+        return False
+
+    # No context to check - be conservative and enable if parallel branches
+    return True
+
+
+def _has_error_terminals(vi_context: dict) -> bool:
+    """Check if VI has any error cluster terminals."""
+    from vipy.type_defaults import _is_error_cluster
+
+    # Check inputs
+    for inp in vi_context.get("inputs", []):
+        if inp.lv_type and _is_error_cluster(inp.lv_type):
+            return True
+
+    # Check outputs
+    for out in vi_context.get("outputs", []):
+        if out.lv_type and _is_error_cluster(out.lv_type):
+            return True
+
+    return False
 
 
 def build_labview_error_import() -> ast.stmt:
