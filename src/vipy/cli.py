@@ -563,21 +563,21 @@ def cmd_agent(args: argparse.Namespace) -> int:
         if suffix == ".vi" or suffix == ".xml":
             graph.load_vi(input_path, expand_subvis=True, search_paths=search_paths or None)
         elif suffix == ".lvlib":
-            # TODO: Implement lvlib support for InMemoryVIGraph
-            print("Error: .lvlib not yet supported with in-memory graph", file=sys.stderr)
-            return 1
+            graph.load_lvlib(
+                input_path, expand_subvis=True, search_paths=search_paths or None
+            )
         elif suffix == ".lvclass":
-            # TODO: Implement lvclass support for InMemoryVIGraph
-            print("Error: .lvclass not yet supported with in-memory graph", file=sys.stderr)
-            return 1
+            graph.load_lvclass(
+                input_path, expand_subvis=True, search_paths=search_paths or None
+            )
         elif suffix == ".lvproj":
-            # TODO: Implement lvproj support for InMemoryVIGraph
-            print("Error: .lvproj not yet supported with in-memory graph", file=sys.stderr)
-            return 1
+            graph.load_lvproj(
+                input_path, expand_subvis=True, search_paths=search_paths or None
+            )
         elif input_path.is_dir():
-            # TODO: Implement directory support for InMemoryVIGraph
-            print("Error: Directory loading not yet supported with in-memory graph", file=sys.stderr)
-            return 1
+            graph.load_directory(
+                input_path, expand_subvis=True, search_paths=search_paths or None
+            )
         else:
             print(f"Error: Unsupported file type: {suffix}", file=sys.stderr)
             return 1
