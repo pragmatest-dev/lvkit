@@ -6,6 +6,7 @@ import ast
 from typing import TYPE_CHECKING, Any
 
 from vipy.graph_types import Operation
+from vipy.vilib_resolver import VILibResolutionNeeded
 
 from ..ast_utils import to_function_name, to_var_name
 from ..fragment import CodeFragment
@@ -106,9 +107,9 @@ class SubVICodeGen(NodeCodeGen):
         vilib_outputs: dict[int, str] = {}
         for vt in vilib_vi.terminals:
             param_key = vt.python_param or to_var_name(vt.name)
-            if vt.direction == "in":
+            if vt.direction in ("in", "input"):
                 vilib_inputs[vt.index] = param_key
-            elif vt.direction == "out":
+            elif vt.direction in ("out", "output"):
                 vilib_outputs[vt.index] = param_key
 
         # Substitute input placeholders with wired values
@@ -284,10 +285,9 @@ class SubVICodeGen(NodeCodeGen):
                     param_name = to_var_name(callee_name)
 
             if not param_name:
-                raise ValueError(
-                    f"Cannot resolve parameter name for SubVI '{subvi_name}' "
-                    f"terminal index={term_index}. "
-                    f"No vilib, callee_param, term_name, or context lookup available."
+                raise VILibResolutionNeeded(
+                    subvi_name,
+                    context=self._build_resolution_context(node, ctx, vilib_vi),
                 )
 
             # Check if this parameter is an enum typedef - generate enum reference
@@ -429,10 +429,9 @@ class SubVICodeGen(NodeCodeGen):
                     field = to_var_name(callee_name)
 
             if not field:
-                raise ValueError(
-                    f"Cannot resolve output field name for SubVI '{subvi_name}' "
-                    f"terminal index={term_index}. "
-                    f"No vilib, term_name, or context lookup available."
+                raise VILibResolutionNeeded(
+                    subvi_name,
+                    context=self._build_resolution_context(node, ctx, vilib_vi),
                 )
 
             bindings[term_id] = f"{result_var}.{field}"
@@ -456,3 +455,53 @@ class SubVICodeGen(NodeCodeGen):
             pass
         # It's a variable reference
         return ast.Name(id=value, ctx=ast.Load())
+
+    def _build_resolution_context(
+        self,
+        node: Operation,
+        ctx: CodeGenContext,
+        vilib_vi: Any | None,
+    ) -> dict[str, Any]:
+        """Build context for VILibResolutionNeeded exception.
+
+        Collects wire types from caller's dataflow to help resolve terminal indices.
+        """
+        context: dict[str, Any] = {
+            "caller_vi": ctx.vi_name,
+        }
+
+        # Collect wire types from dataflow (actual indices being used)
+        wire_types: list[str] = []
+        for term in node.terminals:
+            term_id = term.id
+            term_index = term.index
+            direction = term.direction or "?"
+
+            # Get type info from terminal's lv_type
+            type_info = "?"
+            if hasattr(term, "lv_type") and term.lv_type:
+                lv_type = term.lv_type
+                if lv_type.underlying_type:
+                    type_info = lv_type.underlying_type
+                elif lv_type.kind:
+                    type_info = lv_type.kind
+
+            # Check if wired
+            is_wired = ctx.is_wired(term_id) if term_id else False
+            wired_str = "wired" if is_wired else "unwired"
+
+            wire_types.append(
+                f"idx_{term_index} ({direction}, {type_info}, {wired_str})"
+            )
+
+        context["wire_types"] = wire_types
+
+        # Collect terminal names from vilib if available
+        if vilib_vi and vilib_vi.terminals:
+            terminal_names = [
+                f"{t.name} (idx={t.index}, {t.direction})"
+                for t in vilib_vi.terminals
+            ]
+            context["terminal_names"] = terminal_names
+
+        return context

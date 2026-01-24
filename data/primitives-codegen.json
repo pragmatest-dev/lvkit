@@ -46,16 +46,18 @@
         {
           "index": 2,
           "direction": "in",
-          "name": "index"
+          "name": "index",
+          "default_value": "0"
         },
         {
           "index": 3,
           "direction": "in",
-          "name": "length"
+          "name": "length",
+          "default_value": "None"
         }
       ],
       "guess_reason": "3in: array, start, length -> subset. Heavily used in 'Slice 1D Array' VIs",
-      "python_code": "subset = array[start:start+length]",
+      "python_code": "subarray = array[index:None if length is None else index + length]",
       "inline": true
     },
     "1050": {

@@ -73,15 +73,18 @@ class PrimitiveCodeGen(NodeCodeGen):
         """Build mapping from terminal names to resolved variable names.
 
         Uses primitive resolver terminal names when node terminals lack names.
+        When a terminal is unwired, uses the default_value from the primitive
+        definition if available, otherwise "None".
         """
         input_map = {}
 
-        # Build index → resolved terminal name mapping
-        resolved_inputs: dict[int, str] = {}
+        # Build index → (name, default_value) mapping from resolved terminals
+        resolved_inputs: dict[int, tuple[str, str | None]] = {}
         if resolved and resolved.terminals:
             for rt in resolved.terminals:
                 if rt.direction == "in":
-                    resolved_inputs[rt.index] = rt.name
+                    default = getattr(rt, "default_value", None)
+                    resolved_inputs[rt.index] = (rt.name, default)
 
         for term in node.terminals:
             if term.direction != "input":
@@ -90,16 +93,24 @@ class PrimitiveCodeGen(NodeCodeGen):
             term_id = term.id
             term_index = term.index
             term_name = term.name or ""
+            default_value = None
 
             # Priority: node terminal name > resolved terminal name
             if not term_name and term_index in resolved_inputs:
-                term_name = resolved_inputs[term_index]
+                term_name, default_value = resolved_inputs[term_index]
+            elif term_index in resolved_inputs:
+                _, default_value = resolved_inputs[term_index]
 
             # Resolve from context - None means unwired
             value = ctx.resolve(term_id)
             if term_name:
-                # Use resolved value, or "None" for unwired terminals
-                resolved_value = value if value else "None"
+                # Use resolved value, or default_value if unwired, or "None"
+                if value:
+                    resolved_value = value
+                elif default_value is not None:
+                    resolved_value = default_value
+                else:
+                    resolved_value = "None"
                 # Add both original and normalized names
                 input_map[term_name] = resolved_value
                 input_map[to_var_name(term_name)] = resolved_value
@@ -206,6 +217,21 @@ class PrimitiveCodeGen(NodeCodeGen):
 
         # Substitute inputs
         expr_substituted = self._substitute_template(expr, input_map, resolved)
+
+        # Validate: check for obviously invalid patterns like None[...] (can't subscript None)
+        if "None[" in expr_substituted:
+            # Required input is unwired - emit error instead of invalid code
+            prim_name = resolved.name if resolved else "unknown"
+            return CodeFragment(
+                statements=[
+                    ast.Expr(
+                        value=ast.Constant(
+                            value=f"# ERROR: {prim_name} - required array input is unwired"
+                        )
+                    )
+                ],
+                bindings={tid: "None" for tid, _, _ in wired_outputs},
+            )
         expr_ast = parse_expr(expr_substituted)
 
         # Assign to output variables

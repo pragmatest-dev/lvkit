@@ -7,6 +7,7 @@ from collections import deque
 from typing import Any
 
 from vipy.graph_types import FPTerminalNode, Operation
+from vipy.type_defaults import _is_error_cluster
 
 from .ast_optimizer import optimize_module
 from .ast_utils import parse_expr, to_function_name, to_var_name
@@ -184,6 +185,7 @@ def build_return_stmt(
     """Build return statement for function.
 
     Returns NamedTuple with output values resolved from context.
+    Skips error cluster outputs - Python uses exceptions instead.
     """
     outputs = vi_context.get("outputs", [])
     if not outputs:
@@ -191,9 +193,17 @@ def build_return_stmt(
 
     result_class = build_result_class_name(vi_context.get("name", "VI"))
 
-    # Resolve output values
+    # Resolve output values, skipping error clusters
     keywords = []
     for out in outputs:
+        # Skip error cluster outputs - Python uses exceptions
+        if out.lv_type and _is_error_cluster(out.lv_type):
+            continue
+        # Also check name for error patterns (fallback if lv_type not available)
+        out_name_lower = (out.name or "").lower()
+        if "error" in out_name_lower and ("in" in out_name_lower or "out" in out_name_lower):
+            continue
+
         out_id = out.id
         out_name = out.name or "output"
         var_name = to_var_name(out_name)
@@ -206,6 +216,10 @@ def build_return_stmt(
             value_ast = ast.Constant(value=None)
 
         keywords.append(ast.keyword(arg=var_name, value=value_ast))
+
+    # If all outputs were error clusters, return None
+    if not keywords:
+        return None
 
     return ast.Return(
         value=ast.Call(
@@ -283,16 +297,27 @@ def build_imports(
 
 
 def build_result_class(vi_context: dict[str, Any]) -> ast.ClassDef | None:
-    """Build NamedTuple result class."""
+    """Build NamedTuple result class.
+
+    Skips error cluster outputs - Python uses exceptions instead.
+    """
     outputs = vi_context.get("outputs", [])
     if not outputs:
         return None
 
     class_name = build_result_class_name(vi_context.get("name", "VI"))
 
-    # Build fields
+    # Build fields, skipping error clusters
     fields = []
     for out in outputs:
+        # Skip error cluster outputs - Python uses exceptions
+        if out.lv_type and _is_error_cluster(out.lv_type):
+            continue
+        # Also check name for error patterns (fallback if lv_type not available)
+        out_name_lower = (out.name or "").lower()
+        if "error" in out_name_lower and ("in" in out_name_lower or "out" in out_name_lower):
+            continue
+
         name = to_var_name(out.name or "output")
         # Use LVType for Python type hints if available
         if out.lv_type:
@@ -300,6 +325,10 @@ def build_result_class(vi_context: dict[str, Any]) -> ast.ClassDef | None:
         else:
             type_hint = out.type or "Any"
         fields.append((name, type_hint))
+
+    # If all outputs were error clusters, no result class needed
+    if not fields:
+        return None
 
     # Build class body with type annotations
     class_body = []
@@ -354,6 +383,8 @@ def build_function_def(
 def build_args(inputs: list[FPTerminalNode]) -> ast.arguments:
     """Build function arguments from inputs.
 
+    Skips error cluster inputs - Python uses exceptions instead.
+
     Wiring rules:
     - 0 = unknown (treat as required)
     - 1 = required (no default)
@@ -364,6 +395,14 @@ def build_args(inputs: list[FPTerminalNode]) -> ast.arguments:
     defaults = []
 
     for inp in inputs:
+        # Skip error cluster inputs - Python uses exceptions
+        if inp.lv_type and _is_error_cluster(inp.lv_type):
+            continue
+        # Also check name for error patterns (fallback if lv_type not available)
+        inp_name_lower = (inp.name or "").lower()
+        if "error" in inp_name_lower and ("in" in inp_name_lower or "out" in inp_name_lower):
+            continue
+
         name = to_var_name(inp.name or "input")
         # Use LVType for Python type hints if available
         if inp.lv_type:
@@ -395,22 +434,23 @@ def build_args(inputs: list[FPTerminalNode]) -> ast.arguments:
 
 
 def _get_default_for_type(lv_type) -> ast.expr:
-    """Get appropriate default value for a LabVIEW type."""
+    """Get appropriate default value for a LabVIEW type.
+
+    Note: Uses None for mutable types (list, dict) to avoid Python's mutable
+    default argument anti-pattern. Callers should handle None appropriately.
+    """
     if lv_type is None:
         return ast.Constant(value=None)
 
     kind = lv_type.kind
     underlying = lv_type.underlying_type
 
+    # Use None for mutable types to avoid mutable default argument anti-pattern
     if kind == "array":
-        return ast.List(elts=[], ctx=ast.Load())
+        return ast.Constant(value=None)
     elif kind == "primitive":
         if underlying == "Path":
-            return ast.Call(
-                func=ast.Name(id="Path", ctx=ast.Load()),
-                args=[],
-                keywords=[],
-            )
+            return ast.Constant(value=None)
         elif underlying == "String":
             return ast.Constant(value="")
         elif underlying == "Boolean":
@@ -421,7 +461,7 @@ def _get_default_for_type(lv_type) -> ast.expr:
         elif underlying in ("NumFloat32", "NumFloat64"):
             return ast.Constant(value=0.0)
     elif kind == "cluster":
-        return ast.Dict(keys=[], values=[])
+        return ast.Constant(value=None)
     elif kind in ("enum", "ring"):
         return ast.Constant(value=0)
 

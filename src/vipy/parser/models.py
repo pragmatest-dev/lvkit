@@ -25,6 +25,8 @@ class ParsedType:
     type_name: str  # "Path", "Cluster", "NumInt32"
     typedef_path: str | None = None  # For typedefs: "vi.lib/Utility/sysdir.llb/..."
     typedef_name: str | None = None  # Qualified name: "sysdir.llb:Type.ctl"
+    ref_type: str | None = None  # For Refnum: "UDClassInst", "Queue", "Notifier", etc.
+    classname: str | None = None  # For class refnums (UDClassInst): e.g., "TestCase.lvclass"
 
 
 @dataclass

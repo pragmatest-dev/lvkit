@@ -164,10 +164,10 @@ def parse_type_map_rich(xml_path: Path | str) -> dict[int, LVType]:
                         underlying_type or existing_type_name
                     )
 
-            # For non-typedefs (clusters, arrays), use VCTP full type info
+            # For non-typedefs (clusters, arrays, refnums), use VCTP full type info
             elif flat_id in vctp_types:
                 vctp_type = vctp_types[flat_id]
-                # Copy fields/element_type from VCTP parsed type
+                # Copy fields/element_type/ref_type from VCTP parsed type
                 if vctp_type.kind == "cluster" and vctp_type.fields:
                     type_map[heap_id] = LVType(
                         kind="cluster",
@@ -186,6 +186,14 @@ def parse_type_map_rich(xml_path: Path | str) -> dict[int, LVType]:
                         kind="enum",
                         underlying_type=existing_type_name,
                         values=vctp_type.values,
+                    )
+                elif vctp_type.underlying_type == "Refnum" and vctp_type.ref_type:
+                    # Refnum with class info or other ref_type
+                    type_map[heap_id] = LVType(
+                        kind="primitive",
+                        underlying_type="Refnum",
+                        ref_type=vctp_type.ref_type,
+                        classname=vctp_type.classname,
                     )
 
     except ET.ParseError:
@@ -342,6 +350,24 @@ def parse_vctp_types(xml_path: Path | str) -> dict[int, LVType]:
                 kind="enum",
                 underlying_type=type_name,
                 values=enum_values,
+            )
+
+        elif type_name == "Refnum":
+            # Refnum type - extract RefType and class name if present
+            ref_type = td.get("RefType")
+            classname = None
+
+            if ref_type == "UDClassInst":
+                # Extract class name from <Item Text="...">
+                item = td.find("Item")
+                if item is not None:
+                    classname = item.get("Text")  # e.g., "TestCase.lvclass"
+
+            lv_type = LVType(
+                kind="primitive",
+                underlying_type="Refnum",
+                ref_type=ref_type,
+                classname=classname,
             )
 
         else:

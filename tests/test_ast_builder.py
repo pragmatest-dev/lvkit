@@ -1212,3 +1212,111 @@ class TestWireSlotIndex:
         # Reverse map should have dest_slot_index
         dest_info = ctx._reverse_flow_map["src"][0]
         assert dest_info["dest_slot_index"] == 3
+
+
+# === to_var_name Tests ===
+
+
+class TestToVarName:
+    """Tests for to_var_name variable name conversion."""
+
+    # Note: Null character handling was removed from to_var_name.
+    # Labels are now properly extracted using partID=16 in the parser,
+    # so null characters should never reach to_var_name.
+
+    def test_empty_string(self):
+        """Test that empty string becomes 'var'."""
+        from vipy.agent.codegen.ast_utils import to_var_name
+
+        assert to_var_name("") == "var"
+
+    def test_none_equivalent(self):
+        """Test that None-ish values become 'var'."""
+        from vipy.agent.codegen.ast_utils import to_var_name
+
+        assert to_var_name(None) == "var"  # type: ignore
+
+    def test_normal_name(self):
+        """Test that normal names are converted correctly."""
+        from vipy.agent.codegen.ast_utils import to_var_name
+
+        assert to_var_name("Input Value") == "input_value"
+        assert to_var_name("error in") == "error_in"
+        assert to_var_name("My-Variable") == "my_variable"
+
+    def test_keyword_escaping(self):
+        """Test that Python keywords get underscore suffix."""
+        from vipy.agent.codegen.ast_utils import to_var_name
+
+        assert to_var_name("pass") == "pass_"
+        assert to_var_name("class") == "class_"
+        assert to_var_name("for") == "for_"
+
+    def test_numeric_prefix(self):
+        """Test that names starting with numbers get 'var_' prefix."""
+        from vipy.agent.codegen.ast_utils import to_var_name
+
+        assert to_var_name("123abc") == "var_123abc"
+        assert to_var_name("1st value") == "var_1st_value"
+
+
+# === Error Cluster Filtering Tests ===
+
+
+class TestErrorClusterFiltering:
+    """Tests for error cluster filtering in code generation."""
+
+    def test_error_cluster_input_filtered_by_name(self):
+        """Test that error cluster inputs are filtered by name pattern."""
+        from vipy.agent.codegen.builder import build_args
+        from vipy.graph_types import FPTerminalNode
+
+        inputs = [
+            FPTerminalNode(id="1", kind="input", name="error in (no error)", is_indicator=False, is_public=True),
+            FPTerminalNode(id="2", kind="input", name="value", is_indicator=False, is_public=True),
+            FPTerminalNode(id="3", kind="input", name="error out", is_indicator=False, is_public=True),
+        ]
+
+        args = build_args(inputs)
+
+        # Should only have "value" - error in/out filtered
+        assert len(args.args) == 1
+        assert args.args[0].arg == "value"
+
+    def test_error_cluster_output_filtered_by_name(self):
+        """Test that error cluster outputs are filtered by name pattern."""
+        from vipy.agent.codegen.builder import build_result_class
+        from vipy.graph_types import FPTerminalNode
+
+        vi_context = {
+            "name": "Test.vi",
+            "outputs": [
+                FPTerminalNode(id="1", kind="output", name="error out", is_indicator=True, is_public=True),
+                FPTerminalNode(id="2", kind="output", name="result", is_indicator=True, is_public=True),
+            ],
+        }
+
+        result_class = build_result_class(vi_context)
+
+        # Should only have "result" field - error out filtered
+        assert result_class is not None
+        # Check class body has only one field annotation
+        field_names = [stmt.target.id for stmt in result_class.body if hasattr(stmt, 'target')]
+        assert field_names == ["result"]
+
+    def test_all_error_outputs_returns_none(self):
+        """Test that if all outputs are error clusters, no result class is created."""
+        from vipy.agent.codegen.builder import build_result_class
+        from vipy.graph_types import FPTerminalNode
+
+        vi_context = {
+            "name": "Test.vi",
+            "outputs": [
+                FPTerminalNode(id="1", kind="output", name="error out", is_indicator=True, is_public=True),
+            ],
+        }
+
+        result_class = build_result_class(vi_context)
+
+        # Should be None - no non-error outputs
+        assert result_class is None

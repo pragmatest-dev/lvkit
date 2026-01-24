@@ -454,11 +454,13 @@ def _extract_subvi_info(
             strings = [s.text for s in vivi.findall("LinkSaveQualName/String") if s.text]
             name = strings[-1] if strings and strings[-1].endswith(".vi") else None
             if name:
-                path_elem = vivi.find("LinkSavePath/String")
-                path_text = path_elem.text if path_elem is not None else ""
-                path_parts = [p for p in path_text.split("/") if p] if path_text else []
-                is_vilib = path_text.startswith("<vilib>") if path_text else False
-                is_userlib = path_text.startswith("<userlib>") if path_text else False
+                # Extract path from LinkSavePathRef (multiple String elements)
+                path_parts = [
+                    s.text for s in vivi.findall("LinkSavePathRef/String")
+                    if s.text
+                ]
+                is_vilib = path_parts[0] == "<vilib>" if path_parts else False
+                is_userlib = path_parts[0] == "<userlib>" if path_parts else False
                 subvi_path_refs.append(SubVIPathRef(
                     name=name,
                     path_tokens=path_parts,

@@ -1337,6 +1337,8 @@
       "terminals": [
         {
           "name": "is warning? (False)",
+          "index": 1,
+          "direction": "input",
           "description": "If is warning? is TRUE, status returns FALSE to indicate that a warning occurred. The default is FALSE.",
           "default_value": "FALSE",
           "enum_values": null,
@@ -1344,6 +1346,8 @@
         },
         {
           "name": "show call chain? (False)",
+          "index": 2,
+          "direction": "input",
           "description": "If show call chain? is TRUE, source includes the chain of callers from the VI that produced the error or warning to the top-level VI. The default is FALSE, which indicates to include only the calling VI. This VI uses the Call Chain function to obtain the chain of callers.",
           "default_value": "FALSE, which indicates to include only the calling VI",
           "enum_values": null,
@@ -1351,6 +1355,8 @@
         },
         {
           "name": "error code (0)",
+          "index": 6,
+          "direction": "input",
           "description": "Functions 1870 ni.com error code is the code you want to convert to an error cluster. The default is 0, which indicates that no error occurred.",
           "default_value": "0, which indicates that no error occurred",
           "enum_values": null,
@@ -1358,6 +1364,8 @@
         },
         {
           "name": "error message (\"\")",
+          "index": 9,
+          "direction": "input",
           "description": "error message is the error description to appear in the error out cluster. LabVIEW displays the description in error message when the General Error Handler VI receives this error out cluster. If error message is empty, LabVIEW uses error code to determine the error description from existing LabVIEW error codes.",
           "default_value": null,
           "enum_values": null,
@@ -1365,6 +1373,8 @@
         },
         {
           "name": "error in (no error)",
+          "index": 8,
+          "direction": "input",
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
           "default_value": null,
           "enum_values": null,
@@ -1372,16 +1382,17 @@
         },
         {
           "name": "error out",
+          "index": 0,
+          "direction": "output",
           "description": "error out contains error information. With the following exception, this output provides standard error out functionality. If the value of error in is no error, this VI contains error information that corresponds to the error code input.",
           "default_value": null,
           "enum_values": null,
           "python_param": "error_out"
         }
       ],
-      "imports": [],
-      "python": "error_cluster_from_code(code, source)",
-      "python_code": "from typing import NamedTuple\n\nclass ErrorClusterFromCodeResult(NamedTuple):\n    error_out: dict\n\ndef error_cluster_from_code(code: int, source: str = '') -> ErrorClusterFromCodeResult:\n    \"\"\"Create error cluster from error code.\"\"\"\n    return ErrorClusterFromCodeResult(error_out={'status': code != 0, 'code': code, 'source': source})",
-      "inline": false
+      "imports": ["from vipy.errors import LabVIEWError"],
+      "python_code": "raise LabVIEWError({error_code_0}, {error_message})",
+      "inline": true
     },
     {
       "name": "Find First Error",

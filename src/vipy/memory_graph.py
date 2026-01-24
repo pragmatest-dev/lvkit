@@ -147,6 +147,8 @@ class InMemoryVIGraph:
         lv_type = LVType(
             kind=parsed_type.kind,
             underlying_type=parsed_type.type_name,
+            ref_type=parsed_type.ref_type,
+            classname=parsed_type.classname,
             typedef_path=parsed_type.typedef_path,
             typedef_name=parsed_type.typedef_name,
         )

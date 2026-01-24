@@ -2,7 +2,11 @@
 
 import ast
 
-from vipy.agent.codegen.ast_optimizer import DeadCodeEliminator, eliminate_dead_code
+from vipy.agent.codegen.ast_optimizer import (
+    DeadCodeEliminator,
+    eliminate_dead_code,
+    remove_unused_imports,
+)
 
 
 def test_eliminate_unused_assignment():
@@ -185,3 +189,76 @@ def test_func(param1, param2):
     # Function signature should be unchanged
     assert "def test_func(param1, param2):" in result
     # Parameters are not assignments, so they won't be removed
+
+
+# === Unused Import Removal Tests ===
+
+
+def test_remove_unused_import():
+    """Test that unused imports are removed."""
+    code = """
+from pathlib import Path
+from typing import Any
+
+def test_func():
+    return Any
+"""
+    module = ast.parse(code)
+    optimized = remove_unused_imports(module)
+    result = ast.unparse(optimized)
+
+    # Path is unused - should be removed
+    assert "from pathlib import Path" not in result
+    # Any is used - should be kept
+    assert "Any" in result
+
+
+def test_keep_used_import():
+    """Test that used imports are kept."""
+    code = """
+from pathlib import Path
+
+def test_func():
+    return Path(".")
+"""
+    module = ast.parse(code)
+    optimized = remove_unused_imports(module)
+    result = ast.unparse(optimized)
+
+    # Path is used - should be kept
+    assert "from pathlib import Path" in result
+
+
+def test_remove_entire_unused_import_line():
+    """Test that entire import line is removed when all names unused."""
+    code = """
+from module import unused1, unused2
+
+def test_func():
+    return 42
+"""
+    module = ast.parse(code)
+    optimized = remove_unused_imports(module)
+    result = ast.unparse(optimized)
+
+    # Entire import should be removed
+    assert "from module import" not in result
+
+
+def test_keep_always_needed_imports():
+    """Test that annotations, Any, NamedTuple are always kept."""
+    code = """
+from __future__ import annotations
+from typing import Any, NamedTuple
+
+class Result(NamedTuple):
+    value: Any
+"""
+    module = ast.parse(code)
+    optimized = remove_unused_imports(module)
+    result = ast.unparse(optimized)
+
+    # These should always be kept
+    assert "annotations" in result
+    assert "Any" in result
+    assert "NamedTuple" in result
