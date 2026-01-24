@@ -6,6 +6,7 @@ All generated code is guaranteed to be syntactically valid Python.
 
 # New node-based builder
 from .builder import build_module
+from .class_builder import ClassBuilder, ClassConfig, build_class
 from .context import CodeGenContext
 from .dataflow import DataFlowTracer
 from .expressions import ExpressionBuilder
@@ -23,8 +24,11 @@ __all__ = [
     "StubGenerator",
     # New API
     "build_module",
+    "build_class",
     "CodeGenContext",
     "CodeFragment",
+    "ClassBuilder",
+    "ClassConfig",
     # Exceptions
     "CodeGenError",
     "MissingDependencyError",

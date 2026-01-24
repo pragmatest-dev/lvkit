@@ -9,6 +9,7 @@ import os
 NODE_CLASS_PRIM = "prim"
 NODE_CLASS_SUBVI = "iUse"
 NODE_CLASS_POLY_SUBVI = "polyIUse"  # Polymorphic SubVI call
+NODE_CLASS_DYN_SUBVI = "dynIUse"  # Dynamic dispatch VI call (class method)
 NODE_CLASS_WHILE_LOOP = "whileLoop"
 NODE_CLASS_FOR_LOOP = "forLoop"
 NODE_CLASS_SELECT = "select"
@@ -24,6 +25,7 @@ OPERATION_NODE_CLASSES = (
     NODE_CLASS_PRIM,
     NODE_CLASS_SUBVI,
     NODE_CLASS_POLY_SUBVI,
+    NODE_CLASS_DYN_SUBVI,
     NODE_CLASS_WHILE_LOOP,
     NODE_CLASS_FOR_LOOP,
     NODE_CLASS_SELECT,
