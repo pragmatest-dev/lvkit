@@ -37,6 +37,24 @@ class LVLibrary:
 
 
 @dataclass
+class LVProjectItem:
+    """An item in a LabVIEW project."""
+    name: str
+    item_type: str  # "VI", "LVClass", "Library", "Folder", "Document", etc.
+    url: str | None  # Relative path to file (None for folders)
+    children: list[LVProjectItem] = field(default_factory=list)
+
+
+@dataclass
+class LVProject:
+    """A LabVIEW project."""
+    name: str
+    path: Path
+    lv_version: str | None = None
+    items: list[LVProjectItem] = field(default_factory=list)
+
+
+@dataclass
 class LVLibraryMember:
     """A member (VI, class, or nested library) in a library."""
     name: str
@@ -178,6 +196,121 @@ def parse_lvlib(lvlib_path: Path | str) -> LVLibrary:
         version=version,
         members=members,
     )
+
+
+def parse_lvproj(lvproj_path: Path | str) -> LVProject:
+    """Parse a .lvproj file to extract project structure.
+
+    Args:
+        lvproj_path: Path to the .lvproj file
+
+    Returns:
+        LVProject with all items (VIs, classes, libraries) included in the project
+    """
+    lvproj_path = Path(lvproj_path)
+    tree = ET.parse(lvproj_path)
+    root = tree.getroot()
+
+    proj_name = lvproj_path.stem
+    lv_version = root.get("LVVersion")
+
+    def parse_item(item_elem: ET.Element) -> LVProjectItem:
+        """Recursively parse an Item element."""
+        name = item_elem.get("Name", "")
+        item_type = item_elem.get("Type", "")
+        url = item_elem.get("URL")
+
+        children = []
+        for child in item_elem.findall("Item"):
+            children.append(parse_item(child))
+
+        return LVProjectItem(
+            name=name,
+            item_type=item_type,
+            url=url,
+            children=children,
+        )
+
+    items = []
+    for item in root.findall("Item"):
+        items.append(parse_item(item))
+
+    return LVProject(
+        name=proj_name,
+        path=lvproj_path,
+        lv_version=lv_version,
+        items=items,
+    )
+
+
+def get_project_vis(project: LVProject) -> list[tuple[str, Path]]:
+    """Extract all VI paths from a parsed project.
+
+    Args:
+        project: Parsed LVProject
+
+    Returns:
+        List of (vi_name, absolute_path) tuples for all VIs in the project
+    """
+    proj_dir = project.path.parent
+    vis: list[tuple[str, Path]] = []
+
+    def collect_vis(items: list[LVProjectItem]) -> None:
+        for item in items:
+            if item.item_type == "VI" and item.url:
+                vi_path = proj_dir / item.url
+                vis.append((item.name, vi_path))
+            # Recurse into children (folders, classes with nested VIs, etc.)
+            collect_vis(item.children)
+
+    collect_vis(project.items)
+    return vis
+
+
+def get_project_classes(project: LVProject) -> list[tuple[str, Path]]:
+    """Extract all lvclass paths from a parsed project.
+
+    Args:
+        project: Parsed LVProject
+
+    Returns:
+        List of (class_name, absolute_path) tuples for all classes in the project
+    """
+    proj_dir = project.path.parent
+    classes: list[tuple[str, Path]] = []
+
+    def collect_classes(items: list[LVProjectItem]) -> None:
+        for item in items:
+            if item.item_type == "LVClass" and item.url:
+                class_path = proj_dir / item.url
+                classes.append((item.name, class_path))
+            collect_classes(item.children)
+
+    collect_classes(project.items)
+    return classes
+
+
+def get_project_libraries(project: LVProject) -> list[tuple[str, Path]]:
+    """Extract all lvlib paths from a parsed project.
+
+    Args:
+        project: Parsed LVProject
+
+    Returns:
+        List of (lib_name, absolute_path) tuples for all libraries in the project
+    """
+    proj_dir = project.path.parent
+    libs: list[tuple[str, Path]] = []
+
+    def collect_libs(items: list[LVProjectItem]) -> None:
+        for item in items:
+            if item.item_type == "Library" and item.url:
+                lib_path = proj_dir / item.url
+                libs.append((item.name, lib_path))
+            collect_libs(item.children)
+
+    collect_libs(project.items)
+    return libs
 
 
 def discover_project_structure(root_path: Path | str) -> dict[str, Any]:

@@ -300,6 +300,129 @@ class InMemoryVIGraph:
         if expand_subvis:
             self._build_cross_vi_bindings()
 
+    def load_lvlib(
+        self,
+        lvlib_path: Path | str,
+        expand_subvis: bool = True,
+        search_paths: list[Path] | None = None,
+    ) -> None:
+        """Load all VIs from a .lvlib file.
+
+        Args:
+            lvlib_path: Path to .lvlib file
+            expand_subvis: Recursively expand SubVIs
+            search_paths: Directories to search for SubVIs
+        """
+        from .structure import parse_lvlib
+
+        lvlib_path = Path(lvlib_path)
+        lib = parse_lvlib(lvlib_path)
+
+        # Default search path is the library's directory
+        if search_paths is None:
+            search_paths = [lvlib_path.parent]
+
+        for member in lib.members:
+            if member.member_type == "VI":
+                vi_path = lvlib_path.parent / member.url
+                if vi_path.exists():
+                    self.load_vi(vi_path, expand_subvis, search_paths)
+
+    def load_lvclass(
+        self,
+        lvclass_path: Path | str,
+        expand_subvis: bool = True,
+        search_paths: list[Path] | None = None,
+    ) -> None:
+        """Load all VIs from a .lvclass file.
+
+        Args:
+            lvclass_path: Path to .lvclass file
+            expand_subvis: Recursively expand SubVIs
+            search_paths: Directories to search for SubVIs
+        """
+        from .structure import parse_lvclass
+
+        lvclass_path = Path(lvclass_path)
+        cls = parse_lvclass(lvclass_path)
+
+        # Default search path is the class's directory
+        if search_paths is None:
+            search_paths = [lvclass_path.parent]
+
+        for method in cls.methods:
+            vi_path = lvclass_path.parent / method.vi_path
+            if vi_path.exists():
+                self.load_vi(vi_path, expand_subvis, search_paths)
+
+    def load_lvproj(
+        self,
+        lvproj_path: Path | str,
+        expand_subvis: bool = True,
+        search_paths: list[Path] | None = None,
+    ) -> None:
+        """Load all VIs referenced by a .lvproj file.
+
+        Parses the project file and loads all VIs, classes, and libraries
+        that are explicitly included in the project.
+
+        Args:
+            lvproj_path: Path to .lvproj file
+            expand_subvis: Recursively expand SubVIs
+            search_paths: Directories to search for SubVIs
+        """
+        from .structure import (
+            get_project_classes,
+            get_project_libraries,
+            get_project_vis,
+            parse_lvproj,
+        )
+
+        lvproj_path = Path(lvproj_path)
+        proj = parse_lvproj(lvproj_path)
+        proj_dir = lvproj_path.parent
+
+        # Default search path is the project's directory
+        if search_paths is None:
+            search_paths = [proj_dir]
+
+        # Load all libraries first (they may contain VIs referenced by other items)
+        for lib_name, lib_path in get_project_libraries(proj):
+            if lib_path.exists():
+                self.load_lvlib(lib_path, expand_subvis, search_paths)
+
+        # Load all classes
+        for class_name, class_path in get_project_classes(proj):
+            if class_path.exists():
+                self.load_lvclass(class_path, expand_subvis, search_paths)
+
+        # Load standalone VIs
+        for vi_name, vi_path in get_project_vis(proj):
+            if vi_path.exists():
+                self.load_vi(vi_path, expand_subvis, search_paths)
+
+    def load_directory(
+        self,
+        dir_path: Path | str,
+        expand_subvis: bool = True,
+        search_paths: list[Path] | None = None,
+    ) -> None:
+        """Load all VIs from a directory recursively.
+
+        Args:
+            dir_path: Directory to scan for VIs
+            expand_subvis: Recursively expand SubVIs
+            search_paths: Directories to search for SubVIs
+        """
+        dir_path = Path(dir_path)
+
+        # Default search path is the directory itself
+        if search_paths is None:
+            search_paths = [dir_path]
+
+        for vi_path in dir_path.rglob("*.vi"):
+            self.load_vi(vi_path, expand_subvis, search_paths)
+
     def _load_vi_recursive(
         self,
         bd_xml: Path,
