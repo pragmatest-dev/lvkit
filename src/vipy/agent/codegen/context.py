@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
-from vipy.graph_types import Constant, Wire
+from vipy.graph_types import Constant, FPTerminalNode, Wire
 
 from .ast_utils import to_var_name
 
@@ -29,6 +29,7 @@ class CodeGenContext:
     vi_name: str | None = None  # Name of VI being generated
     loop_depth: int = 0  # Nesting depth for index variable naming (i, j, k, ...)
     use_held_error_model: bool = False  # Enable held error model for parallel branches
+    vi_inputs: list[FPTerminalNode] = field(default_factory=list)  # VI input terminals
 
     # Flow map for quick lookup: dest_terminal → source info
     _flow_map: dict[str, dict] = field(default_factory=dict, repr=False)
@@ -150,6 +151,7 @@ class CodeGenContext:
             vi_name=self.vi_name,  # Share (for observation tracking)
             loop_depth=self.loop_depth + (1 if increment_loop_depth else 0),
             use_held_error_model=self.use_held_error_model,  # Inherit error model
+            vi_inputs=self.vi_inputs,  # Share (read-only)
             _flow_map=self._flow_map,  # Share (read-only)
             _reverse_flow_map=self._reverse_flow_map,  # Share (read-only)
             _wired_terminals=self._wired_terminals,  # Share (read-only)
@@ -248,7 +250,10 @@ class CodeGenContext:
 
         Initializes bindings for inputs and constants.
         """
-        ctx = cls(data_flow=vi_context.get("data_flow", []))
+        ctx = cls(
+            data_flow=vi_context.get("data_flow", []),
+            vi_inputs=vi_context.get("inputs", []),  # Store inputs for type lookup
+        )
 
         # Bind inputs (list of FPTerminalNode)
         for inp in vi_context.get("inputs", []):

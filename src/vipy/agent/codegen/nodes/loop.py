@@ -74,10 +74,13 @@ class LoopCodeGen(NodeCodeGen):
                         inner_ctx.bind(inner_term, outer_var)
                     # For forLoop lpTun, binding happens after we determine loop style
 
-        # 2. Process OUTPUT tunnels - set up accumulators for lMax
+        # 2. Process OUTPUT tunnels - set up accumulators for lMax and lpTun (For loops)
         # Note: lMax can be either:
         # - The N terminal (iteration count) - outer has input, inner has no input
         # - Auto-indexed output (accumulator) - inner receives values from loop body
+        #
+        # For For loops, lpTun OUTPUT tunnels are also auto-indexed by default
+        # (they accumulate into arrays, not just return last value)
         accum_tunnels: list[tuple[Tunnel, str]] = []  # (tunnel, accum_var)
         n_terminal_var: str | None = None  # For loop count
 
@@ -114,33 +117,67 @@ class LoopCodeGen(NodeCodeGen):
                             # Integer or unknown - use directly
                             n_terminal_var = outer_var
 
+            elif tunnel_type == "lpTun" and loop_type == "forLoop":
+                # In For loops, lpTun OUTPUT tunnels are auto-indexed (accumulate)
+                # Distinguish input vs output:
+                # - INPUT tunnel: outer terminal has external source (resolvable)
+                # - OUTPUT tunnel: outer terminal has NO external source
+                outer_var = ctx.resolve(outer_term)
+
+                if not outer_var:
+                    # No external source to outer -> this is an OUTPUT tunnel
+                    # Treat as accumulator - use pluralized name to avoid
+                    # conflict with inner iteration variable
+                    base_name = self._make_var_name(tunnel, ctx)
+                    accum_var = self._pluralize(base_name)
+                    pre_loop_stmts.append(
+                        build_assign(accum_var, ast.List(elts=[], ctx=ast.Load()))
+                    )
+                    accum_tunnels.append((tunnel, accum_var))
+                    bindings[outer_term] = accum_var
+
         # 3. For forLoops: bind lpTun inner terminals based on loop style
         #    Must happen BEFORE generating inner statements
         if loop_type == "forLoop":
-            # Collect all lpTun input tunnels: (outer_var, inner_term, outer_term)
-            lpTun_inputs: list[tuple[str, str, str]] = []
+            # Separate lpTun inputs into arrays and scalars
+            # (outer_var, inner_term, outer_term)
+            lpTun_array_inputs: list[tuple[str, str, str]] = []
+            lpTun_scalar_inputs: list[tuple[str, str]] = []  # (outer_var, inner_term)
+
             for tunnel in tunnels:
                 if tunnel.tunnel_type == "lpTun":
                     outer_var = ctx.resolve(tunnel.outer_terminal_uid)
                     if outer_var and tunnel.inner_terminal_uid:
-                        lpTun_inputs.append((
-                            outer_var,
-                            tunnel.inner_terminal_uid,
-                            tunnel.outer_terminal_uid,
-                        ))
+                        outer_term = tunnel.outer_terminal_uid
+                        inner_term = tunnel.inner_terminal_uid
+                        lv_type = self._get_terminal_type(outer_term, ctx)
+                        # Treat as array if type is array OR unknown (backward compat)
+                        # Only treat as scalar if type is known and NOT an array
+                        is_array = lv_type is None or lv_type.kind == "array"
+                        if is_array:
+                            lpTun_array_inputs.append(
+                                (outer_var, inner_term, outer_term)
+                            )
+                        else:
+                            # Known scalar type: pass through directly (no indexing)
+                            lpTun_scalar_inputs.append((outer_var, inner_term))
 
-            # Decide: enumerate (single array, no N) vs indexed access
+            # Bind scalar inputs directly - same value each iteration
+            for outer_var, inner_term in lpTun_scalar_inputs:
+                inner_ctx.bind(inner_term, outer_var)
+
+            # Decide: enumerate (single array, no N) vs indexed access for arrays
             depth = ctx.loop_depth
             idx_var = "ijklmn"[depth] if depth < 6 else f"idx_{depth}"
 
-            if len(lpTun_inputs) == 1 and not n_terminal_var:
+            if len(lpTun_array_inputs) == 1 and not n_terminal_var:
                 # Single array, no N terminal: use enumerate, bind to singular form
-                outer_var, inner_term, _ = lpTun_inputs[0]
+                outer_var, inner_term, _ = lpTun_array_inputs[0]
                 item_var = self._singularize(outer_var, inner_ctx)
                 inner_ctx.bind(inner_term, item_var)
             else:
                 # Multiple arrays or N terminal: use indexed access
-                for outer_var, inner_term, _ in lpTun_inputs:
+                for outer_var, inner_term, _ in lpTun_array_inputs:
                     inner_ctx.bind(inner_term, f"{outer_var}[{idx_var}]")
 
         # 4. Generate inner node code
@@ -281,6 +318,31 @@ class LoopCodeGen(NodeCodeGen):
         # Fall back to generic tunnel name
         return "value"
 
+    def _pluralize(self, var_name: str) -> str:
+        """Convert a variable name to plural form for accumulator naming.
+
+        Examples:
+            stripped_path -> stripped_paths
+            name -> names
+            entry -> entries
+            box -> boxes
+
+        This ensures accumulator variable names don't conflict with
+        inner iteration variables derived from the same source.
+        """
+        base = var_name.lower()
+
+        # If already plural-looking, add _list suffix
+        if base.endswith("s") and not base.endswith("ss"):
+            return f"{var_name}_list"
+
+        # Common plural transformations
+        if base.endswith("y") and len(base) > 1 and base[-2] not in "aeiou":
+            return base[:-1] + "ies"  # entry -> entries
+        if base.endswith(("s", "x", "ch", "sh")):
+            return base + "es"  # box -> boxes
+        return base + "s"  # name -> names
+
     def _singularize(self, array_var: str, ctx: CodeGenContext) -> str:
         """Derive singular item name from array variable name.
 
@@ -399,15 +461,50 @@ class LoopCodeGen(NodeCodeGen):
         return None
 
     def _get_terminal_type(
-        self, terminal_uid: str, ctx: CodeGenContext
+        self,
+        terminal_uid: str,
+        ctx: CodeGenContext,
+        visited: set[str] | None = None,
     ) -> Any | None:
-        """Get the LVType for a terminal if available.
+        """Get the LVType for a terminal by tracing back to its source.
 
-        Currently returns None - type info requires access to VI context
-        which isn't stored in CodeGenContext.
+        Traces through data flow to find the source FP terminal's lv_type.
+        This allows us to distinguish scalar vs array inputs to loops.
+
+        Args:
+            terminal_uid: Terminal ID to look up type for
+            ctx: Code generation context with vi_inputs and flow maps
+            visited: Set of already visited terminals (for cycle detection)
+
+        Returns:
+            LVType if found, None otherwise
         """
-        # TODO: Could be enhanced to trace type info through data flow
-        # For now, return None and let callers use generic naming
+        if visited is None:
+            visited = set()
+        if terminal_uid in visited:
+            return None  # Cycle detection
+        visited.add(terminal_uid)
+
+        # Check if terminal is directly an FP input
+        for inp in ctx.vi_inputs:
+            if inp.id == terminal_uid:
+                return inp.lv_type
+
+        # Trace through data flow
+        flow_info = ctx._flow_map.get(terminal_uid)
+        if flow_info:
+            src_terminal = flow_info.get("src_terminal")
+            src_parent_id = flow_info.get("src_parent_id")
+
+            # Check if source parent is an FP input
+            for inp in ctx.vi_inputs:
+                if inp.id == src_parent_id:
+                    return inp.lv_type
+
+            # Recurse to trace further
+            if src_terminal and src_terminal != terminal_uid:
+                return self._get_terminal_type(src_terminal, ctx, visited)
+
         return None
 
     def _generate_inner(
@@ -585,15 +682,16 @@ class LoopCodeGen(NodeCodeGen):
     def _find_all_autoindex_arrays(
         self, tunnels: list[Tunnel], ctx: CodeGenContext
     ) -> list[tuple[str, str]]:
-        """Find ALL array inputs for autoindexing.
+        """Find array inputs for autoindexing (excludes scalar inputs).
 
         LabVIEW For loops with multiple auto-indexing inputs iterate
         min(len(arr1), len(arr2), ...) times.
 
-        In LabVIEW, lpTun inputs to For loops ARE auto-indexed arrays by default.
-        The tunnel type itself indicates auto-indexing behavior.
+        In LabVIEW, lpTun inputs to For loops are auto-indexed IF they are arrays.
+        Scalar inputs pass through unchanged (same value each iteration).
 
         Returns list of (array_var, inner_terminal_uid) tuples.
+        Only includes inputs with array type - scalar inputs are excluded.
         """
         results: list[tuple[str, str]] = []
 
@@ -602,11 +700,15 @@ class LoopCodeGen(NodeCodeGen):
             outer_term = tunnel.outer_terminal_uid
             inner_term = tunnel.inner_terminal_uid
 
-            # In For loops, lpTun inputs are auto-indexed arrays
+            # In For loops, lpTun inputs are auto-indexed if array OR type unknown
+            # Only exclude if type is KNOWN and NOT an array (scalar)
             if tunnel_type == "lpTun" and outer_term and inner_term:
                 outer_var = ctx.resolve(outer_term)
                 if outer_var:
-                    results.append((outer_var, inner_term))
+                    lv_type = self._get_terminal_type(outer_term, ctx)
+                    # Treat as array if type is array OR unknown (backward compat)
+                    if lv_type is None or lv_type.kind == "array":
+                        results.append((outer_var, inner_term))
 
         return results
 
