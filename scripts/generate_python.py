@@ -300,15 +300,24 @@ def main():
         has_vilib = vilib_resolver.has_implementation(vi_name)
         has_inline = vilib_resolver.has_inline(vi_name)
 
-        output_path, library_name = get_output_path(output_dir, vi_name)
-        module_name = to_module_name(vi_name)
-
         print(f"  [{i}/{len(order)}] {vi_name}")
 
         if has_inline:
             # Skip - inlined at call sites by AST builder
             print(f"         -> (inlined at call sites)")
             continue
+
+        # Check polymorphic wrappers early - skip if all variants are inlined
+        if vi_name in poly_groups:
+            variants = poly_groups[vi_name]
+            all_inlined = all(vilib_resolver.has_inline(v) for v in variants)
+            if all_inlined:
+                print(f"         -> (polymorphic, all variants inlined)")
+                continue
+
+        # Only create directory structure when we're actually going to write a file
+        output_path, library_name = get_output_path(output_dir, vi_name)
+        module_name = to_module_name(vi_name)
 
         if has_vilib:
             # Generate vilib/openg implementation
@@ -332,14 +341,9 @@ def {func_name}(*args, **kwargs) -> Any:
             generated.append((vi_name, output_path, "stub"))
 
         elif vi_name in poly_groups:
-            # Check if all variants are inlined
-            variants = poly_groups[vi_name]
-            all_inlined = all(vilib_resolver.has_inline(v) for v in variants)
-            if all_inlined:
-                print(f"         -> (polymorphic, all variants inlined)")
-                continue
-
             # Generate polymorphic module with all variants
+            # (already checked all_inlined above - only reach here if not all inlined)
+            variants = poly_groups[vi_name]
             try:
                 code = generate_polymorphic_module(vi_name, variants, graph, vilib_resolver, vi_folder_name, output_dir, vi_paths)
                 ast.parse(code)  # Validate syntax
