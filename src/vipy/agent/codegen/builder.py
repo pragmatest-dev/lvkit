@@ -51,7 +51,7 @@ def build_module(
     # Read from vi_context if not explicitly passed
     if has_parallel_branches is None:
         has_parallel_branches = vi_context.get("has_parallel_branches", False)
-    use_error_handling = needs_error_handling(has_parallel_branches)
+    use_error_handling = needs_error_handling(has_parallel_branches, vi_context)
     ctx.use_held_error_model = use_error_handling
 
     # Generate function body
