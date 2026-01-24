@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING
 from ..enum_resolver import EnumResolver
 from ..llm import generate_code
 from ..vilib_resolver import get_resolver as get_vilib_resolver
+from .codegen import ClassBuilder, ClassConfig
 from .context import VISignature
 from .context_builder import ContextBuilder
 from .enums import EnumRegistry
@@ -573,55 +574,53 @@ def {func_name}({params_str}) -> {return_type}:
     def convert_lvclass(self, lvclass: "LVClass") -> ConversionResult:
         """Convert a LabVIEW class to a Python class.
 
+        Uses AST-based ClassBuilder for code generation. The class methods
+        can call SubVIs both inside and outside the class - class membership
+        is determined by the lvclass file (like lvlib membership).
+
         Args:
             lvclass: Parsed LVClass object
 
         Returns:
             ConversionResult for the class
         """
-        class_name = self._to_class_name(lvclass.name)
         module_name = self._to_module_name(lvclass.name)
 
-        lines = [
-            f'"""Python class converted from {lvclass.name}."""',
-            "",
-            "from __future__ import annotations",
-            "",
-            "from dataclasses import dataclass, field",
-            "from pathlib import Path",
-            "from typing import Any",
-            "",
-        ]
+        # 1. Load method VIs into graph to get their contexts
+        method_contexts: dict[str, dict] = {}
+        loaded_vis = set(self.graph.list_vis())
 
-        # Add type imports
-        types = self.type_registry.get_types_for_vi(lvclass.name)
-        if types:
-            type_names = ", ".join(t.name for t in types)
-            lines.append(f"from types import {type_names}")
-            lines.append("")
-
-        # Generate class definition
-        parent = ""
-        if lvclass.parent_class:
-            parent_name = self._to_class_name(lvclass.parent_class)
-            parent = f"({parent_name})"
-
-        lines.append(f"class {class_name}{parent}:")
-        lines.append(f'    """Converted from LabVIEW class: {lvclass.name}."""')
-        lines.append("")
-
-        # Generate __init__ with private data
-        lines.extend(self._generate_class_init(lvclass))
-
-        # Convert each method
         for method in lvclass.methods:
-            method_lines = self._convert_method(lvclass, method)
-            lines.extend(method_lines)
-            lines.append("")
+            vi_path = lvclass.path.parent / method.vi_path
+            if vi_path.exists():
+                try:
+                    # Load VI if not already loaded
+                    vi_name = vi_path.name
+                    if vi_name not in loaded_vis:
+                        self.graph.load_vi(vi_path, expand_subvis=False)
+                        loaded_vis.add(vi_name)
 
-        code = "\n".join(lines)
+                    # Get VI context
+                    ctx = self.graph.get_vi_context(vi_name)
+                    if ctx:
+                        method_contexts[method.name] = ctx
+                except Exception as e:
+                    print(f"    Warning: Could not load method VI {method.name}: {e}")
 
-        # Validate
+        # 2. Build class module using ClassBuilder
+        config = ClassConfig(include_docstrings=True)
+        builder = ClassBuilder(config=config)
+        module = builder.build_class_module(
+            lvclass,
+            method_contexts=method_contexts,
+            parent_class_name=lvclass.parent_class,
+        )
+
+        # 3. Generate code
+        ast.fix_missing_locations(module)
+        code = ast.unparse(module)
+
+        # 4. Validate
         validation = self.validator.validate(code, module_name)
 
         if validation.is_valid:

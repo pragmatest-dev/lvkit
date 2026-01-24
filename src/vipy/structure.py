@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -15,6 +16,17 @@ class LVMethod:
     vi_path: str
     scope: str  # "public", "private", "protected"
     is_static: bool = False
+    is_accessor: bool = False
+    accessor_type: str | None = None  # "getter" or "setter"
+    accessor_field: str | None = None  # field name being accessed
+
+
+@dataclass
+class LVPrivateDataField:
+    """A private data field in a LabVIEW class."""
+    name: str
+    python_type: str = "Any"  # Inferred Python type
+    default_value: str | None = None  # Default value expression
 
 
 @dataclass
@@ -25,6 +37,7 @@ class LVClass:
     parent_class: str | None = None
     private_data_ctl: str | None = None
     methods: list[LVMethod] = field(default_factory=list)
+    private_data_fields: list[LVPrivateDataField] = field(default_factory=list)
 
 
 @dataclass
@@ -69,6 +82,170 @@ SCOPE_MAP = {
     3: "protected",
 }
 
+# Accessor pattern detection
+# Note: Patterns require either:
+#   - Space after keyword (Read/Get/Write/Set X.vi) - case-insensitive
+#   - Uppercase letter after keyword (getX.vi) - camelCase
+# This avoids false positives like setUp -> "setter for Up"
+GETTER_PATTERNS = [
+    re.compile(r"^Read\s+(.+)\.vi$", re.IGNORECASE),  # "Read FieldName.vi"
+    re.compile(r"^Get\s+(.+)\.vi$", re.IGNORECASE),   # "Get FieldName.vi"
+    re.compile(r"^get([A-Z].+)\.vi$"),                # "getFieldName.vi" (camelCase)
+]
+
+SETTER_PATTERNS = [
+    re.compile(r"^Write\s+(.+)\.vi$", re.IGNORECASE),  # "Write FieldName.vi"
+    re.compile(r"^Set\s+(.+)\.vi$", re.IGNORECASE),    # "Set FieldName.vi"
+    re.compile(r"^set([A-Z].+)\.vi$"),                 # "setFieldName.vi" (camelCase)
+]
+
+# Method names that look like accessors but aren't (e.g., test framework methods)
+NON_ACCESSOR_METHODS = {
+    "setUp", "tearDown", "setUpClass", "tearDownClass",
+    "globalSetUp", "globalTearDown",
+}
+
+
+def _detect_accessor(method_name: str) -> tuple[str | None, str | None]:
+    """Detect if a method is a getter or setter and extract the field name.
+
+    Returns:
+        Tuple of (accessor_type, field_name) or (None, None) if not an accessor.
+    """
+    # Check if this is a known non-accessor method (e.g., setUp, tearDown)
+    base_name = method_name.replace(".vi", "").replace(".VI", "")
+    if base_name in NON_ACCESSOR_METHODS:
+        return (None, None)
+
+    for pattern in GETTER_PATTERNS:
+        match = pattern.match(method_name)
+        if match:
+            return ("getter", match.group(1))
+
+    for pattern in SETTER_PATTERNS:
+        match = pattern.match(method_name)
+        if match:
+            return ("setter", match.group(1))
+
+    return (None, None)
+
+
+def _parse_private_data_fields(lvclass_path: Path) -> list[LVPrivateDataField]:
+    """Parse private data fields from any extracted VI XML in the class directory.
+
+    Any method VI that uses the class object will have the
+    "Cluster of class private data" type definition in its VCTP section.
+
+    Args:
+        lvclass_path: Path to the .lvclass file
+
+    Returns:
+        List of private data fields with names and types
+    """
+    class_dir = lvclass_path.parent
+
+    # Look for any extracted XML file (not _BDHb, _FPHb variants)
+    for xml_path in class_dir.glob("*.xml"):
+        if "_BDHb" in xml_path.name or "_FPHb" in xml_path.name:
+            continue
+
+        try:
+            tree = ET.parse(xml_path)
+            root = tree.getroot()
+
+            # Find "Cluster of class private data" TypeDesc
+            for typedesc in root.iter("TypeDesc"):
+                label = typedesc.get("Label", "")
+                if "class private data" in label.lower():
+                    type_ids = [td.get("TypeID") for td in typedesc.findall("TypeDesc")]
+                    fields = _resolve_type_ids(root, type_ids)
+                    if fields:
+                        return fields
+
+        except ET.ParseError:
+            continue
+
+    return []
+
+
+def _resolve_type_ids(
+    root: ET.Element, type_ids: list[str | None]
+) -> list[LVPrivateDataField]:
+    """Resolve TypeID references to actual field definitions.
+
+    TypeDescs in VCTP/Section are ordered by FlatTypeID (0, 1, 2, ...).
+
+    Args:
+        root: XML root element
+        type_ids: List of TypeID values to resolve
+
+    Returns:
+        List of private data fields
+    """
+    fields: list[LVPrivateDataField] = []
+
+    vctp = root.find(".//VCTP/Section")
+    if vctp is None:
+        return fields
+
+    # TypeDescs are in order - FlatTypeID N is the Nth TypeDesc element
+    type_descs = [elem for elem in vctp if elem.tag == "TypeDesc"]
+
+    for tid in type_ids:
+        if tid is None:
+            continue
+
+        try:
+            idx = int(tid)
+        except ValueError:
+            continue
+
+        if idx >= len(type_descs):
+            continue
+
+        type_elem = type_descs[idx]
+
+        label = type_elem.get("Label", "")
+        if not label:
+            # Check nested TypeDesc for label (e.g., TypeDef wrapper)
+            nested = type_elem.find("TypeDesc")
+            if nested is not None:
+                label = nested.get("Label", "")
+
+        if label:
+            lv_type = type_elem.get("Type", "")
+            # For TypeDef wrappers, get the nested type
+            if lv_type == "TypeDef":
+                nested = type_elem.find("TypeDesc")
+                if nested is not None:
+                    lv_type = nested.get("Type", "")
+
+            python_type = _lv_type_to_python(lv_type)
+            fields.append(LVPrivateDataField(
+                name=label,
+                python_type=python_type,
+            ))
+
+    return fields
+
+
+def _lv_type_to_python(lv_type: str) -> str:
+    """Convert LabVIEW type to Python type hint.
+
+    Uses the canonical type mapping from graph_types.py.
+    """
+    # Import here to avoid circular import
+    from vipy.graph_types import _LV_TO_PYTHON_TYPE
+
+    # Additional types not in the core mapping
+    extra_types = {
+        "Refnum": "Any",  # VI references, notifiers, etc.
+        "Array": "list",
+        "Cluster": "dict",
+    }
+
+    return _LV_TO_PYTHON_TYPE.get(lv_type, extra_types.get(lv_type, "Any"))
+
 
 def parse_lvclass(lvclass_path: Path | str) -> LVClass:
     """Parse a .lvclass file to extract class structure.
@@ -86,14 +263,7 @@ def parse_lvclass(lvclass_path: Path | str) -> LVClass:
     class_name = lvclass_path.stem
     parent_class = None
     private_data_ctl = None
-    methods = []
-
-    # Parse properties for parent class info
-    for prop in root.findall("Property"):
-        prop_name = prop.get("Name", "")
-        if prop_name == "NI.LVClass.ParentClassLinkInfo":
-            # Parent info is in binary, but we can try to extract from Geneology
-            pass
+    methods: list[LVMethod] = []
 
     # Try to get parent from Geneology XML property
     for prop in root.findall("Property"):
@@ -101,18 +271,55 @@ def parse_lvclass(lvclass_path: Path | str) -> LVClass:
             geneology_str = prop.find("String/Val")
             if geneology_str is not None and geneology_str.text:
                 # The geneology contains parent class references
-                # Look for class names in the encoded data
                 parent_class = _extract_parent_from_geneology(geneology_str.text)
 
-    # Parse items (methods and private data)
-    for item in root.findall("Item"):
+    # Fallback: try to find parent class in nearby directories
+    if parent_class is None:
+        parent_class = _find_parent_class_by_path(lvclass_path)
+
+    # Parse items recursively (methods and private data can be in folders)
+    _parse_items(root, methods, private_data_ctl)
+
+    # Find private data control
+    for item in root.findall(".//Item"):
+        if item.get("Type") == "Class Private Data":
+            private_data_ctl = item.get("Name")
+            break
+
+    # Parse private data fields from _Init.xml
+    private_data_fields = _parse_private_data_fields(lvclass_path)
+
+    return LVClass(
+        name=class_name,
+        path=lvclass_path,
+        parent_class=parent_class,
+        private_data_ctl=private_data_ctl,
+        methods=methods,
+        private_data_fields=private_data_fields,
+    )
+
+
+def _parse_items(
+    parent_elem: ET.Element,
+    methods: list[LVMethod],
+    private_data_ctl: str | None,
+) -> None:
+    """Recursively parse Item elements to find methods.
+
+    Args:
+        parent_elem: Parent XML element to search
+        methods: List to append methods to
+        private_data_ctl: Name of private data control (if found)
+    """
+    for item in parent_elem.findall("Item"):
         item_name = item.get("Name", "")
         item_type = item.get("Type", "")
         item_url = item.get("URL", "")
 
-        if item_type == "Class Private Data":
-            private_data_ctl = item_name
-        elif item_type == "VI":
+        if item_type == "Folder":
+            # Recurse into folders (private, protected, etc.)
+            _parse_items(item, methods, private_data_ctl)
+        elif item_type == "VI" and item_name.endswith(".vi"):
             # Get method properties
             scope_prop = item.find("Property[@Name='NI.ClassItem.MethodScope']")
             static_prop = item.find("Property[@Name='NI.ClassItem.IsStaticMethod']")
@@ -128,31 +335,121 @@ def parse_lvclass(lvclass_path: Path | str) -> LVClass:
             if static_prop is not None and static_prop.text:
                 is_static = static_prop.text.lower() == "true"
 
+            # Detect accessor methods
+            accessor_type, accessor_field = _detect_accessor(item_name)
+            is_accessor = accessor_type is not None
+
             methods.append(LVMethod(
                 name=item_name.replace(".vi", ""),
                 vi_path=item_url,
                 scope=SCOPE_MAP.get(scope_val, "public"),
                 is_static=is_static,
+                is_accessor=is_accessor,
+                accessor_type=accessor_type,
+                accessor_field=accessor_field,
             ))
 
-    return LVClass(
-        name=class_name,
-        path=lvclass_path,
-        parent_class=parent_class,
-        private_data_ctl=private_data_ctl,
-        methods=methods,
-    )
+
+def _find_parent_class_by_path(lvclass_path: Path) -> str | None:
+    """Try to find parent class by looking at the class's _Init.vi file.
+
+    In LabVIEW inheritance, a child class's _Init.vi calls the parent
+    class's _Init.vi. We look for this pattern to detect inheritance.
+
+    Args:
+        lvclass_path: Path to the .lvclass file
+
+    Returns:
+        Parent class name or None
+    """
+    class_name = lvclass_path.stem
+    class_dir = lvclass_path.parent
+
+    # ONLY look at the class's _Init.vi file - this is where parent
+    # class _Init calls appear. Looking at other methods would give
+    # false positives (e.g., factory methods creating other class objects).
+    init_xml_path = class_dir / f"{class_name}_Init.xml"
+    if init_xml_path.exists():
+        return _extract_parent_from_vi_xml(init_xml_path, class_name)
+
+    return None
+
+
+def _extract_parent_from_vi_xml(xml_path: Path, current_class: str) -> str | None:
+    """Extract parent class name from a VI's XML file.
+
+    Method VIs contain LinkSaveQualName elements that reference their class
+    hierarchy. The parent class is identified by finding a call to
+    ParentClass_Init.vi in the class's own _Init method.
+
+    Args:
+        xml_path: Path to the VI's XML file
+        current_class: Name of the current class (to exclude)
+
+    Returns:
+        Parent class name or None
+    """
+    try:
+        tree = ET.parse(xml_path)
+        root = tree.getroot()
+
+        # Look for LinkSaveQualName elements that contain both a .lvclass
+        # reference AND an _Init.vi call - this indicates parent class
+        for link_elem in root.iter("LinkSaveQualName"):
+            strings = link_elem.findall("String")
+            if len(strings) >= 2:
+                class_ref = None
+                has_init_call = False
+
+                for string_elem in strings:
+                    text = string_elem.text
+                    if not text:
+                        continue
+
+                    if text.endswith(".lvclass"):
+                        class_ref = text[:-8]  # Remove ".lvclass" suffix
+                    elif "_Init.vi" in text or "_init.vi" in text.lower():
+                        has_init_call = True
+
+                # If we found a class ref with an _Init call, and it's not
+                # the current class, this is likely the parent
+                if class_ref and has_init_call:
+                    # Only accept clean class names
+                    if not (
+                        class_ref.isidentifier()
+                        or all(c.isalnum() or c in "_- " for c in class_ref)
+                    ):
+                        continue
+
+                    # Skip if it's the current class
+                    if class_ref.lower() == current_class.lower():
+                        continue
+
+                    return class_ref
+
+    except ET.ParseError:
+        pass
+    except Exception:
+        pass
+
+    return None
 
 
 def _extract_parent_from_geneology(geneology_data: str) -> str | None:
     """Try to extract parent class name from geneology data.
 
-    The geneology data is a complex encoded format. We look for
-    common patterns that indicate class hierarchy.
+    The geneology data contains encoded XML with class hierarchy info.
+    This is a fallback - the method VI parsing is more reliable.
+
+    Args:
+        geneology_data: The encoded geneology string from NI.LVClass.Geneology
+
+    Returns:
+        Parent class name or None if not found/parseable
     """
-    # For now, return None - full parsing would require
-    # understanding LabVIEW's binary encoding
-    # The parent class reference is typically in ParentClassLinkInfo
+    # The Geneology data is heavily encoded. Skip it and rely on
+    # _find_parent_class_by_path which parses method VI XML files.
+    # Those contain reliable plain-text class references.
     return None
 
 
@@ -327,7 +624,7 @@ def discover_project_structure(root_path: Path | str) -> dict[str, Any]:
     """
     root_path = Path(root_path)
 
-    structure = {
+    structure: dict[str, list[Any]] = {
         "libraries": [],
         "classes": [],
         "standalone_vis": [],
@@ -399,7 +696,8 @@ def generate_python_structure_plan(structure: dict[str, Any]) -> str:
                 lines.append("Functions:")
                 for member in lib["members"]:
                     if member["type"] == "VI":
-                        func_name = _to_python_identifier(member["name"].replace(".vi", ""))
+                        name = member["name"].replace(".vi", "")
+                        func_name = _to_python_identifier(name)
                         lines.append(f"  - {func_name}()")
         lines.append("")
 
@@ -420,10 +718,16 @@ def generate_python_structure_plan(structure: dict[str, Any]) -> str:
             if cls["methods"]:
                 lines.append("Methods:")
                 for method in cls["methods"]:
-                    decorator = "@staticmethod" if method["is_static"] else ""
-                    visibility = "_" if method["scope"] == "private" else "__" if method["scope"] == "protected" else ""
+                    decorator = "@staticmethod " if method["is_static"] else ""
+                    scope = method["scope"]
+                    if scope == "private":
+                        visibility = "_"
+                    elif scope == "protected":
+                        visibility = "__"
+                    else:
+                        visibility = ""
                     method_name = visibility + _to_python_identifier(method["name"])
-                    lines.append(f"  - {decorator + ' ' if decorator else ''}{method_name}()")
+                    lines.append(f"  - {decorator}{method_name}()")
         lines.append("")
 
     return "\n".join(lines)

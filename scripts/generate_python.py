@@ -237,6 +237,82 @@ def generate_polymorphic_module(
     return "\n".join(lines)
 
 
+def resolve_vi_path(cls_dir: Path, relative_path: str) -> Path | None:
+    """Resolve VI path from lvclass relative URL.
+
+    Class membership is defined by the lvclass XML - we're just resolving
+    the stored path to the actual file. LabVIEW stores paths with extra ../
+    that don't match the actual filesystem layout.
+
+    Args:
+        cls_dir: Directory containing the lvclass file
+        relative_path: Relative path from lvclass (e.g., "../hooks/setUp.vi")
+
+    Returns:
+        Resolved path if found, None otherwise
+    """
+    # Try direct resolution first
+    direct = cls_dir / relative_path
+    if direct.exists():
+        return direct.resolve()
+
+    # LabVIEW stores paths with extra ../ - strip them and resolve from cls_dir
+    stripped = relative_path
+    while stripped.startswith("../"):
+        stripped = stripped[3:]
+    if stripped != relative_path:
+        from_cls = cls_dir / stripped
+        if from_cls.exists():
+            return from_cls.resolve()
+
+    return None
+
+
+def find_parent_class(child_path: Path, parent_name: str) -> Path | None:
+    """Find parent class file by searching up the directory tree.
+
+    Args:
+        child_path: Path to child .lvclass file
+        parent_name: Name of parent class (e.g., "TestCase")
+
+    Returns:
+        Path to parent .lvclass file, or None if not found
+    """
+    # Search pattern: look for ParentName.lvclass or ParentName/ParentName.lvclass
+    search_dirs = [
+        child_path.parent,  # Same directory
+        child_path.parent.parent,  # Parent directory
+        child_path.parent.parent.parent,  # Grandparent
+    ]
+
+    # Also search in common class locations
+    for ancestor in child_path.parents:
+        if (ancestor / "Classes").exists():
+            search_dirs.append(ancestor / "Classes")
+        if (ancestor / "source" / "Classes").exists():
+            search_dirs.append(ancestor / "source" / "Classes")
+
+    for search_dir in search_dirs:
+        if not search_dir.exists():
+            continue
+
+        # Direct match
+        direct = search_dir / f"{parent_name}.lvclass"
+        if direct.exists():
+            return direct
+
+        # Subdirectory match (ParentName/ParentName.lvclass)
+        subdir = search_dir / parent_name / f"{parent_name}.lvclass"
+        if subdir.exists():
+            return subdir
+
+        # Search recursively (slower but thorough)
+        for lvclass in search_dir.rglob(f"{parent_name}.lvclass"):
+            return lvclass
+
+    return None
+
+
 def main():
     parser = argparse.ArgumentParser(description="Generate code using AST builder (no LLM)")
     parser.add_argument("input", help="VI file to convert")
@@ -264,11 +340,20 @@ def main():
         shutil.rmtree(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    print(f"Loading VI: {args.input}")
+    print(f"Loading: {args.input}")
 
     graph = InMemoryVIGraph()
     search_paths = [Path(p) for p in args.search_paths]
-    graph.load_vi(args.input, search_paths=search_paths)
+
+    # Detect input type and load appropriately
+    if input_path.suffix.lower() == ".lvclass":
+        graph.load_lvclass(args.input, search_paths=search_paths)
+    elif input_path.suffix.lower() == ".lvlib":
+        graph.load_lvlib(args.input, search_paths=search_paths)
+    elif input_path.is_dir():
+        graph.load_directory(args.input, search_paths=search_paths)
+    else:
+        graph.load_vi(args.input, search_paths=search_paths)
 
     order = graph.get_conversion_order()
     print(f"\nConversion order ({len(order)} VIs):")
@@ -389,6 +474,33 @@ def {func_name}(*args, **kwargs) -> Any:
     init_path = output_dir / "__init__.py"
     if not init_path.exists():
         init_path.write_text('"""Generated package."""\n')
+
+    # Generate class wrapper if input was an lvclass
+    if input_path.suffix.lower() == ".lvclass":
+        from vipy.structure import parse_lvclass
+        from vipy.agent.codegen import ClassBuilder, ClassConfig
+
+        lvclass = parse_lvclass(input_path)
+
+        # Get method contexts from graph
+        method_contexts = {}
+        for method in lvclass.methods:
+            qualified_name = f"{lvclass.name}.lvclass:{method.name}.vi"
+            ctx = graph.get_vi_context(qualified_name)
+            if ctx:
+                method_contexts[method.name] = ctx
+
+        # Build class wrapper
+        builder = ClassBuilder(config=ClassConfig())
+        module = builder.build_class_module(lvclass, method_contexts)
+        ast.fix_missing_locations(module)
+        class_code = ast.unparse(module)
+
+        # Write class file
+        class_filename = to_module_name(lvclass.name) + ".py"
+        class_path = output_dir / class_filename
+        class_path.write_text(class_code)
+        print(f"\nGenerated class wrapper: {class_filename}")
 
     print(f"\nOutput: {output_dir}")
     print(f"  vilib: {sum(1 for _, _, s in generated if s == 'vilib')}")

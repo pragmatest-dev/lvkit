@@ -145,6 +145,22 @@ class PolySubVIHandler(NodeTypeHandler):
         return SubVINode(**common)
 
 
+class DynamicDispatchHandler(NodeTypeHandler):
+    """Handler for dynamic dispatch VI nodes (class="dynIUse").
+
+    Dynamic dispatch VIs are class methods that use runtime dispatch
+    based on the class of the input object. In Python, this is just
+    regular method calls - Python's MRO handles dispatch automatically.
+    """
+
+    xml_class = "dynIUse"
+    display_name = "Dynamic Dispatch VI"
+
+    def parse(self, elem: ET.Element) -> SubVINode:
+        common = self._extract_common(elem)
+        return SubVINode(**common)
+
+
 class CpdArithHandler(NodeTypeHandler):
     """Handler for Compound Arithmetic nodes (class="cpdArith")."""
 
@@ -262,6 +278,7 @@ _HANDLERS: list[NodeTypeHandler] = [
     PrimitiveHandler(),
     SubVIHandler(),
     PolySubVIHandler(),
+    DynamicDispatchHandler(),
     CpdArithHandler(),
     ArrayBuildHandler(),
     WhileLoopHandler(),

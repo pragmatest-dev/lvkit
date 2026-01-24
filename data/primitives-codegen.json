@@ -279,9 +279,24 @@
     },
     "1145": {
       "name": "To More Specific Class",
-      "terminals": [],
-      "guess_reason": "Type coercion in array VIs",
-      "python_code": "specific = cast(data, SpecificType)",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "input"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "output"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "error_out"
+        }
+      ],
+      "python_code": "output = input  # downcast (type check in Python via isinstance)",
       "inline": true
     },
     "1058": {
@@ -689,17 +704,16 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
-          "name": null
+          "direction": "in",
+          "name": "input"
         },
         {
           "index": 1,
-          "direction": "in",
-          "name": "border spacing (2 px)"
+          "direction": "out",
+          "name": "output"
         }
       ],
-      "guess_reason": "Type coercion",
-      "python_code": "generic = cast(data, GenericType)",
+      "python_code": "output = input  # upcast (no-op in Python)",
       "inline": true
     },
     "1910": {
@@ -1676,36 +1690,48 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out"
+          "direction": "out",
+          "name": "element0"
         },
         {
           "index": 1,
-          "direction": "out"
+          "direction": "out",
+          "name": "element1"
         },
         {
           "index": 2,
-          "direction": "in"
+          "direction": "in",
+          "name": "cluster"
         }
       ],
-      "guess_reason": "One input, two outputs - extracts cluster fields",
-      "python_code": "# Destructure tuple/dataclass",
-      "inline": true
+      "guess_reason": "One input (cluster/class), multiple outputs (fields) - extracts fields in index order. Expandable to any number of outputs.",
+      "python_code": "list(cluster.values()) if hasattr(cluster, 'values') else (list(vars(cluster).values()) if hasattr(cluster, '__dict__') else list(cluster))",
+      "inline": true,
+      "note": "Polymorphic: dict.values() for clusters, vars(obj).values() for class instances, list() for tuples"
     },
     "1302": {
       "name": "Bundle",
       "terminals": [
         {
           "index": 0,
-          "direction": "out"
+          "direction": "out",
+          "name": "cluster"
         },
         {
           "index": 1,
-          "direction": "in"
+          "direction": "in",
+          "name": "element0"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "element1"
         }
       ],
-      "guess_reason": "Creates cluster from components",
-      "python_code": "# Create tuple/dataclass",
-      "inline": true
+      "guess_reason": "Creates cluster/tuple from multiple inputs. Expandable.",
+      "python_code": "(element0, element1)",
+      "inline": true,
+      "note": "Bundles inputs into a tuple. Code generator expands for actual terminal count."
     },
     "1163": {
       "name": "String To Byte Array",
@@ -2119,10 +2145,27 @@
     },
     "1341": {
       "name": "Bundle By Name",
-      "terminals": [],
-      "guess_reason": "3 inputs, 1 cluster output (from OpenG)",
-      "python_code": "# TODO",
-      "inline": true
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "cluster_out"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "cluster_in"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "field_value"
+        }
+      ],
+      "guess_reason": "Updates specific field in cluster. Input cluster + new value = output cluster with updated field.",
+      "python_code": "{**cluster_in, 'field': field_value}",
+      "inline": true,
+      "note": "Merges new field value into existing cluster/dict. Actual field name comes from VI context."
     },
     "8055": {
       "name": "Create Folder",
@@ -2429,9 +2472,21 @@
     "2075": {
       "name": "Merge Errors",
       "terminals": [
-        {"index": 0, "direction": "in", "name": "error in (no error)"},
-        {"index": 1, "direction": "in", "name": "error in 2 (no error)"},
-        {"index": 2, "direction": "out", "name": "error out"}
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "error in (no error)"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "error in 2 (no error)"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "error out"
+        }
       ],
       "guess_reason": "Combines errors - first error wins. In held error model: first non-None error propagates.",
       "python_code": {
@@ -2442,10 +2497,26 @@
     "2076": {
       "name": "Clear Error",
       "terminals": [
-        {"index": 0, "direction": "in", "name": "error in (no error)"},
-        {"index": 1, "direction": "out", "name": "error out (no error)"},
-        {"index": 2, "direction": "out", "name": "error code"},
-        {"index": 3, "direction": "out", "name": "error source"}
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "error in (no error)"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "error out (no error)"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "error code"
+        },
+        {
+          "index": 3,
+          "direction": "out",
+          "name": "error source"
+        }
       ],
       "guess_reason": "Clears error cluster. In held error model: _held_error = None",
       "python_code": {
@@ -2521,24 +2592,63 @@
     },
     "9112": {
       "name": "Get LV Class Name",
-      "terminals": [],
-      "guess_reason": "0in/7out - gets class name",
-      "python_code": "class_name = obj.__class__.__name__",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "class_ref"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "class_name"
+        }
+      ],
+      "python_code": "class_name = type(class_ref).__name__",
       "inline": true
     },
     "9113": {
       "name": "Get LV Class Path",
-      "terminals": [],
-      "guess_reason": "1in/6out - gets class path",
-      "python_code": "class_path = obj.__class__.__file__",
-      "inline": true
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "class_ref"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "class_path"
+        }
+      ],
+      "python_code": "class_path = Path(inspect.getfile(type(class_ref)))",
+      "inline": true,
+      "imports": [
+        "inspect"
+      ]
     },
     "9114": {
       "name": "To More Specific Class",
-      "terminals": [],
-      "guess_reason": "1in/4out - class casting",
-      "python_code": "specific = cast(obj, SpecificClass)",
-      "inline": true
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "input"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "output"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "error_out"
+        }
+      ],
+      "python_code": "output = input  # downcast (type check in Python via isinstance)",
+      "inline": true,
+      "note": "Same as 1145"
     },
     "1180": {
       "name": "Coerce To Type",
@@ -2598,16 +2708,38 @@
     }
   },
   "node_types": {
-    "aBuild": {"name": "Build Array"},
-    "cpdArith": {"name": "Compound Arithmetic"},
-    "unbundle": {"name": "Unbundle"},
-    "bundle": {"name": "Bundle"},
-    "arrayIdx": {"name": "Index Array"},
-    "arrayRepl": {"name": "Replace Array Subset"},
-    "strIdx": {"name": "String Index"},
-    "strRepl": {"name": "Replace Substring"},
-    "strLen": {"name": "String Length"},
-    "concat": {"name": "Concatenate"},
-    "split": {"name": "Split"}
+    "aBuild": {
+      "name": "Build Array"
+    },
+    "cpdArith": {
+      "name": "Compound Arithmetic"
+    },
+    "unbundle": {
+      "name": "Unbundle"
+    },
+    "bundle": {
+      "name": "Bundle"
+    },
+    "arrayIdx": {
+      "name": "Index Array"
+    },
+    "arrayRepl": {
+      "name": "Replace Array Subset"
+    },
+    "strIdx": {
+      "name": "String Index"
+    },
+    "strRepl": {
+      "name": "Replace Substring"
+    },
+    "strLen": {
+      "name": "String Length"
+    },
+    "concat": {
+      "name": "Concatenate"
+    },
+    "split": {
+      "name": "Split"
+    }
   }
 }

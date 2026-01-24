@@ -57,6 +57,8 @@ _NODE_TYPE_NAMES: dict[str, str] = {
 _KIND_TO_LABELS: dict[str, list[str]] = {
     "subvi": ["SubVI"],
     "primitive": ["Primitive"],
+    "caseStruct": ["CaseStructure"],
+    "loop": ["Loop"],
 }
 
 
@@ -109,6 +111,8 @@ class InMemoryVIGraph:
         self._loaded_vis: set[str] = set()
         # Source file paths: vi_name -> Path to original .vi file
         self._source_paths: dict[str, Path] = {}
+        # VI metadata: library, qualified_name
+        self._vi_metadata: dict[str, dict[str, Any]] = {}
 
     def clear(self) -> None:
         """Clear all loaded data."""
@@ -351,9 +355,30 @@ class InMemoryVIGraph:
             search_paths = [lvclass_path.parent]
 
         for method in cls.methods:
-            vi_path = lvclass_path.parent / method.vi_path
-            if vi_path.exists():
+            vi_path = self._resolve_class_vi_path(lvclass_path.parent, method.vi_path)
+            if vi_path and vi_path.exists():
                 self.load_vi(vi_path, expand_subvis, search_paths)
+
+    def _resolve_class_vi_path(self, cls_dir: Path, relative_path: str) -> Path | None:
+        """Resolve VI path from lvclass relative URL.
+
+        LabVIEW stores paths with extra ../ that don't match filesystem layout.
+        """
+        # Try direct resolution first
+        direct = cls_dir / relative_path
+        if direct.exists():
+            return direct.resolve()
+
+        # Strip ../ prefixes and resolve from class dir
+        stripped = relative_path
+        while stripped.startswith("../"):
+            stripped = stripped[3:]
+        if stripped != relative_path:
+            from_cls = cls_dir / stripped
+            if from_cls.exists():
+                return from_cls.resolve()
+
+        return None
 
     def load_lvproj(
         self,
@@ -493,7 +518,7 @@ class InMemoryVIGraph:
             cs.uid: cs for cs in bd.case_structures
         }
 
-        # Parse VI metadata for polymorphic info
+        # Parse VI metadata for polymorphic info and library membership
         if main_xml and main_xml.exists():
             poly_metadata = parse_vi_metadata(main_xml)
             if poly_metadata.get("is_polymorphic"):
@@ -502,6 +527,11 @@ class InMemoryVIGraph:
                     "variants": poly_metadata.get("poly_variants", []),
                     "selectors": poly_metadata.get("poly_selectors", []),
                 }
+            # Store library/class membership
+            self._vi_metadata[vi_name] = {
+                "library": poly_metadata.get("library"),
+                "qualified_name": poly_metadata.get("qualified_name"),
+            }
 
         # Add to dependency graph
         self._dep_graph.add_node(vi_name)
@@ -826,11 +856,16 @@ class InMemoryVIGraph:
             g.add_node(const.uid, **node_attrs)
 
         # Add operations (SubVIs and primitives)
+        # dynIUse = dynamic dispatch VI (class method calls)
         for node in bd.nodes:
-            if node.node_type in ("iUse", "polyIUse"):
+            if node.node_type in ("iUse", "polyIUse", "dynIUse"):
                 node_kind = "subvi"
             elif isinstance(node, PrimitiveNode):
                 node_kind = "primitive"
+            elif node.node_type in ("caseStruct", "select"):
+                node_kind = "caseStruct"
+            elif node.node_type in ("whileLoop", "forLoop"):
+                node_kind = "loop"
             else:
                 node_kind = "operation"
 
@@ -1438,10 +1473,12 @@ class InMemoryVIGraph:
             # Convert raw terminals to Terminal dataclasses
             terminals = self._to_terminal_list(d.get("terminals", []))
 
-            # Build tunnels and inner_nodes for nested loops
+            # Build tunnels and inner_nodes for nested structures
             tunnels: list[Tunnel] = []
             nested_inner: list[Operation] = []
             loop_type: str | None = None
+            case_frames: list[CaseFrame] = []
+            selector_terminal: str | None = None
 
             if node_type in ("whileLoop", "forLoop"):
                 labels = ["Loop"]
@@ -1461,6 +1498,24 @@ class InMemoryVIGraph:
                         nested_struct.inner_node_uids, g, vi_name
                     )
 
+            elif node_type in ("caseStruct", "select"):
+                labels = ["CaseStructure"]
+                case_struct = self._case_structures.get(vi_name, {}).get(uid)
+                if case_struct:
+                    tunnels = [
+                        Tunnel(
+                            outer_terminal_uid=t.outer_terminal_uid,
+                            inner_terminal_uid=t.inner_terminal_uid,
+                            tunnel_type=t.tunnel_type,
+                            paired_terminal_uid=t.paired_terminal_uid,
+                        )
+                        for t in case_struct.tunnels
+                    ]
+                    selector_terminal = case_struct.selector_terminal_uid
+                    case_frames = self._build_case_frames(
+                        case_struct.frames, g, vi_name
+                    )
+
             # Get name, falling back to node_type mapping
             node_name = d.get("name")
             if not node_name and node_type:
@@ -1478,6 +1533,8 @@ class InMemoryVIGraph:
                 inner_nodes=nested_inner,
                 description=d.get("description"),
                 operation=d.get("operation"),
+                case_frames=case_frames,
+                selector_terminal=selector_terminal,
             ))
         return inner_ops
 
@@ -1772,8 +1829,13 @@ class InMemoryVIGraph:
         operations = list(self.get_operations(vi_name))
         data_flow = list(self.get_wires(vi_name))
 
+        # Get library/class metadata
+        vi_meta = self._vi_metadata.get(vi_name, {})
+
         return {
             "name": vi_name,
+            "library": vi_meta.get("library"),
+            "qualified_name": vi_meta.get("qualified_name"),
             "inputs": inputs,
             "outputs": outputs,
             "constants": constants,
