@@ -15,59 +15,81 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
+from vipy.agent.codegen import build_module
+from vipy.agent.codegen.ast_utils import to_function_name, to_module_name
 from vipy.memory_graph import InMemoryVIGraph
 from vipy.vilib_resolver import get_resolver as get_vilib_resolver
-from vipy.agent.codegen import build_module
-from vipy.agent.codegen.ast_utils import to_function_name, to_var_name
 
 
-def to_module_name(vi_name: str) -> str:
-    """Convert VI name to module name (strips library prefix)."""
-    if ":" in vi_name:
-        vi_name = vi_name.split(":")[-1]
-    vi_name = vi_name.replace(".vi", "").replace(".VI", "")
-    result = vi_name.lower().replace(" ", "_").replace("-", "_")
+def _sanitize_lib_name(name: str) -> str:
+    """Sanitize a library/class name to a valid Python package name."""
+    result = name.lower().replace(" ", "_").replace("-", "_")
     result = "".join(c for c in result if c.isalnum() or c == "_")
-    return result or "module"
+    return result
 
 
-def to_library_name(vi_name: str) -> str | None:
-    """Extract library name from VI name for directory organization.
+def to_library_name(
+    vi_name: str,
+    graph: InMemoryVIGraph | None = None,
+    vilib_resolver: object | None = None,
+) -> str | None:
+    """Determine output subdirectory from VI library membership.
+
+    Uses the graph's metadata (library, qualified_name) when available,
+    falls back to parsing the VI name string.
+
+    Returns None for top-level VIs with no library membership — these
+    go in the output root directory.
 
     Examples:
         "GraphicalTestRunner.lvlib:Get Settings Path.vi" -> "graphicaltestrunner"
+        "MyClass.lvclass:Init.vi" -> "myclass"
         "Build Path__ogtk.vi" -> "openg"
-        "Get System Directory.vi" -> "vilib"
+        "DAQmx Start Task.vi" (vilib impl) -> "vilib"
+        "In.vi" (no library) -> None  (output root)
     """
-    # Check for library-qualified name (Library.lvlib:VI.vi or Library.lvclass:VI.vi)
-    if ".lvlib:" in vi_name:
-        library = vi_name.split(":")[0]
-        library = library.replace(".lvlib", "")
-        result = library.lower().replace(" ", "_").replace("-", "_")
-        result = "".join(c for c in result if c.isalnum() or c == "_")
-        return result or None
-    elif ".lvclass:" in vi_name:
-        library = vi_name.split(":")[0]
-        library = library.replace(".lvclass", "")
-        result = library.lower().replace(" ", "_").replace("-", "_")
-        result = "".join(c for c in result if c.isalnum() or c == "_")
-        return result or None
+    # 1. Check graph metadata for library membership
+    if graph is not None:
+        meta = graph._vi_metadata.get(vi_name, {})
+        library = meta.get("library")
+        if library:
+            return _sanitize_lib_name(library) or None
 
-    # Check for OpenG naming convention (__ogtk)
+    # 2. Check qualified name in VI name string (lvlib or lvclass prefix)
+    if ".lvlib:" in vi_name:
+        library = vi_name.split(":")[0].replace(".lvlib", "")
+        return _sanitize_lib_name(library) or None
+    elif ".lvclass:" in vi_name:
+        library = vi_name.split(":")[0].replace(".lvclass", "")
+        return _sanitize_lib_name(library) or None
+
+    # 3. OpenG naming convention
     if "__ogtk" in vi_name:
         return "openg"
 
-    # Default to vilib for system VIs
-    return "vilib"
+    # 4. Known vilib implementation — goes under vilib/
+    if vilib_resolver is not None and hasattr(vilib_resolver, "has_implementation"):
+        if vilib_resolver.has_implementation(vi_name):
+            return "vilib"
+
+    # 5. No library membership — top-level output root
+    return None
 
 
-def get_output_path(output_dir: Path, vi_name: str, create_dirs: bool = True) -> tuple[Path, str | None]:
+def get_output_path(
+    output_dir: Path,
+    vi_name: str,
+    create_dirs: bool = True,
+    graph: InMemoryVIGraph | None = None,
+    vilib_resolver: object | None = None,
+) -> tuple[Path, str | None]:
     """Get output path and library name for a VI.
 
-    Returns (path, library_name) where path includes library subdirectory if applicable.
+    Returns (path, library_name) where path includes library subdirectory
+    if the VI belongs to a library, or the output root if it doesn't.
     """
     module_name = to_module_name(vi_name)
-    library_name = to_library_name(vi_name)
+    library_name = to_library_name(vi_name, graph=graph, vilib_resolver=vilib_resolver)
 
     if library_name:
         lib_dir = output_dir / library_name
@@ -86,6 +108,8 @@ def create_import_resolver(
     package_name: str,
     output_dir: Path,
     vi_paths: dict[str, Path],
+    graph: InMemoryVIGraph | None = None,
+    vilib_resolver: object | None = None,
 ) -> callable:
     """Create an import resolver for a VI.
 
@@ -93,6 +117,8 @@ def create_import_resolver(
         package_name: Name of the output package (e.g., "get_settings_path")
         output_dir: Root output directory
         vi_paths: Dict mapping fully qualified VI names to their output paths
+        graph: Memory graph for library metadata lookup
+        vilib_resolver: VILib resolver for vilib membership check
 
     Returns:
         Callable that takes a SubVI name and returns the correct import statement
@@ -105,11 +131,16 @@ def create_import_resolver(
             dep_path = vi_paths[subvi_name]
         else:
             # Not in our paths - compute it
-            dep_path, _ = get_output_path(output_dir, subvi_name, create_dirs=False)
+            dep_path, _ = get_output_path(
+                output_dir, subvi_name, create_dirs=False,
+                graph=graph, vilib_resolver=vilib_resolver,
+            )
 
         # Build absolute package import
         dep_module = dep_path.stem  # filename without .py
-        dep_library = to_library_name(subvi_name)
+        dep_library = to_library_name(
+            subvi_name, graph=graph, vilib_resolver=vilib_resolver,
+        )
 
         if dep_library:
             return f"from {package_name}.{dep_library}.{dep_module} import {func_name}"
@@ -149,7 +180,10 @@ def generate_polymorphic_module(
         variant_funcs.append(func_name)
 
         try:
-            import_resolver = create_import_resolver(package_name, output_dir, vi_paths)
+            import_resolver = create_import_resolver(
+                    package_name, output_dir, vi_paths,
+                    graph=graph, vilib_resolver=vilib_resolver,
+                )
             code = build_module(vi_context, variant_name, graph.get_vi_context, import_resolver)
             # Extract just the function and result class (skip imports)
             tree = ast.parse(code)
@@ -369,7 +403,10 @@ def main():
     # Pre-compute all output paths for import resolution
     vi_paths: dict[str, Path] = {}
     for vi_name in order:
-        path, _ = get_output_path(output_dir, vi_name, create_dirs=False)
+        path, _ = get_output_path(
+            output_dir, vi_name, create_dirs=False,
+            graph=graph, vilib_resolver=vilib_resolver,
+        )
         vi_paths[vi_name] = path
 
     generated = []
@@ -378,7 +415,7 @@ def main():
         # Skip variants - they'll be generated with their wrapper
         if vi_name in poly_variants:
             print(f"  [{i}/{len(order)}] {vi_name}")
-            print(f"         -> (included in polymorphic wrapper)")
+            print("         -> (included in polymorphic wrapper)")
             continue
 
         is_stub = graph.is_stub_vi(vi_name)
@@ -389,7 +426,7 @@ def main():
 
         if has_inline:
             # Skip - inlined at call sites by AST builder
-            print(f"         -> (inlined at call sites)")
+            print("         -> (inlined at call sites)")
             continue
 
         # Check polymorphic wrappers early - skip if all variants are inlined
@@ -397,11 +434,13 @@ def main():
             variants = poly_groups[vi_name]
             all_inlined = all(vilib_resolver.has_inline(v) for v in variants)
             if all_inlined:
-                print(f"         -> (polymorphic, all variants inlined)")
+                print("         -> (polymorphic, all variants inlined)")
                 continue
 
         # Only create directory structure when we're actually going to write a file
-        output_path, library_name = get_output_path(output_dir, vi_name)
+        output_path, library_name = get_output_path(
+            output_dir, vi_name, graph=graph, vilib_resolver=vilib_resolver,
+        )
         module_name = to_module_name(vi_name)
 
         if has_vilib:
@@ -451,7 +490,10 @@ def {func_name}(*args, **kwargs) -> Any:
             vi_context = graph.get_vi_context(vi_name)
 
             try:
-                import_resolver = create_import_resolver(vi_folder_name, output_dir, vi_paths)
+                import_resolver = create_import_resolver(
+                vi_folder_name, output_dir, vi_paths,
+                graph=graph, vilib_resolver=vilib_resolver,
+            )
                 code = build_module(vi_context, vi_name, graph.get_vi_context, import_resolver)
 
                 # Validate syntax
@@ -477,8 +519,8 @@ def {func_name}(*args, **kwargs) -> Any:
 
     # Generate class wrapper if input was an lvclass
     if input_path.suffix.lower() == ".lvclass":
-        from vipy.structure import parse_lvclass
         from vipy.agent.codegen import ClassBuilder, ClassConfig
+        from vipy.structure import parse_lvclass
 
         lvclass = parse_lvclass(input_path)
 
@@ -491,7 +533,10 @@ def {func_name}(*args, **kwargs) -> Any:
                 method_contexts[method.name] = ctx
 
         # Build class wrapper with context lookup for SubVI resolution
-        import_resolver = create_import_resolver(vi_folder_name, output_dir, vi_paths)
+        import_resolver = create_import_resolver(
+                vi_folder_name, output_dir, vi_paths,
+                graph=graph, vilib_resolver=vilib_resolver,
+            )
         builder = ClassBuilder(config=ClassConfig())
         module = builder.build_class_module(
             lvclass,
@@ -570,7 +615,7 @@ def {func_name}(*args, **kwargs) -> Any:
             if ui_inputs or ui_outputs:
                 module_name = to_module_name(vi_name)
                 func_name = to_function_name(vi_name)
-                library_name = to_library_name(vi_name)
+                library_name = to_library_name(vi_name, graph=graph, vilib_resolver=vilib_resolver)
 
                 # Get enum definitions for vilib VIs
                 enums = {}

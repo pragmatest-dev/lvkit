@@ -1712,28 +1712,23 @@
       "note": "Polymorphic: dict.values() for clusters, vars(obj).values() for class instances, list() for tuples"
     },
     "1302": {
-      "name": "Bundle",
+      "name": "Wait (ms)",
       "terminals": [
         {
           "index": 0,
           "direction": "out",
-          "name": "cluster"
+          "name": "ms_timer_value"
         },
         {
           "index": 1,
           "direction": "in",
-          "name": "element0"
-        },
-        {
-          "index": 2,
-          "direction": "in",
-          "name": "element1"
+          "name": "milliseconds_to_wait"
         }
       ],
-      "guess_reason": "Creates cluster/tuple from multiple inputs. Expandable.",
-      "python_code": "(element0, element1)",
+      "python_code": "time.sleep(milliseconds_to_wait / 1000)",
       "inline": true,
-      "note": "Bundles inputs into a tuple. Code generator expands for actual terminal count."
+      "imports": ["import time"],
+      "note": "Waits the specified number of milliseconds. Returns millisecond timer value."
     },
     "1163": {
       "name": "String To Byte Array",

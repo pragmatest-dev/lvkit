@@ -40,7 +40,12 @@ from .models import (
     VIMetadata,
     Wire,
 )
-from .nodes import extract_case_structures, extract_constants, extract_loops
+from .nodes import (
+    extract_case_structures,
+    extract_constants,
+    extract_flat_sequences,
+    extract_loops,
+)
 from .type_mapping import parse_type_map_rich
 from .type_resolution import resolve_type_rich
 from .utils import extract_label, safe_int
@@ -131,9 +136,11 @@ def _parse_metadata(
             qualified_name = lvsr.get("Name")
 
     # Extract SubVI info
-    subvi_qualified_names, iuse_to_qualified_name, subvi_path_refs = _extract_subvi_info(
-        main_root, qualified_name
-    )
+    (
+        subvi_qualified_names,
+        iuse_to_qualified_name,
+        subvi_path_refs,
+    ) = _extract_subvi_info(main_root, qualified_name)
 
     # Parse type map
     type_map = parse_type_map_rich(main_xml)
@@ -162,9 +169,12 @@ def _parse_block_diagram(
     wires = _extract_wires(root)
     fp_terminals = extract_fp_terminals(root, fp_xml, type_map)
     enum_labels = _extract_enum_labels(root)
-    terminal_info = _extract_terminal_info(root, constants, fp_terminals, wires, type_map)
+    terminal_info = _extract_terminal_info(
+        root, constants, fp_terminals, wires, type_map,
+    )
     loops = extract_loops(root)
     case_structures = extract_case_structures(root)
+    flat_sequences = extract_flat_sequences(root)
 
     return BlockDiagram(
         nodes=nodes,
@@ -175,6 +185,7 @@ def _parse_block_diagram(
         terminal_info=terminal_info,
         loops=loops,
         case_structures=case_structures,
+        flat_sequences=flat_sequences,
     )
 
 
@@ -329,7 +340,9 @@ def _extract_terminal_info(
             continue
 
         if elem_class in TERMINAL_CONTAINER_CLASSES:
-            term_list = elem.findall(f"./termList/SL__arrayElement[@class='{TERMINAL_CLASS}']")
+            term_list = elem.findall(
+                f"./termList/SL__arrayElement[@class='{TERMINAL_CLASS}']",
+            )
 
             for list_position, term in enumerate(term_list):
                 term_uid = term.get("uid")
@@ -353,13 +366,17 @@ def _extract_terminal_info(
                 else:
                     # Unwired terminal - fall back to flag-based detection
                     term_flags = safe_int(term.find("objFlags"))
-                    dco_flags = safe_int(dco.find("objFlags") if dco is not None else None)
+                    dco_obj = dco.find("objFlags") if dco is not None else None
+                    dco_flags = safe_int(dco_obj)
                     combined_flags = term_flags | dco_flags
                     is_output = is_output_terminal(combined_flags)
 
                 # Resolve TypeID to ParsedType
                 type_desc_elem = term.find(".//typeDesc")
-                type_desc_str = type_desc_elem.text if type_desc_elem is not None else None
+                type_desc_str = (
+                    type_desc_elem.text if type_desc_elem is not None
+                    else None
+                )
                 parsed_type = None
                 if type_desc_str and type_map:
                     lv_type = resolve_type_rich(type_desc_str, type_map)
@@ -451,7 +468,10 @@ def _extract_subvi_info(
             subvi_qualified_names.append(qname)
 
             # Build path ref for file resolution
-            strings = [s.text for s in vivi.findall("LinkSaveQualName/String") if s.text]
+            strings = [
+                s.text for s in vivi.findall("LinkSaveQualName/String")
+                if s.text
+            ]
             name = strings[-1] if strings and strings[-1].endswith(".vi") else None
             if name:
                 # Extract path from LinkSavePathRef (multiple String elements)

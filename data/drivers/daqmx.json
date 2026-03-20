@@ -1,0 +1,2506 @@
+{
+  "category": "DAQmx",
+  "count": 61,
+  "entries": [
+    {
+      "name": "DAQmx Create Task.vi",
+      "category": "DAQmx",
+      "description": "Creates a DAQmx task.",
+      "terminals": [
+        {
+          "name": "task name",
+          "index": 1,
+          "direction": "input",
+          "type": "String",
+          "python_param": "task_name"
+        },
+        {
+          "name": "task out",
+          "index": 4,
+          "direction": "output",
+          "type": "Refnum",
+          "python_param": "task_out"
+        }
+      ],
+      "python": "",
+      "python_code": "{task_out} = nidaqmx.Task({task_name})",
+      "inline": true,
+      "imports": [
+        "import nidaqmx"
+      ],
+      "status": "mapped",
+      "is_variant": false,
+      "ref_terminals": {
+        "task_out": "passthrough_from:task_in"
+      },
+      "match_names": [],
+      "poly_selector_names": []
+    },
+    {
+      "name": "DAQmx Start Task.vi",
+      "category": "DAQmx",
+      "description": "Starts task.",
+      "terminals": [
+        {
+          "name": "task in",
+          "index": 0,
+          "direction": "input",
+          "type": "Refnum",
+          "python_param": "task_in"
+        },
+        {
+          "name": "task out",
+          "index": 4,
+          "direction": "output",
+          "type": "Refnum",
+          "python_param": "task_out"
+        }
+      ],
+      "python": "",
+      "python_code": "{task_in}.start()",
+      "inline": true,
+      "imports": [
+        "import nidaqmx"
+      ],
+      "status": "mapped",
+      "is_variant": false,
+      "ref_terminals": {
+        "task_out": "passthrough_from:task_in"
+      },
+      "match_names": [],
+      "poly_selector_names": []
+    },
+    {
+      "name": "DAQmx Stop Task.vi",
+      "category": "DAQmx",
+      "description": "Stops task.",
+      "terminals": [
+        {
+          "name": "task in",
+          "index": 0,
+          "direction": "input",
+          "type": "Refnum",
+          "python_param": "task_in"
+        },
+        {
+          "name": "task out",
+          "index": 4,
+          "direction": "output",
+          "type": "Refnum",
+          "python_param": "task_out"
+        }
+      ],
+      "python": "",
+      "python_code": "{task_in}.stop()",
+      "inline": true,
+      "imports": [
+        "import nidaqmx"
+      ],
+      "status": "mapped",
+      "is_variant": false,
+      "ref_terminals": {
+        "task_out": "passthrough_from:task_in"
+      },
+      "match_names": [],
+      "poly_selector_names": []
+    },
+    {
+      "name": "DAQmx Is Task Done.vi",
+      "description": "Checks done.",
+      "python_code": "{task_in}.is_task_done()",
+      "inline": true,
+      "imports": [
+        "import nidaqmx"
+      ],
+      "status": "mapped",
+      "terminals": [
+        {
+          "name": "task in",
+          "direction": "input",
+          "python_param": "task_in",
+          "index": 0
+        },
+        {
+          "name": "task out",
+          "direction": "output",
+          "python_param": "task_out",
+          "index": 4
+        }
+      ],
+      "ref_terminals": {
+        "task_out": "passthrough_from:task_in"
+      }
+    },
+    {
+      "name": "DAQmx Clear Task.vi",
+      "category": "DAQmx",
+      "description": "Clears (closes) the task.",
+      "terminals": [
+        {
+          "name": "task in",
+          "index": 0,
+          "direction": "input",
+          "type": "Refnum",
+          "python_param": "task_in"
+        }
+      ],
+      "python": "",
+      "python_code": "{task_in}.close()",
+      "inline": true,
+      "imports": [
+        "import nidaqmx"
+      ],
+      "status": "mapped",
+      "is_variant": false,
+      "match_names": [],
+      "poly_selector_names": []
+    },
+    {
+      "name": "DAQmx Wait Until Done.vi",
+      "description": "Waits for the task to finish.",
+      "python_code": "{task_in}.wait_until_done(timeout={timeout})",
+      "inline": true,
+      "imports": [
+        "import nidaqmx"
+      ],
+      "status": "mapped",
+      "terminals": [
+        {
+          "name": "task in",
+          "direction": "input",
+          "python_param": "task_in",
+          "index": 0
+        },
+        {
+          "name": "timeout (s)",
+          "direction": "input",
+          "python_param": "timeout"
+        },
+        {
+          "name": "task out",
+          "direction": "output",
+          "python_param": "task_out",
+          "index": 4
+        }
+      ],
+      "ref_terminals": {
+        "task_out": "passthrough_from:task_in"
+      }
+    },
+    {
+      "name": "DAQmx Create Virtual Channel.vi",
+      "description": "Creates a virtual channel (polymorphic base).",
+      "python_code": "{task_in}.ai_channels.add_ai_voltage_chan({physical_channel})",
+      "inline": true,
+      "imports": [
+        "import nidaqmx"
+      ],
+      "status": "mapped",
+      "terminals": [
+        {
+          "name": "task/channels in",
+          "direction": "input",
+          "python_param": "task_in",
+          "index": 0
+        },
+        {
+          "name": "physical channels",
+          "direction": "input",
+          "python_param": "physical_channel",
+          "index": 5
+        },
+        {
+          "name": "task out",
+          "direction": "output",
+          "python_param": "task_out",
+          "index": 4
+        },
+        {
+          "name": "task out",
+          "direction": "output",
+          "python_param": "task_out",
+          "index": 15
+        }
+      ],
+      "ref_terminals": {
+        "task_out": "passthrough_from:task_in"
+      }
+    },
+    {
+      "name": "DAQmx Read.vi",
+      "description": "Reads samples from the task.",
+      "python_code": "{data} = {task_in}.read(number_of_samples_per_channel={num_samps})",
+      "inline": true,
+      "imports": [
+        "import nidaqmx"
+      ],
+      "status": "mapped",
+      "terminals": [
+        {
+          "name": "task in",
+          "direction": "input",
+          "python_param": "task_in",
+          "index": 0
+        },
+        {
+          "name": "number of samples per channel",
+          "direction": "input",
+          "python_param": "num_samps"
+        },
+        {
+          "name": "data",
+          "direction": "output",
+          "python_param": "data"
+        },
+        {
+          "name": "task out",
+          "direction": "output",
+          "python_param": "task_out"
+        }
+      ],
+      "ref_terminals": {
+        "task_out": "passthrough_from:task_in"
+      }
+    },
+    {
+      "name": "DAQmx Read (Analog 1D DBL 1Chan NSamp).vi",
+      "description": "Reads 1-chan analog 1D.",
+      "python_code": "{data} = {task_in}.read(number_of_samples_per_channel={num_samps})",
+      "inline": true,
+      "imports": [
+        "import nidaqmx"
+      ],
+      "status": "mapped",
+      "terminals": [
+        {
+          "name": "task in",
+          "direction": "input",
+          "python_param": "task_in",
+          "index": 0
+        },
+        {
+          "name": "number of samples per channel",
+          "direction": "input",
+          "python_param": "num_samps"
+        },
+        {
+          "name": "data",
+          "direction": "output",
+          "python_param": "data"
+        },
+        {
+          "name": "task out",
+          "direction": "output",
+          "python_param": "task_out"
+        }
+      ],
+      "ref_terminals": {
+        "task_out": "passthrough_from:task_in"
+      },
+      "match_names": [
+        "DAQmx Read (Analog 1D DBL 1Chan NSamp).vi"
+      ]
+    },
+    {
+      "name": "DAQmx Read (Analog 1D DBL NChan 1Samp).vi",
+      "description": "Reads N-chan analog 1-samp.",
+      "python_code": "{data} = {task_in}.read(number_of_samples_per_channel={num_samps})",
+      "inline": true,
+      "imports": [
+        "import nidaqmx"
+      ],
+      "status": "mapped",
+      "terminals": [
+        {
+          "name": "task in",
+          "direction": "input",
+          "python_param": "task_in",
+          "index": 0
+        },
+        {
+          "name": "number of samples per channel",
+          "direction": "input",
+          "python_param": "num_samps"
+        },
+        {
+          "name": "data",
+          "direction": "output",
+          "python_param": "data"
+        },
+        {
+          "name": "task out",
+          "direction": "output",
+          "python_param": "task_out"
+        }
+      ],
+      "ref_terminals": {
+        "task_out": "passthrough_from:task_in"
+      },
+      "match_names": [
+        "DAQmx Read (Analog 1D DBL NChan 1Samp).vi"
+      ]
+    },
+    {
+      "name": "DAQmx Read (Analog 2D DBL NChan NSamp).vi",
+      "description": "Reads N-chan analog 2D.",
+      "python_code": "{data} = {task_in}.read(number_of_samples_per_channel={num_samps})",
+      "inline": true,
+      "imports": [
+        "import nidaqmx"
+      ],
+      "status": "mapped",
+      "terminals": [
+        {
+          "name": "task in",
+          "direction": "input",
+          "python_param": "task_in",
+          "index": 0
+        },
+        {
+          "name": "number of samples per channel",
+          "direction": "input",
+          "python_param": "num_samps"
+        },
+        {
+          "name": "data",
+          "direction": "output",
+          "python_param": "data"
+        },
+        {
+          "name": "task out",
+          "direction": "output",
+          "python_param": "task_out"
+        }
+      ],
+      "ref_terminals": {
+        "task_out": "passthrough_from:task_in"
+      },
+      "match_names": [
+        "DAQmx Read (Analog 2D DBL NChan NSamp).vi"
+      ]
+    },
+    {
+      "name": "DAQmx Read (Digital 1D Bool 1Chan 1Samp).vi",
+      "description": "Reads 1-chan digital bool.",
+      "python_code": "{data} = {task_in}.read(number_of_samples_per_channel={num_samps})",
+      "inline": true,
+      "imports": [
+        "import nidaqmx"
+      ],
+      "status": "mapped",
+      "terminals": [
+        {
+          "name": "task in",
+          "direction": "input",
+          "python_param": "task_in",
+          "index": 0
+        },
+        {
+          "name": "number of samples per channel",
+          "direction": "input",
+          "python_param": "num_samps"
+        },
+        {
+          "name": "data",
+          "direction": "output",
+          "python_param": "data"
+        },
+        {
+          "name": "task out",
+          "direction": "output",
+          "python_param": "task_out"
+        }
+      ],
+      "ref_terminals": {
+        "task_out": "passthrough_from:task_in"
+      },
+      "match_names": [
+        "DAQmx Read (Digital 1D Bool 1Chan 1Samp).vi"
+      ]
+    },
+    {
+      "name": "DAQmx Read (Digital 1D U32 1Chan NSamp).vi",
+      "description": "Reads 1-chan digital U32.",
+      "python_code": "{data} = {task_in}.read(number_of_samples_per_channel={num_samps})",
+      "inline": true,
+      "imports": [
+        "import nidaqmx"
+      ],
+      "status": "mapped",
+      "terminals": [
+        {
+          "name": "task in",
+          "direction": "input",
+          "python_param": "task_in",
+          "index": 0
+        },
+        {
+          "name": "number of samples per channel",
+          "direction": "input",
+          "python_param": "num_samps"
+        },
+        {
+          "name": "data",
+          "direction": "output",
+          "python_param": "data"
+        },
+        {
+          "name": "task out",
+          "direction": "output",
+          "python_param": "task_out"
+        }
+      ],
+      "ref_terminals": {
+        "task_out": "passthrough_from:task_in"
+      },
+      "match_names": [
+        "DAQmx Read (Digital 1D U32 1Chan NSamp).vi"
+      ]
+    },
+    {
+      "name": "DAQmx Read (Counter 1D DBL 1Chan NSamp).vi",
+      "description": "Reads counter data.",
+      "python_code": "{data} = {task_in}.read(number_of_samples_per_channel={num_samps})",
+      "inline": true,
+      "imports": [
+        "import nidaqmx"
+      ],
+      "status": "mapped",
+      "terminals": [
+        {
+          "name": "task in",
+          "direction": "input",
+          "python_param": "task_in",
+          "index": 0
+        },
+        {
+          "name": "number of samples per channel",
+          "direction": "input",
+          "python_param": "num_samps"
+        },
+        {
+          "name": "data",
+          "direction": "output",
+          "python_param": "data"
+        },
+        {
+          "name": "task out",
+          "direction": "output",
+          "python_param": "task_out"
+        }
+      ],
+      "ref_terminals": {
+        "task_out": "passthrough_from:task_in"
+      },
+      "match_names": [
+        "DAQmx Read (Counter 1D DBL 1Chan NSamp).vi"
+      ]
+    },
+    {
+      "name": "DAQmx Write.vi",
+      "category": "DAQmx",
+      "description": "Writes samples to the task.",
+      "terminals": [
+        {
+          "name": "task in",
+          "index": 0,
+          "direction": "input",
+          "type": "Refnum",
+          "python_param": "task_in"
+        },
+        {
+          "name": "data",
+          "index": 7,
+          "direction": "input",
+          "type": "Boolean",
+          "python_param": "data"
+        },
+        {
+          "name": "task out",
+          "index": 4,
+          "direction": "output",
+          "type": "Refnum",
+          "python_param": "task_out"
+        }
+      ],
+      "python": "",
+      "python_code": "{task_in}.write({data})",
+      "inline": true,
+      "imports": [
+        "import nidaqmx"
+      ],
+      "status": "mapped",
+      "is_variant": false,
+      "ref_terminals": {
+        "task_out": "passthrough_from:task_in"
+      },
+      "match_names": [],
+      "poly_selector_names": []
+    },
+    {
+      "name": "DAQmx Write (Analog 1D DBL 1Chan NSamp).vi",
+      "description": "Writes 1-chan analog 1D.",
+      "python_code": "{task_in}.write({data})",
+      "inline": true,
+      "imports": [
+        "import nidaqmx"
+      ],
+      "status": "mapped",
+      "terminals": [
+        {
+          "name": "task in",
+          "direction": "input",
+          "python_param": "task_in",
+          "index": 0
+        },
+        {
+          "name": "data",
+          "direction": "input",
+          "python_param": "data",
+          "index": 7
+        },
+        {
+          "name": "task out",
+          "direction": "output",
+          "python_param": "task_out",
+          "index": 4
+        }
+      ],
+      "ref_terminals": {
+        "task_out": "passthrough_from:task_in"
+      },
+      "match_names": [
+        "DAQmx Write (Analog 1D DBL 1Chan NSamp).vi"
+      ]
+    },
+    {
+      "name": "DAQmx Write (Analog 2D DBL NChan NSamp).vi",
+      "description": "Writes N-chan analog 2D.",
+      "python_code": "{task_in}.write({data})",
+      "inline": true,
+      "imports": [
+        "import nidaqmx"
+      ],
+      "status": "mapped",
+      "terminals": [
+        {
+          "name": "task in",
+          "direction": "input",
+          "python_param": "task_in",
+          "index": 0
+        },
+        {
+          "name": "data",
+          "direction": "input",
+          "python_param": "data",
+          "index": 7
+        },
+        {
+          "name": "task out",
+          "direction": "output",
+          "python_param": "task_out",
+          "index": 4
+        }
+      ],
+      "ref_terminals": {
+        "task_out": "passthrough_from:task_in"
+      },
+      "match_names": [
+        "DAQmx Write (Analog 2D DBL NChan NSamp).vi"
+      ]
+    },
+    {
+      "name": "DAQmx Write (Digital 1D Bool 1Chan 1Samp).vi",
+      "description": "Writes 1-chan digital bool.",
+      "python_code": "{task_in}.write({data})",
+      "inline": true,
+      "imports": [
+        "import nidaqmx"
+      ],
+      "status": "mapped",
+      "terminals": [
+        {
+          "name": "task in",
+          "direction": "input",
+          "python_param": "task_in",
+          "index": 0
+        },
+        {
+          "name": "data",
+          "direction": "input",
+          "python_param": "data",
+          "index": 7
+        },
+        {
+          "name": "task out",
+          "direction": "output",
+          "python_param": "task_out",
+          "index": 4
+        }
+      ],
+      "ref_terminals": {
+        "task_out": "passthrough_from:task_in"
+      },
+      "match_names": [
+        "DAQmx Write (Digital 1D Bool 1Chan 1Samp).vi"
+      ]
+    },
+    {
+      "name": "DAQmx Write (Digital 1D U32 1Chan NSamp).vi",
+      "description": "Writes 1-chan digital U32.",
+      "python_code": "{task_in}.write({data})",
+      "inline": true,
+      "imports": [
+        "import nidaqmx"
+      ],
+      "status": "mapped",
+      "terminals": [
+        {
+          "name": "task in",
+          "direction": "input",
+          "python_param": "task_in",
+          "index": 0
+        },
+        {
+          "name": "data",
+          "direction": "input",
+          "python_param": "data",
+          "index": 7
+        },
+        {
+          "name": "task out",
+          "direction": "output",
+          "python_param": "task_out",
+          "index": 4
+        }
+      ],
+      "ref_terminals": {
+        "task_out": "passthrough_from:task_in"
+      },
+      "match_names": [
+        "DAQmx Write (Digital 1D U32 1Chan NSamp).vi"
+      ]
+    },
+    {
+      "name": "DAQmx Create Virtual Channel (AI Voltage).vi",
+      "description": "Creates AI Voltage channel.",
+      "python_code": "{task_in}.ai_channels.add_ai_voltage_chan({physical_channel}, min_val={min_val}, max_val={max_val})",
+      "inline": true,
+      "imports": [
+        "import nidaqmx"
+      ],
+      "status": "mapped",
+      "terminals": [
+        {
+          "name": "task/channels in",
+          "direction": "input",
+          "python_param": "task_in",
+          "index": 0
+        },
+        {
+          "name": "physical channels",
+          "direction": "input",
+          "python_param": "physical_channel",
+          "index": 5
+        },
+        {
+          "name": "minimum value",
+          "direction": "input",
+          "python_param": "min_val"
+        },
+        {
+          "name": "maximum value",
+          "direction": "input",
+          "python_param": "max_val"
+        },
+        {
+          "name": "task out",
+          "direction": "output",
+          "python_param": "task_out",
+          "index": 4
+        }
+      ],
+      "ref_terminals": {
+        "task_out": "passthrough_from:task_in"
+      },
+      "match_names": [
+        "DAQmx Create Channel (AI Voltage).vi"
+      ],
+      "poly_selector_names": [
+        "AI Voltage"
+      ]
+    },
+    {
+      "name": "DAQmx Create Virtual Channel (AI Current).vi",
+      "description": "Creates AI Current channel.",
+      "python_code": "{task_in}.ai_channels.add_ai_current_chan({physical_channel}, min_val={min_val}, max_val={max_val})",
+      "inline": true,
+      "imports": [
+        "import nidaqmx"
+      ],
+      "status": "mapped",
+      "terminals": [
+        {
+          "name": "task/channels in",
+          "direction": "input",
+          "python_param": "task_in",
+          "index": 0
+        },
+        {
+          "name": "physical channels",
+          "direction": "input",
+          "python_param": "physical_channel",
+          "index": 5
+        },
+        {
+          "name": "minimum value",
+          "direction": "input",
+          "python_param": "min_val"
+        },
+        {
+          "name": "maximum value",
+          "direction": "input",
+          "python_param": "max_val"
+        },
+        {
+          "name": "task out",
+          "direction": "output",
+          "python_param": "task_out",
+          "index": 4
+        }
+      ],
+      "ref_terminals": {
+        "task_out": "passthrough_from:task_in"
+      },
+      "match_names": [
+        "DAQmx Create Channel (AI Current).vi"
+      ],
+      "poly_selector_names": [
+        "AI Current",
+        "AI Current RMS"
+      ]
+    },
+    {
+      "name": "DAQmx Create Virtual Channel (AI Thermocouple).vi",
+      "description": "Creates AI Thermocouple channel.",
+      "python_code": "{task_in}.ai_channels.add_ai_thrmcpl_chan({physical_channel}, min_val={min_val}, max_val={max_val})",
+      "inline": true,
+      "imports": [
+        "import nidaqmx"
+      ],
+      "status": "mapped",
+      "terminals": [
+        {
+          "name": "task/channels in",
+          "direction": "input",
+          "python_param": "task_in",
+          "index": 0
+        },
+        {
+          "name": "physical channels",
+          "direction": "input",
+          "python_param": "physical_channel",
+          "index": 5
+        },
+        {
+          "name": "minimum value",
+          "direction": "input",
+          "python_param": "min_val"
+        },
+        {
+          "name": "maximum value",
+          "direction": "input",
+          "python_param": "max_val"
+        },
+        {
+          "name": "task out",
+          "direction": "output",
+          "python_param": "task_out",
+          "index": 4
+        }
+      ],
+      "ref_terminals": {
+        "task_out": "passthrough_from:task_in"
+      },
+      "match_names": [
+        "DAQmx Create Channel (AI Thermocouple).vi"
+      ],
+      "poly_selector_names": [
+        "AI Temp TC"
+      ]
+    },
+    {
+      "name": "DAQmx Create Virtual Channel (AI RTD).vi",
+      "description": "Creates AI RTD channel.",
+      "python_code": "{task_in}.ai_channels.add_ai_rtd_chan({physical_channel}, min_val={min_val}, max_val={max_val})",
+      "inline": true,
+      "imports": [
+        "import nidaqmx"
+      ],
+      "status": "mapped",
+      "terminals": [
+        {
+          "name": "task/channels in",
+          "direction": "input",
+          "python_param": "task_in",
+          "index": 0
+        },
+        {
+          "name": "physical channels",
+          "direction": "input",
+          "python_param": "physical_channel",
+          "index": 5
+        },
+        {
+          "name": "minimum value",
+          "direction": "input",
+          "python_param": "min_val"
+        },
+        {
+          "name": "maximum value",
+          "direction": "input",
+          "python_param": "max_val"
+        },
+        {
+          "name": "task out",
+          "direction": "output",
+          "python_param": "task_out",
+          "index": 4
+        }
+      ],
+      "ref_terminals": {
+        "task_out": "passthrough_from:task_in"
+      },
+      "match_names": [
+        "DAQmx Create Channel (AI RTD).vi"
+      ],
+      "poly_selector_names": [
+        "AI Temp RTD"
+      ]
+    },
+    {
+      "name": "DAQmx Create Virtual Channel (AI Strain Gage).vi",
+      "description": "Creates AI Strain Gage channel.",
+      "python_code": "{task_in}.ai_channels.add_ai_strain_gage_chan({physical_channel}, min_val={min_val}, max_val={max_val})",
+      "inline": true,
+      "imports": [
+        "import nidaqmx"
+      ],
+      "status": "mapped",
+      "terminals": [
+        {
+          "name": "task/channels in",
+          "direction": "input",
+          "python_param": "task_in",
+          "index": 0
+        },
+        {
+          "name": "physical channels",
+          "direction": "input",
+          "python_param": "physical_channel",
+          "index": 5
+        },
+        {
+          "name": "minimum value",
+          "direction": "input",
+          "python_param": "min_val"
+        },
+        {
+          "name": "maximum value",
+          "direction": "input",
+          "python_param": "max_val"
+        },
+        {
+          "name": "task out",
+          "direction": "output",
+          "python_param": "task_out",
+          "index": 4
+        }
+      ],
+      "ref_terminals": {
+        "task_out": "passthrough_from:task_in"
+      },
+      "match_names": [
+        "DAQmx Create Channel (AI Strain Gage).vi"
+      ],
+      "poly_selector_names": [
+        "AI Strain Gage"
+      ]
+    },
+    {
+      "name": "DAQmx Create Virtual Channel (AI Accelerometer).vi",
+      "description": "Creates AI Accelerometer channel.",
+      "python_code": "{task_in}.ai_channels.add_ai_accel_chan({physical_channel}, min_val={min_val}, max_val={max_val})",
+      "inline": true,
+      "imports": [
+        "import nidaqmx"
+      ],
+      "status": "mapped",
+      "terminals": [
+        {
+          "name": "task/channels in",
+          "direction": "input",
+          "python_param": "task_in",
+          "index": 0
+        },
+        {
+          "name": "physical channels",
+          "direction": "input",
+          "python_param": "physical_channel",
+          "index": 5
+        },
+        {
+          "name": "minimum value",
+          "direction": "input",
+          "python_param": "min_val"
+        },
+        {
+          "name": "maximum value",
+          "direction": "input",
+          "python_param": "max_val"
+        },
+        {
+          "name": "task out",
+          "direction": "output",
+          "python_param": "task_out",
+          "index": 4
+        }
+      ],
+      "ref_terminals": {
+        "task_out": "passthrough_from:task_in"
+      },
+      "match_names": [
+        "DAQmx Create Channel (AI Accelerometer).vi"
+      ],
+      "poly_selector_names": [
+        "AI Accelerometer"
+      ]
+    },
+    {
+      "name": "DAQmx Create Virtual Channel (AI Bridge).vi",
+      "description": "Creates AI Bridge channel.",
+      "python_code": "{task_in}.ai_channels.add_ai_bridge_chan({physical_channel}, min_val={min_val}, max_val={max_val})",
+      "inline": true,
+      "imports": [
+        "import nidaqmx"
+      ],
+      "status": "mapped",
+      "terminals": [
+        {
+          "name": "task/channels in",
+          "direction": "input",
+          "python_param": "task_in",
+          "index": 0
+        },
+        {
+          "name": "physical channels",
+          "direction": "input",
+          "python_param": "physical_channel",
+          "index": 5
+        },
+        {
+          "name": "minimum value",
+          "direction": "input",
+          "python_param": "min_val"
+        },
+        {
+          "name": "maximum value",
+          "direction": "input",
+          "python_param": "max_val"
+        },
+        {
+          "name": "task out",
+          "direction": "output",
+          "python_param": "task_out",
+          "index": 4
+        }
+      ],
+      "ref_terminals": {
+        "task_out": "passthrough_from:task_in"
+      },
+      "match_names": [
+        "DAQmx Create Channel (AI Bridge).vi"
+      ],
+      "poly_selector_names": [
+        "AI Bridge"
+      ]
+    },
+    {
+      "name": "DAQmx Create Virtual Channel (AI Force Bridge Table).vi",
+      "description": "Creates AI Force Bridge Table channel.",
+      "python_code": "{task_in}.ai_channels.add_ai_force_bridge_table_chan({physical_channel}, min_val={min_val}, max_val={max_val})",
+      "inline": true,
+      "imports": [
+        "import nidaqmx"
+      ],
+      "status": "mapped",
+      "terminals": [
+        {
+          "name": "task/channels in",
+          "direction": "input",
+          "python_param": "task_in",
+          "index": 0
+        },
+        {
+          "name": "physical channels",
+          "direction": "input",
+          "python_param": "physical_channel",
+          "index": 5
+        },
+        {
+          "name": "minimum value",
+          "direction": "input",
+          "python_param": "min_val"
+        },
+        {
+          "name": "maximum value",
+          "direction": "input",
+          "python_param": "max_val"
+        },
+        {
+          "name": "task out",
+          "direction": "output",
+          "python_param": "task_out",
+          "index": 4
+        }
+      ],
+      "ref_terminals": {
+        "task_out": "passthrough_from:task_in"
+      },
+      "match_names": [
+        "DAQmx Create Channel (AI Force Bridge Table).vi"
+      ]
+    },
+    {
+      "name": "DAQmx Create Virtual Channel (AI Force IEPE).vi",
+      "description": "Creates AI Force IEPE channel.",
+      "python_code": "{task_in}.ai_channels.add_ai_force_iepe_chan({physical_channel}, min_val={min_val}, max_val={max_val})",
+      "inline": true,
+      "imports": [
+        "import nidaqmx"
+      ],
+      "status": "mapped",
+      "terminals": [
+        {
+          "name": "task/channels in",
+          "direction": "input",
+          "python_param": "task_in",
+          "index": 0
+        },
+        {
+          "name": "physical channels",
+          "direction": "input",
+          "python_param": "physical_channel",
+          "index": 5
+        },
+        {
+          "name": "minimum value",
+          "direction": "input",
+          "python_param": "min_val"
+        },
+        {
+          "name": "maximum value",
+          "direction": "input",
+          "python_param": "max_val"
+        },
+        {
+          "name": "task out",
+          "direction": "output",
+          "python_param": "task_out",
+          "index": 4
+        }
+      ],
+      "ref_terminals": {
+        "task_out": "passthrough_from:task_in"
+      },
+      "match_names": [
+        "DAQmx Create Channel (AI Force IEPE).vi"
+      ],
+      "poly_selector_names": [
+        "AI Force IEPE"
+      ]
+    },
+    {
+      "name": "DAQmx Create Virtual Channel (AI Microphone).vi",
+      "description": "Creates AI Microphone channel.",
+      "python_code": "{task_in}.ai_channels.add_ai_microphone_chan({physical_channel}, min_val={min_val}, max_val={max_val})",
+      "inline": true,
+      "imports": [
+        "import nidaqmx"
+      ],
+      "status": "mapped",
+      "terminals": [
+        {
+          "name": "task/channels in",
+          "direction": "input",
+          "python_param": "task_in",
+          "index": 0
+        },
+        {
+          "name": "physical channels",
+          "direction": "input",
+          "python_param": "physical_channel",
+          "index": 5
+        },
+        {
+          "name": "minimum value",
+          "direction": "input",
+          "python_param": "min_val"
+        },
+        {
+          "name": "maximum value",
+          "direction": "input",
+          "python_param": "max_val"
+        },
+        {
+          "name": "task out",
+          "direction": "output",
+          "python_param": "task_out",
+          "index": 4
+        }
+      ],
+      "ref_terminals": {
+        "task_out": "passthrough_from:task_in"
+      },
+      "match_names": [
+        "DAQmx Create Channel (AI Microphone).vi"
+      ],
+      "poly_selector_names": [
+        "AI Microphone"
+      ]
+    },
+    {
+      "name": "DAQmx Create Virtual Channel (AI Pressure Bridge Table).vi",
+      "description": "Creates AI Pressure Bridge Table channel.",
+      "python_code": "{task_in}.ai_channels.add_ai_pressure_bridge_table_chan({physical_channel}, min_val={min_val}, max_val={max_val})",
+      "inline": true,
+      "imports": [
+        "import nidaqmx"
+      ],
+      "status": "mapped",
+      "terminals": [
+        {
+          "name": "task/channels in",
+          "direction": "input",
+          "python_param": "task_in",
+          "index": 0
+        },
+        {
+          "name": "physical channels",
+          "direction": "input",
+          "python_param": "physical_channel",
+          "index": 5
+        },
+        {
+          "name": "minimum value",
+          "direction": "input",
+          "python_param": "min_val"
+        },
+        {
+          "name": "maximum value",
+          "direction": "input",
+          "python_param": "max_val"
+        },
+        {
+          "name": "task out",
+          "direction": "output",
+          "python_param": "task_out",
+          "index": 4
+        }
+      ],
+      "ref_terminals": {
+        "task_out": "passthrough_from:task_in"
+      },
+      "match_names": [
+        "DAQmx Create Channel (AI Pressure Bridge Table).vi"
+      ]
+    },
+    {
+      "name": "DAQmx Create Virtual Channel (AI Resistance).vi",
+      "description": "Creates AI Resistance channel.",
+      "python_code": "{task_in}.ai_channels.add_ai_resistance_chan({physical_channel}, min_val={min_val}, max_val={max_val})",
+      "inline": true,
+      "imports": [
+        "import nidaqmx"
+      ],
+      "status": "mapped",
+      "terminals": [
+        {
+          "name": "task/channels in",
+          "direction": "input",
+          "python_param": "task_in",
+          "index": 0
+        },
+        {
+          "name": "physical channels",
+          "direction": "input",
+          "python_param": "physical_channel",
+          "index": 5
+        },
+        {
+          "name": "minimum value",
+          "direction": "input",
+          "python_param": "min_val"
+        },
+        {
+          "name": "maximum value",
+          "direction": "input",
+          "python_param": "max_val"
+        },
+        {
+          "name": "task out",
+          "direction": "output",
+          "python_param": "task_out",
+          "index": 4
+        }
+      ],
+      "ref_terminals": {
+        "task_out": "passthrough_from:task_in"
+      },
+      "match_names": [
+        "DAQmx Create Channel (AI Resistance).vi"
+      ],
+      "poly_selector_names": [
+        "AI Resistance"
+      ]
+    },
+    {
+      "name": "DAQmx Create Virtual Channel (AI Torque Bridge Table).vi",
+      "description": "Creates AI Torque Bridge Table channel.",
+      "python_code": "{task_in}.ai_channels.add_ai_torque_bridge_table_chan({physical_channel}, min_val={min_val}, max_val={max_val})",
+      "inline": true,
+      "imports": [
+        "import nidaqmx"
+      ],
+      "status": "mapped",
+      "terminals": [
+        {
+          "name": "task/channels in",
+          "direction": "input",
+          "python_param": "task_in",
+          "index": 0
+        },
+        {
+          "name": "physical channels",
+          "direction": "input",
+          "python_param": "physical_channel",
+          "index": 5
+        },
+        {
+          "name": "minimum value",
+          "direction": "input",
+          "python_param": "min_val"
+        },
+        {
+          "name": "maximum value",
+          "direction": "input",
+          "python_param": "max_val"
+        },
+        {
+          "name": "task out",
+          "direction": "output",
+          "python_param": "task_out",
+          "index": 4
+        }
+      ],
+      "ref_terminals": {
+        "task_out": "passthrough_from:task_in"
+      },
+      "match_names": [
+        "DAQmx Create Channel (AI Torque Bridge Table).vi"
+      ]
+    },
+    {
+      "name": "DAQmx Create Virtual Channel (AI Velocity IEPE).vi",
+      "description": "Creates AI Velocity IEPE channel.",
+      "python_code": "{task_in}.ai_channels.add_ai_velocity_iepe_chan({physical_channel}, min_val={min_val}, max_val={max_val})",
+      "inline": true,
+      "imports": [
+        "import nidaqmx"
+      ],
+      "status": "mapped",
+      "terminals": [
+        {
+          "name": "task/channels in",
+          "direction": "input",
+          "python_param": "task_in",
+          "index": 0
+        },
+        {
+          "name": "physical channels",
+          "direction": "input",
+          "python_param": "physical_channel",
+          "index": 5
+        },
+        {
+          "name": "minimum value",
+          "direction": "input",
+          "python_param": "min_val"
+        },
+        {
+          "name": "maximum value",
+          "direction": "input",
+          "python_param": "max_val"
+        },
+        {
+          "name": "task out",
+          "direction": "output",
+          "python_param": "task_out",
+          "index": 4
+        }
+      ],
+      "ref_terminals": {
+        "task_out": "passthrough_from:task_in"
+      },
+      "match_names": [
+        "DAQmx Create Channel (AI Velocity IEPE).vi"
+      ],
+      "poly_selector_names": [
+        "AI Velocity IEPE"
+      ]
+    },
+    {
+      "name": "DAQmx Create Virtual Channel (AI Temperature Built-In Sensor).vi",
+      "description": "Creates AI Temperature Built-In Sensor channel.",
+      "python_code": "{task_in}.ai_channels.add_ai_temp_built_in_sensor_chan({physical_channel})",
+      "inline": true,
+      "imports": [
+        "import nidaqmx"
+      ],
+      "status": "mapped",
+      "terminals": [
+        {
+          "name": "task/channels in",
+          "direction": "input",
+          "python_param": "task_in",
+          "index": 0
+        },
+        {
+          "name": "physical channels",
+          "direction": "input",
+          "python_param": "physical_channel",
+          "index": 5
+        },
+        {
+          "name": "task out",
+          "direction": "output",
+          "python_param": "task_out",
+          "index": 4
+        }
+      ],
+      "ref_terminals": {
+        "task_out": "passthrough_from:task_in"
+      },
+      "match_names": [
+        "DAQmx Create Channel (AI Temperature Built-In Sensor).vi"
+      ],
+      "poly_selector_names": [
+        "AI Temp Built-In Sensor"
+      ]
+    },
+    {
+      "name": "DAQmx Create Virtual Channel (AO Voltage).vi",
+      "description": "Creates AO Voltage channel.",
+      "python_code": "{task_in}.ao_channels.add_ao_voltage_chan({physical_channel}, min_val={min_val}, max_val={max_val})",
+      "inline": true,
+      "imports": [
+        "import nidaqmx"
+      ],
+      "status": "mapped",
+      "terminals": [
+        {
+          "name": "task/channels in",
+          "direction": "input",
+          "python_param": "task_in",
+          "index": 0
+        },
+        {
+          "name": "physical channels",
+          "direction": "input",
+          "python_param": "physical_channel",
+          "index": 5
+        },
+        {
+          "name": "minimum value",
+          "direction": "input",
+          "python_param": "min_val"
+        },
+        {
+          "name": "maximum value",
+          "direction": "input",
+          "python_param": "max_val"
+        },
+        {
+          "name": "task out",
+          "direction": "output",
+          "python_param": "task_out",
+          "index": 4
+        }
+      ],
+      "ref_terminals": {
+        "task_out": "passthrough_from:task_in"
+      },
+      "match_names": [
+        "DAQmx Create Channel (AO Voltage).vi"
+      ],
+      "poly_selector_names": [
+        "AO Voltage"
+      ]
+    },
+    {
+      "name": "DAQmx Create Virtual Channel (AO Current).vi",
+      "description": "Creates AO Current channel.",
+      "python_code": "{task_in}.ao_channels.add_ao_current_chan({physical_channel}, min_val={min_val}, max_val={max_val})",
+      "inline": true,
+      "imports": [
+        "import nidaqmx"
+      ],
+      "status": "mapped",
+      "terminals": [
+        {
+          "name": "task/channels in",
+          "direction": "input",
+          "python_param": "task_in",
+          "index": 0
+        },
+        {
+          "name": "physical channels",
+          "direction": "input",
+          "python_param": "physical_channel",
+          "index": 5
+        },
+        {
+          "name": "minimum value",
+          "direction": "input",
+          "python_param": "min_val"
+        },
+        {
+          "name": "maximum value",
+          "direction": "input",
+          "python_param": "max_val"
+        },
+        {
+          "name": "task out",
+          "direction": "output",
+          "python_param": "task_out",
+          "index": 4
+        }
+      ],
+      "ref_terminals": {
+        "task_out": "passthrough_from:task_in"
+      },
+      "match_names": [
+        "DAQmx Create Channel (AO Current).vi"
+      ],
+      "poly_selector_names": [
+        "AO Current"
+      ]
+    },
+    {
+      "name": "DAQmx Create Virtual Channel (AO FuncGen).vi",
+      "description": "Creates AO FuncGen channel.",
+      "python_code": "{task_in}.ao_channels.add_ao_func_gen_chan({physical_channel})",
+      "inline": true,
+      "imports": [
+        "import nidaqmx"
+      ],
+      "status": "mapped",
+      "terminals": [
+        {
+          "name": "task/channels in",
+          "direction": "input",
+          "python_param": "task_in",
+          "index": 0
+        },
+        {
+          "name": "physical channels",
+          "direction": "input",
+          "python_param": "physical_channel",
+          "index": 5
+        },
+        {
+          "name": "task out",
+          "direction": "output",
+          "python_param": "task_out",
+          "index": 4
+        }
+      ],
+      "ref_terminals": {
+        "task_out": "passthrough_from:task_in"
+      },
+      "match_names": [
+        "DAQmx Create Channel (AO FuncGen).vi"
+      ],
+      "poly_selector_names": [
+        "AO FuncGen"
+      ]
+    },
+    {
+      "name": "DAQmx Create Virtual Channel (DI Line).vi",
+      "description": "Creates DI Line channel.",
+      "python_code": "{task_in}.di_channels.add_di_chan({physical_channel})",
+      "inline": true,
+      "imports": [
+        "import nidaqmx"
+      ],
+      "status": "mapped",
+      "terminals": [
+        {
+          "name": "task/channels in",
+          "direction": "input",
+          "python_param": "task_in",
+          "index": 0
+        },
+        {
+          "name": "physical channels",
+          "direction": "input",
+          "python_param": "physical_channel",
+          "index": 5
+        },
+        {
+          "name": "task out",
+          "direction": "output",
+          "python_param": "task_out",
+          "index": 4
+        }
+      ],
+      "ref_terminals": {
+        "task_out": "passthrough_from:task_in"
+      },
+      "match_names": [
+        "DAQmx Create Channel (DI Line).vi"
+      ],
+      "poly_selector_names": [
+        "Digital Input"
+      ]
+    },
+    {
+      "name": "DAQmx Create Virtual Channel (DI Channel).vi",
+      "description": "Creates DI Channel channel.",
+      "python_code": "{task_in}.di_channels.add_di_chan({physical_channel})",
+      "inline": true,
+      "imports": [
+        "import nidaqmx"
+      ],
+      "status": "mapped",
+      "terminals": [
+        {
+          "name": "task/channels in",
+          "direction": "input",
+          "python_param": "task_in",
+          "index": 0
+        },
+        {
+          "name": "physical channels",
+          "direction": "input",
+          "python_param": "physical_channel",
+          "index": 5
+        },
+        {
+          "name": "task out",
+          "direction": "output",
+          "python_param": "task_out",
+          "index": 4
+        }
+      ],
+      "ref_terminals": {
+        "task_out": "passthrough_from:task_in"
+      },
+      "match_names": [
+        "DAQmx Create Channel (DI Channel).vi"
+      ]
+    },
+    {
+      "name": "DAQmx Create Virtual Channel (DO Line).vi",
+      "description": "Creates DO Line channel.",
+      "python_code": "{task_in}.do_channels.add_do_chan({physical_channel})",
+      "inline": true,
+      "imports": [
+        "import nidaqmx"
+      ],
+      "status": "mapped",
+      "terminals": [
+        {
+          "name": "task/channels in",
+          "direction": "input",
+          "python_param": "task_in",
+          "index": 0
+        },
+        {
+          "name": "physical channels",
+          "direction": "input",
+          "python_param": "physical_channel",
+          "index": 5
+        },
+        {
+          "name": "task out",
+          "direction": "output",
+          "python_param": "task_out",
+          "index": 4
+        }
+      ],
+      "ref_terminals": {
+        "task_out": "passthrough_from:task_in"
+      },
+      "match_names": [
+        "DAQmx Create Channel (DO Line).vi"
+      ],
+      "poly_selector_names": [
+        "Digital Output"
+      ]
+    },
+    {
+      "name": "DAQmx Create Virtual Channel (DO Channel).vi",
+      "description": "Creates DO Channel channel.",
+      "python_code": "{task_in}.do_channels.add_do_chan({physical_channel})",
+      "inline": true,
+      "imports": [
+        "import nidaqmx"
+      ],
+      "status": "mapped",
+      "terminals": [
+        {
+          "name": "task/channels in",
+          "direction": "input",
+          "python_param": "task_in",
+          "index": 0
+        },
+        {
+          "name": "physical channels",
+          "direction": "input",
+          "python_param": "physical_channel",
+          "index": 5
+        },
+        {
+          "name": "task out",
+          "direction": "output",
+          "python_param": "task_out",
+          "index": 4
+        }
+      ],
+      "ref_terminals": {
+        "task_out": "passthrough_from:task_in"
+      },
+      "match_names": [
+        "DAQmx Create Channel (DO Channel).vi"
+      ]
+    },
+    {
+      "name": "DAQmx Create Virtual Channel (CI Count Edges).vi",
+      "description": "Creates CI Count Edges channel.",
+      "python_code": "{task_in}.ci_channels.add_ci_count_edges_chan({physical_channel})",
+      "inline": true,
+      "imports": [
+        "import nidaqmx"
+      ],
+      "status": "mapped",
+      "terminals": [
+        {
+          "name": "task/channels in",
+          "direction": "input",
+          "python_param": "task_in",
+          "index": 0
+        },
+        {
+          "name": "physical channels",
+          "direction": "input",
+          "python_param": "physical_channel",
+          "index": 5
+        },
+        {
+          "name": "task out",
+          "direction": "output",
+          "python_param": "task_out",
+          "index": 4
+        }
+      ],
+      "ref_terminals": {
+        "task_out": "passthrough_from:task_in"
+      },
+      "match_names": [
+        "DAQmx Create Channel (CI Count Edges).vi"
+      ],
+      "poly_selector_names": [
+        "CI Cnt Edges"
+      ]
+    },
+    {
+      "name": "DAQmx Create Virtual Channel (CI Freq).vi",
+      "description": "Creates CI Freq channel.",
+      "python_code": "{task_in}.ci_channels.add_ci_freq_chan({physical_channel}, min_val={min_val}, max_val={max_val})",
+      "inline": true,
+      "imports": [
+        "import nidaqmx"
+      ],
+      "status": "mapped",
+      "terminals": [
+        {
+          "name": "task/channels in",
+          "direction": "input",
+          "python_param": "task_in",
+          "index": 0
+        },
+        {
+          "name": "physical channels",
+          "direction": "input",
+          "python_param": "physical_channel",
+          "index": 5
+        },
+        {
+          "name": "minimum value",
+          "direction": "input",
+          "python_param": "min_val"
+        },
+        {
+          "name": "maximum value",
+          "direction": "input",
+          "python_param": "max_val"
+        },
+        {
+          "name": "task out",
+          "direction": "output",
+          "python_param": "task_out",
+          "index": 4
+        }
+      ],
+      "ref_terminals": {
+        "task_out": "passthrough_from:task_in"
+      },
+      "match_names": [
+        "DAQmx Create Channel (CI Freq).vi"
+      ],
+      "poly_selector_names": [
+        "CI Freq"
+      ]
+    },
+    {
+      "name": "DAQmx Create Virtual Channel (CI Period).vi",
+      "description": "Creates CI Period channel.",
+      "python_code": "{task_in}.ci_channels.add_ci_period_chan({physical_channel}, min_val={min_val}, max_val={max_val})",
+      "inline": true,
+      "imports": [
+        "import nidaqmx"
+      ],
+      "status": "mapped",
+      "terminals": [
+        {
+          "name": "task/channels in",
+          "direction": "input",
+          "python_param": "task_in",
+          "index": 0
+        },
+        {
+          "name": "physical channels",
+          "direction": "input",
+          "python_param": "physical_channel",
+          "index": 5
+        },
+        {
+          "name": "minimum value",
+          "direction": "input",
+          "python_param": "min_val"
+        },
+        {
+          "name": "maximum value",
+          "direction": "input",
+          "python_param": "max_val"
+        },
+        {
+          "name": "task out",
+          "direction": "output",
+          "python_param": "task_out",
+          "index": 4
+        }
+      ],
+      "ref_terminals": {
+        "task_out": "passthrough_from:task_in"
+      },
+      "match_names": [
+        "DAQmx Create Channel (CI Period).vi"
+      ],
+      "poly_selector_names": [
+        "CI Period"
+      ]
+    },
+    {
+      "name": "DAQmx Create Virtual Channel (CI Pulse Width).vi",
+      "description": "Creates CI Pulse Width channel.",
+      "python_code": "{task_in}.ci_channels.add_ci_pulse_width_chan({physical_channel}, min_val={min_val}, max_val={max_val})",
+      "inline": true,
+      "imports": [
+        "import nidaqmx"
+      ],
+      "status": "mapped",
+      "terminals": [
+        {
+          "name": "task/channels in",
+          "direction": "input",
+          "python_param": "task_in",
+          "index": 0
+        },
+        {
+          "name": "physical channels",
+          "direction": "input",
+          "python_param": "physical_channel",
+          "index": 5
+        },
+        {
+          "name": "minimum value",
+          "direction": "input",
+          "python_param": "min_val"
+        },
+        {
+          "name": "maximum value",
+          "direction": "input",
+          "python_param": "max_val"
+        },
+        {
+          "name": "task out",
+          "direction": "output",
+          "python_param": "task_out",
+          "index": 4
+        }
+      ],
+      "ref_terminals": {
+        "task_out": "passthrough_from:task_in"
+      },
+      "match_names": [
+        "DAQmx Create Channel (CI Pulse Width).vi"
+      ],
+      "poly_selector_names": [
+        "CI Pulse Width"
+      ]
+    },
+    {
+      "name": "DAQmx Create Virtual Channel (CI Two Edge Sep).vi",
+      "description": "Creates CI Two Edge Sep channel.",
+      "python_code": "{task_in}.ci_channels.add_ci_two_edge_sep_chan({physical_channel}, min_val={min_val}, max_val={max_val})",
+      "inline": true,
+      "imports": [
+        "import nidaqmx"
+      ],
+      "status": "mapped",
+      "terminals": [
+        {
+          "name": "task/channels in",
+          "direction": "input",
+          "python_param": "task_in",
+          "index": 0
+        },
+        {
+          "name": "physical channels",
+          "direction": "input",
+          "python_param": "physical_channel",
+          "index": 5
+        },
+        {
+          "name": "minimum value",
+          "direction": "input",
+          "python_param": "min_val"
+        },
+        {
+          "name": "maximum value",
+          "direction": "input",
+          "python_param": "max_val"
+        },
+        {
+          "name": "task out",
+          "direction": "output",
+          "python_param": "task_out",
+          "index": 4
+        }
+      ],
+      "ref_terminals": {
+        "task_out": "passthrough_from:task_in"
+      },
+      "match_names": [
+        "DAQmx Create Channel (CI Two Edge Sep).vi"
+      ],
+      "poly_selector_names": [
+        "CI Two Edge Separation"
+      ]
+    },
+    {
+      "name": "DAQmx Create Virtual Channel (CO Pulse Freq).vi",
+      "description": "Creates CO Pulse Freq channel.",
+      "python_code": "{task_in}.co_channels.add_co_pulse_chan_freq({physical_channel}, freq={freq}, duty_cycle={duty_cycle})",
+      "inline": true,
+      "imports": [
+        "import nidaqmx"
+      ],
+      "status": "mapped",
+      "terminals": [
+        {
+          "name": "task/channels in",
+          "direction": "input",
+          "python_param": "task_in",
+          "index": 0
+        },
+        {
+          "name": "physical channels",
+          "direction": "input",
+          "python_param": "physical_channel",
+          "index": 5
+        },
+        {
+          "name": "frequency",
+          "direction": "input",
+          "python_param": "freq"
+        },
+        {
+          "name": "duty cycle",
+          "direction": "input",
+          "python_param": "duty_cycle"
+        },
+        {
+          "name": "task out",
+          "direction": "output",
+          "python_param": "task_out",
+          "index": 4
+        }
+      ],
+      "ref_terminals": {
+        "task_out": "passthrough_from:task_in"
+      },
+      "match_names": [
+        "DAQmx Create Channel (CO Pulse Freq).vi"
+      ],
+      "poly_selector_names": [
+        "CO Pulse Freq"
+      ]
+    },
+    {
+      "name": "DAQmx Create Virtual Channel (CO Pulse Time).vi",
+      "description": "Creates CO Pulse Time channel.",
+      "python_code": "{task_in}.co_channels.add_co_pulse_chan_time({physical_channel}, high_time={high_time}, low_time={low_time})",
+      "inline": true,
+      "imports": [
+        "import nidaqmx"
+      ],
+      "status": "mapped",
+      "terminals": [
+        {
+          "name": "task/channels in",
+          "direction": "input",
+          "python_param": "task_in",
+          "index": 0
+        },
+        {
+          "name": "physical channels",
+          "direction": "input",
+          "python_param": "physical_channel",
+          "index": 5
+        },
+        {
+          "name": "high time",
+          "direction": "input",
+          "python_param": "high_time"
+        },
+        {
+          "name": "low time",
+          "direction": "input",
+          "python_param": "low_time"
+        },
+        {
+          "name": "task out",
+          "direction": "output",
+          "python_param": "task_out",
+          "index": 4
+        }
+      ],
+      "ref_terminals": {
+        "task_out": "passthrough_from:task_in"
+      },
+      "match_names": [
+        "DAQmx Create Channel (CO Pulse Time).vi"
+      ],
+      "poly_selector_names": [
+        "CO Pulse Time"
+      ]
+    },
+    {
+      "name": "DAQmx Create Virtual Channel (CO Pulse Ticks).vi",
+      "description": "Creates CO Pulse Ticks channel.",
+      "python_code": "{task_in}.co_channels.add_co_pulse_chan_ticks({physical_channel}, high_ticks={high_ticks}, low_ticks={low_ticks})",
+      "inline": true,
+      "imports": [
+        "import nidaqmx"
+      ],
+      "status": "mapped",
+      "terminals": [
+        {
+          "name": "task/channels in",
+          "direction": "input",
+          "python_param": "task_in",
+          "index": 0
+        },
+        {
+          "name": "physical channels",
+          "direction": "input",
+          "python_param": "physical_channel",
+          "index": 5
+        },
+        {
+          "name": "high ticks",
+          "direction": "input",
+          "python_param": "high_ticks"
+        },
+        {
+          "name": "low ticks",
+          "direction": "input",
+          "python_param": "low_ticks"
+        },
+        {
+          "name": "task out",
+          "direction": "output",
+          "python_param": "task_out",
+          "index": 4
+        }
+      ],
+      "ref_terminals": {
+        "task_out": "passthrough_from:task_in"
+      },
+      "match_names": [
+        "DAQmx Create Channel (CO Pulse Ticks).vi"
+      ],
+      "poly_selector_names": [
+        "CO Pulse Ticks"
+      ]
+    },
+    {
+      "name": "DAQmx Timing (Sample Clock).vi",
+      "description": "Configures Sample Clock timing.",
+      "python_code": "{task_in}.timing.cfg_samp_clk_timing(rate={rate}, sample_mode={sample_mode}, samps_per_chan={samps_per_chan})",
+      "inline": true,
+      "imports": [
+        "import nidaqmx"
+      ],
+      "status": "mapped",
+      "terminals": [
+        {
+          "name": "task/channels in",
+          "direction": "input",
+          "python_param": "task_in",
+          "index": 0
+        },
+        {
+          "name": "rate",
+          "direction": "input",
+          "python_param": "rate"
+        },
+        {
+          "name": "sample mode",
+          "direction": "input",
+          "python_param": "sample_mode"
+        },
+        {
+          "name": "samples per channel",
+          "direction": "input",
+          "python_param": "samps_per_chan"
+        },
+        {
+          "name": "task out",
+          "direction": "output",
+          "python_param": "task_out"
+        }
+      ],
+      "ref_terminals": {
+        "task_out": "passthrough_from:task_in"
+      },
+      "match_names": [
+        "DAQmx Timing.vi"
+      ]
+    },
+    {
+      "name": "DAQmx Timing (Implicit).vi",
+      "description": "Configures Implicit timing.",
+      "python_code": "{task_in}.timing.cfg_implicit_timing(sample_mode={sample_mode}, samps_per_chan={samps_per_chan})",
+      "inline": true,
+      "imports": [
+        "import nidaqmx"
+      ],
+      "status": "mapped",
+      "terminals": [
+        {
+          "name": "task/channels in",
+          "direction": "input",
+          "python_param": "task_in",
+          "index": 0
+        },
+        {
+          "name": "sample mode",
+          "direction": "input",
+          "python_param": "sample_mode"
+        },
+        {
+          "name": "samples per channel",
+          "direction": "input",
+          "python_param": "samps_per_chan"
+        },
+        {
+          "name": "task out",
+          "direction": "output",
+          "python_param": "task_out"
+        }
+      ],
+      "ref_terminals": {
+        "task_out": "passthrough_from:task_in"
+      },
+      "match_names": [
+        "DAQmx Timing.vi"
+      ]
+    },
+    {
+      "name": "DAQmx Trigger (Digital Edge).vi",
+      "description": "Configures digital edge start trigger.",
+      "python_code": "{task_in}.triggers.start_trigger.cfg_dig_edge_start_trig(trigger_source={trigger_source})",
+      "inline": true,
+      "imports": [
+        "import nidaqmx"
+      ],
+      "status": "mapped",
+      "terminals": [
+        {
+          "name": "task/channels in",
+          "direction": "input",
+          "python_param": "task_in",
+          "index": 0
+        },
+        {
+          "name": "source",
+          "direction": "input",
+          "python_param": "trigger_source"
+        },
+        {
+          "name": "task out",
+          "direction": "output",
+          "python_param": "task_out"
+        }
+      ],
+      "ref_terminals": {
+        "task_out": "passthrough_from:task_in"
+      },
+      "match_names": [
+        "DAQmx Configure Trigger.vi"
+      ]
+    },
+    {
+      "name": "DAQmx Trigger (Analog Edge).vi",
+      "description": "Configures analog edge start trigger.",
+      "python_code": "{task_in}.triggers.start_trigger.cfg_anlg_edge_start_trig(trigger_source={trigger_source}, trigger_level={trigger_level})",
+      "inline": true,
+      "imports": [
+        "import nidaqmx"
+      ],
+      "status": "mapped",
+      "terminals": [
+        {
+          "name": "task/channels in",
+          "direction": "input",
+          "python_param": "task_in",
+          "index": 0
+        },
+        {
+          "name": "source",
+          "direction": "input",
+          "python_param": "trigger_source"
+        },
+        {
+          "name": "level",
+          "direction": "input",
+          "python_param": "trigger_level"
+        },
+        {
+          "name": "task out",
+          "direction": "output",
+          "python_param": "task_out"
+        }
+      ],
+      "ref_terminals": {
+        "task_out": "passthrough_from:task_in"
+      },
+      "match_names": [
+        "DAQmx Configure Trigger.vi"
+      ]
+    },
+    {
+      "name": "DAQmx Trigger (Analog Window).vi",
+      "description": "Configures analog window start trigger.",
+      "python_code": "{task_in}.triggers.start_trigger.cfg_anlg_window_start_trig(trigger_source={trigger_source}, window_top={window_top}, window_bottom={window_bottom})",
+      "inline": true,
+      "imports": [
+        "import nidaqmx"
+      ],
+      "status": "mapped",
+      "terminals": [
+        {
+          "name": "task/channels in",
+          "direction": "input",
+          "python_param": "task_in",
+          "index": 0
+        },
+        {
+          "name": "source",
+          "direction": "input",
+          "python_param": "trigger_source"
+        },
+        {
+          "name": "window top",
+          "direction": "input",
+          "python_param": "window_top"
+        },
+        {
+          "name": "window bottom",
+          "direction": "input",
+          "python_param": "window_bottom"
+        },
+        {
+          "name": "task out",
+          "direction": "output",
+          "python_param": "task_out"
+        }
+      ],
+      "ref_terminals": {
+        "task_out": "passthrough_from:task_in"
+      },
+      "match_names": [
+        "DAQmx Configure Trigger.vi"
+      ]
+    },
+    {
+      "name": "DAQmx Trigger (Digital Pattern).vi",
+      "description": "Configures digital pattern start trigger.",
+      "python_code": "{task_in}.triggers.start_trigger.cfg_dig_pattern_start_trig(trigger_source={trigger_source}, trigger_pattern={trigger_pattern})",
+      "inline": true,
+      "imports": [
+        "import nidaqmx"
+      ],
+      "status": "mapped",
+      "terminals": [
+        {
+          "name": "task/channels in",
+          "direction": "input",
+          "python_param": "task_in",
+          "index": 0
+        },
+        {
+          "name": "source",
+          "direction": "input",
+          "python_param": "trigger_source"
+        },
+        {
+          "name": "pattern",
+          "direction": "input",
+          "python_param": "trigger_pattern"
+        },
+        {
+          "name": "task out",
+          "direction": "output",
+          "python_param": "task_out"
+        }
+      ],
+      "ref_terminals": {
+        "task_out": "passthrough_from:task_in"
+      },
+      "match_names": [
+        "DAQmx Configure Trigger.vi"
+      ]
+    },
+    {
+      "name": "DAQmx Trigger (None).vi",
+      "description": "Disables start trigger.",
+      "python_code": "{task_in}.triggers.start_trigger.disable_start_trig()",
+      "inline": true,
+      "imports": [
+        "import nidaqmx"
+      ],
+      "status": "mapped",
+      "terminals": [
+        {
+          "name": "task/channels in",
+          "direction": "input",
+          "python_param": "task_in",
+          "index": 0
+        },
+        {
+          "name": "task out",
+          "direction": "output",
+          "python_param": "task_out"
+        }
+      ],
+      "ref_terminals": {
+        "task_out": "passthrough_from:task_in"
+      },
+      "match_names": [
+        "DAQmx Configure Trigger.vi"
+      ]
+    },
+    {
+      "name": "DAQmx Reference Trigger (Digital Edge).vi",
+      "description": "Configures digital edge reference trigger.",
+      "python_code": "{task_in}.triggers.reference_trigger.cfg_dig_edge_ref_trig(trigger_source={trigger_source}, pretrigger_samples={pretrigger_samples})",
+      "inline": true,
+      "imports": [
+        "import nidaqmx"
+      ],
+      "status": "mapped",
+      "terminals": [
+        {
+          "name": "task/channels in",
+          "direction": "input",
+          "python_param": "task_in",
+          "index": 0
+        },
+        {
+          "name": "source",
+          "direction": "input",
+          "python_param": "trigger_source"
+        },
+        {
+          "name": "pretrigger samples",
+          "direction": "input",
+          "python_param": "pretrigger_samples"
+        },
+        {
+          "name": "task out",
+          "direction": "output",
+          "python_param": "task_out"
+        }
+      ],
+      "ref_terminals": {
+        "task_out": "passthrough_from:task_in"
+      }
+    },
+    {
+      "name": "DAQmx Reference Trigger (Analog Edge).vi",
+      "description": "Configures analog edge reference trigger.",
+      "python_code": "{task_in}.triggers.reference_trigger.cfg_anlg_edge_ref_trig(trigger_source={trigger_source}, pretrigger_samples={pretrigger_samples}, trigger_level={trigger_level})",
+      "inline": true,
+      "imports": [
+        "import nidaqmx"
+      ],
+      "status": "mapped",
+      "terminals": [
+        {
+          "name": "task/channels in",
+          "direction": "input",
+          "python_param": "task_in",
+          "index": 0
+        },
+        {
+          "name": "source",
+          "direction": "input",
+          "python_param": "trigger_source"
+        },
+        {
+          "name": "pretrigger samples",
+          "direction": "input",
+          "python_param": "pretrigger_samples"
+        },
+        {
+          "name": "level",
+          "direction": "input",
+          "python_param": "trigger_level"
+        },
+        {
+          "name": "task out",
+          "direction": "output",
+          "python_param": "task_out"
+        }
+      ],
+      "ref_terminals": {
+        "task_out": "passthrough_from:task_in"
+      }
+    },
+    {
+      "name": "DAQmx Reference Trigger (None).vi",
+      "description": "Disables reference trigger.",
+      "python_code": "{task_in}.triggers.reference_trigger.disable_ref_trig()",
+      "inline": true,
+      "imports": [
+        "import nidaqmx"
+      ],
+      "status": "mapped",
+      "terminals": [
+        {
+          "name": "task/channels in",
+          "direction": "input",
+          "python_param": "task_in",
+          "index": 0
+        },
+        {
+          "name": "task out",
+          "direction": "output",
+          "python_param": "task_out"
+        }
+      ],
+      "ref_terminals": {
+        "task_out": "passthrough_from:task_in"
+      }
+    },
+    {
+      "name": "DAQmx Configure Input Buffer.vi",
+      "description": "Configures the input buffer size.",
+      "python_code": "{task_in}.in_stream.input_buf_size = {buffer_size}",
+      "inline": true,
+      "imports": [
+        "import nidaqmx"
+      ],
+      "status": "mapped",
+      "terminals": [
+        {
+          "name": "task in",
+          "direction": "input",
+          "python_param": "task_in",
+          "index": 0
+        },
+        {
+          "name": "buffer size",
+          "direction": "input",
+          "python_param": "buffer_size"
+        },
+        {
+          "name": "task out",
+          "direction": "output",
+          "python_param": "task_out",
+          "index": 4
+        }
+      ],
+      "ref_terminals": {
+        "task_out": "passthrough_from:task_in"
+      }
+    },
+    {
+      "name": "DAQmx Configure Output Buffer.vi",
+      "description": "Configures the output buffer size.",
+      "python_code": "{task_in}.out_stream.output_buf_size = {buffer_size}",
+      "inline": true,
+      "imports": [
+        "import nidaqmx"
+      ],
+      "status": "mapped",
+      "terminals": [
+        {
+          "name": "task in",
+          "direction": "input",
+          "python_param": "task_in",
+          "index": 0
+        },
+        {
+          "name": "buffer size",
+          "direction": "input",
+          "python_param": "buffer_size"
+        },
+        {
+          "name": "task out",
+          "direction": "output",
+          "python_param": "task_out",
+          "index": 4
+        }
+      ],
+      "ref_terminals": {
+        "task_out": "passthrough_from:task_in"
+      }
+    }
+  ]
+}

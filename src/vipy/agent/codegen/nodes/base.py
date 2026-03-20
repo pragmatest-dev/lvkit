@@ -76,8 +76,10 @@ def get_codegen(node: Operation, strict: bool = False) -> NodeCodeGen:
     from .case import CaseCodeGen
     from .compound import ArrayBuildCodeGen, CompoundArithCodeGen
     from .constant import ConstantCodeGen
+    from .invoke_node import InvokeNodeCodeGen
     from .loop import LoopCodeGen
     from .primitive import PrimitiveCodeGen
+    from .property_node import PropertyNodeCodeGen
     from .subvi import SubVICodeGen
 
     labels = node.labels
@@ -86,6 +88,11 @@ def get_codegen(node: Operation, strict: bool = False) -> NodeCodeGen:
     # Check for loop structures
     if node.loop_type in ("whileLoop", "forLoop"):
         return LoopCodeGen()
+
+    # Check for flat sequence structures
+    if node_type in ("flatSequence", "seq") or "FlatSequence" in labels:
+        from .sequence import FlatSequenceCodeGen
+        return FlatSequenceCodeGen()
 
     # Check for case structures
     if node_type == "caseStruct" or "CaseStructure" in labels:
@@ -111,6 +118,14 @@ def get_codegen(node: Operation, strict: bool = False) -> NodeCodeGen:
     if node_type == "aBuild":
         return ArrayBuildCodeGen()
 
+    # Check for property node
+    if node_type == "propNode":
+        return PropertyNodeCodeGen()
+
+    # Check for invoke node
+    if node_type == "invokeNode":
+        return InvokeNodeCodeGen()
+
     # Unknown node type
     if strict:
         node_id = node.id
@@ -135,7 +150,10 @@ class UnknownNodeCodeGen(NodeCodeGen):
         labels = node.labels
 
         # Emit a comment as a string expression so it's visible in output
-        warning = f"# WARNING: Unknown node type {labels} (id={node_id}, name={node_name})"
+        warning = (
+            f"# WARNING: Unknown node type {labels}"
+            f" (id={node_id}, name={node_name})"
+        )
         stmt = ast.Expr(value=ast.Constant(value=warning))
 
         return CodeFragment(statements=[stmt])

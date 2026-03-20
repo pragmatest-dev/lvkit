@@ -217,3 +217,19 @@ def to_function_name(vi_name: str) -> str:
     # Remove .vi extension
     name = vi_name.replace(".vi", "").replace(".VI", "")
     return to_var_name(name)
+
+
+def to_module_name(vi_name: str) -> str:
+    """Convert VI name to Python module name (strips library prefix).
+
+    Examples:
+        "Get Settings Path.vi" -> "get_settings_path"
+        "GraphicalTestRunner.lvlib:Run.vi" -> "run"
+    """
+    # Strip library prefix
+    if ":" in vi_name:
+        vi_name = vi_name.split(":")[-1]
+    vi_name = vi_name.replace(".vi", "").replace(".VI", "")
+    result = vi_name.lower().replace(" ", "_").replace("-", "_")
+    result = "".join(c for c in result if c.isalnum() or c == "_")
+    return result or "module"

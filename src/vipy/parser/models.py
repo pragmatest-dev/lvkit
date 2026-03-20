@@ -26,7 +26,7 @@ class ParsedType:
     typedef_path: str | None = None  # For typedefs: "vi.lib/Utility/sysdir.llb/..."
     typedef_name: str | None = None  # Qualified name: "sysdir.llb:Type.ctl"
     ref_type: str | None = None  # For Refnum: "UDClassInst", "Queue", "Notifier", etc.
-    classname: str | None = None  # For class refnums (UDClassInst): e.g., "TestCase.lvclass"
+    classname: str | None = None  # For class refnums: "TestCase.lvclass"
 
 
 @dataclass
@@ -110,7 +110,7 @@ class LoopStructure:
     tunnels: list[Tunnel] = field(default_factory=list)
     inner_diagram_uid: str | None = None
     inner_node_uids: list[str] = field(default_factory=list)
-    stop_condition_terminal_uid: str | None = None  # While loop stop condition (lTst terminal)
+    stop_condition_terminal_uid: str | None = None  # While loop stop (lTst)
 
 
 @dataclass
@@ -118,7 +118,7 @@ class CaseFrame:
     """A single case frame in a case structure.
 
     Each frame contains:
-    - selector_value: The value that triggers this case ("True", "False", "0", "Default")
+    - selector_value: Trigger value ("True", "False", "0", "Default")
     - inner_node_uids: UIDs of nodes inside this frame
     - is_default: Whether this is the default case
     """
@@ -141,6 +141,21 @@ class CaseStructure:
     selector_type: str | None = None  # "boolean", "integer", "enum", "string"
     frames: list[CaseFrame] = field(default_factory=list)
     tunnels: list[Tunnel] = field(default_factory=list)  # Input/output tunnels
+
+
+@dataclass
+class SequenceFrame:
+    """A single frame in a flat sequence structure."""
+    uid: str
+    inner_node_uids: list[str] = field(default_factory=list)
+
+
+@dataclass
+class FlatSequenceStructure:
+    """A flat sequence structure on the block diagram."""
+    uid: str
+    tunnels: list[Tunnel] = field(default_factory=list)
+    frames: list[SequenceFrame] = field(default_factory=list)
 
 
 @dataclass
@@ -196,7 +211,7 @@ class SubVIPathRef:
     path_tokens: list[str]  # Path components
     is_vilib: bool = False  # True if from <vilib>
     is_userlib: bool = False  # True if from <userlib>
-    qualified_name: str | None = None  # Full qualified name (e.g., "Library.lvlib:VI.vi")
+    qualified_name: str | None = None  # e.g., "Library.lvlib:VI.vi"
 
     def get_relative_path(self) -> str:
         """Get the relative path under vilib/userlib."""
@@ -264,8 +279,12 @@ class VIMetadata:
     source_path: str | None = None  # Path to original .vi file
     type_map: dict = field(default_factory=dict)  # TypeID → LVType mapping
     subvi_qualified_names: list[str] = field(default_factory=list)  # From VIVI entries
-    iuse_to_qualified_name: dict[str, str] = field(default_factory=dict)  # iUse UID → qualified name
-    subvi_path_refs: list[SubVIPathRef] = field(default_factory=list)  # SubVI path hints
+    iuse_to_qualified_name: dict[str, str] = field(
+        default_factory=dict,
+    )  # iUse UID → qualified name
+    subvi_path_refs: list[SubVIPathRef] = field(
+        default_factory=list,
+    )  # SubVI path hints
 
 
 @dataclass
@@ -282,6 +301,7 @@ class BlockDiagram:
     terminal_info: dict[str, TerminalInfo] = field(default_factory=dict)
     loops: list[LoopStructure] = field(default_factory=list)
     case_structures: list[CaseStructure] = field(default_factory=list)
+    flat_sequences: list[FlatSequenceStructure] = field(default_factory=list)
 
     def get_node(self, uid: str) -> Node | None:
         """Get a node by UID."""
@@ -313,6 +333,13 @@ class BlockDiagram:
         # Also check case structure tunnels
         for case_struct in self.case_structures:
             for tunnel in case_struct.tunnels:
+                if tunnel.outer_terminal_uid == terminal_uid:
+                    return tunnel
+                if tunnel.inner_terminal_uid == terminal_uid:
+                    return tunnel
+        # Also check flat sequence tunnels
+        for flat_seq in self.flat_sequences:
+            for tunnel in flat_seq.tunnels:
                 if tunnel.outer_terminal_uid == terminal_uid:
                     return tunnel
                 if tunnel.inner_terminal_uid == terminal_uid:

@@ -59,13 +59,19 @@ class PrimitiveCodeGen(NodeCodeGen):
 
         # Build code based on code type
         if isinstance(resolved.python_code, dict):
-            return self._build_dict_hint(
+            fragment = self._build_dict_hint(
                 resolved.python_code, input_map, wired_outputs, ctx, resolved
             )
         else:
-            return self._build_string_hint(
+            fragment = self._build_string_hint(
                 resolved.python_code, input_map, wired_outputs, ctx, resolved
             )
+
+        # Add imports from primitive definition
+        if resolved.imports:
+            fragment.imports.update(resolved.imports)
+
+        return fragment
 
     def _build_input_map(
         self, node: Operation, ctx: CodeGenContext, resolved: Any
@@ -218,18 +224,20 @@ class PrimitiveCodeGen(NodeCodeGen):
         # Substitute inputs
         expr_substituted = self._substitute_template(expr, input_map, resolved)
 
-        # Validate: check for obviously invalid patterns like None[...] (can't subscript None)
+        # Validate: can't subscript None — means required array input is unwired
         if "None[" in expr_substituted:
-            # Required input is unwired - emit error instead of invalid code
             prim_name = resolved.name if resolved else "unknown"
+            error_msg = f"{prim_name}: required array input is unwired"
+            raise_stmt = ast.Raise(
+                exc=ast.Call(
+                    func=ast.Name(id="NotImplementedError", ctx=ast.Load()),
+                    args=[ast.Constant(value=error_msg)],
+                    keywords=[],
+                ),
+                cause=None,
+            )
             return CodeFragment(
-                statements=[
-                    ast.Expr(
-                        value=ast.Constant(
-                            value=f"# ERROR: {prim_name} - required array input is unwired"
-                        )
-                    )
-                ],
+                statements=[raise_stmt],
                 bindings={tid: "None" for tid, _, _ in wired_outputs},
             )
         expr_ast = parse_expr(expr_substituted)

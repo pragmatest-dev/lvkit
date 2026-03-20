@@ -6,9 +6,13 @@ import ast
 from typing import TYPE_CHECKING, Any
 
 from vipy.graph_types import Operation
-from vipy.vilib_resolver import VILibResolutionNeeded
+from vipy.vilib_resolver import (
+    VILibResolutionNeeded,
+    derive_python_location,
+    get_resolver,
+)
 
-from ..ast_utils import to_function_name, to_var_name
+from ..ast_utils import to_function_name, to_module_name, to_var_name
 from ..fragment import CodeFragment
 from .base import NodeCodeGen
 
@@ -31,9 +35,14 @@ class SubVICodeGen(NodeCodeGen):
         if not subvi_name:
             return CodeFragment.empty()
 
-        # Look up vilib info for this SubVI
-        # Raises VILibResolutionNeeded if indices are missing
-        vilib_vi = self._get_vilib_vi(subvi_name, node, ctx)
+        # For polymorphic VIs, try variant-specific lookup first
+        vilib_vi = None
+        if node.poly_variant_name:
+            vilib_vi = self._resolve_poly_variant(subvi_name, node, ctx)
+
+        # Fall back to base name lookup
+        if not vilib_vi:
+            vilib_vi = self._get_vilib_vi(subvi_name, node, ctx)
 
         # Check for inline replacement first
         if vilib_vi and vilib_vi.python_code and vilib_vi.inline:
@@ -126,6 +135,35 @@ class SubVICodeGen(NodeCodeGen):
                 placeholder = "{" + param_key + "}"
                 template = template.replace(placeholder, value or "None")
 
+        # Check for unresolved input placeholders — same as vilib resolution
+        import re
+        unresolved_inputs = {
+            m for m in re.findall(r'\{(\w+)\}', template)
+            if m not in set(vilib_outputs.values())
+        }
+        if unresolved_inputs:
+            raise VILibResolutionNeeded(
+                node.name or "",
+                context=self._build_resolution_context(node, ctx, vilib_vi),
+            )
+
+        # Build ref_terminals passthrough map: output_param -> input variable
+        ref_passthrough: dict[str, str] = {}
+        if vilib_vi.ref_terminals:
+            for out_param, passthrough_spec in vilib_vi.ref_terminals.items():
+                if passthrough_spec.startswith("passthrough_from:"):
+                    in_param = passthrough_spec[len("passthrough_from:"):]
+                    # Find the input variable that was substituted
+                    for term in node.terminals:
+                        if term.direction != "input":
+                            continue
+                        if term.index in vilib_inputs:
+                            if vilib_inputs[term.index] == in_param:
+                                resolved = ctx.resolve(term.id)
+                                if resolved:
+                                    ref_passthrough[out_param] = resolved
+                                break
+
         # Substitute output placeholders with unique variable names
         # and build bindings
         bindings = {}
@@ -140,10 +178,16 @@ class SubVICodeGen(NodeCodeGen):
 
             if term_index in vilib_outputs:
                 param_key = vilib_outputs[term_index]
-                # Generate unique variable name
-                var_name = f"{func_name}_{param_key}"
-                output_var_map[param_key] = var_name
-                bindings[term_id] = var_name
+                # Check for ref passthrough - bind to same input variable
+                if param_key in ref_passthrough:
+                    bindings[term_id] = ref_passthrough[param_key]
+                    # Still need to replace placeholder in template
+                    output_var_map[param_key] = ref_passthrough[param_key]
+                else:
+                    # Generate unique variable name
+                    var_name = f"{func_name}_{param_key}"
+                    output_var_map[param_key] = var_name
+                    bindings[term_id] = var_name
             else:
                 # Output not in vilib definition - bind to None
                 bindings[term_id] = "None"
@@ -171,6 +215,20 @@ class SubVICodeGen(NodeCodeGen):
             imports=imports,
         )
 
+    def _resolve_poly_variant(
+        self, base_name: str, node: Operation, ctx: CodeGenContext
+    ) -> Any | None:
+        """Resolve a polymorphic VI to its specific variant.
+
+        Uses poly_variant_name (edit-time selection extracted from the VI's
+        polySelector XML element) to look up the correct variant entry
+        via poly_selector_names in the driver/vilib data.
+        """
+        variant = node.poly_variant_name
+        if not variant:
+            return None
+        return get_resolver().resolve_poly_variant(base_name, variant)
+
     def _get_vilib_vi(
         self, subvi_name: str, node: Operation | None = None,
         ctx: CodeGenContext | None = None
@@ -181,7 +239,6 @@ class SubVICodeGen(NodeCodeGen):
         with context to help resolve the indices.
         """
         try:
-            from ....vilib_resolver import get_resolver
             resolver = get_resolver()
             vi = resolver.resolve_by_name(subvi_name)
 
@@ -237,13 +294,9 @@ class SubVICodeGen(NodeCodeGen):
         """Build input arguments, using vilib names if available."""
         subvi_name = node.name or ""
 
-        # Build index → vilib terminal name mapping
-        # Prefer python_param if available, otherwise use terminal name
-        vilib_inputs: dict[int, str] = {}
-        if vilib_vi:
-            for vt in vilib_vi.terminals:
-                if vt.direction == "input":
-                    vilib_inputs[vt.index] = vt.python_param or vt.name
+        vilib_inputs = self._build_vilib_terminal_map(
+            vilib_vi, "input",
+        )
 
         args = []
         keywords: dict[str, str] = {}
@@ -326,7 +379,7 @@ class SubVICodeGen(NodeCodeGen):
                 import_stmt = import_stmt.rsplit(" import ", 1)[0] + f" import {enum_class_name}"
                 ctx.add_import(import_stmt)
             else:
-                module = self._to_module_name(vilib_vi.name)
+                module = to_module_name(vilib_vi.name)
                 ctx.add_import(f"from .{module} import {enum_class_name}")
             return value
 
@@ -352,7 +405,6 @@ class SubVICodeGen(NodeCodeGen):
             return value
 
         # Get the LVType from vilib resolver
-        from vipy.vilib_resolver import derive_python_location, get_resolver
         resolver = get_resolver()
         lv_type = resolver.resolve_type(vilib_term.type)
 
@@ -381,12 +433,20 @@ class SubVICodeGen(NodeCodeGen):
         # Value not in enum - return as-is
         return value
 
-    def _to_module_name(self, vi_name: str) -> str:
-        """Convert VI name to Python module name."""
-        name = vi_name.replace('.vi', '').replace(' ', '_').replace('-', '_').lower()
-        # Remove special characters
-        import re
-        return re.sub(r'[^a-z0-9_]', '', name)
+    @staticmethod
+    def _build_vilib_terminal_map(
+        vilib_vi: Any | None, direction: str,
+    ) -> dict[int, str]:
+        """Build index → terminal name mapping from vilib VI.
+
+        Prefers python_param if available, otherwise uses terminal name.
+        """
+        result: dict[int, str] = {}
+        if vilib_vi:
+            for vt in vilib_vi.terminals:
+                if vt.direction == direction:
+                    result[vt.index] = vt.python_param or vt.name
+        return result
 
     def _build_output_bindings(
         self,
@@ -398,13 +458,9 @@ class SubVICodeGen(NodeCodeGen):
         """Build output terminal bindings using vilib names."""
         subvi_name = node.name or ""
 
-        # Build index → vilib terminal name mapping
-        # Prefer python_param if available, otherwise use terminal name
-        vilib_outputs: dict[int, str] = {}
-        if vilib_vi:
-            for vt in vilib_vi.terminals:
-                if vt.direction == "output":
-                    vilib_outputs[vt.index] = vt.python_param or vt.name
+        vilib_outputs = self._build_vilib_terminal_map(
+            vilib_vi, "output",
+        )
 
         bindings = {}
         for term in node.terminals:
@@ -429,6 +485,8 @@ class SubVICodeGen(NodeCodeGen):
                     field = to_var_name(callee_name)
 
             if not field:
+                # Output field names are required for result.field access.
+                # (Unlike inputs, which can be skipped when unwired.)
                 raise VILibResolutionNeeded(
                     subvi_name,
                     context=self._build_resolution_context(node, ctx, vilib_vi),

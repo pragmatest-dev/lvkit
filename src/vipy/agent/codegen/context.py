@@ -29,6 +29,8 @@ class CodeGenContext:
     vi_name: str | None = None  # Name of VI being generated
     loop_depth: int = 0  # Nesting depth for index variable naming (i, j, k, ...)
     use_held_error_model: bool = False  # Enable held error model for parallel branches
+    # Counter for unique _branch_N names in parallel tiers
+    _branch_counter: int = field(default=0, repr=False)
     vi_inputs: list[FPTerminalNode] = field(default_factory=list)  # VI input terminals
 
     # Flow map for quick lookup: dest_terminal → source info
@@ -159,62 +161,40 @@ class CodeGenContext:
             import_resolver=self.import_resolver,  # Share
         )
 
+    _LOOP_INDEX_VARS = "ijklmn"
+
     def get_loop_index_var(self) -> str:
         """Get index variable name for current loop depth.
 
         Returns i, j, k, l, m, n for depths 0-5, then idx_6, idx_7, etc.
         """
-        if self.loop_depth < 6:
-            return "ijklmn"[self.loop_depth]
+        if self.loop_depth < len(self._LOOP_INDEX_VARS):
+            return self._LOOP_INDEX_VARS[self.loop_depth]
         return f"idx_{self.loop_depth}"
 
     def get_callee_param_name(self, vi_name: str, slot_index: int) -> str | None:
-        """Look up parameter name from callee VI context.
-
-        Handles polymorphic VIs by checking variants when wrapper has no inputs.
-
-        Args:
-            vi_name: Name of the callee VI
-            slot_index: Terminal slot index to look up
-
-        Returns:
-            Parameter name or None if not found
-        """
-        if not self.vi_context_lookup:
-            return None
-
-        callee_ctx = self.vi_context_lookup(vi_name)
-        if not callee_ctx:
-            return None
-
-        # Look in inputs for matching slot_index
-        for inp in callee_ctx.get("inputs", []):
-            if inp.slot_index == slot_index:
-                return inp.name
-
-        # If no inputs found, check if this is a polymorphic wrapper
-        # Use explicit poly_variants from VI metadata
-        poly_variants = callee_ctx.get("poly_variants", [])
-        for variant_vi in poly_variants:
-            variant_ctx = self.vi_context_lookup(variant_vi)
-            if variant_ctx:
-                for inp in variant_ctx.get("inputs", []):
-                    if inp.slot_index == slot_index:
-                        return inp.name
-
-        return None
+        """Look up input parameter name from callee VI context."""
+        return self._get_callee_terminal_name(vi_name, slot_index, "inputs")
 
     def get_callee_output_name(self, vi_name: str, slot_index: int) -> str | None:
-        """Look up output name from callee VI context.
+        """Look up output field name from callee VI context."""
+        return self._get_callee_terminal_name(vi_name, slot_index, "outputs")
 
-        Handles polymorphic VIs by checking variants when wrapper has no outputs.
+    def _get_callee_terminal_name(
+        self, vi_name: str, slot_index: int, direction: str,
+    ) -> str | None:
+        """Look up terminal name from callee VI context.
+
+        Handles polymorphic VIs by checking variants when the wrapper
+        has no terminals in the given direction.
 
         Args:
             vi_name: Name of the callee VI
             slot_index: Terminal slot index to look up
+            direction: "inputs" or "outputs"
 
         Returns:
-            Output field name or None if not found
+            Terminal name or None if not found
         """
         if not self.vi_context_lookup:
             return None
@@ -223,20 +203,19 @@ class CodeGenContext:
         if not callee_ctx:
             return None
 
-        # Look in outputs for matching slot_index
-        for out in callee_ctx.get("outputs", []):
-            if out.slot_index == slot_index:
-                return out.name
+        # Look for matching slot_index
+        for term in callee_ctx.get(direction, []):
+            if term.slot_index == slot_index:
+                return term.name
 
-        # If no outputs found, check if this is a polymorphic wrapper
-        # Use explicit poly_variants from VI metadata
+        # If not found, check polymorphic variants
         poly_variants = callee_ctx.get("poly_variants", [])
         for variant_vi in poly_variants:
             variant_ctx = self.vi_context_lookup(variant_vi)
             if variant_ctx:
-                for out in variant_ctx.get("outputs", []):
-                    if out.slot_index == slot_index:
-                        return out.name
+                for term in variant_ctx.get(direction, []):
+                    if term.slot_index == slot_index:
+                        return term.name
 
         return None
 
@@ -305,21 +284,26 @@ def _format_constant(const: Constant) -> str:
         return str(python_hint)
 
     value = const.value
-    # Check if lv_type indicates this is a Path
-    is_path = const.lv_type and const.lv_type.underlying_type == "Path"
+    underlying = const.lv_type.underlying_type if const.lv_type else None
 
     if value is None:
         return "None"
 
-    # Handle Path types
-    if is_path:
+    # Use lv_type to determine correct Python type
+    if underlying == "Boolean":
+        # Boolean: "True"/"False" strings, or "0"/"1", or "0000"/"01"
+        if value in ("True", "1", "01"):
+            return "True"
+        return "False"
+
+    if underlying == "Path":
         return f"Path('{value}')"
 
     # Handle numeric values
     if isinstance(value, (int, float)):
         return str(value)
 
-    # Handle string values that look like numbers
+    # Handle string values
     if isinstance(value, str):
         # Handle LabVIEW empty string (represented as "" in XML)
         if value == '""':
@@ -342,10 +326,6 @@ def _format_constant(const: Constant) -> str:
             return str(float_val)
         except ValueError:
             pass
-
-        # Check if it's a path-like string
-        if "/" in value or "\\" in value or value.endswith((".vi", ".ini", ".txt")):
-            return f"Path('{value}')"
 
         # Regular string
         return repr(value)

@@ -129,6 +129,12 @@ class VIEntry(BaseModel):
     # Polymorphic variant support
     variant_signature: str | None = None  # Signature key for this variant
     is_variant: bool = False  # True if this is a variant entry
+    # Reference terminal passthrough (output_param -> "passthrough_from:input_param")
+    ref_terminals: dict[str, str] | None = None
+    # Alternate names for matching (e.g., polymorphic instance names)
+    match_names: list[str] = Field(default_factory=list)
+    # polySelector dropdown names from VI XML (exact strings)
+    poly_selector_names: list[str] = Field(default_factory=list)
 
 
 class VILibResolver:
@@ -159,6 +165,7 @@ class VILibResolver:
         self._types: dict[str, LVType] = {}  # Type definitions indexed by qualified name
         self._category_files: dict[str, Path] = {}  # VI name → category file
         self._variants: dict[str, list[VIEntry]] = {}  # VI name → list of variants
+        self._by_poly_selector: dict[tuple[str, str], VIEntry] = {}  # (base, selector) → entry
 
         # Load vilib data from category files
         vilib_dir = data_dir / "vilib"
@@ -169,6 +176,11 @@ class VILibResolver:
         openg_dir = data_dir / "openg"
         if openg_dir.exists():
             self._load_vilib_data(openg_dir)
+
+        # Load driver data (same VIEntry schema)
+        drivers_dir = data_dir / "drivers"
+        if drivers_dir.exists():
+            self._load_vilib_data(drivers_dir)
 
         # Load type definitions (indexed by typedef path)
         types_path = vilib_dir / "_types.json"
@@ -219,6 +231,20 @@ class VILibResolver:
                     self._by_name[vi_name] = entry
                     if entry.vi_path:
                         self._vis[entry.vi_path] = entry
+
+                # Register alternate match names
+                for alt_name in entry.match_names:
+                    if not alt_name.endswith(".vi"):
+                        alt_name = f"{alt_name}.vi"
+                    if alt_name not in self._by_name:
+                        self._by_name[alt_name] = entry
+
+                # Register polySelector name lookups
+                # Key: (base_vi_name, poly_selector_name) → entry
+                if entry.poly_selector_names:
+                    base = vi_name.split(" (")[0] + ".vi"
+                    for ps_name in entry.poly_selector_names:
+                        self._by_poly_selector[(base, ps_name)] = entry
 
     def _load_types(self, types_path: Path) -> None:
         """Load type definitions from _types.json into LVType dataclasses."""
@@ -319,6 +345,35 @@ class VILibResolver:
             VIEntry if found, None otherwise
         """
         return self._by_name.get(vi_name)
+
+    def resolve_poly_variant(
+        self, base_name: str, selector_name: str
+    ) -> VIEntry | None:
+        """Resolve a polymorphic VI variant by its polySelector name.
+
+        Args:
+            base_name: Base VI name like "DAQmx Create Virtual Channel.vi"
+            selector_name: polySelector dropdown value from XML
+
+        Returns:
+            VIEntry for the matching variant, or None
+        """
+        return self._by_poly_selector.get((base_name, selector_name))
+
+    def find_variants(self, base_name: str) -> list[VIEntry]:
+        """Find all variant entries that start with a base VI name.
+
+        Args:
+            base_name: Base VI name like "DAQmx Create Virtual Channel"
+
+        Returns:
+            List of matching VIEntry objects
+        """
+        base = base_name.replace(".vi", "")
+        return [
+            entry for name, entry in self._by_name.items()
+            if name.startswith(base + " (") and name.endswith(").vi")
+        ]
 
     def has_implementation(self, vi_name: str) -> bool:
         """Check if we have a full Python implementation (module) for a VI."""
@@ -702,6 +757,7 @@ class VILibResolver:
 
         # No conflict - update base entry
         updated = False
+        unmatched_obs: list[tuple[int, dict[str, Any]]] = []
         for idx, obs_data in observed_map.items():
             if idx in existing_map:
                 term = existing_map[idx]
@@ -712,13 +768,40 @@ class VILibResolver:
                     term.type = obs_data["type"]
                     updated = True
             else:
-                for term in vi.terminals:
-                    if term.name == obs_data["name"] and term.index is None:
-                        term.index = idx
-                        term.direction = obs_data["direction"]
-                        term.type = obs_data["type"]
-                        updated = True
-                        break
+                # Try name-based matching first
+                matched = False
+                if obs_data["name"]:
+                    for term in vi.terminals:
+                        if term.name == obs_data["name"] and term.index is None:
+                            term.index = idx
+                            term.direction = obs_data["direction"]
+                            term.type = obs_data["type"]
+                            updated = True
+                            matched = True
+                            break
+                if not matched:
+                    unmatched_obs.append((idx, obs_data))
+
+        # Fallback for unmatched observations (e.g. driver VIs with no
+        # terminal names in the caller graph).  Match by direction when
+        # exactly one null-index terminal shares the direction.
+        if unmatched_obs:
+            null_terms = [t for t in vi.terminals if t.index is None]
+            for idx, obs_data in unmatched_obs:
+                obs_dir = obs_data["direction"]
+                candidates = [
+                    t for t in null_terms
+                    if t.direction == obs_dir
+                ]
+                if len(candidates) == 1:
+                    t = candidates[0]
+                    t.index = idx
+                    if obs_data["direction"]:
+                        t.direction = obs_data["direction"]
+                    if obs_data["type"]:
+                        t.type = obs_data["type"]
+                    null_terms.remove(t)
+                    updated = True
 
         if updated:
             self._save_vi_entry(vi_name, vi)

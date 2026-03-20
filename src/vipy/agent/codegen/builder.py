@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import ast
+import warnings
 from collections import deque
 from typing import Any
 
@@ -10,6 +11,19 @@ from vipy.graph_types import FPTerminalNode, Operation
 from vipy.type_defaults import _is_error_cluster
 
 from .ast_optimizer import optimize_module
+
+
+def _is_error_terminal(term: FPTerminalNode) -> bool:
+    """Check if a terminal is an error cluster (skip in Python codegen).
+
+    Uses LVType when available, falls back to name-based heuristic.
+    """
+    if term.lv_type and _is_error_cluster(term.lv_type):
+        return True
+    name_lower = (term.name or "").lower()
+    return "error" in name_lower and (
+        "in" in name_lower or "out" in name_lower
+    )
 from .ast_utils import parse_expr, to_function_name, to_var_name
 from .context import CodeGenContext
 from .error_handler import (
@@ -90,6 +104,10 @@ def generate_body(
 ) -> list[ast.stmt]:
     """Generate function body statements from operations.
 
+    Uses tiered topological sort to identify parallel groups. Single-op
+    tiers emit sequential code. Multi-op tiers are wrapped in
+    concurrent.futures.ThreadPoolExecutor.
+
     Args:
         operations: List of Operation nodes
         ctx: Code generation context
@@ -100,28 +118,142 @@ def generate_body(
     statements: list[ast.stmt] = []
 
     # All operations passed here are top-level (inner loop ops are in inner_nodes)
-    top_level = operations
+    tiers = topological_sort_tiered(operations, ctx)
 
-    # Topologically sort operations
-    sorted_ops = topological_sort(top_level, ctx)
-
-    for node in sorted_ops:
-        codegen = get_codegen(node)
-        fragment = codegen.generate(node, ctx)
-
-        statements.extend(fragment.statements)
-        ctx.merge(fragment.bindings)
-        ctx.imports.update(fragment.imports)
+    for tier in tiers:
+        if len(tier) == 1:
+            # Single-op tier — emit as plain statement (no executor overhead)
+            node = tier[0]
+            codegen = get_codegen(node)
+            fragment = codegen.generate(node, ctx)
+            statements.extend(fragment.statements)
+            ctx.merge(fragment.bindings)
+            ctx.imports.update(fragment.imports)
+        else:
+            # Multi-op tier — wrap in ThreadPoolExecutor
+            statements.extend(_generate_parallel_tier(tier, ctx))
 
     return statements
 
 
-def topological_sort(
-    operations: list[Operation], ctx: CodeGenContext
-) -> list[Operation]:
-    """Sort operations by data dependencies.
+def _generate_parallel_tier(
+    tier: list[Operation], ctx: CodeGenContext
+) -> list[ast.stmt]:
+    """Generate ThreadPoolExecutor block for parallel operations.
 
-    An operation can execute when all its input wires have data.
+    Generates each op's code, then wraps them in:
+        with concurrent.futures.ThreadPoolExecutor() as _executor:
+            _futures = [
+                _executor.submit(lambda: <stmt>),  # single-statement ops
+                _executor.submit(_branch_N),        # multi-statement ops
+            ]
+            concurrent.futures.wait(_futures)
+    Bindings from all ops are merged after the executor block.
+    """
+    ctx.imports.add("import concurrent.futures")
+
+    # Generate fragments for each op
+    fragments = []
+    for node in tier:
+        codegen = get_codegen(node)
+        fragment = codegen.generate(node, ctx)
+        fragments.append(fragment)
+        ctx.imports.update(fragment.imports)
+
+    # Build function defs and submit calls (all inside the with block)
+    inner_stmts: list[ast.stmt] = []
+
+    for fragment in fragments:
+        stmts = fragment.statements
+        if not stmts:
+            continue
+
+        # Every parallel op gets a _branch_N function def + submit call
+        func_name = f"_branch_{ctx._branch_counter}"
+        ctx._branch_counter += 1
+        func_def = ast.FunctionDef(
+            name=func_name,
+            args=ast.arguments(
+                posonlyargs=[],
+                args=[],
+                vararg=None,
+                kwonlyargs=[],
+                kw_defaults=[],
+                kwarg=None,
+                defaults=[],
+            ),
+            body=list(stmts),
+            decorator_list=[],
+            returns=None,
+        )
+        inner_stmts.append(func_def)
+        inner_stmts.append(ast.Expr(value=_build_submit(
+            ast.Name(id=func_name, ctx=ast.Load())
+        )))
+
+    if not inner_stmts:
+        return []
+
+    # with concurrent.futures.ThreadPoolExecutor() as _executor:
+    #     def _branch_0(): ...
+    #     _executor.submit(_branch_0)
+    #     def _branch_1(): ...
+    #     _executor.submit(_branch_1)
+    # (shutdown(wait=True) on __exit__ waits for all submitted work)
+    with_body: list[ast.stmt] = inner_stmts
+    with_stmt = ast.With(
+        items=[
+            ast.withitem(
+                context_expr=ast.Call(
+                    func=ast.Attribute(
+                        value=ast.Attribute(
+                            value=ast.Name(id="concurrent", ctx=ast.Load()),
+                            attr="futures",
+                            ctx=ast.Load(),
+                        ),
+                        attr="ThreadPoolExecutor",
+                        ctx=ast.Load(),
+                    ),
+                    args=[],
+                    keywords=[],
+                ),
+                optional_vars=ast.Name(id="_executor", ctx=ast.Store()),
+            )
+        ],
+        body=with_body,
+    )
+
+    # Fix missing locations on all generated AST nodes
+    ast.fix_missing_locations(with_stmt)
+
+    # Merge bindings from all fragments after the executor block
+    for fragment in fragments:
+        ctx.merge(fragment.bindings)
+
+    return [with_stmt]
+
+
+def _build_submit(callable_expr: ast.expr) -> ast.Call:
+    """Build _executor.submit(<callable_expr>) AST node."""
+    return ast.Call(
+        func=ast.Attribute(
+            value=ast.Name(id="_executor", ctx=ast.Load()),
+            attr="submit",
+            ctx=ast.Load(),
+        ),
+        args=[callable_expr],
+        keywords=[],
+    )
+
+
+def topological_sort_tiered(
+    operations: list[Operation], ctx: CodeGenContext
+) -> list[list[Operation]]:
+    """Sort operations by data dependencies, returning parallel tiers.
+
+    Returns a list of tiers. Each tier contains operations that have no
+    data dependencies between them and can execute concurrently. Tiers
+    must execute sequentially (each tier depends on prior tiers).
     """
     if not operations:
         return []
@@ -149,34 +281,38 @@ def topological_sort(
                     if dep_op_id != op.id and dep_op_id in dependencies:
                         dependencies[op.id].add(dep_op_id)
 
-    # Kahn's algorithm with deque for O(1) popleft
-    result: list[Operation] = []
+    # Tiered Kahn's algorithm — drain all ready ops per iteration
+    tiers: list[list[Operation]] = []
     ready: deque[str] = deque(
         op_id for op_id, deps in dependencies.items() if not deps
     )
     remaining = {op_id: set(deps) for op_id, deps in dependencies.items() if deps}
 
     while ready:
-        op_id = ready.popleft()
-        if op_id in op_by_id:
-            result.append(op_by_id[op_id])
+        # Drain all currently-ready ops into one parallel tier
+        tier_ids = list(ready)
+        ready.clear()
+        tier = [op_by_id[oid] for oid in tier_ids if oid in op_by_id]
+        if tier:
+            tiers.append(tier)
 
-        # Update remaining dependencies
-        to_remove = []
-        for other_id, deps in remaining.items():
-            deps.discard(op_id)
-            if not deps:
-                ready.append(other_id)
-                to_remove.append(other_id)
-        for r in to_remove:
-            del remaining[r]
+        # Update remaining dependencies — newly ready ops go into next tier
+        for completed_id in tier_ids:
+            to_remove = []
+            for other_id, deps in remaining.items():
+                deps.discard(completed_id)
+                if not deps:
+                    ready.append(other_id)
+                    to_remove.append(other_id)
+            for r in to_remove:
+                del remaining[r]
 
-    # Add any remaining (circular dependencies)
-    for op_id in remaining:
-        if op_id in op_by_id:
-            result.append(op_by_id[op_id])
+    # Add any remaining (circular dependencies) as a final tier
+    circular = [op_by_id[oid] for oid in remaining if oid in op_by_id]
+    if circular:
+        tiers.append(circular)
 
-    return result
+    return tiers
 
 
 def build_return_stmt(
@@ -196,12 +332,7 @@ def build_return_stmt(
     # Resolve output values, skipping error clusters
     keywords = []
     for out in outputs:
-        # Skip error cluster outputs - Python uses exceptions
-        if out.lv_type and _is_error_cluster(out.lv_type):
-            continue
-        # Also check name for error patterns (fallback if lv_type not available)
-        out_name_lower = (out.name or "").lower()
-        if "error" in out_name_lower and ("in" in out_name_lower or "out" in out_name_lower):
+        if _is_error_terminal(out):
             continue
 
         out_id = out.id
@@ -291,7 +422,7 @@ def build_imports(
             tree = ast.parse(imp)
             imports.extend(tree.body)
         except SyntaxError:
-            pass
+            warnings.warn(f"Skipping unparseable import: {imp!r}", stacklevel=2)
 
     return imports
 
@@ -310,12 +441,7 @@ def build_result_class(vi_context: dict[str, Any]) -> ast.ClassDef | None:
     # Build fields, skipping error clusters
     fields = []
     for out in outputs:
-        # Skip error cluster outputs - Python uses exceptions
-        if out.lv_type and _is_error_cluster(out.lv_type):
-            continue
-        # Also check name for error patterns (fallback if lv_type not available)
-        out_name_lower = (out.name or "").lower()
-        if "error" in out_name_lower and ("in" in out_name_lower or "out" in out_name_lower):
+        if _is_error_terminal(out):
             continue
 
         name = to_var_name(out.name or "output")
@@ -395,12 +521,7 @@ def build_args(inputs: list[FPTerminalNode]) -> ast.arguments:
     defaults = []
 
     for inp in inputs:
-        # Skip error cluster inputs - Python uses exceptions
-        if inp.lv_type and _is_error_cluster(inp.lv_type):
-            continue
-        # Also check name for error patterns (fallback if lv_type not available)
-        inp_name_lower = (inp.name or "").lower()
-        if "error" in inp_name_lower and ("in" in inp_name_lower or "out" in inp_name_lower):
+        if _is_error_terminal(inp):
             continue
 
         name = to_var_name(inp.name or "input")

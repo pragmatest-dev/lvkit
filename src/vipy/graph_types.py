@@ -85,9 +85,17 @@ class Operation:
     stop_condition_terminal: str | None = None
     description: str | None = None  # VI description/help text
     operation: str | None = None  # For cpdArith: "or", "and", "add"
-    # Case structure specific fields
+    # Property/invoke node fields
+    object_name: str | None = None  # For property/invoke: "App", "VI"
+    object_method_id: str | None = None  # oMId
+    properties: list[dict[str, Any]] = field(default_factory=list)  # For propNode
+    method_name: str | None = None  # For invokeNode
+    method_code: int | None = None  # For invokeNode
+    # Frames: used for case structures (selector-indexed) and flat sequences (ordered)
     case_frames: list[CaseFrame] = field(default_factory=list)
     selector_terminal: str | None = None  # Terminal receiving selector value
+    # Polymorphic VI fields
+    poly_variant_name: str | None = None  # Edit-time selected variant name
 
 
 @dataclass
@@ -115,7 +123,7 @@ class FPTerminalNode:
     type_desc: str | None = None
     control_type: str | None = None
     default_value: Any = None
-    enum_values: list = field(default_factory=list)
+    enum_values: list[Any] = field(default_factory=list)
     type: str | None = None  # Resolved type (underlying_type string)
     lv_type: LVType | None = None  # Full LVType structure (unified type system)
 

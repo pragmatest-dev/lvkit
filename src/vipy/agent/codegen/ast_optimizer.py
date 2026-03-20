@@ -75,7 +75,9 @@ class DeadCodeEliminator(ast.NodeTransformer):
         new_body = []
         for stmt in node.body:
             if self._is_dead_assignment(stmt):
-                # Skip this statement - it's dead code
+                # Dead assignment — but preserve side effects (function calls)
+                if self._has_side_effects(stmt.value):
+                    new_body.append(ast.Expr(value=stmt.value))
                 continue
 
             # Keep and recursively visit
@@ -111,6 +113,13 @@ class DeadCodeEliminator(ast.NodeTransformer):
 
         # Check if this variable is in our dead set
         return target.id in self.dead_vars
+
+    def _has_side_effects(self, node: ast.expr) -> bool:
+        """Check if expression might have side effects (function calls, etc.)."""
+        for child in ast.walk(node):
+            if isinstance(child, ast.Call):
+                return True
+        return False
 
 
 class DuplicateImportRemover(ast.NodeTransformer):
@@ -254,10 +263,17 @@ class UnusedImportRemover(ast.NodeTransformer):
 
             elif isinstance(stmt, ast.Import):
                 # Keep only used modules
+                # For dotted imports like `import concurrent.futures`,
+                # check if the top-level name (e.g. "concurrent") is used
                 new_names = []
                 for alias in stmt.names:
                     name = alias.asname or alias.name
-                    if name in self.used_names or name in self.ALWAYS_KEEP:
+                    top_level = name.split(".")[0]
+                    if (
+                        name in self.used_names
+                        or top_level in self.used_names
+                        or name in self.ALWAYS_KEEP
+                    ):
                         new_names.append(alias)
 
                 if new_names:
