@@ -1,0 +1,490 @@
+{
+  "category": "NI-FGEN",
+  "count": 17,
+  "entries": [
+    {
+      "name": "niFgen Initialize.vi",
+      "description": "Opens a niFgen session.",
+      "python_code": "{session_out} = nifgen.Session({resource_name})",
+      "inline": true,
+      "imports": [
+        "import nifgen"
+      ],
+      "status": "mapped",
+      "terminals": [
+        {
+          "name": "resource name",
+          "direction": "input",
+          "python_param": "resource_name"
+        },
+        {
+          "name": "instrument handle out",
+          "direction": "output",
+          "python_param": "session_out"
+        }
+      ]
+    },
+    {
+      "name": "niFgen Close.vi",
+      "description": "Closes a niFgen session.",
+      "python_code": "{session}.close()",
+      "inline": true,
+      "imports": [
+        "import nifgen"
+      ],
+      "status": "mapped",
+      "terminals": [
+        {
+          "name": "instrument handle",
+          "direction": "input",
+          "python_param": "session"
+        }
+      ]
+    },
+    {
+      "name": "niFgen Reset.vi",
+      "description": "Resets the niFgen instrument.",
+      "python_code": "{session}.reset()",
+      "inline": true,
+      "imports": [
+        "import nifgen"
+      ],
+      "status": "mapped",
+      "terminals": [
+        {
+          "name": "instrument handle",
+          "direction": "input",
+          "python_param": "session"
+        },
+        {
+          "name": "instrument handle out",
+          "direction": "output",
+          "python_param": "session_out"
+        }
+      ],
+      "ref_terminals": {
+        "session_out": "passthrough_from:session"
+      }
+    },
+    {
+      "name": "niFgen Self-Test.vi",
+      "description": "Runs niFgen self-test.",
+      "python_code": "{result} = {session}.self_test()",
+      "inline": true,
+      "imports": [
+        "import nifgen"
+      ],
+      "status": "mapped",
+      "terminals": [
+        {
+          "name": "instrument handle",
+          "direction": "input",
+          "python_param": "session"
+        },
+        {
+          "name": "instrument handle out",
+          "direction": "output",
+          "python_param": "session_out"
+        },
+        {
+          "name": "result",
+          "direction": "output",
+          "python_param": "result"
+        }
+      ],
+      "ref_terminals": {
+        "session_out": "passthrough_from:session"
+      }
+    },
+    {
+      "name": "niFgen Self-Cal.vi",
+      "description": "Runs niFgen self-calibration.",
+      "python_code": "{session}.self_cal()",
+      "inline": true,
+      "imports": [
+        "import nifgen"
+      ],
+      "status": "mapped",
+      "terminals": [
+        {
+          "name": "instrument handle",
+          "direction": "input",
+          "python_param": "session"
+        },
+        {
+          "name": "instrument handle out",
+          "direction": "output",
+          "python_param": "session_out"
+        }
+      ],
+      "ref_terminals": {
+        "session_out": "passthrough_from:session"
+      }
+    },
+    {
+      "name": "niFgen Initiate.vi",
+      "description": "Initiates niFgen acquisition/generation.",
+      "python_code": "{session}.initiate()",
+      "inline": true,
+      "imports": [
+        "import nifgen"
+      ],
+      "status": "mapped",
+      "terminals": [
+        {
+          "name": "instrument handle",
+          "direction": "input",
+          "python_param": "session"
+        },
+        {
+          "name": "instrument handle out",
+          "direction": "output",
+          "python_param": "session_out"
+        }
+      ],
+      "ref_terminals": {
+        "session_out": "passthrough_from:session"
+      }
+    },
+    {
+      "name": "niFgen Abort.vi",
+      "description": "Aborts niFgen acquisition/generation.",
+      "python_code": "{session}.abort()",
+      "inline": true,
+      "imports": [
+        "import nifgen"
+      ],
+      "status": "mapped",
+      "terminals": [
+        {
+          "name": "instrument handle",
+          "direction": "input",
+          "python_param": "session"
+        },
+        {
+          "name": "instrument handle out",
+          "direction": "output",
+          "python_param": "session_out"
+        }
+      ],
+      "ref_terminals": {
+        "session_out": "passthrough_from:session"
+      }
+    },
+    {
+      "name": "niFgen Commit.vi",
+      "description": "Commits niFgen configuration.",
+      "python_code": "{session}.commit()",
+      "inline": true,
+      "imports": [
+        "import nifgen"
+      ],
+      "status": "mapped",
+      "terminals": [
+        {
+          "name": "instrument handle",
+          "direction": "input",
+          "python_param": "session"
+        },
+        {
+          "name": "instrument handle out",
+          "direction": "output",
+          "python_param": "session_out"
+        }
+      ],
+      "ref_terminals": {
+        "session_out": "passthrough_from:session"
+      }
+    },
+    {
+      "name": "niFgen Disable.vi",
+      "description": "Disables niFgen output.",
+      "python_code": "{session}.disable()",
+      "inline": true,
+      "imports": [
+        "import nifgen"
+      ],
+      "status": "mapped",
+      "terminals": [
+        {
+          "name": "instrument handle",
+          "direction": "input",
+          "python_param": "session"
+        },
+        {
+          "name": "instrument handle out",
+          "direction": "output",
+          "python_param": "session_out"
+        }
+      ],
+      "ref_terminals": {
+        "session_out": "passthrough_from:session"
+      }
+    },
+    {
+      "name": "niFgen Configure Standard Waveform.vi",
+      "description": "Configures standard waveform output.",
+      "python_code": "{session}.configure_standard_waveform(waveform={waveform}, amplitude={amplitude}, frequency={frequency}, dc_offset={dc_offset})",
+      "inline": true,
+      "imports": [
+        "import nifgen"
+      ],
+      "status": "mapped",
+      "terminals": [
+        {
+          "name": "instrument handle",
+          "direction": "input",
+          "python_param": "session"
+        },
+        {
+          "name": "waveform",
+          "direction": "input",
+          "python_param": "waveform"
+        },
+        {
+          "name": "amplitude",
+          "direction": "input",
+          "python_param": "amplitude"
+        },
+        {
+          "name": "frequency",
+          "direction": "input",
+          "python_param": "frequency"
+        },
+        {
+          "name": "dc offset",
+          "direction": "input",
+          "python_param": "dc_offset"
+        },
+        {
+          "name": "instrument handle out",
+          "direction": "output",
+          "python_param": "session_out"
+        }
+      ],
+      "ref_terminals": {
+        "session_out": "passthrough_from:session"
+      }
+    },
+    {
+      "name": "niFgen Configure Arb Waveform.vi",
+      "description": "Configures arbitrary waveform output.",
+      "python_code": "{session}.configure_arb_waveform(waveform_handle={waveform_handle}, gain={gain}, offset={offset})",
+      "inline": true,
+      "imports": [
+        "import nifgen"
+      ],
+      "status": "mapped",
+      "terminals": [
+        {
+          "name": "instrument handle",
+          "direction": "input",
+          "python_param": "session"
+        },
+        {
+          "name": "waveform handle",
+          "direction": "input",
+          "python_param": "waveform_handle"
+        },
+        {
+          "name": "gain",
+          "direction": "input",
+          "python_param": "gain"
+        },
+        {
+          "name": "offset",
+          "direction": "input",
+          "python_param": "offset"
+        },
+        {
+          "name": "instrument handle out",
+          "direction": "output",
+          "python_param": "session_out"
+        }
+      ],
+      "ref_terminals": {
+        "session_out": "passthrough_from:session"
+      }
+    },
+    {
+      "name": "niFgen Create Waveform.vi",
+      "description": "Creates an arb waveform from data.",
+      "python_code": "{waveform_handle} = {session}.create_waveform_numpy({waveform_data})",
+      "inline": true,
+      "imports": [
+        "import nifgen"
+      ],
+      "status": "mapped",
+      "terminals": [
+        {
+          "name": "instrument handle",
+          "direction": "input",
+          "python_param": "session"
+        },
+        {
+          "name": "waveform data",
+          "direction": "input",
+          "python_param": "waveform_data"
+        },
+        {
+          "name": "instrument handle out",
+          "direction": "output",
+          "python_param": "session_out"
+        },
+        {
+          "name": "waveform handle",
+          "direction": "output",
+          "python_param": "waveform_handle"
+        }
+      ],
+      "ref_terminals": {
+        "session_out": "passthrough_from:session"
+      }
+    },
+    {
+      "name": "niFgen Write Waveform.vi",
+      "description": "Writes data to an arb waveform.",
+      "python_code": "{session}.write_waveform({waveform_handle}, {waveform_data})",
+      "inline": true,
+      "imports": [
+        "import nifgen"
+      ],
+      "status": "mapped",
+      "terminals": [
+        {
+          "name": "instrument handle",
+          "direction": "input",
+          "python_param": "session"
+        },
+        {
+          "name": "waveform handle",
+          "direction": "input",
+          "python_param": "waveform_handle"
+        },
+        {
+          "name": "waveform data",
+          "direction": "input",
+          "python_param": "waveform_data"
+        },
+        {
+          "name": "instrument handle out",
+          "direction": "output",
+          "python_param": "session_out"
+        }
+      ],
+      "ref_terminals": {
+        "session_out": "passthrough_from:session"
+      }
+    },
+    {
+      "name": "niFgen Initiate Generation.vi",
+      "description": "Initiates waveform generation.",
+      "python_code": "{session}.initiate()",
+      "inline": true,
+      "imports": [
+        "import nifgen"
+      ],
+      "status": "mapped",
+      "terminals": [
+        {
+          "name": "instrument handle",
+          "direction": "input",
+          "python_param": "session"
+        },
+        {
+          "name": "instrument handle out",
+          "direction": "output",
+          "python_param": "session_out"
+        }
+      ],
+      "ref_terminals": {
+        "session_out": "passthrough_from:session"
+      }
+    },
+    {
+      "name": "niFgen Abort Generation.vi",
+      "description": "Aborts waveform generation.",
+      "python_code": "{session}.abort()",
+      "inline": true,
+      "imports": [
+        "import nifgen"
+      ],
+      "status": "mapped",
+      "terminals": [
+        {
+          "name": "instrument handle",
+          "direction": "input",
+          "python_param": "session"
+        },
+        {
+          "name": "instrument handle out",
+          "direction": "output",
+          "python_param": "session_out"
+        }
+      ],
+      "ref_terminals": {
+        "session_out": "passthrough_from:session"
+      }
+    },
+    {
+      "name": "niFgen Is Done.vi",
+      "description": "Checks if generation is done.",
+      "python_code": "{is_done} = {session}.is_done()",
+      "inline": true,
+      "imports": [
+        "import nifgen"
+      ],
+      "status": "mapped",
+      "terminals": [
+        {
+          "name": "instrument handle",
+          "direction": "input",
+          "python_param": "session"
+        },
+        {
+          "name": "instrument handle out",
+          "direction": "output",
+          "python_param": "session_out"
+        },
+        {
+          "name": "done",
+          "direction": "output",
+          "python_param": "is_done"
+        }
+      ],
+      "ref_terminals": {
+        "session_out": "passthrough_from:session"
+      }
+    },
+    {
+      "name": "niFgen Write Script.vi",
+      "description": "Writes a generation script.",
+      "python_code": "{session}.write_script({script})",
+      "inline": true,
+      "imports": [
+        "import nifgen"
+      ],
+      "status": "mapped",
+      "terminals": [
+        {
+          "name": "instrument handle",
+          "direction": "input",
+          "python_param": "session"
+        },
+        {
+          "name": "script",
+          "direction": "input",
+          "python_param": "script"
+        },
+        {
+          "name": "instrument handle out",
+          "direction": "output",
+          "python_param": "session_out"
+        }
+      ],
+      "ref_terminals": {
+        "session_out": "passthrough_from:session"
+      }
+    }
+  ]
+}

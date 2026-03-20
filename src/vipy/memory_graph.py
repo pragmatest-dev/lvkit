@@ -39,7 +39,7 @@ from .parser import (
     parse_vi_metadata,
 )
 from .parser.models import ParsedType
-from .parser.node_types import CpdArithNode, PrimitiveNode
+from .parser.node_types import CpdArithNode, InvokeNode, PrimitiveNode, PropertyNode, SubVINode
 from .primitive_resolver import get_resolver as get_prim_resolver
 from .primitive_resolver import resolve_primitive
 from .vilib_resolver import get_resolver as get_vilib_resolver
@@ -51,6 +51,8 @@ _NODE_TYPE_NAMES: dict[str, str] = {
     "caseStruct": "Case Structure",
     "seqFrame": "Sequence Frame",
     "eventStruct": "Event Structure",
+    "flatSequence": "Flat Sequence",
+    "seq": "Stacked Sequence",
 }
 
 # Map operation kind to labels
@@ -103,6 +105,8 @@ class InMemoryVIGraph:
         self._loop_structures: dict[str, dict[str, Any]] = {}
         # Case structures: vi_name -> {case_uid -> CaseStructure}
         self._case_structures: dict[str, dict[str, Any]] = {}
+        # Flat sequence structures: vi_name -> {seq_uid -> FlatSequenceStructure}
+        self._flat_sequences: dict[str, dict[str, Any]] = {}
         # Polymorphic VI info: vi_name -> {is_polymorphic, variants}
         self._poly_info: dict[str, dict[str, Any]] = {}
         # Qualified name aliases: "Lib.lvlib:VI.vi" -> "VI.vi" (for library VIs)
@@ -122,6 +126,7 @@ class InMemoryVIGraph:
         self._bindings.clear()
         self._loop_structures.clear()
         self._case_structures.clear()
+        self._flat_sequences.clear()
         self._qualified_aliases.clear()
         self._poly_info.clear()
         self._loaded_vis.clear()
@@ -518,6 +523,11 @@ class InMemoryVIGraph:
         # Store case structures for later lookup
         self._case_structures[vi_name] = {
             cs.uid: cs for cs in bd.case_structures
+        }
+
+        # Store flat sequence structures for later lookup
+        self._flat_sequences[vi_name] = {
+            fs.uid: fs for fs in bd.flat_sequences
         }
 
         # Parse VI metadata for polymorphic info and library membership
@@ -930,6 +940,20 @@ class InMemoryVIGraph:
             # Add cpdArith-specific fields
             if isinstance(node, CpdArithNode):
                 node_attrs["operation"] = node.operation
+            # Add property node fields
+            if isinstance(node, PropertyNode):
+                node_attrs["object_name"] = node.object_name
+                node_attrs["object_method_id"] = node.object_method_id
+                node_attrs["properties"] = node.properties
+            # Add invoke node fields
+            if isinstance(node, InvokeNode):
+                node_attrs["object_name"] = node.object_name
+                node_attrs["object_method_id"] = node.object_method_id
+                node_attrs["method_name"] = node.method_name
+                node_attrs["method_code"] = node.method_code
+            # Add polymorphic variant name
+            if isinstance(node, SubVINode) and node.poly_variant_name:
+                node_attrs["poly_variant_name"] = node.poly_variant_name
             if description:
                 node_attrs["description"] = description
 
@@ -1006,6 +1030,45 @@ class InMemoryVIGraph:
                         from_parent=inner_parent_id,
                         to_parent=outer_parent_id,
                     )
+
+        # Add tunnel edges from flat sequence structures
+        for flat_seq in bd.flat_sequences:
+            # Register outer tunnel terminals as belonging to the
+            # flat sequence so topological sort creates proper deps
+            for tunnel in flat_seq.tunnels:
+                outer_uid = tunnel.outer_terminal_uid
+                inner_uid = tunnel.inner_terminal_uid
+                # Ensure outer terminal has parent_id = flat_seq
+                if outer_uid in g.nodes:
+                    g.nodes[outer_uid]["parent_id"] = flat_seq.uid
+                    g.nodes[outer_uid]["kind"] = "terminal"
+                else:
+                    g.add_node(
+                        outer_uid,
+                        kind="terminal",
+                        parent_id=flat_seq.uid,
+                    )
+
+                outer_parent = bd.terminal_info.get(outer_uid)
+                inner_parent = bd.terminal_info.get(inner_uid)
+                outer_pid = (
+                    outer_parent.parent_uid if outer_parent
+                    else flat_seq.uid
+                )
+                inner_pid = (
+                    inner_parent.parent_uid if inner_parent
+                    else flat_seq.uid
+                )
+
+                # Both seqTun and flatSeqTun: outer -> inner
+                g.add_edge(
+                    outer_uid,
+                    inner_uid,
+                    tunnel_type=tunnel.tunnel_type,
+                    seq_uid=flat_seq.uid,
+                    from_parent=outer_pid,
+                    to_parent=inner_pid,
+                )
 
         return g
 
@@ -1305,6 +1368,11 @@ class InMemoryVIGraph:
             for frame in case_struct.frames:
                 inner_node_uids.update(frame.inner_node_uids)
 
+        # Also collect inner node UIDs from flat sequences
+        for flat_seq in self._flat_sequences.get(vi_name, {}).values():
+            for frame in flat_seq.frames:
+                inner_node_uids.update(frame.inner_node_uids)
+
         # Get operations in dataflow order, excluding inner loop/case nodes
         ordered_ids = [
             uid for uid in self.get_operation_order(vi_name)
@@ -1384,6 +1452,28 @@ class InMemoryVIGraph:
                         case_struct.frames, g, vi_name
                     )
 
+            elif node_type in ("flatSequence", "seq"):
+                labels = ["FlatSequence"]
+                flat_seq = self._flat_sequences.get(vi_name, {}).get(n)
+                if flat_seq:
+                    tunnels = [
+                        Tunnel(
+                            outer_terminal_uid=t.outer_terminal_uid,
+                            inner_terminal_uid=t.inner_terminal_uid,
+                            tunnel_type=t.tunnel_type,
+                            paired_terminal_uid=t.paired_terminal_uid,
+                        )
+                        for t in flat_seq.tunnels
+                    ]
+                    case_frames = self._build_sequence_frames(
+                        flat_seq.frames, g, vi_name
+                    )
+                    # Synthesize terminals from tunnel outer UIDs
+                    # so codegen topo sort sees dependencies
+                    terminals = self._build_tunnel_terminals(
+                        flat_seq.tunnels, g,
+                    )
+
             result.append(Operation(
                 id=n,
                 name=d.get("name"),
@@ -1397,10 +1487,52 @@ class InMemoryVIGraph:
                 stop_condition_terminal=stop_cond,
                 description=d.get("description"),
                 operation=d.get("operation"),
+                object_name=d.get("object_name"),
+                object_method_id=d.get("object_method_id"),
+                properties=d.get("properties", []),
+                method_name=d.get("method_name"),
+                method_code=d.get("method_code"),
                 case_frames=case_frames,
                 selector_terminal=selector_terminal,
+                poly_variant_name=d.get("poly_variant_name"),
             ))
         return result
+
+    def _build_tunnel_terminals(
+        self,
+        tunnels: list,
+        g: nx.DiGraph,
+    ) -> list[Terminal]:
+        """Build Terminal list from tunnel outer UIDs.
+
+        Used for flat sequences where the flatSequence XML element
+        has no termList — terminals live on the sequenceFrame children.
+        We synthesize terminals from tunnel outer UIDs so the codegen
+        topological sort can see data dependencies.
+        """
+        seen: set[str] = set()
+        terminals: list[Terminal] = []
+        for i, tunnel in enumerate(tunnels):
+            outer = tunnel.outer_terminal_uid
+            if outer in seen:
+                continue
+            seen.add(outer)
+            # Determine direction from graph edges:
+            # If outer terminal is a source for any non-tunnel edge → output
+            # If outer terminal is a destination → input
+            is_output = False
+            if g.has_node(outer):
+                for _, dest, edata in g.out_edges(outer, data=True):
+                    if not edata.get("tunnel_type"):
+                        is_output = True
+                        break
+            direction = "output" if is_output else "input"
+            terminals.append(Terminal(
+                id=outer,
+                index=i,
+                direction=direction,
+            ))
+        return terminals
 
     def _to_terminal_list(self, raw_terminals: list[dict]) -> list[Terminal]:
         """Convert list of terminal dicts to Terminal dataclasses."""
@@ -1518,6 +1650,23 @@ class InMemoryVIGraph:
                         case_struct.frames, g, vi_name
                     )
 
+            elif node_type in ("flatSequence", "seq"):
+                labels = ["FlatSequence"]
+                flat_seq = self._flat_sequences.get(vi_name, {}).get(uid)
+                if flat_seq:
+                    tunnels = [
+                        Tunnel(
+                            outer_terminal_uid=t.outer_terminal_uid,
+                            inner_terminal_uid=t.inner_terminal_uid,
+                            tunnel_type=t.tunnel_type,
+                            paired_terminal_uid=t.paired_terminal_uid,
+                        )
+                        for t in flat_seq.tunnels
+                    ]
+                    case_frames = self._build_sequence_frames(
+                        flat_seq.frames, g, vi_name
+                    )
+
             # Get name, falling back to node_type mapping
             node_name = d.get("name")
             if not node_name and node_type:
@@ -1535,8 +1684,14 @@ class InMemoryVIGraph:
                 inner_nodes=nested_inner,
                 description=d.get("description"),
                 operation=d.get("operation"),
+                object_name=d.get("object_name"),
+                object_method_id=d.get("object_method_id"),
+                properties=d.get("properties", []),
+                method_name=d.get("method_name"),
+                method_code=d.get("method_code"),
                 case_frames=case_frames,
                 selector_terminal=selector_terminal,
+                poly_variant_name=d.get("poly_variant_name"),
             ))
         return inner_ops
 
@@ -1563,6 +1718,32 @@ class InMemoryVIGraph:
                 inner_node_uids=parser_frame.inner_node_uids,
                 operations=frame_ops,
                 is_default=parser_frame.is_default,
+            ))
+
+        return result_frames
+
+    def _build_sequence_frames(
+        self,
+        parser_frames: list,  # list[parser.models.SequenceFrame]
+        g: nx.DiGraph,
+        vi_name: str,
+    ) -> list[CaseFrame]:
+        """Build CaseFrame dataclasses from sequence frames.
+
+        Reuses CaseFrame with selector_value as frame index ("0", "1", "2").
+        Codegen treats these as sequential (not conditional).
+        """
+        result_frames: list[CaseFrame] = []
+
+        for idx, parser_frame in enumerate(parser_frames):
+            frame_ops = self._build_inner_nodes(
+                parser_frame.inner_node_uids, g, vi_name
+            )
+
+            result_frames.append(CaseFrame(
+                selector_value=str(idx),
+                inner_node_uids=parser_frame.inner_node_uids,
+                operations=frame_ops,
             ))
 
         return result_frames
@@ -1657,8 +1838,18 @@ class InMemoryVIGraph:
         if g is None:
             return []
 
-        result = []
+        # Process tunnel edges first, then normal edges, so normal edges
+        # take priority in the flow map (last write wins for same destination).
+        tunnel_edges = []
+        normal_edges = []
         for u, v, d in g.edges(data=True):
+            if d.get("tunnel_type"):
+                tunnel_edges.append((u, v, d))
+            else:
+                normal_edges.append((u, v, d))
+
+        result = []
+        for u, v, d in tunnel_edges + normal_edges:
             from_parent_id = d.get("from_parent")
             to_parent_id = d.get("to_parent")
 

@@ -10,7 +10,8 @@ from __future__ import annotations
 
 import xml.etree.ElementTree as ET
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from typing import Any
 
 from .models import Node
 from .nodes.base import extract_label, extract_terminal_types
@@ -33,6 +34,7 @@ class SubVINode(Node):
     """A SubVI call node (class="iUse" or "polyIUse")."""
 
     vi_path: str | None = None
+    poly_variant_name: str | None = None  # Resolved variant for polyIUse
 
 
 @dataclass
@@ -91,7 +93,7 @@ class NodeTypeHandler(ABC):
         """Parse XML element into typed Node."""
         pass
 
-    def _extract_common(self, elem: ET.Element) -> dict:
+    def _extract_common(self, elem: ET.Element) -> dict[str, Any]:
         """Extract common fields from XML element."""
         name = extract_label(elem)
         input_types, output_types = extract_terminal_types(elem)
@@ -116,10 +118,17 @@ class PrimitiveHandler(NodeTypeHandler):
         prim_idx_elem = elem.find("primIndex")
         prim_res_elem = elem.find("primResID")
 
+        prim_index = None
+        if prim_idx_elem is not None and prim_idx_elem.text:
+            prim_index = int(prim_idx_elem.text)
+        prim_res_id = None
+        if prim_res_elem is not None and prim_res_elem.text:
+            prim_res_id = int(prim_res_elem.text)
+
         return PrimitiveNode(
             **common,
-            prim_index=int(prim_idx_elem.text) if prim_idx_elem is not None else None,
-            prim_res_id=int(prim_res_elem.text) if prim_res_elem is not None else None,
+            prim_index=prim_index,
+            prim_res_id=prim_res_id,
         )
 
 
@@ -142,7 +151,37 @@ class PolySubVIHandler(NodeTypeHandler):
 
     def parse(self, elem: ET.Element) -> SubVINode:
         common = self._extract_common(elem)
-        return SubVINode(**common)
+        variant_name = self._extract_poly_variant(elem)
+        return SubVINode(**common, poly_variant_name=variant_name)
+
+    def _extract_poly_variant(self, elem: ET.Element) -> str | None:
+        """Extract the selected polymorphic variant name.
+
+        The preferredInstIndex is an edit-time selection stored in the VI.
+        The variant list is in the polySelector's buf field.
+        Index offset: first 2 entries are "Automatic" and "-" separator.
+        """
+        import re
+
+        idx_elem = elem.find("preferredInstIndex")
+        if idx_elem is None or not idx_elem.text:
+            return None
+        try:
+            inst_index = int(idx_elem.text.strip(), 16)
+        except ValueError:
+            return None
+
+        # Find polySelector's buf with variant names
+        for selector in elem.iter():
+            if selector.get("class") == "polySelector":
+                for child in selector.iter():
+                    if child.tag == "buf" and child.text:
+                        items = re.findall(r'"([^"]+)"', child.text)
+                        # Offset by 2: skip "Automatic" and "-"
+                        actual_index = inst_index + 2
+                        if 0 <= actual_index < len(items):
+                            return items[actual_index]
+        return None
 
 
 class DynamicDispatchHandler(NodeTypeHandler):
@@ -218,7 +257,7 @@ class WhileLoopHandler(NodeTypeHandler):
         # Don't use extract_label for loops - it would find labels from inner nodes
         input_types, output_types = extract_terminal_types(elem)
         return LoopNode(
-            uid=elem.get("uid"),
+            uid=elem.get("uid", ""),
             node_type=self.xml_class,
             name=self.display_name,  # Always use "While Loop"
             input_types=input_types,
@@ -237,9 +276,9 @@ class ForLoopHandler(NodeTypeHandler):
         # Don't use extract_label for loops - it would find labels from inner nodes
         input_types, output_types = extract_terminal_types(elem)
         return LoopNode(
-            uid=elem.get("uid"),
+            uid=elem.get("uid", ""),
             node_type=self.xml_class,
-            name=self.display_name,  # Always use "For Loop"
+            name=self.display_name,
             input_types=input_types,
             output_types=output_types,
             loop_type="forLoop",
@@ -255,6 +294,110 @@ class SelectHandler(NodeTypeHandler):
     def parse(self, elem: ET.Element) -> SelectNode:
         common = self._extract_common(elem)
         return SelectNode(**common)
+
+
+@dataclass
+class PropertyNode(Node):
+    """A property node (class="propNode")."""
+
+    object_name: str = ""
+    object_method_id: str = ""
+    properties: list[dict[str, Any]] = field(default_factory=list)
+
+
+@dataclass
+class InvokeNode(Node):
+    """An invoke node (class="invokeNode")."""
+
+    object_name: str = ""
+    object_method_id: str = ""
+    method_name: str = ""
+    method_code: int = 0
+
+
+class PropertyNodeHandler(NodeTypeHandler):
+    """Handler for Property Node (class="propNode")."""
+
+    xml_class = "propNode"
+    display_name = "Property Node"
+
+    def parse(self, elem: ET.Element) -> PropertyNode:
+        common = self._extract_common(elem)
+        object_name = (elem.findtext("nodeName") or "").strip('"')
+        omid = elem.findtext("oMId") or ""
+
+        properties: list[dict[str, Any]] = []
+        for prop_info in elem.iter("propItemInfo"):
+            name = (prop_info.findtext("PropItemName") or "").strip('"')
+            code_text = prop_info.findtext("PropItemCode") or "0"
+            try:
+                code = int(code_text)
+            except ValueError:
+                code = 0
+            properties.append({"name": name, "code": code})
+
+        return PropertyNode(
+            **common,
+            object_name=object_name,
+            object_method_id=omid,
+            properties=properties,
+        )
+
+
+class InvokeNodeHandler(NodeTypeHandler):
+    """Handler for Invoke Node (class="invokeNode")."""
+
+    xml_class = "invokeNode"
+    display_name = "Invoke Node"
+
+    def parse(self, elem: ET.Element) -> InvokeNode:
+        common = self._extract_common(elem)
+        meth_code_text = elem.findtext("methCode") or "0"
+        try:
+            meth_code = int(meth_code_text)
+        except ValueError:
+            meth_code = 0
+        return InvokeNode(
+            **common,
+            object_name=(elem.findtext("nodeName") or "").strip('"'),
+            object_method_id=elem.findtext("oMId") or "",
+            method_name=(elem.findtext("methName") or "").strip('"'),
+            method_code=meth_code,
+        )
+
+
+class FlatSequenceHandler(NodeTypeHandler):
+    """Handler for Flat Sequence structures (class="flatSequence")."""
+
+    xml_class = "flatSequence"
+    display_name = "Flat Sequence"
+
+    def parse(self, elem: ET.Element) -> Node:
+        input_types, output_types = extract_terminal_types(elem)
+        return Node(
+            uid=elem.get("uid", ""),
+            node_type=self.xml_class,
+            name=self.display_name,
+            input_types=input_types,
+            output_types=output_types,
+        )
+
+
+class StackedSequenceHandler(NodeTypeHandler):
+    """Handler for Stacked Sequence structures (class="seq")."""
+
+    xml_class = "seq"
+    display_name = "Stacked Sequence"
+
+    def parse(self, elem: ET.Element) -> Node:
+        input_types, output_types = extract_terminal_types(elem)
+        return Node(
+            uid=elem.get("uid", ""),
+            node_type=self.xml_class,
+            name=self.display_name,
+            input_types=input_types,
+            output_types=output_types,
+        )
 
 
 class GenericHandler(NodeTypeHandler):
@@ -284,6 +427,10 @@ _HANDLERS: list[NodeTypeHandler] = [
     WhileLoopHandler(),
     ForLoopHandler(),
     SelectHandler(),
+    PropertyNodeHandler(),
+    InvokeNodeHandler(),
+    FlatSequenceHandler(),
+    StackedSequenceHandler(),
 ]
 
 # Build registry from handlers
@@ -299,7 +446,7 @@ def parse_node(elem: ET.Element) -> Node:
     Returns:
         Appropriate Node subclass instance
     """
-    xml_class = elem.get("class")
+    xml_class = elem.get("class", "")
     handler = NODE_HANDLERS.get(xml_class)
 
     if handler:

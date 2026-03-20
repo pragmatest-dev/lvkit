@@ -1,0 +1,170 @@
+{
+  "category": "Serial",
+  "count": 6,
+  "entries": [
+    {
+      "name": "Serial Port Init.vi",
+      "description": "Opens and configures a serial port.",
+      "python_code": "{ser_out} = serial.Serial(port={port}, baudrate={baud_rate})",
+      "inline": true,
+      "imports": [
+        "import serial"
+      ],
+      "status": "mapped",
+      "terminals": [
+        {
+          "name": "port name",
+          "direction": "input",
+          "python_param": "port"
+        },
+        {
+          "name": "baud rate",
+          "direction": "input",
+          "python_param": "baud_rate"
+        },
+        {
+          "name": "serial port out",
+          "direction": "output",
+          "python_param": "ser_out"
+        }
+      ]
+    },
+    {
+      "name": "Serial Port Write.vi",
+      "description": "Writes data to serial port.",
+      "python_code": "{ser}.write({data})",
+      "inline": true,
+      "imports": [
+        "import serial"
+      ],
+      "status": "mapped",
+      "terminals": [
+        {
+          "name": "serial port",
+          "direction": "input",
+          "python_param": "ser"
+        },
+        {
+          "name": "data",
+          "direction": "input",
+          "python_param": "data"
+        },
+        {
+          "name": "serial port out",
+          "direction": "output",
+          "python_param": "ser_out"
+        }
+      ],
+      "ref_terminals": {
+        "ser_out": "passthrough_from:ser"
+      }
+    },
+    {
+      "name": "Serial Port Read.vi",
+      "description": "Reads data from serial port.",
+      "python_code": "{read_data} = {ser}.read({byte_count})",
+      "inline": true,
+      "imports": [
+        "import serial"
+      ],
+      "status": "mapped",
+      "terminals": [
+        {
+          "name": "serial port",
+          "direction": "input",
+          "python_param": "ser"
+        },
+        {
+          "name": "byte count",
+          "direction": "input",
+          "python_param": "byte_count"
+        },
+        {
+          "name": "serial port out",
+          "direction": "output",
+          "python_param": "ser_out"
+        },
+        {
+          "name": "data",
+          "direction": "output",
+          "python_param": "read_data"
+        }
+      ],
+      "ref_terminals": {
+        "ser_out": "passthrough_from:ser"
+      }
+    },
+    {
+      "name": "Serial Port Close.vi",
+      "description": "Closes a serial port.",
+      "python_code": "{ser}.close()",
+      "inline": true,
+      "imports": [
+        "import serial"
+      ],
+      "status": "mapped",
+      "terminals": [
+        {
+          "name": "serial port",
+          "direction": "input",
+          "python_param": "ser"
+        }
+      ]
+    },
+    {
+      "name": "Serial Port Bytes at Port.vi",
+      "description": "Returns bytes in the input buffer.",
+      "python_code": "{bytes_at_port} = {ser}.in_waiting",
+      "inline": true,
+      "imports": [
+        "import serial"
+      ],
+      "status": "mapped",
+      "terminals": [
+        {
+          "name": "serial port",
+          "direction": "input",
+          "python_param": "ser"
+        },
+        {
+          "name": "bytes at port",
+          "direction": "output",
+          "python_param": "bytes_at_port"
+        },
+        {
+          "name": "serial port out",
+          "direction": "output",
+          "python_param": "ser_out"
+        }
+      ],
+      "ref_terminals": {
+        "ser_out": "passthrough_from:ser"
+      }
+    },
+    {
+      "name": "Serial Port Flush.vi",
+      "description": "Flushes serial port buffers.",
+      "python_code": "{ser}.reset_input_buffer()\n{ser}.reset_output_buffer()",
+      "inline": true,
+      "imports": [
+        "import serial"
+      ],
+      "status": "mapped",
+      "terminals": [
+        {
+          "name": "serial port",
+          "direction": "input",
+          "python_param": "ser"
+        },
+        {
+          "name": "serial port out",
+          "direction": "output",
+          "python_param": "ser_out"
+        }
+      ],
+      "ref_terminals": {
+        "ser_out": "passthrough_from:ser"
+      }
+    }
+  ]
+}

@@ -16,7 +16,11 @@ from pydantic import BaseModel, Field
 
 
 class PrimitiveTerminal(BaseModel):
-    """A terminal on a primitive."""
+    """A terminal on a primitive.
+
+    Note: direction uses "in"/"out" (from JSON data), while
+    graph_types.Terminal uses "input"/"output" (from parser).
+    """
     index: int
     direction: str  # "in" or "out"
     name: str | None = ""
@@ -29,6 +33,7 @@ class PrimitiveEntry(BaseModel):
     inline: bool = True
     terminals: list[PrimitiveTerminal] = Field(default_factory=list)
     guess_reason: str | None = None
+    imports: list[str] = Field(default_factory=list)
 
 
 class ResolvedPrimitive(BaseModel):
@@ -40,6 +45,7 @@ class ResolvedPrimitive(BaseModel):
     terminals: list[PrimitiveTerminal] = Field(default_factory=list)
     confidence: str = "unknown"
     description: str = ""
+    imports: list[str] = Field(default_factory=list)
 
 
 class PrimitiveResolver:
@@ -209,6 +215,7 @@ class PrimitiveResolver:
                     terminals=[PrimitiveTerminal.model_validate(t) for t in prim.get("terminals", [])],
                     confidence="exact_id",
                     description=prim.get("guess_reason", ""),
+                    imports=prim.get("imports", []),
                 )
 
         # Strategy 2: Name-based lookup

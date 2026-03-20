@@ -17,8 +17,10 @@ NODE_CLASS_CASE_STRUCT = "caseStruct"
 NODE_CLASS_SEQ = "seq"
 NODE_CLASS_EVENT_STRUCT = "eventStruct"
 NODE_CLASS_PROP_NODE = "propNode"
+NODE_CLASS_INVOKE_NODE = "invokeNode"
 NODE_CLASS_CPD_ARITH = "cpdArith"  # Compound arithmetic (e.g., Or of multiple booleans)
 NODE_CLASS_ARRAY_BUILD = "aBuild"  # Array builder node
+NODE_CLASS_FLAT_SEQ = "flatSequence"  # Flat sequence structure
 
 # All node classes that contain operations
 OPERATION_NODE_CLASSES = (
@@ -33,8 +35,10 @@ OPERATION_NODE_CLASSES = (
     NODE_CLASS_SEQ,
     NODE_CLASS_EVENT_STRUCT,
     NODE_CLASS_PROP_NODE,
+    NODE_CLASS_INVOKE_NODE,
     NODE_CLASS_CPD_ARITH,
     NODE_CLASS_ARRAY_BUILD,
+    NODE_CLASS_FLAT_SEQ,
 )
 
 # Loop node classes
@@ -44,10 +48,12 @@ LOOP_NODE_CLASSES = (NODE_CLASS_WHILE_LOOP, NODE_CLASS_FOR_LOOP)
 CONDITIONAL_NODE_CLASSES = (NODE_CLASS_SELECT, NODE_CLASS_CASE_STRUCT)
 
 # Tunnel/shift register DCO classes (inside loop terminal dco elements)
-TUNNEL_CLASS_LEFT_SR = "lSR"  # Left shift register (input, persists across iterations)
-TUNNEL_CLASS_RIGHT_SR = "rSR"  # Right shift register (output, persists across iterations)
+TUNNEL_CLASS_LEFT_SR = "lSR"  # Left shift register (input)
+TUNNEL_CLASS_RIGHT_SR = "rSR"  # Right shift register (output)
 TUNNEL_CLASS_LOOP_TUNNEL = "lpTun"  # Loop tunnel (simple pass-through)
 TUNNEL_CLASS_LMAX = "lMax"  # Accumulator/max output
+TUNNEL_CLASS_SEQ_TUN = "seqTun"  # Sequence tunnel (pass-through between frames)
+TUNNEL_CLASS_FLAT_SEQ_TUN = "flatSeqTun"  # Flat seq tunnel (with mate)
 
 # Shift register node (contains inner tunnel terminals)
 NODE_CLASS_SHIFT_REG = "sRN"  # Shift register node - holds inner ends of tunnels
@@ -58,6 +64,8 @@ TUNNEL_DCO_CLASSES = (
     TUNNEL_CLASS_RIGHT_SR,
     TUNNEL_CLASS_LOOP_TUNNEL,
     TUNNEL_CLASS_LMAX,
+    TUNNEL_CLASS_SEQ_TUN,
+    TUNNEL_CLASS_FLAT_SEQ_TUN,
 )
 
 # Node classes that have terminals (for terminal extraction)
