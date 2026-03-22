@@ -177,24 +177,43 @@ class CodeGenContext:
         return f"idx_{self.loop_depth}"
 
     def get_callee_param_name(self, vi_name: str, slot_index: int) -> str | None:
-        """Look up terminal name at a connector pane slot index.
+        """Look up parameter name from callee VI context by slot index.
 
-        Each slot has exactly one terminal. Direction doesn't matter.
+        Searches both inputs and outputs — the caller's terminal direction
+        doesn't necessarily match the callee's FP direction.
         """
-        return self._get_callee_terminal_name(vi_name, slot_index)
+        # Try inputs first, then outputs
+        name = self._get_callee_terminal_name(vi_name, slot_index, "inputs")
+        if name:
+            return name
+        return self._get_callee_terminal_name(vi_name, slot_index, "outputs")
 
     def get_callee_output_name(self, vi_name: str, slot_index: int) -> str | None:
-        """Look up terminal name at a connector pane slot index."""
-        return self._get_callee_terminal_name(vi_name, slot_index)
+        """Look up output field name from callee VI context by slot index.
+
+        Searches both outputs and inputs — slot indices are shared across
+        the connector pane regardless of direction.
+        """
+        name = self._get_callee_terminal_name(vi_name, slot_index, "outputs")
+        if name:
+            return name
+        return self._get_callee_terminal_name(vi_name, slot_index, "inputs")
 
     def _get_callee_terminal_name(
-        self, vi_name: str, slot_index: int,
+        self, vi_name: str, slot_index: int, direction: str,
     ) -> str | None:
-        """Look up terminal name by connector pane slot index.
+        """Look up terminal name from callee VI context.
 
-        Each connector pane slot has exactly one terminal.
-        Checks both inputs and outputs, and falls back to
-        polymorphic variants if the wrapper has no match.
+        Handles polymorphic VIs by checking variants when the wrapper
+        has no terminals in the given direction.
+
+        Args:
+            vi_name: Name of the callee VI
+            slot_index: Terminal slot index to look up
+            direction: "inputs" or "outputs"
+
+        Returns:
+            Terminal name or None if not found
         """
         if not self.vi_context_lookup:
             return None
@@ -203,29 +222,20 @@ class CodeGenContext:
         if not callee_ctx:
             return None
 
-        name = self._find_terminal_name_by_slot(callee_ctx, slot_index)
-        if name:
-            return name
+        # Look for matching slot_index
+        for term in callee_ctx.get(direction, []):
+            if term.slot_index == slot_index:
+                return term.name
 
-        # Polymorphic: check variants
-        for variant_vi in callee_ctx.get("poly_variants", []):
+        # If not found, check polymorphic variants
+        poly_variants = callee_ctx.get("poly_variants", [])
+        for variant_vi in poly_variants:
             variant_ctx = self.vi_context_lookup(variant_vi)
             if variant_ctx:
-                name = self._find_terminal_name_by_slot(variant_ctx, slot_index)
-                if name:
-                    return name
+                for term in variant_ctx.get(direction, []):
+                    if term.slot_index == slot_index:
+                        return term.name
 
-        return None
-
-    @staticmethod
-    def _find_terminal_name_by_slot(vi_ctx: dict, slot_index: int) -> str | None:
-        """Find terminal name at a connector pane slot index."""
-        for term in vi_ctx.get("inputs", []):
-            if term.slot_index == slot_index:
-                return term.name
-        for term in vi_ctx.get("outputs", []):
-            if term.slot_index == slot_index:
-                return term.name
         return None
 
     def add_import(self, import_stmt: str) -> None:

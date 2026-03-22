@@ -2067,6 +2067,19 @@ class InMemoryVIGraph:
                     "vi_name": d.get("name"),
                 })
 
+        # Build terminals list for skeleton generator
+        terminals = []
+        for n, d in g.nodes(data=True):
+            if d.get("kind") == "terminal":
+                terminals.append({
+                    "id": n,
+                    "parent_id": d.get("parent_id"),
+                    "index": d.get("index"),
+                    "type": d.get("type"),
+                    "name": d.get("name"),
+                    "direction": d.get("direction"),
+                })
+
         # Get dataclasses (keep as dataclasses for new codegen)
         inputs = list(self.get_inputs(vi_name))
         outputs = list(self.get_outputs(vi_name))
@@ -2085,6 +2098,7 @@ class InMemoryVIGraph:
             "outputs": outputs,
             "constants": constants,
             "operations": operations,
+            "terminals": terminals,
             "data_flow": data_flow,
             "subvi_calls": subvi_calls,
             "poly_variants": self.get_poly_variants(vi_name),
