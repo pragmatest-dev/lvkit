@@ -993,10 +993,38 @@ class InMemoryVIGraph:
         # aren't in bd.nodes — they're structural infrastructure, not
         # operations. We add them as "infrastructure" so wire resolution
         # can trace through them, but the codegen skips them.
+        srn_parents: set[str] = set()
         for term_uid, term_info in bd.terminal_info.items():
             parent_uid = term_info.parent_uid
             if parent_uid and parent_uid not in g:
                 g.add_node(parent_uid, kind="infrastructure", node_type="sRN")
+                srn_parents.add(parent_uid)
+
+        # sRN nodes hold shift register inner terminals. They connect
+        # the tunnel boundary terminals to the loop body operations.
+        # The lSR/caseSel tunnel brings the initial value INTO the sRN
+        # input terminal. The sRN output terminal feeds the loop body.
+        # We need edges from each sRN input to its paired output so
+        # wire resolution can trace: tunnel → sRN input → sRN output → loop body.
+        #
+        # Pairing: sRN terminals are interleaved. The input terminals
+        # receive values (from tunnels/feedback), the output terminals
+        # deliver them to the loop body. Pair by position in sorted order.
+        for srn_uid in srn_parents:
+            inputs = sorted(
+                (ti.index, uid) for uid, ti in bd.terminal_info.items()
+                if ti.parent_uid == srn_uid and not ti.is_output
+            )
+            outputs = sorted(
+                (ti.index, uid) for uid, ti in bd.terminal_info.items()
+                if ti.parent_uid == srn_uid and ti.is_output
+            )
+            for (_, in_uid), (_, out_uid) in zip(inputs, outputs):
+                g.add_edge(
+                    in_uid, out_uid,
+                    from_parent=srn_uid,
+                    to_parent=srn_uid,
+                )
 
         # Add edges (wires)
         for wire in bd.wires:
