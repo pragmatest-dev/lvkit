@@ -131,16 +131,16 @@ def _extract_inner_node_uids(frame_elem: ET.Element) -> list[str]:
         for diag_elem in diag_list.findall(
             "SL__arrayElement[@class='diag']"
         ):
-            for node_list in diag_elem.findall(".//nodeList"):
-                for node_elem in node_list.findall(
-                    "SL__arrayElement",
-                ):
+            node_list = diag_elem.find("nodeList")
+            if node_list is not None:
+                for node_elem in node_list.findall("SL__arrayElement"):
                     node_uid = node_elem.get("uid")
                     if node_uid:
                         inner_node_uids.append(node_uid)
     else:
         # For stacked seq diag frames: nodeList is directly inside
-        for node_list in frame_elem.findall(".//nodeList"):
+        node_list = frame_elem.find("nodeList")
+        if node_list is not None:
             for node_elem in node_list.findall("SL__arrayElement"):
                 node_uid = node_elem.get("uid")
                 if node_uid:
