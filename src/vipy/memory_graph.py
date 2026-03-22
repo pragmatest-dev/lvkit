@@ -1634,6 +1634,19 @@ class InMemoryVIGraph:
             ))
         return terminals
 
+    def _get_slot_to_name(self, vi_name: str) -> dict[int, str]:
+        """Get slot_index → terminal name mapping for a VI's FP terminals."""
+        g = self._dataflow.get(vi_name)
+        if g is None:
+            return {}
+        result: dict[int, str] = {}
+        for _, d in g.nodes(data=True):
+            slot = d.get("slot_index")
+            name = d.get("name")
+            if slot is not None and name and d.get("kind") in ("input", "output"):
+                result[slot] = name
+        return result
+
     def _enrich_subvi_terminals(
         self,
         terminals: list[dict[str, Any]],
@@ -1651,16 +1664,18 @@ class InMemoryVIGraph:
             return terminals
 
         # Get callee FP terminals with slot indices
-        subvi_g = self._dataflow[subvi_name]
-        slot_to_name: dict[int, str] = {}
-        for term_id, term_data in subvi_g.nodes(data=True):
-            slot = term_data.get("slot_index")
-            name = term_data.get("name")
-            if slot is not None and name and term_data.get("kind") in (
-                "input",
-                "output",
-            ):
-                slot_to_name[slot] = name
+        slot_to_name = self._get_slot_to_name(subvi_name)
+
+        # Polymorphic VIs may have no FP terminals on the wrapper.
+        # Use the first variant's terminals — all variants share
+        # the same connector pane layout.
+        if not slot_to_name:
+            for variant in self.get_poly_variants(subvi_name):
+                resolved_variant = self.resolve_vi_name(variant)
+                if resolved_variant in self._dataflow:
+                    slot_to_name = self._get_slot_to_name(resolved_variant)
+                    if slot_to_name:
+                        break
 
         # Enrich terminals with callee parameter names
         enriched = []
