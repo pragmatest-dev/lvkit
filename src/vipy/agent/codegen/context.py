@@ -102,7 +102,7 @@ class CodeGenContext:
         """Get variable name for a terminal, following data flow back to source.
 
         Traces through tunnels and connections to find the original source variable.
-        Returns None if terminal cannot be resolved.
+        Returns None if terminal cannot be resolved or resolves to "None" (unbound).
         """
         if visited is None:
             visited = set()
@@ -113,7 +113,9 @@ class CodeGenContext:
 
         # Direct binding?
         if terminal_id in self.bindings:
-            return self.bindings[terminal_id]
+            value = self.bindings[terminal_id]
+            # "None" means unbound/default — treat as unresolved
+            return value if value != "None" else None
 
         # Trace through data flow
         if terminal_id not in self._flow_map:
@@ -124,12 +126,14 @@ class CodeGenContext:
 
         # Source terminal has binding?
         if src_terminal in self.bindings:
-            return self.bindings[src_terminal]
+            value = self.bindings[src_terminal]
+            return value if value != "None" else None
 
         # Source parent has binding? (for constants/inputs)
         src_parent_id = flow["src_parent_id"]
         if src_parent_id in self.bindings:
-            return self.bindings[src_parent_id]
+            value = self.bindings[src_parent_id]
+            return value if value != "None" else None
 
         # Recursively trace through connections
         return self.resolve(src_terminal, visited)
