@@ -71,8 +71,10 @@ def extract_loops(root: ET.Element) -> list[LoopStructure]:
                 if inner_diag is not None:
                     inner_diagram_uid = inner_diag.get("uid")
 
-                    # Find operations inside the inner diagram
-                    for node_list in inner_diag.findall(".//nodeList"):
+                    # Find operations inside the inner diagram (direct only,
+                    # not recursing into nested case/loop nodeLists)
+                    node_list = inner_diag.find("nodeList")
+                    if node_list is not None:
                         for node_elem in node_list.findall("SL__arrayElement"):
                             node_uid = node_elem.get("uid")
                             if node_uid:
