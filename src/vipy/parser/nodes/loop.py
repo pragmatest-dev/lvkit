@@ -78,28 +78,8 @@ def extract_loops(root: ET.Element) -> list[LoopStructure]:
                             if node_uid:
                                 inner_node_uids.append(node_uid)
 
-            # Extract caseSel tunnels from nested structures.
-            # Shift registers that pass through case structures inside
-            # the loop use caseSel DCOs to route values across boundaries.
-            # caseSel termList: [...inner_per_frame..., outer_structural]
-            # The LAST terminal is the outer (structural boundary).
-            # All preceding terminals are inner (one per case frame).
-            for case_sel in loop_elem.findall(".//*[@class='caseSel']"):
-                cs_tl = case_sel.find("termList")
-                if cs_tl is not None:
-                    term_refs = [
-                        e.get("uid")
-                        for e in cs_tl.findall("SL__arrayElement")
-                        if e.get("uid")
-                    ]
-                    if len(term_refs) >= 2:
-                        outer_uid = term_refs[-1]  # Last = structural outer
-                        for inner_uid in term_refs[:-1]:  # All others = inner
-                            tunnels.append(Tunnel(
-                                outer_terminal_uid=outer_uid,
-                                inner_terminal_uid=inner_uid,
-                                tunnel_type="caseSel",
-                            ))
+            # caseSel tunnels are extracted by the case parser (case.py),
+            # not the loop parser — they belong to the case structure.
 
             # Pair shift registers (lSR <-> rSR)
             _pair_shift_registers(tunnels)

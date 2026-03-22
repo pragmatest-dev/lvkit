@@ -391,8 +391,15 @@ class CaseCodeGen(NodeCodeGen):
             if outer_term in bindings and bindings[outer_term] != "None":
                 continue
 
+            # Try inner → outer (standard: value produced inside case exits)
             inner_var = ctx.resolve(inner_term)
             if inner_var:
                 bindings[outer_term] = inner_var
+            else:
+                # Try outer → inner (caseSel: value on case boundary
+                # enters sRN inside the case frame)
+                outer_var = ctx.resolve(outer_term)
+                if outer_var:
+                    ctx.bind(inner_term, outer_var)
 
         return bindings

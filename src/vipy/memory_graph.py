@@ -1075,8 +1075,7 @@ class InMemoryVIGraph:
                         to_parent=outer_parent_id,
                     )
 
-        # Register case structure tunnel terminals as graph nodes
-        # (same pattern as flat sequences below — ensures wire endpoints exist)
+        # Register case structure tunnel terminals and add edges
         for case_struct in bd.case_structures:
             for tunnel in case_struct.tunnels:
                 for uid in (tunnel.outer_terminal_uid, tunnel.inner_terminal_uid):
@@ -1085,6 +1084,20 @@ class InMemoryVIGraph:
                             uid,
                             kind="terminal",
                             parent_id=case_struct.uid,
+                        )
+                # caseSel tunnels: data flows outer → inner
+                # (value on case boundary enters sRN inside case frame)
+                if tunnel.tunnel_type == "caseSel":
+                    outer = tunnel.outer_terminal_uid
+                    inner = tunnel.inner_terminal_uid
+                    if outer and inner:
+                        outer_parent = bd.terminal_info.get(outer)
+                        inner_parent = bd.terminal_info.get(inner)
+                        g.add_edge(
+                            outer, inner,
+                            tunnel_type="caseSel",
+                            from_parent=outer_parent.parent_uid if outer_parent else case_struct.uid,
+                            to_parent=inner_parent.parent_uid if inner_parent else case_struct.uid,
                         )
 
         # Register loop tunnel terminals as graph nodes

@@ -100,6 +100,27 @@ def _extract_one_case_structure(
                     )
                     tunnels.extend(new_tunnels)
 
+    # Extract caseSel tunnels from nested structures.
+    # These route shift register values across the case boundary
+    # to sRN nodes inside the case frames.
+    # caseSel termList: [...inner_per_frame..., outer_structural]
+    for case_sel in case_elem.findall(".//*[@class='caseSel']"):
+        cs_tl = case_sel.find("termList")
+        if cs_tl is not None:
+            term_refs = [
+                e.get("uid")
+                for e in cs_tl.findall("SL__arrayElement")
+                if e.get("uid")
+            ]
+            if len(term_refs) >= 2:
+                outer_uid = term_refs[-1]
+                for inner_uid in term_refs[:-1]:
+                    tunnels.append(Tunnel(
+                        outer_terminal_uid=outer_uid,
+                        inner_terminal_uid=inner_uid,
+                        tunnel_type="caseSel",
+                    ))
+
     # Extract diagram frames (cases)
     if diag_list is not None:
         for idx, diag_elem in enumerate(
