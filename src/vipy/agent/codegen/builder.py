@@ -141,14 +141,15 @@ def _generate_parallel_tier(
 ) -> list[ast.stmt]:
     """Generate ThreadPoolExecutor block for parallel operations.
 
-    Generates each op's code, then wraps them in:
-        with concurrent.futures.ThreadPoolExecutor() as _executor:
-            _futures = [
-                _executor.submit(lambda: <stmt>),  # single-statement ops
-                _executor.submit(_branch_N),        # multi-statement ops
-            ]
-            concurrent.futures.wait(_futures)
-    Bindings from all ops are merged after the executor block.
+    Each branch function returns its produced values as a tuple.
+    Futures capture the returns, and .result() unpacks them into
+    the outer scope after the executor block completes.
+
+    LabVIEW semantics:
+    - By-value data: branches get copies, return new values via future
+    - By-reference data (classes, refnums): shared, mutations visible
+      across branches via closure capture
+    - Shift registers: loop-scoped state, accessible to all branches
     """
     ctx.imports.add("import concurrent.futures")
 
@@ -160,47 +161,74 @@ def _generate_parallel_tier(
         fragments.append(fragment)
         ctx.imports.update(fragment.imports)
 
-    # Build function defs and submit calls (all inside the with block)
+    # Build function defs, submit calls, and future captures
     inner_stmts: list[ast.stmt] = []
+    # Statements to emit AFTER the with block (future.result() unpacking)
+    post_stmts: list[ast.stmt] = []
+    # Track which fragments produce bindings that need returning
+    branch_info: list[tuple[str, list[str]]] = []  # (future_var, [bound_var_names])
 
     for fragment in fragments:
         stmts = fragment.statements
         if not stmts:
             continue
 
-        # Every parallel op gets a _branch_N function def + submit call
         func_name = f"_branch_{ctx._branch_counter}"
+        future_var = f"_f{ctx._branch_counter}"
         ctx._branch_counter += 1
+
+        # Collect unique variable names this branch produces.
+        # Skip constants/literals/keywords — only actual assignable
+        # variable names need returning from the branch.
+        bound_vars = list(dict.fromkeys(
+            v for v in fragment.bindings.values()
+            if v and v.isidentifier()
+            and v not in ("None", "True", "False")
+            and "." not in v
+        ))
+
+        body = list(stmts)
+
+        # Add return statement if branch produces bindings
+        if bound_vars:
+            if len(bound_vars) == 1:
+                return_value = ast.Name(id=bound_vars[0], ctx=ast.Load())
+            else:
+                return_value = ast.Tuple(
+                    elts=[ast.Name(id=v, ctx=ast.Load()) for v in bound_vars],
+                    ctx=ast.Load(),
+                )
+            body.append(ast.Return(value=return_value))
+
         func_def = ast.FunctionDef(
             name=func_name,
             args=ast.arguments(
-                posonlyargs=[],
-                args=[],
-                vararg=None,
-                kwonlyargs=[],
-                kw_defaults=[],
-                kwarg=None,
-                defaults=[],
+                posonlyargs=[], args=[], vararg=None,
+                kwonlyargs=[], kw_defaults=[], kwarg=None, defaults=[],
             ),
-            body=list(stmts),
+            body=body,
             decorator_list=[],
             returns=None,
         )
         inner_stmts.append(func_def)
-        inner_stmts.append(ast.Expr(value=_build_submit(
-            ast.Name(id=func_name, ctx=ast.Load())
-        )))
+
+        if bound_vars:
+            # _fN = _executor.submit(_branch_N)
+            inner_stmts.append(ast.Assign(
+                targets=[ast.Name(id=future_var, ctx=ast.Store())],
+                value=_build_submit(ast.Name(id=func_name, ctx=ast.Load())),
+            ))
+            branch_info.append((future_var, bound_vars))
+        else:
+            # Fire-and-forget: _executor.submit(_branch_N)
+            inner_stmts.append(ast.Expr(
+                value=_build_submit(ast.Name(id=func_name, ctx=ast.Load())),
+            ))
 
     if not inner_stmts:
         return []
 
-    # with concurrent.futures.ThreadPoolExecutor() as _executor:
-    #     def _branch_0(): ...
-    #     _executor.submit(_branch_0)
-    #     def _branch_1(): ...
-    #     _executor.submit(_branch_1)
-    # (shutdown(wait=True) on __exit__ waits for all submitted work)
-    with_body: list[ast.stmt] = inner_stmts
+    # Build the with statement
     with_stmt = ast.With(
         items=[
             ast.withitem(
@@ -220,17 +248,37 @@ def _generate_parallel_tier(
                 optional_vars=ast.Name(id="_executor", ctx=ast.Store()),
             )
         ],
-        body=with_body,
+        body=inner_stmts,
     )
 
-    # Fix missing locations on all generated AST nodes
-    ast.fix_missing_locations(with_stmt)
+    # Build future.result() unpacking after the with block
+    for future_var, bound_vars in branch_info:
+        result_expr = ast.Call(
+            func=ast.Attribute(
+                value=ast.Name(id=future_var, ctx=ast.Load()),
+                attr="result",
+                ctx=ast.Load(),
+            ),
+            args=[], keywords=[],
+        )
+        if len(bound_vars) == 1:
+            target = ast.Name(id=bound_vars[0], ctx=ast.Store())
+        else:
+            target = ast.Tuple(
+                elts=[ast.Name(id=v, ctx=ast.Store()) for v in bound_vars],
+                ctx=ast.Store(),
+            )
+        post_stmts.append(ast.Assign(targets=[target], value=result_expr))
 
-    # Merge bindings from all fragments after the executor block
+    ast.fix_missing_locations(with_stmt)
+    for stmt in post_stmts:
+        ast.fix_missing_locations(stmt)
+
+    # Merge bindings (terminal→variable mappings for downstream resolution)
     for fragment in fragments:
         ctx.merge(fragment.bindings)
 
-    return [with_stmt]
+    return [with_stmt] + post_stmts
 
 
 def _build_submit(callable_expr: ast.expr) -> ast.Call:
