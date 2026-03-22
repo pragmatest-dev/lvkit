@@ -7,6 +7,7 @@ import xml.etree.ElementTree as ET
 from vipy.constants import CONSTANT_DCO_CLASS, TERMINAL_CLASS
 
 from ..models import Constant
+from ..utils import clean_labview_string
 
 
 def extract_constants(root: ET.Element) -> list[Constant]:
@@ -37,7 +38,7 @@ def extract_constants(root: ET.Element) -> list[Constant]:
         if label is None:
             label_elem = dco.find(".//label/textRec/text")
             if label_elem is not None and label_elem.text:
-                label = label_elem.text.strip('"')
+                label = clean_labview_string(label_elem.text)
 
         if const_val is not None:
             constants.append(Constant(

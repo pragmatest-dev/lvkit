@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 import ast
+import logging
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 
 def parse_expr(template: str) -> ast.expr:
@@ -19,8 +22,8 @@ def parse_expr(template: str) -> ast.expr:
         tree = ast.parse(template, mode="eval")
         return tree.body
     except SyntaxError as e:
-        # Return a placeholder if template is invalid
-        return ast.Constant(value=f"??? {e}")
+        logger.warning("Invalid expression template: %r — %s", template, e)
+        return ast.Constant(value=None)
 
 
 def parse_stmt(template: str) -> ast.stmt:
@@ -38,8 +41,8 @@ def parse_stmt(template: str) -> ast.stmt:
             return tree.body[0]
         return ast.Pass()
     except SyntaxError as e:
-        # Return a comment-like pass if template is invalid
-        return ast.Expr(value=ast.Constant(value=f"??? {e}"))
+        logger.warning("Invalid statement template: %r — %s", template, e)
+        return ast.Expr(value=ast.Constant(value=None))
 
 
 def build_assign(target: str, value: ast.expr) -> ast.Assign:

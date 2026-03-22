@@ -78,53 +78,52 @@ def get_codegen(node: Operation, strict: bool = False) -> NodeCodeGen:
     from .constant import ConstantCodeGen
     from .invoke_node import InvokeNodeCodeGen
     from .loop import LoopCodeGen
+    from .nmux import NMuxCodeGen
     from .primitive import PrimitiveCodeGen
+    from .printf import PrintfCodeGen
     from .property_node import PropertyNodeCodeGen
+    from .sequence import FlatSequenceCodeGen
     from .subvi import SubVICodeGen
 
     labels = node.labels
     node_type = node.node_type or ""
 
-    # Check for loop structures
+    # --- Specific node_type checks first (override generic labels) ---
+
+    # Structural containers
     if node.loop_type in ("whileLoop", "forLoop"):
         return LoopCodeGen()
-
-    # Check for flat sequence structures
-    if node_type in ("flatSequence", "seq") or "FlatSequence" in labels:
-        from .sequence import FlatSequenceCodeGen
+    if node_type in ("flatSequence", "seq"):
         return FlatSequenceCodeGen()
-
-    # Check for case structures
-    if node_type == "caseStruct" or "CaseStructure" in labels:
+    if node_type in ("caseStruct", "select"):
         return CaseCodeGen()
 
-    # Check for SubVI
-    if "SubVI" in labels:
-        return SubVICodeGen()
-
-    # Check for Primitive
-    if "Primitive" in labels:
-        return PrimitiveCodeGen()
-
-    # Check for Constant
-    if "Constant" in labels:
-        return ConstantCodeGen()
-
-    # Check for compound arithmetic (OR of multiple booleans)
+    # Specialized node types (may carry generic labels like "Primitive")
+    if node_type == "printf":
+        return PrintfCodeGen()
+    if node_type == "nMux":
+        return NMuxCodeGen()
+    if node_type == "propNode":
+        return PropertyNodeCodeGen()
+    if node_type == "invokeNode":
+        return InvokeNodeCodeGen()
     if node_type == "cpdArith":
         return CompoundArithCodeGen()
-
-    # Check for array build
     if node_type == "aBuild":
         return ArrayBuildCodeGen()
 
-    # Check for property node
-    if node_type == "propNode":
-        return PropertyNodeCodeGen()
+    # --- Generic label checks (fallback) ---
 
-    # Check for invoke node
-    if node_type == "invokeNode":
-        return InvokeNodeCodeGen()
+    if "SubVI" in labels:
+        return SubVICodeGen()
+    if "Primitive" in labels:
+        return PrimitiveCodeGen()
+    if "Constant" in labels:
+        return ConstantCodeGen()
+    if "FlatSequence" in labels:
+        return FlatSequenceCodeGen()
+    if "CaseStructure" in labels:
+        return CaseCodeGen()
 
     # Unknown node type
     if strict:

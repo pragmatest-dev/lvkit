@@ -69,18 +69,25 @@ class ClassBuilder:
         self._method_contexts = method_contexts or {}
         self._vi_context_lookup = vi_context_lookup
         self._import_resolver = import_resolver
+        self._collected_imports: set[str] = set()
         parent = parent_class_name or lvclass.parent_class
 
         module_body: list[ast.stmt] = []
 
-        # Build imports
-        module_body.extend(self._build_imports(lvclass, parent))
-
-        # Build class definition
+        # Build class definition (collects imports from method bodies)
         class_def = self._build_class_def(lvclass, parent)
+
+        # Build imports (static + collected from methods)
+        module_body.extend(self._build_imports(lvclass, parent))
         module_body.append(class_def)
 
-        return ast.Module(body=module_body, type_ignores=[])
+        module = ast.Module(body=module_body, type_ignores=[])
+
+        # Run optimizer (dead code, unreachable, duplicate imports)
+        from .ast_optimizer import optimize_module
+        module = optimize_module(module)
+
+        return module
 
     def _build_imports(
         self,
@@ -123,6 +130,14 @@ class ClassBuilder:
                 )
             )
 
+        # Add imports collected from method body generation
+        for imp_str in sorted(self._collected_imports):
+            try:
+                tree = ast.parse(imp_str)
+                imports.extend(tree.body)
+            except SyntaxError:
+                pass
+
         return imports
 
     def _build_class_def(
@@ -164,9 +179,7 @@ class ClassBuilder:
         private_methods: list[LVMethod] = []
 
         for method in lvclass.methods:
-            if method.is_static:
-                static_methods.append(method)
-            elif method.is_accessor:
+            if method.is_accessor:
                 accessors.append(method)
             elif method.scope == "public":
                 public_methods.append(method)
@@ -179,30 +192,39 @@ class ClassBuilder:
         property_defs = self._build_properties(accessors)
         body.extend(property_defs)
 
-        # Build static methods
-        for method in static_methods:
+        # Separate truly static methods from instance methods
+        # A method is an instance method if it has a class-typed input wire
+        actual_static: list[LVMethod] = []
+        actual_instance: list[LVMethod] = []
+        for method in public_methods + protected_methods + private_methods:
+            vi_ctx = self._method_contexts.get(method.name, {})
+            has_class_wire = any(
+                self._is_self_input(inp, lvclass.name)
+                for inp in vi_ctx.get("inputs", [])
+            )
+            if has_class_wire:
+                actual_instance.append(method)
+            else:
+                actual_static.append(method)
+
+        # Build static methods (no class wire input)
+        for method in actual_static:
             method_def = self._build_static_method(method, lvclass.name)
             body.append(method_def)
 
-        # Build public instance methods
-        for method in public_methods:
+        # Build instance methods (have class wire input)
+        for method in actual_instance:
             # Skip constructor-like methods (handled in __init__)
             if self._is_constructor(method.name):
                 continue
-            method_def = self._build_instance_method(method, lvclass.name)
-            body.append(method_def)
-
-        # Build protected instance methods
-        for method in protected_methods:
+            # Add scope prefix for non-public methods
+            prefix = ""
+            if method.scope == "protected":
+                prefix = self.config.protected_prefix
+            elif method.scope == "private":
+                prefix = self.config.private_prefix
             method_def = self._build_instance_method(
-                method, lvclass.name, prefix=self.config.protected_prefix
-            )
-            body.append(method_def)
-
-        # Build private instance methods
-        for method in private_methods:
-            method_def = self._build_instance_method(
-                method, lvclass.name, prefix=self.config.private_prefix
+                method, lvclass.name, prefix=prefix,
             )
             body.append(method_def)
 
@@ -359,8 +381,8 @@ class ClassBuilder:
         }
 
         for op in operations:
-            node_type = getattr(op, "node_type", None) or op.get("node_type", "")
-            prim_id = getattr(op, "primResID", None) or op.get("primResID", 0)
+            node_type = getattr(op, "node_type", "") or ""
+            prim_id = getattr(op, "primResID", 0) or 0
 
             if node_type in simple_node_types:
                 continue
@@ -522,6 +544,7 @@ class ClassBuilder:
         ctx.vi_context_lookup = self._vi_context_lookup
         ctx.import_resolver = self._import_resolver
         body = generate_body(operations, ctx)
+        self._collected_imports.update(ctx.imports)
 
         # Ensure non-empty body
         if not body:
@@ -587,6 +610,7 @@ class ClassBuilder:
         ctx.vi_context_lookup = self._vi_context_lookup
         ctx.import_resolver = self._import_resolver
         body = generate_body(operations, ctx)
+        self._collected_imports.update(ctx.imports)
 
         # Get instance variable name from context bindings (not from input name!)
         instance_var_name = None

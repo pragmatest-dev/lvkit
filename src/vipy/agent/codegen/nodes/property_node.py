@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING
 
 from vipy.graph_types import Operation
 
-from ..ast_utils import to_var_name
+from ..ast_utils import build_assign, parse_expr, to_var_name
 from ..fragment import CodeFragment
 from .base import NodeCodeGen
 
@@ -30,8 +30,6 @@ class PropertyNodeCodeGen(NodeCodeGen):
     def generate(self, node: Operation, ctx: CodeGenContext) -> CodeFragment:
         """Generate code for a property node."""
         properties = node.properties or []
-        if not properties:
-            return CodeFragment.empty()
 
         # Resolve the reference input (first input terminal is typically the object ref)
         ref_var = self._resolve_ref_input(node, ctx)
@@ -94,6 +92,14 @@ class PropertyNodeCodeGen(NodeCodeGen):
                 )
                 statements.append(stmt)
 
+        # Bind any remaining wired output terminals that weren't handled above
+        # (e.g., reference passthrough, error out, or property nodes with empty properties list)
+        for term in output_terms:
+            if term.id not in bindings and ctx.is_wired(term.id):
+                var_name = to_var_name(term.name or f"{ref_var}_prop_{term.index}")
+                statements.append(build_assign(var_name, parse_expr(ref_var)))
+                bindings[term.id] = var_name
+
         # If no statements generated, emit a comment
         if not statements:
             comment = (
@@ -111,6 +117,14 @@ class PropertyNodeCodeGen(NodeCodeGen):
                 resolved = ctx.resolve(term.id)
                 if resolved:
                     return resolved
+                # Try tracing through flow_map to find source
+                if term.id in ctx._flow_map:
+                    flow = ctx._flow_map[term.id]
+                    src_term = flow.get("src_terminal")
+                    if src_term:
+                        resolved = ctx.resolve(src_term)
+                        if resolved:
+                            return resolved
 
         # Fallback: use object_name as variable
         obj_name = node.object_name or "ref"

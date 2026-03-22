@@ -67,9 +67,13 @@ class PrimitiveCodeGen(NodeCodeGen):
                 resolved.python_code, input_map, wired_outputs, ctx, resolved
             )
 
-        # Add imports from primitive definition
+        # Add imports from primitive definition (normalize bare module names)
         if resolved.imports:
-            fragment.imports.update(resolved.imports)
+            for imp in resolved.imports:
+                if not imp.startswith(("import ", "from ")):
+                    fragment.imports.add(f"import {imp}")
+                else:
+                    fragment.imports.add(imp)
 
         return fragment
 
@@ -79,12 +83,13 @@ class PrimitiveCodeGen(NodeCodeGen):
         """Build mapping from terminal names to resolved variable names.
 
         Uses primitive resolver terminal names when node terminals lack names.
+        Matches by connector pane index (sparse — not sequential).
         When a terminal is unwired, uses the default_value from the primitive
         definition if available, otherwise "None".
         """
         input_map = {}
 
-        # Build index → (name, default_value) mapping from resolved terminals
+        # Build index → (name, default_value) dict from resolved terminals
         resolved_inputs: dict[int, tuple[str, str | None]] = {}
         if resolved and resolved.terminals:
             for rt in resolved.terminals:
@@ -101,23 +106,25 @@ class PrimitiveCodeGen(NodeCodeGen):
             term_name = term.name or ""
             default_value = None
 
-            # Priority: node terminal name > resolved terminal name
-            if not term_name and term_index in resolved_inputs:
-                term_name, default_value = resolved_inputs[term_index]
-            elif term_index in resolved_inputs:
-                _, default_value = resolved_inputs[term_index]
+            # Match by connector pane index (sparse dict lookup)
+            if term_index in resolved_inputs:
+                resolved_name, default_value = resolved_inputs[term_index]
+                if not term_name:
+                    term_name = resolved_name
 
             # Resolve from context - None means unwired
             value = ctx.resolve(term_id)
+            if value:
+                resolved_value = value
+            elif default_value is not None:
+                resolved_value = default_value
+            else:
+                resolved_value = "None"
+
+            # Add index-based key so templates can use in_1, in_2 etc.
+            input_map[f"in_{term_index}"] = resolved_value
+
             if term_name:
-                # Use resolved value, or default_value if unwired, or "None"
-                if value:
-                    resolved_value = value
-                elif default_value is not None:
-                    resolved_value = default_value
-                else:
-                    resolved_value = "None"
-                # Add both original and normalized names
                 input_map[term_name] = resolved_value
                 input_map[to_var_name(term_name)] = resolved_value
 
@@ -128,9 +135,10 @@ class PrimitiveCodeGen(NodeCodeGen):
     ) -> list[tuple[str, str, str]]:
         """Get list of (terminal_id, terminal_name, var_name) for wired outputs.
 
-        Uses primitive resolver terminal names when node terminals lack names.
+        Matches by connector pane index (sparse dict lookup).
+        Terminal names in the primitive JSON should be valid Python identifiers.
         """
-        # Build index → resolved terminal name mapping
+        # Build index → name dict from resolved terminals
         resolved_outputs: dict[int, str] = {}
         if resolved and resolved.terminals:
             for rt in resolved.terminals:
@@ -142,15 +150,23 @@ class PrimitiveCodeGen(NodeCodeGen):
             if term.direction != "output":
                 continue
 
+            # Skip error cluster outputs — Python uses exceptions
+            if term.is_error_cluster:
+                continue
+
             term_id = term.id
             term_index = term.index
             term_name = term.name or ""
 
-            # Priority: node terminal name > resolved terminal name > generic
+            # Match by connector pane index (sparse dict lookup)
             if not term_name and term_index in resolved_outputs:
                 term_name = resolved_outputs[term_index]
 
-            var_name = to_var_name(term_name) if term_name else f"out_{len(outputs)}"
+            # Skip error outputs by resolved name
+            if term_name and "error" in term_name.lower():
+                continue
+
+            var_name = to_var_name(term_name) if term_name else f"out_{term_index}"
             outputs.append((term_id, term_name, var_name))
 
         return outputs
@@ -224,22 +240,6 @@ class PrimitiveCodeGen(NodeCodeGen):
         # Substitute inputs
         expr_substituted = self._substitute_template(expr, input_map, resolved)
 
-        # Validate: can't subscript None — means required array input is unwired
-        if "None[" in expr_substituted:
-            prim_name = resolved.name if resolved else "unknown"
-            error_msg = f"{prim_name}: required array input is unwired"
-            raise_stmt = ast.Raise(
-                exc=ast.Call(
-                    func=ast.Name(id="NotImplementedError", ctx=ast.Load()),
-                    args=[ast.Constant(value=error_msg)],
-                    keywords=[],
-                ),
-                cause=None,
-            )
-            return CodeFragment(
-                statements=[raise_stmt],
-                bindings={tid: "None" for tid, _, _ in wired_outputs},
-            )
         expr_ast = parse_expr(expr_substituted)
 
         # Assign to output variables
@@ -293,11 +293,11 @@ class PrimitiveCodeGen(NodeCodeGen):
     ) -> str:
         """Substitute variable names in template string.
 
-        input_map contains all terminal names mapped to either their resolved
-        variable name (if wired) or "None" (if unwired).
+        input_map contains terminal names and index-based keys (in_1, in_2)
+        mapped to resolved variable names from the dataflow graph.
 
-        Note: Case-sensitive matching to avoid replacing Python builtins
-        like Path when template has variables named 'path'.
+        Templates should use terminal names or index-based refs (in_1, in_2)
+        to reference inputs by their actual wire connections.
         """
         import re
 
@@ -307,8 +307,7 @@ class PrimitiveCodeGen(NodeCodeGen):
         for name, value in sorted(input_map.items(), key=lambda x: -len(x[0])):
             if name:
                 pattern = r"\b" + re.escape(name) + r"\b"
-                # Case-sensitive to avoid replacing Path with path's value
-                result = re.sub(pattern, value, result)
+                result = re.sub(pattern, lambda m: value, result)
 
         return result
 
@@ -317,27 +316,23 @@ class PrimitiveCodeGen(NodeCodeGen):
     ) -> CodeFragment:
         """Emit placeholder for unknown primitive.
 
-        In non-strict mode, emits a placeholder comment. The generated code
-        will have a string literal that makes it obvious something is missing.
+        Emits a pass-through comment so downstream operations still work.
+        LabVIEW primitives always produce outputs even if we can't translate
+        them — using raise would break the dataflow for everything after.
         """
-        op_id = node.id
         node_name = node.name or "unknown"
 
-        # Create a raise statement so it fails at runtime with clear message
-        # This is better than silent None returns
-        error_msg = f"Unknown primitive {prim_id} ({node_name}, node {op_id})"
-        raise_stmt = ast.Raise(
-            exc=ast.Call(
-                func=ast.Name(id="NotImplementedError", ctx=ast.Load()),
-                args=[ast.Constant(value=error_msg)],
-                keywords=[],
-            ),
-            cause=None,
-        )
-
-        # Also emit a comment so it's visible in the code
+        # Emit a TODO comment (as string literal) so it's visible
         comment = ast.Expr(
-            value=ast.Constant(value=f"# TODO: Unknown primitive {prim_id}")
+            value=ast.Constant(
+                value=f"# TODO: Unknown primitive {prim_id} ({node_name})"
+            )
         )
 
-        return CodeFragment(statements=[comment, raise_stmt])
+        # Bind outputs to None so downstream operations can resolve them
+        bindings: dict[str, str] = {}
+        for term in node.terminals:
+            if term.direction == "output":
+                bindings[term.id] = "None"
+
+        return CodeFragment(statements=[comment], bindings=bindings)

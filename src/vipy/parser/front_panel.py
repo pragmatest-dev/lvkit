@@ -7,6 +7,7 @@ from pathlib import Path
 
 from vipy.constants import FP_TERMINAL_CLASS
 from vipy.graph_types import LVType
+from vipy.parser.utils import clean_labview_string
 
 from .flags import get_wiring_rule
 from .models import ConnectorPane, ConnectorPaneSlot, FPTerminal, ParsedType
@@ -99,7 +100,7 @@ def extract_fp_terminals(
         fp_dco_uid = dco.get("uid") if dco is not None else None
 
         label_elem = fp_term.find(".//label/textRec/text")
-        name = label_elem.text.strip('"') if label_elem is not None and label_elem.text else None
+        name = clean_labview_string(label_elem.text) if label_elem is not None and label_elem.text else None
 
         # Look up typeDesc from FP DCO
         type_desc = dco_types.get(fp_dco_uid) if fp_dco_uid else None
