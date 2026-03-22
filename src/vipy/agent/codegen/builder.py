@@ -316,18 +316,29 @@ def topological_sort_tiered(
             if term.direction == "output":
                 output_to_op[term.id] = op.id
 
-    # Build dependencies from data flow
+    # Build dependencies from data flow.
+    # Trace through infrastructure nodes (sRN shift registers, tunnels)
+    # to find the actual producing operation. Without this, operations
+    # connected through sRN appear independent and land in the same
+    # parallel tier, causing unresolved references.
     for op in operations:
         for term in op.terminals:
             if term.direction != "input":
                 continue
-            # Look up source in flow map
-            if term.id in ctx._flow_map:
-                src_term = ctx._flow_map[term.id]["src_terminal"]
+            # Trace through flow map, following through infrastructure
+            visited: set[str] = set()
+            current = term.id
+            while current in ctx._flow_map and current not in visited:
+                visited.add(current)
+                src_term = ctx._flow_map[current]["src_terminal"]
                 if src_term in output_to_op:
                     dep_op_id = output_to_op[src_term]
                     if dep_op_id != op.id and dep_op_id in dependencies:
                         dependencies[op.id].add(dep_op_id)
+                    break
+                # Source isn't an operation output — trace further
+                # (through sRN, tunnels, etc.)
+                current = src_term
 
     # Tiered Kahn's algorithm — drain all ready ops per iteration
     tiers: list[list[Operation]] = []
