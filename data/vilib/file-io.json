@@ -1,6 +1,6 @@
 {
   "category": "File I/O",
-  "count": 98,
+  "count": 99,
   "entries": [
     {
       "name": "Write Delimited Spreadsheet",
@@ -4704,6 +4704,20 @@
           "default_value": null,
           "enum_values": null,
           "python_param": "error_out"
+        }
+      ]
+    },
+    {
+      "name": "Get File System Separator",
+      "description": "Returns the platform file path separator character",
+      "python_code": "import os; {separator} = os.sep",
+      "inline": true,
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "output",
+          "name": "separator",
+          "python_param": "separator"
         }
       ]
     }

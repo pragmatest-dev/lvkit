@@ -177,12 +177,27 @@ class CodeGenContext:
         return f"idx_{self.loop_depth}"
 
     def get_callee_param_name(self, vi_name: str, slot_index: int) -> str | None:
-        """Look up input parameter name from callee VI context."""
-        return self._get_callee_terminal_name(vi_name, slot_index, "inputs")
+        """Look up parameter name from callee VI context by slot index.
+
+        Searches both inputs and outputs — the caller's terminal direction
+        doesn't necessarily match the callee's FP direction.
+        """
+        # Try inputs first, then outputs
+        name = self._get_callee_terminal_name(vi_name, slot_index, "inputs")
+        if name:
+            return name
+        return self._get_callee_terminal_name(vi_name, slot_index, "outputs")
 
     def get_callee_output_name(self, vi_name: str, slot_index: int) -> str | None:
-        """Look up output field name from callee VI context."""
-        return self._get_callee_terminal_name(vi_name, slot_index, "outputs")
+        """Look up output field name from callee VI context by slot index.
+
+        Searches both outputs and inputs — slot indices are shared across
+        the connector pane regardless of direction.
+        """
+        name = self._get_callee_terminal_name(vi_name, slot_index, "outputs")
+        if name:
+            return name
+        return self._get_callee_terminal_name(vi_name, slot_index, "inputs")
 
     def _get_callee_terminal_name(
         self, vi_name: str, slot_index: int, direction: str,
