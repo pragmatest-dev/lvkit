@@ -461,7 +461,7 @@ def build_result_class(vi_context: dict[str, Any]) -> ast.ClassDef | None:
     for name, type_hint in fields:
         ann = ast.AnnAssign(
             target=ast.Name(id=name, ctx=ast.Store()),
-            annotation=ast.Name(id=type_hint, ctx=ast.Load()),
+            annotation=parse_expr(type_hint),
             simple=1,
         )
         class_body.append(ann)

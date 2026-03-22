@@ -21,8 +21,16 @@ NODE_CLASS_INVOKE_NODE = "invokeNode"
 NODE_CLASS_CPD_ARITH = "cpdArith"  # Compound arithmetic (e.g., Or of multiple booleans)
 NODE_CLASS_ARRAY_BUILD = "aBuild"  # Array builder node
 NODE_CLASS_FLAT_SEQ = "flatSequence"  # Flat sequence structure
+NODE_CLASS_PRINTF = "printf"  # Format String primitive
+NODE_CLASS_NMUX = "nMux"  # Node Multiplexer (selector)
+NODE_CLASS_ARRAY_DELETE = "aDelete"  # Delete From Array
+NODE_CLASS_ARRAY_INDEX = "aIndx"  # Index Array (expandable)
+NODE_CLASS_CONCAT = "concat"  # Concatenate (strings/arrays)
+NODE_CLASS_SUBSET = "subset"  # Array/String Subset
+NODE_CLASS_MERGE_ERRORS = "mergeErrors"  # Merge Errors
+NODE_CLASS_OH_EXT = "oHExt"  # Obtain/Release Semaphore
 
-# All node classes that contain operations
+# All node classes that contain operations (and therefore have terminals)
 OPERATION_NODE_CLASSES = (
     NODE_CLASS_PRIM,
     NODE_CLASS_SUBVI,
@@ -39,6 +47,14 @@ OPERATION_NODE_CLASSES = (
     NODE_CLASS_CPD_ARITH,
     NODE_CLASS_ARRAY_BUILD,
     NODE_CLASS_FLAT_SEQ,
+    NODE_CLASS_PRINTF,
+    NODE_CLASS_NMUX,
+    NODE_CLASS_ARRAY_DELETE,
+    NODE_CLASS_ARRAY_INDEX,
+    NODE_CLASS_CONCAT,
+    NODE_CLASS_SUBSET,
+    NODE_CLASS_MERGE_ERRORS,
+    NODE_CLASS_OH_EXT,
 )
 
 # Loop node classes

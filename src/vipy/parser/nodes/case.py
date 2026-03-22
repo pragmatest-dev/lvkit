@@ -13,14 +13,23 @@ from .base import extract_tunnel_mapping
 # Tunnel DCO classes used in case structures
 CASE_TUNNEL_CLASSES = ("csTun",)  # Case structure tunnel
 
+# Selector DCO classes
+SELECTOR_DCO_CLASSES = ("cSelDCO", "caseSel")
+
+# All tunnel DCO classes (csTun for caseStruct, selTun for select)
+ALL_TUNNEL_CLASSES = ("csTun", "selTun")
+
 
 def extract_case_structures(root: ET.Element) -> list[CaseStructure]:
     """Extract case structures with frame mappings.
 
+    Handles both class='caseStruct' and class='select' elements.
+
     Case structures in LabVIEW have:
     - A selector terminal that receives the value to switch on
     - Multiple diagram frames (cases), each with its own set of operations
-    - Input/output tunnels that connect outer terminals to each frame's inner terminals
+    - Input/output tunnels that connect outer terminals to each frame's inner
+      terminals
 
     Args:
         root: XML root element
@@ -30,70 +39,143 @@ def extract_case_structures(root: ET.Element) -> list[CaseStructure]:
     """
     case_structures: list[CaseStructure] = []
 
-    for case_elem in root.findall(".//*[@class='caseStruct']"):
+    # Find both caseStruct and select elements
+    case_elems = list(root.findall(".//*[@class='caseStruct']"))
+    case_elems.extend(root.findall(".//*[@class='select']"))
+
+    for case_elem in case_elems:
         case_uid = case_elem.get("uid")
         if not case_uid:
             continue
 
-        selector_terminal_uid: str | None = None
-        selector_type: str | None = None
-        frames: list[CaseFrame] = []
-        tunnels: list[Tunnel] = []
-
-        # Find selector terminal (first terminal in termList typically)
-        term_list_elem = case_elem.find("termList")
-        if term_list_elem is not None:
-            for term_elem in term_list_elem.findall(
-                f"SL__arrayElement[@class='{TERMINAL_CLASS}']"
-            ):
-                term_uid = term_elem.get("uid")
-                if term_uid and selector_terminal_uid is None:
-                    # Check if this is a selector (has cSelDCO)
-                    dco = term_elem.find("dco[@class='cSelDCO']")
-                    if dco is not None:
-                        selector_terminal_uid = term_uid
-                        # Try to determine selector type from type info
-                        selector_type = _infer_selector_type(dco)
-
-                # Check for tunnel dco inside this terminal
-                dco = term_elem.find("dco")
-                if dco is not None:
-                    dco_class = dco.get("class", "")
-                    if dco_class in CASE_TUNNEL_CLASSES or dco_class == "csTun":
-                        tunnel = extract_tunnel_mapping(dco, dco_class)
-                        if tunnel:
-                            tunnels.append(tunnel)
-
-        # Extract diagram frames (cases)
-        diag_list = case_elem.find("diagramList")
-        if diag_list is not None:
-            for idx, diag_elem in enumerate(
-                diag_list.findall("SL__arrayElement[@class='diag']")
-            ):
-                frame = _extract_frame(diag_elem, idx)
-                if frame:
-                    frames.append(frame)
-
-        # If we didn't find a selector, mark as boolean (default)
-        if not selector_type and frames:
-            # Check if frames have boolean-like selector values
-            selector_values = [f.selector_value for f in frames]
-            if set(selector_values) <= {"True", "False", "Default"}:
-                selector_type = "boolean"
-            elif all(v.isdigit() or v == "Default" for v in selector_values):
-                selector_type = "integer"
-            else:
-                selector_type = "string"
-
-        case_structures.append(CaseStructure(
-            uid=case_uid,
-            selector_terminal_uid=selector_terminal_uid,
-            selector_type=selector_type,
-            frames=frames,
-            tunnels=tunnels,
-        ))
+        cs = _extract_one_case_structure(case_elem, case_uid)
+        if cs:
+            case_structures.append(cs)
 
     return case_structures
+
+
+def _extract_one_case_structure(
+    case_elem: ET.Element,
+    case_uid: str,
+) -> CaseStructure | None:
+    """Extract a single case structure from an XML element."""
+    selector_terminal_uid: str | None = None
+    selector_type: str | None = None
+    frames: list[CaseFrame] = []
+    tunnels: list[Tunnel] = []
+
+    # Count frames first (needed for selTun expansion)
+    diag_list = case_elem.find("diagramList")
+    num_frames = 0
+    if diag_list is not None:
+        num_frames = len(
+            diag_list.findall("SL__arrayElement[@class='diag']")
+        )
+
+    # Find selector terminal and tunnels
+    term_list_elem = case_elem.find("termList")
+    if term_list_elem is not None:
+        for term_elem in term_list_elem.findall(
+            f"SL__arrayElement[@class='{TERMINAL_CLASS}']"
+        ):
+            term_uid = term_elem.get("uid")
+
+            # Check for selector DCO
+            if term_uid and selector_terminal_uid is None:
+                for sel_cls in SELECTOR_DCO_CLASSES:
+                    dco = term_elem.find(f"dco[@class='{sel_cls}']")
+                    if dco is not None:
+                        selector_terminal_uid = term_uid
+                        selector_type = _infer_selector_type(dco)
+                        break
+
+            # Check for tunnel DCO
+            dco = term_elem.find("dco")
+            if dco is not None:
+                dco_class = dco.get("class", "")
+                if dco_class in ALL_TUNNEL_CLASSES:
+                    new_tunnels = _extract_case_tunnels(
+                        dco, dco_class, term_uid, num_frames,
+                    )
+                    tunnels.extend(new_tunnels)
+
+    # Extract diagram frames (cases)
+    if diag_list is not None:
+        for idx, diag_elem in enumerate(
+            diag_list.findall("SL__arrayElement[@class='diag']")
+        ):
+            frame = _extract_frame(diag_elem, idx)
+            if frame:
+                frames.append(frame)
+
+    # Infer selector type if not determined
+    if not selector_type and frames:
+        selector_values = [str(f.selector_value) for f in frames]
+        if set(selector_values) <= {
+            "True", "False", "Default", "true", "false", "default",
+        }:
+            selector_type = "boolean"
+        elif all(
+            v.isdigit() or v == "Default" for v in selector_values
+        ):
+            selector_type = "integer"
+        else:
+            selector_type = "string"
+
+    return CaseStructure(
+        uid=case_uid,
+        selector_terminal_uid=selector_terminal_uid,
+        selector_type=selector_type,
+        frames=frames,
+        tunnels=tunnels,
+    )
+
+
+def _extract_case_tunnels(
+    dco: ET.Element,
+    dco_class: str,
+    outer_terminal_uid: str | None,
+    num_frames: int,
+) -> list[Tunnel]:
+    """Extract tunnel(s) from a case structure DCO.
+
+    For csTun: simple [inner, outer] layout → 1 Tunnel.
+    For selTun: per-frame layout [frame0_inner, frame1_inner, ..., outer]
+    → one Tunnel per frame.
+    """
+    if dco_class == "csTun":
+        tunnel = extract_tunnel_mapping(dco, dco_class)
+        return [tunnel] if tunnel else []
+
+    # selTun: per-frame inner terminals
+    dco_term_list = dco.find("termList")
+    if dco_term_list is None:
+        return []
+
+    term_refs = [
+        e.get("uid")
+        for e in dco_term_list.findall("SL__arrayElement")
+        if e.get("uid")
+    ]
+
+    # Layout: [frame0_inner, frame1_inner, ..., outer_self]
+    # Last ref is the outer terminal (same as the parent terminal UID)
+    if len(term_refs) < 2:
+        return []
+
+    outer_uid = term_refs[-1]  # Last is outer
+    inner_refs = term_refs[:-1]  # Rest are per-frame inners
+
+    tunnels = []
+    for inner_uid in inner_refs:
+        tunnels.append(Tunnel(
+            outer_terminal_uid=outer_uid,
+            inner_terminal_uid=inner_uid,
+            tunnel_type=dco_class,
+        ))
+
+    return tunnels
 
 
 def _extract_frame(diag_elem: ET.Element, index: int) -> CaseFrame | None:
@@ -126,9 +208,11 @@ def _extract_frame(diag_elem: ET.Element, index: int) -> CaseFrame | None:
     # Determine if this is the default case
     is_default = "Default" in selector_value or selector_value.lower() == "default"
 
-    # Find operations inside this diagram
+    # Find operations inside this diagram (direct children only,
+    # not recursing into nested structures like inner case/loop nodeList)
     inner_node_uids: list[str] = []
-    for node_list in diag_elem.findall(".//nodeList"):
+    node_list = diag_elem.find("nodeList")
+    if node_list is not None:
         for node_elem in node_list.findall("SL__arrayElement"):
             node_uid = node_elem.get("uid")
             if node_uid:

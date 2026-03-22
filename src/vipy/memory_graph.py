@@ -63,6 +63,9 @@ _KIND_TO_LABELS: dict[str, list[str]] = {
     "loop": ["Loop"],
 }
 
+# Kinds that represent executable operations (for ordering/collection)
+_OPERATION_KINDS = ("subvi", "primitive", "operation", "caseStruct", "loop")
+
 
 def _get_operation_labels(kind: str) -> list[str]:
     """Get labels for an operation based on its kind.
@@ -695,7 +698,10 @@ class InMemoryVIGraph:
                     continue
 
                 subvi_name = data.get("name")
-                if not subvi_name or subvi_name not in self._dataflow:
+                if not subvi_name:
+                    continue
+                subvi_name = self.resolve_vi_name(subvi_name)
+                if subvi_name not in self._dataflow:
                     continue  # SubVI not loaded (stub)
 
                 # Get SubVI's FP terminals indexed by slot
@@ -982,6 +988,16 @@ class InMemoryVIGraph:
                     node_attrs["typedef_name"] = lv_type.typedef_name
                 g.add_node(term_uid, **node_attrs)
 
+        # Ensure all terminal parent nodes exist in the graph.
+        # sRN (shift register) nodes have terminals in terminal_info but
+        # aren't in bd.nodes — they're structural infrastructure, not
+        # operations. We add them as "infrastructure" so wire resolution
+        # can trace through them, but the codegen skips them.
+        for term_uid, term_info in bd.terminal_info.items():
+            parent_uid = term_info.parent_uid
+            if parent_uid and parent_uid not in g:
+                g.add_node(parent_uid, kind="infrastructure", node_type="sRN")
+
         # Add edges (wires)
         for wire in bd.wires:
             from_parent = None
@@ -1008,9 +1024,9 @@ class InMemoryVIGraph:
                 outer_parent_id = outer_parent.parent_uid if outer_parent else loop.uid
                 inner_parent_id = inner_parent.parent_uid if inner_parent else loop.uid
 
-                # lSR (left shift register) and lpTun: data flows INTO the loop
+                # lSR, lpTun, caseSel: data flows INTO the loop/structure
                 # outer -> inner
-                if tunnel.tunnel_type in ("lSR", "lpTun"):
+                if tunnel.tunnel_type in ("lSR", "lpTun", "caseSel"):
                     g.add_edge(
                         tunnel.outer_terminal_uid,
                         tunnel.inner_terminal_uid,
@@ -1030,6 +1046,29 @@ class InMemoryVIGraph:
                         from_parent=inner_parent_id,
                         to_parent=outer_parent_id,
                     )
+
+        # Register case structure tunnel terminals as graph nodes
+        # (same pattern as flat sequences below — ensures wire endpoints exist)
+        for case_struct in bd.case_structures:
+            for tunnel in case_struct.tunnels:
+                for uid in (tunnel.outer_terminal_uid, tunnel.inner_terminal_uid):
+                    if uid and uid not in g.nodes:
+                        g.add_node(
+                            uid,
+                            kind="terminal",
+                            parent_id=case_struct.uid,
+                        )
+
+        # Register loop tunnel terminals as graph nodes
+        for loop in bd.loops:
+            for tunnel in loop.tunnels:
+                for uid in (tunnel.outer_terminal_uid, tunnel.inner_terminal_uid):
+                    if uid and uid not in g.nodes:
+                        g.add_node(
+                            uid,
+                            kind="terminal",
+                            parent_id=loop.uid,
+                        )
 
         # Add tunnel edges from flat sequence structures
         for flat_seq in bd.flat_sequences:
@@ -1382,121 +1421,124 @@ class InMemoryVIGraph:
 
         # Add any ops not in the sorted order (disconnected), excluding inner nodes
         for n, d in g.nodes(data=True):
-            if (d.get("kind") in ("subvi", "primitive", "operation")
+            if (d.get("kind") in _OPERATION_KINDS
                 and n not in op_set
                 and n not in inner_node_uids):
                 ordered_ids.append(n)
 
-        result = []
-        for n in ordered_ids:
-            d = dict(g.nodes[n])
-            kind = d.get("kind", "operation")
-            node_type = d.get("node_type", "")
+        return [
+            self._build_operation(n, g, vi_name)
+            for n in ordered_ids
+            if n in g.nodes
+        ]
 
-            # Convert kind to labels for backward compatibility
-            labels = _get_operation_labels(kind)
+    def _build_operation(
+        self, uid: str, g: nx.DiGraph, vi_name: str
+    ) -> Operation:
+        """Build a single Operation dataclass from a graph node.
 
-            # Enrich terminals with callee parameter names for SubVIs
-            raw_terminals = d.get("terminals", [])
-            if kind == "subvi":
-                subvi_name = d.get("name")
-                raw_terminals = self._enrich_subvi_terminals(
-                    raw_terminals, subvi_name, vi_name
+        This is the ONE place that constructs Operation objects. Both
+        get_operations() (top-level) and _build_inner_nodes() (nested)
+        delegate here so all operations get identical processing:
+        terminal enrichment, structure handling, name resolution.
+        """
+        d = dict(g.nodes[uid])
+        kind = d.get("kind", "operation")
+        node_type = d.get("node_type", "")
+
+        labels = _get_operation_labels(kind)
+
+        # Enrich terminals with callee parameter names for SubVIs
+        raw_terminals = d.get("terminals", [])
+        if kind == "subvi":
+            subvi_name = d.get("name")
+            raw_terminals = self._enrich_subvi_terminals(
+                raw_terminals, subvi_name, vi_name
+            )
+
+        terminals = self._to_terminal_list(raw_terminals)
+
+        # Structure-specific fields
+        tunnels: list[Tunnel] = []
+        inner_nodes: list[Operation] = []
+        loop_type: str | None = None
+        stop_cond: str | None = None
+        case_frames: list[CaseFrame] = []
+        selector_terminal: str | None = None
+
+        if node_type in ("whileLoop", "forLoop"):
+            labels = ["Loop"]
+            loop_type = node_type
+            loop_struct = self._loop_structures.get(vi_name, {}).get(uid)
+            if loop_struct:
+                tunnels = self._build_tunnels(loop_struct.tunnels)
+                inner_nodes = self._build_inner_nodes(
+                    loop_struct.inner_node_uids, g, vi_name
+                )
+                stop_cond = loop_struct.stop_condition_terminal_uid
+
+        elif node_type in ("caseStruct", "select"):
+            labels = ["CaseStructure"]
+            case_struct = self._case_structures.get(vi_name, {}).get(uid)
+            if case_struct:
+                tunnels = self._build_tunnels(case_struct.tunnels)
+                selector_terminal = case_struct.selector_terminal_uid
+                case_frames = self._build_case_frames(
+                    case_struct.frames, g, vi_name
                 )
 
-            # Convert terminal dicts to Terminal dataclasses
-            terminals = self._to_terminal_list(raw_terminals)
+        elif node_type in ("flatSequence", "seq"):
+            labels = ["FlatSequence"]
+            flat_seq = self._flat_sequences.get(vi_name, {}).get(uid)
+            if flat_seq:
+                tunnels = self._build_tunnels(flat_seq.tunnels)
+                case_frames = self._build_sequence_frames(
+                    flat_seq.frames, g, vi_name
+                )
+                terminals = self._build_tunnel_terminals(
+                    flat_seq.tunnels, g,
+                )
 
-            # Build tunnels and inner_nodes for loops
-            tunnels: list[Tunnel] = []
-            inner_nodes: list[Operation] = []
-            loop_type: str | None = None
-            stop_cond: str | None = None
-            case_frames: list[CaseFrame] = []
-            selector_terminal: str | None = None
+        # Name fallback for unnamed structures
+        node_name = d.get("name")
+        if not node_name and node_type:
+            node_name = _NODE_TYPE_NAMES.get(node_type)
 
-            if node_type in ("whileLoop", "forLoop"):
-                labels = ["Loop"]  # Override label for loops
-                loop_type = node_type
-                loop_struct = self._loop_structures.get(vi_name, {}).get(n)
-                if loop_struct:
-                    tunnels = [
-                        Tunnel(
-                            outer_terminal_uid=t.outer_terminal_uid,
-                            inner_terminal_uid=t.inner_terminal_uid,
-                            tunnel_type=t.tunnel_type,
-                            paired_terminal_uid=t.paired_terminal_uid,
-                        )
-                        for t in loop_struct.tunnels
-                    ]
-                    inner_nodes = self._build_inner_nodes(
-                        loop_struct.inner_node_uids, g, vi_name
-                    )
-                    stop_cond = loop_struct.stop_condition_terminal_uid
+        return Operation(
+            id=uid,
+            name=node_name,
+            labels=labels,
+            primResID=d.get("prim_id"),
+            terminals=terminals,
+            node_type=node_type or None,
+            loop_type=loop_type,
+            tunnels=tunnels,
+            inner_nodes=inner_nodes,
+            stop_condition_terminal=stop_cond,
+            description=d.get("description"),
+            operation=d.get("operation"),
+            object_name=d.get("object_name"),
+            object_method_id=d.get("object_method_id"),
+            properties=d.get("properties", []),
+            method_name=d.get("method_name"),
+            method_code=d.get("method_code"),
+            case_frames=case_frames,
+            selector_terminal=selector_terminal,
+            poly_variant_name=d.get("poly_variant_name"),
+        )
 
-            elif node_type == "caseStruct":
-                labels = ["CaseStructure"]  # Override label for case structures
-                case_struct = self._case_structures.get(vi_name, {}).get(n)
-                if case_struct:
-                    tunnels = [
-                        Tunnel(
-                            outer_terminal_uid=t.outer_terminal_uid,
-                            inner_terminal_uid=t.inner_terminal_uid,
-                            tunnel_type=t.tunnel_type,
-                            paired_terminal_uid=t.paired_terminal_uid,
-                        )
-                        for t in case_struct.tunnels
-                    ]
-                    selector_terminal = case_struct.selector_terminal_uid
-                    case_frames = self._build_case_frames(
-                        case_struct.frames, g, vi_name
-                    )
-
-            elif node_type in ("flatSequence", "seq"):
-                labels = ["FlatSequence"]
-                flat_seq = self._flat_sequences.get(vi_name, {}).get(n)
-                if flat_seq:
-                    tunnels = [
-                        Tunnel(
-                            outer_terminal_uid=t.outer_terminal_uid,
-                            inner_terminal_uid=t.inner_terminal_uid,
-                            tunnel_type=t.tunnel_type,
-                            paired_terminal_uid=t.paired_terminal_uid,
-                        )
-                        for t in flat_seq.tunnels
-                    ]
-                    case_frames = self._build_sequence_frames(
-                        flat_seq.frames, g, vi_name
-                    )
-                    # Synthesize terminals from tunnel outer UIDs
-                    # so codegen topo sort sees dependencies
-                    terminals = self._build_tunnel_terminals(
-                        flat_seq.tunnels, g,
-                    )
-
-            result.append(Operation(
-                id=n,
-                name=d.get("name"),
-                labels=labels,
-                primResID=d.get("prim_id"),
-                terminals=terminals,
-                node_type=node_type or None,
-                loop_type=loop_type,
-                tunnels=tunnels,
-                inner_nodes=inner_nodes,
-                stop_condition_terminal=stop_cond,
-                description=d.get("description"),
-                operation=d.get("operation"),
-                object_name=d.get("object_name"),
-                object_method_id=d.get("object_method_id"),
-                properties=d.get("properties", []),
-                method_name=d.get("method_name"),
-                method_code=d.get("method_code"),
-                case_frames=case_frames,
-                selector_terminal=selector_terminal,
-                poly_variant_name=d.get("poly_variant_name"),
-            ))
-        return result
+    @staticmethod
+    def _build_tunnels(parser_tunnels: list) -> list[Tunnel]:
+        """Convert parser tunnel objects to Tunnel dataclasses."""
+        return [
+            Tunnel(
+                outer_terminal_uid=t.outer_terminal_uid,
+                inner_terminal_uid=t.inner_terminal_uid,
+                tunnel_type=t.tunnel_type,
+                paired_terminal_uid=t.paired_terminal_uid,
+            )
+            for t in parser_tunnels
+        ]
 
     def _build_tunnel_terminals(
         self,
@@ -1547,6 +1589,7 @@ class InMemoryVIGraph:
                 typedef_path=t.get("typedef_path"),
                 typedef_name=t.get("typedef_name"),
                 callee_param_name=t.get("callee_param_name"),
+                lv_type=t.get("lv_type"),
             ))
         return terminals
 
@@ -1560,7 +1603,10 @@ class InMemoryVIGraph:
 
         Uses cross-VI bindings to map caller terminal index → callee FP terminal name.
         """
-        if not subvi_name or subvi_name not in self._dataflow:
+        if not subvi_name:
+            return terminals
+        subvi_name = self.resolve_vi_name(subvi_name)
+        if subvi_name not in self._dataflow:
             return terminals
 
         # Get callee FP terminals with slot indices
@@ -1586,6 +1632,64 @@ class InMemoryVIGraph:
 
         return enriched
 
+    def _sort_inner_uids(
+        self, uids: list[str], g: nx.DiGraph
+    ) -> list[str]:
+        """Topologically sort inner node UIDs by their wire dependencies.
+
+        Inner nodes in case frames / loops may be listed in XML order,
+        which doesn't respect data dependencies. Sort them so producers
+        execute before consumers.
+
+        Only considers real operation nodes (not sRN infrastructure) to
+        avoid false dependency cycles from tunnel terminal wiring.
+        """
+        uid_set = set(uids)
+        if len(uid_set) <= 1:
+            return list(uids)
+
+        # Filter to real operations only (exclude sRN and other infra)
+        op_uid_set: set[str] = set()
+        for uid in uid_set:
+            if uid in g.nodes:
+                kind = g.nodes[uid].get("kind")
+                if kind in _OPERATION_KINDS:
+                    op_uid_set.add(uid)
+
+        if len(op_uid_set) <= 1:
+            return list(uids)
+
+        # Build terminal → parent mapping for operation nodes only
+        terminal_to_op: dict[str, str] = {}
+        for n, d in g.nodes(data=True):
+            if d.get("kind") == "terminal":
+                parent = d.get("parent_id")
+                if parent in op_uid_set:
+                    terminal_to_op[n] = parent
+
+        # Build dependency graph among inner operation nodes
+        dep = nx.DiGraph()
+        dep.add_nodes_from(op_uid_set)
+        for u, v, _ in g.edges(data=True):
+            src_op = terminal_to_op.get(u)
+            dst_op = terminal_to_op.get(v)
+            if src_op in op_uid_set and dst_op in op_uid_set and src_op != dst_op:
+                dep.add_edge(src_op, dst_op)
+
+        try:
+            sorted_ops = list(nx.topological_sort(dep))
+        except nx.NetworkXUnfeasible:
+            sorted_ops = list(op_uid_set)
+
+        # Build final list: sorted ops first, then non-op uids in original order
+        sorted_set = set(sorted_ops)
+        result = list(sorted_ops)
+        for uid in uids:
+            if uid not in sorted_set:
+                result.append(uid)
+
+        return result
+
     def _build_inner_nodes(
         self, uids: list[str], g: nx.DiGraph, vi_name: str
     ) -> list[Operation]:
@@ -1593,107 +1697,12 @@ class InMemoryVIGraph:
 
         Recursively handles nested loops.
         """
-        inner_ops = []
-        for uid in uids:
-            if uid not in g.nodes:
-                continue
-            d = dict(g.nodes[uid])
-            kind = d.get("kind", "operation")
-            node_type = d.get("node_type", "")
-
-            # Same labeling logic as get_operations
-            labels = _get_operation_labels(kind)
-
-            # Convert raw terminals to Terminal dataclasses
-            terminals = self._to_terminal_list(d.get("terminals", []))
-
-            # Build tunnels and inner_nodes for nested structures
-            tunnels: list[Tunnel] = []
-            nested_inner: list[Operation] = []
-            loop_type: str | None = None
-            case_frames: list[CaseFrame] = []
-            selector_terminal: str | None = None
-
-            if node_type in ("whileLoop", "forLoop"):
-                labels = ["Loop"]
-                loop_type = node_type
-                nested_struct = self._loop_structures.get(vi_name, {}).get(uid)
-                if nested_struct:
-                    tunnels = [
-                        Tunnel(
-                            outer_terminal_uid=t.outer_terminal_uid,
-                            inner_terminal_uid=t.inner_terminal_uid,
-                            tunnel_type=t.tunnel_type,
-                            paired_terminal_uid=t.paired_terminal_uid,
-                        )
-                        for t in nested_struct.tunnels
-                    ]
-                    nested_inner = self._build_inner_nodes(
-                        nested_struct.inner_node_uids, g, vi_name
-                    )
-
-            elif node_type in ("caseStruct", "select"):
-                labels = ["CaseStructure"]
-                case_struct = self._case_structures.get(vi_name, {}).get(uid)
-                if case_struct:
-                    tunnels = [
-                        Tunnel(
-                            outer_terminal_uid=t.outer_terminal_uid,
-                            inner_terminal_uid=t.inner_terminal_uid,
-                            tunnel_type=t.tunnel_type,
-                            paired_terminal_uid=t.paired_terminal_uid,
-                        )
-                        for t in case_struct.tunnels
-                    ]
-                    selector_terminal = case_struct.selector_terminal_uid
-                    case_frames = self._build_case_frames(
-                        case_struct.frames, g, vi_name
-                    )
-
-            elif node_type in ("flatSequence", "seq"):
-                labels = ["FlatSequence"]
-                flat_seq = self._flat_sequences.get(vi_name, {}).get(uid)
-                if flat_seq:
-                    tunnels = [
-                        Tunnel(
-                            outer_terminal_uid=t.outer_terminal_uid,
-                            inner_terminal_uid=t.inner_terminal_uid,
-                            tunnel_type=t.tunnel_type,
-                            paired_terminal_uid=t.paired_terminal_uid,
-                        )
-                        for t in flat_seq.tunnels
-                    ]
-                    case_frames = self._build_sequence_frames(
-                        flat_seq.frames, g, vi_name
-                    )
-
-            # Get name, falling back to node_type mapping
-            node_name = d.get("name")
-            if not node_name and node_type:
-                node_name = _NODE_TYPE_NAMES.get(node_type)
-
-            inner_ops.append(Operation(
-                id=uid,
-                name=node_name,
-                labels=labels,
-                primResID=d.get("prim_id"),
-                terminals=terminals,
-                node_type=node_type or None,
-                loop_type=loop_type,
-                tunnels=tunnels,
-                inner_nodes=nested_inner,
-                description=d.get("description"),
-                operation=d.get("operation"),
-                object_name=d.get("object_name"),
-                object_method_id=d.get("object_method_id"),
-                properties=d.get("properties", []),
-                method_name=d.get("method_name"),
-                method_code=d.get("method_code"),
-                case_frames=case_frames,
-                selector_terminal=selector_terminal,
-                poly_variant_name=d.get("poly_variant_name"),
-            ))
-        return inner_ops
+        sorted_uids = self._sort_inner_uids(uids, g)
+        return [
+            self._build_operation(uid, g, vi_name)
+            for uid in sorted_uids
+            if uid in g.nodes and g.nodes[uid].get("kind") in _OPERATION_KINDS
+        ]
 
     def _build_case_frames(
         self,
@@ -1761,7 +1770,7 @@ class InMemoryVIGraph:
         # Get operation node IDs
         op_ids = set(
             n for n, d in g.nodes(data=True)
-            if d.get("kind") in ("subvi", "primitive", "operation")
+            if d.get("kind") in _OPERATION_KINDS
         )
 
         if not op_ids:

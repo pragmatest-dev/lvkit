@@ -346,8 +346,9 @@ def test_unknown_primitive_raises_at_runtime():
     # Should be valid Python
     ast.parse(result)
 
-    # Should have NotImplementedError for unknown primitive
-    assert "raise NotImplementedError" in result
+    # Should have TODO comment for unknown primitive (not raise —
+    # raise would break dataflow for downstream operations)
+    assert "TODO" in result
     assert "99999" in result
 
 

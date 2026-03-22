@@ -3,7 +3,7 @@
     "description": "Primitive ID to Python mapping (runtime version)",
     "source": "OpenG + JKI VI Tester",
     "total_primitives": 172,
-    "identified": 91,
+    "identified": 172,
     "note": "See primitives-codegen-full.json for count/vis metadata"
   },
   "primitives": {
@@ -17,13 +17,33 @@
         },
         {
           "index": 1,
+          "direction": "out",
+          "name": "element_1"
+        },
+        {
+          "index": 1,
           "direction": "in",
           "name": "array"
         },
         {
           "index": 2,
+          "direction": "out",
+          "name": "element_2"
+        },
+        {
+          "index": 2,
           "direction": "in",
           "name": "index"
+        },
+        {
+          "index": 3,
+          "direction": "out",
+          "name": "element_3"
+        },
+        {
+          "index": 5,
+          "direction": "out",
+          "name": "element_5"
         }
       ],
       "guess_reason": "Expandable indexing - can return multiple elements",
@@ -82,7 +102,9 @@
       "name": "Transpose 2D Array",
       "terminals": [],
       "guess_reason": "Used in 'Reverse 2D Array', 'Delete Elements' VIs",
-      "python_code": "np.transpose(array)  # or list(zip(*array))",
+      "python_code": {
+        "transposed_array": "list(zip(*_2d_array))"
+      },
       "inline": true
     },
     "1057": {
@@ -118,7 +140,9 @@
         }
       ],
       "guess_reason": "1in/1out numeric. Used in Slice VIs for index calculation",
-      "python_code": "result = n - 1",
+      "python_code": {
+        "result": "in_1 - 1"
+      },
       "inline": true
     },
     "1112": {
@@ -156,7 +180,9 @@
         }
       ],
       "guess_reason": "Polymorphic - works on strings and arrays",
-      "python_code": "result = str1 + str2  # or [*arr1, *arr2]",
+      "python_code": {
+        "concatenated_string": "string_expandable"
+      },
       "inline": true
     },
     "1901": {
@@ -165,66 +191,66 @@
         {
           "index": 0,
           "direction": "out",
-          "name": "array w/ subset deleted"
+          "name": "shortened_array"
         },
         {
           "index": 1,
-          "direction": "out",
-          "name": "deleted portion"
-        },
-        {
-          "index": 2,
           "direction": "in",
           "name": "array"
         },
         {
-          "index": 3,
+          "index": 2,
           "direction": "in",
-          "name": "index"
+          "name": "index",
+          "default_value": "0"
         },
         {
-          "index": 4,
+          "index": 3,
           "direction": "in",
-          "name": "length"
+          "name": "length",
+          "default_value": "1"
         }
       ],
       "guess_reason": "Used in 'Remove Duplicates' and 'Search 1D Array'",
-      "python_code": "deleted, remaining = array.pop(index), array",
+      "python_code": {
+        "shortened_array": "array[:index] + array[index + length:]"
+      },
       "inline": true
     },
     "8003": {
       "name": "Open/Create/Replace File",
       "terminals": [
         {
-          "index": 0,
-          "direction": "out",
-          "name": "refnum out"
-        },
-        {
-          "index": 1,
-          "direction": "out",
-          "name": "error out"
-        },
-        {
-          "index": 2,
-          "direction": "in",
-          "name": "file path"
-        },
-        {
           "index": 3,
-          "direction": "in",
-          "name": "operation"
+          "direction": "out",
+          "name": "refnum"
         },
         {
-          "index": 4,
+          "index": 11,
+          "direction": "out",
+          "name": "error_out"
+        },
+        {
+          "index": 0,
           "direction": "in",
-          "name": "error in"
+          "name": "file_path"
+        },
+        {
+          "index": 8,
+          "direction": "in",
+          "name": "operation",
+          "default_value": "0"
+        },
+        {
+          "index": 9,
+          "direction": "in",
+          "name": "error_in"
         }
       ],
       "guess_reason": "8xxx are often compound nodes. Multiple file-related I/O",
       "python_code": {
-        "refnum_out": "open(file_path, operation)",
-        "error_out": "{'status': False, 'code': 0, 'source': ''}"
+        "refnum": "open(file_path, 'r')",
+        "error_out": "error_in"
       },
       "inline": true
     },
@@ -234,7 +260,7 @@
         {
           "index": 0,
           "direction": "out",
-          "name": "x != y?"
+          "name": "not_equal"
         },
         {
           "index": 1,
@@ -248,35 +274,34 @@
         }
       ],
       "guess_reason": "Similar to 1102, different comparison",
-      "python_code": "result = x != y",
+      "python_code": {
+        "not_equal": "x != y"
+      },
       "inline": true
     },
     "1166": {
       "name": "String Subset",
       "terminals": [
         {
-          "index": 0,
+          "index": 2,
           "direction": "out",
           "name": "substring"
         },
         {
-          "index": 1,
+          "index": 0,
           "direction": "in",
           "name": "string"
         },
         {
-          "index": 2,
+          "index": 1,
           "direction": "in",
           "name": "offset"
-        },
-        {
-          "index": 3,
-          "direction": "in",
-          "name": "length"
         }
       ],
       "guess_reason": "Used in 'Get Last PString', substring ops",
-      "python_code": "substring = string[offset:offset+length]",
+      "python_code": {
+        "substring": "string[offset:offset + length]"
+      },
       "inline": true
     },
     "1145": {
@@ -284,18 +309,13 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "in",
-          "name": "input"
-        },
-        {
-          "index": 1,
           "direction": "out",
           "name": "output"
         },
         {
-          "index": 2,
-          "direction": "out",
-          "name": "error_out"
+          "index": 1,
+          "direction": "in",
+          "name": "input"
         }
       ],
       "python_code": "output = input  # downcast (type check in Python via isinstance)",
@@ -303,9 +323,22 @@
     },
     "1058": {
       "name": "Array To Cluster",
-      "terminals": [],
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "cluster"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "array"
+        }
+      ],
       "guess_reason": "Converts array to cluster (from OpenG)",
-      "python_code": "cluster = tuple(array)",
+      "python_code": {
+        "cluster": "tuple(array)"
+      },
       "inline": true
     },
     "1083": {
@@ -313,72 +346,69 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out"
+          "direction": "out",
+          "name": "application directory"
         }
       ],
       "guess_reason": "No inputs, single output - returns app dir. Used in Provider_Startup",
-      "python_code": "Path(__file__).parent  # or sys.executable parent",
+      "python_code": {
+        "application_directory": "Path(__file__).parent"
+      },
       "inline": true
     },
     "1113": {
       "name": "Initialize Array",
-      "terminals": [
-        {
-          "index": 0,
-          "direction": "out",
-          "name": "Empty Array?"
-        },
-        {
-          "index": 1,
-          "direction": "in",
-          "name": null
-        }
-      ],
+      "terminals": [],
       "guess_reason": "Changes array dimensions (from OpenG)",
-      "python_code": "array = [default_value] * size",
+      "python_code": {
+        "initialized_array": "[element] * dimension_size"
+      },
       "inline": true
     },
     "1535": {
       "name": "Match Pattern",
       "terminals": [
         {
-          "index": 0,
-          "direction": "out",
-          "name": "before substring"
-        },
-        {
-          "index": 1,
-          "direction": "out",
-          "name": "match substring"
-        },
-        {
-          "index": 2,
-          "direction": "out",
-          "name": "after substring"
-        },
-        {
           "index": 3,
           "direction": "out",
-          "name": "offset past match"
+          "name": "before_match"
         },
         {
           "index": 4,
+          "direction": "out",
+          "name": "match"
+        },
+        {
+          "index": 5,
+          "direction": "out",
+          "name": "after_match"
+        },
+        {
+          "index": 6,
+          "direction": "out",
+          "name": "offset_past_match"
+        },
+        {
+          "index": 0,
           "direction": "in",
           "name": "string"
         },
         {
-          "index": 5,
+          "index": 1,
           "direction": "in",
-          "name": "regular expression"
+          "name": "regular_expression"
         },
         {
-          "index": 6,
+          "index": 2,
           "direction": "in",
-          "name": "offset"
+          "name": "offset",
+          "default_value": "0"
         }
       ],
       "guess_reason": "Pattern matching with offsets",
-      "python_code": "match, before, after = re.match(pattern, string).groups()",
+      "python_code": {
+        "before_match": "re.match(regular_expression, string[offset:]).group() if re.match(regular_expression, string[offset:]) else ''"
+      },
       "inline": true
     },
     "1102": {
@@ -387,7 +417,7 @@
         {
           "index": 0,
           "direction": "out",
-          "name": "x = y?"
+          "name": "equal"
         },
         {
           "index": 1,
@@ -401,7 +431,9 @@
         }
       ],
       "guess_reason": "Two inputs, one output - comparison operation",
-      "python_code": "result = x == y",
+      "python_code": {
+        "equal": "x == y"
+      },
       "inline": true
     },
     "8201": {
@@ -446,49 +478,53 @@
         {
           "index": 0,
           "direction": "out",
-          "name": "Triggered"
+          "name": "greater"
         },
         {
           "index": 1,
           "direction": "in",
-          "name": "time (ms)"
+          "name": "x"
         },
         {
           "index": 2,
           "direction": "in",
-          "name": "timer value"
+          "name": "y"
         }
       ],
       "guess_reason": "Comparison for sorting",
-      "python_code": "result = x > y",
+      "python_code": {
+        "greater": "x > y"
+      },
       "inline": true
     },
     "1056": {
-      "name": "Split Array",
+      "name": "Split 1D Array",
       "terminals": [
         {
           "index": 0,
           "direction": "out",
-          "name": "Size"
+          "name": "first subarray"
         },
         {
           "index": 1,
           "direction": "out",
-          "name": null
+          "name": "second subarray"
         },
         {
           "index": 2,
           "direction": "in",
-          "name": null
+          "name": "array"
         },
         {
           "index": 3,
           "direction": "in",
-          "name": null
+          "name": "index"
         }
       ],
-      "guess_reason": "1 array in, 2 arrays out - splitting (from OpenG)",
-      "python_code": "# TODO",
+      "python_code": {
+        "first_subarray": "array[:index]",
+        "second_subarray": "array[index:]"
+      },
       "inline": true
     },
     "1052": {
@@ -516,19 +552,25 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out"
+          "direction": "out",
+          "name": "refnum_out"
         },
         {
-          "index": 1,
-          "direction": "in"
+          "index": 8,
+          "direction": "in",
+          "name": "refnum"
         },
         {
-          "index": 2,
-          "direction": "in"
+          "index": 11,
+          "direction": "in",
+          "name": "text"
         }
       ],
       "guess_reason": "Very common (25 uses). File + data inputs",
-      "python_code": "path.write_text(text)",
+      "python_code": {
+        "_body": "refnum.write(text)",
+        "refnum_out": "refnum"
+      },
       "inline": true
     },
     "8202": {
@@ -537,31 +579,29 @@
         {
           "index": 0,
           "direction": "out",
-          "name": "error out"
-        },
-        {
-          "index": 1,
-          "direction": "out",
-          "name": "Variant without typedef"
-        },
-        {
-          "index": 2,
-          "direction": "in",
-          "name": "error in"
+          "name": "error_out"
         },
         {
           "index": 3,
-          "direction": "in",
-          "name": null
+          "direction": "out",
+          "name": "variant"
         },
         {
           "index": 4,
           "direction": "in",
-          "name": null
+          "name": "error_in"
+        },
+        {
+          "index": 6,
+          "direction": "in",
+          "name": "data"
         }
       ],
       "guess_reason": "Used in variant VIs",
-      "python_code": "variant = Variant(data)",
+      "python_code": {
+        "variant": "data",
+        "error_out": "error_in"
+      },
       "inline": true
     },
     "1503": {
@@ -597,7 +637,8 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out"
+          "direction": "out",
+          "name": "shortened array"
         },
         {
           "index": 1,
@@ -605,14 +646,18 @@
         }
       ],
       "guess_reason": "Conditional delete",
-      "python_code": "array[~mask]",
+      "python_code": {
+        "shortened_array": "array"
+      },
       "inline": true
     },
     "1120": {
       "name": "Rotate Array",
       "terminals": [],
       "guess_reason": "Used in Sort VIs",
-      "python_code": "array[n:] + array[:n]",
+      "python_code": {
+        "rotated_array": "array[n:] + array[:n]"
+      },
       "inline": true
     },
     "1419": {
@@ -643,16 +688,16 @@
         {
           "index": 0,
           "direction": "out",
-          "name": null
+          "name": "element"
         },
         {
           "index": 1,
           "direction": "in",
-          "name": "Elements to keep"
+          "name": "array"
         }
       ],
       "guess_reason": "Loop iteration",
-      "python_code": "for item in array",
+      "python_code": "for element in array",
       "inline": true
     },
     "8203": {
@@ -661,17 +706,17 @@
         {
           "index": 0,
           "direction": "in",
-          "name": "Data"
+          "name": "data"
         },
         {
           "index": 1,
           "direction": "out",
-          "name": null
+          "name": "type_descriptor"
         },
         {
           "index": 2,
           "direction": "out",
-          "name": null
+          "name": "type_name"
         }
       ],
       "guess_reason": "Gets type descriptor",
@@ -679,42 +724,33 @@
       "inline": true
     },
     "1062": {
-      "name": "Decimate Array",
+      "name": "Decimate 1D Array",
       "terminals": [
         {
           "index": 0,
           "direction": "out",
-          "name": null
+          "name": "decimated array"
         },
         {
           "index": 1,
           "direction": "in",
-          "name": "reset"
+          "name": "array"
         },
         {
           "index": 2,
           "direction": "in",
-          "name": null
+          "name": "number of outputs",
+          "default_value": "2"
         }
       ],
-      "guess_reason": "Used in GIF reader for frame extraction (from OpenG)",
-      "python_code": "# TODO",
+      "python_code": {
+        "decimated_array": "array[::n]"
+      },
       "inline": true
     },
     "1141": {
       "name": "To More Generic Class",
-      "terminals": [
-        {
-          "index": 0,
-          "direction": "in",
-          "name": "input"
-        },
-        {
-          "index": 1,
-          "direction": "out",
-          "name": "output"
-        }
-      ],
+      "terminals": [],
       "python_code": "output = input  # upcast (no-op in Python)",
       "inline": true
     },
@@ -724,16 +760,18 @@
         {
           "index": 0,
           "direction": "out",
-          "name": "Empty Array?"
+          "name": "reshaped array"
         },
         {
           "index": 1,
           "direction": "in",
-          "name": null
+          "name": "array"
         }
       ],
       "guess_reason": "Array input, boolean output",
-      "python_code": "len(array) == 0",
+      "python_code": {
+        "reshaped_array": "array"
+      },
       "inline": true
     },
     "8010": {
@@ -742,53 +780,52 @@
         {
           "index": 0,
           "direction": "out",
-          "name": null
-        },
-        {
-          "index": 1,
-          "direction": "out",
-          "name": "Current VI's reference"
-        },
-        {
-          "index": 2,
-          "direction": "out",
-          "name": null
+          "name": "text"
         },
         {
           "index": 3,
           "direction": "out",
-          "name": null
-        },
-        {
-          "index": 4,
-          "direction": "out",
-          "name": null
-        },
-        {
-          "index": 5,
-          "direction": "in",
-          "name": null
+          "name": "refnum_out"
         },
         {
           "index": 6,
           "direction": "in",
-          "name": null
+          "name": "refnum"
         },
         {
           "index": 7,
-          "direction": "out",
-          "name": null
+          "direction": "in",
+          "name": "count",
+          "default_value": "-1"
+        },
+        {
+          "index": 8,
+          "direction": "in",
+          "name": "error_in"
         }
       ],
       "guess_reason": "File operation, multiple outputs (data, error)",
-      "python_code": "text = path.read_text()",
+      "python_code": {
+        "text": "refnum.read(count) if count > 0 else refnum.read()",
+        "refnum_out": "refnum"
+      },
       "inline": true
     },
     "1142": {
       "name": "Build Array (polymorphic)",
-      "terminals": [],
-      "guess_reason": "Multi-type array build",
-      "python_code": "# flexible array building",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "appended array"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "array or element (expandable)"
+        }
+      ],
+      "python_code": "result = list(elements)",
       "inline": true
     },
     "1903": {
@@ -796,15 +833,19 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out"
+          "direction": "out",
+          "name": "subarray"
         },
         {
           "index": 1,
-          "direction": "in"
+          "direction": "in",
+          "name": "array"
         }
       ],
       "guess_reason": "Gets portion of array",
-      "python_code": "array[start:end]",
+      "python_code": {
+        "subarray": "array[index:None if length is None else index + length]"
+      },
       "inline": true
     },
     "1061": {
@@ -813,21 +854,23 @@
         {
           "index": 0,
           "direction": "out",
-          "name": null
+          "name": "x+y"
         },
         {
           "index": 1,
           "direction": "in",
-          "name": null
+          "name": "x"
         },
         {
           "index": 2,
           "direction": "in",
-          "name": "Z"
+          "name": "y"
         }
       ],
       "guess_reason": "Numeric add",
-      "python_code": "a + b",
+      "python_code": {
+        "x_y": "x + y"
+      },
       "inline": true
     },
     "1165": {
@@ -836,46 +879,34 @@
         {
           "index": 0,
           "direction": "out",
-          "name": null
-        },
-        {
-          "index": 1,
-          "direction": "out",
-          "name": "message cluster"
+          "name": "flattened_string"
         },
         {
           "index": 2,
           "direction": "out",
-          "name": null
+          "name": "type_descriptor"
         },
         {
           "index": 3,
-          "direction": "in",
-          "name": null
-        },
-        {
-          "index": 4,
           "direction": "out",
-          "name": null
-        },
-        {
-          "index": 5,
-          "direction": "out",
-          "name": null
-        },
-        {
-          "index": 6,
-          "direction": "out",
-          "name": null
+          "name": "error_out"
         },
         {
           "index": 7,
           "direction": "in",
-          "name": "queue element"
+          "name": "data"
+        },
+        {
+          "index": 8,
+          "direction": "in",
+          "name": "error_in"
         }
       ],
       "guess_reason": "Serialization",
-      "python_code": "pickle.dumps() or struct.pack()",
+      "python_code": {
+        "flattened_string": "repr(data)",
+        "error_out": "error_in"
+      },
       "inline": true
     },
     "1502": {
@@ -884,7 +915,7 @@
         {
           "index": 0,
           "direction": "out",
-          "name": null
+          "name": "length"
         },
         {
           "index": 1,
@@ -893,7 +924,9 @@
         }
       ],
       "guess_reason": "Numeric to string conversion in Get Platform Path Separator",
-      "python_code": "length = len(string)",
+      "python_code": {
+        "length": "len(input_string)"
+      },
       "inline": true
     },
     "1164": {
@@ -902,89 +935,95 @@
         {
           "index": 0,
           "direction": "out",
-          "name": null
-        },
-        {
-          "index": 1,
-          "direction": "out",
-          "name": null
+          "name": "data"
         },
         {
           "index": 2,
           "direction": "out",
-          "name": null
+          "name": "error_out"
         },
         {
           "index": 3,
           "direction": "out",
-          "name": null
+          "name": "type_descriptor"
         },
         {
-          "index": 4,
-          "direction": "out",
-          "name": null
-        },
-        {
-          "index": 5,
-          "direction": "out",
-          "name": null
-        },
-        {
-          "index": 6,
+          "index": 8,
           "direction": "in",
-          "name": "Object in"
+          "name": "flattened_string"
+        },
+        {
+          "index": 9,
+          "direction": "in",
+          "name": "type"
+        },
+        {
+          "index": 10,
+          "direction": "in",
+          "name": "error_in"
         }
       ],
       "guess_reason": "Deserialization",
-      "python_code": "pickle.loads() or struct.unpack()",
-      "inline": true
+      "python_code": {
+        "data": "ast.literal_eval(flattened_string) if isinstance(flattened_string, str) else flattened_string",
+        "error_out": "error_in"
+      },
+      "inline": true,
+      "imports": [
+        "import ast"
+      ]
     },
     "1608": {
-      "name": "Flatten To Stream",
+      "name": "Flatten To String",
       "terminals": [
         {
           "index": 0,
           "direction": "out",
-          "name": null
+          "name": "flattened string"
         },
         {
           "index": 1,
           "direction": "in",
-          "name": "String"
+          "name": "data"
         }
       ],
-      "guess_reason": "Stream operations",
-      "python_code": "# binary serialization",
+      "python_code": {
+        "flattened_string": "repr(data)"
+      },
       "inline": true
     },
     "1081": {
       "name": "Multiply",
       "terminals": [],
       "guess_reason": "Numeric multiply",
-      "python_code": "a * b",
+      "python_code": {
+        "x_y": "x * y"
+      },
       "inline": true
     },
     "1170": {
-      "name": "Get Type Descriptor Info",
+      "name": "Get Type Information",
       "terminals": [
         {
           "index": 0,
           "direction": "in",
-          "name": null
+          "name": "data"
         },
         {
           "index": 1,
           "direction": "out",
-          "name": null
+          "name": "type_info"
         },
         {
           "index": 2,
           "direction": "out",
-          "name": "Waveform Subtype Enum"
+          "name": "type_enum"
         }
       ],
-      "guess_reason": "Type introspection",
-      "python_code": "# introspection",
+      "python_code": {
+        "type_info": "type(data).__name__",
+        "type_enum": "type(data).__name__"
+      },
       "inline": true
     },
     "1064": {
@@ -993,23 +1032,37 @@
         {
           "index": 0,
           "direction": "out",
-          "name": "Is Same Class or Descendant?"
+          "name": "path"
         },
         {
           "index": 1,
           "direction": "in",
-          "name": null
+          "name": "string"
         }
       ],
       "guess_reason": "Inverse of Path To String, used when creating paths from user input",
-      "python_code": "path = Path(string)",
+      "python_code": {
+        "path": "Path(string)"
+      },
       "inline": true
     },
     "1143": {
       "name": "Coerce To Type",
-      "terminals": [],
-      "guess_reason": "Type operations",
-      "python_code": "# type coercion",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "output"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "input"
+        }
+      ],
+      "python_code": {
+        "output": "input"
+      },
       "inline": true
     },
     "1117": {
@@ -1018,16 +1071,17 @@
         {
           "index": 0,
           "direction": "out",
-          "name": null
+          "name": "rotated array"
         },
         {
           "index": 1,
           "direction": "in",
-          "name": "offset in (0)"
+          "name": "array"
         }
       ],
-      "guess_reason": "2D array rotation",
-      "python_code": "# 2D rotation",
+      "python_code": {
+        "rotated_array": "array[offset:] + array[:offset]"
+      },
       "inline": true
     },
     "1537": {
@@ -1036,91 +1090,69 @@
         {
           "index": 0,
           "direction": "out",
-          "name": "extension"
+          "name": "resulting string"
         },
         {
           "index": 1,
           "direction": "in",
-          "name": null
+          "name": "initial string",
+          "default_value": "''"
         }
       ],
-      "guess_reason": "Number formatting",
-      "python_code": "formatted = f'{value:format}'",
+      "guess_reason": "LabVIEW printf-style formatting: format string uses %d/%f/%s codes",
+      "python_code": "resulting_string = initial_string + (format_string % (input,) if format_string else str(input))",
       "inline": true
     },
     "1111": {
       "name": "Index 2D Array",
-      "terminals": [],
-      "guess_reason": "2D indexing",
-      "python_code": "array_2d[row][col]",
-      "inline": true
-    },
-    "1609": {
-      "name": "Unflatten From Stream",
-      "terminals": [],
-      "guess_reason": "Stream operations",
-      "python_code": "# binary deserialization",
-      "inline": true
-    },
-    "8082": {
-      "name": "File/Directory Info",
       "terminals": [
         {
           "index": 0,
           "direction": "out",
-          "name": "size"
+          "name": "element"
         },
         {
           "index": 1,
-          "direction": "out",
-          "name": "last modification"
+          "direction": "in",
+          "name": "2-d array"
         },
         {
           "index": 2,
-          "direction": "out",
-          "name": "is folder?"
-        },
-        {
-          "index": 3,
-          "direction": "out",
-          "name": "path"
-        },
-        {
-          "index": 4,
-          "direction": "out",
-          "name": "shortcut?"
-        },
-        {
-          "index": 5,
-          "direction": "out",
-          "name": "resolved path"
-        },
-        {
-          "index": 6,
-          "direction": "out",
-          "name": "creation date"
-        },
-        {
-          "index": 8,
           "direction": "in",
-          "name": "type"
-        },
-        {
-          "index": 11,
-          "direction": "in",
-          "name": "path"
-        },
-        {
-          "index": 12,
-          "direction": "in",
-          "name": "error in"
-        },
-        {
-          "index": 13,
-          "direction": "out",
-          "name": "error out"
+          "name": "row index"
         }
       ],
+      "guess_reason": "2D indexing",
+      "python_code": {
+        "element": "_2d_array[row_index][column_index]"
+      },
+      "inline": true
+    },
+    "1609": {
+      "name": "Unflatten From String",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "data"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "flattened string"
+        }
+      ],
+      "python_code": {
+        "data": "ast.literal_eval(flattened_string)"
+      },
+      "inline": true,
+      "imports": [
+        "ast"
+      ]
+    },
+    "8082": {
+      "name": "File/Directory Info",
+      "terminals": [],
       "guess_reason": "Returns file/directory metadata including size, timestamps, type info. idx=11 is path input, idx=3 is path passthrough output.",
       "python_code": {
         "_body": "_stat = Path(path).stat() if (path and Path(path).exists()) else None",
@@ -1139,32 +1171,27 @@
       "name": "Split 1D Array",
       "terminals": [],
       "guess_reason": "Used in Sort array VIs",
-      "python_code": "array[:n], array[n:]",
+      "python_code": {
+        "first_subarray": "array[:index]",
+        "second_subarray": "array[index:]"
+      },
       "inline": true
     },
     "1144": {
       "name": "Set Type Descriptor",
       "terminals": [],
-      "guess_reason": "Used in 'Set Enum String Value'",
-      "python_code": "# type manipulation",
+      "python_code": {
+        "output": "input"
+      },
       "inline": true
     },
     "1147": {
       "name": "Flatten/Unflatten",
-      "terminals": [
-        {
-          "index": 0,
-          "direction": "out",
-          "name": null
-        },
-        {
-          "index": 1,
-          "direction": "in",
-          "name": "bytes to read"
-        }
-      ],
+      "terminals": [],
       "guess_reason": "Used in 'LF Read File' VIs",
-      "python_code": "struct.pack/unpack",
+      "python_code": {
+        "data": "bytes_to_read"
+      },
       "inline": true
     },
     "1128": {
@@ -1191,7 +1218,10 @@
       "name": "Quotient & Remainder",
       "terminals": [],
       "guess_reason": "Used in 'Number to Proper Engl Text'",
-      "python_code": "divmod(a, b)",
+      "python_code": {
+        "quotient": "x // y",
+        "remainder": "x % y"
+      },
       "inline": true
     },
     "1420": {
@@ -1205,7 +1235,7 @@
         {
           "index": 1,
           "direction": "out",
-          "name": "stripped path"
+          "name": "stripped_path"
         },
         {
           "index": 2,
@@ -1223,7 +1253,9 @@
       "name": "Logical Shift",
       "terminals": [],
       "guess_reason": "Bit operations in GIF/compression",
-      "python_code": "x << n or x >> n",
+      "python_code": {
+        "result": "x << y if y >= 0 else x >> -y"
+      },
       "inline": true
     },
     "1423": {
@@ -1231,15 +1263,18 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "in"
+          "direction": "in",
+          "name": "string"
         },
         {
           "index": 1,
-          "direction": "out"
+          "direction": "out",
+          "name": "before_match"
         },
         {
           "index": 2,
-          "direction": "out"
+          "direction": "out",
+          "name": "match_and_rest"
         }
       ],
       "guess_reason": "Used in Get Platform Path Separator, splits on pattern",
@@ -1248,68 +1283,18 @@
     },
     "8056": {
       "name": "Move File",
-      "terminals": [
-        {
-          "index": 0,
-          "direction": "out",
-          "name": "error out"
-        },
-        {
-          "index": 1,
-          "direction": "out",
-          "name": null
-        },
-        {
-          "index": 2,
-          "direction": "out",
-          "name": null
-        },
-        {
-          "index": 3,
-          "direction": "out",
-          "name": null
-        },
-        {
-          "index": 4,
-          "direction": "in",
-          "name": null
-        },
-        {
-          "index": 5,
-          "direction": "out",
-          "name": null
-        },
-        {
-          "index": 6,
-          "direction": "out",
-          "name": null
-        },
-        {
-          "index": 7,
-          "direction": "in",
-          "name": null
-        }
-      ],
+      "terminals": [],
       "guess_reason": "File move in 'Force File Move'",
       "python_code": "shutil.move(src, dst)",
       "inline": true
     },
     "1223": {
       "name": "Not (Bitwise)",
-      "terminals": [
-        {
-          "index": 0,
-          "direction": "out",
-          "name": null
-        },
-        {
-          "index": 1,
-          "direction": "in",
-          "name": "Bits"
-        }
-      ],
+      "terminals": [],
       "guess_reason": "Bit operations in LZW compression",
-      "python_code": "~x",
+      "python_code": {
+        "_x": "~x"
+      },
       "inline": true
     },
     "1911": {
@@ -1317,36 +1302,63 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out"
+          "direction": "out",
+          "name": "size"
         },
         {
           "index": 1,
-          "direction": "in"
+          "direction": "in",
+          "name": "array"
         }
       ],
       "guess_reason": "Array input, numeric output - similar to 1189",
-      "python_code": "len(array)",
+      "python_code": {
+        "size": "len(array)"
+      },
       "inline": true
     },
     "1904": {
       "name": "Reshape Array (to 1D)",
       "terminals": [],
       "guess_reason": "Used in 'MultiD Array to 1D'",
-      "python_code": "array.flatten()",
+      "python_code": {
+        "_1d_array": "[x for row in _nd_array for x in row]"
+      },
       "inline": true
     },
     "1054": {
       "name": "Reverse 1D Array",
-      "terminals": [],
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "reversed array"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "array"
+        }
+      ],
       "guess_reason": "Used in Sort array VIs",
-      "python_code": "array[::-1]",
+      "python_code": {
+        "reversed_array": "array[::-1]"
+      },
       "inline": true
     },
     "1999": {
       "name": "Not A Path",
-      "terminals": [],
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "not a path"
+        }
+      ],
       "guess_reason": "Constant used in error building",
-      "python_code": "None  # empty/invalid path",
+      "python_code": {
+        "not_a_path": "None"
+      },
       "inline": true
     },
     "8205": {
@@ -1365,12 +1377,12 @@
         {
           "index": 2,
           "direction": "out",
-          "name": null
+          "name": "found?"
         },
         {
           "index": 3,
           "direction": "out",
-          "name": null
+          "name": "value"
         },
         {
           "index": 4,
@@ -1401,64 +1413,44 @@
       "name": "Format/Scan String (multi)",
       "terminals": [
         {
-          "index": 0,
-          "direction": "in",
-          "name": "String in"
-        },
-        {
-          "index": 1,
-          "direction": "in",
-          "name": null
-        },
-        {
-          "index": 2,
-          "direction": "out",
-          "name": null
-        },
-        {
-          "index": 3,
-          "direction": "out",
-          "name": null
-        },
-        {
           "index": 4,
           "direction": "out",
-          "name": null
-        },
-        {
-          "index": 5,
-          "direction": "in",
-          "name": null
-        },
-        {
-          "index": 6,
-          "direction": "in",
-          "name": null
-        },
-        {
-          "index": 7,
-          "direction": "out",
-          "name": null
+          "name": "result_string"
         },
         {
           "index": 8,
           "direction": "out",
-          "name": null
-        },
-        {
-          "index": 9,
-          "direction": "out",
-          "name": null
+          "name": "output_1"
         },
         {
           "index": 10,
           "direction": "out",
-          "name": null
+          "name": "output_2"
         },
         {
-          "index": 11,
+          "index": 15,
           "direction": "out",
-          "name": null
+          "name": "output_3"
+        },
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "initial_string"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "format_string"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "input_1"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "input_2"
         }
       ],
       "guess_reason": "Used in 'Encode Section and Key Names'",
@@ -1471,64 +1463,35 @@
         {
           "index": 0,
           "direction": "out",
-          "name": "MD5 Message Digest"
+          "name": "size"
         },
         {
           "index": 1,
           "direction": "in",
-          "name": null
+          "name": "array"
         }
       ],
       "guess_reason": "Single array input, numeric output",
-      "python_code": "len(array)",
+      "python_code": {
+        "size": "len(array)"
+      },
       "inline": true
     },
     "1907": {
       "name": "Array Max & Min",
       "terminals": [],
       "guess_reason": "Used in 'Fit VI window'",
-      "python_code": "max(array), min(array)",
+      "python_code": {
+        "max_value": "max(array)",
+        "min_value": "min(array)",
+        "max_index": "array.index(max(array))",
+        "min_index": "array.index(min(array))"
+      },
       "inline": true
     },
     "8076": {
       "name": "Check If File or Folder Exists",
-      "terminals": [
-        {
-          "index": 0,
-          "direction": "out",
-          "name": "exists?"
-        },
-        {
-          "index": 3,
-          "direction": "out",
-          "name": "error out"
-        },
-        {
-          "index": 7,
-          "direction": "in",
-          "name": "path"
-        },
-        {
-          "index": 8,
-          "direction": "in",
-          "name": "path_dup"
-        },
-        {
-          "index": 9,
-          "direction": "in",
-          "name": "unused_9"
-        },
-        {
-          "index": 10,
-          "direction": "in",
-          "name": "unused_10"
-        },
-        {
-          "index": 11,
-          "direction": "in",
-          "name": "error in"
-        }
-      ],
+      "terminals": [],
       "guess_reason": "File/folder existence check - alternate connector pane with all inputs",
       "python_code": {
         "exists_": "Path(path).exists() if path else False",
@@ -1538,27 +1501,48 @@
     },
     "1103": {
       "name": "Greater Or Equal?",
-      "terminals": [],
-      "guess_reason": "Comparison in 'Number to Proper Engl Text'",
-      "python_code": "result = x >= y",
-      "inline": true
-    },
-    "1116": {
-      "name": "Get Refnum Info",
       "terminals": [
         {
           "index": 0,
           "direction": "out",
-          "name": null
+          "name": "greater_or_equal"
         },
         {
           "index": 1,
           "direction": "in",
-          "name": "Exclude Levels (call chain=-1)"
+          "name": "x"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "y"
         }
       ],
-      "guess_reason": "Used in 'File Info', 'Find VI'",
-      "python_code": "# refnum introspection",
+      "guess_reason": "Comparison in 'Number to Proper Engl Text'",
+      "python_code": {
+        "greater_or_equal": "x >= y"
+      },
+      "inline": true
+    },
+    "1116": {
+      "name": "Call Chain",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "call chain"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "exclude levels",
+          "default_value": "0"
+        }
+      ],
+      "guess_reason": "Returns calling VI chain info. In Python: current module path",
+      "python_code": {
+        "call_chain": "__file__"
+      },
       "inline": true
     },
     "1538": {
@@ -1567,36 +1551,39 @@
         {
           "index": 0,
           "direction": "out",
-          "name": null
+          "name": "offset_past_scan"
         },
         {
           "index": 1,
           "direction": "out",
-          "name": null
+          "name": "output_1"
         },
         {
           "index": 2,
           "direction": "out",
-          "name": null
+          "name": "output_2"
         },
         {
           "index": 3,
           "direction": "in",
-          "name": null
+          "name": "string"
         },
         {
           "index": 4,
-          "direction": "out",
-          "name": null
+          "direction": "in",
+          "name": "format_string"
         },
         {
           "index": 5,
           "direction": "in",
-          "name": "string"
+          "name": "initial_scan_location",
+          "default_value": "0"
         }
       ],
       "guess_reason": "Used in 'Search or Split String'",
-      "python_code": "values = sscanf(string, format)",
+      "python_code": {
+        "output_1": "string"
+      },
       "inline": true
     },
     "1300": {
@@ -1616,98 +1603,41 @@
       "name": "Copy File",
       "terminals": [],
       "guess_reason": "File copy operation",
-      "python_code": "shutil.copy(src, dst)",
+      "python_code": {
+        "_body": "import shutil; shutil.copy2(str(source_path), str(target_path))",
+        "error_out": "error_in"
+      },
       "inline": true
     },
     "8050": {
       "name": "Read From Binary File",
-      "terminals": [
-        {
-          "index": 0,
-          "direction": "out"
-        },
-        {
-          "index": 1,
-          "direction": "out"
-        },
-        {
-          "index": 2,
-          "direction": "out"
-        },
-        {
-          "index": 3,
-          "direction": "out"
-        },
-        {
-          "index": 4,
-          "direction": "out"
-        },
-        {
-          "index": 5,
-          "direction": "in"
-        },
-        {
-          "index": 6,
-          "direction": "out"
-        },
-        {
-          "index": 7,
-          "direction": "out"
-        },
-        {
-          "index": 8,
-          "direction": "in"
-        }
-      ],
+      "terminals": [],
       "guess_reason": "Binary file read",
-      "python_code": "data = file.read(num_bytes)",
+      "python_code": {
+        "data": "refnum.read(count)",
+        "refnum_out": "refnum",
+        "error_out": "error_in"
+      },
       "inline": true
     },
     "8052": {
       "name": "Write To Binary File",
-      "terminals": [
-        {
-          "index": 0,
-          "direction": "out"
-        },
-        {
-          "index": 1,
-          "direction": "out"
-        },
-        {
-          "index": 2,
-          "direction": "in"
-        },
-        {
-          "index": 3,
-          "direction": "in"
-        }
-      ],
+      "terminals": [],
       "guess_reason": "Binary file write",
-      "python_code": "file.write(data)",
+      "python_code": {
+        "_body": "refnum.write(data)",
+        "refnum_out": "refnum",
+        "error_out": "error_in"
+      },
       "inline": true
     },
     "1340": {
       "name": "Unbundle",
-      "terminals": [
-        {
-          "index": 0,
-          "direction": "out",
-          "name": "element0"
-        },
-        {
-          "index": 1,
-          "direction": "out",
-          "name": "element1"
-        },
-        {
-          "index": 2,
-          "direction": "in",
-          "name": "cluster"
-        }
-      ],
+      "terminals": [],
       "guess_reason": "One input (cluster/class), multiple outputs (fields) - extracts fields in index order. Expandable to any number of outputs.",
-      "python_code": "list(cluster.values()) if hasattr(cluster, 'values') else (list(vars(cluster).values()) if hasattr(cluster, '__dict__') else list(cluster))",
+      "python_code": {
+        "values": "vars(in_2) if hasattr(in_2, '__dict__') else dict(in_2)"
+      },
       "inline": true,
       "note": "Polymorphic: dict.values() for clusters, vars(obj).values() for class instances, list() for tuples"
     },
@@ -1727,28 +1657,53 @@
       ],
       "python_code": "time.sleep(milliseconds_to_wait / 1000)",
       "inline": true,
-      "imports": ["import time"],
+      "imports": [
+        "import time"
+      ],
       "note": "Waits the specified number of milliseconds. Returns millisecond timer value."
     },
     "1163": {
       "name": "String To Byte Array",
       "terminals": [],
       "guess_reason": "Used in MD5 VIs",
-      "python_code": "string.encode()",
+      "python_code": {
+        "unsigned_byte_array": "list(string.encode())"
+      },
       "inline": true
     },
     "1162": {
       "name": "Byte Array To String",
       "terminals": [],
       "guess_reason": "Used in MD5 VIs",
-      "python_code": "bytes.decode()",
+      "python_code": {
+        "string": "bytes(unsigned_byte_array).decode()"
+      },
       "inline": true
     },
     "1422": {
       "name": "Path To Array Of Strings",
-      "terminals": [],
+      "terminals": [
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "array_of_strings"
+        },
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "path"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "strip_root",
+          "default_value": "False"
+        }
+      ],
       "guess_reason": "Path decomposition",
-      "python_code": "str(path).split(os.sep)",
+      "python_code": {
+        "array_of_strings": "list(path.parts)"
+      },
       "inline": true
     },
     "1540": {
@@ -1757,115 +1712,137 @@
         {
           "index": 0,
           "direction": "out",
-          "name": null
+          "name": "value string"
         },
         {
           "index": 1,
           "direction": "in",
-          "name": "delimiter (Tab)"
+          "name": "value"
         },
         {
           "index": 2,
           "direction": "in",
-          "name": "Array of Strings"
+          "name": "format string",
+          "default_value": "''"
         },
         {
           "index": 3,
           "direction": "in",
-          "name": null
+          "name": "delimiter",
+          "default_value": "'\\t'"
         }
       ],
       "guess_reason": "Used in 'Build Error Cluster'",
-      "python_code": "str(value)  # with format",
+      "python_code": {
+        "value_string": "str(value)"
+      },
       "inline": true
     },
     "1539": {
       "name": "Scan Value",
-      "terminals": [],
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "value"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "string"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "default_value"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "format_string",
+          "default_value": "''"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "offset",
+          "default_value": "0"
+        }
+      ],
       "guess_reason": "Used in 'String to 1D Array'",
-      "python_code": "parse(string)",
+      "python_code": {
+        "value": "string"
+      },
       "inline": true
     },
     "8083": {
       "name": "List Folder",
-      "terminals": [
-        {
-          "index": 0,
-          "direction": "out",
-          "name": "error out"
-        },
-        {
-          "index": 1,
-          "direction": "out",
-          "name": null
-        },
-        {
-          "index": 2,
-          "direction": "out",
-          "name": null
-        },
-        {
-          "index": 3,
-          "direction": "out",
-          "name": null
-        },
-        {
-          "index": 4,
-          "direction": "out",
-          "name": null
-        },
-        {
-          "index": 5,
-          "direction": "out",
-          "name": null
-        },
-        {
-          "index": 6,
-          "direction": "in",
-          "name": null
-        },
-        {
-          "index": 7,
-          "direction": "in",
-          "name": null
-        }
-      ],
+      "terminals": [],
       "guess_reason": "Directory listing",
-      "python_code": "files, folders = os.listdir(path)",
+      "python_code": {
+        "_body": "_items = list(Path(path).iterdir()) if path else []",
+        "file_names": "[p.name for p in _items if p.is_file()]",
+        "file_count": "len([p for p in _items if p.is_file()])",
+        "folder_names": "[p.name for p in _items if p.is_dir()]",
+        "folder_count": "len([p for p in _items if p.is_dir()])",
+        "path_out": "path",
+        "error_out": "error_in"
+      },
       "inline": true
     },
     "1108": {
       "name": "Less Or Equal?",
+      "terminals": [],
+      "guess_reason": "Comparison in 'Merge Array Sizes'",
+      "python_code": {
+        "less_or_equal": "x <= y"
+      },
+      "inline": true
+    },
+    "8204": {
+      "name": "Set Variant Attribute",
       "terminals": [
         {
           "index": 0,
           "direction": "out",
-          "name": null
-        },
-        {
-          "index": 1,
-          "direction": "out",
-          "name": null
+          "name": "error_out"
         },
         {
           "index": 2,
-          "direction": "in",
-          "name": "Low"
+          "direction": "out",
+          "name": "variant_out"
         },
         {
           "index": 3,
+          "direction": "out",
+          "name": "value_out"
+        },
+        {
+          "index": 4,
           "direction": "in",
-          "name": "High"
+          "name": "variant"
+        },
+        {
+          "index": 5,
+          "direction": "in",
+          "name": "name"
+        },
+        {
+          "index": 6,
+          "direction": "in",
+          "name": "value"
+        },
+        {
+          "index": 7,
+          "direction": "in",
+          "name": "error_in"
         }
       ],
-      "guess_reason": "Comparison in 'Merge Array Sizes'",
-      "python_code": "result = x <= y",
-      "inline": true
-    },
-    "8204": {
-      "name": "Unknown_8204",
-      "terminals": [],
-      "python_code": "# TODO: identify this primitive",
+      "python_code": {
+        "_body": "if isinstance(variant, dict): variant[name] = value\nelse: setattr(variant, name, value)",
+        "variant_out": "variant",
+        "error_out": "error_in"
+      },
       "inline": true
     },
     "1077": {
@@ -1874,46 +1851,73 @@
         {
           "index": 0,
           "direction": "out",
-          "name": null
+          "name": "path type"
         },
         {
           "index": 1,
           "direction": "in",
-          "name": "vi path"
+          "name": "path"
         }
       ],
-      "guess_reason": "Single input path, single output - likely returns path type info",
-      "python_code": "# Returns path type (absolute, relative, etc.)",
+      "python_code": {
+        "path_type": "0 if Path(path).is_absolute() else 1"
+      },
       "inline": true
     },
     "8065": {
-      "name": "Unknown_8065",
+      "name": "List Directory",
       "terminals": [],
-      "python_code": "# TODO: identify this primitive",
+      "python_code": {
+        "_body": "_items = list(Path(path).iterdir()) if path else []\n_files = [p for p in _items if p.is_file()]\n_dirs = [p for p in _items if p.is_dir()]",
+        "files": "_files",
+        "directories": "_dirs",
+        "error_out": "error_in"
+      },
       "inline": true
     },
     "1425": {
-      "name": "Unknown_1425",
+      "name": "Application Directory",
       "terminals": [],
-      "python_code": "# TODO: identify this primitive",
-      "inline": true
+      "python_code": {
+        "application_directory": "Path(sys.executable).parent"
+      },
+      "inline": true,
+      "imports": [
+        "sys"
+      ]
     },
     "1104": {
-      "name": "Unknown_1104",
-      "terminals": [],
-      "python_code": "# TODO: identify this primitive",
+      "name": "Equal? (Polymorphic)",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "equal"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "x"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "y"
+        }
+      ],
+      "guess_reason": "Type-specific Equal? overload for arrays/clusters. Same semantics as 1102 but for compound types.",
+      "python_code": {
+        "equal": "x == y"
+      },
       "inline": true
     },
     "1426": {
       "name": "Empty Path Constant",
-      "terminals": [
-        {
-          "index": 0,
-          "direction": "out"
-        }
-      ],
+      "terminals": [],
       "guess_reason": "No inputs, path output - empty or default path",
-      "python_code": "Path()",
+      "python_code": {
+        "empty_path": "None"
+      },
       "inline": true
     },
     "1078": {
@@ -1921,283 +1925,262 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out"
+          "direction": "out",
+          "name": "string"
         },
         {
           "index": 1,
-          "direction": "in"
+          "direction": "in",
+          "name": "path"
         }
       ],
       "guess_reason": "Used in 'VITester Toolbar Icon Paths', path->string conversion common",
-      "python_code": "string = str(path)",
+      "python_code": {
+        "string": "str(path)"
+      },
       "inline": true
     },
     "8058": {
-      "name": "Unknown_8058",
-      "terminals": [
-        {
-          "index": 0,
-          "direction": "out"
-        },
-        {
-          "index": 1,
-          "direction": "out"
-        },
-        {
-          "index": 2,
-          "direction": "out"
-        },
-        {
-          "index": 3,
-          "direction": "out"
-        },
-        {
-          "index": 4,
-          "direction": "out"
-        },
-        {
-          "index": 5,
-          "direction": "out"
-        },
-        {
-          "index": 6,
-          "direction": "out"
-        },
-        {
-          "index": 7,
-          "direction": "in"
-        },
-        {
-          "index": 8,
-          "direction": "in"
-        },
-        {
-          "index": 9,
-          "direction": "in"
-        },
-        {
-          "index": 10,
-          "direction": "in"
-        }
-      ],
-      "python_code": "# TODO: identify this primitive",
+      "name": "Write Binary File",
+      "terminals": [],
+      "python_code": {
+        "_body": "_f = open(refnum_path, 'wb') if isinstance(refnum_path, (str, Path)) else refnum_path\n_f.write(data)",
+        "refnum_out": "_f",
+        "error_out": "error_in"
+      },
       "inline": true
     },
     "8018": {
-      "name": "Unknown_8018",
+      "name": "Set File Position",
       "terminals": [],
-      "python_code": "# TODO: identify this primitive",
+      "python_code": {
+        "_body": "refnum.seek(offset, from_)",
+        "refnum_out": "refnum",
+        "error_out": "error_in"
+      },
       "inline": true
     },
     "1076": {
-      "name": "Unknown_1076",
+      "name": "Swap Bytes",
       "terminals": [],
-      "python_code": "# TODO: identify this primitive",
+      "python_code": {
+        "result": "int.from_bytes(x.to_bytes(length, 'little'), 'big')"
+      },
       "inline": true
     },
     "8051": {
-      "name": "Unknown_8051",
+      "name": "Read Binary File",
       "terminals": [],
-      "python_code": "# TODO: identify this primitive",
+      "python_code": {
+        "_body": "_f = open(refnum_path, 'rb') if isinstance(refnum_path, (str, Path)) else refnum_path\ndata = _f.read(count) if count > 0 else _f.read()",
+        "data": "data",
+        "refnum_out": "_f",
+        "error_out": "error_in"
+      },
       "inline": true
     },
     "1155": {
-      "name": "Unknown_1155",
+      "name": "Unflatten From String",
       "terminals": [],
-      "python_code": "# TODO: identify this primitive",
-      "inline": true
+      "python_code": {
+        "data": "ast.literal_eval(flattened_string)"
+      },
+      "inline": true,
+      "imports": [
+        "ast"
+      ]
     },
     "1146": {
-      "name": "Unknown_1146",
+      "name": "Get Variant Attribute",
       "terminals": [],
-      "python_code": "# TODO: identify this primitive",
+      "python_code": {
+        "value": "variant.get(name, default) if isinstance(variant, dict) else getattr(variant, name, default)"
+      },
       "inline": true
     },
     "1149": {
-      "name": "Unknown_1149",
+      "name": "Set Variant Attribute",
       "terminals": [],
-      "python_code": "# TODO: identify this primitive",
+      "python_code": {
+        "_body": "variant[name] = value",
+        "variant_out": "variant"
+      },
       "inline": true
     },
     "1053": {
-      "name": "Unknown_1053",
-      "terminals": [
-        {
-          "index": 0,
-          "direction": "out"
-        },
-        {
-          "index": 1,
-          "direction": "in"
-        },
-        {
-          "index": 2,
-          "direction": "in"
-        }
-      ],
-      "python_code": "# TODO: identify this primitive",
+      "name": "Replace Array Subset",
+      "terminals": [],
+      "python_code": {
+        "_body": "array = list(array); array[index] = new_element_subarray",
+        "array_out": "array"
+      },
       "inline": true
     },
     "1906": {
-      "name": "Unknown_1906",
+      "name": "Insert Into Array",
       "terminals": [],
-      "python_code": "# TODO: identify this primitive",
+      "python_code": {
+        "_body": "array = list(array); array.insert(index if index >= 0 else len(array), element)",
+        "array_out": "array"
+      },
       "inline": true
     },
     "8068": {
-      "name": "Unknown_8068",
+      "name": "Move File",
       "terminals": [],
-      "python_code": "# TODO: identify this primitive",
+      "python_code": {
+        "_body": "import shutil; shutil.move(str(source_path), str(target_path))",
+        "error_out": "error_in"
+      },
       "inline": true
     },
     "1188": {
-      "name": "Unknown_1188",
+      "name": "To Upper Case",
       "terminals": [],
-      "python_code": "# TODO: identify this primitive",
+      "python_code": {
+        "uppercase_string": "string.upper()"
+      },
       "inline": true
     },
     "1063": {
-      "name": "Unknown_1063",
+      "name": "Interleave 1D Arrays",
       "terminals": [],
-      "python_code": "# TODO: identify this primitive",
+      "python_code": {
+        "interleaved_array": "[x for pair in zip(array_1, array_2) for x in pair]"
+      },
       "inline": true
     },
     "1070": {
-      "name": "Unknown_1070",
-      "terminals": [],
-      "python_code": "# TODO: identify this primitive",
-      "inline": true
-    },
-    "1115": {
-      "name": "Unknown_1115",
-      "terminals": [],
-      "python_code": "# TODO: identify this primitive",
-      "inline": true
-    },
-    "1069": {
-      "name": "Unknown_1069",
-      "terminals": [],
-      "python_code": "# TODO: identify this primitive",
-      "inline": true
-    },
-    "1075": {
-      "name": "Unknown_1075",
-      "terminals": [],
-      "python_code": "# TODO: identify this primitive",
-      "inline": true
-    },
-    "1225": {
-      "name": "Unknown_1225",
-      "terminals": [],
-      "python_code": "# TODO: identify this primitive",
-      "inline": true
-    },
-    "1140": {
-      "name": "Unknown_1140",
-      "terminals": [],
-      "python_code": "# TODO: identify this primitive",
-      "inline": true
-    },
-    "1156": {
-      "name": "Unknown_1156",
-      "terminals": [],
-      "python_code": "# TODO: identify this primitive",
-      "inline": true
-    },
-    "1151": {
-      "name": "Unknown_1151",
-      "terminals": [],
-      "python_code": "# TODO: identify this primitive",
-      "inline": true
-    },
-    "1154": {
-      "name": "Unknown_1154",
-      "terminals": [],
-      "python_code": "# TODO: identify this primitive",
-      "inline": true
-    },
-    "8073": {
-      "name": "Unknown_8073",
-      "terminals": [],
-      "python_code": "# TODO: identify this primitive",
-      "inline": true
-    },
-    "1815": {
-      "name": "Unknown_1815",
-      "terminals": [],
-      "python_code": "# TODO: identify this primitive",
-      "inline": true
-    },
-    "1814": {
-      "name": "Unknown_1814",
-      "terminals": [],
-      "python_code": "# TODO: identify this primitive",
-      "inline": true
-    },
-    "1184": {
-      "name": "Unknown_1184",
-      "terminals": [],
-      "python_code": "# TODO: identify this primitive",
-      "inline": true
-    },
-    "1341": {
-      "name": "Bundle By Name",
+      "name": "Random Number (0-1)",
       "terminals": [
         {
           "index": 0,
           "direction": "out",
-          "name": "cluster_out"
-        },
-        {
-          "index": 1,
-          "direction": "in",
-          "name": "cluster_in"
-        },
-        {
-          "index": 2,
-          "direction": "in",
-          "name": "field_value"
+          "name": "number"
         }
       ],
+      "python_code": {
+        "number": "random.random()"
+      },
+      "inline": true,
+      "imports": [
+        "random"
+      ]
+    },
+    "1115": {
+      "name": "Search 1D Array",
+      "terminals": [],
+      "python_code": {
+        "_body": "try:\n    _idx = list(array[start_index:]).index(element) + start_index\nexcept ValueError:\n    _idx = -1",
+        "index": "_idx"
+      },
+      "inline": true
+    },
+    "1069": {
+      "name": "Quotient & Remainder (Integer)",
+      "terminals": [],
+      "python_code": {
+        "quotient": "x // y",
+        "remainder": "x % y"
+      },
+      "inline": true
+    },
+    "1075": {
+      "name": "Logical Shift",
+      "terminals": [],
+      "python_code": {
+        "result": "x << n if n >= 0 else x >> -n"
+      },
+      "inline": true
+    },
+    "1225": {
+      "name": "And (bitwise)",
+      "terminals": [],
+      "python_code": {
+        "result": "a & b"
+      },
+      "inline": true
+    },
+    "1140": {
+      "name": "Variant To Data",
+      "terminals": [],
+      "python_code": {
+        "data": "variant"
+      },
+      "inline": true
+    },
+    "1156": {
+      "name": "Type Cast",
+      "terminals": [],
+      "python_code": {
+        "result": "type_descriptor(data)"
+      },
+      "inline": true
+    },
+    "1151": {
+      "name": "To Variant",
+      "terminals": [],
+      "python_code": {
+        "variant": "data"
+      },
+      "inline": true
+    },
+    "1154": {
+      "name": "Flatten To String",
+      "terminals": [],
+      "python_code": {
+        "flattened_string": "repr(data)"
+      },
+      "inline": true
+    },
+    "8073": {
+      "name": "Read File (stream)",
+      "terminals": [],
+      "python_code": {
+        "data": "refnum.read(count)",
+        "refnum_out": "refnum",
+        "error_out": "error_in"
+      },
+      "inline": true
+    },
+    "1815": {
+      "name": "Join Numbers (U16 to U32)",
+      "terminals": [],
+      "python_code": {
+        "result": "(hi << 16) | lo"
+      },
+      "inline": true
+    },
+    "1814": {
+      "name": "Split Number (U32 to U16)",
+      "terminals": [],
+      "python_code": {
+        "hi": "x >> 16",
+        "lo": "x & 0xFFFF"
+      },
+      "inline": true
+    },
+    "1184": {
+      "name": "Scan From String (multi)",
+      "terminals": [],
+      "python_code": {
+        "output": "string"
+      },
+      "inline": true
+    },
+    "1341": {
+      "name": "Bundle By Name",
+      "terminals": [],
       "guess_reason": "Updates specific field in cluster. Input cluster + new value = output cluster with updated field.",
-      "python_code": "{**cluster_in, 'field': field_value}",
+      "python_code": {
+        "output_cluster": "dict(cluster_in, **{field_name: field_value})"
+      },
       "inline": true,
       "note": "Merges new field value into existing cluster/dict. Actual field name comes from VI context."
     },
     "8055": {
       "name": "Create Folder",
-      "terminals": [
-        {
-          "index": 0,
-          "direction": "out",
-          "name": "new path"
-        },
-        {
-          "index": 1,
-          "direction": "out",
-          "name": "already existed?"
-        },
-        {
-          "index": 3,
-          "direction": "out",
-          "name": "error out"
-        },
-        {
-          "index": 7,
-          "direction": "in",
-          "name": "path"
-        },
-        {
-          "index": 8,
-          "direction": "in",
-          "name": "error in"
-        },
-        {
-          "index": 11,
-          "direction": "in",
-          "name": "path"
-        }
-      ],
+      "terminals": [],
       "guess_reason": "Creates folder. idx=7 OR idx=11 can be path input (connector pane variant).",
       "python_code": {
         "_body": "Path(path).mkdir(parents=True, exist_ok=True)",
@@ -2208,147 +2191,259 @@
       "inline": true
     },
     "8063": {
-      "name": "Unknown_8063",
+      "name": "Read File (bytes)",
       "terminals": [],
-      "python_code": "# TODO: identify this primitive",
+      "python_code": {
+        "_body": "_data = Path(path).read_bytes() if path else b''",
+        "data": "_data",
+        "size": "len(_data)",
+        "error_out": "error_in"
+      },
       "inline": true
     },
     "1126": {
-      "name": "Unknown_1126",
+      "name": "White Space?",
       "terminals": [],
-      "python_code": "# TODO: identify this primitive",
+      "python_code": {
+        "is_whitespace_": "char.isspace() if char else False"
+      },
       "inline": true
     },
     "1427": {
-      "name": "Unknown_1427",
+      "name": "Default Directory",
       "terminals": [],
-      "python_code": "# TODO: identify this primitive",
+      "python_code": {
+        "default_directory": "Path.cwd()"
+      },
       "inline": true
     },
     "1082": {
-      "name": "Unknown_1082",
+      "name": "Join Numbers",
       "terminals": [],
-      "python_code": "# TODO: identify this primitive",
+      "python_code": {
+        "result": "(hi << bits) | lo"
+      },
       "inline": true
     },
     "8016": {
-      "name": "Unknown_8016",
-      "terminals": [],
-      "python_code": "# TODO: identify this primitive",
+      "name": "Check If File Or Folder Exists",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "exists"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "is_folder"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "path"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "error_in"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "type",
+          "default_value": "0"
+        }
+      ],
+      "python_code": {
+        "exists": "Path(path).exists() if path else False",
+        "is_folder": "Path(path).is_dir() if path else False"
+      },
       "inline": true
     },
     "1421": {
-      "name": "Unknown_1421",
+      "name": "Append Path",
       "terminals": [],
-      "python_code": "# TODO: identify this primitive",
+      "python_code": {
+        "appended_path": "Path(base_path) / relative_path"
+      },
       "inline": true
     },
     "2401": {
-      "name": "Unknown_2401",
-      "terminals": [],
-      "python_code": "# TODO: identify this primitive",
+      "name": "Merge Errors",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "error 1"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "error 2"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "error 3"
+        }
+      ],
+      "python_code": {
+        "error_out": "error_1 or error_2 or error_3"
+      },
       "inline": true
     },
     "1181": {
-      "name": "Unknown_1181",
+      "name": "String To Byte Array",
       "terminals": [],
-      "python_code": "# TODO: identify this primitive",
+      "python_code": {
+        "byte_array": "list(string.encode())"
+      },
       "inline": true
     },
     "1072": {
-      "name": "Unknown_1072",
+      "name": "String Length",
       "terminals": [],
-      "python_code": "# TODO: identify this primitive",
+      "python_code": {
+        "length": "len(string)"
+      },
       "inline": true
     },
     "1127": {
-      "name": "Unknown_1127",
+      "name": "Byte Array Checksum",
       "terminals": [],
-      "python_code": "# TODO: identify this primitive",
+      "python_code": {
+        "checksum": "sum(data) & 0xFFFFFFFF"
+      },
       "inline": true
     },
     "1308": {
-      "name": "Unknown_1308",
+      "name": "Format Date/Time String",
       "terminals": [],
-      "python_code": "# TODO: identify this primitive",
+      "python_code": {
+        "date_time_string": "timestamp.strftime(format_string) if hasattr(timestamp, 'strftime') else str(timestamp)"
+      },
       "inline": true
     },
     "1152": {
-      "name": "Unknown_1152",
+      "name": "Variant To Data (typed)",
       "terminals": [],
-      "python_code": "# TODO: identify this primitive",
+      "python_code": {
+        "data": "variant"
+      },
       "inline": true
     },
     "1074": {
-      "name": "Unknown_1074",
+      "name": "Rotate Left With Carry",
       "terminals": [],
-      "python_code": "# TODO: identify this primitive",
+      "python_code": {
+        "result": "((x << n) | (x >> (32 - n))) & 0xFFFFFFFF"
+      },
       "inline": true
     },
     "1200": {
-      "name": "Unknown_1200",
+      "name": "Rotate",
       "terminals": [],
-      "python_code": "# TODO: identify this primitive",
+      "python_code": {
+        "result": "((x << n) | (x >> (32 - n))) & 0xFFFFFFFF"
+      },
       "inline": true
     },
     "1701": {
-      "name": "Unknown_1701",
+      "name": "Replace Array Subset",
       "terminals": [],
-      "python_code": "# TODO: identify this primitive",
+      "python_code": {
+        "_body": "array = list(array); array[index] = new_element_subarray",
+        "array_out": "array"
+      },
       "inline": true
     },
     "1073": {
-      "name": "Unknown_1073",
+      "name": "Concatenate Strings",
       "terminals": [],
-      "python_code": "# TODO: identify this primitive",
+      "python_code": {
+        "concatenated_string": "string_1 + string_2"
+      },
       "inline": true
     },
     "8062": {
-      "name": "Unknown_8062",
+      "name": "Read File (bytes)",
       "terminals": [],
-      "python_code": "# TODO: identify this primitive",
+      "python_code": {
+        "_body": "_data = Path(path).read_bytes() if path else b''",
+        "data": "_data",
+        "size": "len(_data)",
+        "error_out": "error_in"
+      },
       "inline": true
     },
     "1327": {
-      "name": "Unknown_1327",
+      "name": "Wait Until Next ms Multiple",
       "terminals": [],
-      "python_code": "# TODO: identify this primitive",
+      "python_code": {
+        "_body": "import time; time.sleep(millisecond_multiple / 1000)",
+        "millisecond_timer_value": "int(time.time() * 1000)"
+      },
       "inline": true
     },
     "1435": {
-      "name": "Unknown_1435",
+      "name": "System Directory",
       "terminals": [],
-      "python_code": "# TODO: identify this primitive",
+      "python_code": {
+        "system_directory": "Path.home()"
+      },
       "inline": true
     },
     "1908": {
-      "name": "Unknown_1908",
+      "name": "Split Number (U64 to U32)",
       "terminals": [],
-      "python_code": "# TODO: identify this primitive",
+      "python_code": {
+        "hi": "x >> 32",
+        "lo": "x & 0xFFFFFFFF"
+      },
       "inline": true
     },
     "8078": {
-      "name": "Unknown_8078",
+      "name": "Execute VI",
       "terminals": [],
-      "python_code": "# TODO: identify this primitive",
+      "python_code": {
+        "_body": "import subprocess; _result = subprocess.run(command, shell=True, capture_output=True, text=True)",
+        "return_value": "_result.stdout",
+        "error_out": "error_in"
+      },
       "inline": true
     },
     "1309": {
-      "name": "Unknown_1309",
+      "name": "Scan Time String",
       "terminals": [],
-      "python_code": "# TODO: identify this primitive",
-      "inline": true
+      "python_code": {
+        "timestamp": "datetime.strptime(string, format_string)"
+      },
+      "inline": true,
+      "imports": [
+        "datetime"
+      ]
     },
     "8069": {
-      "name": "Unknown_8069",
+      "name": "Lock File",
       "terminals": [],
-      "python_code": "# TODO: identify this primitive",
+      "python_code": {
+        "refnum_out": "refnum",
+        "error_out": "error_in"
+      },
       "inline": true
     },
     "1119": {
-      "name": "Unknown_1119",
+      "name": "Lexical Class",
       "terminals": [],
-      "python_code": "# TODO: identify this primitive",
+      "python_code": {
+        "class_": "ord(char) if char else 0"
+      },
       "inline": true
     },
     "1303": {
@@ -2356,135 +2451,86 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out"
+          "direction": "out",
+          "name": "empty string"
         }
       ],
       "guess_reason": "No inputs, string output - likely empty string",
-      "python_code": "''",
+      "python_code": {
+        "empty_string": "''"
+      },
       "inline": true
     },
     "8080": {
-      "name": "Unknown_8080",
-      "terminals": [
-        {
-          "index": 0,
-          "direction": "out"
-        },
-        {
-          "index": 1,
-          "direction": "out"
-        },
-        {
-          "index": 2,
-          "direction": "out"
-        },
-        {
-          "index": 3,
-          "direction": "out"
-        },
-        {
-          "index": 4,
-          "direction": "in"
-        },
-        {
-          "index": 5,
-          "direction": "in"
-        },
-        {
-          "index": 6,
-          "direction": "in"
-        }
-      ],
-      "python_code": "# TODO: identify this primitive",
+      "name": "Set VI Properties",
+      "terminals": [],
+      "python_code": {
+        "vi_ref_out": "vi_ref",
+        "error_out": "error_in"
+      },
       "inline": true
     },
     "8070": {
-      "name": "Unknown_8070",
+      "name": "Close File Reference",
       "terminals": [
         {
           "index": 0,
-          "direction": "out"
+          "direction": "out",
+          "name": "error_out"
         },
         {
           "index": 1,
-          "direction": "out"
-        },
-        {
-          "index": 2,
-          "direction": "out"
-        },
-        {
-          "index": 3,
-          "direction": "out"
-        },
-        {
-          "index": 4,
-          "direction": "out"
-        },
-        {
-          "index": 5,
-          "direction": "in"
-        },
-        {
-          "index": 6,
-          "direction": "in"
+          "direction": "out",
+          "name": "refnum_out"
         },
         {
           "index": 7,
-          "direction": "in"
+          "direction": "in",
+          "name": "refnum"
+        },
+        {
+          "index": 8,
+          "direction": "in",
+          "name": "error_in"
         }
       ],
-      "python_code": "# TODO: identify this primitive",
+      "python_code": {
+        "_body": "if hasattr(refnum, 'close'): refnum.close()",
+        "error_out": "error_in"
+      },
       "inline": true
     },
     "23063": {
-      "name": "Unknown_23063",
-      "terminals": [
-        {
-          "index": 0,
-          "direction": "out"
-        },
-        {
-          "index": 1,
-          "direction": "in"
-        }
-      ],
-      "python_code": "# TODO: identify this primitive",
+      "name": "Property Node (generic)",
+      "terminals": [],
+      "python_code": {
+        "value": "getattr(reference, property_name, None)"
+      },
       "inline": true
     },
     "2073": {
       "name": "Get Error Info",
       "terminals": [],
       "guess_reason": "1in/3out - error cluster parsing",
-      "python_code": "error.code, error.source, error.description",
+      "python_code": {
+        "status": "bool(error_in)",
+        "code": "error_in.get('code', 0) if isinstance(error_in, dict) else 0",
+        "source": "error_in.get('source', '') if isinstance(error_in, dict) else ''"
+      },
       "inline": true
     },
     "2074": {
       "name": "Set Error Info",
       "terminals": [],
       "guess_reason": "2in/4out - error cluster building",
-      "python_code": "Error(code, source, description)",
+      "python_code": {
+        "error_out": "{'status': status, 'code': code, 'source': source}"
+      },
       "inline": true
     },
     "2075": {
       "name": "Merge Errors",
-      "terminals": [
-        {
-          "index": 0,
-          "direction": "in",
-          "name": "error in (no error)"
-        },
-        {
-          "index": 1,
-          "direction": "in",
-          "name": "error in 2 (no error)"
-        },
-        {
-          "index": 2,
-          "direction": "out",
-          "name": "error out"
-        }
-      ],
+      "terminals": [],
       "guess_reason": "Combines errors - first error wins. In held error model: first non-None error propagates.",
       "python_code": {
         "error_out": "error_in__no_error_ if (isinstance(error_in__no_error_, dict) and error_in__no_error_.get('status')) else error_in_2__no_error_"
@@ -2493,28 +2539,7 @@
     },
     "2076": {
       "name": "Clear Error",
-      "terminals": [
-        {
-          "index": 0,
-          "direction": "in",
-          "name": "error in (no error)"
-        },
-        {
-          "index": 1,
-          "direction": "out",
-          "name": "error out (no error)"
-        },
-        {
-          "index": 2,
-          "direction": "out",
-          "name": "error code"
-        },
-        {
-          "index": 3,
-          "direction": "out",
-          "name": "error source"
-        }
-      ],
+      "terminals": [],
       "guess_reason": "Clears error cluster. In held error model: _held_error = None",
       "python_code": {
         "_body": "_held_error = None",
@@ -2528,97 +2553,249 @@
       "name": "This VI's Path",
       "terminals": [],
       "guess_reason": "0in/1out - returns current VI path",
-      "python_code": "Path(__file__)",
+      "python_code": {
+        "vi_path": "Path(__file__).parent"
+      },
       "inline": true
     },
     "9101": {
       "name": "Open VI Reference",
-      "terminals": [],
+      "terminals": [
+        {
+          "index": 8,
+          "direction": "out",
+          "name": "vi_reference"
+        },
+        {
+          "index": 10,
+          "direction": "out",
+          "name": "error_out"
+        },
+        {
+          "index": 11,
+          "direction": "out",
+          "name": "vi_path_out"
+        },
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "vi_path"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "type_specifier"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "options"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "error_in"
+        }
+      ],
       "guess_reason": "2in/5out - opens VI reference",
-      "python_code": "vi_ref = open_vi(path)",
+      "python_code": {
+        "vi_reference": "open_vi(vi_path)",
+        "error_out": "error_in"
+      },
       "inline": true
     },
     "9102": {
       "name": "Close VI Reference",
-      "terminals": [],
+      "terminals": [
+        {
+          "index": 8,
+          "direction": "out",
+          "name": "error_out"
+        },
+        {
+          "index": 9,
+          "direction": "out",
+          "name": "vi_path"
+        },
+        {
+          "index": 11,
+          "direction": "out",
+          "name": "vi_name"
+        },
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "vi_reference"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "error_in"
+        }
+      ],
       "guess_reason": "2in/4out - closes VI reference",
-      "python_code": "vi_ref.close()",
+      "python_code": {
+        "_body": "vi_reference.close()",
+        "error_out": "error_in"
+      },
       "inline": true
     },
     "9104": {
       "name": "Close Reference",
-      "terminals": [],
+      "terminals": [
+        {
+          "index": 8,
+          "direction": "out",
+          "name": "error_out"
+        },
+        {
+          "index": 11,
+          "direction": "out",
+          "name": "reference_out"
+        },
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "reference"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "error_in"
+        }
+      ],
       "guess_reason": "3in/2out - closes generic reference",
-      "python_code": "ref.close()",
+      "python_code": {
+        "_body": "reference.close()",
+        "error_out": "error_in"
+      },
       "inline": true
     },
     "9105": {
       "name": "Call By Reference",
-      "terminals": [],
+      "terminals": [
+        {
+          "index": 8,
+          "direction": "out",
+          "name": "output"
+        },
+        {
+          "index": 9,
+          "direction": "out",
+          "name": "vi_reference_out"
+        },
+        {
+          "index": 10,
+          "direction": "out",
+          "name": "error_out"
+        },
+        {
+          "index": 11,
+          "direction": "out",
+          "name": "output_2"
+        },
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "vi_reference"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "input"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "error_in"
+        }
+      ],
       "guess_reason": "2in/6out - calls VI by reference",
-      "python_code": "result = vi_ref.call(*args)",
+      "python_code": {
+        "output": "vi_reference.call(input)",
+        "error_out": "error_in"
+      },
       "inline": true
     },
     "9108": {
       "name": "Property Node (read)",
       "terminals": [],
       "guess_reason": "1in/7out - reads properties",
-      "python_code": "value = obj.property",
+      "python_code": {
+        "value": "getattr(reference, property_name, None)"
+      },
       "inline": true
     },
     "9109": {
       "name": "Property Node (multi-read)",
       "terminals": [],
       "guess_reason": "1in/5out - reads multiple properties",
-      "python_code": "values = [obj.prop1, obj.prop2, ...]",
+      "python_code": {
+        "value_1": "reference",
+        "value_2": "reference"
+      },
       "inline": true
     },
     "9110": {
       "name": "Invoke Node",
       "terminals": [],
       "guess_reason": "0in/11out - invokes method",
-      "python_code": "result = obj.method(*args)",
+      "python_code": {
+        "return_value": "getattr(reference, method_name)()",
+        "error_out": "error_in"
+      },
       "inline": true
     },
     "9111": {
       "name": "Format Into String (VI Server)",
-      "terminals": [],
+      "terminals": [
+        {
+          "index": 8,
+          "direction": "out",
+          "name": "resulting_string"
+        },
+        {
+          "index": 10,
+          "direction": "out",
+          "name": "error_out"
+        },
+        {
+          "index": 11,
+          "direction": "out",
+          "name": "value_out"
+        },
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "value"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "format_string"
+        }
+      ],
       "guess_reason": "3in/4out - string formatting for VI Server",
-      "python_code": "formatted = f'{value}'",
+      "python_code": {
+        "resulting_string": "str(value)",
+        "error_out": "error_in"
+      },
       "inline": true
     },
     "9112": {
       "name": "Get LV Class Name",
-      "terminals": [
-        {
-          "index": 0,
-          "direction": "in",
-          "name": "class_ref"
-        },
-        {
-          "index": 1,
-          "direction": "out",
-          "name": "class_name"
-        }
-      ],
-      "python_code": "class_name = type(class_ref).__name__",
+      "terminals": [],
+      "python_code": {
+        "class_name": "type(class_reference).__name__"
+      },
       "inline": true
     },
     "9113": {
       "name": "Get LV Class Path",
-      "terminals": [
-        {
-          "index": 0,
-          "direction": "in",
-          "name": "class_ref"
-        },
-        {
-          "index": 1,
-          "direction": "out",
-          "name": "class_path"
-        }
-      ],
-      "python_code": "class_path = Path(inspect.getfile(type(class_ref)))",
+      "terminals": [],
+      "python_code": {
+        "class_path": "Path(inspect.getfile(type(class_reference)))"
+      },
       "inline": true,
       "imports": [
         "inspect"
@@ -2626,23 +2803,7 @@
     },
     "9114": {
       "name": "To More Specific Class",
-      "terminals": [
-        {
-          "index": 0,
-          "direction": "in",
-          "name": "input"
-        },
-        {
-          "index": 1,
-          "direction": "out",
-          "name": "output"
-        },
-        {
-          "index": 2,
-          "direction": "out",
-          "name": "error_out"
-        }
-      ],
+      "terminals": [],
       "python_code": "output = input  # downcast (type check in Python via isinstance)",
       "inline": true,
       "note": "Same as 1145"
@@ -2651,56 +2812,77 @@
       "name": "Coerce To Type",
       "terminals": [],
       "guess_reason": "1in/2out - type coercion",
-      "python_code": "coerced = type(value)",
+      "python_code": {
+        "output": "input"
+      },
       "inline": true
     },
     "8014": {
       "name": "Read From Config File",
       "terminals": [],
       "guess_reason": "3in/6out - config file read",
-      "python_code": "config.get(section, key)",
+      "python_code": {
+        "value": "configuration_refnum.get(section, {}).get(key, default_value)",
+        "error_out": "error_in"
+      },
       "inline": true
     },
     "8017": {
       "name": "Write To Config File",
       "terminals": [],
       "guess_reason": "2in/1out - config file write",
-      "python_code": "config.set(section, key, value)",
+      "python_code": {
+        "_body": "configuration_refnum.setdefault(section, {})[key] = value",
+        "error_out": "error_in"
+      },
       "inline": true
     },
     "8100": {
       "name": "Get VI Info",
       "terminals": [],
       "guess_reason": "2in/2out - gets VI metadata",
-      "python_code": "vi.name, vi.path, vi.description",
+      "python_code": {
+        "vi_name": "vi_reference",
+        "vi_path": "vi_reference"
+      },
       "inline": true
     },
     "8101": {
       "name": "Get VI Properties",
       "terminals": [],
       "guess_reason": "0in/10out - reads VI properties",
-      "python_code": "vi.properties",
+      "python_code": {
+        "properties": "vi_reference"
+      },
       "inline": true
     },
     "9003": {
       "name": "Set Control Value By Index",
       "terminals": [],
       "guess_reason": "5in/4out - sets control value",
-      "python_code": "controls[index].value = value",
+      "python_code": {
+        "_body": "vi_reference.ctrl_valset(error_in, value, control_index)",
+        "error_out": "error_in"
+      },
       "inline": true
     },
     "9004": {
       "name": "Get Control Value By Index",
       "terminals": [],
       "guess_reason": "4in/2out - gets control value",
-      "python_code": "value = controls[index].value",
+      "python_code": {
+        "value": "vi_reference.ctrl_valget(error_in, control_index)",
+        "error_out": "error_in"
+      },
       "inline": true
     },
     "9005": {
       "name": "Scripting: Get VI Objects",
       "terminals": [],
       "guess_reason": "3in/7out - VI scripting operation",
-      "python_code": "objects = vi.get_objects()",
+      "python_code": {
+        "objects": "vi_reference.get_objects()"
+      },
       "inline": true
     }
   },

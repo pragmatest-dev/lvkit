@@ -41,7 +41,12 @@ class CaseCodeGen(NodeCodeGen):
             selector_var = ctx.resolve(node.selector_terminal)
 
         if not selector_var:
-            selector_var = "selector"  # Fallback
+            selector_var = self._fallback_selector(node, ctx)
+
+        # Error cluster selectors: Python uses exceptions instead.
+        # Emit only the "no error" frame body without the if/else guard.
+        if self._is_error_selector(selector_var):
+            return self._generate_error_unwrap(node, ctx)
 
         # Determine if this is boolean or multi-case
         if self._is_boolean_selector(node.case_frames):
@@ -72,6 +77,9 @@ class CaseCodeGen(NodeCodeGen):
         statements: list[ast.stmt] = []
         bindings: dict[str, str] = {}
         all_imports: set[str] = set()
+
+        # Bind input tunnels so inner operations can resolve them
+        self._bind_input_tunnels(node, ctx)
 
         # Find true and false frames
         true_frame = None
@@ -108,12 +116,34 @@ class CaseCodeGen(NodeCodeGen):
         else:
             else_body = [ast.Pass()]
 
-        # Build if statement
-        if_stmt = ast.If(
-            test=parse_expr(selector_var),
-            body=if_body,
-            orelse=else_body,
-        )
+        # Simplify pass-only branches:
+        # if x: pass; else: work() → if not x: work()
+        # if x: work(); else: pass → if x: work()
+        if_is_pass = len(if_body) == 1 and isinstance(if_body[0], ast.Pass)
+        else_is_pass = len(else_body) == 1 and isinstance(else_body[0], ast.Pass)
+
+        if if_is_pass and not else_is_pass:
+            # Negate condition, use else body as if body
+            if_stmt = ast.If(
+                test=ast.UnaryOp(
+                    op=ast.Not(), operand=parse_expr(selector_var)
+                ),
+                body=else_body,
+                orelse=[],
+            )
+        elif else_is_pass and not if_is_pass:
+            # Drop empty else
+            if_stmt = ast.If(
+                test=parse_expr(selector_var),
+                body=if_body,
+                orelse=[],
+            )
+        else:
+            if_stmt = ast.If(
+                test=parse_expr(selector_var),
+                body=if_body,
+                orelse=else_body,
+            )
         statements.append(if_stmt)
 
         # Handle output tunnels
@@ -142,6 +172,9 @@ class CaseCodeGen(NodeCodeGen):
         statements: list[ast.stmt] = []
         bindings: dict[str, str] = {}
         all_imports: set[str] = set()
+
+        # Bind input tunnels so inner operations can resolve them
+        self._bind_input_tunnels(node, ctx)
 
         # Build match cases
         cases: list[ast.match_case] = []
@@ -238,13 +271,106 @@ class CaseCodeGen(NodeCodeGen):
             imports=all_imports,
         )
 
+    @staticmethod
+    def _fallback_selector(node: Operation, ctx: CodeGenContext) -> str:
+        """Try to derive a meaningful selector name when resolve() fails.
+
+        Traces the wire source to find the parent operation name and
+        builds a variable name from it. Falls back to "selector" only
+        when no information is available.
+        """
+        from ..ast_utils import to_var_name
+
+        sel_term = node.selector_terminal
+        if sel_term and sel_term in ctx._flow_map:
+            flow = ctx._flow_map[sel_term]
+            src_parent_name = flow.get("src_parent_name")
+            if src_parent_name:
+                return to_var_name(src_parent_name)
+            # Try labels
+            labels = flow.get("src_parent_labels", [])
+            for label in labels:
+                if label not in ("Primitive", "operation"):
+                    return to_var_name(label)
+        return "selector"
+
+    @staticmethod
+    def _is_error_selector(selector_var: str) -> bool:
+        """Check if selector comes from an error cluster.
+
+        In LabVIEW, case structures on error clusters check no-error vs error.
+        In Python, exceptions handle this — no guard needed.
+        """
+        lower = selector_var.lower()
+        return "error" in lower and (
+            "in" in lower or "out" in lower or "no_error" in lower
+        )
+
+    def _generate_error_unwrap(
+        self, node: Operation, ctx: CodeGenContext
+    ) -> CodeFragment:
+        """Generate code for error-selector case: emit "no error" frame only.
+
+        Python exceptions replace LabVIEW's error cluster branching.
+        We emit the "no error" (True/first) frame body directly.
+        """
+        # Bind input tunnels
+        self._bind_input_tunnels(node, ctx)
+
+        # Find the "no error" frame (typically True or first frame)
+        target_frame = None
+        for frame in node.case_frames:
+            val = str(frame.selector_value).lower()
+            if val in ("true", "no error", "0"):
+                target_frame = frame
+                break
+        if target_frame is None and node.case_frames:
+            target_frame = node.case_frames[0]
+
+        if target_frame is None:
+            return CodeFragment.empty()
+
+        inner_fragment = self._generate_frame_body(target_frame, ctx)
+
+        # Handle output tunnels
+        output_bindings = self._bind_output_tunnels(node, ctx)
+        bindings = dict(inner_fragment.bindings)
+        bindings.update(output_bindings)
+
+        return CodeFragment(
+            statements=inner_fragment.statements or [],
+            bindings=bindings,
+            imports=inner_fragment.imports,
+        )
+
+    def _bind_input_tunnels(
+        self, node: Operation, ctx: CodeGenContext
+    ) -> None:
+        """Bind input tunnel inner terminals to their outer values.
+
+        For each tunnel, resolves the outer terminal and binds all
+        inner terminals to the same value. This allows inner operations
+        to resolve their inputs through the tunnel chain.
+        """
+        for tunnel in node.tunnels:
+            outer_term = tunnel.outer_terminal_uid
+            inner_term = tunnel.inner_terminal_uid
+            if not outer_term or not inner_term:
+                continue
+            outer_var = ctx.resolve(outer_term)
+            if outer_var:
+                ctx.bind(inner_term, outer_var)
+
     def _bind_output_tunnels(
         self, node: Operation, ctx: CodeGenContext
     ) -> dict[str, str]:
         """Bind output tunnel terminals to variable names.
 
         Case structure tunnels connect outer terminals to variables
-        computed inside the cases.
+        computed inside the cases. Each outer terminal may have multiple
+        inner terminals (one per frame). We take the first non-None
+        resolved value to avoid a later frame's None overwriting a
+        valid binding from an earlier frame.
 
         Args:
             node: Case structure operation
@@ -258,12 +384,15 @@ class CaseCodeGen(NodeCodeGen):
         for tunnel in node.tunnels:
             outer_term = tunnel.outer_terminal_uid
             inner_term = tunnel.inner_terminal_uid
+            if not outer_term or not inner_term:
+                continue
 
-            # Check if inner terminal has a value
+            # Skip if we already have a real value for this outer terminal
+            if outer_term in bindings and bindings[outer_term] != "None":
+                continue
+
             inner_var = ctx.resolve(inner_term)
-            if inner_var and outer_term:
-                # Bind outer terminal to same variable as inner
-                # This allows downstream operations to use the value
+            if inner_var:
                 bindings[outer_term] = inner_var
 
         return bindings

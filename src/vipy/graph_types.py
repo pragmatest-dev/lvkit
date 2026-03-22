@@ -24,6 +24,21 @@ class Terminal:
     typedef_path: str | None = None  # Filesystem path to .ctl
     typedef_name: str | None = None  # Qualified name (e.g., "sysdir.llb:Type.ctl")
     callee_param_name: str | None = None  # Name in SubVI's signature
+    lv_type: LVType | None = None  # Full type info (for class wire detection)
+
+    @property
+    def is_error_cluster(self) -> bool:
+        """Check if this terminal carries a LabVIEW error cluster.
+
+        Python uses exceptions instead — these terminals should be
+        skipped in argument lists, output bindings, and result classes.
+        """
+        if self.lv_type:
+            from vipy.type_defaults import _is_error_cluster
+            if _is_error_cluster(self.lv_type):
+                return True
+        name = (self.callee_param_name or self.name or "").lower()
+        return "error" in name and ("in" in name or "out" in name or "no error" in name)
 
 
 @dataclass
@@ -190,6 +205,18 @@ def control_type_to_lvtype(control_type: str) -> LVType | None:
     return mapping.get(control_type)
 
 
+def _sanitize_type_name(typedef_name: str) -> str:
+    """Sanitize a typedef name into a valid Python identifier.
+
+    Strips library prefix, file extension, spaces, and non-alphanumeric chars
+    to produce a name safe for use as a Python type annotation.
+    """
+    name = typedef_name.split(":")[-1].replace(".ctl", "")
+    # Keep only alphanumeric and underscore (removes --, spaces, etc.)
+    name = "".join(c for c in name if c.isalnum() or c == "_")
+    return name
+
+
 @dataclass
 class LVType:
     """LabVIEW type structure - unified representation for all types.
@@ -241,19 +268,18 @@ class LVType:
         elif self.kind == "cluster":
             # Use typedef_name if available, otherwise generic dict
             if self.typedef_name:
-                # Clean up typedef name for use as class name
-                name = self.typedef_name.split(":")[-1].replace(".ctl", "")
-                return name.replace(" ", "")
+                name = _sanitize_type_name(self.typedef_name)
+                return name or "dict[str, Any]"
             return "dict[str, Any]"
         elif self.kind in ("enum", "ring"):
             if self.typedef_name:
-                name = self.typedef_name.split(":")[-1].replace(".ctl", "")
-                return name.replace(" ", "")
+                name = _sanitize_type_name(self.typedef_name)
+                return name or "int"
             return "int"
         elif self.kind == "typedef_ref":
             if self.typedef_name:
-                name = self.typedef_name.split(":")[-1].replace(".ctl", "")
-                return name.replace(" ", "")
+                name = _sanitize_type_name(self.typedef_name)
+                return name or "Any"
             return "Any"
         return "Any"
 

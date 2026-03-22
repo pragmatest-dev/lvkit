@@ -13,6 +13,8 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Any
 
+from .utils import clean_labview_string
+
 from .models import Node
 from .nodes.base import extract_label, extract_terminal_types
 
@@ -323,12 +325,12 @@ class PropertyNodeHandler(NodeTypeHandler):
 
     def parse(self, elem: ET.Element) -> PropertyNode:
         common = self._extract_common(elem)
-        object_name = (elem.findtext("nodeName") or "").strip('"')
+        object_name = clean_labview_string(elem.findtext("nodeName"))
         omid = elem.findtext("oMId") or ""
 
         properties: list[dict[str, Any]] = []
         for prop_info in elem.iter("propItemInfo"):
-            name = (prop_info.findtext("PropItemName") or "").strip('"')
+            name = clean_labview_string(prop_info.findtext("PropItemName"))
             code_text = prop_info.findtext("PropItemCode") or "0"
             try:
                 code = int(code_text)
@@ -359,9 +361,9 @@ class InvokeNodeHandler(NodeTypeHandler):
             meth_code = 0
         return InvokeNode(
             **common,
-            object_name=(elem.findtext("nodeName") or "").strip('"'),
+            object_name=clean_labview_string(elem.findtext("nodeName")),
             object_method_id=elem.findtext("oMId") or "",
-            method_name=(elem.findtext("methName") or "").strip('"'),
+            method_name=clean_labview_string(elem.findtext("methName")),
             method_code=meth_code,
         )
 
@@ -400,6 +402,36 @@ class StackedSequenceHandler(NodeTypeHandler):
         )
 
 
+class PrintfHandler(NodeTypeHandler):
+    """Handler for Format String nodes (class="printf").
+
+    LabVIEW's printf node takes a format string and arguments,
+    producing a formatted string output. Treated as a primitive.
+    """
+
+    xml_class = "printf"
+    display_name = "Format String"
+
+    def parse(self, elem: ET.Element) -> PrimitiveNode:
+        common = self._extract_common(elem)
+        return PrimitiveNode(**common)
+
+
+class NMuxHandler(NodeTypeHandler):
+    """Handler for Node Multiplexer (class="nMux").
+
+    Selects between inputs based on a selector value.
+    Like a ternary operator or indexed selection.
+    """
+
+    xml_class = "nMux"
+    display_name = "Node Multiplexer"
+
+    def parse(self, elem: ET.Element) -> SelectNode:
+        common = self._extract_common(elem)
+        return SelectNode(**common)
+
+
 class GenericHandler(NodeTypeHandler):
     """Fallback handler for unknown node types."""
 
@@ -416,6 +448,32 @@ class GenericHandler(NodeTypeHandler):
 # Registry and Factory
 # =============================================================================
 
+# Built-in array/string operations with specialized XML classes.
+# These are block diagram primitives but use different XML class names
+# than "prim" because they have expandable/polymorphic terminals.
+# Parsed identically to PrimitiveHandler (they ARE primitives).
+class _BuiltinPrimitiveHandler(NodeTypeHandler):
+    """Handler for built-in primitives with non-standard XML classes.
+
+    These are block diagram primitives that LabVIEW stores with their own
+    XML class (aDelete, aIndx, etc.) instead of "prim". They don't have
+    primResID in the XML, so we assign it here based on the known mapping.
+    """
+
+    def __init__(self, xml_class: str, display_name: str, prim_res_id: int):
+        self.xml_class = xml_class
+        self.display_name = display_name
+        self._prim_res_id = prim_res_id
+
+    def parse(self, elem: ET.Element) -> PrimitiveNode:
+        common = self._extract_common(elem)
+        return PrimitiveNode(
+            **common,
+            prim_index=None,
+            prim_res_id=self._prim_res_id,
+        )
+
+
 # All known handlers
 _HANDLERS: list[NodeTypeHandler] = [
     PrimitiveHandler(),
@@ -431,6 +489,15 @@ _HANDLERS: list[NodeTypeHandler] = [
     InvokeNodeHandler(),
     FlatSequenceHandler(),
     StackedSequenceHandler(),
+    PrintfHandler(),
+    NMuxHandler(),
+    # Built-in primitives with specialized XML classes
+    _BuiltinPrimitiveHandler("aDelete", "Delete From Array", 1901),
+    _BuiltinPrimitiveHandler("aIndx", "Index Array", 1809),
+    _BuiltinPrimitiveHandler("concat", "Concatenate Strings", 1051),
+    _BuiltinPrimitiveHandler("subset", "Array Subset", 1516),
+    _BuiltinPrimitiveHandler("mergeErrors", "Merge Errors", 2401),
+    _BuiltinPrimitiveHandler("oHExt", "Obtain/Release Semaphore", 8069),
 ]
 
 # Build registry from handlers

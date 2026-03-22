@@ -48,7 +48,7 @@ from .nodes import (
 )
 from .type_mapping import parse_type_map_rich
 from .type_resolution import resolve_type_rich
-from .utils import extract_label, safe_int
+from .utils import clean_labview_string, extract_label, safe_int
 
 
 def parse_vi(
@@ -240,7 +240,7 @@ def _parse_front_panel(
         default_value = None
         default_elem = fpdco.find("DefaultData")
         if default_elem is not None and default_elem.text:
-            raw_data = default_elem.text.strip('"')
+            raw_data = clean_labview_string(default_elem.text)
             control_type = ddo.get("class", "unknown")
 
             # Resolve type for array/cluster decoding
@@ -382,12 +382,20 @@ def _extract_terminal_info(
                     lv_type = resolve_type_rich(type_desc_str, type_map)
                     parsed_type = _lvtype_to_parsed(lv_type)
 
+                # Extract terminal label from dco or terminal element
+                term_name = None
+                if dco is not None:
+                    term_name = extract_label(dco)
+                if not term_name:
+                    term_name = extract_label(term)
+
                 terminal_info[term_uid] = TerminalInfo(
                     uid=term_uid,
                     parent_uid=elem_uid,
                     index=parm_index,
                     is_output=is_output,
                     parsed_type=parsed_type,
+                    name=term_name,
                 )
 
     # Constants have a single output terminal
@@ -440,6 +448,12 @@ def _resolve_qualified_name(
     if not strings:
         return None
 
+    # Strip control characters and XML entities from all strings
+    strings = [clean_labview_string(s) for s in strings]
+    strings = [s for s in strings if s]  # Remove any that became empty
+    if not strings:
+        return None
+
     link_save_flag = elem.get("LinkSaveFlag", "0")
     # Flag "2" means same-library reference - qualify with caller's library
     if link_save_flag == "2" and caller_library and len(strings) == 1:
@@ -488,6 +502,18 @@ def _extract_subvi_info(
                     is_userlib=is_userlib,
                     qualified_name=qname,
                 ))
+
+    # VIPI entries (dynamic dispatch VI calls - class methods)
+    for vipi in main_root.findall(".//LIvi//VIPI"):
+        qname = _resolve_qualified_name(vipi, caller_library)
+        if qname:
+            subvi_qualified_names.append(qname)
+
+    # DyOM entries (dynamic dispatch method references)
+    for dyom in main_root.findall(".//LIvi//DyOM"):
+        qname = _resolve_qualified_name(dyom, caller_library)
+        if qname:
+            subvi_qualified_names.append(qname)
 
     # Also include polymorphic VIs (VIPV)
     for vipv in main_root.findall(".//LIvi//VIPV"):

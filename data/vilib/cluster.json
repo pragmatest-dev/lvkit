@@ -320,10 +320,18 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "complete",
+      "python_code": "{class_path} = Path(type({object}).__module__.replace('.', '/') + '.lvclass')",
+      "inline": true,
+      "imports": ["from pathlib import Path"],
+      "ref_terminals": {
+        "error_out": "passthrough_from:error_in_no_error"
+      },
       "terminals": [
         {
           "name": "object",
+          "index": 11,
+          "direction": "in",
           "description": "object specifies the object for which you want to retrieve the path to the owning class.",
           "default_value": null,
           "enum_values": null,
@@ -331,21 +339,27 @@
         },
         {
           "name": "error in (no error)",
-          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality. Note This option does not affect whether LabVIEW prompts you to find the missing dependencies or not. Functions 474 ni.com",
+          "index": 8,
+          "direction": "in",
+          "description": "error in describes error conditions that occur before this node runs.",
           "default_value": null,
           "enum_values": null,
           "python_param": "error_in_no_error"
         },
         {
           "name": "class path",
-          "description": "class path specifies the absolute path to the .lvclass file on disk. If an error occurs, the value of class path is <Not A Path>. If object is a LabVIEW Object, which does not exist on disk, the value of class path is <Empty Path>. If object belongs to a class that is not saved, class path is a relative path consisting only of the name of the class.",
+          "index": 3,
+          "direction": "out",
+          "description": "class path specifies the absolute path to the .lvclass file on disk.",
           "default_value": null,
           "enum_values": null,
           "python_param": "class_path"
         },
         {
           "name": "error out",
-          "description": "error out contains error information. This output provides standard error out functionality.",
+          "index": 0,
+          "direction": "out",
+          "description": "error out contains error information.",
           "default_value": null,
           "enum_values": null,
           "python_param": "error_out"

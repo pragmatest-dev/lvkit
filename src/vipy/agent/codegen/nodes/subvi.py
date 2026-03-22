@@ -20,6 +20,12 @@ if TYPE_CHECKING:
     from ..context import CodeGenContext
 
 
+def _is_error_param_name(name: str) -> bool:
+    """Check if a resolved parameter name indicates an error cluster."""
+    lower = name.lower()
+    return "error" in lower and ("in" in lower or "out" in lower or "no_error" in lower)
+
+
 class SubVICodeGen(NodeCodeGen):
     """Generate code for SubVI calls.
 
@@ -34,6 +40,10 @@ class SubVICodeGen(NodeCodeGen):
         subvi_name = node.name or ""
         if not subvi_name:
             return CodeFragment.empty()
+
+        # Dynamic dispatch → obj.method(args) instead of func(obj, args)
+        if node.node_type == "dynIUse":
+            return self._generate_dynamic_dispatch(node, ctx)
 
         # For polymorphic VIs, try variant-specific lookup first
         vilib_vi = None
@@ -172,19 +182,23 @@ class SubVICodeGen(NodeCodeGen):
         for term in node.terminals:
             if term.direction != "output":
                 continue
+            # Skip error cluster outputs — Python uses exceptions
+            if term.is_error_cluster:
+                continue
 
             term_index = term.index
             term_id = term.id
 
             if term_index in vilib_outputs:
                 param_key = vilib_outputs[term_index]
+                # Skip error outputs by resolved name
+                if _is_error_param_name(param_key):
+                    continue
                 # Check for ref passthrough - bind to same input variable
                 if param_key in ref_passthrough:
                     bindings[term_id] = ref_passthrough[param_key]
-                    # Still need to replace placeholder in template
                     output_var_map[param_key] = ref_passthrough[param_key]
                 else:
-                    # Generate unique variable name
                     var_name = f"{func_name}_{param_key}"
                     output_var_map[param_key] = var_name
                     bindings[term_id] = var_name
@@ -315,6 +329,10 @@ class SubVICodeGen(NodeCodeGen):
             if value is None:
                 continue
 
+            # Skip error cluster terminals — Python uses exceptions
+            if term.is_error_cluster:
+                continue
+
             # Determine parameter name with priority:
             # 1. vilib python_param name
             # 2. Callee parameter name from connector pane mapping
@@ -342,6 +360,11 @@ class SubVICodeGen(NodeCodeGen):
                     subvi_name,
                     context=self._build_resolution_context(node, ctx, vilib_vi),
                 )
+
+            # Skip error parameters by resolved name (catches cases where
+            # the terminal itself lacked callee_param_name but the lookup found it)
+            if _is_error_param_name(param_name):
+                continue
 
             # Check if this parameter is an enum typedef - generate enum reference
             final_value = self._resolve_enum_value(
@@ -467,6 +490,10 @@ class SubVICodeGen(NodeCodeGen):
             if term.direction != "output":
                 continue
 
+            # Skip error cluster outputs — Python uses exceptions
+            if term.is_error_cluster:
+                continue
+
             term_id = term.id
             term_index = term.index
             term_name = term.name or ""
@@ -492,6 +519,10 @@ class SubVICodeGen(NodeCodeGen):
                     context=self._build_resolution_context(node, ctx, vilib_vi),
                 )
 
+            # Skip error outputs by resolved name
+            if _is_error_param_name(field):
+                continue
+
             bindings[term_id] = f"{result_var}.{field}"
 
         return bindings
@@ -513,6 +544,147 @@ class SubVICodeGen(NodeCodeGen):
             pass
         # It's a variable reference
         return ast.Name(id=value, ctx=ast.Load())
+
+    def _generate_dynamic_dispatch(
+        self, node: Operation, ctx: CodeGenContext
+    ) -> CodeFragment:
+        """Generate obj.method(args) for dynamic dispatch calls."""
+        subvi_name = node.name or ""
+        method_name = to_function_name(subvi_name)
+
+        # Find receiver: input with lv_type.ref_type == "UDClassInst"
+        receiver_term = None
+        other_inputs: list[tuple[int, str]] = []  # (index, value)
+
+        for term in node.terminals:
+            if term.direction != "input":
+                continue
+            # Skip error cluster inputs — Python uses exceptions
+            if term.is_error_cluster:
+                continue
+            value = ctx.resolve(term.id)
+            if value is None:
+                continue
+            if self._is_class_terminal(term):
+                receiver_term = term
+            else:
+                other_inputs.append((term.index, value))
+
+        # Fallback: use lowest-indexed wired input as receiver
+        if receiver_term is None:
+            all_wired_inputs = []
+            for term in node.terminals:
+                if term.direction == "input" and ctx.resolve(term.id) is not None:
+                    all_wired_inputs.append(term)
+            if all_wired_inputs:
+                all_wired_inputs.sort(key=lambda t: t.index)
+                receiver_term = all_wired_inputs[0]
+                # Rebuild other_inputs excluding receiver
+                other_inputs = [
+                    (t.index, ctx.resolve(t.id))  # type: ignore[arg-type]
+                    for t in all_wired_inputs[1:]
+                ]
+
+        if receiver_term is None:
+            # No inputs at all — fall back to regular function call
+            return self._generate_static_fallback(node, ctx, method_name)
+
+        receiver_var = ctx.resolve(receiver_term.id) or "self"
+
+        # Sort other inputs by index for positional args
+        other_inputs.sort(key=lambda x: x[0])
+        args = [v for _, v in other_inputs]
+
+        # Build AST: receiver.method(args...)
+        call = ast.Call(
+            func=ast.Attribute(
+                value=ast.Name(id=receiver_var, ctx=ast.Load()),
+                attr=method_name,
+                ctx=ast.Load(),
+            ),
+            args=[self._to_ast_value(a) for a in args],
+            keywords=[],
+        )
+
+        # Build output bindings
+        bindings: dict[str, str] = {}
+        result_var = f"{method_name}_result"
+        has_non_class_output = False
+
+        for term in node.terminals:
+            if term.direction != "output":
+                continue
+            # Skip error cluster outputs — Python uses exceptions
+            if term.is_error_cluster:
+                continue
+            if self._is_class_terminal(term):
+                # Class-typed output → passthrough to receiver variable
+                bindings[term.id] = receiver_var
+            else:
+                field = to_var_name(
+                    term.callee_param_name or term.name or f"out_{term.index}"
+                )
+                if _is_error_param_name(field):
+                    continue
+                has_non_class_output = True
+                bindings[term.id] = f"{result_var}.{field}"
+
+        # Assignment
+        if has_non_class_output:
+            stmt = ast.Assign(
+                targets=[ast.Name(id=result_var, ctx=ast.Store())],
+                value=call,
+            )
+        else:
+            stmt = ast.Expr(value=call)
+
+        return CodeFragment(
+            statements=[stmt],
+            bindings=bindings,
+            imports=set(),
+        )
+
+    def _generate_static_fallback(
+        self, node: Operation, ctx: CodeGenContext, func_name: str
+    ) -> CodeFragment:
+        """Fallback for dynIUse with no inputs — generate as static function call."""
+        result_var = f"{func_name}_result"
+        call = ast.Call(
+            func=ast.Name(id=func_name, ctx=ast.Load()),
+            args=[],
+            keywords=[],
+        )
+        stmt = ast.Assign(
+            targets=[ast.Name(id=result_var, ctx=ast.Store())],
+            value=call,
+        )
+        bindings: dict[str, str] = {}
+        for term in node.terminals:
+            if term.direction == "output":
+                if term.is_error_cluster:
+                    continue
+                field = to_var_name(
+                    term.callee_param_name or term.name or f"out_{term.index}"
+                )
+                bindings[term.id] = f"{result_var}.{field}"
+
+        if ctx.import_resolver:
+            import_stmt = ctx.import_resolver(node.name or func_name)
+        else:
+            import_stmt = f"from .{func_name} import {func_name}"
+
+        return CodeFragment(
+            statements=[stmt],
+            bindings=bindings,
+            imports={import_stmt},
+        )
+
+    @staticmethod
+    def _is_class_terminal(term: Any) -> bool:
+        """Check if a terminal carries a class instance (UDClassInst)."""
+        if hasattr(term, "lv_type") and term.lv_type:
+            return term.lv_type.ref_type == "UDClassInst"
+        return False
 
     def _build_resolution_context(
         self,

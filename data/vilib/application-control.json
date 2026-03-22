@@ -1244,28 +1244,36 @@
           "description": "specific error code to clear ignores only the specific error code wired to this input. The default value is 0, which means the VI will ignore all errors.",
           "default_value": "value is 0, which means the VI will ignore all errors",
           "enum_values": null,
-          "python_param": "specific_error_code_to_clear_0_all"
+          "python_param": "specific_error_code_to_clear_0_all",
+          "direction": "input",
+          "index": 3
         },
         {
           "name": "error in (no error)",
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality. The default is no error. If you do not wire a value to specific error code to clear, this node does not pass the error in input to the error out output.",
           "default_value": "no error",
           "enum_values": null,
-          "python_param": "error_in_no_error"
+          "python_param": "error_in_no_error",
+          "direction": "input",
+          "index": 4
         },
         {
           "name": "specific error cleared?",
           "description": "specific error cleared? indicates whether the error referenced by specific error code to clear has been cleared.",
           "default_value": null,
           "enum_values": null,
-          "python_param": "specific_error_cleared"
+          "python_param": "specific_error_cleared",
+          "direction": "output",
+          "index": 2
         },
         {
           "name": "error out",
           "description": "error out contains error information. This output provides standard error out functionality. error out returns no error by default. If you wire a value to specific error code to clear and error in contains errors that do not match the error code you wired, error out will return an error.",
           "default_value": null,
           "enum_values": null,
-          "python_param": "error_out"
+          "python_param": "error_out",
+          "direction": "output",
+          "index": 0
         }
       ],
       "imports": [],
