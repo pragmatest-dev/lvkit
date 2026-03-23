@@ -1,0 +1,1337 @@
+{
+  "conflicts": {},
+  "variants": {
+    "Conditional Auto-Indexing Tunnel (CDB)__ogtk.vi": [
+      {
+        "signature": "0:i:Void|1:o:Array|2:i:Void|6:i:Array",
+        "caller_vi": "VITesterUtilities.lvlib:Get LVClass Name from TD.vi",
+        "terminals": [
+          {
+            "index": 0,
+            "name": "",
+            "direction": "input",
+            "type": "Void"
+          },
+          {
+            "index": 1,
+            "name": "",
+            "direction": "output",
+            "type": "Array"
+          },
+          {
+            "index": 2,
+            "name": "",
+            "direction": "input",
+            "type": "Void"
+          },
+          {
+            "index": 6,
+            "name": "",
+            "direction": "input",
+            "type": "Array"
+          }
+        ]
+      },
+      {
+        "signature": "0:i:Void|1:o:Array|2:i:Void|3:i:Void|5:i:Array|6:i:Array|7:i:Void",
+        "caller_vi": "VITesterUtilities.lvlib:Get LVClass Name from TD.vi",
+        "terminals": [
+          {
+            "index": 0,
+            "name": "",
+            "direction": "input",
+            "type": "Void"
+          },
+          {
+            "index": 1,
+            "name": "Filtered Array out",
+            "direction": "output",
+            "type": "Array"
+          },
+          {
+            "index": 2,
+            "name": "",
+            "direction": "input",
+            "type": "Void"
+          },
+          {
+            "index": 3,
+            "name": "",
+            "direction": "input",
+            "type": "Void"
+          },
+          {
+            "index": 5,
+            "name": "Array in",
+            "direction": "input",
+            "type": "Array"
+          },
+          {
+            "index": 6,
+            "name": "Elements to keep",
+            "direction": "input",
+            "type": "Array"
+          },
+          {
+            "index": 7,
+            "name": "",
+            "direction": "input",
+            "type": "Void"
+          }
+        ]
+      },
+      {
+        "signature": "2:i:Void|3:i:Void|6:i:Array|7:i:Void",
+        "caller_vi": "VITesterUtilities.lvlib:Get LVClass Name from TD.vi",
+        "terminals": [
+          {
+            "index": 2,
+            "name": "",
+            "direction": "input",
+            "type": "Void"
+          },
+          {
+            "index": 3,
+            "name": "",
+            "direction": "input",
+            "type": "Void"
+          },
+          {
+            "index": 6,
+            "name": "Elements to keep",
+            "direction": "input",
+            "type": "Array"
+          },
+          {
+            "index": 7,
+            "name": "",
+            "direction": "input",
+            "type": "Void"
+          }
+        ]
+      }
+    ],
+    "Conditional Auto-Indexing Tunnel (I32)__ogtk.vi": [
+      {
+        "signature": "1:o:Array|2:i:Void|3:i:Void|5:i:Array|6:i:Array",
+        "caller_vi": "_Get Test ID.vi",
+        "terminals": [
+          {
+            "index": 1,
+            "name": "",
+            "direction": "output",
+            "type": "Array"
+          },
+          {
+            "index": 2,
+            "name": "",
+            "direction": "input",
+            "type": "Void"
+          },
+          {
+            "index": 3,
+            "name": "",
+            "direction": "input",
+            "type": "Void"
+          },
+          {
+            "index": 5,
+            "name": "",
+            "direction": "input",
+            "type": "Array"
+          },
+          {
+            "index": 6,
+            "name": "",
+            "direction": "input",
+            "type": "Array"
+          }
+        ]
+      },
+      {
+        "signature": "0:i:Void|1:o:Array|2:i:Void|3:i:Void|5:i:Array|6:i:Array",
+        "caller_vi": "_Get Test ID.vi",
+        "terminals": [
+          {
+            "index": 0,
+            "name": "",
+            "direction": "input",
+            "type": "Void"
+          },
+          {
+            "index": 1,
+            "name": "Filtered Array out",
+            "direction": "output",
+            "type": "Array"
+          },
+          {
+            "index": 2,
+            "name": "",
+            "direction": "input",
+            "type": "Void"
+          },
+          {
+            "index": 3,
+            "name": "",
+            "direction": "input",
+            "type": "Void"
+          },
+          {
+            "index": 5,
+            "name": "Array in",
+            "direction": "input",
+            "type": "Array"
+          },
+          {
+            "index": 6,
+            "name": "Elements to keep",
+            "direction": "input",
+            "type": "Array"
+          }
+        ]
+      }
+    ],
+    "String to 1D Array__ogtk.vi": [
+      {
+        "signature": "1:o:Array|2:i:Void|7:i:String|10:i:String",
+        "caller_vi": "VITesterUtilities.lvlib:Get All Methods from LVClass Path.vi",
+        "terminals": [
+          {
+            "index": 1,
+            "name": "",
+            "direction": "output",
+            "type": "Array"
+          },
+          {
+            "index": 2,
+            "name": "",
+            "direction": "input",
+            "type": "Void"
+          },
+          {
+            "index": 7,
+            "name": "",
+            "direction": "input",
+            "type": "String"
+          },
+          {
+            "index": 10,
+            "name": "",
+            "direction": "input",
+            "type": "String"
+          }
+        ]
+      },
+      {
+        "signature": "0:i:Void|1:o:Array|2:i:Void|3:i:Void|4:i:Void|5:i:Boolean|6:i:Void|7:i:String|8:i:Void|9:i:Void|10:i:String|11:i:Void",
+        "caller_vi": "VITesterUtilities.lvlib:Get All Methods from LVClass Path.vi",
+        "terminals": [
+          {
+            "index": 0,
+            "name": "",
+            "direction": "input",
+            "type": "Void"
+          },
+          {
+            "index": 1,
+            "name": "Array of Strings",
+            "direction": "output",
+            "type": "Array"
+          },
+          {
+            "index": 2,
+            "name": "",
+            "direction": "input",
+            "type": "Void"
+          },
+          {
+            "index": 3,
+            "name": "",
+            "direction": "input",
+            "type": "Void"
+          },
+          {
+            "index": 4,
+            "name": "",
+            "direction": "input",
+            "type": "Void"
+          },
+          {
+            "index": 5,
+            "name": "ignore duplicate delimiters? (F=No)",
+            "direction": "input",
+            "type": "Boolean"
+          },
+          {
+            "index": 6,
+            "name": "",
+            "direction": "input",
+            "type": "Void"
+          },
+          {
+            "index": 7,
+            "name": "delimiter (Tab)",
+            "direction": "input",
+            "type": "String"
+          },
+          {
+            "index": 8,
+            "name": "",
+            "direction": "input",
+            "type": "Void"
+          },
+          {
+            "index": 9,
+            "name": "",
+            "direction": "input",
+            "type": "Void"
+          },
+          {
+            "index": 10,
+            "name": "string",
+            "direction": "input",
+            "type": "String"
+          },
+          {
+            "index": 11,
+            "name": "",
+            "direction": "input",
+            "type": "Void"
+          }
+        ]
+      },
+      {
+        "signature": "1:o:Array|2:i:Void|4:i:Void|5:i:Boolean|6:i:Void|7:i:String|8:i:Void|9:i:Void|10:i:String|11:i:Void",
+        "caller_vi": "VITesterUtilities.lvlib:Get All Methods from LVClass Path.vi",
+        "terminals": [
+          {
+            "index": 1,
+            "name": "Array of Strings",
+            "direction": "output",
+            "type": "Array"
+          },
+          {
+            "index": 2,
+            "name": "",
+            "direction": "input",
+            "type": "Void"
+          },
+          {
+            "index": 4,
+            "name": "",
+            "direction": "input",
+            "type": "Void"
+          },
+          {
+            "index": 5,
+            "name": "ignore duplicate delimiters? (F=No)",
+            "direction": "input",
+            "type": "Boolean"
+          },
+          {
+            "index": 6,
+            "name": "",
+            "direction": "input",
+            "type": "Void"
+          },
+          {
+            "index": 7,
+            "name": "delimiter (Tab)",
+            "direction": "input",
+            "type": "String"
+          },
+          {
+            "index": 8,
+            "name": "",
+            "direction": "input",
+            "type": "Void"
+          },
+          {
+            "index": 9,
+            "name": "",
+            "direction": "input",
+            "type": "Void"
+          },
+          {
+            "index": 10,
+            "name": "string",
+            "direction": "input",
+            "type": "String"
+          },
+          {
+            "index": 11,
+            "name": "",
+            "direction": "input",
+            "type": "Void"
+          }
+        ]
+      }
+    ],
+    "Conditional Auto-Indexing Tunnel (U8)__ogtk.vi": [
+      {
+        "signature": "0:i:Void|4:i:Void|5:i:Array",
+        "caller_vi": "TestCase.lvclass:closeMethodViReference.vi",
+        "terminals": [
+          {
+            "index": 0,
+            "name": "",
+            "direction": "input",
+            "type": "Void"
+          },
+          {
+            "index": 4,
+            "name": "",
+            "direction": "input",
+            "type": "Void"
+          },
+          {
+            "index": 5,
+            "name": "",
+            "direction": "input",
+            "type": "Array"
+          }
+        ]
+      },
+      {
+        "signature": "0:i:Void|1:o:Array|2:i:Void|3:i:Void|4:i:Void|5:i:Array|6:i:Array|7:i:Void",
+        "caller_vi": "TestCase.lvclass:closeMethodViReference.vi",
+        "terminals": [
+          {
+            "index": 0,
+            "name": "",
+            "direction": "input",
+            "type": "Void"
+          },
+          {
+            "index": 1,
+            "name": "Filtered Array out",
+            "direction": "output",
+            "type": "Array"
+          },
+          {
+            "index": 2,
+            "name": "",
+            "direction": "input",
+            "type": "Void"
+          },
+          {
+            "index": 3,
+            "name": "",
+            "direction": "input",
+            "type": "Void"
+          },
+          {
+            "index": 4,
+            "name": "",
+            "direction": "input",
+            "type": "Void"
+          },
+          {
+            "index": 5,
+            "name": "Array in",
+            "direction": "input",
+            "type": "Array"
+          },
+          {
+            "index": 6,
+            "name": "Elements to keep",
+            "direction": "input",
+            "type": "Array"
+          },
+          {
+            "index": 7,
+            "name": "",
+            "direction": "input",
+            "type": "Void"
+          }
+        ]
+      },
+      {
+        "signature": "0:i:Void|3:i:Void|5:i:Array|7:i:Void",
+        "caller_vi": "TestCase.lvclass:closeMethodViReference.vi",
+        "terminals": [
+          {
+            "index": 0,
+            "name": "",
+            "direction": "input",
+            "type": "Void"
+          },
+          {
+            "index": 3,
+            "name": "",
+            "direction": "input",
+            "type": "Void"
+          },
+          {
+            "index": 5,
+            "name": "Array in",
+            "direction": "input",
+            "type": "Array"
+          },
+          {
+            "index": 7,
+            "name": "",
+            "direction": "input",
+            "type": "Void"
+          }
+        ]
+      }
+    ],
+    "Conditional Auto-Indexing Tunnel (LVObject)__ogtk.vi": [
+      {
+        "signature": "1:o:Array|4:i:Void|7:i:Void",
+        "caller_vi": "Strip Units__ogtk.vi",
+        "terminals": [
+          {
+            "index": 1,
+            "name": "",
+            "direction": "output",
+            "type": "Array"
+          },
+          {
+            "index": 4,
+            "name": "",
+            "direction": "input",
+            "type": "Void"
+          },
+          {
+            "index": 7,
+            "name": "",
+            "direction": "input",
+            "type": "Void"
+          }
+        ]
+      },
+      {
+        "signature": "1:o:Array|4:i:Void",
+        "caller_vi": "Strip Units__ogtk.vi",
+        "terminals": [
+          {
+            "index": 1,
+            "name": "Filtered Array out",
+            "direction": "output",
+            "type": "Array"
+          },
+          {
+            "index": 4,
+            "name": "",
+            "direction": "input",
+            "type": "Void"
+          }
+        ]
+      },
+      {
+        "signature": "1:o:Array|2:i:Void|4:i:Void|5:i:Array|6:i:Array|7:i:Void",
+        "caller_vi": "Get Data Name from TD__ogtk.vi",
+        "terminals": [
+          {
+            "index": 1,
+            "name": "Filtered Array out",
+            "direction": "output",
+            "type": "Array"
+          },
+          {
+            "index": 2,
+            "name": "",
+            "direction": "input",
+            "type": "Void"
+          },
+          {
+            "index": 4,
+            "name": "",
+            "direction": "input",
+            "type": "Void"
+          },
+          {
+            "index": 5,
+            "name": "Array in",
+            "direction": "input",
+            "type": "Array"
+          },
+          {
+            "index": 6,
+            "name": "Elements to keep",
+            "direction": "input",
+            "type": "Array"
+          },
+          {
+            "index": 7,
+            "name": "",
+            "direction": "input",
+            "type": "Void"
+          }
+        ]
+      },
+      {
+        "signature": "0:i:Void|1:o:Array|2:i:Void|3:i:Void|4:i:Void|5:i:Array|6:i:Array|7:i:Void",
+        "caller_vi": "Get Data Name from TD__ogtk.vi",
+        "terminals": [
+          {
+            "index": 0,
+            "name": "",
+            "direction": "input",
+            "type": "Void"
+          },
+          {
+            "index": 1,
+            "name": "Filtered Array out",
+            "direction": "output",
+            "type": "Array"
+          },
+          {
+            "index": 2,
+            "name": "",
+            "direction": "input",
+            "type": "Void"
+          },
+          {
+            "index": 3,
+            "name": "",
+            "direction": "input",
+            "type": "Void"
+          },
+          {
+            "index": 4,
+            "name": "",
+            "direction": "input",
+            "type": "Void"
+          },
+          {
+            "index": 5,
+            "name": "Array in",
+            "direction": "input",
+            "type": "Array"
+          },
+          {
+            "index": 6,
+            "name": "Elements to keep",
+            "direction": "input",
+            "type": "Array"
+          },
+          {
+            "index": 7,
+            "name": "",
+            "direction": "input",
+            "type": "Void"
+          }
+        ]
+      }
+    ],
+    "Get TDEnum from Data__ogtk.vi": [
+      {
+        "signature": "0:i:Void|3:i:Void|4:i:LVVariant",
+        "caller_vi": "TestCase.lvclass:openMethodViReference.vi",
+        "terminals": [
+          {
+            "index": 0,
+            "name": "",
+            "direction": "input",
+            "type": "Void"
+          },
+          {
+            "index": 3,
+            "name": "",
+            "direction": "input",
+            "type": "Void"
+          },
+          {
+            "index": 4,
+            "name": "",
+            "direction": "input",
+            "type": "LVVariant"
+          }
+        ]
+      },
+      {
+        "signature": "3:i:Void|4:i:LVVariant",
+        "caller_vi": "TestCase.lvclass:openMethodViReference.vi",
+        "terminals": [
+          {
+            "index": 3,
+            "name": "",
+            "direction": "input",
+            "type": "Void"
+          },
+          {
+            "index": 4,
+            "name": "Data",
+            "direction": "input",
+            "type": "LVVariant"
+          }
+        ]
+      }
+    ],
+    "Conditional Auto-Indexing Tunnel (I64)__ogtk.vi": [
+      {
+        "signature": "3:i:Void|5:i:Array",
+        "caller_vi": "TestCase.lvclass:fail.vi",
+        "terminals": [
+          {
+            "index": 3,
+            "name": "",
+            "direction": "input",
+            "type": "Void"
+          },
+          {
+            "index": 5,
+            "name": "Array in",
+            "direction": "input",
+            "type": "Array"
+          }
+        ]
+      },
+      {
+        "signature": "0:i:Void|1:o:Array|2:i:Void|3:i:Void|4:i:Void|5:i:Array|6:i:Array|7:i:Void",
+        "caller_vi": "VITesterUtilities.lvlib:Get LVClass Name from TD.vi",
+        "terminals": [
+          {
+            "index": 0,
+            "name": "",
+            "direction": "input",
+            "type": "Void"
+          },
+          {
+            "index": 1,
+            "name": "Filtered Array out",
+            "direction": "output",
+            "type": "Array"
+          },
+          {
+            "index": 2,
+            "name": "",
+            "direction": "input",
+            "type": "Void"
+          },
+          {
+            "index": 3,
+            "name": "",
+            "direction": "input",
+            "type": "Void"
+          },
+          {
+            "index": 4,
+            "name": "",
+            "direction": "input",
+            "type": "Void"
+          },
+          {
+            "index": 5,
+            "name": "Array in",
+            "direction": "input",
+            "type": "Array"
+          },
+          {
+            "index": 6,
+            "name": "Elements to keep",
+            "direction": "input",
+            "type": "Array"
+          },
+          {
+            "index": 7,
+            "name": "",
+            "direction": "input",
+            "type": "Void"
+          }
+        ]
+      },
+      {
+        "signature": "0:i:Void|2:i:Void|3:i:Void|5:i:Array",
+        "caller_vi": "VITesterUtilities.lvlib:Get LVClass Name from TD.vi",
+        "terminals": [
+          {
+            "index": 0,
+            "name": "",
+            "direction": "input",
+            "type": "Void"
+          },
+          {
+            "index": 2,
+            "name": "",
+            "direction": "input",
+            "type": "Void"
+          },
+          {
+            "index": 3,
+            "name": "",
+            "direction": "input",
+            "type": "Void"
+          },
+          {
+            "index": 5,
+            "name": "Array in",
+            "direction": "input",
+            "type": "Array"
+          }
+        ]
+      }
+    ],
+    "Conditional Auto-Indexing Tunnel (U64)__ogtk.vi": [
+      {
+        "signature": "6:i:Array|7:i:Void",
+        "caller_vi": "Strip Units__ogtk.vi",
+        "terminals": [
+          {
+            "index": 6,
+            "name": "Elements to keep",
+            "direction": "input",
+            "type": "Array"
+          },
+          {
+            "index": 7,
+            "name": "",
+            "direction": "input",
+            "type": "Void"
+          }
+        ]
+      },
+      {
+        "signature": "0:i:Void|1:o:Array|2:i:Void|3:i:Void|4:i:Void|5:i:Array|6:i:Array|7:i:Void",
+        "caller_vi": "VITesterUtilities.lvlib:Get LVClass Name from Data String.vi",
+        "terminals": [
+          {
+            "index": 0,
+            "name": "",
+            "direction": "input",
+            "type": "Void"
+          },
+          {
+            "index": 1,
+            "name": "Filtered Array out",
+            "direction": "output",
+            "type": "Array"
+          },
+          {
+            "index": 2,
+            "name": "",
+            "direction": "input",
+            "type": "Void"
+          },
+          {
+            "index": 3,
+            "name": "",
+            "direction": "input",
+            "type": "Void"
+          },
+          {
+            "index": 4,
+            "name": "",
+            "direction": "input",
+            "type": "Void"
+          },
+          {
+            "index": 5,
+            "name": "Array in",
+            "direction": "input",
+            "type": "Array"
+          },
+          {
+            "index": 6,
+            "name": "Elements to keep",
+            "direction": "input",
+            "type": "Array"
+          },
+          {
+            "index": 7,
+            "name": "",
+            "direction": "input",
+            "type": "Void"
+          }
+        ]
+      }
+    ],
+    "Conditional Auto-Indexing Tunnel (GObj-REF)__ogtk.vi": [
+      {
+        "signature": "0:i:Void|1:o:Array|2:i:Void|3:i:Void|4:i:Void|5:i:Array|6:i:Array|7:i:Void",
+        "caller_vi": "Is an Error (error array)__jki_lib_error_handling -- VI Tester.vi",
+        "terminals": [
+          {
+            "index": 0,
+            "name": "",
+            "direction": "input",
+            "type": "Void"
+          },
+          {
+            "index": 1,
+            "name": "Filtered Array out",
+            "direction": "output",
+            "type": "Array"
+          },
+          {
+            "index": 2,
+            "name": "",
+            "direction": "input",
+            "type": "Void"
+          },
+          {
+            "index": 3,
+            "name": "",
+            "direction": "input",
+            "type": "Void"
+          },
+          {
+            "index": 4,
+            "name": "",
+            "direction": "input",
+            "type": "Void"
+          },
+          {
+            "index": 5,
+            "name": "Array in",
+            "direction": "input",
+            "type": "Array"
+          },
+          {
+            "index": 6,
+            "name": "Elements to keep",
+            "direction": "input",
+            "type": "Array"
+          },
+          {
+            "index": 7,
+            "name": "",
+            "direction": "input",
+            "type": "Void"
+          }
+        ]
+      }
+    ],
+    "Conditional Auto-Indexing Tunnel (I16)__ogtk.vi": [
+      {
+        "signature": "0:i:Void|1:o:Array|2:i:Void|4:i:Void|5:i:Array|7:i:Void",
+        "caller_vi": "Close Generic Object Refnum (Array VI)__ogtk.vi",
+        "terminals": [
+          {
+            "index": 0,
+            "name": "",
+            "direction": "input",
+            "type": "Void"
+          },
+          {
+            "index": 1,
+            "name": "Filtered Array out",
+            "direction": "output",
+            "type": "Array"
+          },
+          {
+            "index": 2,
+            "name": "",
+            "direction": "input",
+            "type": "Void"
+          },
+          {
+            "index": 4,
+            "name": "",
+            "direction": "input",
+            "type": "Void"
+          },
+          {
+            "index": 5,
+            "name": "Array in",
+            "direction": "input",
+            "type": "Array"
+          },
+          {
+            "index": 7,
+            "name": "",
+            "direction": "input",
+            "type": "Void"
+          }
+        ]
+      }
+    ],
+    "Conditional Auto-Indexing Tunnel (CSG)__ogtk.vi": [
+      {
+        "signature": "0:i:Void|1:o:Array|2:i:Void|3:i:Void|4:i:Void|5:i:Array|6:i:Array|7:i:Void",
+        "caller_vi": "Get Data Name__ogtk.vi",
+        "terminals": [
+          {
+            "index": 0,
+            "name": "",
+            "direction": "input",
+            "type": "Void"
+          },
+          {
+            "index": 1,
+            "name": "Filtered Array out",
+            "direction": "output",
+            "type": "Array"
+          },
+          {
+            "index": 2,
+            "name": "",
+            "direction": "input",
+            "type": "Void"
+          },
+          {
+            "index": 3,
+            "name": "",
+            "direction": "input",
+            "type": "Void"
+          },
+          {
+            "index": 4,
+            "name": "",
+            "direction": "input",
+            "type": "Void"
+          },
+          {
+            "index": 5,
+            "name": "Array in",
+            "direction": "input",
+            "type": "Array"
+          },
+          {
+            "index": 6,
+            "name": "Elements to keep",
+            "direction": "input",
+            "type": "Array"
+          },
+          {
+            "index": 7,
+            "name": "",
+            "direction": "input",
+            "type": "Void"
+          }
+        ]
+      }
+    ],
+    "Clear Errors.vi": [
+      {
+        "signature": "0:o:Cluster|1:i:Void|2:i:Void|3:i:Void|4:i:Cluster|5:i:Void|6:i:Void|7:i:Void",
+        "caller_vi": "Filter Error Codes (Scalar)__jki_lib_error_handling -- VI Tester.vi",
+        "terminals": [
+          {
+            "index": 0,
+            "name": "",
+            "direction": "output",
+            "type": "Cluster"
+          },
+          {
+            "index": 1,
+            "name": "",
+            "direction": "input",
+            "type": "Void"
+          },
+          {
+            "index": 2,
+            "name": "",
+            "direction": "input",
+            "type": "Void"
+          },
+          {
+            "index": 3,
+            "name": "",
+            "direction": "input",
+            "type": "Void"
+          },
+          {
+            "index": 4,
+            "name": "",
+            "direction": "input",
+            "type": "Cluster"
+          },
+          {
+            "index": 5,
+            "name": "",
+            "direction": "input",
+            "type": "Void"
+          },
+          {
+            "index": 6,
+            "name": "",
+            "direction": "input",
+            "type": "Void"
+          },
+          {
+            "index": 7,
+            "name": "",
+            "direction": "input",
+            "type": "Void"
+          }
+        ]
+      },
+      {
+        "signature": "0:o:Cluster|2:i:Void|3:i:Void|6:i:Void|7:i:Void",
+        "caller_vi": "Filter Error Codes (Scalar)__jki_lib_error_handling -- VI Tester.vi",
+        "terminals": [
+          {
+            "index": 0,
+            "name": "",
+            "direction": "output",
+            "type": "Cluster"
+          },
+          {
+            "index": 2,
+            "name": "",
+            "direction": "input",
+            "type": "Void"
+          },
+          {
+            "index": 3,
+            "name": "",
+            "direction": "input",
+            "type": "Void"
+          },
+          {
+            "index": 6,
+            "name": "",
+            "direction": "input",
+            "type": "Void"
+          },
+          {
+            "index": 7,
+            "name": "",
+            "direction": "input",
+            "type": "Void"
+          }
+        ]
+      }
+    ],
+    "Get LV Class Path.vi": [
+      {
+        "signature": "0:o:Cluster|1:i:Void|2:i:Void|3:o:Path|4:i:Void|5:i:Void|6:i:Void|7:i:Void|8:i:Cluster|9:i:Void|10:i:Void|11:i:Refnum",
+        "caller_vi": "VITesterUtilities.lvlib:Get All Methods from LVObject.vi",
+        "terminals": [
+          {
+            "index": 0,
+            "name": "",
+            "direction": "output",
+            "type": "Cluster"
+          },
+          {
+            "index": 1,
+            "name": "",
+            "direction": "input",
+            "type": "Void"
+          },
+          {
+            "index": 2,
+            "name": "",
+            "direction": "input",
+            "type": "Void"
+          },
+          {
+            "index": 3,
+            "name": "",
+            "direction": "output",
+            "type": "Path"
+          },
+          {
+            "index": 4,
+            "name": "",
+            "direction": "input",
+            "type": "Void"
+          },
+          {
+            "index": 5,
+            "name": "",
+            "direction": "input",
+            "type": "Void"
+          },
+          {
+            "index": 6,
+            "name": "",
+            "direction": "input",
+            "type": "Void"
+          },
+          {
+            "index": 7,
+            "name": "",
+            "direction": "input",
+            "type": "Void"
+          },
+          {
+            "index": 8,
+            "name": "",
+            "direction": "input",
+            "type": "Cluster"
+          },
+          {
+            "index": 9,
+            "name": "",
+            "direction": "input",
+            "type": "Void"
+          },
+          {
+            "index": 10,
+            "name": "",
+            "direction": "input",
+            "type": "Void"
+          },
+          {
+            "index": 11,
+            "name": "",
+            "direction": "input",
+            "type": "Refnum"
+          }
+        ]
+      },
+      {
+        "signature": "0:o:Cluster|1:i:Void|3:o:Path|6:i:Void|8:i:Cluster|11:i:Refnum",
+        "caller_vi": "VITesterUtilities.lvlib:Get All Methods from LVObject.vi",
+        "terminals": [
+          {
+            "index": 0,
+            "name": "",
+            "direction": "output",
+            "type": "Cluster"
+          },
+          {
+            "index": 1,
+            "name": "",
+            "direction": "input",
+            "type": "Void"
+          },
+          {
+            "index": 3,
+            "name": "",
+            "direction": "output",
+            "type": "Path"
+          },
+          {
+            "index": 6,
+            "name": "",
+            "direction": "input",
+            "type": "Void"
+          },
+          {
+            "index": 8,
+            "name": "",
+            "direction": "input",
+            "type": "Cluster"
+          },
+          {
+            "index": 11,
+            "name": "",
+            "direction": "input",
+            "type": "Refnum"
+          }
+        ]
+      }
+    ],
+    "Conditional Auto-Indexing Tunnel (Bool)__ogtk.vi": [
+      {
+        "signature": "1:o:Array|2:i:Void|3:i:Void|4:i:Void|5:i:Array|6:i:Array|7:i:Void",
+        "caller_vi": "Convert EOLs (String)__ogtk.vi",
+        "terminals": [
+          {
+            "index": 1,
+            "name": "Filtered Array out",
+            "direction": "output",
+            "type": "Array"
+          },
+          {
+            "index": 2,
+            "name": "",
+            "direction": "input",
+            "type": "Void"
+          },
+          {
+            "index": 3,
+            "name": "",
+            "direction": "input",
+            "type": "Void"
+          },
+          {
+            "index": 4,
+            "name": "",
+            "direction": "input",
+            "type": "Void"
+          },
+          {
+            "index": 5,
+            "name": "Array in",
+            "direction": "input",
+            "type": "Array"
+          },
+          {
+            "index": 6,
+            "name": "Elements to keep",
+            "direction": "input",
+            "type": "Array"
+          },
+          {
+            "index": 7,
+            "name": "",
+            "direction": "input",
+            "type": "Void"
+          }
+        ]
+      },
+      {
+        "signature": "6:i:Array|7:i:Void",
+        "caller_vi": "Convert EOLs (String)__ogtk.vi",
+        "terminals": [
+          {
+            "index": 6,
+            "name": "Elements to keep",
+            "direction": "input",
+            "type": "Array"
+          },
+          {
+            "index": 7,
+            "name": "",
+            "direction": "input",
+            "type": "Void"
+          }
+        ]
+      }
+    ],
+    "Conditional Auto-Indexing Tunnel (I8)__ogtk.vi": [
+      {
+        "signature": "0:i:Void|1:o:Array|2:i:Void|3:i:Void|4:i:Void|5:i:Array|6:i:Array|7:i:Void",
+        "caller_vi": "TestCase.lvclass:CheckPassFailOutputs.vi",
+        "terminals": [
+          {
+            "index": 0,
+            "name": "",
+            "direction": "input",
+            "type": "Void"
+          },
+          {
+            "index": 1,
+            "name": "Filtered Array out",
+            "direction": "output",
+            "type": "Array"
+          },
+          {
+            "index": 2,
+            "name": "",
+            "direction": "input",
+            "type": "Void"
+          },
+          {
+            "index": 3,
+            "name": "",
+            "direction": "input",
+            "type": "Void"
+          },
+          {
+            "index": 4,
+            "name": "",
+            "direction": "input",
+            "type": "Void"
+          },
+          {
+            "index": 5,
+            "name": "Array in",
+            "direction": "input",
+            "type": "Array"
+          },
+          {
+            "index": 6,
+            "name": "Elements to keep",
+            "direction": "input",
+            "type": "Array"
+          },
+          {
+            "index": 7,
+            "name": "",
+            "direction": "input",
+            "type": "Void"
+          }
+        ]
+      }
+    ]
+  }
+}

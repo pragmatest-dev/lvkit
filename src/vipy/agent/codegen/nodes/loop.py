@@ -371,14 +371,7 @@ class LoopCodeGen(NodeCodeGen):
         else:
             singular = base + "_item"
 
-        # Check for conflicts with existing bindings
-        candidate = singular
-        suffix = 2
-        while candidate in ctx.bindings.values():
-            candidate = f"{singular}_{suffix}"
-            suffix += 1
-
-        return candidate
+        return singular
 
     def _get_source_terminal_name(
         self, terminal_uid: str, ctx: CodeGenContext
@@ -387,7 +380,7 @@ class LoopCodeGen(NodeCodeGen):
 
         Traces back through data flow to find a named source (FP control, constant).
         """
-        flow_info = ctx._flow_map.get(terminal_uid)
+        flow_info = ctx.get_source(terminal_uid)
         if not flow_info:
             return None
 
@@ -409,7 +402,7 @@ class LoopCodeGen(NodeCodeGen):
 
         Traces forward through data flow to find a named destination:
         - FP indicator names
-        - SubVI parameter names (looked up via get_callee_param_name)
+        - SubVI input names (from dest_parent_name in flow data)
 
         Used when source has no name (e.g., unnamed constant).
 
@@ -422,21 +415,18 @@ class LoopCodeGen(NodeCodeGen):
             return None
         visited.add(terminal_uid)
 
-        dest_list = ctx._reverse_flow_map.get(terminal_uid, [])
+        dest_list = ctx.get_destinations(terminal_uid)
         for dest_info in dest_list:
             dest_name: str | None = dest_info.get("dest_parent_name")
             dest_labels = dest_info.get("dest_parent_labels", [])
-            dest_slot_index = dest_info.get("dest_slot_index")
 
             # Check if it's a named indicator (output)
             if dest_name and "Indicator" in dest_labels:
                 return dest_name
 
-            # Check if it flows to a SubVI input - look up parameter name
-            if "SubVI" in dest_labels and dest_name and dest_slot_index is not None:
-                param_name = ctx.get_callee_param_name(dest_name, dest_slot_index)
-                if param_name:
-                    return param_name
+            # Check if it flows to a SubVI input - use SubVI name as hint
+            if "SubVI" in dest_labels and dest_name:
+                return dest_name
 
             # Recurse through tunnels/connections
             dest_terminal = dest_info.get("dest_terminal")
@@ -445,18 +435,14 @@ class LoopCodeGen(NodeCodeGen):
                 if found:
                     return found
 
-        # If no forward flow found, check if this is a tunnel inner terminal
-        # by looking for sources that are tunnel outers (they also point here)
-        # and trace through those outers' other destinations
-        for src_id, src_dests in ctx._reverse_flow_map.items():
-            for d in src_dests:
-                if d['dest_terminal'] == terminal_uid:
-                    # src_id points to us - check if it has other destinations
-                    # (this handles tunnel outer -> inner + outer -> external)
-                    if src_id not in visited:
-                        found = self._get_dest_terminal_name(src_id, ctx, visited)
-                        if found:
-                            return found
+        # If no forward flow found, check source terminal's other destinations
+        source = ctx.get_source(terminal_uid)
+        if source:
+            src_id = source["src_terminal"]
+            if src_id not in visited:
+                found = self._get_dest_terminal_name(src_id, ctx, visited)
+                if found:
+                    return found
 
         return None
 
@@ -491,7 +477,7 @@ class LoopCodeGen(NodeCodeGen):
                 return inp.lv_type
 
         # Trace through data flow
-        flow_info = ctx._flow_map.get(terminal_uid)
+        flow_info = ctx.get_source(terminal_uid)
         if flow_info:
             src_terminal = flow_info.get("src_terminal")
             src_parent_id = flow_info.get("src_parent_id")
@@ -720,7 +706,7 @@ class LoopCodeGen(NodeCodeGen):
         - lMax as accumulator (has incoming flow from loop body)
         """
         # Check if this terminal is the destination of any flow
-        return terminal_uid in ctx._flow_map
+        return ctx.has_incoming(terminal_uid)
 
 
 # Comparison operator inversions for cleaner negation

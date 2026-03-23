@@ -16,8 +16,8 @@ CASE_TUNNEL_CLASSES = ("csTun",)  # Case structure tunnel
 # Selector DCO classes
 SELECTOR_DCO_CLASSES = ("cSelDCO", "caseSel")
 
-# All tunnel DCO classes (csTun for caseStruct, selTun for select)
-ALL_TUNNEL_CLASSES = ("csTun", "selTun")
+# All tunnel DCO classes
+ALL_TUNNEL_CLASSES = ("csTun", "selTun", "commentTun")
 
 
 def extract_case_structures(root: ET.Element) -> list[CaseStructure]:
@@ -39,7 +39,7 @@ def extract_case_structures(root: ET.Element) -> list[CaseStructure]:
     """
     case_structures: list[CaseStructure] = []
 
-    # Find both caseStruct and select elements
+    # Find caseStruct and select elements
     case_elems = list(root.findall(".//*[@class='caseStruct']"))
     case_elems.extend(root.findall(".//*[@class='select']"))
 
@@ -119,6 +119,25 @@ def _extract_one_case_structure(
                         outer_terminal_uid=outer_uid,
                         inner_terminal_uid=inner_uid,
                         tunnel_type="caseSel",
+                    ))
+
+    # Extract commentTun tunnels from comment nodes (annotations).
+    # commentTun passes data through transparently — same layout as selTun.
+    for comment_tun in case_elem.findall(".//*[@class='commentTun']"):
+        ct_tl = comment_tun.find("termList")
+        if ct_tl is not None:
+            term_refs = [
+                e.get("uid")
+                for e in ct_tl.findall("SL__arrayElement")
+                if e.get("uid")
+            ]
+            if len(term_refs) >= 2:
+                outer_uid = term_refs[-1]
+                for inner_uid in term_refs[:-1]:
+                    tunnels.append(Tunnel(
+                        outer_terminal_uid=outer_uid,
+                        inner_terminal_uid=inner_uid,
+                        tunnel_type="commentTun",
                     ))
 
     # Extract diagram frames (cases)

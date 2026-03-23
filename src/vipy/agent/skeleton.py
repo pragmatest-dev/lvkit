@@ -145,7 +145,7 @@ class SkeletonGenerator:
         inputs: list[SkeletonInput] = []
         for inp in vi_context.get("inputs", []):
             name = self._to_var_name(inp.name or "input")
-            type_hint = self._map_type(inp.type or "Any")
+            type_hint = self._map_type(inp.python_type())
             wiring_rule = inp.wiring_rule
             default_value = inp.default_value
 
@@ -170,7 +170,7 @@ class SkeletonGenerator:
             if out.lv_type:
                 type_hint = out.lv_type.to_python()
             else:
-                lv_type = out.type or self._map_control_type(out.control_type)
+                lv_type = out.python_type() or self._map_control_type(out.control_type)
                 type_hint = self._map_type(lv_type) if lv_type else "Any"
             outputs.append((name, type_hint))
 

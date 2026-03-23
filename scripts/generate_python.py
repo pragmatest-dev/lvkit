@@ -8,6 +8,9 @@ from __future__ import annotations
 
 import argparse
 import ast
+import sys
+
+sys.setrecursionlimit(10000)
 import re
 import shutil
 import sys
@@ -184,7 +187,7 @@ def generate_polymorphic_module(
                     package_name, output_dir, vi_paths,
                     graph=graph, vilib_resolver=vilib_resolver,
                 )
-            code = build_module(vi_context, variant_name, graph.get_vi_context, import_resolver)
+            code = build_module(vi_context, variant_name, import_resolver=import_resolver, graph=graph)
             # Extract just the function and result class (skip imports)
             tree = ast.parse(code)
             for node in tree.body:
@@ -494,7 +497,7 @@ def {func_name}(*args, **kwargs) -> Any:
                 vi_folder_name, output_dir, vi_paths,
                 graph=graph, vilib_resolver=vilib_resolver,
             )
-                code = build_module(vi_context, vi_name, graph.get_vi_context, import_resolver)
+                code = build_module(vi_context, vi_name, import_resolver=import_resolver, graph=graph)
 
                 # Validate syntax
                 ast.parse(code)
@@ -504,13 +507,15 @@ def {func_name}(*args, **kwargs) -> Any:
 
             except SyntaxError as e:
                 error_path = output_dir / f"{module_name}.error.py"
-                error_path.write_text(f"# SYNTAX ERROR: {e}\n\n{code}")
+                error_path.write_text(f"# SYNTAX ERROR: {e}\n\n{code if 'code' in dir() else '# code generation failed'}")
                 print(f"         -> SYNTAX ERROR: {error_path.name}")
                 generated.append((vi_name, error_path, "error"))
 
             except Exception as e:
+                error_path = output_dir / f"{module_name}.error.py"
+                error_path.write_text(f"# ERROR: {e}")
                 print(f"         -> FAILED: {e}")
-                generated.append((vi_name, None, "failed"))
+                generated.append((vi_name, error_path, "error"))
 
     # Generate minimal __init__.py (just makes it a package)
     init_path = output_dir / "__init__.py"
@@ -541,8 +546,8 @@ def {func_name}(*args, **kwargs) -> Any:
         module = builder.build_class_module(
             lvclass,
             method_contexts,
-            vi_context_lookup=graph.get_vi_context,
             import_resolver=import_resolver,
+            graph=graph,
         )
         ast.fix_missing_locations(module)
         class_code = ast.unparse(module)
@@ -562,7 +567,7 @@ def {func_name}(*args, **kwargs) -> Any:
     # Save terminal observations for incremental collection
     from vipy.terminal_collector import get_collector
     collector = get_collector()
-    if collector.data["observations"]:
+    if collector.data.get("observations"):
         collector.save()
         print(f"\nTerminal observations collected for {len(collector.data['observations'])} VI(s)")
         print(f"  Saved to: {collector.pending_file}")

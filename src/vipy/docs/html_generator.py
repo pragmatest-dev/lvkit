@@ -102,7 +102,7 @@ class MermaidRenderer:
             nid = self._next_id()
             self._node_ids[inp.id] = nid
             name = inp.name or "input"
-            lv_type = inp.type or ""
+            lv_type = inp.python_type()
             label = f"{name}: {lv_type}" if lv_type and lv_type != "Any" else name
             self._lines.append(f'    {nid}[/"{self._escape(label)}"/]')
             self._node_styles.append((nid, "controlStyle"))
@@ -112,7 +112,7 @@ class MermaidRenderer:
             nid = self._next_id()
             self._node_ids[out.id] = nid
             name = out.name or "output"
-            lv_type = out.type or ""
+            lv_type = out.python_type()
             label = f"{name}: {lv_type}" if lv_type and lv_type != "Any" else name
             self._lines.append(f'    {nid}[\\"{self._escape(label)}"\\]')
             self._node_styles.append((nid, "indicatorStyle"))

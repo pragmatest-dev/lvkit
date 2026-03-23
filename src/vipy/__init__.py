@@ -17,7 +17,6 @@ from .graph_types import (
     Constant as GraphConstant,
 )
 from .graph_types import (
-    FPTerminalNode,
     Operation,
     Terminal,
     Tunnel,
@@ -88,7 +87,6 @@ __all__ = [
     "Terminal",
     "Operation",
     "Tunnel",
-    "FPTerminalNode",
     "GraphConstant",
     "GraphWire",
 ]

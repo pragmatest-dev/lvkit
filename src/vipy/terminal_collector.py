@@ -149,7 +149,7 @@ class TerminalCollector:
                 index = term.index
                 direction = term.direction
                 name = term.name
-                wire_type = term.type  # String type name (backward compat)
+                wire_type = term.python_type()  # String type name
                 type_info = getattr(term, 'type_info', None)  # LVType if available
             else:  # dict
                 index = term.get("index", -1)

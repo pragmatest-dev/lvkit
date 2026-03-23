@@ -1,272 +1,56 @@
-"""Shared dataclasses for VI graph representation.
+"""Types for VI graph representation.
 
-These dataclasses are the canonical types used across:
-- memory_graph.py (creates/enriches instances)
-- parser/ (uses Tunnel)
-- codegen/ (consumes for code generation)
+Two layers:
+- Graph node types (Pydantic): VINode, PrimitiveNode, StructureNode, ConstantNode
+  Stored on the unified nx.MultiDiGraph as node["node"] = SomeNode(...)
+- Codegen types (dataclasses): Operation, Terminal, Constant
+  Consumed by the code generation pipeline (converted from graph nodes)
+
+Uses Pydantic BaseModel for graph types. Existing dataclasses kept for
+codegen compatibility until full migration.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Literal, Union
+
+from pydantic import BaseModel
 
 
-@dataclass
-class Terminal:
-    """A terminal on an operation node."""
-
-    id: str
-    index: int
-    direction: str  # "input" or "output"
-    type: str = "Any"
-    name: str | None = None
-    typedef_path: str | None = None  # Filesystem path to .ctl
-    typedef_name: str | None = None  # Qualified name (e.g., "sysdir.llb:Type.ctl")
-    callee_param_name: str | None = None  # Name in SubVI's signature
-    lv_type: LVType | None = None  # Full type info (for class wire detection)
-
-    @property
-    def is_error_cluster(self) -> bool:
-        """Check if this terminal carries a LabVIEW error cluster.
-
-        Python uses exceptions instead — these terminals should be
-        skipped in argument lists, output bindings, and result classes.
-        """
-        if self.lv_type:
-            from vipy.type_defaults import _is_error_cluster
-            if _is_error_cluster(self.lv_type):
-                return True
-        name = (self.callee_param_name or self.name or "").lower()
-        return "error" in name and ("in" in name or "out" in name or "no error" in name)
-
-
-@dataclass
-class Tunnel:
-    """A tunnel connecting loop outer/inner terminals.
-
-    In LabVIEW loops, data enters/exits via tunnels:
-    - lSR (left shift register): Input tunnel, value persists across iterations
-    - rSR (right shift register): Output tunnel, paired with lSR
-    - lpTun (loop tunnel): Simple pass-through
-    - lMax: Accumulator/max output
-    """
-
-    outer_terminal_uid: str
-    inner_terminal_uid: str
-    tunnel_type: str  # "lSR", "rSR", "lpTun", "lMax"
-    paired_terminal_uid: str | None = None
-
-    @property
-    def direction(self) -> str:
-        """Return 'in' or 'out' based on tunnel type."""
-        if self.tunnel_type == "lSR":
-            return "in"
-        if self.tunnel_type in ("rSR", "lMax"):
-            return "out"
-        # lpTun can be either - caller must determine from context
-        return "unknown"
-
-
-@dataclass
-class CaseFrame:
-    """A single frame (case) in a LabVIEW case structure.
-
-    Each frame has:
-    - selector_value: The value that selects this frame ("0", "True", "Default")
-    - inner_node_uids: UIDs of nodes contained in this frame
-    - operations: Fully resolved Operation list for code generation
-    """
-
-    selector_value: str | int
-    inner_node_uids: list[str] = field(default_factory=list)
-    operations: list[Operation] = field(default_factory=list)
-    is_default: bool = False  # True if this is the default case
-
-
-@dataclass
-class Operation:
-    """An operation node (SubVI, primitive, loop, case structure)."""
-
-    id: str
-    name: str | None
-    labels: list[str]
-    primResID: int | None = None
-    terminals: list[Terminal] = field(default_factory=list)
-    node_type: str | None = None
-    loop_type: str | None = None
-    tunnels: list[Tunnel] = field(default_factory=list)
-    inner_nodes: list[Operation] = field(default_factory=list)
-    stop_condition_terminal: str | None = None
-    description: str | None = None  # VI description/help text
-    operation: str | None = None  # For cpdArith: "or", "and", "add"
-    # Property/invoke node fields
-    object_name: str | None = None  # For property/invoke: "App", "VI"
-    object_method_id: str | None = None  # oMId
-    properties: list[dict[str, Any]] = field(default_factory=list)  # For propNode
-    method_name: str | None = None  # For invokeNode
-    method_code: int | None = None  # For invokeNode
-    # Frames: used for case structures (selector-indexed) and flat sequences (ordered)
-    case_frames: list[CaseFrame] = field(default_factory=list)
-    selector_terminal: str | None = None  # Terminal receiving selector value
-    # Polymorphic VI fields
-    poly_variant_name: str | None = None  # Edit-time selected variant name
-
-
-@dataclass
-class Constant:
-    """A constant value node."""
-
-    id: str
-    value: Any
-    lv_type: LVType | None = None  # Full type info (parsed from XML)
-    raw_value: str | None = None
-    name: str | None = None  # Label text for the constant
-
-
-@dataclass
-class FPTerminalNode:
-    """A front panel terminal (input/output)."""
-
-    id: str
-    kind: str  # "input" or "output"
-    name: str | None
-    is_indicator: bool
-    is_public: bool
-    slot_index: int | None = None
-    wiring_rule: int = 0
-    type_desc: str | None = None
-    control_type: str | None = None
-    default_value: Any = None
-    enum_values: list[Any] = field(default_factory=list)
-    type: str | None = None  # Resolved type (underlying_type string)
-    lv_type: LVType | None = None  # Full LVType structure (unified type system)
-
-
-@dataclass
-class Wire:
-    """A wire (edge) in the dataflow graph."""
-
-    from_terminal_id: str
-    to_terminal_id: str
-    from_parent_id: str | None = None
-    to_parent_id: str | None = None
-    from_parent_name: str | None = None
-    to_parent_name: str | None = None
-    from_parent_labels: list[str] = field(default_factory=list)
-    to_parent_labels: list[str] = field(default_factory=list)
-    from_slot_index: int | None = None  # Connector pane slot for SubVI param lookup
-    to_slot_index: int | None = None  # Connector pane slot for SubVI param lookup
-
-
-# Type definition dataclasses
-
-@dataclass
-class EnumValue:
-    """A single value in an enum typedef."""
-    value: int
-    description: str | None = None
-
-
-# Mapping from LabVIEW type names to Python type annotations
-_LV_TO_PYTHON_TYPE: dict[str, str] = {
-    "NumInt8": "int", "NumInt16": "int", "NumInt32": "int", "NumInt64": "int",
-    "NumUInt8": "int", "NumUInt16": "int", "NumUInt32": "int", "NumUInt64": "int",
-    "NumFloat32": "float", "NumFloat64": "float",
-    "String": "str",
-    "Boolean": "bool",
-    "Path": "Path",
-    "Variant": "Any",
-    "Void": "None",
-}
-
-
-# Mapping from Front Panel control types to LVType (shared source of truth)
-def control_type_to_lvtype(control_type: str) -> LVType | None:
-    """Map a LabVIEW control type to LVType.
-
-    Args:
-        control_type: Control type string like "stdPath", "stdString", etc.
-
-    Returns:
-        LVType instance or None if not recognized
-    """
-    mapping = {
-        "stdPath": LVType(kind="primitive", underlying_type="Path"),
-        "stdString": LVType(kind="primitive", underlying_type="String"),
-        "stdBool": LVType(kind="primitive", underlying_type="Boolean"),
-        "stdNum": LVType(kind="primitive", underlying_type="NumFloat64"),
-        "stdDBL": LVType(kind="primitive", underlying_type="NumFloat64"),
-        "stdI32": LVType(kind="primitive", underlying_type="NumInt32"),
-        "stdI16": LVType(kind="primitive", underlying_type="NumInt16"),
-        "stdU32": LVType(kind="primitive", underlying_type="NumUInt32"),
-        "stdU16": LVType(kind="primitive", underlying_type="NumUInt16"),
-    }
-    return mapping.get(control_type)
-
-
-def _sanitize_type_name(typedef_name: str) -> str:
-    """Sanitize a typedef name into a valid Python identifier.
-
-    Strips library prefix, file extension, spaces, and non-alphanumeric chars
-    to produce a name safe for use as a Python type annotation.
-    """
-    name = typedef_name.split(":")[-1].replace(".ctl", "")
-    # Keep only alphanumeric and underscore (removes --, spaces, etc.)
-    name = "".join(c for c in name if c.isalnum() or c == "_")
-    return name
+# ============================================================
+# Shared types (used by both graph and codegen layers)
+# ============================================================
 
 
 @dataclass
 class LVType:
-    """LabVIEW type structure - unified representation for all types.
+    """LabVIEW type structure - unified representation for all types."""
 
-    ALL types are represented as LVType, including:
-    - primitives (kind="primitive")
-    - enums (kind="enum")
-    - clusters (kind="cluster")
-    - arrays (kind="array")
-    - rings (kind="ring")
-    - typedef references (kind="typedef_ref") - lazy resolution
-
-    Examples:
-        LVType(kind="primitive", underlying_type="NumInt32")
-        LVType(kind="enum", underlying_type="UInt16", values={...})
-        LVType(kind="cluster", underlying_type="Cluster", fields=[...])
-        LVType(kind="array", underlying_type="Array", element_type=LVType(...))
-        LVType(kind="typedef_ref", typedef_path="vi.lib/Utility/sysdir.llb/...")
-    """
     kind: str  # "primitive", "enum", "cluster", "array", "ring", "typedef_ref"
-    underlying_type: str | None = None  # Base LabVIEW type (None for typedef_ref)
-    ref_type: str | None = None  # For Refnum: "UDClassInst", "Queue", "Notifier", etc.
-    classname: str | None = None  # For class refnums (UDClassInst): e.g., "TestCase.lvclass"
+    underlying_type: str | None = None
+    ref_type: str | None = None
+    classname: str | None = None
 
-    # Kind-specific fields (all optional, set based on kind)
-    values: dict[str, EnumValue] | None = None  # enum/ring
-    fields: list[ClusterField] | None = None  # cluster
-    element_type: LVType | None = None  # array
-    dimensions: int | None = None  # array
-    typedef_path: str | None = None  # typedef_ref - path to resolve
-    typedef_name: str | None = None  # Qualified name (e.g., "sysdir.llb:Type.ctl")
-    description: str | None = None  # Documentation text from typedef
+    values: dict[str, EnumValue] | None = None
+    fields: list[ClusterField] | None = None
+    element_type: LVType | None = None
+    dimensions: int | None = None
+    typedef_path: str | None = None
+    typedef_name: str | None = None
+    description: str | None = None
 
     def to_python(self) -> str:
         """Render as Python type annotation string."""
         if self.kind == "primitive":
             return _LV_TO_PYTHON_TYPE.get(self.underlying_type or "", "Any")
         elif self.kind == "array":
-            if self.element_type:
-                inner = self.element_type.to_python()
-            else:
-                inner = "Any"
+            inner = self.element_type.to_python() if self.element_type else "Any"
             result = f"list[{inner}]"
-            # Nested lists for multi-dimensional arrays
-            dims = self.dimensions or 1
-            for _ in range(dims - 1):
+            for _ in range((self.dimensions or 1) - 1):
                 result = f"list[{result}]"
             return result
         elif self.kind == "cluster":
-            # Use typedef_name if available, otherwise generic dict
             if self.typedef_name:
                 name = _sanitize_type_name(self.typedef_name)
                 return name or "dict[str, Any]"
@@ -285,48 +69,428 @@ class LVType:
 
 
 @dataclass
-class ClusterField:
-    """A field in a cluster.
+class EnumValue:
+    """A single value in an enum typedef."""
 
-    The type field is always an LVType - supports full nesting
-    (clusters in clusters, arrays of clusters, etc.)
-    """
+    value: int
+    description: str | None = None
+
+
+@dataclass
+class ClusterField:
+    """A field in a cluster."""
+
     name: str
     type: LVType
 
 
-# Branch point and parallel branch types for error handling
+class Terminal(BaseModel):
+    """A connection point on a node. Every node has terminals — edges connect to them."""
+
+    model_config = {"arbitrary_types_allowed": True}
+
+    kind: str = "terminal"
+    id: str
+    index: int
+    direction: str  # "input" or "output"
+    name: str | None = None
+    lv_type: LVType | None = None
+    var_name: str | None = None  # set during codegen when this terminal produces a value
+
+    def python_type(self) -> str:
+        """Python type string derived from lv_type."""
+        return self.lv_type.to_python() if self.lv_type else "Any"
+
+    @property
+    def is_error_cluster(self) -> bool:
+        """Check if this terminal carries a LabVIEW error cluster."""
+        if self.lv_type:
+            from vipy.type_defaults import _is_error_cluster
+
+            if _is_error_cluster(self.lv_type):
+                return True
+        name = (self.name or "").lower()
+        return "error" in name and (
+            "in" in name or "out" in name or "no error" in name
+        )
+
+
+class FPTerminal(Terminal):
+    """A connector pane terminal on a VINode."""
+
+    kind: Literal["fp"] = "fp"
+    wiring_rule: int = 0  # 0=unknown, 1=required, 2=recommended, 3=optional
+    is_indicator: bool = False
+    is_public: bool = True
+    control_type: str | None = None
+    default_value: Any = None
+    enum_values: list[Any] = []
+
+
+class TunnelTerminal(Terminal):
+    """An outer or inner tunnel terminal on a StructureNode."""
+
+    kind: Literal["tunnel"] = "tunnel"
+    tunnel_type: str = ""  # "lSR", "rSR", "lpTun", "lMax", "caseSel"
+    boundary: str = ""  # "outer" or "inner"
+    paired_id: str | None = None  # matching terminal on other side
+
+
+@dataclass
+class Tunnel:
+    """A tunnel connecting structure outer/inner terminals."""
+
+    outer_terminal_uid: str
+    inner_terminal_uid: str
+    tunnel_type: str  # "lSR", "rSR", "lpTun", "lMax", "caseSel", etc.
+    paired_terminal_uid: str | None = None
+
+    @property
+    def direction(self) -> str:
+        if self.tunnel_type == "lSR":
+            return "in"
+        if self.tunnel_type in ("rSR", "lMax"):
+            return "out"
+        return "unknown"
+
+
+class PropertyDef(BaseModel):
+    """A property read/write on a property node."""
+
+    name: str
+
+
+# ============================================================
+# Graph node types (Pydantic) — stored on nx.MultiDiGraph
+# ============================================================
+
+
+class GraphNode(BaseModel):
+    """Base for all graph nodes.
+
+    Every node has terminals — that's what edges connect to.
+    Subclasses add kind-specific fields via discriminated union.
+
+    Containment: nodes inside structures have `parent` set to the
+    structure's UID and `frame` set to the frame selector value.
+    Top-level nodes have parent=None.
+    """
+
+    model_config = {"arbitrary_types_allowed": True}
+
+    id: str
+    vi: str
+    name: str | None = None
+    node_type: str | None = None
+    terminals: list[Terminal] = []
+    description: str | None = None
+    parent: str | None = None  # containing structure UID
+    frame: str | int | None = None  # frame selector value
+
+
+class VINode(GraphNode):
+    """A VI. Terminals = FP controls/indicators (connector pane).
+
+    Used for both VI definitions (top-level) and SubVI calls
+    (placed on another VI's diagram). The graph structure tells
+    you which — SubVI calls have a parent VI, top-level VIs don't.
+    """
+
+    kind: Literal["vi"] = "vi"
+    library: str | None = None
+    qualified_name: str | None = None
+    poly_variant_name: str | None = None
+
+
+class PrimitiveNode(GraphNode):
+    """A LabVIEW primitive (Add, Index Array, String Length, etc.)."""
+
+    kind: Literal["primitive"] = "primitive"
+    prim_id: int | None = None
+    prim_index: int | None = None
+    operation: str | None = None  # cpdArith: "or", "and", "add"
+    object_name: str | None = None  # property/invoke
+    object_method_id: str | None = None
+    properties: list[PropertyDef] = []
+    method_name: str | None = None
+    method_code: int | None = None
+
+
+class FrameInfo(BaseModel):
+    """Metadata about a frame in a case structure or flat sequence.
+
+    The actual operations in each frame are graph nodes with
+    parent=structure_uid and frame=selector_value.
+    """
+
+    selector_value: str | int
+    is_default: bool = False
+
+
+class StructureNode(GraphNode):
+    """A loop, case structure, or flat sequence.
+
+    Terminals = tunnel outer/inner terminals. Each tunnel creates two
+    Terminal objects (outer + inner) connected by an internal edge.
+    Tunnel metadata (tunnel_type, boundary, paired_id) is on each Terminal.
+
+    Inner operations are NOT listed here — they're graph nodes with
+    parent=this structure's UID. For case/sequence structures, each
+    inner operation also has frame=selector_value.
+    """
+
+    kind: Literal["structure"] = "structure"
+    loop_type: str | None = None
+    stop_condition_terminal: str | None = None
+    frames: list[FrameInfo] = []  # frame metadata (empty for loops)
+    selector_terminal: str | None = None
+
+
+class ConstantNode(GraphNode):
+    """A constant value. One output terminal (index 0)."""
+
+    kind: Literal["constant"] = "constant"
+    value: Any = None
+    lv_type: LVType | None = None
+    raw_value: str | None = None
+    label: str | None = None
+
+
+# Discriminated union of all node types
+AnyGraphNode = Union[VINode, PrimitiveNode, StructureNode, ConstantNode]
+
+
+# ============================================================
+# Wire types (Pydantic) — stored on graph edges
+# ============================================================
+
+
+class WireEnd(BaseModel):
+    """One end of a wire — identifies the terminal and its parent node."""
+
+    model_config = {"frozen": True}
+
+    terminal_id: str
+    node_id: str
+    index: int | None = None
+    name: str | None = None
+    labels: list[str] = []
+
+
+class Wire(BaseModel):
+    """A wire (edge) in the dataflow graph.
+
+    Each wire connects a source WireEnd to a destination WireEnd.
+    """
+
+    model_config = {"frozen": True}
+
+    source: WireEnd
+    dest: WireEnd
+
+    @classmethod
+    def from_terminals(
+        cls,
+        from_terminal_id: str,
+        to_terminal_id: str,
+        from_parent_id: str | None = None,
+        to_parent_id: str | None = None,
+        from_parent_name: str | None = None,
+        to_parent_name: str | None = None,
+        from_parent_labels: list[str] | None = None,
+        to_parent_labels: list[str] | None = None,
+        from_slot_index: int | None = None,
+        to_slot_index: int | None = None,
+    ) -> Wire:
+        """Create Wire from flat terminal args (backward compat for tests)."""
+        return cls(
+            source=WireEnd(
+                terminal_id=from_terminal_id,
+                node_id=from_parent_id or from_terminal_id,
+                index=from_slot_index,
+                name=from_parent_name,
+                labels=from_parent_labels or [],
+            ),
+            dest=WireEnd(
+                terminal_id=to_terminal_id,
+                node_id=to_parent_id or to_terminal_id,
+                index=to_slot_index,
+                name=to_parent_name,
+                labels=to_parent_labels or [],
+            ),
+        )
+
+    # Backward-compatible properties for codegen consumers
+    @property
+    def from_terminal_id(self) -> str:
+        return self.source.terminal_id
+
+    @property
+    def to_terminal_id(self) -> str:
+        return self.dest.terminal_id
+
+    @property
+    def from_parent_id(self) -> str:
+        return self.source.node_id
+
+    @property
+    def to_parent_id(self) -> str:
+        return self.dest.node_id
+
+    @property
+    def from_parent_name(self) -> str | None:
+        return self.source.name
+
+    @property
+    def to_parent_name(self) -> str | None:
+        return self.dest.name
+
+    @property
+    def from_parent_labels(self) -> list[str]:
+        return self.source.labels
+
+    @property
+    def to_parent_labels(self) -> list[str]:
+        return self.dest.labels
+
+    @property
+    def from_slot_index(self) -> int | None:
+        return self.source.index
+
+    @property
+    def to_slot_index(self) -> int | None:
+        return self.dest.index
+
+
+# ============================================================
+# Codegen types (dataclasses) — consumed by code generation
+# Converted from graph nodes by memory_graph.get_operations()
+# ============================================================
+
+
+@dataclass
+class CaseFrame:
+    """A frame in a case structure or sequence — codegen only.
+
+    Built by _build_operation() from graph nodes with matching
+    parent and frame attributes.
+    """
+
+    selector_value: str | int
+    inner_node_uids: list[str] = field(default_factory=list)
+    operations: list[Operation] = field(default_factory=list)
+    is_default: bool = False
+
+
+@dataclass
+class Operation:
+    """An operation node for code generation.
+
+    Built from GraphNode subclasses by InMemoryVIGraph._build_operation().
+    """
+
+    id: str
+    name: str | None
+    labels: list[str]
+    primResID: int | None = None
+    terminals: list[Terminal] = field(default_factory=list)
+    node_type: str | None = None
+    loop_type: str | None = None
+    tunnels: list[Tunnel] = field(default_factory=list)
+    inner_nodes: list[Operation] = field(default_factory=list)
+    stop_condition_terminal: str | None = None
+    description: str | None = None
+    operation: str | None = None
+    object_name: str | None = None
+    object_method_id: str | None = None
+    properties: list[dict[str, Any]] = field(default_factory=list)
+    method_name: str | None = None
+    method_code: int | None = None
+    case_frames: list[CaseFrame] = field(default_factory=list)
+    selector_terminal: str | None = None
+    poly_variant_name: str | None = None
+
+
+@dataclass
+class Constant:
+    """A constant value for code generation."""
+
+    id: str
+    value: Any
+    lv_type: LVType | None = None
+    raw_value: str | None = None
+    name: str | None = None
+
+
+
+
+# ============================================================
+# Error handling types
+# ============================================================
 
 
 @dataclass
 class BranchPoint:
-    """A point where one output feeds multiple inputs (fork).
+    """A point where one output feeds multiple inputs (fork)."""
 
-    In LabVIEW, when one output wire branches to multiple destinations,
-    those branches can execute independently. For error handling,
-    each branch needs to be wrapped in try/except to isolate failures.
-
-    Example:
-        source_output → Op A → Op B → merge_point
-                     ↘ Op C → Op D ↗
-    """
-
-    source_terminal: str  # Terminal ID where branch starts
-    source_operation: str | None  # Operation that produces the output
-    destinations: list[str]  # Terminal IDs that receive the branched data
-    vi_name: str | None = None  # VI containing this branch point
+    source_terminal: str
+    source_operation: str | None
+    destinations: list[str]
+    vi_name: str | None = None
 
 
 @dataclass
 class ParallelBranch:
-    """A single branch from a branch point to a merge point.
+    """A single branch from a branch point to a merge point."""
 
-    Contains the operations that execute in this branch and the
-    terminal where the branch merges back (or VI output).
-    """
+    branch_id: int
+    source_terminal: str
+    operation_ids: list[str]
+    merge_terminal: str | None
+    merge_operation: str | None
 
-    branch_id: int  # Index of this branch (0, 1, 2, ...)
-    source_terminal: str  # Where branch starts (same as BranchPoint.source_terminal)
-    operation_ids: list[str]  # Operations in this branch (in execution order)
-    merge_terminal: str | None  # Where branch merges back (None if goes to VI output)
-    merge_operation: str | None  # Operation at merge point (None if goes to VI output)
+
+# ============================================================
+# Utilities
+# ============================================================
+
+_LV_TO_PYTHON_TYPE: dict[str, str] = {
+    "NumInt8": "int",
+    "NumInt16": "int",
+    "NumInt32": "int",
+    "NumInt64": "int",
+    "NumUInt8": "int",
+    "NumUInt16": "int",
+    "NumUInt32": "int",
+    "NumUInt64": "int",
+    "NumFloat32": "float",
+    "NumFloat64": "float",
+    "String": "str",
+    "Boolean": "bool",
+    "Path": "Path",
+    "Variant": "Any",
+    "Void": "None",
+}
+
+
+def control_type_to_lvtype(control_type: str) -> LVType | None:
+    """Map a LabVIEW control type to LVType."""
+    mapping = {
+        "stdPath": LVType(kind="primitive", underlying_type="Path"),
+        "stdString": LVType(kind="primitive", underlying_type="String"),
+        "stdBool": LVType(kind="primitive", underlying_type="Boolean"),
+        "stdNum": LVType(kind="primitive", underlying_type="NumFloat64"),
+        "stdDBL": LVType(kind="primitive", underlying_type="NumFloat64"),
+        "stdI32": LVType(kind="primitive", underlying_type="NumInt32"),
+        "stdI16": LVType(kind="primitive", underlying_type="NumInt16"),
+        "stdU32": LVType(kind="primitive", underlying_type="NumUInt32"),
+        "stdU16": LVType(kind="primitive", underlying_type="NumUInt16"),
+    }
+    return mapping.get(control_type)
+
+
+def _sanitize_type_name(typedef_name: str) -> str:
+    """Sanitize a typedef name into a valid Python identifier."""
+    name = typedef_name.split(":")[-1].replace(".ctl", "")
+    name = "".join(c for c in name if c.isalnum() or c == "_")
+    return name

@@ -98,9 +98,9 @@ class InvokeNodeCodeGen(NodeCodeGen):
                 resolved = ctx.resolve(term.id)
                 if resolved:
                     return resolved
-                # Try tracing through flow_map to find source
-                if term.id in ctx._flow_map:
-                    flow = ctx._flow_map[term.id]
+                # Try tracing through graph to find source
+                flow = ctx.get_source(term.id)
+                if flow:
                     src_term = flow.get("src_terminal")
                     if src_term:
                         resolved = ctx.resolve(src_term)

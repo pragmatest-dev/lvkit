@@ -237,10 +237,10 @@ class TestCompoundArithResolvesThroughDataflow:
 
         # Set up dataflow: src1 -> term1, src2 -> term2
         data_flow = [
-            Wire(from_terminal_id="src1", to_terminal_id="term1"),
-            Wire(from_terminal_id="src2", to_terminal_id="term2"),
+            Wire.from_terminals(from_terminal_id="src1", to_terminal_id="term1"),
+            Wire.from_terminals(from_terminal_id="src2", to_terminal_id="term2"),
         ]
-        ctx = CodeGenContext(data_flow=data_flow)
+        ctx = CodeGenContext.from_wires(data_flow)
         # Bind at SOURCE terminals, not the cpd input terminals
         ctx.bind("src1", "error_in.status")
         ctx.bind("src2", "timeout_occurred")

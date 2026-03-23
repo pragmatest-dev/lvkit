@@ -24,6 +24,7 @@ class PrimitiveTerminal(BaseModel):
     index: int
     direction: str  # "in" or "out"
     name: str | None = ""
+    default_value: str | None = None
 
 
 class PrimitiveEntry(BaseModel):

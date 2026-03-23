@@ -5,15 +5,18 @@ from __future__ import annotations
 import ast
 import warnings
 from collections import deque
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from vipy.graph_types import FPTerminalNode, Operation
+from vipy.graph_types import Operation, Terminal
 from vipy.type_defaults import _is_error_cluster
 
 from .ast_optimizer import optimize_module
 
+if TYPE_CHECKING:
+    from vipy.memory_graph import InMemoryVIGraph
 
-def _is_error_terminal(term: FPTerminalNode) -> bool:
+
+def _is_error_terminal(term: Terminal) -> bool:
     """Check if a terminal is an error cluster (skip in Python codegen).
 
     Uses LVType when available, falls back to name-based heuristic.
@@ -41,24 +44,24 @@ def build_module(
     vi_context_lookup: Any = None,
     import_resolver: Any = None,
     has_parallel_branches: bool | None = None,
+    graph: InMemoryVIGraph | None = None,
 ) -> str:
     """Build complete Python module from VI context.
 
     Args:
         vi_context: VI context dict with operations, inputs, outputs, etc.
         vi_name: Name of the VI (used for function name)
-        vi_context_lookup: Optional callable (vi_name) -> context for looking up
-                          callee VI parameter names
+        vi_context_lookup: Deprecated, ignored.
         import_resolver: Optional callable (subvi_name) -> import statement string
         has_parallel_branches: If True, enable held error model for parallel
                               branch error handling. If None, reads from vi_context.
+        graph: The nx.MultiDiGraph. resolve() walks this directly.
 
     Returns:
         Python source code as string
     """
     # Initialize context with inputs and constants
-    ctx = CodeGenContext.from_vi_context(vi_context)
-    ctx.vi_context_lookup = vi_context_lookup
+    ctx = CodeGenContext.from_vi_context(vi_context, graph=graph)  # graph = InMemoryVIGraph
     ctx.import_resolver = import_resolver
     ctx.vi_name = vi_name
 
@@ -325,19 +328,20 @@ def topological_sort_tiered(
         for term in op.terminals:
             if term.direction != "input":
                 continue
-            # Trace through flow map, following through infrastructure
+            # Trace through graph edges to find producing operation
             visited: set[str] = set()
             current = term.id
-            while current in ctx._flow_map and current not in visited:
+            while current not in visited:
                 visited.add(current)
-                src_term = ctx._flow_map[current]["src_terminal"]
+                source = ctx.get_source(current)
+                if not source:
+                    break
+                src_term = source["src_terminal"]
                 if src_term in output_to_op:
                     dep_op_id = output_to_op[src_term]
                     if dep_op_id != op.id and dep_op_id in dependencies:
                         dependencies[op.id].add(dep_op_id)
                     break
-                # Source isn't an operation output — trace further
-                # (through sRN, tunnels, etc.)
                 current = src_term
 
     # Tiered Kahn's algorithm — drain all ready ops per iteration
@@ -504,11 +508,7 @@ def build_result_class(vi_context: dict[str, Any]) -> ast.ClassDef | None:
             continue
 
         name = to_var_name(out.name or "output")
-        # Use LVType for Python type hints if available
-        if out.lv_type:
-            type_hint = out.lv_type.to_python()
-        else:
-            type_hint = out.type or "Any"
+        type_hint = out.python_type()
         fields.append((name, type_hint))
 
     # If all outputs were error clusters, no result class needed
@@ -565,7 +565,7 @@ def build_function_def(
     )
 
 
-def build_args(inputs: list[FPTerminalNode]) -> ast.arguments:
+def build_args(inputs: list[Terminal]) -> ast.arguments:
     """Build function arguments from inputs.
 
     Skips error cluster inputs - Python uses exceptions instead.
@@ -584,11 +584,7 @@ def build_args(inputs: list[FPTerminalNode]) -> ast.arguments:
             continue
 
         name = to_var_name(inp.name or "input")
-        # Use LVType for Python type hints if available
-        if inp.lv_type:
-            type_hint = inp.lv_type.to_python()
-        else:
-            type_hint = inp.type or "Any"
+        type_hint = inp.python_type()
 
         # wiring_rule >= 2 means recommended or optional
         is_optional = inp.wiring_rule >= 2

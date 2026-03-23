@@ -31,8 +31,8 @@ class ConstantCodeGen(NodeCodeGen):
         if not const_id:
             return CodeFragment.empty()
 
-        # Check if already bound
-        if const_id in ctx.bindings:
+        # Check if already has var_name
+        if ctx.resolve(const_id) is not None:
             return CodeFragment.empty()
 
         # Get label (constants don't have value/label on Operation - this is a fallback)

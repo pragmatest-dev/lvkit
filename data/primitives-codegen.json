@@ -28,12 +28,14 @@
         {
           "index": 2,
           "direction": "out",
-          "name": "element_2"
+          "name": "element_2",
+          "default_value": "0"
         },
         {
           "index": 2,
           "direction": "in",
-          "name": "index"
+          "name": "index",
+          "default_value": "0"
         },
         {
           "index": 3,
@@ -244,7 +246,8 @@
         {
           "index": 9,
           "direction": "in",
-          "name": "error_in"
+          "name": "error_in",
+          "default_value": "None"
         }
       ],
       "guess_reason": "8xxx are often compound nodes. Multiple file-related I/O",
@@ -2280,17 +2283,20 @@
         {
           "index": 1,
           "direction": "in",
-          "name": "error 1"
+          "name": "error 1",
+          "default_value": "None"
         },
         {
           "index": 2,
           "direction": "in",
-          "name": "error 2"
+          "name": "error 2",
+          "default_value": "None"
         },
         {
           "index": 3,
           "direction": "in",
-          "name": "error 3"
+          "name": "error 3",
+          "default_value": "None"
         }
       ],
       "python_code": {
@@ -2589,20 +2595,26 @@
         {
           "index": 2,
           "direction": "in",
-          "name": "options"
+          "name": "options",
+          "default_value": "0"
         },
         {
           "index": 3,
           "direction": "in",
-          "name": "error_in"
+          "name": "error_in",
+          "default_value": "None"
         }
       ],
       "guess_reason": "2in/5out - opens VI reference",
       "python_code": {
-        "vi_reference": "open_vi(vi_path)",
+        "vi_reference": "importlib.import_module(vi_path)",
+        "vi_path_out": "vi_path",
         "error_out": "error_in"
       },
-      "inline": true
+      "inline": true,
+      "imports": [
+        "import importlib"
+      ]
     },
     "9102": {
       "name": "Close VI Reference",
@@ -2630,12 +2642,12 @@
         {
           "index": 2,
           "direction": "in",
-          "name": "error_in"
+          "name": "error_in",
+          "default_value": "None"
         }
       ],
       "guess_reason": "2in/4out - closes VI reference",
       "python_code": {
-        "_body": "vi_reference.close()",
         "error_out": "error_in"
       },
       "inline": true
@@ -2666,7 +2678,6 @@
       ],
       "guess_reason": "3in/2out - closes generic reference",
       "python_code": {
-        "_body": "reference.close()",
         "error_out": "error_in"
       },
       "inline": true
@@ -2702,7 +2713,8 @@
         {
           "index": 1,
           "direction": "in",
-          "name": "input"
+          "name": "input",
+          "default_value": "None"
         },
         {
           "index": 2,
@@ -2712,7 +2724,8 @@
       ],
       "guess_reason": "2in/6out - calls VI by reference",
       "python_code": {
-        "output": "vi_reference.call(input)",
+        "output": "vi_reference(input)",
+        "vi_reference_out": "vi_reference",
         "error_out": "error_in"
       },
       "inline": true

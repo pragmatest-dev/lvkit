@@ -722,9 +722,9 @@ def {func_name}({params_str}) -> {return_type}:
         outputs = vi_context.get("outputs", [])
         result = []
         for out in outputs:
-            # FPTerminalNode dataclass has name and type attributes
+            # Terminal dataclass has name and type attributes
             name = out.name or "result"
-            typ = out.type or "Any"
+            typ = out.python_type()
             result.append((name, self._map_type(typ)))
         return result
 

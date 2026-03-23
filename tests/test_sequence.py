@@ -4,12 +4,22 @@ from __future__ import annotations
 
 import xml.etree.ElementTree as ET
 
-import networkx as nx
 import pytest
 
 from vipy.agent.codegen.context import CodeGenContext
 from vipy.agent.codegen.nodes.sequence import FlatSequenceCodeGen
-from vipy.graph_types import CaseFrame, Operation, Tunnel, Wire
+from vipy.graph_types import (
+    CaseFrame,
+    FrameInfo,
+    Operation,
+    StructureNode,
+    Terminal,
+    Tunnel,
+    TunnelTerminal,
+    VINode,
+    Wire,
+    WireEnd,
+)
 from vipy.memory_graph import InMemoryVIGraph
 from vipy.parser.models import (
     BlockDiagram,
@@ -245,83 +255,94 @@ class TestSequenceInMemoryGraph:
 
     @pytest.fixture
     def graph_with_sequence(self) -> InMemoryVIGraph:
-        """Create a graph with a flat sequence structure."""
-        graph = InMemoryVIGraph()
-        g = nx.DiGraph()
+        """Create a graph with a flat sequence structure.
 
-        # Create flat sequence node
-        g.add_node(
-            "seq1",
-            kind="operation",
-            name="Flat Sequence",
-            node_type="flatSequence",
+        Uses typed graph nodes (StructureNode, VINode) stored as
+        graph.nodes[uid]["node"] on the unified MultiDiGraph.
+        Structure data (tunnels, inner_node_uids, frames) lives
+        ON the StructureNode.
+        """
+        vi_name = "Seq.vi"
+        graph = InMemoryVIGraph()
+        g = graph._graph
+
+        # VINode for the VI itself (FP terminals)
+        vi_node = VINode(
+            id=vi_name, vi=vi_name, name=vi_name,
             terminals=[],
         )
-        # Inner operations in two frames
-        g.add_node(
-            "write1", kind="subvi", name="Write.vi",
-            node_type="iUse", terminals=[],
-        )
-        g.add_node(
-            "write2", kind="subvi", name="Write.vi",
-            node_type="iUse", terminals=[],
-        )
+        g.add_node(vi_name, node=vi_node)
 
-        # Upstream operation
-        g.add_node(
-            "start", kind="subvi", name="Start.vi",
-            node_type="iUse", terminals=[],
-        )
-        g.add_node(
-            "start_out", kind="terminal", parent_id="start",
-            index=0, direction="output",
-        )
-
-        # Tunnel terminals
-        g.add_node(
-            "tun_outer", kind="terminal", parent_id="seq1",
-            index=0, direction="input",
-        )
-        g.add_node(
-            "tun_inner", kind="terminal", parent_id="write1",
-            index=0, direction="input",
-        )
-
-        # Wire: start output -> tunnel outer
-        g.add_edge(
-            "start_out", "tun_outer",
-            from_parent="start", to_parent="seq1",
-        )
-        # Tunnel edge: outer -> inner
-        g.add_edge(
-            "tun_outer", "tun_inner",
-            tunnel_type="seqTun", seq_uid="seq1",
-            from_parent="seq1", to_parent="write1",
-        )
-
-        graph._dataflow["Seq.vi"] = g
-        graph._dep_graph.add_node("Seq.vi")
-
-        # Store flat sequence structure
-        fs = FlatSequenceStructure(
-            uid="seq1",
-            tunnels=[
-                Tunnel(
-                    outer_terminal_uid="tun_outer",
-                    inner_terminal_uid="tun_inner",
-                    tunnel_type="seqTun",
-                ),
-            ],
+        # Flat sequence structure node — tunnels, frames, inner_node_uids
+        # all stored ON the StructureNode
+        seq_node = StructureNode(
+            id="seq1", vi=vi_name,
+            name="Flat Sequence",
+            node_type="flatSequence",
             frames=[
-                SequenceFrame(
-                    uid="f0", inner_node_uids=["write1"],
+                FrameInfo(selector_value="0"),
+                FrameInfo(selector_value="1"),
+            ],
+            terminals=[
+                TunnelTerminal(
+                    id="tun_outer", index=0, direction="input",
+                    tunnel_type="seqTun", boundary="outer",
+                    paired_id="tun_inner",
                 ),
-                SequenceFrame(
-                    uid="f1", inner_node_uids=["write2"],
+                TunnelTerminal(
+                    id="tun_inner", index=0, direction="input",
+                    tunnel_type="seqTun", boundary="inner",
+                    paired_id="tun_outer",
                 ),
             ],
         )
-        graph._flat_sequences["Seq.vi"] = {"seq1": fs}
+        g.add_node("seq1", node=seq_node)
+
+        # Inner VINodes in two frames
+        write1_node = VINode(
+            id="write1", vi=vi_name, name="Write.vi",
+            node_type="iUse",
+            parent="seq1", frame="0",
+            terminals=[
+                Terminal(id="w1_in", index=0, direction="input"),
+            ],
+        )
+        g.add_node("write1", node=write1_node)
+
+        write2_node = VINode(
+            id="write2", vi=vi_name, name="Write.vi",
+            node_type="iUse",
+            parent="seq1", frame="1",
+            terminals=[],
+        )
+        g.add_node("write2", node=write2_node)
+
+        # Upstream VINode
+        start_node = VINode(
+            id="start", vi=vi_name, name="Start.vi",
+            node_type="iUse",
+            terminals=[
+                Terminal(id="start_out", index=0, direction="output"),
+            ],
+        )
+        g.add_node("start", node=start_node)
+
+        # Wire: start -> seq1 (typed WireEnd edges on MultiDiGraph)
+        src = WireEnd(
+            terminal_id="start_out", node_id="start",
+            index=0, labels=["SubVI"],
+        )
+        dst = WireEnd(
+            terminal_id="tun_outer", node_id="seq1",
+            index=0, labels=["FlatSequence"],
+        )
+        g.add_edge("start", "seq1", source=src, dest=dst, vi=vi_name)
+
+        # Register all node UIDs for this VI
+        graph._vi_nodes[vi_name] = {
+            vi_name, "seq1", "write1", "write2", "start",
+        }
+        graph._dep_graph.add_node(vi_name)
 
         return graph
 
@@ -441,12 +462,12 @@ class TestFlatSequenceCodeGen:
     ):
         """Input tunnels bind outer variable to inner context."""
         data_flow = [
-            Wire(
+            Wire.from_terminals(
                 from_terminal_id="src",
                 to_terminal_id="tun_outer",
             ),
         ]
-        ctx = CodeGenContext(data_flow=data_flow)
+        ctx = CodeGenContext.from_wires(data_flow)
         ctx.bind("src", "task_ref")
 
         op = Operation(

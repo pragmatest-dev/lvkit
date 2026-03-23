@@ -1,303 +1,239 @@
-"""Code generation context - tracks variable bindings during traversal."""
+"""Code generation context - tracks variable bindings during traversal.
+
+resolve() queries the graph directly. One graph. No copies.
+"""
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from vipy.graph_types import Constant, FPTerminalNode, Wire
+from vipy.graph_types import Constant, Terminal
 
 from .ast_utils import to_var_name
+
+if TYPE_CHECKING:
+    from vipy.memory_graph import InMemoryVIGraph
 
 
 @dataclass
 class CodeGenContext:
     """Context that flows through code generation traversal.
 
-    Tracks:
-    - Variable bindings (terminal_id → variable_name)
-    - Data flow connections for resolving sources
-    - Imports accumulated during generation
-    - Optional lookup for callee VI contexts (for SubVI parameter names)
-    - VI name being generated (for terminal observation tracking)
-    - Error handling mode (held error model for parallel branches)
+    Tracks variable bindings (terminal_id -> variable_name).
+    Queries the graph for edge traversal. One graph, no copies.
     """
 
-    bindings: dict[str, str] = field(default_factory=dict)
-    data_flow: list[Wire] = field(default_factory=list)
+    graph: InMemoryVIGraph | None = field(default=None, repr=False)
+    vi_name: str | None = None
     imports: set[str] = field(default_factory=set)
-    vi_name: str | None = None  # Name of VI being generated
-    loop_depth: int = 0  # Nesting depth for index variable naming (i, j, k, ...)
-    use_held_error_model: bool = False  # Enable held error model for parallel branches
-    # Counter for unique _branch_N names in parallel tiers
+    loop_depth: int = 0
+    use_held_error_model: bool = False
     _branch_counter: int = field(default=0, repr=False)
-    vi_inputs: list[FPTerminalNode] = field(default_factory=list)  # VI input terminals
-
-    # Flow map for quick lookup: dest_terminal → source info
-    _flow_map: dict[str, dict] = field(default_factory=dict, repr=False)
-
-    # Reverse flow map: src_terminal → list of dest info (for downstream name lookup)
-    _reverse_flow_map: dict[str, list[dict]] = field(default_factory=dict, repr=False)
-
-    # Set of terminal IDs that have wires connected
-    _wired_terminals: set[str] = field(default_factory=set, repr=False)
-
-    # Optional: callable to look up callee VI contexts for parameter names
-    # Signature: (vi_name: str) -> dict | None
-    vi_context_lookup: Any = field(default=None, repr=False)
-
-    # Optional: callable to resolve import paths for SubVI dependencies
-    # Signature: (subvi_name: str) -> str (e.g., "from ..module import func")
+    vi_inputs: list[Terminal] = field(default_factory=list)
     import_resolver: Any = field(default=None, repr=False)
 
-    def __post_init__(self):
-        """Build flow maps from data flow."""
-        self._build_flow_map()
-        self._build_wired_set()
-
-    def _build_flow_map(self) -> None:
-        """Build terminal→source and source→dest mappings from data flow."""
-        for wire in self.data_flow:
-            dest_id = wire.to_terminal_id
-            src_id = wire.from_terminal_id
-            if dest_id and src_id:
-                # Forward map: dest -> source
-                self._flow_map[dest_id] = {
-                    "src_terminal": src_id,
-                    "src_parent_id": wire.from_parent_id,
-                    "src_parent_name": wire.from_parent_name,
-                    "src_parent_labels": wire.from_parent_labels,
-                    "src_slot_index": wire.from_slot_index,
-                }
-                # Reverse map: source -> list of dests
-                if src_id not in self._reverse_flow_map:
-                    self._reverse_flow_map[src_id] = []
-                self._reverse_flow_map[src_id].append({
-                    "dest_terminal": dest_id,
-                    "dest_parent_id": wire.to_parent_id,
-                    "dest_parent_name": wire.to_parent_name,
-                    "dest_parent_labels": wire.to_parent_labels,
-                    "dest_slot_index": wire.to_slot_index,
-                })
-
-    def _build_wired_set(self) -> None:
-        """Build set of terminals that have wires connected."""
-        for wire in self.data_flow:
-            src_id = wire.from_terminal_id
-            dest_id = wire.to_terminal_id
-            if src_id:
-                self._wired_terminals.add(src_id)
-            if dest_id:
-                self._wired_terminals.add(dest_id)
-
     def is_wired(self, terminal_id: str) -> bool:
-        """Check if a terminal has any wire connected."""
-        return terminal_id in self._wired_terminals
+        """Check if a terminal has any edge connected."""
+        if self.graph is None:
+            return False
+        return self.graph.terminal_is_wired(terminal_id)
 
     def bind(self, terminal_id: str, var_name: str) -> None:
-        """Register a variable for a terminal."""
-        self.bindings[terminal_id] = var_name
+        """Set var_name on a terminal in the graph."""
+        if self.graph:
+            self.graph.set_var_name(terminal_id, var_name)
 
-    def resolve(self, terminal_id: str, visited: set[str] | None = None) -> str | None:
-        """Get variable name for a terminal, following data flow back to source.
+    def resolve(self, terminal_id: str) -> str | None:
+        """Get variable name for a terminal by walking the graph.
 
-        Traces through tunnels and connections to find the original source variable.
-        Returns None if terminal cannot be resolved or resolves to "None" (unbound).
+        BFS through incoming edges until a terminal with var_name is found.
+        One graph. No separate bindings dict. No scoping issues.
         """
-        if visited is None:
-            visited = set()
-
-        if terminal_id in visited:
-            return None  # Cycle detection
-        visited.add(terminal_id)
-
-        # Direct binding?
-        if terminal_id in self.bindings:
-            value = self.bindings[terminal_id]
-            # "None" means unbound/default — treat as unresolved
-            return value if value != "None" else None
-
-        # Trace through data flow
-        if terminal_id not in self._flow_map:
+        if self.graph is None:
             return None
 
-        flow = self._flow_map[terminal_id]
-        src_terminal = flow["src_terminal"]
+        queue = [terminal_id]
+        seen: set[str] = set()
 
-        # Source terminal has binding?
-        if src_terminal in self.bindings:
-            value = self.bindings[src_terminal]
-            return value if value != "None" else None
+        while queue:
+            tid = queue.pop(0)
+            if tid in seen:
+                continue
+            seen.add(tid)
 
-        # Source parent has binding? (for constants/inputs)
-        src_parent_id = flow["src_parent_id"]
-        if src_parent_id in self.bindings:
-            value = self.bindings[src_parent_id]
-            return value if value != "None" else None
+            # Check var_name on this terminal
+            var = self.graph.get_var_name(tid)
+            if var and var != "None":
+                return var
 
-        # Recursively trace through connections
-        return self.resolve(src_terminal, visited)
+            # Walk incoming edges
+            for src in self.graph.incoming_edges(tid):
+                if src.terminal_id not in seen:
+                    queue.append(src.terminal_id)
+
+        return None
+
+    def get_source(self, terminal_id: str) -> dict | None:
+        """Get source info for a terminal (first incoming edge)."""
+        if self.graph is None:
+            return None
+        sources = self.graph.incoming_edges(terminal_id)
+        if not sources:
+            return None
+        src = sources[0]
+        return {
+            "src_terminal": src.terminal_id,
+            "src_parent_id": src.node_id,
+            "src_parent_name": src.name,
+            "src_parent_labels": src.labels,
+            "src_slot_index": src.index,
+        }
+
+    def get_destinations(self, terminal_id: str) -> list[dict]:
+        """Get all destinations for a terminal."""
+        if self.graph is None:
+            return []
+        return [
+            {
+                "dest_terminal": dst.terminal_id,
+                "dest_parent_id": dst.node_id,
+                "dest_parent_name": dst.name,
+                "dest_parent_labels": dst.labels,
+                "dest_slot_index": dst.index,
+            }
+            for dst in self.graph.outgoing_edges(terminal_id)
+        ]
+
+    def has_incoming(self, terminal_id: str) -> bool:
+        """Check if a terminal has any incoming edge."""
+        if self.graph is None:
+            return False
+        return len(self.graph.incoming_edges(terminal_id)) > 0
 
     def merge(self, bindings: dict[str, str]) -> None:
-        """Merge new bindings into context."""
-        self.bindings.update(bindings)
+        """Set var_name on terminals from handler output."""
+        for tid, vname in bindings.items():
+            self.bind(tid, vname)
 
     def child(self, increment_loop_depth: bool = False) -> CodeGenContext:
-        """Create a child context for nested scopes (e.g., loop interior).
-
-        Child inherits bindings but has own copy that doesn't affect parent.
-
-        Args:
-            increment_loop_depth: If True, increment loop depth for nested loops
-        """
+        """Create a child context. var_name lives on the graph — no scoping."""
         return CodeGenContext(
-            bindings=dict(self.bindings),  # Copy
-            data_flow=self.data_flow,  # Share (read-only)
-            imports=self.imports,  # Share (accumulate)
-            vi_name=self.vi_name,  # Share (for observation tracking)
+            graph=self.graph,
+            vi_name=self.vi_name,
+            imports=self.imports,
             loop_depth=self.loop_depth + (1 if increment_loop_depth else 0),
-            use_held_error_model=self.use_held_error_model,  # Inherit error model
-            vi_inputs=self.vi_inputs,  # Share (read-only)
-            _flow_map=self._flow_map,  # Share (read-only)
-            _reverse_flow_map=self._reverse_flow_map,  # Share (read-only)
-            _wired_terminals=self._wired_terminals,  # Share (read-only)
-            vi_context_lookup=self.vi_context_lookup,  # Share
-            import_resolver=self.import_resolver,  # Share
+            use_held_error_model=self.use_held_error_model,
+            vi_inputs=self.vi_inputs,
+            import_resolver=self.import_resolver,
         )
 
     _LOOP_INDEX_VARS = "ijklmn"
 
     def get_loop_index_var(self) -> str:
-        """Get index variable name for current loop depth.
-
-        Returns i, j, k, l, m, n for depths 0-5, then idx_6, idx_7, etc.
-        """
+        """Get index variable name for current loop depth."""
         if self.loop_depth < len(self._LOOP_INDEX_VARS):
             return self._LOOP_INDEX_VARS[self.loop_depth]
         return f"idx_{self.loop_depth}"
-
-    def get_callee_param_name(self, vi_name: str, slot_index: int) -> str | None:
-        """Look up parameter name from callee VI context by slot index.
-
-        Searches both inputs and outputs — the caller's terminal direction
-        doesn't necessarily match the callee's FP direction.
-        """
-        # Try inputs first, then outputs
-        name = self._get_callee_terminal_name(vi_name, slot_index, "inputs")
-        if name:
-            return name
-        return self._get_callee_terminal_name(vi_name, slot_index, "outputs")
-
-    def get_callee_output_name(self, vi_name: str, slot_index: int) -> str | None:
-        """Look up output field name from callee VI context by slot index.
-
-        Searches both outputs and inputs — slot indices are shared across
-        the connector pane regardless of direction.
-        """
-        name = self._get_callee_terminal_name(vi_name, slot_index, "outputs")
-        if name:
-            return name
-        return self._get_callee_terminal_name(vi_name, slot_index, "inputs")
-
-    def _get_callee_terminal_name(
-        self, vi_name: str, slot_index: int, direction: str,
-    ) -> str | None:
-        """Look up terminal name from callee VI context.
-
-        Handles polymorphic VIs by checking variants when the wrapper
-        has no terminals in the given direction.
-
-        Args:
-            vi_name: Name of the callee VI
-            slot_index: Terminal slot index to look up
-            direction: "inputs" or "outputs"
-
-        Returns:
-            Terminal name or None if not found
-        """
-        if not self.vi_context_lookup:
-            return None
-
-        callee_ctx = self.vi_context_lookup(vi_name)
-        if not callee_ctx:
-            return None
-
-        # Look for matching slot_index
-        for term in callee_ctx.get(direction, []):
-            if term.slot_index == slot_index:
-                return term.name
-
-        # If not found, check polymorphic variants
-        poly_variants = callee_ctx.get("poly_variants", [])
-        for variant_vi in poly_variants:
-            variant_ctx = self.vi_context_lookup(variant_vi)
-            if variant_ctx:
-                for term in variant_ctx.get(direction, []):
-                    if term.slot_index == slot_index:
-                        return term.name
-
-        return None
 
     def add_import(self, import_stmt: str) -> None:
         """Add an import statement."""
         self.imports.add(import_stmt)
 
     @classmethod
-    def from_vi_context(cls, vi_context: dict[str, Any]) -> CodeGenContext:
-        """Create context from VI context dict.
+    def from_graph(
+        cls,
+        graph: InMemoryVIGraph,
+        vi_name: str,
+    ) -> CodeGenContext:
+        """Create context by querying the graph directly.
 
-        Initializes bindings for inputs and constants.
+        The graph IS the source of truth. Binds inputs and constants.
         """
         ctx = cls(
-            data_flow=vi_context.get("data_flow", []),
-            vi_inputs=vi_context.get("inputs", []),  # Store inputs for type lookup
+            graph=graph,
+            vi_name=vi_name,
+            vi_inputs=list(graph.get_inputs(vi_name)),
         )
 
-        # Bind inputs (list of FPTerminalNode)
-        for inp in vi_context.get("inputs", []):
-            inp_id = inp.id
-            inp_name = inp.name or "input"
-            if inp_id:
-                var_name = to_var_name(inp_name)
-                ctx.bind(inp_id, var_name)
+        for inp in graph.get_inputs(vi_name):
+            if inp.id:
+                ctx.bind(inp.id, to_var_name(inp.name or "input"))
 
-        # Bind constants with proper formatting (list of Constant)
+        for const in graph.get_constants(vi_name):
+            if const.id:
+                ctx.bind(const.id, _format_constant(const))
+
+        return ctx
+
+    @classmethod
+    def from_wires(cls, wires: list, bindings: dict[str, str] | None = None) -> CodeGenContext:
+        """Create context from Wire list by building a graph. For tests."""
+        from vipy.memory_graph import InMemoryVIGraph
+
+        graph = InMemoryVIGraph()
+        nodes: set[str] = set()
+        for w in wires:
+            src_nid = w.source.node_id
+            dst_nid = w.dest.node_id
+            if src_nid not in nodes:
+                graph._graph.add_node(src_nid, node=None)
+                nodes.add(src_nid)
+            if dst_nid not in nodes:
+                graph._graph.add_node(dst_nid, node=None)
+                nodes.add(dst_nid)
+            graph._graph.add_edge(src_nid, dst_nid, source=w.source, dest=w.dest)
+            graph._term_to_node[w.source.terminal_id] = src_nid
+            graph._term_to_node[w.dest.terminal_id] = dst_nid
+
+        ctx = cls(graph=graph)
+        if bindings:
+            for tid, vname in bindings.items():
+                ctx.bind(tid, vname)
+        return ctx
+
+    @classmethod
+    def from_vi_context(
+        cls,
+        vi_context: dict[str, Any],
+        graph: InMemoryVIGraph | None = None,
+    ) -> CodeGenContext:
+        """Create context from VI context dict (legacy).
+
+        Prefer from_graph() for new code.
+        """
+        ctx = cls(
+            graph=graph,
+            vi_inputs=vi_context.get("inputs", []),
+        )
+
+        for inp in vi_context.get("inputs", []):
+            if inp.id:
+                ctx.bind(inp.id, to_var_name(inp.name or "input"))
+
         for const in vi_context.get("constants", []):
-            const_id = const.id
-            if const_id:
-                formatted = _format_constant(const)
-                ctx.bind(const_id, formatted)
+            if const.id:
+                ctx.bind(const.id, _format_constant(const))
 
         return ctx
 
 
 def _format_constant(const: Constant) -> str:
-    """Format a constant value as a Python expression.
-
-    Handles:
-    - Enum values (pre-resolved in graph via lv_type)
-    - python_hint if available
-    - Path types
-    - Numeric strings
-    - General values
-    """
-    # If enum was resolved in graph, use it
+    """Format a constant value as a Python expression."""
     if const.lv_type and const.lv_type.kind == "enum" and const.lv_type.values:
-        # Find which enum member matches this value
         try:
             int_value = int(const.value)
             for member_name, enum_val in const.lv_type.values.items():
                 if enum_val.value == int_value:
-                    # Derive Python class name from typedef_name
                     if const.lv_type.typedef_name:
                         from vipy.vilib_resolver import derive_python_name
+
                         class_name = derive_python_name(const.lv_type.typedef_name)
                         return f"{class_name}.{member_name}"
                     return str(const.value)
         except (ValueError, TypeError):
             pass
 
-    # Prefer python_hint if available (stored in raw_value for now)
     python_hint = getattr(const, "python", None)
     if python_hint:
         return str(python_hint)
@@ -307,47 +243,24 @@ def _format_constant(const: Constant) -> str:
 
     if value is None:
         return "None"
-
-    # Use lv_type to determine correct Python type
     if underlying == "Boolean":
-        # Boolean: "True"/"False" strings, or "0"/"1", or "0000"/"01"
-        if value in ("True", "1", "01"):
-            return "True"
-        return "False"
-
+        return "True" if value in ("True", "1", "01") else "False"
     if underlying == "Path":
         return f"Path('{value}')"
-
-    # Handle numeric values
     if isinstance(value, (int, float)):
         return str(value)
-
-    # Handle string values
     if isinstance(value, str):
-        # Handle LabVIEW empty string (represented as "" in XML)
         if value == '""':
-            return "''"  # Empty string in Python
-
-        # Strip surrounding quotes if present (LabVIEW string encoding)
+            return "''"
         if len(value) >= 2 and value.startswith('"') and value.endswith('"'):
             value = value[1:-1]
-
-        # Try to parse as int
         try:
-            int_val = int(value)
-            return str(int_val)
+            return str(int(value))
         except ValueError:
             pass
-
-        # Try to parse as float
         try:
-            float_val = float(value)
-            return str(float_val)
+            return str(float(value))
         except ValueError:
             pass
-
-        # Regular string
         return repr(value)
-
-    # Default: repr
     return repr(value)

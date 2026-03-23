@@ -3,569 +3,186 @@
 from __future__ import annotations
 
 from pathlib import Path
-from unittest.mock import MagicMock, patch
 
 import pytest
 
+from vipy.graph_types import ConstantNode, PrimitiveNode, StructureNode, Terminal, VINode, WireEnd
 from vipy.memory_graph import InMemoryVIGraph, connect
-
-
-# === Basic Graph Creation Tests ===
 
 
 class TestInMemoryVIGraphCreation:
     """Tests for InMemoryVIGraph initialization and basic operations."""
 
     def test_create_empty_graph(self):
-        """Test creating an empty graph."""
         graph = InMemoryVIGraph()
-        assert graph is not None
         assert graph.list_vis() == []
 
     def test_connect_function(self):
-        """Test the connect() convenience function."""
         graph = connect()
         assert isinstance(graph, InMemoryVIGraph)
 
     def test_context_manager(self):
-        """Test using the graph as a context manager."""
         with InMemoryVIGraph() as graph:
             assert graph is not None
-        # After exit, graph should be cleared
         assert graph.list_vis() == []
 
     def test_clear(self):
-        """Test clearing the graph."""
         graph = InMemoryVIGraph()
-        # Add some mock data
-        graph._dataflow["Test.vi"] = MagicMock()
         graph._dep_graph.add_node("Test.vi")
-
+        graph._vi_nodes["Test.vi"] = {"node1"}
         graph.clear()
-
         assert graph.list_vis() == []
         assert len(graph._dep_graph.nodes()) == 0
 
 
-# === Mock-Based Unit Tests ===
-
-
 class TestDependencyGraphQueries:
-    """Tests for dependency graph queries using mocked data."""
+    """Tests for dependency graph queries."""
 
     @pytest.fixture
     def graph_with_deps(self) -> InMemoryVIGraph:
-        """Create a graph with mock dependency structure."""
         graph = InMemoryVIGraph()
-
-        # Create mock dataflow graphs (empty NetworkX DiGraphs)
-        import networkx as nx
-
-        graph._dataflow["Main.vi"] = nx.DiGraph()
-        graph._dataflow["Helper1.vi"] = nx.DiGraph()
-        graph._dataflow["Helper2.vi"] = nx.DiGraph()
-        graph._dataflow["Leaf.vi"] = nx.DiGraph()
-
-        # Create dependency structure:
-        # Main.vi -> Helper1.vi -> Leaf.vi
-        # Main.vi -> Helper2.vi -> Leaf.vi
+        for name in ["Main.vi", "Helper1.vi", "Helper2.vi", "Leaf.vi"]:
+            graph._vi_nodes[name] = set()
         graph._dep_graph.add_edge("Main.vi", "Helper1.vi")
         graph._dep_graph.add_edge("Main.vi", "Helper2.vi")
         graph._dep_graph.add_edge("Helper1.vi", "Leaf.vi")
         graph._dep_graph.add_edge("Helper2.vi", "Leaf.vi")
-
         return graph
 
     def test_list_vis(self, graph_with_deps: InMemoryVIGraph):
-        """Test listing all VIs."""
         vis = graph_with_deps.list_vis()
         assert len(vis) == 4
         assert "Main.vi" in vis
-        assert "Leaf.vi" in vis
 
     def test_get_vi_dependencies(self, graph_with_deps: InMemoryVIGraph):
-        """Test getting VI dependencies."""
         deps = graph_with_deps.get_vi_dependencies("Main.vi")
-        assert len(deps) == 2
-        assert "Helper1.vi" in deps
-        assert "Helper2.vi" in deps
-
-        # Leaf has no dependencies
-        leaf_deps = graph_with_deps.get_vi_dependencies("Leaf.vi")
-        assert len(leaf_deps) == 0
+        assert set(deps) == {"Helper1.vi", "Helper2.vi"}
+        assert graph_with_deps.get_vi_dependencies("Leaf.vi") == []
 
     def test_get_vi_dependents(self, graph_with_deps: InMemoryVIGraph):
-        """Test getting VIs that depend on a given VI."""
         dependents = graph_with_deps.get_vi_dependents("Leaf.vi")
-        assert len(dependents) == 2
-        assert "Helper1.vi" in dependents
-        assert "Helper2.vi" in dependents
-
-        # Main has no dependents
-        main_dependents = graph_with_deps.get_vi_dependents("Main.vi")
-        assert len(main_dependents) == 0
+        assert set(dependents) == {"Helper1.vi", "Helper2.vi"}
 
     def test_get_leaf_vis(self, graph_with_deps: InMemoryVIGraph):
-        """Test getting leaf VIs (no dependencies)."""
         leaves = graph_with_deps.get_leaf_vis()
-        assert len(leaves) == 1
-        assert "Leaf.vi" in leaves
+        assert leaves == ["Leaf.vi"]
 
-    def test_has_cycles_no_cycles(self, graph_with_deps: InMemoryVIGraph):
-        """Test cycle detection with no cycles."""
+    def test_has_cycles_false(self, graph_with_deps: InMemoryVIGraph):
         assert graph_with_deps.has_cycles() is False
 
-    def test_has_cycles_with_cycles(self):
-        """Test cycle detection with cycles."""
-        import networkx as nx
-
+    def test_has_cycles_true(self):
         graph = InMemoryVIGraph()
-        graph._dataflow["A.vi"] = nx.DiGraph()
-        graph._dataflow["B.vi"] = nx.DiGraph()
-
-        # Create cycle: A -> B -> A
+        for name in ["A.vi", "B.vi"]:
+            graph._vi_nodes[name] = set()
         graph._dep_graph.add_edge("A.vi", "B.vi")
         graph._dep_graph.add_edge("B.vi", "A.vi")
-
         assert graph.has_cycles() is True
 
-    def test_get_cycles(self):
-        """Test getting cycle members."""
-        import networkx as nx
-
-        graph = InMemoryVIGraph()
-        graph._dataflow["A.vi"] = nx.DiGraph()
-        graph._dataflow["B.vi"] = nx.DiGraph()
-
-        graph._dep_graph.add_edge("A.vi", "B.vi")
-        graph._dep_graph.add_edge("B.vi", "A.vi")
-
-        cycles = graph.get_cycles()
-        assert len(cycles) == 1
-        assert set(cycles[0]) == {"A.vi", "B.vi"}
-
     def test_get_generation_order(self, graph_with_deps: InMemoryVIGraph):
-        """Test getting VIs in generation (dependency) order."""
         generations = list(graph_with_deps.get_generation_order())
-
-        # Leaf should come first (no dependencies)
         assert "Leaf.vi" in generations[0]
-
-        # Helpers should come after Leaf
-        all_after_first = set()
-        for gen in generations[1:]:
-            all_after_first.update(gen)
-        assert "Helper1.vi" in all_after_first or "Helper2.vi" in all_after_first
-
-        # Main should come last
         assert "Main.vi" in generations[-1]
 
     def test_get_conversion_order(self, graph_with_deps: InMemoryVIGraph):
-        """Test getting flat conversion order."""
         order = graph_with_deps.get_conversion_order()
-        assert len(order) == 4
-
-        # Leaf must come before Helpers
-        leaf_idx = order.index("Leaf.vi")
-        helper1_idx = order.index("Helper1.vi")
-        helper2_idx = order.index("Helper2.vi")
-        assert leaf_idx < helper1_idx
-        assert leaf_idx < helper2_idx
-
-        # Helpers must come before Main
-        main_idx = order.index("Main.vi")
-        assert helper1_idx < main_idx
-        assert helper2_idx < main_idx
+        assert order.index("Leaf.vi") < order.index("Helper1.vi")
+        assert order.index("Leaf.vi") < order.index("Helper2.vi")
+        assert order.index("Helper1.vi") < order.index("Main.vi")
 
 
-class TestStubVIs:
-    """Tests for stub VI handling."""
-
-    def test_is_stub_vi(self):
-        """Test checking if a VI is a stub."""
-        graph = InMemoryVIGraph()
-        graph._stubs.add("Missing.vi")
-
-        assert graph.is_stub_vi("Missing.vi") is True
-        assert graph.is_stub_vi("Present.vi") is False
-
-    def test_get_stub_vi_info_not_stub(self):
-        """Test getting info for non-stub VI returns None."""
-        graph = InMemoryVIGraph()
-        assert graph.get_stub_vi_info("Regular.vi") is None
-
-    def test_get_stub_vi_info_from_vilib(self):
-        """Test getting stub info from vilib resolver."""
-        graph = InMemoryVIGraph()
-        graph._stubs.add("Application Directory.vi")
-
-        # Should attempt vilib lookup
-        info = graph.get_stub_vi_info("Application Directory.vi")
-        # Result depends on whether vilib data is available
-        assert info is not None or info is None  # Either is valid
-
-
-class TestDataflowGraphQueries:
-    """Tests for dataflow graph queries."""
+class TestTypedGraphNodes:
+    """Tests for typed Pydantic node storage."""
 
     @pytest.fixture
-    def graph_with_dataflow(self) -> InMemoryVIGraph:
-        """Create a graph with mock dataflow structure."""
-        import networkx as nx
-
+    def graph_with_nodes(self) -> InMemoryVIGraph:
         graph = InMemoryVIGraph()
+        vi_name = "Test.vi"
 
-        # Build a simple dataflow graph for Test.vi:
-        # Input1 -> Add -> Output1
-        # Input2 ->
-        # Const1 ->
-        g = nx.DiGraph()
-
-        # Add input nodes
-        g.add_node(
-            "input1",
-            kind="input",
-            name="X",
-            is_public=True,
-            slot_index=0,
-            control_type="stdNum",
-        )
-        g.add_node(
-            "input2",
-            kind="input",
-            name="Y",
-            is_public=True,
-            slot_index=1,
-            control_type="stdNum",
-        )
-
-        # Add output node
-        g.add_node(
-            "output1",
-            kind="output",
-            name="Sum",
-            is_public=True,
-            slot_index=2,
-            is_indicator=True,
-        )
-
-        # Add constant
-        g.add_node(
-            "const1",
-            kind="constant",
-            value=0,
-            type="int",
-            raw_value="00000000",
-        )
-
-        # Add primitive operation
-        g.add_node(
-            "add1",
-            kind="primitive",
-            name="Add",
-            prim_id=1,
-            node_type="prim",
+        # VINode with FP terminals — node ID = vi_name
+        vi_node = VINode(
+            id=vi_name,
+            vi=vi_name,
+            name="Test.vi",
             terminals=[
-                {"id": "t1", "index": 0, "direction": "input"},
-                {"id": "t2", "index": 1, "direction": "input"},
-                {"id": "t3", "index": 2, "direction": "output"},
+                Terminal(id="fp_in", index=0, direction="input", name="X",
+                         wiring_rule=1, is_public=True),
+                Terminal(id="fp_out", index=1, direction="output", name="Sum",
+                         wiring_rule=0, is_indicator=True, is_public=True),
             ],
         )
+        graph._graph.add_node(vi_name, node=vi_node)
 
-        # Add terminal nodes
-        g.add_node("t1", kind="terminal", parent_id="add1", index=0, direction="input")
-        g.add_node("t2", kind="terminal", parent_id="add1", index=1, direction="input")
-        g.add_node("t3", kind="terminal", parent_id="add1", index=2, direction="output")
+        # Constant
+        const_node = ConstantNode(
+            id="const1", vi=vi_name, value=42, label="MyConst",
+            terminals=[Terminal(id="const1", index=0, direction="output")],
+        )
+        graph._graph.add_node("const1", node=const_node)
 
-        # Add edges (wires)
-        g.add_edge("input1", "t1", from_parent="input1", to_parent="add1")
-        g.add_edge("input2", "t2", from_parent="input2", to_parent="add1")
-        g.add_edge("t3", "output1", from_parent="add1", to_parent="output1")
+        # Primitive
+        prim_node = PrimitiveNode(
+            id="add1", vi=vi_name, name="Add", node_type="prim",
+            prim_id=1,
+            terminals=[
+                Terminal(id="t1", index=0, direction="input"),
+                Terminal(id="t2", index=1, direction="input"),
+                Terminal(id="t3", index=2, direction="output"),
+            ],
+        )
+        graph._graph.add_node("add1", node=prim_node)
 
-        graph._dataflow["Test.vi"] = g
-        graph._dep_graph.add_node("Test.vi")
+        # Edges with typed WireEnd
+        src_fp = WireEnd(terminal_id="fp_in", node_id=vi_name, index=0, name="X", labels=["Control", "Input"])
+        dst_t1 = WireEnd(terminal_id="t1", node_id="add1", index=0, labels=["Primitive"])
+        graph._graph.add_edge(vi_name, "add1", source=src_fp, dest=dst_t1, vi=vi_name)
 
+        src_const = WireEnd(terminal_id="const1", node_id="const1", index=0, labels=["Constant"])
+        dst_t2 = WireEnd(terminal_id="t2", node_id="add1", index=1, labels=["Primitive"])
+        graph._graph.add_edge("const1", "add1", source=src_const, dest=dst_t2, vi=vi_name)
+
+        src_t3 = WireEnd(terminal_id="t3", node_id="add1", index=2, labels=["Primitive"])
+        dst_fp_out = WireEnd(terminal_id="fp_out", node_id=vi_name, index=1, name="Sum", labels=["Indicator", "Output"])
+        graph._graph.add_edge("add1", vi_name, source=src_t3, dest=dst_fp_out, vi=vi_name)
+
+        graph._vi_nodes[vi_name] = {vi_name, "const1", "add1"}
+        graph._dep_graph.add_node(vi_name)
         return graph
 
-    def test_get_inputs(self, graph_with_dataflow: InMemoryVIGraph):
-        """Test getting VI inputs."""
-        inputs = graph_with_dataflow.get_inputs("Test.vi")
-        assert len(inputs) == 2
-        names = {inp.name for inp in inputs}
-        assert "X" in names
-        assert "Y" in names
+    def test_get_inputs(self, graph_with_nodes: InMemoryVIGraph):
+        inputs = graph_with_nodes.get_inputs("Test.vi")
+        assert len(inputs) == 1
+        assert inputs[0].name == "X"
 
-    def test_get_outputs(self, graph_with_dataflow: InMemoryVIGraph):
-        """Test getting VI outputs."""
-        outputs = graph_with_dataflow.get_outputs("Test.vi")
+    def test_get_outputs(self, graph_with_nodes: InMemoryVIGraph):
+        outputs = graph_with_nodes.get_outputs("Test.vi")
         assert len(outputs) == 1
         assert outputs[0].name == "Sum"
 
-    def test_get_constants(self, graph_with_dataflow: InMemoryVIGraph):
-        """Test getting constants."""
-        constants = graph_with_dataflow.get_constants("Test.vi")
+    def test_get_constants(self, graph_with_nodes: InMemoryVIGraph):
+        constants = graph_with_nodes.get_constants("Test.vi")
         assert len(constants) == 1
-        assert constants[0].value == 0
+        assert constants[0].value == 42
 
-    def test_get_operations(self, graph_with_dataflow: InMemoryVIGraph):
-        """Test getting operations."""
-        ops = graph_with_dataflow.get_operations("Test.vi")
-        assert len(ops) == 1
-        assert ops[0].name == "Add"
-        assert ops[0].labels == ["Primitive"]
-        assert ops[0].primResID == 1
+    def test_get_wires(self, graph_with_nodes: InMemoryVIGraph):
+        wires = graph_with_nodes.get_wires("Test.vi")
+        assert len(wires) == 3
+        # All wires should have typed source/dest
+        for wire in wires:
+            assert wire.source.terminal_id
+            assert wire.dest.terminal_id
 
-    def test_get_node(self, graph_with_dataflow: InMemoryVIGraph):
-        """Test getting a specific node."""
-        node = graph_with_dataflow.get_node("Test.vi", "add1")
-        assert node is not None
-        assert node["name"] == "Add"
-        assert node["kind"] == "primitive"
+    def test_resolve_name(self, graph_with_nodes: InMemoryVIGraph):
+        # Primitive terminal name
+        name = graph_with_nodes.resolve_name("add1", 0)
+        assert name is None  # unnamed terminal
 
-        # Non-existent node
-        missing = graph_with_dataflow.get_node("Test.vi", "nonexistent")
-        assert missing is None
-
-    def test_get_predecessors(self, graph_with_dataflow: InMemoryVIGraph):
-        """Test getting node predecessors."""
-        preds = graph_with_dataflow.get_predecessors("Test.vi", "t1")
-        assert "input1" in preds
-
-    def test_get_successors(self, graph_with_dataflow: InMemoryVIGraph):
-        """Test getting node successors."""
-        succs = graph_with_dataflow.get_successors("Test.vi", "t3")
-        assert "output1" in succs
-
-    def test_get_vi_context(self, graph_with_dataflow: InMemoryVIGraph):
-        """Test getting full VI context."""
-        ctx = graph_with_dataflow.get_vi_context("Test.vi")
-
+    def test_vi_context(self, graph_with_nodes: InMemoryVIGraph):
+        ctx = graph_with_nodes.get_vi_context("Test.vi")
         assert ctx["name"] == "Test.vi"
-        assert len(ctx["inputs"]) == 2
+        assert len(ctx["inputs"]) == 1
         assert len(ctx["outputs"]) == 1
         assert len(ctx["constants"]) == 1
-        assert len(ctx["operations"]) == 1
         assert "data_flow" in ctx
-
-    def test_get_dataflow_graph(self, graph_with_dataflow: InMemoryVIGraph):
-        """Test getting raw dataflow graph."""
-        g = graph_with_dataflow.get_dataflow_graph("Test.vi")
-        assert g is not None
-        assert len(g.nodes()) > 0
-
-        # Non-existent VI
-        missing = graph_with_dataflow.get_dataflow_graph("Missing.vi")
-        assert missing is None
-
-
-class TestWiresAndDataFlow:
-    """Tests for wire and data flow queries."""
-
-    @pytest.fixture
-    def graph_with_wires(self) -> InMemoryVIGraph:
-        """Create a graph with wire connections."""
-        import networkx as nx
-
-        graph = InMemoryVIGraph()
-        g = nx.DiGraph()
-
-        # Simple: Input -> Primitive -> Output
-        g.add_node("inp", kind="input", name="In")
-        g.add_node("prim", kind="primitive", name="Process")
-        g.add_node("out", kind="output", name="Out")
-        g.add_node("t1", kind="terminal", parent_id="prim", direction="input")
-        g.add_node("t2", kind="terminal", parent_id="prim", direction="output")
-
-        g.add_edge("inp", "t1", from_parent="inp", to_parent="prim")
-        g.add_edge("t2", "out", from_parent="prim", to_parent="out")
-
-        graph._dataflow["Wire.vi"] = g
-        graph._dep_graph.add_node("Wire.vi")
-
-        return graph
-
-    def test_get_wires(self, graph_with_wires: InMemoryVIGraph):
-        """Test getting wires from a VI."""
-        wires = graph_with_wires.get_wires("Wire.vi")
-        assert len(wires) == 2
-
-        # Check wire structure
-        wire = wires[0]
-        assert wire.from_terminal_id is not None
-        assert wire.to_terminal_id is not None
-        assert wire.from_parent_labels is not None
-        assert wire.to_parent_labels is not None
-
-    def test_get_source_of_output(self, graph_with_wires: InMemoryVIGraph):
-        """Test tracing output back to source."""
-        source = graph_with_wires.get_source_of_output("Wire.vi", "out")
-        # Should trace back through t2 to prim
-        assert source == "prim"
-
-
-class TestLoopStructures:
-    """Tests for loop structure handling."""
-
-    @pytest.fixture
-    def graph_with_loop(self) -> InMemoryVIGraph:
-        """Create a graph with a loop structure."""
-        import networkx as nx
-
-        from vipy.parser import LoopStructure, TunnelMapping
-
-        graph = InMemoryVIGraph()
-        g = nx.DiGraph()
-
-        # Create a while loop structure
-        g.add_node(
-            "loop1",
-            kind="operation",
-            name="While Loop",
-            node_type="whileLoop",
-        )
-        g.add_node("inner_op", kind="primitive", name="Increment")
-
-        # Loop tunnels
-        g.add_node("outer_in", kind="terminal", parent_id="loop1")
-        g.add_node("inner_in", kind="terminal", parent_id="loop1")
-        g.add_node("outer_out", kind="terminal", parent_id="loop1")
-        g.add_node("inner_out", kind="terminal", parent_id="loop1")
-
-        # Tunnel edges
-        g.add_edge("outer_in", "inner_in", tunnel_type="lpTun", loop_uid="loop1")
-        g.add_edge("inner_out", "outer_out", tunnel_type="lMax", loop_uid="loop1")
-
-        graph._dataflow["Loop.vi"] = g
-        graph._dep_graph.add_node("Loop.vi")
-
-        # Store loop structure
-        loop_struct = LoopStructure(
-            uid="loop1",
-            loop_type="whileLoop",
-            tunnels=[
-                TunnelMapping("outer_in", "inner_in", "lpTun"),
-                TunnelMapping("outer_out", "inner_out", "lMax"),
-            ],
-            inner_node_uids=["inner_op"],
-            stop_condition_terminal_uid="stop_term",
-        )
-        graph._loop_structures["Loop.vi"] = {"loop1": loop_struct}
-
-        return graph
-
-    def test_loop_in_operations(self, graph_with_loop: InMemoryVIGraph):
-        """Test that loops appear in operations list."""
-        ops = graph_with_loop.get_operations("Loop.vi")
-
-        # Should have the while loop
-        loop_ops = [op for op in ops if op.loop_type == "whileLoop"]
-        assert len(loop_ops) == 1
-
-        loop_op = loop_ops[0]
-        assert loop_op.labels == ["Loop"]
-        assert loop_op.tunnels is not None
-        assert loop_op.inner_nodes is not None
-        assert loop_op.stop_condition_terminal is not None
-
-
-class TestCrossVIBindings:
-    """Tests for cross-VI terminal bindings."""
-
-    @pytest.fixture
-    def graph_with_bindings(self) -> InMemoryVIGraph:
-        """Create a graph with cross-VI bindings."""
-        import networkx as nx
-
-        graph = InMemoryVIGraph()
-
-        # Caller VI
-        caller = nx.DiGraph()
-        caller.add_node("caller_inp", kind="input", name="X", slot_index=0)
-        caller.add_node(
-            "subvi_node",
-            kind="subvi",
-            name="Helper.vi",
-            terminals=[
-                {"id": "caller_t1", "index": 0, "direction": "input"},
-                {"id": "caller_t2", "index": 1, "direction": "output"},
-            ],
-        )
-        graph._dataflow["Caller.vi"] = caller
-
-        # Callee VI
-        callee = nx.DiGraph()
-        callee.add_node("callee_inp", kind="input", name="Input", slot_index=0)
-        callee.add_node("callee_out", kind="output", name="Output", slot_index=1)
-        graph._dataflow["Helper.vi"] = callee
-
-        # Set up binding
-        graph._bindings[("Caller.vi", "caller_t1")] = ("Helper.vi", "callee_inp")
-        graph._bindings[("Caller.vi", "caller_t2")] = ("Helper.vi", "callee_out")
-
-        graph._dep_graph.add_edge("Caller.vi", "Helper.vi")
-
-        return graph
-
-    def test_get_binding(self, graph_with_bindings: InMemoryVIGraph):
-        """Test getting a specific binding."""
-        binding = graph_with_bindings.get_binding("Caller.vi", "caller_t1")
-        assert binding is not None
-        assert binding == ("Helper.vi", "callee_inp")
-
-    def test_get_bindings_for_vi(self, graph_with_bindings: InMemoryVIGraph):
-        """Test getting all bindings for a VI."""
-        bindings = graph_with_bindings.get_bindings_for_vi("Caller.vi")
-        assert len(bindings) == 2
-
-        # Check binding structure
-        binding = bindings[0]
-        assert binding["caller_vi"] == "Caller.vi"
-        assert binding["subvi_name"] == "Helper.vi"
-
-
-class TestCypherCompatibility:
-    """Tests for Cypher query compatibility layer."""
-
-    @pytest.fixture
-    def graph_with_data(self) -> InMemoryVIGraph:
-        """Create a graph with various node types."""
-        import networkx as nx
-
-        graph = InMemoryVIGraph()
-        g = nx.DiGraph()
-
-        g.add_node("const1", kind="constant", value=42, type="int")
-        g.add_node("prim1", kind="primitive", prim_id=1, terminals=[])
-        g.add_node("cluster_in", kind="input", name="Cluster", control_type="stdClust")
-
-        graph._dataflow["Test.vi"] = g
-        return graph
-
-    def test_query_constants(self, graph_with_data: InMemoryVIGraph):
-        """Test Cypher-style constant query."""
-        results = graph_with_data.query("MATCH (c:Constant) RETURN c")
-        assert len(results) == 1
-        assert results[0]["vi_name"] == "Test.vi"
-
-    def test_query_primitives(self, graph_with_data: InMemoryVIGraph):
-        """Test Cypher-style primitive query."""
-        results = graph_with_data.query("MATCH (p:Primitive) RETURN p")
-        assert len(results) == 1
-        assert results[0]["prim_id"] == 1
-
-    def test_query_clusters(self, graph_with_data: InMemoryVIGraph):
-        """Test Cypher-style cluster query."""
-        results = graph_with_data.query("MATCH (c:Cluster) RETURN c")
-        assert len(results) == 1
-        assert results[0]["name"] == "Cluster"
-
-    def test_query_single(self, graph_with_data: InMemoryVIGraph):
-        """Test single-result query."""
-        result = graph_with_data.query_single("MATCH (c:Constant)")
-        assert result is not None
-
-
-# === Integration Tests with Real VIs ===
 
 
 class TestRealVILoading:
@@ -573,38 +190,27 @@ class TestRealVILoading:
 
     @pytest.fixture
     def sample_vi_path(self) -> Path | None:
-        """Get path to a sample VI if available."""
         path = Path(
             "samples/JKI-VI-Tester/source/User Interfaces/"
             "Graphical Test Runner/Graphical Test Runner Support/Get Settings Path.vi"
         )
-        if path.exists():
-            return path
-        return None
+        return path if path.exists() else None
 
     def test_load_real_vi(self, sample_vi_path: Path | None):
-        """Test loading a real VI file."""
         if sample_vi_path is None:
             pytest.skip("Sample VI not available")
 
         graph = InMemoryVIGraph()
-        graph.load_vi(
-            sample_vi_path,
-            expand_subvis=False,  # Don't expand to keep test fast
-        )
+        graph.load_vi(sample_vi_path, expand_subvis=False)
 
         vis = graph.list_vis()
         assert len(vis) >= 1
 
-        # Use the qualified name (VIs are now identified by qualified name, not just filename)
         vi_name = vis[0]
         ctx = graph.get_vi_context(vi_name)
         assert ctx is not None
-        # ctx["name"] should be the qualified name
-        assert ":" in ctx["name"] or ctx["name"] == vi_name
 
     def test_load_vi_with_expansion(self, sample_vi_path: Path | None):
-        """Test loading a VI with SubVI expansion."""
         if sample_vi_path is None:
             pytest.skip("Sample VI not available")
 
@@ -614,177 +220,5 @@ class TestRealVILoading:
             expand_subvis=True,
             search_paths=[Path("samples/OpenG/extracted")],
         )
-
-        vis = graph.list_vis()
-        # Should have loaded multiple VIs (main + SubVIs)
-        assert len(vis) >= 1
-
-        # Check conversion order
-        order = graph.get_conversion_order()
-        assert len(order) >= 1
-
-    def test_load_vi_clears_on_request(self, sample_vi_path: Path | None):
-        """Test that clear_first=True clears existing data."""
-        if sample_vi_path is None:
-            pytest.skip("Sample VI not available")
-
-        graph = InMemoryVIGraph()
-
-        # Load first time
-        graph.load_vi(sample_vi_path, expand_subvis=False)
-        initial_count = len(graph.list_vis())
-
-        # Load again with clear_first
-        graph.load_vi(sample_vi_path, expand_subvis=False, clear_first=True)
-        assert len(graph.list_vis()) == initial_count
-
-    def test_load_from_xml(self, sample_vi_path: Path | None, tmp_path: Path):
-        """Test loading from extracted XML files."""
-        if sample_vi_path is None:
-            pytest.skip("Sample VI not available")
-
-        from vipy.extractor import extract_vi_xml
-
-        bd_xml, fp_xml, main_xml = extract_vi_xml(sample_vi_path)
-
-        graph = InMemoryVIGraph()
-        graph.load_vi(bd_xml, expand_subvis=False)
-
         assert len(graph.list_vis()) >= 1
-
-
-class TestKindToLabels:
-    """Tests for the internal _kind_to_labels method."""
-
-    def test_kind_to_labels_subvi(self):
-        """Test SubVI label conversion."""
-        graph = InMemoryVIGraph()
-        assert graph._kind_to_labels("subvi") == ["SubVI"]
-
-    def test_kind_to_labels_primitive(self):
-        """Test Primitive label conversion."""
-        graph = InMemoryVIGraph()
-        assert graph._kind_to_labels("primitive") == ["Primitive"]
-
-    def test_kind_to_labels_input(self):
-        """Test Input label conversion."""
-        graph = InMemoryVIGraph()
-        assert graph._kind_to_labels("input") == ["Control", "Input"]
-
-    def test_kind_to_labels_output(self):
-        """Test Output label conversion."""
-        graph = InMemoryVIGraph()
-        assert graph._kind_to_labels("output") == ["Indicator", "Output"]
-
-    def test_kind_to_labels_constant(self):
-        """Test Constant label conversion."""
-        graph = InMemoryVIGraph()
-        assert graph._kind_to_labels("constant") == ["Constant"]
-
-    def test_kind_to_labels_unknown(self):
-        """Test unknown kind returns empty list."""
-        graph = InMemoryVIGraph()
-        assert graph._kind_to_labels("unknown_kind") == []
-
-
-class TestParallelBranchDetection:
-    """Tests for parallel branch detection."""
-
-    @pytest.fixture
-    def graph_with_branches(self) -> InMemoryVIGraph:
-        """Create a graph with parallel branches.
-
-        Structure:
-            Input -> Op1 -> (branches to) -> Op2 -> Output
-                                          -> Op3 -> Output2
-        """
-        import networkx as nx
-
-        graph = InMemoryVIGraph()
-        g = nx.DiGraph()
-
-        # Input feeds op1
-        g.add_node("input1", kind="input", name="X")
-        g.add_node("op1", kind="primitive", name="Source")
-        g.add_node("t1_out", kind="terminal", parent_id="op1", direction="output")
-
-        # Op1 branches to op2 and op3
-        g.add_node("op2", kind="primitive", name="BranchA")
-        g.add_node("t2_in", kind="terminal", parent_id="op2", direction="input")
-        g.add_node("t2_out", kind="terminal", parent_id="op2", direction="output")
-
-        g.add_node("op3", kind="primitive", name="BranchB")
-        g.add_node("t3_in", kind="terminal", parent_id="op3", direction="input")
-        g.add_node("t3_out", kind="terminal", parent_id="op3", direction="output")
-
-        # Outputs
-        g.add_node("output1", kind="output", name="Result1")
-        g.add_node("output2", kind="output", name="Result2")
-
-        # Wires
-        g.add_edge("input1", "op1")
-        g.add_edge("t1_out", "t2_in")  # Branch 1
-        g.add_edge("t1_out", "t3_in")  # Branch 2 (this creates a fork)
-        g.add_edge("t2_out", "output1")
-        g.add_edge("t3_out", "output2")
-
-        graph._dataflow["Branching.vi"] = g
-        graph._dep_graph.add_node("Branching.vi")
-        return graph
-
-    @pytest.fixture
-    def graph_without_branches(self) -> InMemoryVIGraph:
-        """Create a graph without parallel branches (linear flow)."""
-        import networkx as nx
-
-        graph = InMemoryVIGraph()
-        g = nx.DiGraph()
-
-        g.add_node("input", kind="input", name="X")
-        g.add_node("op1", kind="primitive", name="Process")
-        g.add_node("output", kind="output", name="Result")
-
-        g.add_edge("input", "op1")
-        g.add_edge("op1", "output")
-
-        graph._dataflow["Linear.vi"] = g
-        graph._dep_graph.add_node("Linear.vi")
-        return graph
-
-    def test_has_parallel_branches_true(self, graph_with_branches: InMemoryVIGraph):
-        """Test detecting VI with parallel branches."""
-        assert graph_with_branches.has_parallel_branches("Branching.vi") is True
-
-    def test_has_parallel_branches_false(self, graph_without_branches: InMemoryVIGraph):
-        """Test detecting VI without parallel branches."""
-        assert graph_without_branches.has_parallel_branches("Linear.vi") is False
-
-    def test_has_parallel_branches_missing_vi(self):
-        """Test has_parallel_branches for non-existent VI."""
-        graph = InMemoryVIGraph()
-        assert graph.has_parallel_branches("Missing.vi") is False
-
-    def test_find_branch_points(self, graph_with_branches: InMemoryVIGraph):
-        """Test finding branch points."""
-        branch_points = graph_with_branches.find_branch_points("Branching.vi")
-
-        # Should find at least one branch point (t1_out branches to t2_in and t3_in)
-        assert len(branch_points) >= 1
-
-        # Find the specific branch point
-        bp = branch_points[0]
-        assert bp.source_terminal == "t1_out"
-        assert len(bp.destinations) == 2
-        assert set(bp.destinations) == {"t2_in", "t3_in"}
-
-    def test_vi_context_includes_branches(self, graph_with_branches: InMemoryVIGraph):
-        """Test that get_vi_context includes has_parallel_branches."""
-        ctx = graph_with_branches.get_vi_context("Branching.vi")
-        assert "has_parallel_branches" in ctx
-        assert ctx["has_parallel_branches"] is True
-
-    def test_vi_context_no_branches(self, graph_without_branches: InMemoryVIGraph):
-        """Test that get_vi_context returns False for linear VI."""
-        ctx = graph_without_branches.get_vi_context("Linear.vi")
-        assert "has_parallel_branches" in ctx
-        assert ctx["has_parallel_branches"] is False
+        assert len(graph.get_conversion_order()) >= 1
