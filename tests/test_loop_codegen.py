@@ -8,7 +8,7 @@ import pytest
 
 from vipy.agent.codegen.context import CodeGenContext
 from vipy.agent.codegen.nodes.loop import LoopCodeGen, _negate_condition
-from vipy.graph_types import FPTerminalNode, Operation, Tunnel, Wire
+from vipy.graph_types import Operation, Tunnel, Wire
 
 
 class TestMakeVarName:
@@ -22,13 +22,13 @@ class TestMakeVarName:
     def test_make_var_name_from_source_terminal(self, loop_codegen: LoopCodeGen):
         """Test deriving var name from source terminal name."""
         data_flow = [
-            Wire(
+            Wire.from_terminals(
                 from_terminal_id="src1",
                 to_terminal_id="tun_outer",
                 from_parent_name="Input Path",
             ),
         ]
-        ctx = CodeGenContext(data_flow=data_flow)
+        ctx = CodeGenContext.from_wires(data_flow)
 
         tunnel = Tunnel(
             outer_terminal_uid="tun_outer",
@@ -43,14 +43,14 @@ class TestMakeVarName:
         """Test deriving var name from destination terminal name when source unnamed."""
         # Source has no name, but destination is an indicator
         data_flow = [
-            Wire(
+            Wire.from_terminals(
                 from_terminal_id="tun_outer",
                 to_terminal_id="dest1",
                 to_parent_name="Final Count",
                 to_parent_labels=["Indicator"],
             ),
         ]
-        ctx = CodeGenContext(data_flow=data_flow)
+        ctx = CodeGenContext.from_wires(data_flow)
 
         tunnel = Tunnel(
             outer_terminal_uid="tun_outer",
@@ -178,13 +178,13 @@ class TestGetSourceTerminalName:
     def test_get_source_terminal_name_direct(self, loop_codegen: LoopCodeGen):
         """Test getting name from direct source parent."""
         data_flow = [
-            Wire(
+            Wire.from_terminals(
                 from_terminal_id="src1",
                 to_terminal_id="dest1",
                 from_parent_name="My Input",
             ),
         ]
-        ctx = CodeGenContext(data_flow=data_flow)
+        ctx = CodeGenContext.from_wires(data_flow)
 
         name = loop_codegen._get_source_terminal_name("dest1", ctx)
         assert name == "My Input"
@@ -192,14 +192,14 @@ class TestGetSourceTerminalName:
     def test_get_source_terminal_name_recursive(self, loop_codegen: LoopCodeGen):
         """Test tracing back through multiple wires."""
         data_flow = [
-            Wire(
+            Wire.from_terminals(
                 from_terminal_id="src1",
                 to_terminal_id="mid1",
                 from_parent_name="Original Source",
             ),
-            Wire(from_terminal_id="mid1", to_terminal_id="dest1"),
+            Wire.from_terminals(from_terminal_id="mid1", to_terminal_id="dest1"),
         ]
-        ctx = CodeGenContext(data_flow=data_flow)
+        ctx = CodeGenContext.from_wires(data_flow)
 
         name = loop_codegen._get_source_terminal_name("dest1", ctx)
         assert name == "Original Source"
@@ -222,39 +222,27 @@ class TestGetDestTerminalName:
     def test_get_dest_terminal_name_indicator(self, loop_codegen: LoopCodeGen):
         """Test getting name from indicator destination."""
         data_flow = [
-            Wire(
+            Wire.from_terminals(
                 from_terminal_id="src1",
                 to_terminal_id="dest1",
                 to_parent_name="Output Result",
                 to_parent_labels=["Indicator"],
             ),
         ]
-        ctx = CodeGenContext(data_flow=data_flow)
+        ctx = CodeGenContext.from_wires(data_flow)
 
         name = loop_codegen._get_dest_terminal_name("src1", ctx)
         assert name == "Output Result"
 
     def test_get_dest_terminal_name_subvi_param(self, loop_codegen: LoopCodeGen):
-        """Test getting name from SubVI parameter lookup."""
-        def mock_lookup(vi_name: str):
-            if vi_name == "Helper.vi":
-                return {
-                    "inputs": [
-                        FPTerminalNode(
-                            id="in0",
-                            kind="input",
-                            name="Data Input",
-                            is_indicator=False,
-                            is_public=True,
-                            slot_index=0,
-                        ),
-                    ],
-                    "outputs": [],
-                }
-            return None
+        """Test getting name from SubVI destination.
 
+        When a value flows to a SubVI input, the SubVI name is used
+        as the variable name hint. Terminal names are now populated
+        directly on Terminal objects via callee_param_name.
+        """
         data_flow = [
-            Wire(
+            Wire.from_terminals(
                 from_terminal_id="src1",
                 to_terminal_id="subvi_term",
                 to_parent_name="Helper.vi",
@@ -262,10 +250,10 @@ class TestGetDestTerminalName:
                 to_slot_index=0,
             ),
         ]
-        ctx = CodeGenContext(data_flow=data_flow, vi_context_lookup=mock_lookup)
+        ctx = CodeGenContext.from_wires(data_flow)
 
         name = loop_codegen._get_dest_terminal_name("src1", ctx)
-        assert name == "Data Input"
+        assert name == "Helper.vi"
 
     def test_get_dest_terminal_name_not_found(self, loop_codegen: LoopCodeGen):
         """Test returns None when no name found."""
@@ -358,9 +346,9 @@ class TestLoopCodeGenGenerate:
     ):
         """Test for loop with single array input uses enumerate pattern."""
         data_flow = [
-            Wire(from_terminal_id="input_arr", to_terminal_id="tun_outer"),
+            Wire.from_terminals(from_terminal_id="input_arr", to_terminal_id="tun_outer"),
         ]
-        ctx = CodeGenContext(data_flow=data_flow)
+        ctx = CodeGenContext.from_wires(data_flow)
         ctx.bind("input_arr", "items")
 
         loop_op = Operation(
@@ -403,9 +391,9 @@ class TestLoopCodeGenGenerate:
     ):
         """Test for loop with N terminal (count) uses range pattern."""
         data_flow = [
-            Wire(from_terminal_id="count_src", to_terminal_id="lmax_outer"),
+            Wire.from_terminals(from_terminal_id="count_src", to_terminal_id="lmax_outer"),
         ]
-        ctx = CodeGenContext(data_flow=data_flow)
+        ctx = CodeGenContext.from_wires(data_flow)
         ctx.bind("count_src", "10")
 
         loop_op = Operation(
@@ -445,13 +433,13 @@ class TestLoopCodeGenGenerate:
     ):
         """Test while loop with shift register initializes variable correctly."""
         data_flow = [
-            Wire(
+            Wire.from_terminals(
                 from_terminal_id="init_val",
                 to_terminal_id="lsr_outer",
                 from_parent_name="Counter",
             ),
         ]
-        ctx = CodeGenContext(data_flow=data_flow)
+        ctx = CodeGenContext.from_wires(data_flow)
         ctx.bind("init_val", "0")
 
         loop_op = Operation(
@@ -494,9 +482,9 @@ class TestLoopCodeGenGenerate:
         """Test while loop with lMax accumulator generates append calls."""
         # lMax with incoming flow = accumulator (builds list)
         data_flow = [
-            Wire(from_terminal_id="inner_result", to_terminal_id="lmax_inner"),
+            Wire.from_terminals(from_terminal_id="inner_result", to_terminal_id="lmax_inner"),
         ]
-        ctx = CodeGenContext(data_flow=data_flow)
+        ctx = CodeGenContext.from_wires(data_flow)
         ctx.bind("inner_result", "computed_value")
 
         loop_op = Operation(
@@ -621,9 +609,9 @@ class TestLoopCodeGenExecutable:
     def test_for_loop_with_enumerate_executes(self, loop_codegen: LoopCodeGen):
         """Test that generated for loop with enumerate actually runs."""
         data_flow = [
-            Wire(from_terminal_id="arr_src", to_terminal_id="tun_outer"),
+            Wire.from_terminals(from_terminal_id="arr_src", to_terminal_id="tun_outer"),
         ]
-        ctx = CodeGenContext(data_flow=data_flow)
+        ctx = CodeGenContext.from_wires(data_flow)
         ctx.bind("arr_src", "test_items")
 
         loop_op = Operation(
@@ -662,9 +650,9 @@ class TestLoopCodeGenExecutable:
         - Outer terminal is bound to the accumulator variable
         """
         data_flow = [
-            Wire(from_terminal_id="val_src", to_terminal_id="lmax_inner"),
+            Wire.from_terminals(from_terminal_id="val_src", to_terminal_id="lmax_inner"),
         ]
-        ctx = CodeGenContext(data_flow=data_flow)
+        ctx = CodeGenContext.from_wires(data_flow)
         ctx.bind("val_src", "iteration")
 
         loop_op = Operation(

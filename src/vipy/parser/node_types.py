@@ -329,7 +329,9 @@ class PropertyNodeHandler(NodeTypeHandler):
         omid = elem.findtext("oMId") or ""
 
         properties: list[dict[str, Any]] = []
-        for prop_info in elem.iter("propItemInfo"):
+        for prop_info in elem.iter():
+            if prop_info.get("class") != "propItemInfo":
+                continue
             name = clean_labview_string(prop_info.findtext("PropItemName"))
             code_text = prop_info.findtext("PropItemCode") or "0"
             try:

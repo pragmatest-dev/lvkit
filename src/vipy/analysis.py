@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from .docs.utils import generate_dependency_description
-from .graph_types import Constant, FPTerminalNode, Operation, Wire
+from .graph_types import Constant, Operation, Terminal, Wire
 from .memory_graph import InMemoryVIGraph
 
 
@@ -40,8 +40,8 @@ class IndicatorInfo:
 class GraphStructure:
     """VI graph structure with dataclass instances."""
 
-    inputs: list[FPTerminalNode]
-    outputs: list[FPTerminalNode]
+    inputs: list[Terminal]
+    outputs: list[Terminal]
     operations: list[Operation]
     constants: list[Constant]
     data_flow: list[Wire]
@@ -159,32 +159,32 @@ def analyze_vi(
     # Get VI context (returns dataclasses)
     vi_context = graph.get_vi_context(vi_name)
 
-    # Extract controls with descriptions (FPTerminalNode dataclasses)
+    # Extract controls with descriptions (Terminal dataclasses)
     controls = []
     for inp in vi_context.get("inputs", []):
-        name = inp.name or f"input_{inp.slot_index}"
-        type_str = inp.type or "Any"
+        name = inp.name or f"input_{inp.index}"
+        type_str = inp.python_type()
         controls.append(
             ControlInfo(
                 name=name,
                 type=type_str,
                 default_value=inp.default_value,
                 description=infer_description(name, type_str, "input"),
-                slot_index=inp.slot_index or 0,
+                slot_index=inp.index or 0,
             )
         )
 
-    # Extract indicators with descriptions (FPTerminalNode dataclasses)
+    # Extract indicators with descriptions (Terminal dataclasses)
     indicators = []
     for out in vi_context.get("outputs", []):
-        name = out.name or f"output_{out.slot_index}"
-        type_str = out.type or "Any"
+        name = out.name or f"output_{out.index}"
+        type_str = out.python_type()
         indicators.append(
             IndicatorInfo(
                 name=name,
                 type=type_str,
                 description=infer_description(name, type_str, "output"),
-                slot_index=out.slot_index or 0,
+                slot_index=out.index or 0,
             )
         )
 

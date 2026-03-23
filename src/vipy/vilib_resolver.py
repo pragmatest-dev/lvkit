@@ -782,12 +782,34 @@ class VILibResolver:
                 if not matched:
                     unmatched_obs.append((idx, obs_data))
 
-        # Fallback for unmatched observations (e.g. driver VIs with no
-        # terminal names in the caller graph).  Match by direction when
-        # exactly one null-index terminal shares the direction.
+        # Fallback 1: Match by type when exactly one null-index terminal
+        # shares the type AND direction (unambiguous type match).
         if unmatched_obs:
             null_terms = [t for t in vi.terminals if t.index is None]
+            still_unmatched = []
             for idx, obs_data in unmatched_obs:
+                obs_dir = obs_data["direction"]
+                obs_type = obs_data["type"]
+                # Try type + direction match
+                candidates = [
+                    t for t in null_terms
+                    if t.direction == obs_dir and t.type == obs_type
+                ] if obs_type else []
+                if len(candidates) == 1:
+                    t = candidates[0]
+                    t.index = idx
+                    if obs_data["direction"]:
+                        t.direction = obs_data["direction"]
+                    if obs_data["type"]:
+                        t.type = obs_data["type"]
+                    null_terms.remove(t)
+                    updated = True
+                else:
+                    still_unmatched.append((idx, obs_data))
+
+            # Fallback 2: Match by direction alone when exactly one
+            # null-index terminal shares the direction.
+            for idx, obs_data in still_unmatched:
                 obs_dir = obs_data["direction"]
                 candidates = [
                     t for t in null_terms

@@ -282,8 +282,8 @@ class CaseCodeGen(NodeCodeGen):
         from ..ast_utils import to_var_name
 
         sel_term = node.selector_terminal
-        if sel_term and sel_term in ctx._flow_map:
-            flow = ctx._flow_map[sel_term]
+        flow = ctx.get_source(sel_term) if sel_term else None
+        if flow:
             src_parent_name = flow.get("src_parent_name")
             if src_parent_name:
                 return to_var_name(src_parent_name)

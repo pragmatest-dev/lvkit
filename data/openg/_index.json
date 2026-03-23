@@ -5,7 +5,8 @@
     "File": "file.json",
     "Array": "array.json",
     "String": "string.json",
-    "Time": "time.json"
+    "Time": "time.json",
+    "Variant": "variant.json"
   },
-  "total_entries": 222
+  "total_entries": 223
 }

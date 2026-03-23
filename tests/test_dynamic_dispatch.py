@@ -120,7 +120,7 @@ def _make_ctx(
     wires: list[Wire] | None = None,
 ) -> CodeGenContext:
     """Create a CodeGenContext with pre-set bindings."""
-    ctx = CodeGenContext(data_flow=wires or [])
+    ctx = CodeGenContext.from_wires(wires or [])
     if bindings:
         for term_id, value in bindings.items():
             ctx.bind(term_id, value)

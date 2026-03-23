@@ -1,10 +1,14 @@
-"""In-memory graph using NetworkX instead of Neo4j.
+"""In-memory graph using NetworkX — unified architecture.
 
-Two-graph architecture:
-1. Dependency graph: VI -> SubVI relationships for processing order
-2. Dataflow graphs: Per-VI operation/wire graphs for execution order
+Single unified nx.MultiDiGraph holds all VIs. Each graph node stores a typed
+Pydantic model (VINode, PrimitiveNode, StructureNode, ConstantNode) as
+``graph.nodes[uid]["node"]``. Edges store typed WireEnd source/dest objects.
 
-No database server required. Supports recursive VIs via SCC detection.
+No external lookup maps — all data lives ON the graph.
+No terminal-only nodes — terminals are lists on their parent nodes.
+No sRN infrastructure nodes — sRN connections stored on StructureNode.
+
+Dependency ordering uses a separate nx.DiGraph (_dep_graph).
 """
 
 from __future__ import annotations
@@ -18,16 +22,25 @@ import networkx as nx
 from .blockdiagram import decode_constant
 from .extractor import extract_vi_xml
 from .graph_types import (
+    AnyGraphNode,
     BranchPoint,
     CaseFrame,
     Constant,
-    FPTerminalNode,
+    ConstantNode,
+    FPTerminal,
+    FrameInfo,
     LVType,
     Operation,
     ParallelBranch,
+    PrimitiveNode as GraphPrimitiveNode,
+    PropertyDef,
+    StructureNode,
     Terminal,
     Tunnel,
+    TunnelTerminal,
+    VINode,
     Wire,
+    WireEnd,
     control_type_to_lvtype,
 )
 from .parser import (
@@ -39,9 +52,23 @@ from .parser import (
     parse_vi_metadata,
 )
 from .parser.models import ParsedType
-from .parser.node_types import CpdArithNode, InvokeNode, PrimitiveNode, PropertyNode, SubVINode
+from .parser.node_types import (
+    CpdArithNode,
+    InvokeNode,
+    PrimitiveNode as ParserPrimitiveNode,
+    PropertyNode,
+    SubVINode,
+)
 from .primitive_resolver import get_resolver as get_prim_resolver
 from .primitive_resolver import resolve_primitive
+from .structure import (
+    get_project_classes,
+    get_project_libraries,
+    get_project_vis,
+    parse_lvclass,
+    parse_lvlib,
+    parse_lvproj,
+)
 from .vilib_resolver import get_resolver as get_vilib_resolver
 
 # Map node types to human-readable names for nodes without explicit names
@@ -57,30 +84,52 @@ _NODE_TYPE_NAMES: dict[str, str] = {
 
 # Map operation kind to labels
 _KIND_TO_LABELS: dict[str, list[str]] = {
-    "subvi": ["SubVI"],
+    "vi": ["SubVI"],
     "primitive": ["Primitive"],
     "caseStruct": ["CaseStructure"],
     "loop": ["Loop"],
 }
 
-# Kinds that represent executable operations (for ordering/collection)
-_OPERATION_KINDS = ("subvi", "primitive", "operation", "caseStruct", "loop")
+# Graph node kinds that represent executable operations
+_OPERATION_KINDS = ("vi", "primitive", "operation", "caseStruct", "loop")
+
+# Graph node kind literals used by typed graph nodes
+_GRAPH_NODE_KIND_MAP = {
+    "vi": "vi",
+    "primitive": "primitive",
+    "structure": "structure",
+    "constant": "constant",
+}
 
 
 def _get_operation_labels(kind: str) -> list[str]:
-    """Get labels for an operation based on its kind.
-
-    Args:
-        kind: Operation kind ("subvi", "primitive", or other)
-
-    Returns:
-        List of labels for the operation
-    """
+    """Get labels for an operation based on its kind."""
     return _KIND_TO_LABELS.get(kind, ["Operation"])
 
 
+def _graph_node_to_op_kind(node: AnyGraphNode) -> str:
+    """Map a typed graph node to the operation kind string."""
+    if isinstance(node, VINode):
+        return "vi"
+    if isinstance(node, GraphPrimitiveNode):
+        if node.node_type in ("caseStruct", "select"):
+            return "caseStruct"
+        if node.node_type in ("whileLoop", "forLoop"):
+            return "loop"
+        return "primitive"
+    if isinstance(node, StructureNode):
+        if node.node_type in ("caseStruct", "select"):
+            return "caseStruct"
+        if node.node_type in ("whileLoop", "forLoop"):
+            return "loop"
+        return "operation"
+    if isinstance(node, ConstantNode):
+        return "constant"
+    return "operation"
+
+
 class InMemoryVIGraph:
-    """In-memory VI graph using NetworkX.
+    """In-memory VI graph using a single unified NetworkX MultiDiGraph.
 
     Usage:
         graph = InMemoryVIGraph()
@@ -95,21 +144,18 @@ class InMemoryVIGraph:
                     # ... generate code ...
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
+        # Unified graph: all VIs, all nodes, all edges
+        self._graph: nx.MultiDiGraph = nx.MultiDiGraph()
+        # Per-VI node index: vi_name -> set of node UIDs in that VI
+        self._vi_nodes: dict[str, set[str]] = {}
+        # Terminal ownership: terminal_id -> node_id
+        # Enables O(1) node lookup for incoming_edges/outgoing_edges
+        self._term_to_node: dict[str, str] = {}
         # Dependency graph: VI name -> VI name (caller -> callee)
         self._dep_graph: nx.DiGraph = nx.DiGraph()
-        # Per-VI dataflow graphs: vi_name -> DiGraph of operations/constants/terminals
-        self._dataflow: dict[str, nx.DiGraph] = {}
         # Stub VIs (missing dependencies)
         self._stubs: set[str] = set()
-        # Cross-VI bindings: (caller_vi, term_uid) -> (subvi_name, subvi_term_uid)
-        self._bindings: dict[tuple[str, str], tuple[str, str]] = {}
-        # Loop structures: vi_name -> {loop_uid -> LoopStructure}
-        self._loop_structures: dict[str, dict[str, Any]] = {}
-        # Case structures: vi_name -> {case_uid -> CaseStructure}
-        self._case_structures: dict[str, dict[str, Any]] = {}
-        # Flat sequence structures: vi_name -> {seq_uid -> FlatSequenceStructure}
-        self._flat_sequences: dict[str, dict[str, Any]] = {}
         # Polymorphic VI info: vi_name -> {is_polymorphic, variants}
         self._poly_info: dict[str, dict[str, Any]] = {}
         # Qualified name aliases: "Lib.lvlib:VI.vi" -> "VI.vi" (for library VIs)
@@ -123,17 +169,21 @@ class InMemoryVIGraph:
 
     def clear(self) -> None:
         """Clear all loaded data."""
+        self._graph.clear()
+        self._vi_nodes.clear()
+        self._term_to_node.clear()
         self._dep_graph.clear()
-        self._dataflow.clear()
         self._stubs.clear()
-        self._bindings.clear()
-        self._loop_structures.clear()
-        self._case_structures.clear()
-        self._flat_sequences.clear()
-        self._qualified_aliases.clear()
         self._poly_info.clear()
+        self._qualified_aliases.clear()
         self._loaded_vis.clear()
         self._source_paths.clear()
+        self._vi_metadata.clear()
+
+    @staticmethod
+    def _qid(vi_name: str, uid: str) -> str:
+        """Qualify a parser UID with VI name to prevent cross-VI collisions."""
+        return f"{vi_name}::{uid}"
 
     def _enrich_type(self, parsed_type: ParsedType | None) -> LVType | None:
         """Enrich ParsedType from parser to LVType with vilib data.
@@ -141,17 +191,10 @@ class InMemoryVIGraph:
         Parser outputs ParsedType with basic info from single VI's XML.
         This enriches it with typedef details (enum values, cluster fields)
         from vilib_resolver.
-
-        Args:
-            parsed_type: ParsedType from parser
-
-        Returns:
-            Enriched LVType with values/fields from vilib_resolver
         """
         if parsed_type is None:
             return None
 
-        # Start with basic LVType from ParsedType
         lv_type = LVType(
             kind=parsed_type.kind,
             underlying_type=parsed_type.type_name,
@@ -161,7 +204,6 @@ class InMemoryVIGraph:
             typedef_name=parsed_type.typedef_name,
         )
 
-        # Enrich typedefs with vilib_resolver data (enum values, cluster fields)
         if parsed_type.typedef_name:
             resolver = get_vilib_resolver()
             resolved = resolver.resolve_type(parsed_type.typedef_name)
@@ -173,13 +215,9 @@ class InMemoryVIGraph:
         return lv_type
 
     def query(self, cypher: str, params: dict | None = None) -> list[dict]:
-        """Cypher query compatibility - routes to native methods.
-
-        Detects query intent and calls appropriate native method.
-        """
+        """Cypher query compatibility - routes to native methods."""
         cypher_lower = cypher.lower()
 
-        # Route to native methods based on query pattern
         if "constant" in cypher_lower:
             return self.get_all_constants()
         elif "primitive" in cypher_lower:
@@ -197,54 +235,69 @@ class InMemoryVIGraph:
     def get_all_constants(self) -> list[dict[str, Any]]:
         """Get all constants across all VIs for enum discovery."""
         results = []
-        for vi_name, g in self._dataflow.items():
-            for node_id, data in g.nodes(data=True):
-                if data.get("kind") == "constant":
-                    results.append({
-                        "vi_name": vi_name,
-                        "value": data.get("raw_value", data.get("value", "")),
-                        "label": data.get("label"),
-                        "type": data.get("type"),
-                        "python": data.get("value"),  # Decoded value
-                    })
+        for vi_name, node_uids in self._vi_nodes.items():
+            for uid in node_uids:
+                if uid not in self._graph:
+                    continue
+                gnode = self._graph.nodes[uid].get("node")
+                if not isinstance(gnode, ConstantNode):
+                    continue
+                results.append({
+                    "vi_name": vi_name,
+                    "value": gnode.raw_value or gnode.value or "",
+                    "label": gnode.label,
+                    "type": (
+                        gnode.lv_type.underlying_type if gnode.lv_type else "Any"
+                    ),
+                    "python": gnode.value,
+                })
         return results
 
     def get_all_primitives(self) -> list[dict[str, Any]]:
         """Get all primitives across all VIs for primitive discovery."""
         results = []
-        for vi_name, g in self._dataflow.items():
-            for node_id, data in g.nodes(data=True):
-                if data.get("kind") == "primitive":
-                    terminals = data.get("terminals", [])
-                    input_types = [
-                        t.get("type", "Any")
-                        for t in terminals
-                        if t.get("direction") == "input"
-                    ]
-                    output_types = [
-                        t.get("type", "Any")
-                        for t in terminals
-                        if t.get("direction") == "output"
-                    ]
-                    results.append({
-                        "vi_name": vi_name,
-                        "prim_id": data.get("prim_id"),
-                        "input_types": input_types,
-                        "output_types": output_types,
-                    })
+        for vi_name, node_uids in self._vi_nodes.items():
+            for uid in node_uids:
+                if uid not in self._graph:
+                    continue
+                gnode = self._graph.nodes[uid].get("node")
+                if not isinstance(gnode, GraphPrimitiveNode):
+                    continue
+                input_types = [
+                    t.python_type()
+                    for t in gnode.terminals
+                    if t.direction == "input"
+                ]
+                output_types = [
+                    t.python_type()
+                    for t in gnode.terminals
+                    if t.direction == "output"
+                ]
+                results.append({
+                    "vi_name": vi_name,
+                    "prim_id": gnode.prim_id,
+                    "input_types": input_types,
+                    "output_types": output_types,
+                })
         return results
 
     def get_all_clusters(self) -> list[dict[str, Any]]:
         """Get all cluster types across all VIs for shared type discovery."""
-        # Collect clusters by name, tracking which VIs use them
         clusters: dict[str, set[str]] = {}
 
-        for vi_name, g in self._dataflow.items():
-            for node_id, data in g.nodes(data=True):
-                if data.get("kind") in ("input", "output"):
-                    control_type = data.get("control_type", "")
-                    if control_type == "stdClust":
-                        name = data.get("name", "UnnamedCluster")
+        for vi_name, node_uids in self._vi_nodes.items():
+            for uid in node_uids:
+                if uid not in self._graph:
+                    continue
+                gnode = self._graph.nodes[uid].get("node")
+                if not isinstance(gnode, VINode):
+                    continue
+                # Check FP terminals on VINodes for cluster types
+                if gnode.vi != vi_name:
+                    continue
+                for term in gnode.terminals:
+                    if isinstance(term, FPTerminal) and term.control_type == "stdClust":
+                        name = term.name or "UnnamedCluster"
                         if name not in clusters:
                             clusters[name] = set()
                         clusters[name].add(vi_name)
@@ -281,7 +334,6 @@ class InMemoryVIGraph:
             bd_xml, fp_xml, main_xml = extract_vi_xml(vi_path)
         elif vi_path.name.endswith("_BDHb.xml"):
             bd_xml = vi_path
-            # Try to find FP XML and main XML
             fp_xml = vi_path.with_name(vi_path.name.replace("_BDHb.xml", "_FPHb.xml"))
             if not fp_xml.exists():
                 fp_xml = None
@@ -310,29 +362,16 @@ class InMemoryVIGraph:
             visited=set(),
         )
 
-        # Build cross-VI bindings after all VIs are loaded
-        if expand_subvis:
-            self._build_cross_vi_bindings()
-
     def load_lvlib(
         self,
         lvlib_path: Path | str,
         expand_subvis: bool = True,
         search_paths: list[Path] | None = None,
     ) -> None:
-        """Load all VIs from a .lvlib file.
-
-        Args:
-            lvlib_path: Path to .lvlib file
-            expand_subvis: Recursively expand SubVIs
-            search_paths: Directories to search for SubVIs
-        """
-        from .structure import parse_lvlib
-
+        """Load all VIs from a .lvlib file."""
         lvlib_path = Path(lvlib_path)
         lib = parse_lvlib(lvlib_path)
 
-        # Default search path is the library's directory
         if search_paths is None:
             search_paths = [lvlib_path.parent]
 
@@ -348,19 +387,10 @@ class InMemoryVIGraph:
         expand_subvis: bool = True,
         search_paths: list[Path] | None = None,
     ) -> None:
-        """Load all VIs from a .lvclass file.
-
-        Args:
-            lvclass_path: Path to .lvclass file
-            expand_subvis: Recursively expand SubVIs
-            search_paths: Directories to search for SubVIs
-        """
-        from .structure import parse_lvclass
-
+        """Load all VIs from a .lvclass file."""
         lvclass_path = Path(lvclass_path)
         cls = parse_lvclass(lvclass_path)
 
-        # Default search path is the class's directory
         if search_paths is None:
             search_paths = [lvclass_path.parent]
 
@@ -370,16 +400,11 @@ class InMemoryVIGraph:
                 self.load_vi(vi_path, expand_subvis, search_paths)
 
     def _resolve_class_vi_path(self, cls_dir: Path, relative_path: str) -> Path | None:
-        """Resolve VI path from lvclass relative URL.
-
-        LabVIEW stores paths with extra ../ that don't match filesystem layout.
-        """
-        # Try direct resolution first
+        """Resolve VI path from lvclass relative URL."""
         direct = cls_dir / relative_path
         if direct.exists():
             return direct.resolve()
 
-        # Strip ../ prefixes and resolve from class dir
         stripped = relative_path
         while stripped.startswith("../"):
             stripped = stripped[3:]
@@ -396,42 +421,22 @@ class InMemoryVIGraph:
         expand_subvis: bool = True,
         search_paths: list[Path] | None = None,
     ) -> None:
-        """Load all VIs referenced by a .lvproj file.
-
-        Parses the project file and loads all VIs, classes, and libraries
-        that are explicitly included in the project.
-
-        Args:
-            lvproj_path: Path to .lvproj file
-            expand_subvis: Recursively expand SubVIs
-            search_paths: Directories to search for SubVIs
-        """
-        from .structure import (
-            get_project_classes,
-            get_project_libraries,
-            get_project_vis,
-            parse_lvproj,
-        )
-
+        """Load all VIs referenced by a .lvproj file."""
         lvproj_path = Path(lvproj_path)
         proj = parse_lvproj(lvproj_path)
         proj_dir = lvproj_path.parent
 
-        # Default search path is the project's directory
         if search_paths is None:
             search_paths = [proj_dir]
 
-        # Load all libraries first (they may contain VIs referenced by other items)
         for lib_name, lib_path in get_project_libraries(proj):
             if lib_path.exists():
                 self.load_lvlib(lib_path, expand_subvis, search_paths)
 
-        # Load all classes
         for class_name, class_path in get_project_classes(proj):
             if class_path.exists():
                 self.load_lvclass(class_path, expand_subvis, search_paths)
 
-        # Load standalone VIs
         for vi_name, vi_path in get_project_vis(proj):
             if vi_path.exists():
                 self.load_vi(vi_path, expand_subvis, search_paths)
@@ -442,16 +447,9 @@ class InMemoryVIGraph:
         expand_subvis: bool = True,
         search_paths: list[Path] | None = None,
     ) -> None:
-        """Load all VIs from a directory recursively.
-
-        Args:
-            dir_path: Directory to scan for VIs
-            expand_subvis: Recursively expand SubVIs
-            search_paths: Directories to search for SubVIs
-        """
+        """Load all VIs from a directory recursively."""
         dir_path = Path(dir_path)
 
-        # Default search path is the directory itself
         if search_paths is None:
             search_paths = [dir_path]
 
@@ -470,7 +468,6 @@ class InMemoryVIGraph:
         """Recursively load a VI and its SubVIs.
 
         Returns the VI name (qualified if available) or None if already visited.
-        The visited set tracks qualified names (e.g., "Library.lvlib:VI.vi").
         """
         # Parse VI using unified parse_vi()
         vi = parse_vi(
@@ -479,59 +476,39 @@ class InMemoryVIGraph:
             main_xml=main_xml if main_xml and main_xml.exists() else None,
         )
 
-        # Unpack components
         metadata = vi.metadata
         bd = vi.block_diagram
         fp = vi.front_panel
         conpane = vi.connector_pane
 
-        # Use qualified name from metadata, fall back to filename
         unqualified_name = bd_xml.name.replace("_BDHb.xml", ".vi")
         vi_name = metadata.qualified_name or unqualified_name
 
-        # Check if already visited using qualified name
         if vi_name in visited:
             return None
 
-        # Also check instance-level cache to prevent re-parsing across load_vi() calls
         if vi_name in self._loaded_vis:
             return vi_name
 
-        # Store alias for unqualified -> qualified lookup
         if metadata.qualified_name and metadata.qualified_name != unqualified_name:
             self._qualified_aliases[unqualified_name] = metadata.qualified_name
 
         visited.add(vi_name)
 
-        # Store source file path from metadata
         if metadata.source_path:
             self._source_paths[vi_name] = Path(metadata.source_path)
 
-        # Parse wiring rules from main XML if available
+        # Parse wiring rules from main XML
         wiring_rules: dict[int, int] = {}
         if main_xml and main_xml.exists() and conpane:
             wiring_rules = parse_connector_pane_types(main_xml, conpane)
 
-        # Use type_map from metadata (already parsed)
         type_map = metadata.type_map
 
-        # Build dataflow graph for this VI
-        self._dataflow[vi_name] = self._build_dataflow_graph(
+        # Build the unified graph for this VI
+        self._add_vi_to_graph(
             bd, fp, conpane, wiring_rules, vi_name, type_map
         )
-
-        # Store loop structures for later lookup
-        self._loop_structures[vi_name] = {loop.uid: loop for loop in bd.loops}
-
-        # Store case structures for later lookup
-        self._case_structures[vi_name] = {
-            cs.uid: cs for cs in bd.case_structures
-        }
-
-        # Store flat sequence structures for later lookup
-        self._flat_sequences[vi_name] = {
-            fs.uid: fs for fs in bd.flat_sequences
-        }
 
         # Parse VI metadata for polymorphic info and library membership
         if main_xml and main_xml.exists():
@@ -542,7 +519,6 @@ class InMemoryVIGraph:
                     "variants": poly_metadata.get("poly_variants", []),
                     "selectors": poly_metadata.get("poly_selectors", []),
                 }
-            # Store library/class membership
             self._vi_metadata[vi_name] = {
                 "library": poly_metadata.get("library"),
                 "qualified_name": poly_metadata.get("qualified_name"),
@@ -551,41 +527,32 @@ class InMemoryVIGraph:
         # Add to dependency graph
         self._dep_graph.add_node(vi_name)
 
-        # Mark as loaded to prevent re-parsing in recursive calls
+        # Mark as loaded
         self._loaded_vis.add(vi_name)
 
-        # Process SubVIs using qualified names from metadata
-        # ALWAYS record dependencies, only load SubVI files when expand_subvis=True
+        # Process SubVIs
         if main_xml and main_xml.exists():
-            # Use path refs from metadata (already parsed)
             subvi_ref_map = {
                 ref.qualified_name: ref
                 for ref in metadata.subvi_path_refs
                 if ref.qualified_name
             }
 
-            # Caller directory for relative path resolution
             caller_dir = bd_xml.parent
 
-            # Use subvi_qualified_names from VIVI entries (authoritative source)
             for subvi_qname in metadata.subvi_qualified_names:
-                # Self-call check: exact qualified name match
                 if subvi_qname == vi_name:
-                    # Skip self-calls to prevent infinite recursion
                     continue
 
-                # Also check visited set (for other VIs in the call chain)
                 if subvi_qname in visited:
                     continue
 
                 ref = subvi_ref_map.get(subvi_qname)
-                # Use relative path from ref if available for better resolution
                 if ref and ref.path_tokens:
                     lookup_path = ref.get_relative_path()
                     is_vilib = ref.is_vilib
                     is_userlib = ref.is_userlib
                 else:
-                    # Fall back to extracting filename from qualified name
                     if ":" in subvi_qname:
                         lookup_path = subvi_qname.split(":")[-1]
                     else:
@@ -594,12 +561,10 @@ class InMemoryVIGraph:
                     is_userlib = False
 
                 if expand_subvis:
-                    # Try to find and load the SubVI
                     subvi_path = self._find_subvi(
                         lookup_path, search_paths, caller_dir, is_vilib, is_userlib
                     )
                     if subvi_path:
-                        # Recursively load SubVI
                         try:
                             subvi_bd_xml, subvi_fp_xml, subvi_main_xml = extract_vi_xml(
                                 subvi_path
@@ -615,17 +580,14 @@ class InMemoryVIGraph:
                             if loaded_name:
                                 self._dep_graph.add_edge(vi_name, loaded_name)
                         except (RuntimeError, OSError):
-                            # SubVI extraction failed (corrupt file) - treat as stub
                             self._stubs.add(subvi_qname)
                             self._dep_graph.add_node(subvi_qname)
                             self._dep_graph.add_edge(vi_name, subvi_qname)
                     else:
-                        # Mark as stub (file not found)
                         self._stubs.add(subvi_qname)
                         self._dep_graph.add_node(subvi_qname)
                         self._dep_graph.add_edge(vi_name, subvi_qname)
                 else:
-                    # Not expanding - record dependency as stub
                     self._stubs.add(subvi_qname)
                     self._dep_graph.add_node(subvi_qname)
                     self._dep_graph.add_edge(vi_name, subvi_qname)
@@ -640,26 +602,15 @@ class InMemoryVIGraph:
         is_vilib: bool = False,
         is_userlib: bool = False,
     ) -> Path | None:
-        """Find a SubVI file in search paths.
-
-        Args:
-            vi_path: VI name or relative path (e.g., "Utilities/MyVI.vi")
-            search_paths: Directories to search
-            caller_dir: Directory of the calling VI for relative resolution
-            is_vilib: True if SubVI is from <vilib>
-            is_userlib: True if SubVI is from <userlib>
-        """
+        """Find a SubVI file in search paths."""
         vi_name = Path(vi_path).name
         path_parts = Path(vi_path).parts
 
-        # For same-directory VIs (not vilib/userlib), try caller's directory first
         if caller_dir and not is_vilib and not is_userlib:
-            # Try exact match in caller's directory
             candidate = caller_dir / vi_name
             if candidate.exists():
                 return candidate
 
-            # Try relative path from caller's parent directories
             if len(path_parts) > 1:
                 for parent in [caller_dir] + list(caller_dir.parents)[:3]:
                     candidate = parent / vi_path
@@ -667,85 +618,26 @@ class InMemoryVIGraph:
                         return candidate
 
         for search_path in search_paths:
-            # Try with full relative path first
             if len(path_parts) > 1:
                 candidate = search_path / vi_path
                 if candidate.exists():
                     return candidate
 
-            # Direct path with just filename
             candidate = search_path / vi_name
             if candidate.exists():
                 return candidate
 
-            # Recursive search by filename
             for found in search_path.rglob(vi_name):
                 return found
         return None
 
-    def _build_cross_vi_bindings(self) -> None:
-        """Build explicit bindings between caller terminals and SubVI parameters.
-
-        For each SubVI call, maps caller terminal[index=N] to SubVI FP terminal[slot=N].
-        This makes cross-VI data flow explicit in the graph.
-        """
-        for caller_vi in self._dataflow:
-            g = self._dataflow[caller_vi]
-
-            # Find SubVI nodes in this VI
-            for node_id, data in g.nodes(data=True):
-                if data.get("kind") != "subvi":
-                    continue
-
-                subvi_name = data.get("name")
-                if not subvi_name:
-                    continue
-                subvi_name = self.resolve_vi_name(subvi_name)
-                if subvi_name not in self._dataflow:
-                    continue  # SubVI not loaded (stub)
-
-                # Get SubVI's FP terminals indexed by slot
-                subvi_g = self._dataflow[subvi_name]
-                slot_to_term: dict[int, str] = {}
-                for term_id, term_data in subvi_g.nodes(data=True):
-                    slot = term_data.get("slot_index")
-                    if slot is not None and term_data.get("kind") in (
-                        "input",
-                        "output",
-                    ):
-                        slot_to_term[slot] = term_id
-
-                # Get terminals on the SubVI node in caller
-                terminals = data.get("terminals", [])
-                for term in terminals:
-                    term_uid = term.get("id")
-                    term_index = term.get("index")
-                    if term_uid is None or term_index is None:
-                        continue
-
-                    # Match caller terminal index to SubVI slot
-                    subvi_term_uid = slot_to_term.get(term_index)
-                    if subvi_term_uid:
-                        self._bindings[(caller_vi, term_uid)] = (
-                            subvi_name,
-                            subvi_term_uid,
-                        )
-
     @staticmethod
     def _format_lv_type_for_display(lv_type: LVType) -> str:
-        """Format LVType for human-readable display.
-
-        Args:
-            lv_type: The LVType to format
-
-        Returns:
-            Human-readable type string
-        """
+        """Format LVType for human-readable display."""
         if lv_type.kind == "primitive":
             return lv_type.underlying_type or "Any"
         elif lv_type.kind == "enum":
             if lv_type.typedef_name:
-                # Extract just the filename from qualified name
                 name = lv_type.typedef_name.split(":")[-1].replace(".ctl", "")
                 return name
             return "Enum"
@@ -771,7 +663,9 @@ class InMemoryVIGraph:
         else:
             return lv_type.underlying_type or "Any"
 
-    def _build_dataflow_graph(
+    # === Graph Construction ===
+
+    def _add_vi_to_graph(
         self,
         bd: BlockDiagram,
         fp: FrontPanel | None,
@@ -779,19 +673,26 @@ class InMemoryVIGraph:
         wiring_rules: dict[int, int],
         vi_name: str,
         type_map: dict[int, LVType] | None = None,
-    ) -> nx.DiGraph:
-        """Build a dataflow graph from a BlockDiagram.
+    ) -> None:
+        """Add a VI's nodes and edges to the unified graph.
 
-        Nodes: operations, constants, FP terminals (inputs/outputs)
-        Edges: wires (data connections)
+        Creates typed graph nodes (VINode, ConstantNode, PrimitiveNode,
+        StructureNode) and typed edges (WireEnd source/dest).
 
-        Only includes FP terminals that are on the connector pane (public interface).
+        term_lookup is a LOCAL dict used during construction only.
         """
         if type_map is None:
             type_map = {}
-        g = nx.DiGraph()
 
-        # Build FP control lookup by UID for merging names/types/defaults
+        g = self._graph
+        vi_node_uids: set[str] = set()
+
+        # term_lookup: terminal_uid -> WireEnd (for wiring)
+        term_lookup: dict[str, WireEnd] = {}
+
+        # === 1. Build VINode (FP terminals become terminals on this node) ===
+
+        # Build FP control lookup
         fp_by_uid: dict[str, Any] = {}
         if fp:
             for ctrl in fp.controls:
@@ -804,353 +705,662 @@ class InMemoryVIGraph:
                 if slot.fp_dco_uid:
                     conpane_slots[slot.fp_dco_uid] = slot.index
 
-        # Add ALL FP terminals (for dataflow), marking public vs internal
+        # Build FP terminals list for the VINode
+        vi_terminals: list[Terminal] = []
         for fp_term in bd.fp_terminals:
             slot_index = conpane_slots.get(fp_term.fp_dco_uid)
             is_public = slot_index is not None or not conpane_slots
-            kind = "output" if fp_term.is_indicator else "input"
-            # Look up front panel control by DCO UID
+            direction = "output" if fp_term.is_indicator else "input"
             ctrl = fp_by_uid.get(fp_term.fp_dco_uid)
-            # Get wiring rule for this slot (default to 0 = Invalid/optional)
             wiring_rule = wiring_rules.get(slot_index, 0) if slot_index else 0
 
-            # Get type from parser (already resolved TypeID → ParsedType)
-            # Then enrich with vilib_resolver data
+            # Resolve type
             lv_type = None
             control_type_str = ctrl.control_type if ctrl else None
 
-            # PRIMARY: Get parsed_type from block diagram terminal info
             term_info = bd.terminal_info.get(fp_term.uid)
             if term_info and term_info.parsed_type:
                 lv_type = self._enrich_type(term_info.parsed_type)
 
-            # FALLBACK: Try control_type (but this doesn't have typedef info)
             if not lv_type and control_type_str:
                 lv_type = control_type_to_lvtype(control_type_str)
 
-            node_attrs: dict[str, Any] = {
-                "kind": kind,
-                "name": ctrl.name if ctrl else fp_term.name,
-                "is_indicator": fp_term.is_indicator,
-                "is_public": is_public,  # On connector pane = public interface
-                "slot_index": slot_index,  # Position on connector pane
-                "wiring_rule": wiring_rule,  # 0=Invalid, 1=Required, 2=Rec, 3=Opt
-                "control_type": ctrl.control_type if ctrl else None,
-                "default_value": ctrl.default_value if ctrl else None,
-                "enum_values": ctrl.enum_values if ctrl else [],
-            }
-            if lv_type:
-                node_attrs["lv_type"] = lv_type
-                node_attrs["type"] = self._format_lv_type_for_display(lv_type)
-                if lv_type.typedef_path:
-                    node_attrs["typedef_path"] = lv_type.typedef_path
-                if lv_type.typedef_name:
-                    node_attrs["typedef_name"] = lv_type.typedef_name
-            else:
-                node_attrs["type"] = "Any"
+            type_display = (
+                self._format_lv_type_for_display(lv_type) if lv_type else "Any"
+            )
 
-            g.add_node(fp_term.uid, **node_attrs)
+            q_term_uid = self._qid(vi_name, fp_term.uid)
+            terminal = FPTerminal(
+                id=q_term_uid,
+                index=slot_index if slot_index is not None else 0,
+                direction=direction,
+                name=ctrl.name if ctrl else fp_term.name,
+                lv_type=lv_type,
+                wiring_rule=wiring_rule,
+                is_indicator=fp_term.is_indicator,
+                is_public=is_public,
+                control_type=ctrl.control_type if ctrl else None,
+                default_value=ctrl.default_value if ctrl else None,
+                enum_values=ctrl.enum_values if ctrl else [],
+            )
+            vi_terminals.append(terminal)
 
-        # Add constants WITH DECODED VALUES
+            # Register in term_lookup for wire resolution
+            term_lookup[fp_term.uid] = WireEnd(
+                terminal_id=q_term_uid,
+                node_id=vi_name,
+                index=slot_index,
+                name=ctrl.name if ctrl else fp_term.name,
+            )
+
+        # Create the VINode
+        vi_node = VINode(
+            id=vi_name,
+            vi=vi_name,
+            name=vi_name,
+            terminals=vi_terminals,
+        )
+        g.add_node(vi_name, node=vi_node)
+        vi_node_uids.add(vi_name)
+
+        # === 2. Add Constants ===
         for const in bd.constants:
             val_type, decoded_value = decode_constant(const)
 
-            # Get parsed_type from parser and enrich it
             lv_type = None
             term_info = bd.terminal_info.get(const.uid)
             if term_info and term_info.parsed_type:
                 lv_type = self._enrich_type(term_info.parsed_type)
 
-            node_attrs = {
-                "kind": "constant",
-                "value": decoded_value,
-                "type": val_type,
-                "raw_value": const.value,
-                "label": const.label,
-            }
-            if lv_type:
-                node_attrs["lv_type"] = lv_type
+            q_const_uid = self._qid(vi_name, const.uid)
+            # Single output terminal
+            const_terminal = Terminal(
+                id=q_const_uid,
+                index=0,
+                direction="output",
+                lv_type=lv_type,
+            )
 
-            g.add_node(const.uid, **node_attrs)
+            const_node = ConstantNode(
+                id=q_const_uid,
+                vi=vi_name,
+                value=decoded_value,
+                lv_type=lv_type,
+                raw_value=const.value,
+                label=const.label,
+                terminals=[const_terminal],
+            )
+            g.add_node(q_const_uid, node=const_node)
+            vi_node_uids.add(q_const_uid)
 
-        # Add operations (SubVIs and primitives)
-        # dynIUse = dynamic dispatch VI (class method calls)
+            term_lookup[const.uid] = WireEnd(
+                terminal_id=q_const_uid,
+                node_id=q_const_uid,
+                index=0,
+                name=const.label,
+            )
+
+        # === 3. Add operations (SubVIs, primitives, structures) ===
+
+        # Collect structure info indexed by UID for later use
+        loop_by_uid = {loop.uid: loop for loop in bd.loops}
+        case_by_uid = {cs.uid: cs for cs in bd.case_structures}
+        flatseq_by_uid = {fs.uid: fs for fs in bd.flat_sequences}
+
         for node in bd.nodes:
-            if node.node_type in ("iUse", "polyIUse", "dynIUse"):
-                node_kind = "subvi"
-            elif isinstance(node, PrimitiveNode):
-                node_kind = "primitive"
-            elif node.node_type in ("caseStruct", "select"):
-                node_kind = "caseStruct"
-            elif node.node_type in ("whileLoop", "forLoop"):
-                node_kind = "loop"
-            else:
-                node_kind = "operation"
-
-            # Collect terminals for this operation
-            terminals = []
-            for term_uid, term_info in bd.terminal_info.items():
-                if term_info.parent_uid == node.uid:
-                    # Get parsed_type and enrich it
+            q_node_uid = self._qid(vi_name, node.uid)
+            # Collect terminals for this node
+            node_terminals: list[Terminal] = []
+            for term_uid, t_info in bd.terminal_info.items():
+                if t_info.parent_uid == node.uid:
                     lv_type = None
-                    if term_info.parsed_type:
-                        lv_type = self._enrich_type(term_info.parsed_type)
+                    if t_info.parsed_type:
+                        lv_type = self._enrich_type(t_info.parsed_type)
 
-                    term_dict: dict[str, Any] = {
-                        "id": term_uid,
-                        "index": term_info.index,
-                        "type": lv_type.underlying_type if lv_type else "Any",
-                        "name": term_info.name,
-                        "direction": "output" if term_info.is_output else "input",
-                        "lv_type": lv_type,
-                    }
-                    if lv_type and lv_type.typedef_path:
-                        term_dict["typedef_path"] = lv_type.typedef_path
-                    if lv_type and lv_type.typedef_name:
-                        term_dict["typedef_name"] = lv_type.typedef_name
-                    terminals.append(term_dict)
+                    q_term_uid = self._qid(vi_name, term_uid)
+                    terminal = Terminal(
+                        id=q_term_uid,
+                        index=t_info.index,
+                        direction="output" if t_info.is_output else "input",
+                        name=t_info.name,
+                        lv_type=lv_type,
+                    )
+                    node_terminals.append(terminal)
 
-            # Resolve primitive name from registry
+                    term_lookup[term_uid] = WireEnd(
+                        terminal_id=q_term_uid,
+                        node_id=q_node_uid,
+                        index=t_info.index,
+                        name=t_info.name,
+                    )
+
+            node_terminals.sort(key=lambda t: t.index)
+
+            # Resolve node name
             node_name = node.name
-            if isinstance(node, PrimitiveNode) and node.prim_res_id:
-                # Always resolve - parser may set generic name like "Primitive"
+            if isinstance(node, ParserPrimitiveNode) and node.prim_res_id:
                 resolved = resolve_primitive(prim_id=node.prim_res_id)
                 if resolved:
                     node_name = resolved.name
 
-            # Map node_type to friendly name from primitive registry
             if not node_name and node.node_type:
-                resolved = get_prim_resolver().resolve_by_node_type(node.node_type)
-                if resolved:
-                    node_name = resolved.name
+                resolved_nt = get_prim_resolver().resolve_by_node_type(node.node_type)
+                if resolved_nt:
+                    node_name = resolved_nt.name
 
             # Get description for SubVIs from vilib
             description = None
-            if node_kind == "subvi" and node_name:
-                from .vilib_resolver import get_resolver
-                resolver = get_resolver()
-                vi_entry = resolver.resolve_by_name(node_name)
+            if node.node_type in ("iUse", "polyIUse", "dynIUse") and node_name:
+                vilib_r = get_vilib_resolver()
+                vi_entry = vilib_r.resolve_by_name(node_name)
                 if vi_entry and vi_entry.description:
                     description = vi_entry.description
 
-            node_attrs: dict[str, Any] = {
-                "kind": node_kind,
-                "name": node_name,
-                "node_type": node.node_type,
-                "terminals": sorted(terminals, key=lambda t: t.get("index", 0)),
-            }
-            # Add primitive-specific fields
-            if isinstance(node, PrimitiveNode):
-                node_attrs["prim_id"] = node.prim_res_id
-                node_attrs["prim_index"] = node.prim_index
-            # Add cpdArith-specific fields
-            if isinstance(node, CpdArithNode):
-                node_attrs["operation"] = node.operation
-            # Add property node fields
-            if isinstance(node, PropertyNode):
-                node_attrs["object_name"] = node.object_name
-                node_attrs["object_method_id"] = node.object_method_id
-                node_attrs["properties"] = node.properties
-            # Add invoke node fields
-            if isinstance(node, InvokeNode):
-                node_attrs["object_name"] = node.object_name
-                node_attrs["object_method_id"] = node.object_method_id
-                node_attrs["method_name"] = node.method_name
-                node_attrs["method_code"] = node.method_code
-            # Add polymorphic variant name
-            if isinstance(node, SubVINode) and node.poly_variant_name:
-                node_attrs["poly_variant_name"] = node.poly_variant_name
-            if description:
-                node_attrs["description"] = description
+            # Determine what kind of graph node to create
+            if node.node_type in ("iUse", "polyIUse", "dynIUse"):
+                # SubVI call — stored as VINode
+                poly_variant = None
+                if isinstance(node, SubVINode) and node.poly_variant_name:
+                    poly_variant = node.poly_variant_name
+                graph_node: AnyGraphNode = VINode(
+                    id=q_node_uid,
+                    vi=vi_name,
+                    name=node_name,
+                    node_type=node.node_type,
+                    terminals=node_terminals,
+                    description=description,
+                    poly_variant_name=poly_variant,
+                )
+            elif node.node_type in ("whileLoop", "forLoop"):
+                # Loop structure
+                loop_struct = loop_by_uid.get(node.uid)
+                stop_cond: str | None = None
 
-            g.add_node(node.uid, **node_attrs)
+                parser_tunnels: list = []
+                if loop_struct:
+                    parser_tunnels = loop_struct.tunnels
+                    if loop_struct.stop_condition_terminal_uid:
+                        stop_cond = self._qid(
+                            vi_name, loop_struct.stop_condition_terminal_uid
+                        )
 
-        # Add terminal nodes (for wire routing)
-        for term_uid, term_info in bd.terminal_info.items():
-            if term_uid not in g:  # Don't override FP terminals
-                # Get parsed_type and enrich it
-                lv_type = None
-                if term_info.parsed_type:
-                    lv_type = self._enrich_type(term_info.parsed_type)
-
-                node_attrs: dict[str, Any] = {
-                    "kind": "terminal",
-                    "parent_id": term_info.parent_uid,
-                    "index": term_info.index,
-                    "type": lv_type.underlying_type if lv_type else "Any",
-                    "name": term_info.name,
-                    "direction": "output" if term_info.is_output else "input",
-                    "lv_type": lv_type,
-                }
-                if lv_type and lv_type.typedef_path:
-                    node_attrs["typedef_path"] = lv_type.typedef_path
-                if lv_type and lv_type.typedef_name:
-                    node_attrs["typedef_name"] = lv_type.typedef_name
-                g.add_node(term_uid, **node_attrs)
-
-        # Ensure all terminal parent nodes exist in the graph.
-        # sRN (shift register) nodes have terminals in terminal_info but
-        # aren't in bd.nodes — they're structural infrastructure, not
-        # operations. We add them as "infrastructure" so wire resolution
-        # can trace through them, but the codegen skips them.
-        srn_parents: set[str] = set()
-        for term_uid, term_info in bd.terminal_info.items():
-            parent_uid = term_info.parent_uid
-            if parent_uid and parent_uid not in g:
-                g.add_node(parent_uid, kind="infrastructure", node_type="sRN")
-                srn_parents.add(parent_uid)
-
-        # sRN nodes hold shift register inner terminals. They connect
-        # the tunnel boundary terminals to the loop body operations.
-        # The lSR/caseSel tunnel brings the initial value INTO the sRN
-        # input terminal. The sRN output terminal feeds the loop body.
-        # We need edges from each sRN input to its paired output so
-        # wire resolution can trace: tunnel → sRN input → sRN output → loop body.
-        #
-        # Pairing: sRN terminals are interleaved. The input terminals
-        # receive values (from tunnels/feedback), the output terminals
-        # deliver them to the loop body. Pair by position in sorted order.
-        for srn_uid in srn_parents:
-            inputs = sorted(
-                (ti.index, uid) for uid, ti in bd.terminal_info.items()
-                if ti.parent_uid == srn_uid and not ti.is_output
-            )
-            outputs = sorted(
-                (ti.index, uid) for uid, ti in bd.terminal_info.items()
-                if ti.parent_uid == srn_uid and ti.is_output
-            )
-            for (_, in_uid), (_, out_uid) in zip(inputs, outputs):
-                g.add_edge(
-                    in_uid, out_uid,
-                    from_parent=srn_uid,
-                    to_parent=srn_uid,
+                # Build terminals from tunnels + sRN terminals
+                structure_terminals = self._build_structure_terminals(
+                    bd, parser_tunnels, q_node_uid, term_lookup, vi_name,
                 )
 
-        # Add edges (wires)
+                graph_node = StructureNode(
+                    id=q_node_uid,
+                    vi=vi_name,
+                    name=node_name,
+                    node_type=node.node_type,
+                    terminals=structure_terminals,
+                    loop_type=node.node_type,
+                    stop_condition_terminal=stop_cond,
+                )
+            elif node.node_type in ("caseStruct", "select"):
+                # Case structure
+                case_struct = case_by_uid.get(node.uid)
+                frame_infos: list[FrameInfo] = []
+                selector_term: str | None = None
+
+                parser_tunnels = []
+                if case_struct:
+                    parser_tunnels = case_struct.tunnels
+                    if case_struct.selector_terminal_uid:
+                        selector_term = self._qid(
+                            vi_name, case_struct.selector_terminal_uid
+                        )
+                    frame_infos = [
+                        FrameInfo(
+                            selector_value=pf.selector_value,
+                            is_default=pf.is_default,
+                        )
+                        for pf in case_struct.frames
+                    ]
+
+                # Build terminals from tunnels + sRN terminals
+                structure_terminals = self._build_structure_terminals(
+                    bd, parser_tunnels, q_node_uid, term_lookup, vi_name,
+                )
+
+                graph_node = StructureNode(
+                    id=q_node_uid,
+                    vi=vi_name,
+                    name=node_name,
+                    node_type=node.node_type,
+                    terminals=structure_terminals,
+                    frames=frame_infos,
+                    selector_terminal=selector_term,
+                )
+            elif node.node_type in ("flatSequence", "seq"):
+                # Flat sequence
+                flat_seq = flatseq_by_uid.get(node.uid)
+                seq_frame_infos: list[FrameInfo] = []
+
+                parser_tunnels = []
+                if flat_seq:
+                    parser_tunnels = flat_seq.tunnels
+                    seq_frame_infos = [
+                        FrameInfo(
+                            selector_value=str(idx),
+                        )
+                        for idx in range(len(flat_seq.frames))
+                    ]
+
+                # Build terminals from tunnels + sRN terminals
+                structure_terminals = self._build_structure_terminals(
+                    bd, parser_tunnels, q_node_uid, term_lookup, vi_name,
+                )
+
+                graph_node = StructureNode(
+                    id=q_node_uid,
+                    vi=vi_name,
+                    name=node_name,
+                    node_type=node.node_type,
+                    terminals=structure_terminals,
+                    frames=seq_frame_infos,
+                )
+            elif isinstance(node, ParserPrimitiveNode):
+                # Primitive node
+                prim_kwargs: dict[str, Any] = {
+                    "prim_id": node.prim_res_id,
+                    "prim_index": node.prim_index,
+                }
+                if isinstance(node, CpdArithNode):
+                    prim_kwargs["operation"] = node.operation
+                if isinstance(node, PropertyNode):
+                    prim_kwargs["object_name"] = node.object_name
+                    prim_kwargs["object_method_id"] = node.object_method_id
+                    prim_kwargs["properties"] = [
+                        PropertyDef(name=p.get("name", ""))
+                        if isinstance(p, dict) else p
+                        for p in node.properties
+                    ]
+                if isinstance(node, InvokeNode):
+                    prim_kwargs["object_name"] = node.object_name
+                    prim_kwargs["object_method_id"] = node.object_method_id
+                    prim_kwargs["method_name"] = node.method_name
+                    prim_kwargs["method_code"] = node.method_code
+
+                graph_node = GraphPrimitiveNode(
+                    id=q_node_uid,
+                    vi=vi_name,
+                    name=node_name,
+                    node_type=node.node_type,
+                    terminals=node_terminals,
+                    description=description,
+                    **prim_kwargs,
+                )
+            else:
+                # Generic primitive / operation
+                prim_kwargs = {}
+                if isinstance(node, CpdArithNode):
+                    prim_kwargs["operation"] = node.operation
+                if isinstance(node, PropertyNode):
+                    prim_kwargs["object_name"] = node.object_name
+                    prim_kwargs["object_method_id"] = node.object_method_id
+                    prim_kwargs["properties"] = [
+                        PropertyDef(name=p.get("name", ""))
+                        if isinstance(p, dict) else p
+                        for p in node.properties
+                    ]
+                if isinstance(node, InvokeNode):
+                    prim_kwargs["object_name"] = node.object_name
+                    prim_kwargs["object_method_id"] = node.object_method_id
+                    prim_kwargs["method_name"] = node.method_name
+                    prim_kwargs["method_code"] = node.method_code
+
+                graph_node = GraphPrimitiveNode(
+                    id=q_node_uid,
+                    vi=vi_name,
+                    name=node_name,
+                    node_type=node.node_type,
+                    terminals=node_terminals,
+                    description=description,
+                    **prim_kwargs,
+                )
+
+            g.add_node(q_node_uid, node=graph_node)
+            vi_node_uids.add(q_node_uid)
+
+        # === 4. Set parent/frame on inner operation nodes ===
+        # After all nodes are created, walk parser structures and stamp
+        # containment info on the graph nodes they own.
+
+        for loop in bd.loops:
+            q_loop_uid = self._qid(vi_name, loop.uid)
+            for uid in loop.inner_node_uids:
+                q_uid = self._qid(vi_name, uid)
+                if q_uid in g and "node" in g.nodes[q_uid]:
+                    inner_node = g.nodes[q_uid]["node"]
+                    inner_node.parent = q_loop_uid
+                    inner_node.frame = None
+
+        for cs in bd.case_structures:
+            q_cs_uid = self._qid(vi_name, cs.uid)
+            for frame in cs.frames:
+                for uid in frame.inner_node_uids:
+                    q_uid = self._qid(vi_name, uid)
+                    if q_uid in g and "node" in g.nodes[q_uid]:
+                        inner_node = g.nodes[q_uid]["node"]
+                        inner_node.parent = q_cs_uid
+                        inner_node.frame = frame.selector_value
+
+        for fs in bd.flat_sequences:
+            q_fs_uid = self._qid(vi_name, fs.uid)
+            for idx, frame in enumerate(fs.frames):
+                for uid in frame.inner_node_uids:
+                    q_uid = self._qid(vi_name, uid)
+                    if q_uid in g and "node" in g.nodes[q_uid]:
+                        inner_node = g.nodes[q_uid]["node"]
+                        inner_node.parent = q_fs_uid
+                        inner_node.frame = str(idx)
+
+        # === 5. Register remaining terminal_info entries in term_lookup ===
+        # Most tunnel/sRN terminals are already registered by
+        # _build_structure_terminals. This catches any stragglers whose
+        # parent is not a recognized graph node (e.g., orphan sRN
+        # terminals not referenced by any tunnel).
+        for term_uid, t_info in bd.terminal_info.items():
+            if term_uid not in term_lookup:
+                q_term_uid = self._qid(vi_name, term_uid)
+                parent_uid = t_info.parent_uid
+                q_parent_uid = (
+                    self._qid(vi_name, parent_uid) if parent_uid else None
+                )
+                effective_parent = q_parent_uid
+                # If parent is not a graph node, find the structure
+                # that contains it. Check both terminal lists and
+                # parser structure inner_node_uids (catches sRNs
+                # not referenced by tunnels).
+                if q_parent_uid and q_parent_uid not in g:
+                    # First: check structure terminal lists
+                    for s_uid in vi_node_uids:
+                        if s_uid not in g:
+                            continue
+                        snode = g.nodes[s_uid].get("node")
+                        if isinstance(snode, StructureNode):
+                            for st in snode.terminals:
+                                if st.id == q_term_uid:
+                                    effective_parent = s_uid
+                                    break
+                            if effective_parent == s_uid:
+                                break
+                    # Second: check parser structures for containment
+                    if effective_parent == q_parent_uid:
+                        for cs in bd.case_structures:
+                            for frame in cs.frames:
+                                if parent_uid in frame.inner_node_uids:
+                                    effective_parent = self._qid(vi_name, cs.uid)
+                                    break
+                            if effective_parent != q_parent_uid:
+                                break
+                    if effective_parent == q_parent_uid:
+                        for loop in bd.loops:
+                            if parent_uid in loop.inner_node_uids:
+                                effective_parent = self._qid(vi_name, loop.uid)
+                                break
+                    if effective_parent == q_parent_uid:
+                        for fs in bd.flat_sequences:
+                            for frame in fs.frames:
+                                if parent_uid in frame.inner_node_uids:
+                                    effective_parent = self._qid(vi_name, fs.uid)
+                                    break
+                            if effective_parent != q_parent_uid:
+                                break
+
+                term_lookup[term_uid] = WireEnd(
+                    terminal_id=q_term_uid,
+                    node_id=effective_parent or q_term_uid,
+                    index=t_info.index,
+                    name=t_info.name,
+                )
+
+        # === 6. Add edges (wires) ===
         for wire in bd.wires:
-            from_parent = None
-            to_parent = None
-            if wire.from_term in bd.terminal_info:
-                from_parent = bd.terminal_info[wire.from_term].parent_uid
-            if wire.to_term in bd.terminal_info:
-                to_parent = bd.terminal_info[wire.to_term].parent_uid
+            src_end = term_lookup.get(wire.from_term)
+            dst_end = term_lookup.get(wire.to_term)
+
+            if src_end is None:
+                q_from = self._qid(vi_name, wire.from_term)
+                src_end = WireEnd(
+                    terminal_id=q_from,
+                    node_id=q_from,
+                )
+            if dst_end is None:
+                q_to = self._qid(vi_name, wire.to_term)
+                dst_end = WireEnd(
+                    terminal_id=q_to,
+                    node_id=q_to,
+                )
 
             g.add_edge(
-                wire.from_term,
-                wire.to_term,
-                from_parent=from_parent,
-                to_parent=to_parent,
+                src_end.node_id,
+                dst_end.node_id,
+                source=src_end,
+                dest=dst_end,
+                vi=vi_name,
             )
 
-        # Add tunnel edges from loop structures
-        # These create implicit data flow through loop boundaries
-        for loop in bd.loops:
-            for tunnel in loop.tunnels:
-                # Get parent info for tunnel terminals
-                outer_parent = bd.terminal_info.get(tunnel.outer_terminal_uid)
-                inner_parent = bd.terminal_info.get(tunnel.inner_terminal_uid)
-                outer_parent_id = outer_parent.parent_uid if outer_parent else loop.uid
-                inner_parent_id = inner_parent.parent_uid if inner_parent else loop.uid
+        # Store per-VI node index
+        self._vi_nodes[vi_name] = vi_node_uids
 
-                # lSR, lpTun, caseSel: data flows INTO the loop/structure
-                # outer -> inner
-                if tunnel.tunnel_type in ("lSR", "lpTun", "caseSel"):
-                    g.add_edge(
-                        tunnel.outer_terminal_uid,
-                        tunnel.inner_terminal_uid,
-                        tunnel_type=tunnel.tunnel_type,
-                        loop_uid=loop.uid,
-                        from_parent=outer_parent_id,
-                        to_parent=inner_parent_id,
-                    )
-                # rSR (right shift register) and lMax: data flows OUT of the loop
-                # inner -> outer
-                elif tunnel.tunnel_type in ("rSR", "lMax"):
-                    g.add_edge(
-                        tunnel.inner_terminal_uid,
-                        tunnel.outer_terminal_uid,
-                        tunnel_type=tunnel.tunnel_type,
-                        loop_uid=loop.uid,
-                        from_parent=inner_parent_id,
-                        to_parent=outer_parent_id,
-                    )
+        # Populate terminal ownership from term_lookup
+        # Keys are raw parser UIDs but WireEnd.terminal_id is qualified.
+        # Use qualified terminal_id as the key in _term_to_node.
+        for _raw_tid, wire_end in term_lookup.items():
+            self._term_to_node[wire_end.terminal_id] = wire_end.node_id
 
-        # Register case structure tunnel terminals and add edges
-        for case_struct in bd.case_structures:
-            for tunnel in case_struct.tunnels:
-                for uid in (tunnel.outer_terminal_uid, tunnel.inner_terminal_uid):
-                    if uid and uid not in g.nodes:
-                        g.add_node(
-                            uid,
-                            kind="terminal",
-                            parent_id=case_struct.uid,
-                        )
-                # caseSel tunnels: data flows outer → inner
-                # (value on case boundary enters sRN inside case frame)
-                if tunnel.tunnel_type == "caseSel":
-                    outer = tunnel.outer_terminal_uid
-                    inner = tunnel.inner_terminal_uid
-                    if outer and inner:
-                        outer_parent = bd.terminal_info.get(outer)
-                        inner_parent = bd.terminal_info.get(inner)
-                        g.add_edge(
-                            outer, inner,
-                            tunnel_type="caseSel",
-                            from_parent=outer_parent.parent_uid if outer_parent else case_struct.uid,
-                            to_parent=inner_parent.parent_uid if inner_parent else case_struct.uid,
-                        )
+    # Tunnel types where the outer terminal is an input (data flows IN)
+    _INPUT_TUNNEL_TYPES = frozenset({
+        "lSR", "lpTun", "caseSel", "seqTun", "flatSeqTun",
+    })
 
-        # Register loop tunnel terminals as graph nodes
-        for loop in bd.loops:
-            for tunnel in loop.tunnels:
-                for uid in (tunnel.outer_terminal_uid, tunnel.inner_terminal_uid):
-                    if uid and uid not in g.nodes:
-                        g.add_node(
-                            uid,
-                            kind="terminal",
-                            parent_id=loop.uid,
-                        )
+    def _build_structure_terminals(
+        self,
+        bd: BlockDiagram,
+        parser_tunnels: list,
+        structure_uid: str,
+        term_lookup: dict[str, WireEnd],
+        vi_name: str = "",
+    ) -> list[Terminal]:
+        """Build Terminal list for a StructureNode from its tunnels and sRN nodes.
 
-        # Add tunnel edges from flat sequence structures
-        for flat_seq in bd.flat_sequences:
-            # Register outer tunnel terminals as belonging to the
-            # flat sequence so topological sort creates proper deps
-            for tunnel in flat_seq.tunnels:
-                outer_uid = tunnel.outer_terminal_uid
-                inner_uid = tunnel.inner_terminal_uid
-                # Ensure outer terminal has parent_id = flat_seq
-                if outer_uid in g.nodes:
-                    g.nodes[outer_uid]["parent_id"] = flat_seq.uid
-                    g.nodes[outer_uid]["kind"] = "terminal"
-                else:
-                    g.add_node(
-                        outer_uid,
-                        kind="terminal",
-                        parent_id=flat_seq.uid,
-                    )
+        Each parser tunnel creates TWO Terminal objects:
+        - Outer terminal (boundary="outer")
+        - Inner terminal (boundary="inner")
 
-                outer_parent = bd.terminal_info.get(outer_uid)
-                inner_parent = bd.terminal_info.get(inner_uid)
-                outer_pid = (
-                    outer_parent.parent_uid if outer_parent
-                    else flat_seq.uid
-                )
-                inner_pid = (
-                    inner_parent.parent_uid if inner_parent
-                    else flat_seq.uid
-                )
+        Also maps sRN-owned terminals to the structure and creates
+        internal edges (self-loops) on the graph for:
+        - Tunnel outer<->inner connections
+        - sRN input->output pairings
 
-                # Both seqTun and flatSeqTun: outer -> inner
+        Returns the complete terminal list for the StructureNode.
+        """
+        g = self._graph
+        structure_terminals: list[Terminal] = []
+        seen_uids: set[str] = set()
+
+        # Collect known parser node UIDs for sRN detection
+        known_node_uids = {n.uid for n in bd.nodes}
+
+        # --- 1. Build terminals from tunnel mappings ---
+        for tunnel in parser_tunnels:
+            outer_uid = tunnel.outer_terminal_uid
+            inner_uid = tunnel.inner_terminal_uid
+            ttype = tunnel.tunnel_type
+
+            if not outer_uid or not inner_uid:
+                continue
+
+            outer_ti = bd.terminal_info.get(outer_uid)
+            inner_ti = bd.terminal_info.get(inner_uid)
+
+            # Determine direction from terminal_info, not tunnel type.
+            # selTun tunnels are bidirectional — direction depends on instance.
+            # If outer is_output=False, data flows IN (outer receives from outside).
+            # If outer is_output=True, data flows OUT (outer sends to outside).
+            if outer_ti:
+                is_input_tunnel = not outer_ti.is_output
+            else:
+                is_input_tunnel = ttype in self._INPUT_TUNNEL_TYPES
+
+            q_outer_uid = self._qid(vi_name, outer_uid)
+            q_inner_uid = self._qid(vi_name, inner_uid)
+
+            # Outer terminal
+            outer_lv_type = None
+            if outer_ti and outer_ti.parsed_type:
+                outer_lv_type = self._enrich_type(outer_ti.parsed_type)
+
+            outer_terminal = TunnelTerminal(
+                id=q_outer_uid,
+                index=outer_ti.index if outer_ti else 0,
+                direction="input" if is_input_tunnel else "output",
+                name=outer_ti.name if outer_ti else None,
+                lv_type=outer_lv_type,
+                tunnel_type=ttype,
+                boundary="outer",
+                paired_id=q_inner_uid,
+            )
+            if outer_uid not in seen_uids:
+                structure_terminals.append(outer_terminal)
+                seen_uids.add(outer_uid)
+
+            # Inner terminal
+            inner_lv_type = None
+            if inner_ti and inner_ti.parsed_type:
+                inner_lv_type = self._enrich_type(inner_ti.parsed_type)
+
+            # Inner direction is opposite of outer for data flow
+            inner_terminal = TunnelTerminal(
+                id=q_inner_uid,
+                index=inner_ti.index if inner_ti else 0,
+                direction="output" if is_input_tunnel else "input",
+                name=inner_ti.name if inner_ti else None,
+                lv_type=inner_lv_type,
+                tunnel_type=ttype,
+                boundary="inner",
+                paired_id=q_outer_uid,
+            )
+            if inner_uid not in seen_uids:
+                structure_terminals.append(inner_terminal)
+                seen_uids.add(inner_uid)
+
+            # Register both in term_lookup pointing to structure node
+            outer_end = WireEnd(
+                terminal_id=q_outer_uid,
+                node_id=structure_uid,
+                index=outer_ti.index if outer_ti else None,
+                name=outer_ti.name if outer_ti else None,
+            )
+            inner_end = WireEnd(
+                terminal_id=q_inner_uid,
+                node_id=structure_uid,
+                index=inner_ti.index if inner_ti else None,
+                name=inner_ti.name if inner_ti else None,
+            )
+            term_lookup[outer_uid] = outer_end
+            term_lookup[inner_uid] = inner_end
+
+            # Create internal edge (self-loop) outer<->inner
+            if is_input_tunnel:
+                # Data flows in: outer -> inner
                 g.add_edge(
-                    outer_uid,
-                    inner_uid,
-                    tunnel_type=tunnel.tunnel_type,
-                    seq_uid=flat_seq.uid,
-                    from_parent=outer_pid,
-                    to_parent=inner_pid,
+                    structure_uid, structure_uid,
+                    source=outer_end, dest=inner_end,
+                    tunnel_type=ttype, vi=vi_name,
+                )
+            else:
+                # Data flows out: inner -> outer
+                g.add_edge(
+                    structure_uid, structure_uid,
+                    source=inner_end, dest=outer_end,
+                    tunnel_type=ttype, vi=vi_name,
                 )
 
-        return g
+        # --- 2. Find ALL sRN parent UIDs ---
+        # Tunnel-referenced sRNs get input→output pairing edges.
+        # Non-tunnel sRNs just get mapped — wires handle routing.
+        tunnel_srn_parents: set[str] = set()
+        for tunnel in parser_tunnels:
+            for uid in (tunnel.outer_terminal_uid, tunnel.inner_terminal_uid):
+                if not uid:
+                    continue
+                ti = bd.terminal_info.get(uid)
+                if ti and ti.parent_uid and ti.parent_uid not in known_node_uids:
+                    tunnel_srn_parents.add(ti.parent_uid)
+
+        all_srn_parents: set[str] = set()
+        for uid, ti in bd.terminal_info.items():
+            if ti.parent_uid and ti.parent_uid not in known_node_uids:
+                all_srn_parents.add(ti.parent_uid)
+
+        for srn_uid in all_srn_parents:
+            # Collect all terminals owned by this sRN
+            srn_terms = [
+                (uid, ti) for uid, ti in bd.terminal_info.items()
+                if ti.parent_uid == srn_uid
+            ]
+
+            inputs = sorted(
+                [(uid, ti) for uid, ti in srn_terms if not ti.is_output],
+                key=lambda x: x[1].index,
+            )
+            outputs = sorted(
+                [(uid, ti) for uid, ti in srn_terms if ti.is_output],
+                key=lambda x: x[1].index,
+            )
+
+            # Add sRN terminals to structure — but skip ones already
+            # registered (constants, FP terminals have their own nodes)
+            for uid, ti in srn_terms:
+                if uid in seen_uids or uid in term_lookup:
+                    continue
+                seen_uids.add(uid)
+
+                q_uid = self._qid(vi_name, uid)
+                lv_type = None
+                if ti.parsed_type:
+                    lv_type = self._enrich_type(ti.parsed_type)
+
+                structure_terminals.append(Terminal(
+                    id=q_uid,
+                    index=ti.index,
+                    direction="output" if ti.is_output else "input",
+                    name=ti.name,
+                    lv_type=lv_type,
+                ))
+
+                term_lookup[uid] = WireEnd(
+                    terminal_id=q_uid,
+                    node_id=structure_uid,
+                    index=ti.index,
+                    name=ti.name,
+                )
+
+            # Pair by matching index (same position on structure border)
+            # — same as VI connector pane pairing
+            input_by_idx = {ti.index: (uid, ti) for uid, ti in srn_terms if not ti.is_output}
+            output_by_idx = {ti.index: (uid, ti) for uid, ti in srn_terms if ti.is_output}
+            paired = [(input_by_idx[idx], output_by_idx[idx]) for idx in input_by_idx if idx in output_by_idx]
+            for (in_uid, _in_ti), (out_uid, _out_ti) in paired:
+                q_in_uid = self._qid(vi_name, in_uid)
+                q_out_uid = self._qid(vi_name, out_uid)
+                in_end = term_lookup.get(in_uid, WireEnd(
+                    terminal_id=q_in_uid, node_id=structure_uid,
+                ))
+                out_end = term_lookup.get(out_uid, WireEnd(
+                    terminal_id=q_out_uid, node_id=structure_uid,
+                ))
+                g.add_edge(
+                    structure_uid, structure_uid,
+                    source=in_end, dest=out_end,
+                    tunnel_type="sRN", vi=vi_name,
+                )
+
+        return structure_terminals
 
     # === Dependency Graph Queries ===
 
@@ -1158,35 +1368,23 @@ class InMemoryVIGraph:
         """Resolve a VI name to its canonical form.
 
         Handles both qualified names (MyLib.lvlib:VI.vi) and simple filenames.
-        Returns the name as stored in the graph.
         """
-        # Direct match
-        if vi_name in self._dataflow:
+        if vi_name in self._vi_nodes:
             return vi_name
-        # Check if it's a filename that maps to a qualified name
         if vi_name in self._qualified_aliases:
             return self._qualified_aliases[vi_name]
-        # Check if it's a qualified name where we only have filename
-        # (strip library prefix and try)
         if ":" in vi_name:
             simple_name = vi_name.split(":")[-1]
-            if simple_name in self._dataflow:
+            if simple_name in self._vi_nodes:
                 return simple_name
-        return vi_name  # Return as-is, let caller handle not-found
+        return vi_name
 
     def list_vis(self) -> list[str]:
         """List all VIs in the graph (excluding stubs)."""
-        return list(self._dataflow.keys())
+        return list(self._vi_nodes.keys())
 
     def get_vi_source_path(self, vi_name: str) -> Path | None:
-        """Get the source file path for a VI.
-
-        Args:
-            vi_name: Qualified VI name (e.g., "Library.lvlib:VI.vi")
-
-        Returns:
-            Path to the original .vi file, or None if not available
-        """
+        """Get the source file path for a VI."""
         return self._source_paths.get(vi_name)
 
     def is_stub_vi(self, vi_name: str) -> bool:
@@ -1194,18 +1392,12 @@ class InMemoryVIGraph:
         return vi_name in self._stubs
 
     def get_stub_vi_info(self, vi_name: str) -> dict[str, Any] | None:
-        """Get stub VI info from vilib reference or call site inference.
-
-        Priority:
-        1. Check vilib resolver for known VI signatures (vi.lib VIs)
-        2. Fall back to inferring from call site in parent VI
-        """
+        """Get stub VI info from vilib reference or call site inference."""
         if vi_name not in self._stubs:
             return None
 
         # First, check vilib resolver for known VIs
-        from .vilib_resolver import get_resolver
-        resolver = get_resolver()
+        resolver = get_vilib_resolver()
         vilib_info = resolver.get_context(vi_name)
         if vilib_info:
             inputs = []
@@ -1230,20 +1422,27 @@ class InMemoryVIGraph:
         input_types: list[str] = []
         output_types: list[str] = []
 
-        for caller_vi in self._dataflow:
-            g = self._dataflow[caller_vi]
-            for node_id, data in g.nodes(data=True):
-                if data.get("kind") == "subvi" and data.get("name") == vi_name:
-                    # Extract terminal types from the SubVI node
-                    for term in data.get("terminals", []):
-                        term_type = term.get("type", "Any")
+        for caller_vi, node_uids in self._vi_nodes.items():
+            for uid in node_uids:
+                if uid not in self._graph:
+                    continue
+                gnode = self._graph.nodes[uid].get("node")
+                if (
+                    isinstance(gnode, VINode)
+                    and gnode.name == vi_name
+                    and gnode.id != vi_name  # Not the VI definition itself
+                ):
+                    for term in gnode.terminals:
+                        term_type = term.python_type()
                         if term_type == "unknown":
                             term_type = "Any"
-                        if term.get("direction") == "input":
+                        if term.direction == "input":
                             input_types.append(term_type)
                         else:
                             output_types.append(term_type)
-                    break  # Found caller, stop searching
+                    break
+            if input_types or output_types:
+                break
 
         return {
             "name": vi_name,
@@ -1287,12 +1486,8 @@ class InMemoryVIGraph:
         if not self._dep_graph.nodes():
             return
 
-        # Condense SCCs into single nodes
         condensation = nx.condensation(self._dep_graph)
 
-        # Topologically sort the condensation (SCCs in order)
-        # Use lexicographical sort for deterministic ordering
-        # Key function uses minimum VI name in each SCC for stable ordering
         def scc_key(scc_id: int) -> str:
             return min(condensation.nodes[scc_id]["members"])
 
@@ -1300,12 +1495,10 @@ class InMemoryVIGraph:
             nx.lexicographical_topological_sort(condensation, key=scc_key)
         )))
 
-        # vilib VIs have implementations, so include them in conversion order
         vilib_resolver = get_vilib_resolver()
 
         for scc_id in scc_order:
             members = condensation.nodes[scc_id]["members"]
-            # Include real VIs and stubs that have vilib implementations
             convertible_vis = {
                 m for m in members
                 if m not in self._stubs or vilib_resolver.has_implementation(m)
@@ -1314,116 +1507,214 @@ class InMemoryVIGraph:
                 yield convertible_vis
 
     def get_conversion_order(self) -> list[str]:
-        """Get VIs in topological order for bottom-up conversion.
-
-        Returns flat list. For recursive VIs, order within SCC is arbitrary.
-        Use get_generation_order() for proper grouping.
-        """
+        """Get VIs in topological order for bottom-up conversion."""
         result = []
         for group in self.get_generation_order():
-            result.extend(sorted(group))  # Sort for determinism
+            result.extend(sorted(group))
         return result
 
-    # === Dataflow Graph Queries ===
+    # === Unified Graph Queries ===
+
+    def _get_vi_nodes(self, vi_name: str) -> set[str]:
+        """Get the set of node UIDs belonging to a VI."""
+        return self._vi_nodes.get(vi_name, set())
+
+    def _get_typed_node(self, uid: str) -> AnyGraphNode | None:
+        """Get the typed Pydantic node model for a graph node."""
+        if uid not in self._graph:
+            return None
+        return self._graph.nodes[uid].get("node")
 
     def get_dataflow_graph(self, vi_name: str) -> nx.DiGraph | None:
-        """Get the raw dataflow graph for a VI."""
-        return self._dataflow.get(vi_name)
+        """Get a subgraph view for a VI (backward compat).
+
+        Returns a new DiGraph containing only nodes belonging to this VI,
+        with edges between them. Used for backward compatibility.
+        """
+        node_uids = self._vi_nodes.get(vi_name)
+        if node_uids is None:
+            return None
+
+        # Build a DiGraph view from the unified MultiDiGraph
+        sub = nx.DiGraph()
+
+        for uid in node_uids:
+            if uid not in self._graph:
+                continue
+            gnode = self._graph.nodes[uid].get("node")
+            if gnode is None:
+                continue
+            # Convert typed node to legacy dict format for backward compat
+            sub.add_node(uid, **self._typed_node_to_legacy_dict(gnode))
+
+        # Add edges between VI nodes
+        for uid in node_uids:
+            if uid not in self._graph:
+                continue
+            for _, dest, key, edata in self._graph.out_edges(uid, data=True, keys=True):
+                if dest in node_uids and edata.get("vi") == vi_name:
+                    sub.add_edge(uid, dest, **edata)
+
+        return sub
+
+    def _typed_node_to_legacy_dict(self, gnode: AnyGraphNode) -> dict[str, Any]:
+        """Convert a typed graph node to the old dict format."""
+        result: dict[str, Any] = {
+            "name": gnode.name,
+            "node_type": gnode.node_type,
+        }
+
+        if isinstance(gnode, VINode):
+            # Could be a VI definition or SubVI call
+            if gnode.id == gnode.vi:
+                # VI definition — doesn't have a "kind" in the old sense
+                result["kind"] = "vi_definition"
+            else:
+                result["kind"] = "vi"
+            result["poly_variant_name"] = gnode.poly_variant_name
+            result["terminals"] = [
+                self._terminal_to_legacy_dict(t) for t in gnode.terminals
+            ]
+        elif isinstance(gnode, GraphPrimitiveNode):
+            kind = "primitive"
+            if gnode.node_type in ("caseStruct", "select"):
+                kind = "caseStruct"
+            elif gnode.node_type in ("whileLoop", "forLoop"):
+                kind = "loop"
+            result["kind"] = kind
+            result["prim_id"] = gnode.prim_id
+            result["prim_index"] = gnode.prim_index
+            result["operation"] = gnode.operation
+            result["object_name"] = gnode.object_name
+            result["object_method_id"] = gnode.object_method_id
+            result["properties"] = [
+                {"name": p.name} for p in gnode.properties
+            ]
+            result["method_name"] = gnode.method_name
+            result["method_code"] = gnode.method_code
+            result["terminals"] = [
+                self._terminal_to_legacy_dict(t) for t in gnode.terminals
+            ]
+        elif isinstance(gnode, StructureNode):
+            if gnode.node_type in ("caseStruct", "select"):
+                kind = "caseStruct"
+            elif gnode.node_type in ("whileLoop", "forLoop"):
+                kind = "loop"
+            else:
+                kind = "operation"
+            result["kind"] = kind
+            result["terminals"] = [
+                self._terminal_to_legacy_dict(t) for t in gnode.terminals
+            ]
+        elif isinstance(gnode, ConstantNode):
+            result["kind"] = "constant"
+            result["value"] = gnode.value
+            result["raw_value"] = gnode.raw_value
+            result["label"] = gnode.label
+            result["lv_type"] = gnode.lv_type
+
+        if gnode.description:
+            result["description"] = gnode.description
+
+        return result
+
+    @staticmethod
+    def _terminal_to_legacy_dict(t: Terminal) -> dict[str, Any]:
+        """Convert Terminal dataclass to legacy dict format."""
+        d: dict[str, Any] = {
+            "id": t.id,
+            "index": t.index,
+            "direction": t.direction,
+            "type": t.python_type(),
+            "name": t.name,
+        }
+        if t.lv_type:
+            d["lv_type"] = t.lv_type
+            if t.lv_type.typedef_path:
+                d["typedef_path"] = t.lv_type.typedef_path
+            if t.lv_type.typedef_name:
+                d["typedef_name"] = t.lv_type.typedef_name
+        return d
 
     def get_node(self, vi_name: str, node_id: str) -> dict[str, Any] | None:
         """Get a node's attributes from a VI's dataflow graph."""
-        g = self._dataflow.get(vi_name)
-        if g is None or node_id not in g:
+        node_uids = self._vi_nodes.get(vi_name)
+        if node_uids is None or node_id not in node_uids:
             return None
-        return dict(g.nodes[node_id])
+        if node_id not in self._graph:
+            return None
+        gnode = self._graph.nodes[node_id].get("node")
+        if gnode is None:
+            return None
+        return self._typed_node_to_legacy_dict(gnode)
 
     def get_inputs(
         self, vi_name: str, *, public_only: bool = True
-    ) -> list[FPTerminalNode]:
+    ) -> list[Terminal]:
         """Get VI input terminals.
 
-        Args:
-            vi_name: Name of the VI
-            public_only: If True, only return connector pane inputs (default).
-                        If False, include internal controls too.
+        Reads from the VINode's terminal list (FPTerminal controls).
         """
-        g = self._dataflow.get(vi_name)
-        if g is None:
+        vi_name = self.resolve_vi_name(vi_name)
+        if vi_name not in self._graph:
             return []
+
+        gnode = self._graph.nodes[vi_name].get("node")
+        if not isinstance(gnode, VINode):
+            return []
+
         results = []
-        for n, d in g.nodes(data=True):
-            if d.get("kind") != "input":
+        for t in gnode.terminals:
+            if t.direction != "input":
                 continue
-            if public_only and not d.get("is_public", True):
+            if public_only and isinstance(t, FPTerminal) and not t.is_public:
                 continue
-            results.append(FPTerminalNode(
-                id=n,
-                kind="input",
-                name=d.get("name"),
-                is_indicator=d.get("is_indicator", False),
-                is_public=d.get("is_public", True),
-                slot_index=d.get("slot_index"),
-                wiring_rule=d.get("wiring_rule", 0),
-                type_desc=d.get("type_desc"),
-                control_type=d.get("control_type"),
-                default_value=d.get("default_value"),
-                enum_values=d.get("enum_values", []),
-                type=d.get("type"),
-                lv_type=d.get("lv_type"),
-            ))
+            results.append(t)
         return results
 
     def get_outputs(
         self, vi_name: str, *, public_only: bool = True
-    ) -> list[FPTerminalNode]:
+    ) -> list[Terminal]:
         """Get VI output terminals.
 
-        Args:
-            vi_name: Name of the VI
-            public_only: If True, only return connector pane outputs (default).
-                        If False, include internal indicators too.
+        Reads from the VINode's terminal list (FPTerminal indicators).
         """
-        g = self._dataflow.get(vi_name)
-        if g is None:
+        vi_name = self.resolve_vi_name(vi_name)
+        if vi_name not in self._graph:
             return []
+
+        gnode = self._graph.nodes[vi_name].get("node")
+        if not isinstance(gnode, VINode):
+            return []
+
         results = []
-        for n, d in g.nodes(data=True):
-            if d.get("kind") != "output":
+        for t in gnode.terminals:
+            if t.direction != "output":
                 continue
-            if public_only and not d.get("is_public", True):
+            if public_only and isinstance(t, FPTerminal) and not t.is_public:
                 continue
-            results.append(FPTerminalNode(
-                id=n,
-                kind="output",
-                name=d.get("name"),
-                is_indicator=d.get("is_indicator", True),
-                is_public=d.get("is_public", True),
-                slot_index=d.get("slot_index"),
-                wiring_rule=d.get("wiring_rule", 0),
-                type_desc=d.get("type_desc"),
-                control_type=d.get("control_type"),
-                default_value=d.get("default_value"),
-                enum_values=d.get("enum_values", []),
-                type=d.get("type"),
-                lv_type=d.get("lv_type"),
-            ))
+            results.append(t)
         return results
 
     def get_constants(self, vi_name: str) -> list[Constant]:
         """Get all constants in a VI."""
-        g = self._dataflow.get(vi_name)
-        if g is None:
+        node_uids = self._vi_nodes.get(vi_name)
+        if node_uids is None:
             return []
+
         results = []
-        for n, d in g.nodes(data=True):
-            if d.get("kind") != "constant":
+        for uid in node_uids:
+            if uid not in self._graph:
+                continue
+            gnode = self._graph.nodes[uid].get("node")
+            if not isinstance(gnode, ConstantNode):
                 continue
             results.append(Constant(
-                id=n,
-                value=d.get("value"),
-                lv_type=d.get("lv_type"),  # LVType from parsing
-                raw_value=d.get("raw_value"),
-                name=d.get("label"),  # Graph stores as "label", Constant uses "name"
+                id=gnode.id,
+                value=gnode.value,
+                lv_type=gnode.lv_type,
+                raw_value=gnode.raw_value,
+                name=gnode.label,
             ))
         return results
 
@@ -1431,73 +1722,66 @@ class InMemoryVIGraph:
         """Get all operations (SubVIs, primitives) in a VI.
 
         Returns operations in dataflow execution order.
-        Only returns top-level operations - inner loop operations are nested in
-        the loop's inner_nodes list.
+        Only returns top-level operations -- inner operations (parent != None)
+        are nested inside their structure's inner_nodes/case_frames lists.
         """
-        g = self._dataflow.get(vi_name)
-        if g is None:
+        node_uids = self._vi_nodes.get(vi_name)
+        if node_uids is None:
             return []
 
-        # Collect all inner node UIDs from loops - these should NOT appear at top level
-        inner_node_uids: set[str] = set()
-        for loop_struct in self._loop_structures.get(vi_name, {}).values():
-            inner_node_uids.update(loop_struct.inner_node_uids)
+        # Top-level = parent is None (not inside any structure)
+        top_level_op_uids: set[str] = set()
+        for uid in node_uids:
+            if uid == vi_name:
+                continue
+            if uid not in self._graph:
+                continue
+            gnode = self._graph.nodes[uid].get("node")
+            if gnode is None:
+                continue
+            op_kind = _graph_node_to_op_kind(gnode)
+            if op_kind in _OPERATION_KINDS and gnode.parent is None:
+                top_level_op_uids.add(uid)
 
-        # Also collect inner node UIDs from case structures
-        for case_struct in self._case_structures.get(vi_name, {}).values():
-            for frame in case_struct.frames:
-                inner_node_uids.update(frame.inner_node_uids)
-
-        # Also collect inner node UIDs from flat sequences
-        for flat_seq in self._flat_sequences.get(vi_name, {}).values():
-            for frame in flat_seq.frames:
-                inner_node_uids.update(frame.inner_node_uids)
-
-        # Get operations in dataflow order, excluding inner loop/case nodes
+        # Get operations in dataflow order, keeping only top-level
         ordered_ids = [
             uid for uid in self.get_operation_order(vi_name)
-            if uid not in inner_node_uids
+            if uid in top_level_op_uids
         ]
         op_set = set(ordered_ids)
 
-        # Add any ops not in the sorted order (disconnected), excluding inner nodes
-        for n, d in g.nodes(data=True):
-            if (d.get("kind") in _OPERATION_KINDS
-                and n not in op_set
-                and n not in inner_node_uids):
-                ordered_ids.append(n)
+        # Add any top-level ops not in the sorted order (disconnected)
+        for uid in top_level_op_uids:
+            if uid not in op_set:
+                ordered_ids.append(uid)
 
         return [
-            self._build_operation(n, g, vi_name)
-            for n in ordered_ids
-            if n in g.nodes
+            self._build_operation(uid, vi_name)
+            for uid in ordered_ids
+            if uid in self._graph
         ]
 
     def _build_operation(
-        self, uid: str, g: nx.DiGraph, vi_name: str
+        self, uid: str, vi_name: str,
     ) -> Operation:
-        """Build a single Operation dataclass from a graph node.
+        """Build a single Operation dataclass from a typed graph node.
 
-        This is the ONE place that constructs Operation objects. Both
-        get_operations() (top-level) and _build_inner_nodes() (nested)
-        delegate here so all operations get identical processing:
-        terminal enrichment, structure handling, name resolution.
+        This is the ONE place that constructs Operation objects.
         """
-        d = dict(g.nodes[uid])
-        kind = d.get("kind", "operation")
-        node_type = d.get("node_type", "")
+        gnode = self._graph.nodes[uid].get("node")
+        if gnode is None:
+            return Operation(id=uid, name=None, labels=["Operation"])
 
-        labels = _get_operation_labels(kind)
+        op_kind = _graph_node_to_op_kind(gnode)
+        labels = _get_operation_labels(op_kind)
 
-        # Enrich terminals with callee parameter names for SubVIs
-        raw_terminals = d.get("terminals", [])
-        if kind == "subvi":
-            subvi_name = d.get("name")
-            raw_terminals = self._enrich_subvi_terminals(
-                raw_terminals, subvi_name, vi_name
+        # Build terminals, enriching SubVI terminals with callee param names
+        terminals = list(gnode.terminals)
+        if isinstance(gnode, VINode) and gnode.id != gnode.vi:
+            # SubVI call — enrich with callee param names via resolve_name
+            terminals = self._enrich_subvi_terminals_typed(
+                terminals, gnode.name, vi_name
             )
-
-        terminals = self._to_terminal_list(raw_terminals)
 
         # Structure-specific fields
         tunnels: list[Tunnel] = []
@@ -1506,238 +1790,260 @@ class InMemoryVIGraph:
         stop_cond: str | None = None
         case_frames: list[CaseFrame] = []
         selector_terminal: str | None = None
+        node_type = gnode.node_type or ""
 
-        if node_type in ("whileLoop", "forLoop"):
-            labels = ["Loop"]
-            loop_type = node_type
-            loop_struct = self._loop_structures.get(vi_name, {}).get(uid)
-            if loop_struct:
-                tunnels = self._build_tunnels(loop_struct.tunnels)
+        if isinstance(gnode, StructureNode):
+            # Reconstruct Tunnel objects from terminal metadata
+            tunnels = self._tunnels_from_terminals(gnode.terminals)
+
+            # Query inner nodes by parent
+            child_uids = self._get_children_of(uid, vi_name)
+
+            if node_type in ("whileLoop", "forLoop"):
+                labels = ["Loop"]
+                loop_type = node_type
                 inner_nodes = self._build_inner_nodes(
-                    loop_struct.inner_node_uids, g, vi_name
+                    child_uids, vi_name
                 )
-                stop_cond = loop_struct.stop_condition_terminal_uid
+                stop_cond = gnode.stop_condition_terminal
 
-        elif node_type in ("caseStruct", "select"):
-            labels = ["CaseStructure"]
-            case_struct = self._case_structures.get(vi_name, {}).get(uid)
-            if case_struct:
-                tunnels = self._build_tunnels(case_struct.tunnels)
-                selector_terminal = case_struct.selector_terminal_uid
-                case_frames = self._build_case_frames(
-                    case_struct.frames, g, vi_name
+            elif node_type in ("caseStruct", "select"):
+                labels = ["CaseStructure"]
+                selector_terminal = gnode.selector_terminal
+                case_frames = self._build_case_frames_from_parent(
+                    uid, gnode.frames, vi_name, child_uids
                 )
 
-        elif node_type in ("flatSequence", "seq"):
-            labels = ["FlatSequence"]
-            flat_seq = self._flat_sequences.get(vi_name, {}).get(uid)
-            if flat_seq:
-                tunnels = self._build_tunnels(flat_seq.tunnels)
-                case_frames = self._build_sequence_frames(
-                    flat_seq.frames, g, vi_name
-                )
-                terminals = self._build_tunnel_terminals(
-                    flat_seq.tunnels, g,
+            elif node_type in ("flatSequence", "seq"):
+                labels = ["FlatSequence"]
+                case_frames = self._build_sequence_frames_from_parent(
+                    uid, gnode.frames, vi_name, child_uids
                 )
 
         # Name fallback for unnamed structures
-        node_name = d.get("name")
+        node_name = gnode.name
         if not node_name and node_type:
             node_name = _NODE_TYPE_NAMES.get(node_type)
+
+        # Extract primitive-specific fields
+        prim_id: int | None = None
+        operation: str | None = None
+        object_name: str | None = None
+        object_method_id: str | None = None
+        properties: list[dict[str, Any]] = []
+        method_name: str | None = None
+        method_code: int | None = None
+        poly_variant_name: str | None = None
+
+        if isinstance(gnode, GraphPrimitiveNode):
+            prim_id = gnode.prim_id
+            operation = gnode.operation
+            object_name = gnode.object_name
+            object_method_id = gnode.object_method_id
+            properties = [{"name": p.name} for p in gnode.properties]
+            method_name = gnode.method_name
+            method_code = gnode.method_code
+
+        if isinstance(gnode, VINode):
+            poly_variant_name = gnode.poly_variant_name
 
         return Operation(
             id=uid,
             name=node_name,
             labels=labels,
-            primResID=d.get("prim_id"),
+            primResID=prim_id,
             terminals=terminals,
             node_type=node_type or None,
             loop_type=loop_type,
             tunnels=tunnels,
             inner_nodes=inner_nodes,
             stop_condition_terminal=stop_cond,
-            description=d.get("description"),
-            operation=d.get("operation"),
-            object_name=d.get("object_name"),
-            object_method_id=d.get("object_method_id"),
-            properties=d.get("properties", []),
-            method_name=d.get("method_name"),
-            method_code=d.get("method_code"),
+            description=gnode.description,
+            operation=operation,
+            object_name=object_name,
+            object_method_id=object_method_id,
+            properties=properties,
+            method_name=method_name,
+            method_code=method_code,
             case_frames=case_frames,
             selector_terminal=selector_terminal,
-            poly_variant_name=d.get("poly_variant_name"),
+            poly_variant_name=poly_variant_name,
         )
 
     @staticmethod
-    def _build_tunnels(parser_tunnels: list) -> list[Tunnel]:
-        """Convert parser tunnel objects to Tunnel dataclasses."""
-        return [
-            Tunnel(
-                outer_terminal_uid=t.outer_terminal_uid,
-                inner_terminal_uid=t.inner_terminal_uid,
-                tunnel_type=t.tunnel_type,
-                paired_terminal_uid=t.paired_terminal_uid,
-            )
-            for t in parser_tunnels
-        ]
+    def _tunnels_from_terminals(terminals: list[Terminal]) -> list[Tunnel]:
+        """Reconstruct Tunnel objects from StructureNode's terminal metadata.
 
-    def _build_tunnel_terminals(
-        self,
-        tunnels: list,
-        g: nx.DiGraph,
-    ) -> list[Terminal]:
-        """Build Terminal list from tunnel outer UIDs.
-
-        Used for flat sequences where the flatSequence XML element
-        has no termList — terminals live on the sequenceFrame children.
-        We synthesize terminals from tunnel outer UIDs so the codegen
-        topological sort can see data dependencies.
+        Pairs outer/inner terminals by paired_id to rebuild the Tunnel
+        objects that codegen consumers expect on Operation.tunnels.
         """
-        seen: set[str] = set()
-        terminals: list[Terminal] = []
-        for i, tunnel in enumerate(tunnels):
-            outer = tunnel.outer_terminal_uid
-            if outer in seen:
+        tunnels: list[Tunnel] = []
+        seen_pairs: set[tuple[str, str]] = set()
+
+        for term in terminals:
+            if not isinstance(term, TunnelTerminal):
                 continue
-            seen.add(outer)
-            # Determine direction from graph edges:
-            # If outer terminal is a source for any non-tunnel edge → output
-            # If outer terminal is a destination → input
-            is_output = False
-            if g.has_node(outer):
-                for _, dest, edata in g.out_edges(outer, data=True):
-                    if not edata.get("tunnel_type"):
-                        is_output = True
-                        break
-            direction = "output" if is_output else "input"
-            terminals.append(Terminal(
-                id=outer,
-                index=i,
-                direction=direction,
+            if not term.tunnel_type or not term.paired_id:
+                continue
+            if term.boundary != "outer":
+                continue
+
+            outer_uid = term.id
+            inner_uid = term.paired_id
+            pair_key = (outer_uid, inner_uid)
+            if pair_key in seen_pairs:
+                continue
+            seen_pairs.add(pair_key)
+
+            tunnels.append(Tunnel(
+                outer_terminal_uid=outer_uid,
+                inner_terminal_uid=inner_uid,
+                tunnel_type=term.tunnel_type,
             ))
-        return terminals
 
-    def _to_terminal_list(self, raw_terminals: list[dict]) -> list[Terminal]:
-        """Convert list of terminal dicts to Terminal dataclasses."""
-        terminals = []
-        for t in raw_terminals:
-            terminals.append(Terminal(
-                id=t.get("id", ""),
-                index=t.get("index", 0),
-                direction=t.get("direction", "input"),
-                type=t.get("type", "Any"),
-                name=t.get("name"),
-                typedef_path=t.get("typedef_path"),
-                typedef_name=t.get("typedef_name"),
-                callee_param_name=t.get("callee_param_name"),
-                lv_type=t.get("lv_type"),
-            ))
-        return terminals
+        return tunnels
 
-    def _get_slot_to_name(self, vi_name: str) -> dict[int, str]:
-        """Get slot_index → terminal name mapping for a VI's FP terminals."""
-        g = self._dataflow.get(vi_name)
-        if g is None:
-            return {}
-        result: dict[int, str] = {}
-        for _, d in g.nodes(data=True):
-            slot = d.get("slot_index")
-            name = d.get("name")
-            if slot is not None and name and d.get("kind") in ("input", "output"):
-                result[slot] = name
-        return result
-
-    def _enrich_subvi_terminals(
+    def _enrich_subvi_terminals_typed(
         self,
-        terminals: list[dict[str, Any]],
+        terminals: list[Terminal],
         subvi_name: str | None,
         caller_vi: str,
-    ) -> list[dict[str, Any]]:
-        """Add callee parameter names to SubVI terminals.
-
-        Uses cross-VI bindings to map caller terminal index → callee FP terminal name.
-        """
+    ) -> list[Terminal]:
+        """Add callee parameter names to SubVI terminals via resolve_name."""
         if not subvi_name:
             return terminals
-        subvi_name = self.resolve_vi_name(subvi_name)
-        if subvi_name not in self._dataflow:
+        resolved_name = self.resolve_vi_name(subvi_name)
+        if resolved_name not in self._vi_nodes:
             return terminals
 
-        # Get callee FP terminals with slot indices
-        slot_to_name = self._get_slot_to_name(subvi_name)
+        # Get callee slot -> name mapping
+        slot_to_name = self._get_slot_to_name(resolved_name)
 
-        # Polymorphic VIs may have no FP terminals on the wrapper.
-        # Use the first variant's terminals — all variants share
-        # the same connector pane layout.
+        # Polymorphic VIs may have no FP terminals on the wrapper
         if not slot_to_name:
-            for variant in self.get_poly_variants(subvi_name):
+            for variant in self.get_poly_variants(resolved_name):
                 resolved_variant = self.resolve_vi_name(variant)
-                if resolved_variant in self._dataflow:
+                if resolved_variant in self._vi_nodes:
                     slot_to_name = self._get_slot_to_name(resolved_variant)
                     if slot_to_name:
                         break
 
-        # Enrich terminals with callee parameter names
-        enriched = []
-        for term in terminals:
-            term_copy = dict(term)
-            term_index = term.get("index")
-            if term_index is not None and term_index in slot_to_name:
-                term_copy["callee_param_name"] = slot_to_name[term_index]
-            enriched.append(term_copy)
-
+        # Enrich terminals -- set name from callee FP if available
+        enriched: list[Terminal] = []
+        for t in terminals:
+            name = t.name
+            if t.index is not None and t.index in slot_to_name:
+                name = slot_to_name[t.index]
+            if isinstance(t, FPTerminal):
+                enriched.append(FPTerminal(
+                    id=t.id,
+                    index=t.index,
+                    direction=t.direction,
+                    name=name,
+                    lv_type=t.lv_type,
+                    wiring_rule=t.wiring_rule,
+                    is_indicator=t.is_indicator,
+                    is_public=t.is_public,
+                    control_type=t.control_type,
+                    default_value=t.default_value,
+                    enum_values=t.enum_values,
+                ))
+            else:
+                enriched.append(Terminal(
+                    id=t.id,
+                    index=t.index,
+                    direction=t.direction,
+                    name=name,
+                    lv_type=t.lv_type,
+                ))
         return enriched
 
+    def _get_slot_to_name(self, vi_name: str) -> dict[int, str]:
+        """Get index -> terminal name mapping for a VI's FP terminals."""
+        if vi_name not in self._graph:
+            return {}
+        gnode = self._graph.nodes[vi_name].get("node")
+        if not isinstance(gnode, VINode):
+            return {}
+        result: dict[int, str] = {}
+        for t in gnode.terminals:
+            if t.index is not None and t.name:
+                result[t.index] = t.name
+        return result
+
+    def resolve_name(self, node_id: str, terminal_index: int) -> str | None:
+        """Resolve the name of a terminal on a node.
+
+        For SubVI calls, follows the graph to the callee VI and reads
+        the terminal name from its FP terminal list.
+        """
+        if node_id not in self._graph:
+            return None
+        gnode = self._graph.nodes[node_id].get("node")
+        if gnode is None:
+            return None
+
+        # Direct: read from node's terminal list
+        for term in gnode.terminals:
+            if term.index == terminal_index and term.name:
+                return term.name
+
+        # SubVI: follow graph to callee VI, read its terminal name
+        if isinstance(gnode, VINode) and gnode.id != gnode.vi:
+            callee_name = self.resolve_vi_name(gnode.name or "")
+            if callee_name in self._graph:
+                callee_node = self._graph.nodes[callee_name].get("node")
+                if isinstance(callee_node, VINode):
+                    for term in callee_node.terminals:
+                        if term.index == terminal_index and term.name:
+                            return term.name
+
+        return None
+
     def _sort_inner_uids(
-        self, uids: list[str], g: nx.DiGraph
+        self, uids: list[str], vi_name: str,
     ) -> list[str]:
         """Topologically sort inner node UIDs by their wire dependencies.
 
-        Inner nodes in case frames / loops may be listed in XML order,
-        which doesn't respect data dependencies. Sort them so producers
-        execute before consumers.
-
-        Only considers real operation nodes (not sRN infrastructure) to
-        avoid false dependency cycles from tunnel terminal wiring.
+        Only considers real operation nodes to avoid false dependency
+        cycles from tunnel terminal wiring.
         """
         uid_set = set(uids)
         if len(uid_set) <= 1:
             return list(uids)
 
-        # Filter to real operations only (exclude sRN and other infra)
+        # Filter to real operations only
         op_uid_set: set[str] = set()
         for uid in uid_set:
-            if uid in g.nodes:
-                kind = g.nodes[uid].get("kind")
-                if kind in _OPERATION_KINDS:
-                    op_uid_set.add(uid)
+            if uid not in self._graph:
+                continue
+            gnode = self._graph.nodes[uid].get("node")
+            if gnode is None:
+                continue
+            op_kind = _graph_node_to_op_kind(gnode)
+            if op_kind in _OPERATION_KINDS:
+                op_uid_set.add(uid)
 
         if len(op_uid_set) <= 1:
             return list(uids)
 
-        # Build terminal → parent mapping for operation nodes only
-        terminal_to_op: dict[str, str] = {}
-        for n, d in g.nodes(data=True):
-            if d.get("kind") == "terminal":
-                parent = d.get("parent_id")
-                if parent in op_uid_set:
-                    terminal_to_op[n] = parent
-
         # Build dependency graph among inner operation nodes
         dep = nx.DiGraph()
         dep.add_nodes_from(op_uid_set)
-        for u, v, _ in g.edges(data=True):
-            src_op = terminal_to_op.get(u)
-            dst_op = terminal_to_op.get(v)
-            if src_op in op_uid_set and dst_op in op_uid_set and src_op != dst_op:
-                dep.add_edge(src_op, dst_op)
+
+        for uid in op_uid_set:
+            if uid not in self._graph:
+                continue
+            for _, dest, edata in self._graph.out_edges(uid, data=True):
+                if dest in op_uid_set and dest != uid:
+                    dep.add_edge(uid, dest)
 
         try:
             sorted_ops = list(nx.topological_sort(dep))
         except nx.NetworkXUnfeasible:
             sorted_ops = list(op_uid_set)
 
-        # Build final list: sorted ops first, then non-op uids in original order
+        # Build final list: sorted ops first, then non-op uids
         sorted_set = set(sorted_ops)
         result = list(sorted_ops)
         for uid in uids:
@@ -1747,67 +2053,94 @@ class InMemoryVIGraph:
         return result
 
     def _build_inner_nodes(
-        self, uids: list[str], g: nx.DiGraph, vi_name: str
+        self, uids: list[str], vi_name: str,
     ) -> list[Operation]:
-        """Build Operation dataclasses for nodes inside a loop.
+        """Build Operation dataclasses for nodes inside a structure."""
+        sorted_uids = self._sort_inner_uids(uids, vi_name)
+        results = []
+        for uid in sorted_uids:
+            if uid not in self._graph:
+                continue
+            gnode = self._graph.nodes[uid].get("node")
+            if gnode is None:
+                continue
+            op_kind = _graph_node_to_op_kind(gnode)
+            if op_kind in _OPERATION_KINDS:
+                results.append(self._build_operation(uid, vi_name))
+        return results
 
-        Recursively handles nested loops.
-        """
-        sorted_uids = self._sort_inner_uids(uids, g)
-        return [
-            self._build_operation(uid, g, vi_name)
-            for uid in sorted_uids
-            if uid in g.nodes and g.nodes[uid].get("kind") in _OPERATION_KINDS
-        ]
+    def _get_children_of(
+        self, parent_uid: str, vi_name: str,
+    ) -> list[str]:
+        """Get UIDs of all graph nodes whose parent == parent_uid."""
+        node_uids = self._vi_nodes.get(vi_name, set())
+        children: list[str] = []
+        for uid in node_uids:
+            if uid not in self._graph:
+                continue
+            gnode = self._graph.nodes[uid].get("node")
+            if gnode is not None and gnode.parent == parent_uid:
+                children.append(uid)
+        return children
 
-    def _build_case_frames(
+    def _build_case_frames_from_parent(
         self,
-        parser_frames: list,  # list[parser.models.CaseFrame]
-        g: nx.DiGraph,
+        structure_uid: str,
+        frame_infos: list[FrameInfo],
         vi_name: str,
+        child_uids: list[str],
     ) -> list[CaseFrame]:
-        """Build CaseFrame dataclasses from parser case frames.
+        """Build CaseFrame dataclasses by grouping children by frame."""
+        # Group child UIDs by their frame value
+        frame_to_uids: dict[str | int | None, list[str]] = {}
+        for uid in child_uids:
+            gnode = self._graph.nodes[uid].get("node")
+            if gnode is None:
+                continue
+            fv = gnode.frame
+            if fv not in frame_to_uids:
+                frame_to_uids[fv] = []
+            frame_to_uids[fv].append(uid)
 
-        Converts parser CaseFrame (UIDs) to graph_types CaseFrame (Operations).
-        """
         result_frames: list[CaseFrame] = []
-
-        for parser_frame in parser_frames:
-            # Build operations for this frame's inner nodes
-            frame_ops = self._build_inner_nodes(
-                parser_frame.inner_node_uids, g, vi_name
-            )
-
+        for fi in frame_infos:
+            uids = frame_to_uids.get(fi.selector_value, [])
+            frame_ops = self._build_inner_nodes(uids, vi_name)
             result_frames.append(CaseFrame(
-                selector_value=parser_frame.selector_value,
-                inner_node_uids=parser_frame.inner_node_uids,
+                selector_value=fi.selector_value,
+                inner_node_uids=uids,
                 operations=frame_ops,
-                is_default=parser_frame.is_default,
+                is_default=fi.is_default,
             ))
 
         return result_frames
 
-    def _build_sequence_frames(
+    def _build_sequence_frames_from_parent(
         self,
-        parser_frames: list,  # list[parser.models.SequenceFrame]
-        g: nx.DiGraph,
+        structure_uid: str,
+        frame_infos: list[FrameInfo],
         vi_name: str,
+        child_uids: list[str],
     ) -> list[CaseFrame]:
-        """Build CaseFrame dataclasses from sequence frames.
+        """Build CaseFrame dataclasses from sequence frames by parent query."""
+        # Group child UIDs by their frame value
+        frame_to_uids: dict[str | int | None, list[str]] = {}
+        for uid in child_uids:
+            gnode = self._graph.nodes[uid].get("node")
+            if gnode is None:
+                continue
+            fv = gnode.frame
+            if fv not in frame_to_uids:
+                frame_to_uids[fv] = []
+            frame_to_uids[fv].append(uid)
 
-        Reuses CaseFrame with selector_value as frame index ("0", "1", "2").
-        Codegen treats these as sequential (not conditional).
-        """
         result_frames: list[CaseFrame] = []
-
-        for idx, parser_frame in enumerate(parser_frames):
-            frame_ops = self._build_inner_nodes(
-                parser_frame.inner_node_uids, g, vi_name
-            )
-
+        for fi in frame_infos:
+            uids = frame_to_uids.get(fi.selector_value, [])
+            frame_ops = self._build_inner_nodes(uids, vi_name)
             result_frames.append(CaseFrame(
-                selector_value=str(idx),
-                inner_node_uids=parser_frame.inner_node_uids,
+                selector_value=fi.selector_value,
+                inner_node_uids=uids,
                 operations=frame_ops,
             ))
 
@@ -1819,143 +2152,222 @@ class InMemoryVIGraph:
         Returns operation node IDs in the order they should execute
         (topological sort based on wire connections).
         """
-        g = self._dataflow.get(vi_name)
-        if g is None:
+        node_uids = self._vi_nodes.get(vi_name)
+        if node_uids is None:
             return []
 
         # Get operation node IDs
-        op_ids = set(
-            n for n, d in g.nodes(data=True)
-            if d.get("kind") in _OPERATION_KINDS
-        )
+        op_ids: set[str] = set()
+        for uid in node_uids:
+            if uid == vi_name:
+                continue  # Skip VINode itself
+            if uid not in self._graph:
+                continue
+            gnode = self._graph.nodes[uid].get("node")
+            if gnode is None:
+                continue
+            op_kind = _graph_node_to_op_kind(gnode)
+            if op_kind in _OPERATION_KINDS:
+                op_ids.add(uid)
 
         if not op_ids:
             return []
 
-        # Build a map from terminal ID to parent operation ID
-        terminal_to_op: dict[str, str] = {}
-        for n, d in g.nodes(data=True):
-            if d.get("kind") == "terminal":
-                parent = d.get("parent_id")
-                if parent:
-                    terminal_to_op[n] = parent
-
-        # Build operation-level dependency graph
-        # Operation A depends on B if a wire goes from B's output to A's input
+        # Build operation-level dependency graph from edges
         op_deps = nx.DiGraph()
         op_deps.add_nodes_from(op_ids)
 
-        for u, v, _ in g.edges(data=True):
-            # u is source terminal, v is destination terminal
-            src_op = terminal_to_op.get(u)
-            dst_op = terminal_to_op.get(v)
+        for uid in op_ids:
+            if uid not in self._graph:
+                continue
+            for _, dest, edata in self._graph.out_edges(uid, data=True):
+                if dest in op_ids and dest != uid:
+                    op_deps.add_edge(uid, dest)
 
-            # Add edge if both terminals belong to operations (not FP/constants)
-            if src_op in op_ids and dst_op in op_ids and src_op != dst_op:
-                op_deps.add_edge(src_op, dst_op)
+        # Also check edges FROM constants and VINode (FP terminals) to ops
+        # A constant feeding into an op means the op has a dependency on
+        # its input being available (but constants don't need ordering).
+        # We need edges between ops that share intermediate wiring.
+
+        # For edges through the VINode (FP terminals) or constants to ops:
+        # these are not op-to-op edges, but we need to consider transitive
+        # dependencies. The unified graph has edges: const->op, vi->op, op->vi
+        # so direct op->op edges from the graph capture the dependencies.
 
         try:
             return list(nx.topological_sort(op_deps))
         except nx.NetworkXUnfeasible:
-            # Cycle in operations (shouldn't happen in valid VI)
             return list(op_ids)
 
     def get_predecessors(self, vi_name: str, node_id: str) -> list[str]:
         """Get nodes that feed into this node (direct predecessors)."""
-        g = self._dataflow.get(vi_name)
-        if g is None or node_id not in g:
+        if node_id not in self._graph:
             return []
-        return list(g.predecessors(node_id))
+        return list(self._graph.predecessors(node_id))
 
     def get_successors(self, vi_name: str, node_id: str) -> list[str]:
         """Get nodes that this node feeds into (direct successors)."""
-        g = self._dataflow.get(vi_name)
-        if g is None or node_id not in g:
+        if node_id not in self._graph:
             return []
-        return list(g.successors(node_id))
+        return list(self._graph.successors(node_id))
 
     def get_source_of_output(self, vi_name: str, output_id: str) -> str | None:
         """Trace an output terminal back to its source node.
 
         Returns the ID of the node that produces the value for this output.
         """
-        g = self._dataflow.get(vi_name)
-        if g is None or output_id not in g:
+        # In the unified graph, output_id is a terminal on the VINode.
+        # Find direct predecessors.
+        if vi_name not in self._graph:
             return None
 
-        preds = list(g.predecessors(output_id))
+        preds = list(self._graph.predecessors(vi_name))
         if not preds:
             return None
 
-        # Follow through terminals to find the actual source
-        source = preds[0]
-        source_data = g.nodes.get(source, {})
+        # Check if any predecessor has an edge whose dest terminal matches
+        for pred in preds:
+            for _, _, edata in self._graph.edges(pred, data=True):
+                dest_end = edata.get("dest")
+                if dest_end and dest_end.terminal_id == output_id:
+                    return pred
 
-        # If it's a terminal, get its parent
-        if source_data.get("kind") == "terminal":
-            return source_data.get("parent_id")
+        # Fall back to first predecessor
+        return preds[0] if preds else None
 
-        return source
+    def set_var_name(self, terminal_id: str, var_name: str) -> None:
+        """Set the Python variable name on a terminal. Called during codegen."""
+        node_id = self._term_to_node.get(terminal_id)
+        if not node_id or not self._graph.has_node(node_id):
+            return
+        gnode = self._graph.nodes[node_id].get("node")
+        if not gnode:
+            return
+        for t in gnode.terminals:
+            if t.id == terminal_id:
+                t.var_name = var_name
+                return
+
+    def get_var_name(self, terminal_id: str) -> str | None:
+        """Get the Python variable name from a terminal."""
+        node_id = self._term_to_node.get(terminal_id)
+        if not node_id or not self._graph.has_node(node_id):
+            return None
+        gnode = self._graph.nodes[node_id].get("node")
+        if not gnode:
+            return None
+        for t in gnode.terminals:
+            if t.id == terminal_id:
+                return t.var_name
+        return None
+
+    def incoming_edges(self, terminal_id: str) -> list[WireEnd]:
+        """Get all source WireEnds that feed into a terminal."""
+        node_id = self._term_to_node.get(terminal_id)
+        if not node_id or not self._graph.has_node(node_id):
+            return []
+        results = []
+        for _, _, _, d in self._graph.in_edges(node_id, data=True, keys=True):
+            dst = d.get("dest")
+            if dst and dst.terminal_id == terminal_id:
+                src = d.get("source")
+                if src:
+                    results.append(src)
+        return results
+
+    def outgoing_edges(self, terminal_id: str) -> list[WireEnd]:
+        """Get all dest WireEnds that a terminal feeds into."""
+        node_id = self._term_to_node.get(terminal_id)
+        if not node_id or not self._graph.has_node(node_id):
+            return []
+        results = []
+        for _, _, _, d in self._graph.out_edges(node_id, data=True, keys=True):
+            src = d.get("source")
+            if src and src.terminal_id == terminal_id:
+                dst = d.get("dest")
+                if dst:
+                    results.append(dst)
+        return results
+
+    def terminal_is_wired(self, terminal_id: str) -> bool:
+        """Check if a terminal has any edge connected."""
+        node_id = self._term_to_node.get(terminal_id)
+        if not node_id or not self._graph.has_node(node_id):
+            return False
+        for _, _, _, d in self._graph.in_edges(node_id, data=True, keys=True):
+            dst = d.get("dest")
+            if dst and dst.terminal_id == terminal_id:
+                return True
+        for _, _, _, d in self._graph.out_edges(node_id, data=True, keys=True):
+            src = d.get("source")
+            if src and src.terminal_id == terminal_id:
+                return True
+        return False
 
     def get_wires(self, vi_name: str) -> list[Wire]:
-        """Get all wires (edges) in a VI's dataflow graph."""
-        g = self._dataflow.get(vi_name)
-        if g is None:
+        """Get all wires (edges) in a VI's dataflow graph.
+
+        Returns Wire objects with typed WireEnd source/dest.
+        Includes internal edges (self-loops on structure nodes for
+        tunnel outer<->inner and sRN input->output pairings).
+        """
+        node_uids = self._vi_nodes.get(vi_name)
+        if node_uids is None:
             return []
 
-        # Process tunnel edges first, then normal edges, so normal edges
-        # take priority in the flow map (last write wins for same destination).
-        tunnel_edges = []
-        normal_edges = []
-        for u, v, d in g.edges(data=True):
-            if d.get("tunnel_type"):
-                tunnel_edges.append((u, v, d))
-            else:
-                normal_edges.append((u, v, d))
+        # Collect edges: tunnel/internal edges first, then normal edges
+        tunnel_edges: list[Wire] = []
+        normal_edges: list[Wire] = []
 
-        result = []
-        for u, v, d in tunnel_edges + normal_edges:
-            from_parent_id = d.get("from_parent")
-            to_parent_id = d.get("to_parent")
+        for uid in node_uids:
+            if uid not in self._graph:
+                continue
+            for _, dest, edata in self._graph.out_edges(uid, data=True):
+                if edata.get("vi") != vi_name:
+                    continue
 
-            # Look up parent node data for labels and names
-            from_node = g.nodes.get(from_parent_id, {}) if from_parent_id else {}
-            to_node = g.nodes.get(to_parent_id, {}) if to_parent_id else {}
+                src_end = edata.get("source")
+                dst_end = edata.get("dest")
 
-            # Get labels from node kind
-            from_kind = from_node.get("kind", "")
-            to_kind = to_node.get("kind", "")
-            from_labels = self._kind_to_labels(from_kind)
-            to_labels = self._kind_to_labels(to_kind)
+                if src_end is None or dst_end is None:
+                    continue
 
-            # Look up slot_index from terminal node data (for SubVI param lookup)
-            # Prefer slot_index (connector pane), fall back to terminal index
-            from_term_data = g.nodes.get(u, {})
-            to_term_data = g.nodes.get(v, {})
-            from_slot_index = (
-                from_term_data.get("slot_index") or from_term_data.get("index")
-            )
-            to_slot_index = (
-                to_term_data.get("slot_index") or to_term_data.get("index")
-            )
+                # Look up parent node data for labels and names
+                from_node = self._get_typed_node(src_end.node_id)
+                to_node = self._get_typed_node(dst_end.node_id)
 
-            result.append(Wire(
-                from_terminal_id=u,
-                to_terminal_id=v,
-                from_parent_id=from_parent_id,
-                to_parent_id=to_parent_id,
-                from_parent_name=from_node.get("name"),
-                to_parent_name=to_node.get("name"),
-                from_parent_labels=from_labels,
-                to_parent_labels=to_labels,
-                from_slot_index=from_slot_index,
-                to_slot_index=to_slot_index,
-            ))
-        return result
+                from_kind = _graph_node_to_op_kind(from_node) if from_node else ""
+                to_kind = _graph_node_to_op_kind(to_node) if to_node else ""
+                from_labels = self._kind_to_labels(from_kind)
+                to_labels = self._kind_to_labels(to_kind)
+
+                wire = Wire(
+                    source=WireEnd(
+                        terminal_id=src_end.terminal_id,
+                        node_id=src_end.node_id,
+                        index=src_end.index,
+                        name=from_node.name if from_node else None,
+                        labels=from_labels,
+                    ),
+                    dest=WireEnd(
+                        terminal_id=dst_end.terminal_id,
+                        node_id=dst_end.node_id,
+                        index=dst_end.index,
+                        name=to_node.name if to_node else None,
+                        labels=to_labels,
+                    ),
+                )
+
+                if edata.get("tunnel_type"):
+                    tunnel_edges.append(wire)
+                else:
+                    normal_edges.append(wire)
+
+        return tunnel_edges + normal_edges
 
     def _kind_to_labels(self, kind: str) -> list[str]:
         """Convert internal kind to labels list."""
-        if kind == "subvi":
+        if kind == "vi":
             return ["SubVI"]
         elif kind == "primitive":
             return ["Primitive"]
@@ -1963,131 +2375,60 @@ class InMemoryVIGraph:
             return ["Operation"]
         elif kind == "constant":
             return ["Constant"]
-        elif kind == "input":
+        elif kind == "vi":
             return ["Control", "Input"]
-        elif kind == "output":
-            return ["Indicator", "Output"]
         return []
 
-    # === Cross-VI Bindings ===
-
-    def get_binding(
-        self, caller_vi: str, caller_term_uid: str
-    ) -> tuple[str, str] | None:
-        """Get the SubVI terminal that a caller terminal binds to.
-
-        Args:
-            caller_vi: Name of the calling VI
-            caller_term_uid: UID of the terminal on the SubVI node in caller
-
-        Returns:
-            Tuple of (subvi_name, subvi_term_uid) or None if not bound
-        """
-        return self._bindings.get((caller_vi, caller_term_uid))
-
-    def get_bindings_for_vi(self, vi_name: str) -> list[dict[str, Any]]:
-        """Get all cross-VI bindings where this VI is the caller.
-
-        Returns list of binding dicts with caller and target info.
-        """
-        result = []
-        for (caller, term_uid), (subvi, subvi_term) in self._bindings.items():
-            if caller == vi_name:
-                result.append({
-                    "caller_vi": caller,
-                    "caller_term": term_uid,
-                    "subvi_name": subvi,
-                    "subvi_term": subvi_term,
-                })
-        return result
-
-    def trace_data_flow(
-        self, vi_name: str, term_uid: str, *, cross_vi: bool = True
-    ) -> list[dict[str, Any]]:
-        """Trace data flow from a terminal, optionally crossing VI boundaries.
-
-        Args:
-            vi_name: Starting VI
-            term_uid: Starting terminal UID
-            cross_vi: If True, follow bindings into SubVIs
-
-        Returns:
-            List of nodes in data flow order, with VI context
-        """
-        result = []
-        visited = set()
-
-        def trace(vi: str, uid: str) -> None:
-            if (vi, uid) in visited:
-                return
-            visited.add((vi, uid))
-
-            g = self._dataflow.get(vi)
-            if g is None or uid not in g:
-                return
-
-            node_data = dict(g.nodes[uid])
-            result.append({"vi": vi, "id": uid, **node_data})
-
-            # Follow outgoing edges (downstream data flow)
-            for succ in g.successors(uid):
-                trace(vi, succ)
-
-            # If this is a SubVI node terminal and cross_vi is enabled,
-            # follow binding into the SubVI
-            if cross_vi:
-                binding = self._bindings.get((vi, uid))
-                if binding:
-                    subvi_name, subvi_term = binding
-                    trace(subvi_name, subvi_term)
-
-        trace(vi_name, term_uid)
-        return result
-
-    # === Legacy API (for backward compatibility) ===
+    # === Legacy API ===
 
     def get_vi_context(self, vi_name: str) -> dict[str, Any]:
         """Get complete VI context for code generation.
 
         Returns a dict with inputs, outputs, constants, operations, etc.
-        Returns dataclass instances for use with new AST-based codegen.
+        Builds from typed graph nodes.
         """
-        # Resolve to canonical name (handles qualified names and aliases)
         vi_name = self.resolve_vi_name(vi_name)
-        g = self._dataflow.get(vi_name)
-        if g is None:
+        if vi_name not in self._vi_nodes:
             return {}
 
         # Build subvi_calls list
         subvi_calls = []
-        for n, d in g.nodes(data=True):
-            if d.get("kind") == "subvi":
+        for uid in self._vi_nodes[vi_name]:
+            if uid == vi_name:
+                continue
+            if uid not in self._graph:
+                continue
+            gnode = self._graph.nodes[uid].get("node")
+            if isinstance(gnode, VINode) and gnode.id != gnode.vi:
                 subvi_calls.append({
-                    "call_name": d.get("name"),
-                    "vi_name": d.get("name"),
+                    "call_name": gnode.name,
+                    "vi_name": gnode.name,
                 })
 
-        # Build terminals list for skeleton generator
+        # Build terminals list for skeleton generator (legacy)
         terminals = []
-        for n, d in g.nodes(data=True):
-            if d.get("kind") == "terminal":
+        for uid in self._vi_nodes[vi_name]:
+            if uid not in self._graph:
+                continue
+            gnode = self._graph.nodes[uid].get("node")
+            if gnode is None:
+                continue
+            for t in gnode.terminals:
                 terminals.append({
-                    "id": n,
-                    "parent_id": d.get("parent_id"),
-                    "index": d.get("index"),
-                    "type": d.get("type"),
-                    "name": d.get("name"),
-                    "direction": d.get("direction"),
+                    "id": t.id,
+                    "parent_id": gnode.id,
+                    "index": t.index,
+                    "type": t.python_type(),
+                    "name": t.name,
+                    "direction": t.direction,
                 })
 
-        # Get dataclasses (keep as dataclasses for new codegen)
         inputs = list(self.get_inputs(vi_name))
         outputs = list(self.get_outputs(vi_name))
         constants = list(self.get_constants(vi_name))
         operations = list(self.get_operations(vi_name))
         data_flow = list(self.get_wires(vi_name))
 
-        # Get library/class metadata
         vi_meta = self._vi_metadata.get(vi_name, {})
 
         return {
@@ -2122,11 +2463,7 @@ class InMemoryVIGraph:
         return info.get("variants", [])
 
     def get_polymorphic_groups(self) -> dict[str, list[str]]:
-        """Get all polymorphic VIs and their variants.
-
-        Returns dict mapping wrapper VI name to list of variant VI names.
-        Based on actual VI metadata, not naming heuristics.
-        """
+        """Get all polymorphic VIs and their variants."""
         return {
             vi_name: info["variants"]
             for vi_name, info in self._poly_info.items()
@@ -2134,10 +2471,7 @@ class InMemoryVIGraph:
         }
 
     def get_poly_variant_wrappers(self) -> dict[str, str]:
-        """Get mapping of variant VI names to their wrapper VI.
-
-        Inverts the polymorphic groups for quick variant->wrapper lookup.
-        """
+        """Get mapping of variant VI names to their wrapper VI."""
         result: dict[str, str] = {}
         for wrapper, variants in self._poly_info.items():
             for variant in variants.get("variants", []):
@@ -2147,40 +2481,23 @@ class InMemoryVIGraph:
     # === Parallel Branch Detection ===
 
     def find_branch_points(self, vi_name: str) -> list[BranchPoint]:
-        """Find terminals where one output feeds multiple inputs.
-
-        These are fork points in the dataflow graph where parallel
-        execution branches begin. Used for error handling to isolate
-        exceptions in each branch.
-
-        Args:
-            vi_name: Name of the VI to analyze
-
-        Returns:
-            List of BranchPoint objects describing fork points
-        """
-        g = self._dataflow.get(vi_name)
-        if g is None:
+        """Find terminals where one output feeds multiple inputs."""
+        node_uids = self._vi_nodes.get(vi_name)
+        if node_uids is None:
             return []
 
         branch_points: list[BranchPoint] = []
 
-        # Find terminals with multiple outgoing edges
-        for node_id in g.nodes():
-            successors = list(g.successors(node_id))
+        for uid in node_uids:
+            if uid not in self._graph:
+                continue
+            successors = list(self._graph.successors(uid))
             if len(successors) > 1:
-                # This is a branch point - one output feeds multiple inputs
-                node_data = g.nodes.get(node_id, {})
-
-                # Get the parent operation if this is a terminal
-                source_op = None
-                if node_data.get("kind") == "terminal":
-                    source_op = node_data.get("parent_id")
-                elif node_data.get("kind") in ("subvi", "primitive", "operation"):
-                    source_op = node_id
+                gnode = self._graph.nodes[uid].get("node")
+                source_op = uid if gnode else None
 
                 branch_points.append(BranchPoint(
-                    source_terminal=node_id,
+                    source_terminal=uid,
                     source_operation=source_op,
                     destinations=successors,
                     vi_name=vi_name,
@@ -2194,24 +2511,9 @@ class InMemoryVIGraph:
         start_terminal: str,
         all_branch_starts: set[str],
     ) -> ParallelBranch:
-        """Trace a single branch from a start terminal to its merge point.
-
-        Follows the dataflow from the start terminal until either:
-        1. Reaching a VI output terminal
-        2. Reaching a node that receives input from another branch
-           (merge point)
-        3. Reaching a node with no successors
-
-        Args:
-            vi_name: Name of the VI
-            start_terminal: Terminal ID where this branch starts
-            all_branch_starts: Set of all branch start terminals (to detect merges)
-
-        Returns:
-            ParallelBranch describing this branch's operations and merge point
-        """
-        g = self._dataflow.get(vi_name)
-        if g is None:
+        """Trace a single branch from a start terminal to its merge point."""
+        node_uids = self._vi_nodes.get(vi_name)
+        if node_uids is None:
             return ParallelBranch(
                 branch_id=0,
                 source_terminal=start_terminal,
@@ -2225,51 +2527,41 @@ class InMemoryVIGraph:
         merge_terminal: str | None = None
         merge_operation: str | None = None
 
-        def trace(terminal_id: str) -> bool:
-            """Trace from terminal, collecting operations.
-
-            Returns True if we found a merge point, False otherwise.
-            """
+        def trace(node_id: str) -> bool:
             nonlocal merge_terminal, merge_operation
 
-            if terminal_id in visited:
+            if node_id in visited:
                 return False
-            visited.add(terminal_id)
+            visited.add(node_id)
 
-            node_data = g.nodes.get(terminal_id, {})
-            kind = node_data.get("kind", "")
+            if node_id not in self._graph:
+                return False
+            gnode = self._graph.nodes[node_id].get("node")
 
-            # If we hit an output terminal, branch ends at VI boundary
-            if kind == "output":
-                merge_terminal = terminal_id
+            # If we hit the VINode (an output terminal), branch ends
+            if isinstance(gnode, VINode) and gnode.id == gnode.vi:
+                merge_terminal = node_id
                 return True
 
             # If this is an operation, collect it
-            if kind in ("subvi", "primitive", "operation"):
-                operations.append(terminal_id)
+            if gnode is not None:
+                op_kind = _graph_node_to_op_kind(gnode)
+                if op_kind in _OPERATION_KINDS:
+                    operations.append(node_id)
 
-            # Check successors
-            successors = list(g.successors(terminal_id))
+            successors = list(self._graph.successors(node_id))
 
             for succ in successors:
-                succ_data = g.nodes.get(succ, {})
-
-                # Check if this successor is fed by another branch (merge point)
-                predecessors = list(g.predecessors(succ))
+                predecessors = list(self._graph.predecessors(succ))
                 other_inputs = [
                     p for p in predecessors
-                    if p != terminal_id and p in all_branch_starts
+                    if p != node_id and p in all_branch_starts
                 ]
                 if other_inputs:
-                    # This is a merge point - stop here
                     merge_terminal = succ
-                    if succ_data.get("kind") == "terminal":
-                        merge_operation = succ_data.get("parent_id")
-                    elif succ_data.get("kind") in ("subvi", "primitive", "operation"):
-                        merge_operation = succ
+                    merge_operation = succ
                     return True
 
-                # Continue tracing
                 if trace(succ):
                     return True
 
@@ -2278,7 +2570,7 @@ class InMemoryVIGraph:
         trace(start_terminal)
 
         return ParallelBranch(
-            branch_id=0,  # Will be set by caller
+            branch_id=0,
             source_terminal=start_terminal,
             operation_ids=operations,
             merge_terminal=merge_terminal,
@@ -2288,17 +2580,7 @@ class InMemoryVIGraph:
     def get_parallel_branches(
         self, vi_name: str
     ) -> list[tuple[BranchPoint, list[ParallelBranch]]]:
-        """Get all parallel branch structures in a VI.
-
-        Finds branch points and traces each branch to its merge point.
-        Returns a list of (BranchPoint, [ParallelBranch, ...]) tuples.
-
-        Args:
-            vi_name: Name of the VI to analyze
-
-        Returns:
-            List of (branch_point, branches) tuples
-        """
+        """Get all parallel branch structures in a VI."""
         branch_points = self.find_branch_points(vi_name)
         result: list[tuple[BranchPoint, list[ParallelBranch]]] = []
 
@@ -2322,23 +2604,15 @@ class InMemoryVIGraph:
         return result
 
     def has_parallel_branches(self, vi_name: str) -> bool:
-        """Check if a VI has any parallel branch points.
-
-        Quick check without full branch tracing - useful for deciding
-        whether to enable the held error model.
-
-        Args:
-            vi_name: Name of the VI to check
-
-        Returns:
-            True if VI has at least one branch point
-        """
-        g = self._dataflow.get(vi_name)
-        if g is None:
+        """Check if a VI has any parallel branch points."""
+        node_uids = self._vi_nodes.get(vi_name)
+        if node_uids is None:
             return False
 
-        for node_id in g.nodes():
-            successors = list(g.successors(node_id))
+        for uid in node_uids:
+            if uid not in self._graph:
+                continue
+            successors = list(self._graph.successors(uid))
             if len(successors) > 1:
                 return True
 

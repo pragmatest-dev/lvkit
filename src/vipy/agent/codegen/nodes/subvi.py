@@ -322,7 +322,6 @@ class SubVICodeGen(NodeCodeGen):
             term_id = term.id
             term_index = term.index
             term_name = term.name or ""
-            callee_param = term.callee_param_name or ""
             value = ctx.resolve(term_id)
 
             # Skip unwired terminals - they'll use default values
@@ -335,34 +334,24 @@ class SubVICodeGen(NodeCodeGen):
 
             # Determine parameter name with priority:
             # 1. vilib python_param name
-            # 2. Callee parameter name from connector pane mapping
-            # 3. Terminal name from node
-            # 4. Look up from callee VI context
+            # 2. Terminal name (enriched from callee FP by resolve_name)
             param_name = None
 
             if vilib_inputs and term_index in vilib_inputs:
                 # vilib knows the correct parameter name
                 param_name = to_var_name(vilib_inputs[term_index])
-            elif callee_param:
-                # Use callee parameter name from connector pane
-                param_name = to_var_name(callee_param)
             elif term_name:
                 # Use terminal name from node
                 param_name = to_var_name(term_name)
-            else:
-                # Try looking up from callee VI context
-                callee_name = ctx.get_callee_param_name(subvi_name, term_index)
-                if callee_name:
-                    param_name = to_var_name(callee_name)
 
             if not param_name:
-                raise VILibResolutionNeeded(
-                    subvi_name,
-                    context=self._build_resolution_context(node, ctx, vilib_vi),
-                )
+                # Descriptive fallback — enough info to fix the vilib JSON:
+                # VI name, terminal index (from caller's wiring), wire type
+                vi_short = (subvi_name or "").replace(".vi", "").replace(" ", "_")
+                type_name = term.python_type().lower().replace("[", "_").replace("]", "")
+                param_name = f"_UNRESOLVED_{vi_short}_idx{term_index}_{type_name}"
 
-            # Skip error parameters by resolved name (catches cases where
-            # the terminal itself lacked callee_param_name but the lookup found it)
+            # Skip error parameters by resolved name
             if _is_error_param_name(param_name):
                 continue
 
@@ -490,38 +479,29 @@ class SubVICodeGen(NodeCodeGen):
             if term.direction != "output":
                 continue
 
-            # Skip error cluster outputs — Python uses exceptions
-            if term.is_error_cluster:
-                continue
-
             term_id = term.id
             term_index = term.index
             term_name = term.name or ""
 
-            # Priority: vilib name > terminal name > callee context lookup
+            # Error cluster outputs: bind to None for dataflow continuity
+            # (error wires determine execution order in LV, but Python
+            # uses exceptions — we keep the binding, skip the codegen)
+            if term.is_error_cluster or _is_error_param_name(term_name):
+                bindings[term_id] = "None"
+                continue
+
+            # Priority: vilib name > terminal name (enriched from callee)
             field = None
 
             if vilib_outputs and term_index in vilib_outputs:
                 field = to_var_name(vilib_outputs[term_index])
             elif term_name:
                 field = to_var_name(term_name)
-            else:
-                # Try looking up from callee VI context
-                callee_name = ctx.get_callee_output_name(subvi_name, term_index)
-                if callee_name:
-                    field = to_var_name(callee_name)
 
             if not field:
-                # Output field names are required for result.field access.
-                # (Unlike inputs, which can be skipped when unwired.)
-                raise VILibResolutionNeeded(
-                    subvi_name,
-                    context=self._build_resolution_context(node, ctx, vilib_vi),
-                )
-
-            # Skip error outputs by resolved name
-            if _is_error_param_name(field):
-                continue
+                vi_short = (subvi_name or "").replace(".vi", "").replace(" ", "_")
+                type_name = term.python_type().lower().replace("[", "_").replace("]", "")
+                field = f"_UNRESOLVED_{vi_short}_idx{term_index}_{type_name}"
 
             bindings[term_id] = f"{result_var}.{field}"
 
@@ -622,7 +602,7 @@ class SubVICodeGen(NodeCodeGen):
                 bindings[term.id] = receiver_var
             else:
                 field = to_var_name(
-                    term.callee_param_name or term.name or f"out_{term.index}"
+                    term.name or f"out_{term.index}"
                 )
                 if _is_error_param_name(field):
                     continue
@@ -664,7 +644,7 @@ class SubVICodeGen(NodeCodeGen):
                 if term.is_error_cluster:
                     continue
                 field = to_var_name(
-                    term.callee_param_name or term.name or f"out_{term.index}"
+                    term.name or f"out_{term.index}"
                 )
                 bindings[term.id] = f"{result_var}.{field}"
 

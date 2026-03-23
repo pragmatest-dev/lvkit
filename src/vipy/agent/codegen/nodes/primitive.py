@@ -119,7 +119,36 @@ class PrimitiveCodeGen(NodeCodeGen):
             elif default_value is not None:
                 resolved_value = default_value
             else:
-                resolved_value = "None"
+                # Unwired terminal — generate a runnable default based on type.
+                # File I/O refnums default to a temp file (LabVIEW would show dialog).
+                # Other terminals get descriptive UNRESOLVED placeholders.
+                if term_name and ("refnum" in term_name.lower() or "file_path" in term_name.lower()) and node.primResID in (8010, 8011, 8003, 8005):
+                    vi_short = (ctx.vi_name or "output").replace(".vi", "").replace(":", "_").replace(".", "_")
+                    resolved_value = f"open(Path(__file__).parent / '{vi_short}.txt', 'a+')"
+                    ctx.imports.add("from pathlib import Path")
+                elif term_name and "vi_path" in term_name.lower() and node.primResID in (9101,):
+                    resolved_value = "Path(__file__)"
+                    ctx.imports.add("from pathlib import Path")
+                else:
+                    # Type-based defaults for common terminal names
+                    tname = (term_name or "").lower()
+                    ptype = term.python_type() if hasattr(term, 'python_type') else "Any"
+                    if "array" in tname or ptype.startswith("list"):
+                        resolved_value = "[]"
+                    elif "string" in tname or ptype == "str":
+                        resolved_value = "''"
+                    elif "index" in tname or "offset" in tname or "count" in tname:
+                        resolved_value = "0"
+                    elif "path" in tname or ptype == "Path":
+                        resolved_value = "Path('.')"
+                        ctx.imports.add("from pathlib import Path")
+                    elif "bool" in tname or ptype == "bool":
+                        resolved_value = "False"
+                    else:
+                        prim_label = (node.name or "unknown").replace(" ", "_").replace("/", "_")
+                        prim_id = node.primResID or 0
+                        term_label = (term_name or ptype).replace(" ", "_")
+                        resolved_value = f"_UNRESOLVED_prim{prim_id}_{prim_label}_idx{term_index}_{term_label}"
 
             # Add index-based key so templates can use in_1, in_2 etc.
             input_map[f"in_{term_index}"] = resolved_value
@@ -150,10 +179,6 @@ class PrimitiveCodeGen(NodeCodeGen):
             if term.direction != "output":
                 continue
 
-            # Skip error cluster outputs — Python uses exceptions
-            if term.is_error_cluster:
-                continue
-
             term_id = term.id
             term_index = term.index
             term_name = term.name or ""
@@ -161,10 +186,6 @@ class PrimitiveCodeGen(NodeCodeGen):
             # Match by connector pane index (sparse dict lookup)
             if not term_name and term_index in resolved_outputs:
                 term_name = resolved_outputs[term_index]
-
-            # Skip error outputs by resolved name
-            if term_name and "error" in term_name.lower():
-                continue
 
             var_name = to_var_name(term_name) if term_name else f"out_{term_index}"
             outputs.append((term_id, term_name, var_name))

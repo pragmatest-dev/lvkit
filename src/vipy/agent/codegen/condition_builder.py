@@ -84,7 +84,7 @@ def _trace_source(terminal_uid: str, ctx: CodeGenContext) -> str | None:
     Returns:
         Source terminal UID or None
     """
-    flow_info = ctx._flow_map.get(terminal_uid)
+    flow_info = ctx.get_source(terminal_uid)
     if flow_info:
         return flow_info.get("src_terminal")
     return None

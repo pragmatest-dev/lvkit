@@ -12,6 +12,7 @@ from .ast_utils import parse_expr, to_function_name, to_var_name
 from .builder import build_args, generate_body, CodeGenContext
 
 if TYPE_CHECKING:
+    from vipy.memory_graph import InMemoryVIGraph
     from ...structure import LVClass, LVMethod
 
 
@@ -43,7 +44,6 @@ class ClassBuilder:
     ) -> None:
         self.config = config or ClassConfig()
         self._method_contexts: dict[str, dict[str, Any]] = {}
-        self._vi_context_lookup: Any = None
         self._import_resolver: Any = None
 
     def build_class_module(
@@ -53,6 +53,7 @@ class ClassBuilder:
         parent_class_name: str | None = None,
         vi_context_lookup: Any = None,
         import_resolver: Any = None,
+        graph: InMemoryVIGraph | None = None,
     ) -> ast.Module:
         """Build complete module with class definition.
 
@@ -60,15 +61,17 @@ class ClassBuilder:
             lvclass: Parsed LVClass object
             method_contexts: Dict mapping method name to VI context
             parent_class_name: Parent class name (overrides lvclass.parent_class)
-            vi_context_lookup: Callable to look up VI contexts for SubVIs
+            vi_context_lookup: Deprecated, ignored. Kept for API compatibility.
+                              Terminal names are populated on Terminal objects
+                              via resolve_name().
             import_resolver: Callable to resolve import paths for SubVIs
 
         Returns:
             AST Module with imports and class definition
         """
         self._method_contexts = method_contexts or {}
-        self._vi_context_lookup = vi_context_lookup
         self._import_resolver = import_resolver
+        self._graph = graph
         self._collected_imports: set[str] = set()
         parent = parent_class_name or lvclass.parent_class
 
@@ -540,8 +543,7 @@ class ClassBuilder:
 
         # Generate method body from operations
         operations = vi_context.get("operations", [])
-        ctx = CodeGenContext.from_vi_context(vi_context)
-        ctx.vi_context_lookup = self._vi_context_lookup
+        ctx = CodeGenContext.from_vi_context(vi_context, graph=self._graph)
         ctx.import_resolver = self._import_resolver
         body = generate_body(operations, ctx)
         self._collected_imports.update(ctx.imports)
@@ -606,8 +608,7 @@ class ClassBuilder:
 
         # Generate method body from operations
         operations = vi_context.get("operations", [])
-        ctx = CodeGenContext.from_vi_context(vi_context)
-        ctx.vi_context_lookup = self._vi_context_lookup
+        ctx = CodeGenContext.from_vi_context(vi_context, graph=self._graph)
         ctx.import_resolver = self._import_resolver
         body = generate_body(operations, ctx)
         self._collected_imports.update(ctx.imports)
@@ -615,7 +616,7 @@ class ClassBuilder:
         # Get instance variable name from context bindings (not from input name!)
         instance_var_name = None
         if instance_input and instance_input.id:
-            instance_var_name = ctx.bindings.get(instance_input.id)
+            instance_var_name = ctx.resolve(instance_input.id)
 
         # Transform instance variable references to self
         if instance_var_name:

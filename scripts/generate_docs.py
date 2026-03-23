@@ -160,7 +160,7 @@ def prepare_vi_documentation_data(
         graph: InMemoryVIGraph containing the VI
         poly_groups: Polymorphic groups from graph.get_polymorphic_groups()
     """
-    from vipy.graph_types import FPTerminalNode, Constant, Operation, Wire
+    from vipy.graph_types import Constant, Operation, Terminal, Wire
 
     vi_context = graph.get_vi_context(vi_name)
 
@@ -186,7 +186,7 @@ def prepare_vi_documentation_data(
                 pass
 
         controls.append({
-            "name": inp.name or f"input_{inp.slot_index}",
+            "name": inp.name or f"input_{inp.index}",
             "type": inp.type or "Any",
             "default_value": default_val,
         })
@@ -195,7 +195,7 @@ def prepare_vi_documentation_data(
     indicators = []
     for out in outputs_dc:
         indicators.append({
-            "name": out.name or f"output_{out.slot_index}",
+            "name": out.name or f"output_{out.index}",
             "type": out.type or "Any",
         })
 

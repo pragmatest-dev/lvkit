@@ -64,7 +64,7 @@ class DataFlowTracer:
                 term_index = term.index
                 term_dir = term.direction
                 term_name = term.name
-                term_type = term.type
+                term_type = term.python_type() if hasattr(term, 'python_type') else term.get("type")
             else:
                 term_id = term.get("id")
                 term_index = term.get("index", 0)
@@ -100,7 +100,7 @@ class DataFlowTracer:
                     term_index = term.index
                     term_dir = term.direction
                     term_name = term.name
-                    term_type = term.type
+                    term_type = term.python_type() if hasattr(term, 'python_type') else None
                 else:
                     term_id = term.get("id")
                     term_index = term.get("index", 0)

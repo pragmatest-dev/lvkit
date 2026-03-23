@@ -59,10 +59,10 @@ class TestTieredTopologicalSort:
         c = _make_op("C", terminals=[c_in])
 
         wires = [
-            Wire(from_terminal_id="a_out", to_terminal_id="b_in"),
-            Wire(from_terminal_id="b_out", to_terminal_id="c_in"),
+            Wire.from_terminals(from_terminal_id="a_out", to_terminal_id="b_in"),
+            Wire.from_terminals(from_terminal_id="b_out", to_terminal_id="c_in"),
         ]
-        ctx = CodeGenContext(data_flow=wires)
+        ctx = CodeGenContext.from_wires(wires)
 
         tiers = topological_sort_tiered([a, b, c], ctx)
 
@@ -96,12 +96,12 @@ class TestTieredTopologicalSort:
         d = _make_op("D", terminals=[d_in1, d_in2])
 
         wires = [
-            Wire(from_terminal_id="a_out", to_terminal_id="b_in"),
-            Wire(from_terminal_id="a_out", to_terminal_id="c_in"),
-            Wire(from_terminal_id="b_out", to_terminal_id="d_in1"),
-            Wire(from_terminal_id="c_out", to_terminal_id="d_in2"),
+            Wire.from_terminals(from_terminal_id="a_out", to_terminal_id="b_in"),
+            Wire.from_terminals(from_terminal_id="a_out", to_terminal_id="c_in"),
+            Wire.from_terminals(from_terminal_id="b_out", to_terminal_id="d_in1"),
+            Wire.from_terminals(from_terminal_id="c_out", to_terminal_id="d_in2"),
         ]
-        ctx = CodeGenContext(data_flow=wires)
+        ctx = CodeGenContext.from_wires(wires)
 
         tiers = topological_sort_tiered([a, b, c, d], ctx)
 
@@ -119,8 +119,8 @@ class TestTieredTopologicalSort:
         b = _make_op("B", terminals=[b_in])
         c = _make_op("C")
 
-        wires = [Wire(from_terminal_id="a_out", to_terminal_id="b_in")]
-        ctx = CodeGenContext(data_flow=wires)
+        wires = [Wire.from_terminals(from_terminal_id="a_out", to_terminal_id="b_in")]
+        ctx = CodeGenContext.from_wires(wires)
 
         tiers = topological_sort_tiered([a, b, c], ctx)
 
@@ -176,8 +176,8 @@ class TestParallelCodegen:
         a = _make_op("A", terminals=[a_out])
         b = _make_op("B", terminals=[b_in])
 
-        wires = [Wire(from_terminal_id="a_out", to_terminal_id="b_in")]
-        ctx = CodeGenContext(data_flow=wires)
+        wires = [Wire.from_terminals(from_terminal_id="a_out", to_terminal_id="b_in")]
+        ctx = CodeGenContext.from_wires(wires)
         stmts = generate_body([a, b], ctx)
         code = ast.unparse(ast.Module(body=stmts, type_ignores=[]))
         assert "ThreadPoolExecutor" not in code
@@ -198,12 +198,12 @@ class TestParallelCodegen:
         d = _make_op("D", terminals=[d_in1, d_in2])
 
         wires = [
-            Wire(from_terminal_id="a_out", to_terminal_id="b_in"),
-            Wire(from_terminal_id="a_out", to_terminal_id="c_in"),
-            Wire(from_terminal_id="b_out", to_terminal_id="d_in1"),
-            Wire(from_terminal_id="c_out", to_terminal_id="d_in2"),
+            Wire.from_terminals(from_terminal_id="a_out", to_terminal_id="b_in"),
+            Wire.from_terminals(from_terminal_id="a_out", to_terminal_id="c_in"),
+            Wire.from_terminals(from_terminal_id="b_out", to_terminal_id="d_in1"),
+            Wire.from_terminals(from_terminal_id="c_out", to_terminal_id="d_in2"),
         ]
-        ctx = CodeGenContext(data_flow=wires)
+        ctx = CodeGenContext.from_wires(wires)
         stmts = generate_body([a, b, c, d], ctx)
         code = ast.unparse(ast.Module(body=stmts, type_ignores=[]))
         assert "ThreadPoolExecutor" in code

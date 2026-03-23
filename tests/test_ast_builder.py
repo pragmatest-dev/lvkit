@@ -6,7 +6,7 @@ import ast
 
 import pytest
 
-from vipy.graph_types import Constant, FPTerminalNode, Operation, Terminal, Tunnel, Wire
+from vipy.graph_types import Constant, LVType, Operation, FPTerminal, Terminal, Tunnel, Wire
 
 
 def test_build_module_minimal():
@@ -16,11 +16,11 @@ def test_build_module_minimal():
     vi_context = {
         "name": "Simple Add.vi",
         "inputs": [
-            FPTerminalNode(id="inp:1", kind="input", name="A", is_indicator=False, is_public=True, type="int"),
-            FPTerminalNode(id="inp:2", kind="input", name="B", is_indicator=False, is_public=True, type="int"),
+            FPTerminal(id="inp:1", index=0, direction="input", name="A", is_indicator=False, is_public=True, lv_type=LVType(kind="primitive", underlying_type="NumInt32")),
+            FPTerminal(id="inp:2", index=0, direction="input", name="B", is_indicator=False, is_public=True, lv_type=LVType(kind="primitive", underlying_type="NumInt32")),
         ],
         "outputs": [
-            FPTerminalNode(id="out:1", kind="output", name="Sum", is_indicator=True, is_public=True, type="int"),
+            FPTerminal(id="out:1", index=0, direction="output", name="Sum", is_indicator=True, is_public=True, lv_type=LVType(kind="primitive", underlying_type="NumInt32")),
         ],
         "constants": [],
         "operations": [],
@@ -46,7 +46,7 @@ def test_build_module_with_constant():
         "name": "Constant Test.vi",
         "inputs": [],
         "outputs": [
-            FPTerminalNode(id="out:1", kind="output", name="Value", is_indicator=True, is_public=True, type="int"),
+            FPTerminal(id="out:1", index=0, direction="output", name="Value", is_indicator=True, is_public=True, lv_type=LVType(kind="primitive", underlying_type="NumInt32")),
         ],
         "constants": [
             Constant(id="const:1", value=42, name="MyConst"),
@@ -55,7 +55,7 @@ def test_build_module_with_constant():
             Operation(id="op:1", name="Constant", labels=["Constant"]),
         ],
         "data_flow": [
-            Wire(from_terminal_id="const:1", to_terminal_id="out:1", from_parent_labels=["Constant"], to_parent_labels=["Output"]),
+            Wire.from_terminals(from_terminal_id="const:1", to_terminal_id="out:1", from_parent_labels=["Constant"], to_parent_labels=["Output"]),
         ],
     }
 
@@ -73,11 +73,11 @@ def test_build_module_with_primitive():
     vi_context = {
         "name": "Add Numbers.vi",
         "inputs": [
-            FPTerminalNode(id="inp:1", kind="input", name="X", is_indicator=False, is_public=True, type="float"),
-            FPTerminalNode(id="inp:2", kind="input", name="Y", is_indicator=False, is_public=True, type="float"),
+            FPTerminal(id="inp:1", index=0, direction="input", name="X", is_indicator=False, is_public=True, lv_type=LVType(kind="primitive", underlying_type="NumFloat64")),
+            FPTerminal(id="inp:2", index=0, direction="input", name="Y", is_indicator=False, is_public=True, lv_type=LVType(kind="primitive", underlying_type="NumFloat64")),
         ],
         "outputs": [
-            FPTerminalNode(id="out:1", kind="output", name="Result", is_indicator=True, is_public=True, type="float"),
+            FPTerminal(id="out:1", index=0, direction="output", name="Result", is_indicator=True, is_public=True, lv_type=LVType(kind="primitive", underlying_type="NumFloat64")),
         ],
         "constants": [],
         "operations": [
@@ -94,9 +94,9 @@ def test_build_module_with_primitive():
             ),
         ],
         "data_flow": [
-            Wire(from_terminal_id="inp:1", to_terminal_id="term:1", from_parent_labels=["Input"], to_parent_labels=["Primitive"]),
-            Wire(from_terminal_id="inp:2", to_terminal_id="term:2", from_parent_labels=["Input"], to_parent_labels=["Primitive"]),
-            Wire(from_terminal_id="term:3", to_terminal_id="out:1", from_parent_labels=["Primitive"], to_parent_labels=["Output"]),
+            Wire.from_terminals(from_terminal_id="inp:1", to_terminal_id="term:1", from_parent_labels=["Input"], to_parent_labels=["Primitive"]),
+            Wire.from_terminals(from_terminal_id="inp:2", to_terminal_id="term:2", from_parent_labels=["Input"], to_parent_labels=["Primitive"]),
+            Wire.from_terminals(from_terminal_id="term:3", to_terminal_id="out:1", from_parent_labels=["Primitive"], to_parent_labels=["Output"]),
         ],
     }
 
@@ -114,10 +114,10 @@ def test_build_module_with_subvi():
     vi_context = {
         "name": "Call Helper.vi",
         "inputs": [
-            FPTerminalNode(id="inp:1", kind="input", name="Input Value", is_indicator=False, is_public=True, type="str"),
+            FPTerminal(id="inp:1", index=0, direction="input", name="Input Value", is_indicator=False, is_public=True, lv_type=LVType(kind="primitive", underlying_type="String")),
         ],
         "outputs": [
-            FPTerminalNode(id="out:1", kind="output", name="Output Value", is_indicator=True, is_public=True, type="str"),
+            FPTerminal(id="out:1", index=0, direction="output", name="Output Value", is_indicator=True, is_public=True, lv_type=LVType(kind="primitive", underlying_type="String")),
         ],
         "constants": [],
         "operations": [
@@ -132,8 +132,8 @@ def test_build_module_with_subvi():
             ),
         ],
         "data_flow": [
-            Wire(from_terminal_id="inp:1", to_terminal_id="term:1", from_parent_labels=["Input"], to_parent_labels=["SubVI"]),
-            Wire(from_terminal_id="term:2", to_terminal_id="out:1", from_parent_labels=["SubVI"], to_parent_labels=["Output"]),
+            Wire.from_terminals(from_terminal_id="inp:1", to_terminal_id="term:1", from_parent_labels=["Input"], to_parent_labels=["SubVI"]),
+            Wire.from_terminals(from_terminal_id="term:2", to_terminal_id="out:1", from_parent_labels=["SubVI"], to_parent_labels=["Output"]),
         ],
     }
 
@@ -195,14 +195,14 @@ def test_context_from_vi_context():
 
     vi_context = {
         "inputs": [
-            FPTerminalNode(id="inp:1", kind="input", name="Path In", is_indicator=False, is_public=True),
-            FPTerminalNode(id="inp:2", kind="input", name="Count", is_indicator=False, is_public=True),
+            FPTerminal(id="inp:1", index=0, direction="input", name="Path In", is_indicator=False, is_public=True),
+            FPTerminal(id="inp:2", index=0, direction="input", name="Count", is_indicator=False, is_public=True),
         ],
         "constants": [
             Constant(id="const:1", value=42),
         ],
         "data_flow": [
-            Wire(from_terminal_id="inp:1", to_terminal_id="term:1"),
+            Wire.from_terminals(from_terminal_id="inp:1", to_terminal_id="term:1"),
         ],
     }
 
@@ -223,10 +223,10 @@ def test_build_module_with_while_loop():
     vi_context = {
         "name": "Loop Counter.vi",
         "inputs": [
-            FPTerminalNode(id="inp:1", kind="input", name="Max Count", is_indicator=False, is_public=True, type="int"),
+            FPTerminal(id="inp:1", index=0, direction="input", name="Max Count", is_indicator=False, is_public=True),
         ],
         "outputs": [
-            FPTerminalNode(id="out:1", kind="output", name="Final Count", is_indicator=True, is_public=True, type="int"),
+            FPTerminal(id="out:1", index=0, direction="output", name="Final Count", is_indicator=True, is_public=True),
         ],
         "constants": [],
         "operations": [
@@ -242,8 +242,8 @@ def test_build_module_with_while_loop():
             ),
         ],
         "data_flow": [
-            Wire(from_terminal_id="inp:1", to_terminal_id="tun:outer1", from_parent_labels=["Input"], to_parent_labels=["Loop"]),
-            Wire(from_terminal_id="tun:outer2", to_terminal_id="out:1", from_parent_labels=["Loop"], to_parent_labels=["Output"]),
+            Wire.from_terminals(from_terminal_id="inp:1", to_terminal_id="tun:outer1", from_parent_labels=["Input"], to_parent_labels=["Loop"]),
+            Wire.from_terminals(from_terminal_id="tun:outer2", to_terminal_id="out:1", from_parent_labels=["Loop"], to_parent_labels=["Output"]),
         ],
     }
 
@@ -309,8 +309,8 @@ def test_build_module_real_vi():
     # Should have operations
     assert len(ctx.get("operations", [])) > 0
 
-    # Build module (pass graph.get_vi_context for SubVI parameter resolution)
-    result = build_module(ctx, vi_name, vi_context_lookup=graph.get_vi_context)
+    # Build module (terminal names are now on Terminal objects directly)
+    result = build_module(ctx, vi_name)
 
     # Should be valid Python
     ast.parse(result)
@@ -470,17 +470,24 @@ def test_context_merge_bindings():
 
 
 def test_context_flow_map_tracing():
-    """Test that context traces through data flow."""
+    """Test that context traces through data flow via graph."""
+    import networkx as nx
     from vipy.agent.codegen import CodeGenContext
+    from vipy.graph_types import WireEnd
+    from vipy.memory_graph import InMemoryVIGraph
 
-    data_flow = [
-        Wire(from_terminal_id="source", to_terminal_id="dest", from_parent_id="p1"),
-    ]
+    graph = InMemoryVIGraph()
+    graph._graph.add_node("p1", node=None)
+    graph._graph.add_node("p2", node=None)
+    src = WireEnd(terminal_id="source", node_id="p1")
+    dst = WireEnd(terminal_id="dest", node_id="p2")
+    graph._graph.add_edge("p1", "p2", source=src, dest=dst)
+    graph._term_to_node["source"] = "p1"
+    graph._term_to_node["dest"] = "p2"
 
-    ctx = CodeGenContext(data_flow=data_flow)
+    ctx = CodeGenContext(graph=graph)
     ctx.bind("source", "my_var")
 
-    # Should trace from dest back to source
     resolved = ctx.resolve("dest")
     assert resolved == "my_var"
 
@@ -488,93 +495,38 @@ def test_context_flow_map_tracing():
 def test_context_cycle_detection():
     """Test that context handles cycles in data flow."""
     from vipy.agent.codegen import CodeGenContext
+    from vipy.graph_types import WireEnd
+    from vipy.memory_graph import InMemoryVIGraph
 
-    # Create a cycle: a -> b -> a
-    data_flow = [
-        Wire(from_terminal_id="a", to_terminal_id="b", from_parent_id="p1"),
-        Wire(from_terminal_id="b", to_terminal_id="a", from_parent_id="p2"),
-    ]
+    graph = InMemoryVIGraph()
+    graph._graph.add_node("p1", node=None)
+    graph._graph.add_node("p2", node=None)
+    graph._graph.add_edge("p1", "p2",
+        source=WireEnd(terminal_id="a", node_id="p1"),
+        dest=WireEnd(terminal_id="b", node_id="p2"))
+    graph._graph.add_edge("p2", "p1",
+        source=WireEnd(terminal_id="b", node_id="p2"),
+        dest=WireEnd(terminal_id="a", node_id="p1"))
+    graph._term_to_node["a"] = "p1"
+    graph._term_to_node["b"] = "p2"
 
-    ctx = CodeGenContext(data_flow=data_flow)
-
-    # Should not infinite loop, should return None
+    ctx = CodeGenContext(graph=graph)
     result = ctx.resolve("a")
     assert result is None
 
 
-def test_context_callee_param_lookup():
-    """Test looking up callee parameter names."""
+def test_context_callee_lookup_removed():
+    """Verify callee lookup methods have been removed from CodeGenContext.
+
+    Terminal names are now populated directly on Terminal objects
+    via callee_param_name, so the context no longer needs these lookups.
+    """
     from vipy.agent.codegen import CodeGenContext
-    from vipy.graph_types import FPTerminalNode
 
-    def mock_lookup(vi_name: str) -> dict | None:
-        if vi_name == "Helper.vi":
-            return {
-                "inputs": [
-                    FPTerminalNode(
-                        id="in0",
-                        kind="input",
-                        name="Input A",
-                        is_indicator=False,
-                        is_public=True,
-                        slot_index=0,
-                    ),
-                    FPTerminalNode(
-                        id="in1",
-                        kind="input",
-                        name="Input B",
-                        is_indicator=False,
-                        is_public=True,
-                        slot_index=1,
-                    ),
-                ],
-                "outputs": [
-                    FPTerminalNode(
-                        id="out0",
-                        kind="output",
-                        name="Output C",
-                        is_indicator=True,
-                        is_public=True,
-                        slot_index=2,
-                    ),
-                ],
-            }
-        return None
-
-    ctx = CodeGenContext(vi_context_lookup=mock_lookup)
-
-    assert ctx.get_callee_param_name("Helper.vi", 0) == "Input A"
-    assert ctx.get_callee_param_name("Helper.vi", 1) == "Input B"
-    assert ctx.get_callee_param_name("Helper.vi", 99) is None
-    assert ctx.get_callee_param_name("Unknown.vi", 0) is None
-
-
-def test_context_callee_output_lookup():
-    """Test looking up callee output names."""
-    from vipy.agent.codegen import CodeGenContext
-    from vipy.graph_types import FPTerminalNode
-
-    def mock_lookup(vi_name: str) -> dict | None:
-        if vi_name == "Helper.vi":
-            return {
-                "inputs": [],
-                "outputs": [
-                    FPTerminalNode(
-                        id="out0",
-                        kind="output",
-                        name="Result",
-                        is_indicator=True,
-                        is_public=True,
-                        slot_index=0,
-                    ),
-                ],
-            }
-        return None
-
-    ctx = CodeGenContext(vi_context_lookup=mock_lookup)
-
-    assert ctx.get_callee_output_name("Helper.vi", 0) == "Result"
-    assert ctx.get_callee_output_name("Helper.vi", 99) is None
+    ctx = CodeGenContext()
+    assert not hasattr(ctx, "get_callee_param_name")
+    assert not hasattr(ctx, "get_callee_output_name")
+    assert not hasattr(ctx, "vi_context_lookup")
 
 
 # === DataFlowTracer Tests ===
@@ -591,7 +543,7 @@ def test_dataflow_tracer_basic():
         ],
         "operations": [],
         "data_flow": [
-            Wire(from_terminal_id="source", to_terminal_id="t1", from_parent_id="input1"),
+            Wire.from_terminals(from_terminal_id="source", to_terminal_id="t1", from_parent_id="input1"),
         ],
     }
 
@@ -630,7 +582,7 @@ def test_dataflow_tracer_resolve_source():
         ],
         "operations": [],
         "data_flow": [
-            Wire(from_terminal_id="source", to_terminal_id="t1", from_parent_id="input1"),
+            Wire.from_terminals(from_terminal_id="source", to_terminal_id="t1", from_parent_id="input1"),
         ],
     }
 
@@ -660,8 +612,8 @@ def test_dataflow_tracer_wired_inputs():
             ),
         ],
         "data_flow": [
-            Wire(from_terminal_id="src1", to_terminal_id="t1", from_parent_id="p1", to_parent_id="op1"),
-            Wire(from_terminal_id="src2", to_terminal_id="t2", from_parent_id="p2", to_parent_id="op1"),
+            Wire.from_terminals(from_terminal_id="src1", to_terminal_id="t1", from_parent_id="p1", to_parent_id="op1"),
+            Wire.from_terminals(from_terminal_id="src2", to_terminal_id="t2", from_parent_id="p2", to_parent_id="op1"),
         ],
     }
 
@@ -693,7 +645,7 @@ def test_dataflow_tracer_wired_outputs():
             ),
         ],
         "data_flow": [
-            Wire(from_terminal_id="t2", to_terminal_id="dest", from_parent_id="op1"),
+            Wire.from_terminals(from_terminal_id="t2", to_terminal_id="dest", from_parent_id="op1"),
         ],
     }
 
@@ -831,10 +783,10 @@ def test_build_module_with_case_structure():
     vi_context = {
         "name": "Case Test.vi",
         "inputs": [
-            FPTerminalNode(id="inp:1", kind="input", name="Selector", is_indicator=False, is_public=True, type="int"),
+            FPTerminal(id="inp:1", index=0, direction="input", name="Selector", is_indicator=False, is_public=True),
         ],
         "outputs": [
-            FPTerminalNode(id="out:1", kind="output", name="Result", is_indicator=True, is_public=True, type="int"),
+            FPTerminal(id="out:1", index=0, direction="output", name="Result", is_indicator=True, is_public=True),
         ],
         "constants": [],
         "operations": [
@@ -857,12 +809,12 @@ def test_build_module_with_multiple_outputs():
     vi_context = {
         "name": "Multi Output.vi",
         "inputs": [
-            FPTerminalNode(id="inp:1", kind="input", name="Input", is_indicator=False, is_public=True, type="int"),
+            FPTerminal(id="inp:1", index=0, direction="input", name="Input", is_indicator=False, is_public=True),
         ],
         "outputs": [
-            FPTerminalNode(id="out:1", kind="output", name="Output A", is_indicator=True, is_public=True, type="int"),
-            FPTerminalNode(id="out:2", kind="output", name="Output B", is_indicator=True, is_public=True, type="str"),
-            FPTerminalNode(id="out:3", kind="output", name="Output C", is_indicator=True, is_public=True, type="float"),
+            FPTerminal(id="out:1", index=0, direction="output", name="Output A", is_indicator=True, is_public=True),
+            FPTerminal(id="out:2", index=0, direction="output", name="Output B", is_indicator=True, is_public=True),
+            FPTerminal(id="out:3", index=0, direction="output", name="Output C", is_indicator=True, is_public=True),
         ],
         "constants": [],
         "operations": [],
@@ -886,9 +838,10 @@ def test_build_module_with_enum_input():
     vi_context = {
         "name": "Enum Input.vi",
         "inputs": [
-            FPTerminalNode(
+            FPTerminal(
                 id="inp:1",
-                kind="input",
+                index=0,
+                direction="input",
                 name="Mode",
                 is_indicator=False,
                 is_public=True,
@@ -1156,7 +1109,7 @@ class TestWireSlotIndex:
 
     def test_wire_from_slot_index_stored(self):
         """Test that from_slot_index is stored on Wire."""
-        wire = Wire(
+        wire = Wire.from_terminals(
             from_terminal_id="src",
             to_terminal_id="dest",
             from_slot_index=3,
@@ -1165,7 +1118,7 @@ class TestWireSlotIndex:
 
     def test_wire_to_slot_index_stored(self):
         """Test that to_slot_index is stored on Wire."""
-        wire = Wire(
+        wire = Wire.from_terminals(
             from_terminal_id="src",
             to_terminal_id="dest",
             to_slot_index=5,
@@ -1174,7 +1127,7 @@ class TestWireSlotIndex:
 
     def test_wire_slot_indices_default_none(self):
         """Test that slot indices default to None."""
-        wire = Wire(
+        wire = Wire.from_terminals(
             from_terminal_id="src",
             to_terminal_id="dest",
         )
@@ -1183,7 +1136,7 @@ class TestWireSlotIndex:
 
     def test_wire_with_both_slot_indices(self):
         """Test Wire with both slot indices set."""
-        wire = Wire(
+        wire = Wire.from_terminals(
             from_terminal_id="src",
             to_terminal_id="dest",
             from_slot_index=0,
@@ -1192,27 +1145,25 @@ class TestWireSlotIndex:
         assert wire.from_slot_index == 0
         assert wire.to_slot_index == 2
 
-    def test_wire_slot_index_in_context_flow_map(self):
-        """Test that slot indices are included in context flow maps."""
+    def test_wire_slot_index_in_graph_query(self):
+        """Test that slot indices are accessible via graph edge queries."""
         from vipy.agent.codegen.context import CodeGenContext
+        from vipy.graph_types import WireEnd
+        from vipy.memory_graph import InMemoryVIGraph
 
-        data_flow = [
-            Wire(
-                from_terminal_id="src",
-                to_terminal_id="dest",
-                from_slot_index=1,
-                to_slot_index=3,
-            ),
-        ]
-        ctx = CodeGenContext(data_flow=data_flow)
+        graph = InMemoryVIGraph()
+        graph._graph.add_node("p1", node=None)
+        graph._graph.add_node("p2", node=None)
+        src = WireEnd(terminal_id="src", node_id="p1", index=1)
+        dst = WireEnd(terminal_id="dest", node_id="p2", index=3)
+        graph._graph.add_edge("p1", "p2", source=src, dest=dst)
+        graph._term_to_node["src"] = "p1"
+        graph._term_to_node["dest"] = "p2"
 
-        # Forward map should have src_slot_index
-        flow_info = ctx._flow_map["dest"]
-        assert flow_info["src_slot_index"] == 1
-
-        # Reverse map should have dest_slot_index
-        dest_info = ctx._reverse_flow_map["src"][0]
-        assert dest_info["dest_slot_index"] == 3
+        ctx = CodeGenContext(graph=graph)
+        source_info = ctx.get_source("dest")
+        assert source_info is not None
+        assert source_info["src_slot_index"] == 1
 
 
 # === to_var_name Tests ===
@@ -1270,12 +1221,12 @@ class TestErrorClusterFiltering:
     def test_error_cluster_input_filtered_by_name(self):
         """Test that error cluster inputs are filtered by name pattern."""
         from vipy.agent.codegen.builder import build_args
-        from vipy.graph_types import FPTerminalNode
+        from vipy.graph_types import FPTerminal, Terminal
 
         inputs = [
-            FPTerminalNode(id="1", kind="input", name="error in (no error)", is_indicator=False, is_public=True),
-            FPTerminalNode(id="2", kind="input", name="value", is_indicator=False, is_public=True),
-            FPTerminalNode(id="3", kind="input", name="error out", is_indicator=False, is_public=True),
+            Terminal(id="1", index=0, direction="input", name="error in (no error)", is_indicator=False, is_public=True),
+            FPTerminal(id="2", index=0, direction="input", name="value", is_indicator=False, is_public=True),
+            FPTerminal(id="3", index=0, direction="input", name="error out", is_indicator=False, is_public=True),
         ]
 
         args = build_args(inputs)
@@ -1287,13 +1238,13 @@ class TestErrorClusterFiltering:
     def test_error_cluster_output_filtered_by_name(self):
         """Test that error cluster outputs are filtered by name pattern."""
         from vipy.agent.codegen.builder import build_result_class
-        from vipy.graph_types import FPTerminalNode
+        from vipy.graph_types import FPTerminal, Terminal
 
         vi_context = {
             "name": "Test.vi",
             "outputs": [
-                FPTerminalNode(id="1", kind="output", name="error out", is_indicator=True, is_public=True),
-                FPTerminalNode(id="2", kind="output", name="result", is_indicator=True, is_public=True),
+                FPTerminal(id="1", index=0, direction="output", name="error out", is_indicator=True, is_public=True),
+                FPTerminal(id="2", index=0, direction="output", name="result", is_indicator=True, is_public=True),
             ],
         }
 
@@ -1308,12 +1259,12 @@ class TestErrorClusterFiltering:
     def test_all_error_outputs_returns_none(self):
         """Test that if all outputs are error clusters, no result class is created."""
         from vipy.agent.codegen.builder import build_result_class
-        from vipy.graph_types import FPTerminalNode
+        from vipy.graph_types import FPTerminal, Terminal
 
         vi_context = {
             "name": "Test.vi",
             "outputs": [
-                FPTerminalNode(id="1", kind="output", name="error out", is_indicator=True, is_public=True),
+                FPTerminal(id="1", index=0, direction="output", name="error out", is_indicator=True, is_public=True),
             ],
         }
 
