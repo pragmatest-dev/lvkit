@@ -201,3 +201,11 @@ python script.py
 ```
 
 This ensures permission patterns match correctly.
+
+## Commit Rules
+
+**NEVER commit broken, regressed, or non-working code.** Verify generation output is equal or better than the last working state before committing. If changes regress, fix the regression first. "Commit and fix later" is never acceptable.
+
+## Temp Scripts
+
+Never use multi-line inline `python3 -c` calls. Write scripts to `.tmp/` (gitignored) and run them.

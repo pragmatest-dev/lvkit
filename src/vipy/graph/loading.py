@@ -239,11 +239,6 @@ class LoadingMixin:
 
         type_map = metadata.type_map
 
-        # Build the unified graph for this VI
-        self._add_vi_to_graph(
-            bd, fp, conpane, wiring_rules, vi_name, type_map
-        )
-
         # Parse VI metadata for polymorphic info and library membership
         if main_xml and main_xml.exists():
             poly_metadata = parse_vi_metadata(main_xml)
@@ -325,6 +320,13 @@ class LoadingMixin:
                     self._stubs.add(subvi_qname)
                     self._dep_graph.add_node(subvi_qname)
                     self._dep_graph.add_edge(vi_name, subvi_qname)
+
+        # Build the unified graph for this VI AFTER all callees are loaded.
+        # Callees are in the graph → cross-VI edges work → types propagate.
+        self._add_vi_to_graph(
+            bd, fp, conpane, wiring_rules, vi_name, type_map,
+            iuse_to_qname=metadata.iuse_to_qualified_name,
+        )
 
         return vi_name
 
