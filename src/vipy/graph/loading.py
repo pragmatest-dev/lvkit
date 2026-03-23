@@ -1,0 +1,366 @@
+"""Loading mixin for InMemoryVIGraph.
+
+Methods: load_vi, load_lvclass, load_lvlib, load_lvproj, load_directory,
+_load_vi_recursive, _find_subvi, _resolve_class_vi_path.
+"""
+
+from __future__ import annotations
+
+from pathlib import Path
+from typing import TYPE_CHECKING, Any
+
+from ..extractor import extract_vi_xml
+from ..parser import (
+    parse_connector_pane_types,
+    parse_vi,
+    parse_vi_metadata,
+)
+from ..structure import (
+    get_project_classes,
+    get_project_libraries,
+    get_project_vis,
+    parse_lvclass,
+    parse_lvlib,
+    parse_lvproj,
+)
+
+if TYPE_CHECKING:
+    import networkx as nx
+
+
+class LoadingMixin:
+    """Mixin providing VI loading methods."""
+
+    # These attributes are defined on InMemoryVIGraph in core.py
+    _graph: nx.MultiDiGraph
+    _vi_nodes: dict[str, set[str]]
+    _term_to_node: dict[str, str]
+    _dep_graph: nx.DiGraph
+    _stubs: set[str]
+    _poly_info: dict[str, dict[str, Any]]
+    _qualified_aliases: dict[str, str]
+    _loaded_vis: set[str]
+    _source_paths: dict[str, Path]
+    _vi_metadata: dict[str, dict[str, Any]]
+
+    def load_vi(
+        self,
+        vi_path: Path | str,
+        expand_subvis: bool = True,
+        search_paths: list[Path] | None = None,
+        clear_first: bool = False,
+    ) -> None:
+        """Load a VI hierarchy into memory.
+
+        Args:
+            vi_path: Path to .vi file or *_BDHb.xml file
+            expand_subvis: Recursively expand SubVIs
+            search_paths: Directories to search for SubVIs
+            clear_first: Clear existing data before loading
+        """
+        vi_path = Path(vi_path)
+
+        if clear_first:
+            self.clear()
+
+        # Handle .vi files by extracting first
+        if vi_path.suffix.lower() == ".vi":
+            bd_xml, fp_xml, main_xml = extract_vi_xml(vi_path)
+        elif vi_path.name.endswith("_BDHb.xml"):
+            bd_xml = vi_path
+            fp_xml = vi_path.with_name(vi_path.name.replace("_BDHb.xml", "_FPHb.xml"))
+            if not fp_xml.exists():
+                fp_xml = None
+            main_xml = vi_path.with_name(vi_path.name.replace("_BDHb.xml", ".xml"))
+            if not main_xml.exists():
+                main_xml = None
+        else:
+            raise ValueError(f"Expected .vi or *_BDHb.xml file: {vi_path}")
+
+        # Early return if already loaded (prevents re-parsing)
+        vi_name = bd_xml.name.replace("_BDHb.xml", ".vi")
+        if vi_name in self._loaded_vis:
+            return
+
+        # Build search paths
+        if search_paths is None:
+            search_paths = [vi_path.parent]
+
+        # Parse the VI hierarchy
+        self._load_vi_recursive(
+            bd_xml,
+            fp_xml,
+            main_xml,
+            expand_subvis=expand_subvis,
+            search_paths=search_paths,
+            visited=set(),
+        )
+
+    def load_lvlib(
+        self,
+        lvlib_path: Path | str,
+        expand_subvis: bool = True,
+        search_paths: list[Path] | None = None,
+    ) -> None:
+        """Load all VIs from a .lvlib file."""
+        lvlib_path = Path(lvlib_path)
+        lib = parse_lvlib(lvlib_path)
+
+        if search_paths is None:
+            search_paths = [lvlib_path.parent]
+
+        for member in lib.members:
+            if member.member_type == "VI":
+                vi_path = lvlib_path.parent / member.url
+                if vi_path.exists():
+                    self.load_vi(vi_path, expand_subvis, search_paths)
+
+    def load_lvclass(
+        self,
+        lvclass_path: Path | str,
+        expand_subvis: bool = True,
+        search_paths: list[Path] | None = None,
+    ) -> None:
+        """Load all VIs from a .lvclass file."""
+        lvclass_path = Path(lvclass_path)
+        cls = parse_lvclass(lvclass_path)
+
+        if search_paths is None:
+            search_paths = [lvclass_path.parent]
+
+        for method in cls.methods:
+            vi_path = self._resolve_class_vi_path(lvclass_path.parent, method.vi_path)
+            if vi_path and vi_path.exists():
+                self.load_vi(vi_path, expand_subvis, search_paths)
+
+    def _resolve_class_vi_path(self, cls_dir: Path, relative_path: str) -> Path | None:
+        """Resolve VI path from lvclass relative URL."""
+        direct = cls_dir / relative_path
+        if direct.exists():
+            return direct.resolve()
+
+        stripped = relative_path
+        while stripped.startswith("../"):
+            stripped = stripped[3:]
+        if stripped != relative_path:
+            from_cls = cls_dir / stripped
+            if from_cls.exists():
+                return from_cls.resolve()
+
+        return None
+
+    def load_lvproj(
+        self,
+        lvproj_path: Path | str,
+        expand_subvis: bool = True,
+        search_paths: list[Path] | None = None,
+    ) -> None:
+        """Load all VIs referenced by a .lvproj file."""
+        lvproj_path = Path(lvproj_path)
+        proj = parse_lvproj(lvproj_path)
+        proj_dir = lvproj_path.parent
+
+        if search_paths is None:
+            search_paths = [proj_dir]
+
+        for lib_name, lib_path in get_project_libraries(proj):
+            if lib_path.exists():
+                self.load_lvlib(lib_path, expand_subvis, search_paths)
+
+        for class_name, class_path in get_project_classes(proj):
+            if class_path.exists():
+                self.load_lvclass(class_path, expand_subvis, search_paths)
+
+        for vi_name, vi_path in get_project_vis(proj):
+            if vi_path.exists():
+                self.load_vi(vi_path, expand_subvis, search_paths)
+
+    def load_directory(
+        self,
+        dir_path: Path | str,
+        expand_subvis: bool = True,
+        search_paths: list[Path] | None = None,
+    ) -> None:
+        """Load all VIs from a directory recursively."""
+        dir_path = Path(dir_path)
+
+        if search_paths is None:
+            search_paths = [dir_path]
+
+        for vi_path in dir_path.rglob("*.vi"):
+            self.load_vi(vi_path, expand_subvis, search_paths)
+
+    def _load_vi_recursive(
+        self,
+        bd_xml: Path,
+        fp_xml: Path | None,
+        main_xml: Path | None,
+        expand_subvis: bool,
+        search_paths: list[Path],
+        visited: set[str],
+    ) -> str | None:
+        """Recursively load a VI and its SubVIs.
+
+        Returns the VI name (qualified if available) or None if already visited.
+        """
+        # Parse VI using unified parse_vi()
+        vi = parse_vi(
+            bd_xml=bd_xml,
+            fp_xml=fp_xml if fp_xml and fp_xml.exists() else None,
+            main_xml=main_xml if main_xml and main_xml.exists() else None,
+        )
+
+        metadata = vi.metadata
+        bd = vi.block_diagram
+        fp = vi.front_panel
+        conpane = vi.connector_pane
+
+        unqualified_name = bd_xml.name.replace("_BDHb.xml", ".vi")
+        vi_name = metadata.qualified_name or unqualified_name
+
+        if vi_name in visited:
+            return None
+
+        if vi_name in self._loaded_vis:
+            return vi_name
+
+        if metadata.qualified_name and metadata.qualified_name != unqualified_name:
+            self._qualified_aliases[unqualified_name] = metadata.qualified_name
+
+        visited.add(vi_name)
+
+        if metadata.source_path:
+            self._source_paths[vi_name] = Path(metadata.source_path)
+
+        # Parse wiring rules from main XML
+        wiring_rules: dict[int, int] = {}
+        if main_xml and main_xml.exists() and conpane:
+            wiring_rules = parse_connector_pane_types(main_xml, conpane)
+
+        type_map = metadata.type_map
+
+        # Build the unified graph for this VI
+        self._add_vi_to_graph(
+            bd, fp, conpane, wiring_rules, vi_name, type_map
+        )
+
+        # Parse VI metadata for polymorphic info and library membership
+        if main_xml and main_xml.exists():
+            poly_metadata = parse_vi_metadata(main_xml)
+            if poly_metadata.get("is_polymorphic"):
+                self._poly_info[vi_name] = {
+                    "is_polymorphic": True,
+                    "variants": poly_metadata.get("poly_variants", []),
+                    "selectors": poly_metadata.get("poly_selectors", []),
+                }
+            self._vi_metadata[vi_name] = {
+                "library": poly_metadata.get("library"),
+                "qualified_name": poly_metadata.get("qualified_name"),
+            }
+
+        # Add to dependency graph
+        self._dep_graph.add_node(vi_name)
+
+        # Mark as loaded
+        self._loaded_vis.add(vi_name)
+
+        # Process SubVIs
+        if main_xml and main_xml.exists():
+            subvi_ref_map = {
+                ref.qualified_name: ref
+                for ref in metadata.subvi_path_refs
+                if ref.qualified_name
+            }
+
+            caller_dir = bd_xml.parent
+
+            for subvi_qname in metadata.subvi_qualified_names:
+                if subvi_qname == vi_name:
+                    continue
+
+                if subvi_qname in visited:
+                    continue
+
+                ref = subvi_ref_map.get(subvi_qname)
+                if ref and ref.path_tokens:
+                    lookup_path = ref.get_relative_path()
+                    is_vilib = ref.is_vilib
+                    is_userlib = ref.is_userlib
+                else:
+                    if ":" in subvi_qname:
+                        lookup_path = subvi_qname.split(":")[-1]
+                    else:
+                        lookup_path = subvi_qname
+                    is_vilib = False
+                    is_userlib = False
+
+                if expand_subvis:
+                    subvi_path = self._find_subvi(
+                        lookup_path, search_paths, caller_dir, is_vilib, is_userlib
+                    )
+                    if subvi_path:
+                        try:
+                            subvi_bd_xml, subvi_fp_xml, subvi_main_xml = extract_vi_xml(
+                                subvi_path
+                            )
+                            loaded_name = self._load_vi_recursive(
+                                subvi_bd_xml,
+                                subvi_fp_xml,
+                                subvi_main_xml,
+                                expand_subvis=True,
+                                search_paths=search_paths,
+                                visited=visited,
+                            )
+                            if loaded_name:
+                                self._dep_graph.add_edge(vi_name, loaded_name)
+                        except (RuntimeError, OSError):
+                            self._stubs.add(subvi_qname)
+                            self._dep_graph.add_node(subvi_qname)
+                            self._dep_graph.add_edge(vi_name, subvi_qname)
+                    else:
+                        self._stubs.add(subvi_qname)
+                        self._dep_graph.add_node(subvi_qname)
+                        self._dep_graph.add_edge(vi_name, subvi_qname)
+                else:
+                    self._stubs.add(subvi_qname)
+                    self._dep_graph.add_node(subvi_qname)
+                    self._dep_graph.add_edge(vi_name, subvi_qname)
+
+        return vi_name
+
+    def _find_subvi(
+        self,
+        vi_path: str,
+        search_paths: list[Path],
+        caller_dir: Path | None = None,
+        is_vilib: bool = False,
+        is_userlib: bool = False,
+    ) -> Path | None:
+        """Find a SubVI file in search paths."""
+        vi_name = Path(vi_path).name
+        path_parts = Path(vi_path).parts
+
+        if caller_dir and not is_vilib and not is_userlib:
+            candidate = caller_dir / vi_name
+            if candidate.exists():
+                return candidate
+
+            if len(path_parts) > 1:
+                for parent in [caller_dir] + list(caller_dir.parents)[:3]:
+                    candidate = parent / vi_path
+                    if candidate.exists():
+                        return candidate
+
+        for search_path in search_paths:
+            if len(path_parts) > 1:
+                candidate = search_path / vi_path
+                if candidate.exists():
+                    return candidate
+
+            candidate = search_path / vi_name
+            if candidate.exists():
+                return candidate
+
+            for found in search_path.rglob(vi_name):
+                return found
+        return None
