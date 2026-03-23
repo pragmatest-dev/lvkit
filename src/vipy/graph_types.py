@@ -81,7 +81,7 @@ class ClusterField:
     """A field in a cluster."""
 
     name: str
-    type: LVType
+    type: LVType | None = None
 
 
 class Terminal(BaseModel):

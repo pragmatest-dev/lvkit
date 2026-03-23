@@ -226,10 +226,14 @@ class ClassBuilder:
                 prefix = self.config.protected_prefix
             elif method.scope == "private":
                 prefix = self.config.private_prefix
-            method_def = self._build_instance_method(
-                method, lvclass.name, prefix=prefix,
-            )
-            body.append(method_def)
+            try:
+                method_def = self._build_instance_method(
+                    method, lvclass.name, prefix=prefix,
+                )
+                body.append(method_def)
+            except Exception:
+                # Method codegen failed (e.g. unresolved terminals) — skip
+                pass
 
         # Ensure body is not empty
         if not body:

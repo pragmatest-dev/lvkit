@@ -86,3 +86,7 @@ models/
 
 # Test outputs
 outputs/
+.tmp/
+
+# Large binary docs
+docs/*.pdf

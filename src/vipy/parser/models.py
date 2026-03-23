@@ -27,6 +27,7 @@ class ParsedType:
     typedef_name: str | None = None  # Qualified name: "sysdir.llb:Type.ctl"
     ref_type: str | None = None  # For Refnum: "UDClassInst", "Queue", "Notifier", etc.
     classname: str | None = None  # For class refnums: "TestCase.lvclass"
+    field_names: list[str] | None = None  # For clusters: field names from type map
 
 
 @dataclass

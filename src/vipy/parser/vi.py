@@ -51,6 +51,37 @@ from .type_resolution import resolve_type_rich
 from .utils import clean_labview_string, extract_label, safe_int
 
 
+def _load_node_dco_maps() -> dict[str, dict[str, int]]:
+    """Load DCO maps from primitives-codegen.json node_types terminals.
+
+    Builds {node_class: {dco_ref_tag: terminal_index}} from terminals
+    that have a dco_ref field. Same terminal structure as primitives.
+
+    Returns: {node_class: {dco_ref_tag: terminal_index}}
+    """
+    import json
+    data_dir = Path(__file__).parent.parent.parent.parent / "data"
+    codegen_path = data_dir / "primitives-codegen.json"
+    if not codegen_path.exists():
+        return {}
+    with open(codegen_path) as f:
+        data = json.load(f)
+    result = {}
+    for node_type, info in data.get("node_types", {}).items():
+        dco_map = {}
+        for t in info.get("terminals", []):
+            ref = t.get("dco_ref")
+            if ref:
+                dco_map[ref] = t["index"]
+        if dco_map:
+            result[node_type] = dco_map
+    return result
+
+
+# Loaded once at import time
+_NODE_DCO_MAP: dict[str, dict[str, int]] = _load_node_dco_maps()
+
+
 def parse_vi(
     vi_path: Path | str | None = None,
     *,
@@ -350,13 +381,45 @@ def _extract_terminal_info(
                     continue
 
                 dco = term.find("dco")
+                dco_uid = dco.get("uid") if dco is not None else None
 
-                # Get parmIndex from dco if present
-                parm_index = list_position
+                # Get terminal index from dco. No guessing — unknown = -1.
+                # Primitives use "parmIndex", SubVIs use "paramIdx".
+                parm_index = -1
                 if dco is not None:
-                    parm_index_elem = dco.find("parmIndex")
-                    if parm_index_elem is not None and parm_index_elem.text:
-                        parm_index = int(parm_index_elem.text)
+                    for idx_field in ("parmIndex", "paramIdx"):
+                        idx_elem = dco.find(idx_field)
+                        if idx_elem is not None and idx_elem.text:
+                            parm_index = int(idx_elem.text)
+                            break
+
+                # For specialized node classes (aDelete, aIndx, etc.),
+                # resolve index from named DCO references on the parent node.
+                if parm_index == -1 and dco_uid and elem_class in _NODE_DCO_MAP:
+                    dco_map = _NODE_DCO_MAP[elem_class]
+                    for ref_tag, ref_index in dco_map.items():
+                        ref_elem = elem.find(ref_tag)
+                        if ref_elem is not None:
+                            # Direct ref: element has uid matching dco
+                            if ref_elem.get("uid") == dco_uid:
+                                parm_index = ref_index
+                                break
+                            # List ref (dcoList, lengthDCOList): children
+                            # have uids. Position in list = dimension.
+                            # Stride by number of list-type refs to interleave.
+                            for pos, child in enumerate(ref_elem):
+                                if child.get("uid") == dco_uid:
+                                    # Count how many list-type refs exist
+                                    # to determine stride for interleaving
+                                    n_lists = sum(
+                                        1 for rt in dco_map
+                                        if elem.find(rt) is not None
+                                        and len(elem.find(rt)) > 0
+                                    )
+                                    parm_index = ref_index + (pos * max(n_lists, 1))
+                                    break
+                        if parm_index >= 0:
+                            break
 
                 # Determine direction from wire connectivity
                 if term_uid in wire_sources:
@@ -521,20 +584,21 @@ def _extract_subvi_info(
         if qname:
             subvi_qualified_names.append(qname)
 
-    # Extract iUse UID → qualified name map from BDHP section
-    for iuvi in main_root.findall(".//LIbd//BDHP/IUVI"):
-        qname = _resolve_qualified_name(iuvi, caller_library)
-        if qname:
-            for offset_elem in iuvi.findall("LinkOffsetList/Offset"):
-                if offset_elem.text:
-                    uid = str(int(offset_elem.text, 16))
-                    iuse_to_qualified_name[uid] = qname
-
-    # Also handle polymorphic iUse (PUPV)
+    # Extract iUse UID → qualified name map from BDHP section.
+    # Process PUPV (polymorphic wrapper) first, then IUVI (resolved variant)
+    # overwrites — the variant is the actual VI to connect to.
     for pupv in main_root.findall(".//LIbd//BDHP/PUPV"):
         qname = _resolve_qualified_name(pupv, caller_library)
         if qname:
             for offset_elem in pupv.findall("LinkOffsetList/Offset"):
+                if offset_elem.text:
+                    uid = str(int(offset_elem.text, 16))
+                    iuse_to_qualified_name[uid] = qname
+
+    for iuvi in main_root.findall(".//LIbd//BDHP/IUVI"):
+        qname = _resolve_qualified_name(iuvi, caller_library)
+        if qname:
+            for offset_elem in iuvi.findall("LinkOffsetList/Offset"):
                 if offset_elem.text:
                     uid = str(int(offset_elem.text, 16))
                     iuse_to_qualified_name[uid] = qname

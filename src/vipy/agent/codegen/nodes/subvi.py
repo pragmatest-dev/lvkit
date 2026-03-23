@@ -347,11 +347,15 @@ class SubVICodeGen(NodeCodeGen):
                 param_name = to_var_name(term_name)
 
             if not param_name:
-                # Descriptive fallback — enough info to fix the vilib JSON:
-                # VI name, terminal index (from caller's wiring), wire type
-                vi_short = (subvi_name or "").replace(".vi", "").replace(" ", "_")
-                type_name = term.python_type().lower().replace("[", "_").replace("]", "")
-                param_name = f"_UNRESOLVED_{vi_short}_idx{term_index}_{type_name}"
+                from vipy.primitive_resolver import TerminalResolutionNeeded
+                raise TerminalResolutionNeeded(
+                    prim_id=subvi_name or "unknown",
+                    prim_name=subvi_name or "unknown",
+                    terminal_direction="input",
+                    terminal_type=term.lv_type.underlying_type if term.lv_type else None,
+                    available=[],
+                    vi_name=ctx.vi_name if ctx else None,
+                )
 
             # Skip error parameters by resolved name
             if _is_error_param_name(param_name):
@@ -498,9 +502,15 @@ class SubVICodeGen(NodeCodeGen):
                 field = to_var_name(term_name)
 
             if not field:
-                vi_short = (subvi_name or "").replace(".vi", "").replace(" ", "_")
-                type_name = term.python_type().lower().replace("[", "_").replace("]", "")
-                field = f"_UNRESOLVED_{vi_short}_idx{term_index}_{type_name}"
+                from vipy.primitive_resolver import TerminalResolutionNeeded
+                raise TerminalResolutionNeeded(
+                    prim_id=subvi_name or "unknown",
+                    prim_name=subvi_name or "unknown",
+                    terminal_direction="output",
+                    terminal_type=term.lv_type.underlying_type if term.lv_type else None,
+                    available=[],
+                    vi_name=ctx.vi_name if ctx else None,
+                )
 
             bindings[term_id] = f"{result_var}.{field}"
 

@@ -15,6 +15,44 @@ from pathlib import Path
 from pydantic import BaseModel, Field
 
 
+class TerminalResolutionNeeded(Exception):
+    """Raised when a wired terminal cannot be resolved to a known index.
+
+    Contains structured diagnostic info for filling in the JSON.
+    Same pattern as VILibResolutionNeeded — one system for all resolution.
+    """
+
+    def __init__(
+        self,
+        prim_id: str | int,
+        prim_name: str,
+        terminal_direction: str,
+        terminal_type: str | None,
+        available: list[dict[str, str | int | None]],
+        vi_name: str | None = None,
+    ):
+        self.prim_id = str(prim_id)
+        self.prim_name = prim_name
+        self.terminal_direction = terminal_direction
+        self.terminal_type = terminal_type
+        self.available = available
+        self.vi_name = vi_name
+        super().__init__(self._format_message())
+
+    def _format_message(self) -> str:
+        msg = f"Terminal resolution needed for primitive {self.prim_id} ({self.prim_name}).\n"
+        if self.vi_name:
+            msg += f"  In VI: {self.vi_name}\n"
+        msg += f"  Wired terminal: direction={self.terminal_direction}, type={self.terminal_type}\n"
+        msg += f"  Available resolver terminals (same direction, unassigned):\n"
+        for t in self.available:
+            msg += f"    - index={t['index']} name={t['name']} type={t['type']}\n"
+        if not self.available:
+            msg += "    (none available)\n"
+        msg += f"\n  Fix: add/update terminal in data/primitives-codegen.json under primitive {self.prim_id}"
+        return msg
+
+
 class PrimitiveTerminal(BaseModel):
     """A terminal on a primitive.
 
@@ -24,7 +62,10 @@ class PrimitiveTerminal(BaseModel):
     index: int
     direction: str  # "in" or "out"
     name: str | None = ""
+    type: str | None = None  # LabVIEW type category: "numeric", "string", "boolean", "array", "cluster", "path", "refnum", "variant", "polymorphic"
     default_value: str | None = None
+    expandable: bool = False  # True if this terminal can be resized (N instances)
+    dco_ref: str | None = None  # Named DCO reference tag in XML (e.g., "srcDCO4", "delDCO")
 
 
 class PrimitiveEntry(BaseModel):

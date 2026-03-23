@@ -43,6 +43,64 @@ from ..primitive_resolver import get_resolver as get_prim_resolver
 from ..primitive_resolver import resolve_primitive
 from ..vilib_resolver import get_resolver as get_vilib_resolver
 
+
+# Type categories for terminal matching
+_TYPE_CATEGORIES = {
+    # String types
+    "string": "string", "String": "string",
+    "SubString": "string",
+    # Path
+    "path": "path", "Path": "path",
+    # Boolean
+    "boolean": "boolean", "Boolean": "boolean",
+    # Integer types
+    "numint8": "numeric", "NumInt8": "numeric",
+    "numint16": "numeric", "NumInt16": "numeric",
+    "numint32": "numeric", "NumInt32": "numeric",
+    "numint64": "numeric", "NumInt64": "numeric",
+    "numuint8": "numeric", "NumUInt8": "numeric",
+    "numuint16": "numeric", "NumUInt16": "numeric",
+    "numuint32": "numeric", "NumUInt32": "numeric",
+    "numuint64": "numeric", "NumUInt64": "numeric",
+    # Float types
+    "numfloat32": "numeric", "NumFloat32": "numeric",
+    "numfloat64": "numeric", "NumFloat64": "numeric",
+    "NumFloatExt": "numeric",
+    # Complex types
+    "NumComplex64": "numeric", "NumComplex128": "numeric",
+    "NumComplexExt": "numeric",
+    # Measurement / unit types
+    "MeasureData": "numeric",
+    "UnitUInt8": "numeric", "UnitUInt16": "numeric", "UnitUInt32": "numeric",
+    # Array subtypes (kind=primitive but semantically array)
+    "SubArray": "array", "Array": "array",
+    # Variant
+    "variant": "variant", "Variant": "variant", "LVVariant": "variant",
+    # Void
+    "void": "void", "Void": "void",
+    # Refnum
+    "Refnum": "refnum",
+}
+
+def _lv_type_category(underlying: str, kind: str) -> str:
+    """Map LV type to a category for matching."""
+    if kind == "cluster":
+        return "cluster"
+    if kind == "array":
+        return "array"
+    if kind in ("enum", "ring"):
+        return "numeric"
+    cat = _TYPE_CATEGORIES.get(underlying)
+    if cat:
+        return cat
+    ul = underlying.lower()
+    if "refnum" in ul or "ref" in ul:
+        return "refnum"
+    if ul.startswith("num") or ul.startswith("unit"):
+        return "numeric"
+    return "unknown"
+
+
 if TYPE_CHECKING:
     import networkx as nx
 
@@ -97,6 +155,7 @@ class ConstructionMixin:
         wiring_rules: dict[int, int],
         vi_name: str,
         type_map: dict[int, LVType] | None = None,
+        iuse_to_qname: dict[str, str] | None = None,
     ) -> None:
         """Add a VI's nodes and edges to the unified graph.
 
@@ -229,30 +288,49 @@ class ConstructionMixin:
 
         for node in bd.nodes:
             q_node_uid = self._qid(vi_name, node.uid)
-            # Collect terminals for this node
-            node_terminals: list[Terminal] = []
+
+            # Get known terminal layout from primitive resolver for index matching
+            prim_terminals = None
+            if isinstance(node, ParserPrimitiveNode) and node.prim_res_id:
+                prim_resolved = resolve_primitive(prim_id=node.prim_res_id)
+                if prim_resolved and prim_resolved.terminals:
+                    prim_terminals = prim_resolved.terminals
+            if not prim_terminals and node.node_type:
+                nt_resolved = get_prim_resolver().resolve_by_node_type(node.node_type)
+                if nt_resolved and nt_resolved.terminals:
+                    prim_terminals = nt_resolved.terminals
+
+            # Collect terminals, then resolve unknown indices by elimination
+            raw_terms: list[tuple[str, Any, LVType | None]] = []
             for term_uid, t_info in bd.terminal_info.items():
                 if t_info.parent_uid == node.uid:
                     lv_type = None
                     if t_info.parsed_type:
                         lv_type = self._enrich_type(t_info.parsed_type)
+                    raw_terms.append((term_uid, t_info, lv_type))
 
-                    q_term_uid = self._qid(vi_name, term_uid)
-                    terminal = Terminal(
-                        id=q_term_uid,
-                        index=t_info.index,
-                        direction="output" if t_info.is_output else "input",
-                        name=t_info.name,
-                        lv_type=lv_type,
-                    )
-                    node_terminals.append(terminal)
+            # Resolve -1 indices by elimination against primitive resolver
+            if prim_terminals:
+                self._resolve_terminal_indices(raw_terms, prim_terminals)
 
-                    term_lookup[term_uid] = WireEnd(
-                        terminal_id=q_term_uid,
-                        node_id=q_node_uid,
-                        index=t_info.index,
-                        name=t_info.name,
-                    )
+            node_terminals: list[Terminal] = []
+            for term_uid, t_info, lv_type in raw_terms:
+                q_term_uid = self._qid(vi_name, term_uid)
+                terminal = Terminal(
+                    id=q_term_uid,
+                    index=t_info.index,
+                    direction="output" if t_info.is_output else "input",
+                    name=t_info.name,
+                    lv_type=lv_type,
+                )
+                node_terminals.append(terminal)
+
+                term_lookup[term_uid] = WireEnd(
+                    terminal_id=q_term_uid,
+                    node_id=q_node_uid,
+                    index=t_info.index,
+                    name=t_info.name,
+                )
 
             node_terminals.sort(key=lambda t: t.index)
 
@@ -563,16 +641,237 @@ class ConstructionMixin:
                 vi=vi_name,
             )
 
+        # === 7. Connect SubVI call terminals to callee FP terminals ===
+        # Callees are already loaded (topological order), so their FP
+        # terminals are in the graph. Create edges so types propagate.
+        if iuse_to_qname:
+            self._connect_subvi_calls(vi_name, vi_node_uids, iuse_to_qname)
+
+        # === 8. Propagate types through wires and re-match indices ===
+        # Now follows edges ACROSS VI boundaries too.
+        self._propagate_types_and_rematch(g, vi_node_uids)
+
         # Store per-VI node index
         self._vi_nodes[vi_name] = vi_node_uids
 
         # Populate terminal ownership from term_lookup
-        # Keys are raw parser UIDs but WireEnd.terminal_id is qualified.
-        # Use qualified terminal_id as the key in _term_to_node.
         for _raw_tid, wire_end in term_lookup.items():
             self._term_to_node[wire_end.terminal_id] = wire_end.node_id
 
+    def _connect_subvi_calls(
+        self,
+        vi_name: str,
+        vi_node_uids: set[str],
+        iuse_to_qname: dict[str, str],
+    ) -> None:
+        """Create dataflow edges from SubVI call terminals to callee FP terminals.
+
+        Callees are already in the graph (topological load order).
+        Match by terminal index. Types then propagate across VI boundaries
+        through normal wire-following — no special cross-VI logic needed.
+        """
+        g = self._graph
+        for nid in vi_node_uids:
+            gnode = g.nodes.get(nid, {}).get("node")
+            if not isinstance(gnode, VINode) or gnode.id == vi_name:
+                continue
+            if gnode.node_type not in ("iUse", "polyIUse", "dynIUse"):
+                continue
+
+            # Resolve callee VI name
+            raw_uid = nid.split("::")[-1] if "::" in nid else nid
+            callee_qname = iuse_to_qname.get(raw_uid, gnode.name or "")
+            callee_name = self.resolve_vi_name(callee_qname)
+            if not callee_name or callee_name not in g:
+                continue
+
+            callee_node = g.nodes[callee_name].get("node")
+            if not isinstance(callee_node, VINode):
+                continue
+
+            # Build callee terminal lookup: (index, direction) → Terminal
+            callee_term_map: dict[tuple[int, str], Any] = {}
+            for t in callee_node.terminals:
+                if t.index is not None and t.index >= 0:
+                    callee_term_map[(t.index, t.direction)] = t
+
+            # Connect matching terminals and enrich caller from callee
+            matched_callee: set[str] = set()
+            # First pass: match terminals with known indices
+            for call_term in gnode.terminals:
+                if call_term.index is None or call_term.index < 0:
+                    continue
+                callee_key = (call_term.index, call_term.direction)
+                callee_t = callee_term_map.get(callee_key)
+                if callee_t:
+                    matched_callee.add(callee_t.id)
+
+            for call_term in gnode.terminals:
+                callee_t = None
+                if call_term.index is not None and call_term.index >= 0:
+                    callee_t = callee_term_map.get((call_term.index, call_term.direction))
+                else:
+                    # idx=-1: match by elimination — find unmatched callee
+                    # terminal with same direction
+                    unmatched = [
+                        t for (idx, d), t in callee_term_map.items()
+                        if d == call_term.direction and t.id not in matched_callee
+                    ]
+                    if len(unmatched) == 1:
+                        callee_t = unmatched[0]
+                        call_term.index = callee_t.index
+
+                if not callee_t:
+                    continue
+                matched_callee.add(callee_t.id)
+
+                # Enrich: copy name and type from callee FP terminal
+                if not call_term.name and callee_t.name:
+                    call_term.name = callee_t.name
+                if not call_term.lv_type and callee_t.lv_type:
+                    call_term.lv_type = callee_t.lv_type
+                elif (call_term.lv_type and callee_t.lv_type
+                      and not call_term.lv_type.fields and callee_t.lv_type.fields):
+                    call_term.lv_type.fields = callee_t.lv_type.fields
+
+                # Create dataflow edge
+                src_we = WireEnd(terminal_id=call_term.id, node_id=nid,
+                                 index=call_term.index, name=call_term.name)
+                dst_we = WireEnd(terminal_id=callee_t.id, node_id=callee_name,
+                                 index=call_term.index, name=callee_t.name)
+                if call_term.direction == "input":
+                    g.add_edge(nid, callee_name, source=src_we, dest=dst_we)
+                else:
+                    g.add_edge(callee_name, nid, source=dst_we, dest=src_we)
+
     # Tunnel types where the outer terminal is an input (data flows IN)
+    @staticmethod
+    def _resolve_terminal_indices(
+        raw_terms: list[tuple[str, Any, LVType | None]],
+        known_terminals: list,
+    ) -> None:
+        """Resolve -1 indices. Direct match by type+direction or bust.
+
+        For each unresolved parser terminal: find the ONE resolver
+        terminal with matching direction AND type category. If exactly
+        one match, assign. Otherwise leave -1.
+        """
+        assigned_indices: set[int] = set()
+        for _, t_info, _ in raw_terms:
+            if t_info.index >= 0:
+                assigned_indices.add(t_info.index)
+
+        for _, t_info, lv_type in raw_terms:
+            if t_info.index >= 0:
+                continue
+            if not lv_type or not lv_type.underlying_type:
+                continue
+
+            prim_dir = "out" if t_info.is_output else "in"
+            cat = _lv_type_category(lv_type.underlying_type, lv_type.kind)
+            if cat in ("unknown", "void"):
+                continue
+
+            # Find resolver terminals: same direction, same type, not taken.
+            # "polymorphic" in JSON matches any parser category.
+            matches = [
+                pt for pt in known_terminals
+                if pt.direction == prim_dir
+                and pt.index not in assigned_indices
+                and (pt.type == cat or pt.type == "polymorphic")
+            ]
+
+            if len(matches) == 1:
+                t_info.index = matches[0].index
+                assigned_indices.add(matches[0].index)
+            elif len(matches) != 1:
+                # Check for expandable terminal — all unresolved terminals of
+                # matching type map to the expandable slot's index
+                expandable = [
+                    pt for pt in known_terminals
+                    if pt.direction == prim_dir
+                    and getattr(pt, "expandable", False)
+                    and (pt.type == cat or pt.type == "polymorphic")
+                ]
+                if len(expandable) == 1:
+                    t_info.index = expandable[0].index
+                    # Don't add to assigned — expandable can be reused
+
+    def _propagate_types_and_rematch(
+        self, g: nx.MultiDiGraph, vi_node_uids: set[str],
+    ) -> None:
+        """Propagate types through wires, then re-match -1 index terminals.
+
+        Same pattern as name resolution — follow the graph for types.
+        """
+        # Propagate: if one side of a wire has lv_type and the other doesn't
+        changed = True
+        while changed:
+            changed = False
+            for _u, _v, _k, d in g.edges(data=True, keys=True):
+                src = d.get("source")
+                dst = d.get("dest")
+                if not src or not dst:
+                    continue
+                src_node = g.nodes.get(src.node_id, {}).get("node")
+                dst_node = g.nodes.get(dst.node_id, {}).get("node")
+                if not src_node or not dst_node:
+                    continue
+                src_term = next((t for t in src_node.terminals if t.id == src.terminal_id), None)
+                dst_term = next((t for t in dst_node.terminals if t.id == dst.terminal_id), None)
+                if not src_term or not dst_term:
+                    continue
+                if src_term.lv_type and not dst_term.lv_type:
+                    dst_term.lv_type = src_term.lv_type
+                    changed = True
+                elif dst_term.lv_type and not src_term.lv_type:
+                    src_term.lv_type = dst_term.lv_type
+                    changed = True
+                # Both have type but one has fields and the other doesn't:
+                # enrich the incomplete side (same wire = same type)
+                elif (src_term.lv_type and dst_term.lv_type
+                      and src_term.lv_type.kind == dst_term.lv_type.kind == "cluster"):
+                    if src_term.lv_type.fields and not dst_term.lv_type.fields:
+                        dst_term.lv_type.fields = src_term.lv_type.fields
+                        changed = True
+                    elif dst_term.lv_type.fields and not src_term.lv_type.fields:
+                        src_term.lv_type.fields = dst_term.lv_type.fields
+                        changed = True
+
+        # Re-match: for nodes with -1 index terminals, retry elimination
+        # now that type propagation has filled in more lv_types
+        for nid in vi_node_uids:
+            gnode = g.nodes.get(nid, {}).get("node")
+            if not gnode:
+                continue
+            if not any(t.index == -1 for t in gnode.terminals):
+                continue
+
+            prim_terminals = None
+            if hasattr(gnode, 'prim_id') and gnode.prim_id:
+                prim_resolved = resolve_primitive(prim_id=gnode.prim_id)
+                if prim_resolved and prim_resolved.terminals:
+                    prim_terminals = prim_resolved.terminals
+
+            if not prim_terminals:
+                continue
+
+            # Build fake raw_terms for elimination
+            fake_terms = []
+            for t in gnode.terminals:
+                fake_ti = type('', (), {
+                    'index': t.index,
+                    'is_output': t.direction == 'output',
+                })()
+                fake_terms.append(('', fake_ti, t.lv_type))
+
+            self._resolve_terminal_indices(fake_terms, prim_terminals)
+
+            # Apply resolved indices back
+            for (_, fake_ti, _), t in zip(fake_terms, gnode.terminals):
+                if t.index == -1 and fake_ti.index >= 0:
+                    t.index = fake_ti.index
+
     _INPUT_TUNNEL_TYPES = frozenset({
         "lSR", "lpTun", "caseSel", "seqTun", "flatSeqTun",
     })

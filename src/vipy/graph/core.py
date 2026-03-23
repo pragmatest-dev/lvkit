@@ -131,6 +131,8 @@ class InMemoryVIGraph(
         self._qualified_aliases: dict[str, str] = {}
         # Track loaded VIs across multiple load_vi() calls to prevent re-parsing
         self._loaded_vis: set[str] = set()
+        # Unresolved terminal observations: list of dicts with diagnostic info
+        self._unresolved_observations: list[dict[str, Any]] = []
         # Source file paths: vi_name -> Path to original .vi file
         self._source_paths: dict[str, Path] = {}
         # VI metadata: library, qualified_name
@@ -172,6 +174,11 @@ class InMemoryVIGraph(
             typedef_path=parsed_type.typedef_path,
             typedef_name=parsed_type.typedef_name,
         )
+
+        # Carry field names from type map (raw clusters have these)
+        if parsed_type.field_names:
+            from ..graph_types import ClusterField
+            lv_type.fields = [ClusterField(name=n) for n in parsed_type.field_names]
 
         if parsed_type.typedef_name:
             resolver = get_vilib_resolver()

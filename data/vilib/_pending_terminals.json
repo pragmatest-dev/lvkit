@@ -1207,6 +1207,36 @@
             "type": "Refnum"
           }
         ]
+      },
+      {
+        "signature": "-1:o:Cluster|3:o:Path|8:i:Cluster|11:i:Refnum",
+        "caller_vi": "VITesterUtilities.lvlib:Get All Methods from LVObject.vi",
+        "terminals": [
+          {
+            "index": -1,
+            "name": "",
+            "direction": "output",
+            "type": "Cluster"
+          },
+          {
+            "index": 3,
+            "name": "",
+            "direction": "output",
+            "type": "Path"
+          },
+          {
+            "index": 8,
+            "name": "",
+            "direction": "input",
+            "type": "Cluster"
+          },
+          {
+            "index": 11,
+            "name": "",
+            "direction": "input",
+            "type": "Refnum"
+          }
+        ]
       }
     ],
     "Conditional Auto-Indexing Tunnel (Bool)__ogtk.vi": [

@@ -283,6 +283,7 @@ class OperationsMixin:
 
         return None
 
+
     def _sort_inner_uids(
         self, uids: list[str], vi_name: str,
     ) -> list[str]:
