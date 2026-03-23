@@ -38,7 +38,23 @@ class NMuxCodeGen(NodeCodeGen):
         value_terms = inputs[1:]
 
         selector_var = ctx.resolve(selector_term.id) or "0"
-        values = [ctx.resolve(t.id) or "None" for t in value_terms]
+        values = []
+        for t in value_terms:
+            val = ctx.resolve(t.id)
+            if val is None:
+                # Type-based default for unwired mux input
+                ptype = t.python_type() if hasattr(t, 'python_type') else "Any"
+                if ptype.startswith("list"):
+                    val = "[]"
+                elif ptype == "str":
+                    val = "''"
+                elif ptype == "bool":
+                    val = "False"
+                elif ptype in ("int", "float"):
+                    val = "0"
+                else:
+                    val = "None"
+            values.append(val)
 
         # Build: result = [val0, val1, ...][selector]
         statements: list[ast.stmt] = []

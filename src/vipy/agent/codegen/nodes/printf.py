@@ -39,10 +39,16 @@ class PrintfCodeGen(NodeCodeGen):
             val = ctx.resolve(t.id) or "None"
             input_values.append(val)
 
-        # First input is typically the format string, rest are arguments
+        # First input is format string, rest are arguments.
+        # Only include as many args as the format string has placeholders.
         if len(input_values) >= 2:
             fmt_str = input_values[0]
             args = input_values[1:]
+            # Count format placeholders (%s, %d, %f, etc.)
+            import re
+            placeholder_count = len(re.findall(r'%[sdfeEgGoxXcr]', fmt_str.strip("'\"")))
+            if placeholder_count > 0:
+                args = args[:placeholder_count]
             if len(args) == 1:
                 expr_str = f"{fmt_str} % {args[0]}"
             else:
