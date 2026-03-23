@@ -412,7 +412,10 @@
       "python_code": {
         "before_match": "re.match(regular_expression, string[offset:]).group() if re.match(regular_expression, string[offset:]) else ''"
       },
-      "inline": true
+      "inline": true,
+      "imports": [
+        "import re"
+      ]
     },
     "1102": {
       "name": "Equal?",

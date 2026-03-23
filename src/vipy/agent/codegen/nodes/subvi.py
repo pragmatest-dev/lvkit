@@ -59,7 +59,9 @@ class SubVICodeGen(NodeCodeGen):
             return self._generate_inline(node, ctx, vilib_vi)
 
         func_name = to_function_name(subvi_name)
-        result_var = f"{func_name}_result"
+        # Use operation ID suffix for unique result vars when same VI called multiple times
+        op_suffix = node.id.split("::")[-1] if "::" in node.id else node.id
+        result_var = f"{func_name}_{op_suffix}_result"
 
         # Gather input arguments with proper names
         args, keywords = self._build_arguments(node, ctx, vilib_vi)
@@ -483,11 +485,8 @@ class SubVICodeGen(NodeCodeGen):
             term_index = term.index
             term_name = term.name or ""
 
-            # Error cluster outputs: bind to None for dataflow continuity
-            # (error wires determine execution order in LV, but Python
-            # uses exceptions — we keep the binding, skip the codegen)
+            # Skip error terminals — Python uses exceptions
             if term.is_error_cluster or _is_error_param_name(term_name):
-                bindings[term_id] = "None"
                 continue
 
             # Priority: vilib name > terminal name (enriched from callee)

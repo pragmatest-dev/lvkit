@@ -27,7 +27,7 @@ def _is_error_terminal(term: Terminal) -> bool:
     return "error" in name_lower and (
         "in" in name_lower or "out" in name_lower
     )
-from .ast_utils import parse_expr, to_function_name, to_var_name
+from .ast_utils import build_assign, parse_expr, to_function_name, to_var_name
 from .context import CodeGenContext
 from .error_handler import (
     build_held_error_check,

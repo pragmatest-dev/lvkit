@@ -101,6 +101,10 @@ class PrimitiveCodeGen(NodeCodeGen):
             if term.direction != "input":
                 continue
 
+            # Skip error terminals — Python uses exceptions
+            if term.is_error_cluster:
+                continue
+
             term_id = term.id
             term_index = term.index
             term_name = term.name or ""
@@ -111,6 +115,10 @@ class PrimitiveCodeGen(NodeCodeGen):
                 resolved_name, default_value = resolved_inputs[term_index]
                 if not term_name:
                     term_name = resolved_name
+
+            # Skip error inputs by resolved name
+            if term_name and "error" in term_name.lower():
+                continue
 
             # Resolve from context - None means unwired
             value = ctx.resolve(term_id)
@@ -179,6 +187,10 @@ class PrimitiveCodeGen(NodeCodeGen):
             if term.direction != "output":
                 continue
 
+            # Skip error terminals — Python uses exceptions
+            if term.is_error_cluster:
+                continue
+
             term_id = term.id
             term_index = term.index
             term_name = term.name or ""
@@ -186,6 +198,10 @@ class PrimitiveCodeGen(NodeCodeGen):
             # Match by connector pane index (sparse dict lookup)
             if not term_name and term_index in resolved_outputs:
                 term_name = resolved_outputs[term_index]
+
+            # Skip error outputs by resolved name
+            if term_name and "error" in term_name.lower():
+                continue
 
             var_name = to_var_name(term_name) if term_name else f"out_{term_index}"
             outputs.append((term_id, term_name, var_name))

@@ -217,7 +217,9 @@ def to_var_name(name: str) -> str:
 
 def to_function_name(vi_name: str) -> str:
     """Convert VI name to Python function name."""
-    # Remove .vi extension
+    # Strip class/library prefix (e.g., "TestCase.lvclass:failIfEqual.vi" → "failIfEqual")
+    if ":" in vi_name:
+        vi_name = vi_name.split(":")[-1]
     name = vi_name.replace(".vi", "").replace(".VI", "")
     return to_var_name(name)
 
