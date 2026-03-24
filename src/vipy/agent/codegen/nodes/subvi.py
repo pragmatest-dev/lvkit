@@ -45,12 +45,17 @@ class SubVICodeGen(NodeCodeGen):
         if node.node_type == "dynIUse":
             return self._generate_dynamic_dispatch(node, ctx)
 
-        # For polymorphic VIs, try variant-specific lookup first
+        # Look up VI — polymorphic variant if selected, otherwise base name
         vilib_vi = None
         if node.poly_variant_name:
             vilib_vi = self._resolve_poly_variant(subvi_name, node, ctx)
+            if not vilib_vi:
+                # Variant not in JSON — raise with context to fill it in
+                raise VILibResolutionNeeded(
+                    subvi_name,
+                    context=self._build_resolution_context(node, ctx, None),
+                )
 
-        # Fall back to base name lookup
         if not vilib_vi:
             vilib_vi = self._get_vilib_vi(subvi_name, node, ctx)
 
@@ -256,7 +261,15 @@ class SubVICodeGen(NodeCodeGen):
         """
         try:
             resolver = get_resolver()
-            vi = resolver.resolve_by_name(subvi_name)
+
+            # For polymorphic calls, resolve to the actual variant.
+            # If variant not found, fail — don't silently use the wrapper.
+            vi = None
+            if node and hasattr(node, 'poly_variant_name') and node.poly_variant_name:
+                vi = resolver.resolve_poly_variant(subvi_name, node.poly_variant_name)
+
+            if vi is None:
+                vi = resolver.resolve_by_name(subvi_name)
 
             if vi is None:
                 return None
@@ -688,6 +701,9 @@ class SubVICodeGen(NodeCodeGen):
         context: dict[str, Any] = {
             "caller_vi": ctx.vi_name,
         }
+
+        if hasattr(node, 'poly_variant_name') and node.poly_variant_name:
+            context["poly_selector"] = node.poly_variant_name
 
         # Collect wire types from dataflow (actual indices being used)
         wire_types: list[str] = []

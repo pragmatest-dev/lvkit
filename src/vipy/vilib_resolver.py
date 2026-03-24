@@ -76,6 +76,10 @@ class VILibResolutionNeeded(Exception):
     def _format_message(self) -> str:
         msg = f"VILib resolution needed for '{self.vi_name}'.\n"
 
+        if self.context.get("poly_selector"):
+            msg += f"\nPolymorphic selector: {self.context['poly_selector']}"
+            msg += "\n  (Add this to poly_selector_names in the variant's JSON entry)"
+
         if self.context.get("caller_vi"):
             msg += f"\nCaller VI: {self.context['caller_vi']}"
 
@@ -353,12 +357,48 @@ class VILibResolver:
 
         Args:
             base_name: Base VI name like "DAQmx Create Virtual Channel.vi"
-            selector_name: polySelector dropdown value from XML
+            selector_name: polySelector dropdown value from XML.
+                For index-based: "poly_index:N" where N is menuInstanceUsed.
 
         Returns:
             VIEntry for the matching variant, or None
         """
+        # Index-based: "poly_index:23" → look up by position in selector list
+        if selector_name.startswith("poly_index:"):
+            try:
+                menu_index = int(selector_name.split(":")[1])
+            except ValueError:
+                return None
+            return self._resolve_poly_by_index(base_name, menu_index)
+
         return self._by_poly_selector.get((base_name, selector_name))
+
+    def _resolve_poly_by_index(
+        self, base_name: str, menu_index: int,
+    ) -> VIEntry | None:
+        """Resolve polymorphic variant by menuInstanceUsed index.
+
+        Builds the selector list (Automatic, -, variant1, variant2, ...)
+        and returns the variant at the given index.
+        """
+        variants = self.find_variants(base_name)
+        if not variants:
+            return None
+
+        # Build flat selector list matching LabVIEW's UI order
+        # First 2 entries: "Automatic" and "-" separator
+        selector_entries: list[VIEntry | None] = [None, None]
+        for v in variants:
+            sel_names = v.poly_selector_names or []
+            if sel_names:
+                for _ in sel_names:
+                    selector_entries.append(v)
+            else:
+                selector_entries.append(v)
+
+        if 0 <= menu_index < len(selector_entries):
+            return selector_entries[menu_index]
+        return None
 
     def find_variants(self, base_name: str) -> list[VIEntry]:
         """Find all variant entries that start with a base VI name.
@@ -710,6 +750,9 @@ class VILibResolver:
 
         observed_map: dict[int, dict[str, Any]] = {}
         for wired_term in wired_terminals:
+            if wired_term.index < 0:
+                continue  # Unresolved — should have been resolved during graph construction
+
             lv_type = getattr(wired_term, 'lv_type', None)
             type_str = None
 

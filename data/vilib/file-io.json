@@ -4709,17 +4709,25 @@
     },
     {
       "name": "Get File System Separator",
+      "category": "File I/O",
       "description": "Returns the platform file path separator character",
-      "python_code": "import os; {separator} = os.sep",
-      "inline": true,
       "terminals": [
         {
+          "name": "separator",
           "index": 0,
           "direction": "output",
-          "name": "separator",
+          "type": "String",
           "python_param": "separator"
         }
-      ]
+      ],
+      "python": "",
+      "python_code": "import os; {separator} = os.sep",
+      "inline": true,
+      "imports": [],
+      "status": "needs_review",
+      "is_variant": false,
+      "match_names": [],
+      "poly_selector_names": []
     }
   ]
 }
