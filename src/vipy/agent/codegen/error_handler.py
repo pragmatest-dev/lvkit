@@ -38,6 +38,8 @@ from __future__ import annotations
 
 import ast
 
+from vipy.graph_types import VIContext
+
 
 def build_held_error_init() -> ast.stmt:
     """Build `_held_error = None` initialization statement."""
@@ -223,7 +225,7 @@ def build_branch_execution(
     return statements
 
 
-def needs_error_handling(has_parallel_branches: bool, vi_context: dict | None = None) -> bool:
+def needs_error_handling(has_parallel_branches: bool, vi_context: VIContext | None = None) -> bool:
     """Determine if a VI needs error handling infrastructure.
 
     The held error model is only needed when:
@@ -234,7 +236,7 @@ def needs_error_handling(has_parallel_branches: bool, vi_context: dict | None = 
 
     Args:
         has_parallel_branches: True if VI has parallel branches
-        vi_context: Optional VI context with inputs/outputs to check for error terminals
+        vi_context: Optional VIContext with inputs/outputs to check for error terminals
 
     Returns:
         True if held error model should be enabled
@@ -253,17 +255,17 @@ def needs_error_handling(has_parallel_branches: bool, vi_context: dict | None = 
     return True
 
 
-def _has_error_terminals(vi_context: dict) -> bool:
+def _has_error_terminals(vi_context: VIContext) -> bool:
     """Check if VI has any error cluster terminals."""
     from vipy.type_defaults import _is_error_cluster
 
     # Check inputs
-    for inp in vi_context.get("inputs", []):
+    for inp in vi_context.inputs:
         if inp.lv_type and _is_error_cluster(inp.lv_type):
             return True
 
     # Check outputs
-    for out in vi_context.get("outputs", []):
+    for out in vi_context.outputs:
         if out.lv_type and _is_error_cluster(out.lv_type):
             return True
 

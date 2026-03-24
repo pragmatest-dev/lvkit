@@ -12,6 +12,8 @@ from __future__ import annotations
 import time
 from typing import Any
 
+from vipy.graph_types import VIContext
+
 from ...llm import generate_code
 from ..context_builder import ContextBuilder
 from . import register_strategy
@@ -28,7 +30,7 @@ class TemplateFillStrategy(ConversionStrategy):
     def convert(
         self,
         vi_name: str,
-        vi_context: dict[str, Any],
+        vi_context: VIContext,
         converted_deps: dict[str, Any],
         primitive_names: list[str],
         primitive_context: dict[int, dict[str, Any]],
@@ -42,7 +44,7 @@ class TemplateFillStrategy(ConversionStrategy):
         )
 
         expected_subvis = self._get_expected_subvis(vi_context)
-        expected_output_count = len(vi_context.get("outputs", []))
+        expected_output_count = len(vi_context.outputs)
 
         # Build context for LLM (with library-aware imports)
         from_library = self._get_library_name(vi_name)
@@ -136,7 +138,7 @@ Fix the errors and output the complete corrected code.
     def _generate_template(
         self,
         vi_name: str,
-        vi_context: dict[str, Any],
+        vi_context: VIContext,
         converted_deps: dict[str, Any],
         primitive_names: list[str],
         primitive_context: dict[int, dict[str, Any]],
@@ -146,9 +148,9 @@ Fix the errors and output the complete corrected code.
         func_name = self._to_function_name(vi_name)
 
         # Gather inputs
-        inputs = vi_context.get("inputs", [])
-        outputs = vi_context.get("outputs", [])
-        operations = vi_context.get("operations", [])
+        inputs = vi_context.inputs
+        outputs = vi_context.outputs
+        operations = vi_context.operations
 
         # Build imports section
         imports = [

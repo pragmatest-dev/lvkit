@@ -84,14 +84,14 @@ def _infer_from_name(vi_name: str) -> str:
     return f"Performs {name.lower()} operation (no I/O)"
 
 
-def _infer_from_context(vi_name: str, vi_context: dict[str, Any]) -> str:
+def _infer_from_context(vi_name: str, vi_context: Any) -> str:
     """Infer description from VI inputs/outputs."""
-    inputs = vi_context.get("inputs", [])
-    outputs = vi_context.get("outputs", [])
-    operations = vi_context.get("operations", [])
+    inputs = vi_context.inputs
+    outputs = vi_context.outputs
+    operations = vi_context.operations
 
     # Count SubVI calls
-    subvi_count = sum(1 for op in operations if "SubVI" in op.get("labels", []))
+    subvi_count = sum(1 for op in operations if "SubVI" in op.labels)
 
     # Build description based on I/O
     parts = []

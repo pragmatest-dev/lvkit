@@ -6,26 +6,23 @@ import ast
 
 import pytest
 
-from vipy.graph_types import Constant, LVType, Operation, FPTerminal, Terminal, Tunnel, Wire
+from vipy.graph_types import Constant, LVType, Operation, FPTerminal, Terminal, Tunnel, VIContext, Wire
 
 
 def test_build_module_minimal():
     """Test build_module with minimal VI context."""
     from vipy.agent.codegen import build_module
 
-    vi_context = {
-        "name": "Simple Add.vi",
-        "inputs": [
+    vi_context = VIContext(
+        name="Simple Add.vi",
+        inputs=[
             FPTerminal(id="inp:1", index=0, direction="input", name="A", is_indicator=False, is_public=True, lv_type=LVType(kind="primitive", underlying_type="NumInt32")),
             FPTerminal(id="inp:2", index=0, direction="input", name="B", is_indicator=False, is_public=True, lv_type=LVType(kind="primitive", underlying_type="NumInt32")),
         ],
-        "outputs": [
+        outputs=[
             FPTerminal(id="out:1", index=0, direction="output", name="Sum", is_indicator=True, is_public=True, lv_type=LVType(kind="primitive", underlying_type="NumInt32")),
         ],
-        "constants": [],
-        "operations": [],
-        "data_flow": [],
-    }
+    )
 
     result = build_module(vi_context, "Simple Add.vi")
 
@@ -42,22 +39,21 @@ def test_build_module_with_constant():
     """Test build_module with constants."""
     from vipy.agent.codegen import build_module
 
-    vi_context = {
-        "name": "Constant Test.vi",
-        "inputs": [],
-        "outputs": [
+    vi_context = VIContext(
+        name="Constant Test.vi",
+        outputs=[
             FPTerminal(id="out:1", index=0, direction="output", name="Value", is_indicator=True, is_public=True, lv_type=LVType(kind="primitive", underlying_type="NumInt32")),
         ],
-        "constants": [
+        constants=[
             Constant(id="const:1", value=42, name="MyConst"),
         ],
-        "operations": [
+        operations=[
             Operation(id="op:1", name="Constant", labels=["Constant"]),
         ],
-        "data_flow": [
+        data_flow=[
             Wire.from_terminals(from_terminal_id="const:1", to_terminal_id="out:1", from_parent_labels=["Constant"], to_parent_labels=["Output"]),
         ],
-    }
+    )
 
     result = build_module(vi_context, "Constant Test.vi")
 
@@ -70,17 +66,16 @@ def test_build_module_with_primitive():
     """Test build_module with a primitive operation."""
     from vipy.agent.codegen import build_module
 
-    vi_context = {
-        "name": "Add Numbers.vi",
-        "inputs": [
+    vi_context = VIContext(
+        name="Add Numbers.vi",
+        inputs=[
             FPTerminal(id="inp:1", index=0, direction="input", name="X", is_indicator=False, is_public=True, lv_type=LVType(kind="primitive", underlying_type="NumFloat64")),
             FPTerminal(id="inp:2", index=0, direction="input", name="Y", is_indicator=False, is_public=True, lv_type=LVType(kind="primitive", underlying_type="NumFloat64")),
         ],
-        "outputs": [
+        outputs=[
             FPTerminal(id="out:1", index=0, direction="output", name="Result", is_indicator=True, is_public=True, lv_type=LVType(kind="primitive", underlying_type="NumFloat64")),
         ],
-        "constants": [],
-        "operations": [
+        operations=[
             Operation(
                 id="op:1",
                 name="Add",
@@ -93,12 +88,12 @@ def test_build_module_with_primitive():
                 ],
             ),
         ],
-        "data_flow": [
+        data_flow=[
             Wire.from_terminals(from_terminal_id="inp:1", to_terminal_id="term:1", from_parent_labels=["Input"], to_parent_labels=["Primitive"]),
             Wire.from_terminals(from_terminal_id="inp:2", to_terminal_id="term:2", from_parent_labels=["Input"], to_parent_labels=["Primitive"]),
             Wire.from_terminals(from_terminal_id="term:3", to_terminal_id="out:1", from_parent_labels=["Primitive"], to_parent_labels=["Output"]),
         ],
-    }
+    )
 
     result = build_module(vi_context, "Add Numbers.vi")
 
@@ -111,16 +106,15 @@ def test_build_module_with_subvi():
     """Test build_module with a SubVI call."""
     from vipy.agent.codegen import build_module
 
-    vi_context = {
-        "name": "Call Helper.vi",
-        "inputs": [
+    vi_context = VIContext(
+        name="Call Helper.vi",
+        inputs=[
             FPTerminal(id="inp:1", index=0, direction="input", name="Input Value", is_indicator=False, is_public=True, lv_type=LVType(kind="primitive", underlying_type="String")),
         ],
-        "outputs": [
+        outputs=[
             FPTerminal(id="out:1", index=0, direction="output", name="Output Value", is_indicator=True, is_public=True, lv_type=LVType(kind="primitive", underlying_type="String")),
         ],
-        "constants": [],
-        "operations": [
+        operations=[
             Operation(
                 id="op:1",
                 name="Helper VI.vi",
@@ -131,11 +125,11 @@ def test_build_module_with_subvi():
                 ],
             ),
         ],
-        "data_flow": [
+        data_flow=[
             Wire.from_terminals(from_terminal_id="inp:1", to_terminal_id="term:1", from_parent_labels=["Input"], to_parent_labels=["SubVI"]),
             Wire.from_terminals(from_terminal_id="term:2", to_terminal_id="out:1", from_parent_labels=["SubVI"], to_parent_labels=["Output"]),
         ],
-    }
+    )
 
     result = build_module(vi_context, "Call Helper.vi")
 
@@ -212,18 +206,19 @@ def test_context_from_vi_context():
 
     graph = make_graph_with_terminals("inp:1", "inp:2", "const:1", "term:1")
 
-    vi_context = {
-        "inputs": [
+    vi_context = VIContext(
+        name="test.vi",
+        inputs=[
             FPTerminal(id="inp:1", index=0, direction="input", name="Path In", is_indicator=False, is_public=True),
             FPTerminal(id="inp:2", index=0, direction="input", name="Count", is_indicator=False, is_public=True),
         ],
-        "constants": [
+        constants=[
             Constant(id="const:1", value=42),
         ],
-        "data_flow": [
+        data_flow=[
             Wire.from_terminals(from_terminal_id="inp:1", to_terminal_id="term:1"),
         ],
-    }
+    )
 
     ctx = CodeGenContext.from_vi_context(vi_context, graph=graph)
 
@@ -239,16 +234,15 @@ def test_build_module_with_while_loop():
     """Test build_module with a while loop structure."""
     from vipy.agent.codegen import build_module
 
-    vi_context = {
-        "name": "Loop Counter.vi",
-        "inputs": [
+    vi_context = VIContext(
+        name="Loop Counter.vi",
+        inputs=[
             FPTerminal(id="inp:1", index=0, direction="input", name="Max Count", is_indicator=False, is_public=True),
         ],
-        "outputs": [
+        outputs=[
             FPTerminal(id="out:1", index=0, direction="output", name="Final Count", is_indicator=True, is_public=True),
         ],
-        "constants": [],
-        "operations": [
+        operations=[
             Operation(
                 id="loop:1",
                 name="While Loop",
@@ -260,11 +254,11 @@ def test_build_module_with_while_loop():
                 ],
             ),
         ],
-        "data_flow": [
+        data_flow=[
             Wire.from_terminals(from_terminal_id="inp:1", to_terminal_id="tun:outer1", from_parent_labels=["Input"], to_parent_labels=["Loop"]),
             Wire.from_terminals(from_terminal_id="tun:outer2", to_terminal_id="out:1", from_parent_labels=["Loop"], to_parent_labels=["Output"]),
         ],
-    }
+    )
 
     result = build_module(vi_context, "Loop Counter.vi")
 
@@ -279,12 +273,9 @@ def test_build_module_with_for_loop():
     """Test build_module with a for loop structure."""
     from vipy.agent.codegen import build_module
 
-    vi_context = {
-        "name": "Iterate Array.vi",
-        "inputs": [],
-        "outputs": [],
-        "constants": [],
-        "operations": [
+    vi_context = VIContext(
+        name="Iterate Array.vi",
+        operations=[
             Operation(
                 id="loop:1",
                 name="For Loop",
@@ -292,8 +283,7 @@ def test_build_module_with_for_loop():
                 loop_type="forLoop",
             ),
         ],
-        "data_flow": [],
-    }
+    )
 
     result = build_module(vi_context, "Iterate Array.vi")
 
@@ -326,7 +316,7 @@ def test_build_module_real_vi():
     ctx = graph.get_vi_context(vi_name)
 
     # Should have operations
-    assert len(ctx.get("operations", [])) > 0
+    assert len(ctx.operations) > 0
 
     # Build module (terminal names are now on Terminal objects directly)
     result = build_module(ctx, vi_name)
@@ -344,12 +334,9 @@ def test_unknown_primitive_raises_at_runtime():
     """Test that unknown primitives generate NotImplementedError."""
     from vipy.agent.codegen import build_module
 
-    vi_context = {
-        "name": "Unknown Prim.vi",
-        "inputs": [],
-        "outputs": [],
-        "constants": [],
-        "operations": [
+    vi_context = VIContext(
+        name="Unknown Prim.vi",
+        operations=[
             Operation(
                 id="op:1",
                 name="Mystery Primitive",
@@ -357,8 +344,7 @@ def test_unknown_primitive_raises_at_runtime():
                 primResID=99999,
             ),
         ],
-        "data_flow": [],
-    }
+    )
 
     result = build_module(vi_context, "Unknown Prim.vi")
 
@@ -375,16 +361,12 @@ def test_unknown_node_type_emits_warning():
     """Test that unknown node types emit a warning comment."""
     from vipy.agent.codegen import build_module
 
-    vi_context = {
-        "name": "Unknown Node.vi",
-        "inputs": [],
-        "outputs": [],
-        "constants": [],
-        "operations": [
+    vi_context = VIContext(
+        name="Unknown Node.vi",
+        operations=[
             Operation(id="op:1", name="Weird Node", labels=["SomethingWeird"]),
         ],
-        "data_flow": [],
-    }
+    )
 
     result = build_module(vi_context, "Unknown Node.vi")
 
@@ -791,20 +773,18 @@ def test_build_module_with_case_structure():
     """Test build_module with a case structure."""
     from vipy.agent.codegen import build_module
 
-    vi_context = {
-        "name": "Case Test.vi",
-        "inputs": [
+    vi_context = VIContext(
+        name="Case Test.vi",
+        inputs=[
             FPTerminal(id="inp:1", index=0, direction="input", name="Selector", is_indicator=False, is_public=True),
         ],
-        "outputs": [
+        outputs=[
             FPTerminal(id="out:1", index=0, direction="output", name="Result", is_indicator=True, is_public=True),
         ],
-        "constants": [],
-        "operations": [
+        operations=[
             Operation(id="case:1", name="Case Structure", labels=["Case"]),
         ],
-        "data_flow": [],
-    }
+    )
 
     result = build_module(vi_context, "Case Test.vi")
 
@@ -817,20 +797,17 @@ def test_build_module_with_multiple_outputs():
     """Test build_module with multiple outputs."""
     from vipy.agent.codegen import build_module
 
-    vi_context = {
-        "name": "Multi Output.vi",
-        "inputs": [
+    vi_context = VIContext(
+        name="Multi Output.vi",
+        inputs=[
             FPTerminal(id="inp:1", index=0, direction="input", name="Input", is_indicator=False, is_public=True),
         ],
-        "outputs": [
+        outputs=[
             FPTerminal(id="out:1", index=0, direction="output", name="Output A", is_indicator=True, is_public=True),
             FPTerminal(id="out:2", index=0, direction="output", name="Output B", is_indicator=True, is_public=True),
             FPTerminal(id="out:3", index=0, direction="output", name="Output C", is_indicator=True, is_public=True),
         ],
-        "constants": [],
-        "operations": [],
-        "data_flow": [],
-    }
+    )
 
     result = build_module(vi_context, "Multi Output.vi")
 
@@ -846,9 +823,9 @@ def test_build_module_with_enum_input():
     """Test build_module with an enum input."""
     from vipy.agent.codegen import build_module
 
-    vi_context = {
-        "name": "Enum Input.vi",
-        "inputs": [
+    vi_context = VIContext(
+        name="Enum Input.vi",
+        inputs=[
             FPTerminal(
                 id="inp:1",
                 index=0,
@@ -860,11 +837,7 @@ def test_build_module_with_enum_input():
                 enum_values=["Read", "Write", "Append"],
             ),
         ],
-        "outputs": [],
-        "constants": [],
-        "operations": [],
-        "data_flow": [],
-    }
+    )
 
     result = build_module(vi_context, "Enum Input.vi")
 
@@ -877,14 +850,9 @@ def test_build_module_empty_vi():
     """Test build_module with an empty VI (no inputs, outputs, or operations)."""
     from vipy.agent.codegen import build_module
 
-    vi_context = {
-        "name": "Empty.vi",
-        "inputs": [],
-        "outputs": [],
-        "constants": [],
-        "operations": [],
-        "data_flow": [],
-    }
+    vi_context = VIContext(
+        name="Empty.vi",
+    )
 
     result = build_module(vi_context, "Empty.vi")
 
@@ -897,12 +865,9 @@ def test_build_module_with_nested_loops():
     """Test build_module with nested loop structures."""
     from vipy.agent.codegen import build_module
 
-    vi_context = {
-        "name": "Nested Loops.vi",
-        "inputs": [],
-        "outputs": [],
-        "constants": [],
-        "operations": [
+    vi_context = VIContext(
+        name="Nested Loops.vi",
+        operations=[
             Operation(
                 id="outer:1",
                 name="Outer For",
@@ -918,8 +883,7 @@ def test_build_module_with_nested_loops():
                 ],
             ),
         ],
-        "data_flow": [],
-    }
+    )
 
     result = build_module(vi_context, "Nested Loops.vi")
 
@@ -933,14 +897,9 @@ def test_build_module_special_characters_in_name():
     """Test build_module handles special characters in VI name."""
     from vipy.agent.codegen import build_module
 
-    vi_context = {
-        "name": "Test-VI (Copy).vi",
-        "inputs": [],
-        "outputs": [],
-        "constants": [],
-        "operations": [],
-        "data_flow": [],
-    }
+    vi_context = VIContext(
+        name="Test-VI (Copy).vi",
+    )
 
     result = build_module(vi_context, "Test-VI (Copy).vi")
 
@@ -1251,13 +1210,13 @@ class TestErrorClusterFiltering:
         from vipy.agent.codegen.builder import build_result_class
         from vipy.graph_types import FPTerminal, Terminal
 
-        vi_context = {
-            "name": "Test.vi",
-            "outputs": [
+        vi_context = VIContext(
+            name="Test.vi",
+            outputs=[
                 FPTerminal(id="1", index=0, direction="output", name="error out", is_indicator=True, is_public=True),
                 FPTerminal(id="2", index=0, direction="output", name="result", is_indicator=True, is_public=True),
             ],
-        }
+        )
 
         result_class = build_result_class(vi_context)
 
@@ -1272,12 +1231,12 @@ class TestErrorClusterFiltering:
         from vipy.agent.codegen.builder import build_result_class
         from vipy.graph_types import FPTerminal, Terminal
 
-        vi_context = {
-            "name": "Test.vi",
-            "outputs": [
+        vi_context = VIContext(
+            name="Test.vi",
+            outputs=[
                 FPTerminal(id="1", index=0, direction="output", name="error out", is_indicator=True, is_public=True),
             ],
-        }
+        )
 
         result_class = build_result_class(vi_context)
 

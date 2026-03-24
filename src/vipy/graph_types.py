@@ -423,6 +423,25 @@ class Constant:
 
 
 @dataclass
+class VIContext:
+    """Complete VI context for code generation."""
+
+    name: str
+    library: str | None = None
+    qualified_name: str | None = None
+    inputs: list[Terminal] = field(default_factory=list)
+    outputs: list[Terminal] = field(default_factory=list)
+    constants: list[Constant] = field(default_factory=list)
+    operations: list[Operation] = field(default_factory=list)
+    has_parallel_branches: bool = False
+    # Legacy fields (LLM agent pipeline)
+    terminals: list[dict[str, Any]] = field(default_factory=list)
+    data_flow: list[Wire] = field(default_factory=list)
+    subvi_calls: list[dict[str, Any]] = field(default_factory=list)
+    poly_variants: list[str] = field(default_factory=list)
+
+
+@dataclass
 class PolyInfo:
     """Polymorphic VI metadata."""
 

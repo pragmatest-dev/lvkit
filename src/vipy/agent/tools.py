@@ -212,7 +212,7 @@ class AgentTools:
 
         try:
             context = self.graph.get_vi_context(vi_name)
-            data_flow = context.get("data_flow", [])
+            data_flow = context.data_flow
 
             if not data_flow:
                 return ToolResult(success=True, output="No data flow connections found")

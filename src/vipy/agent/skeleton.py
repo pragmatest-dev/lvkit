@@ -91,7 +91,7 @@ class SkeletonGenerator:
         self._vars: dict[str, SkeletonVar] = {}
         self._enum_imports: set[str] = set()  # Track enum types to import
 
-    def generate(self, vi_context: dict, vi_name: str) -> Skeleton:
+    def generate(self, vi_context: object, vi_name: str) -> Skeleton:
         """Generate skeleton from VI context.
 
         Args:
@@ -115,7 +115,7 @@ class SkeletonGenerator:
         # Build dependencies from subvi_calls
         dependencies: list[SkeletonDep] = []
         seen_deps: set[str] = set()
-        for call in vi_context.get("subvi_calls", []):
+        for call in vi_context.subvi_calls:
             subvi_name = call.get("vi_name", "")
             if subvi_name in seen_deps:
                 continue
@@ -143,7 +143,7 @@ class SkeletonGenerator:
 
         # Process inputs - these become function parameters
         inputs: list[SkeletonInput] = []
-        for inp in vi_context.get("inputs", []):
+        for inp in vi_context.inputs:
             name = self._to_var_name(inp.name or "input")
             type_hint = self._map_type(inp.python_type())
             wiring_rule = inp.wiring_rule
@@ -158,13 +158,13 @@ class SkeletonGenerator:
             # Register input node and its terminals
             self._vars[inp.id] = SkeletonVar(name, type_hint, "input")
             # Find terminals for this input (terminals is a list of dicts)
-            for term in vi_context.get("terminals", []):
+            for term in vi_context.terminals:
                 if term.get("parent_id") == inp.id:
                     self._terminal_to_var[term.get("id", "")] = name
 
         # Process outputs
         outputs = []
-        for out in vi_context.get("outputs", []):
+        for out in vi_context.outputs:
             name = self._to_var_name(out.name or "output")
             # Use LVType if available, otherwise fall back to manual mapping
             if out.lv_type:
@@ -175,14 +175,14 @@ class SkeletonGenerator:
             outputs.append((name, type_hint))
 
         # Build operation lookup for enum resolution
-        ops_by_id = {op.id: op for op in vi_context.get("operations", [])}
+        ops_by_id = {op.id: op for op in vi_context.operations}
 
         # Process constants - resolve enums via data flow
         constants = []
         self._enum_imports = set()
         used_const_names: set[str] = set()  # Track used names to avoid collisions
 
-        for const in vi_context.get("constants", []):
+        for const in vi_context.constants:
             const_id = const.id
             raw_value = str(const.value) if const.value is not None else ""
             # Extract underlying type from LVType if available
@@ -194,7 +194,7 @@ class SkeletonGenerator:
 
             # Try to resolve enum via data flow connection
             enum_value = self._resolve_constant_enum(
-                const_id, raw_value, vi_context.get("data_flow", []), ops_by_id
+                const_id, raw_value, vi_context.data_flow, ops_by_id
             )
 
             if enum_value:
@@ -221,14 +221,14 @@ class SkeletonGenerator:
             constants.append((var_name, value, type_hint))
             self._vars[const_id] = SkeletonVar(var_name, type_hint, "constant")
             # Register constant terminals (terminals is a list of dicts)
-            for term in vi_context.get("terminals", []):
+            for term in vi_context.terminals:
                 if term.get("parent_id") == const_id:
                     self._terminal_to_var[term.get("id", "")] = var_name
 
         # Build execution order from data flow
         # First pass: register all operation output terminals with semantic var names
         op_counter = 0
-        for op in vi_context.get("operations", []):
+        for op in vi_context.operations:
             op_id = op.id
             labels = op.labels
             prim_id = op.primResID
@@ -305,7 +305,7 @@ class SkeletonGenerator:
         unknowns = []
 
         # Topologically sort operations based on data dependencies
-        sorted_ops = self._topological_sort_ops(vi_context.get("operations", []), vi_context)
+        sorted_ops = self._topological_sort_ops(vi_context.operations, vi_context)
 
         for op in sorted_ops:
             labels = op.labels
@@ -437,7 +437,7 @@ class SkeletonGenerator:
 
         # Trace which operation outputs connect to VI outputs
         output_sources: dict[str, str] = {}
-        for out in vi_context.get("outputs", []):
+        for out in vi_context.outputs:
             out_name = self._to_var_name(out.name or "output")
             out_id = out.id
 
@@ -449,7 +449,7 @@ class SkeletonGenerator:
                     continue
 
             # Second try: find child terminal with parent_id == out_id
-            for term in vi_context.get("terminals", []):
+            for term in vi_context.terminals:
                 if term.get("parent_id") == out_id:
                     term_id = term.get("id", "")
                     if term_id in self._flow_map:
@@ -568,7 +568,7 @@ class SkeletonGenerator:
 
         return "\n".join(lines)
 
-    def _topological_sort_ops(self, operations: list, vi_context: dict) -> list:
+    def _topological_sort_ops(self, operations: list, vi_context: object) -> list:
         """Sort operations in execution order based on data dependencies.
 
         An operation can execute when all its input wires have data.
@@ -630,7 +630,7 @@ class SkeletonGenerator:
         op: Operation,
         op_inputs: list[str],
         prim_terminals: list[PrimitiveTerminal],
-        vi_context: dict,
+        vi_context: object,
     ) -> dict[str, str]:
         """Build map from primitive terminal names to actual input values.
 
@@ -788,11 +788,11 @@ class SkeletonGenerator:
         else:
             return ", ".join(expressions), output_vars, pre_statements
 
-    def _build_data_flow_map(self, vi_context: dict) -> None:
+    def _build_data_flow_map(self, vi_context: object) -> None:
         """Build mapping from destination terminals to source terminals."""
         self._flow_map = {}  # dest_terminal_id -> source info
         self._wired_terminals: set[str] = set()  # All terminals with wires
-        for flow in vi_context.get("data_flow", []):
+        for flow in vi_context.data_flow:
             dest_id = flow.to_terminal_id
             src_id = flow.from_terminal_id
             if dest_id and src_id:
@@ -811,7 +811,7 @@ class SkeletonGenerator:
         return term_id in self._wired_terminals
 
     def _find_source_var(
-        self, term_id: str, vi_context: dict, visited: set[str] | None = None
+        self, term_id: str, vi_context: object, visited: set[str] | None = None
     ) -> str | None:
         """Find the source variable for a terminal from data flow.
 
@@ -932,7 +932,7 @@ class SkeletonGenerator:
         const_id: str,
         label: str | None,
         type_hint: str,
-        vi_context: dict,
+        vi_context: object,
         ops_by_id: dict[str, Operation],
     ) -> str:
         """Derive a meaningful name for a constant.
@@ -957,7 +957,7 @@ class SkeletonGenerator:
             return self._to_var_name(label)
 
         # 2. Find destination terminal name via data flow
-        for flow in vi_context.get("data_flow", []):
+        for flow in vi_context.data_flow:
             if flow.from_parent_id != const_id:
                 continue
 
@@ -1176,7 +1176,7 @@ class SkeletonGenerator:
 
 
 def generate_skeleton(
-    vi_context: dict,
+    vi_context: object,
     vi_name: str,
     converted_deps: dict[str, VISignature] | None = None,
 ) -> str:

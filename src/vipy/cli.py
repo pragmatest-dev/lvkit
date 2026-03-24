@@ -787,9 +787,9 @@ def cmd_claude(args: argparse.Namespace) -> int:
 
             # Build import statements for already-converted SubVIs
             subvi_imports: list[str] = []
-            for op in vi_context.get("operations", []):
-                if "SubVI" in op.get("labels", []):
-                    subvi_name = op.get("name", "")
+            for op in vi_context.operations:
+                if "SubVI" in op.labels:
+                    subvi_name = op.name or ""
                     if subvi_name in converted:
                         sig = converted[subvi_name]
                         subvi_imports.append(sig.import_statement)

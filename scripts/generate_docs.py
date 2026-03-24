@@ -134,7 +134,7 @@ def build_cross_references(graph: InMemoryVIGraph) -> dict:
     for vi_name in graph.list_vis():
         try:
             vi_context = graph.get_vi_context(vi_name)
-            subvi_names = collect_subvi_names(vi_context.get("operations", []))
+            subvi_names = collect_subvi_names(vi_context.operations)
 
             for subvi_name in subvi_names:
                 if subvi_name not in callees[vi_name]:

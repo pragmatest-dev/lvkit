@@ -12,6 +12,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from vipy.graph_types import VIContext
+
 if TYPE_CHECKING:
     from ...llm import LLMConfig
     from ..validator import CodeValidator
@@ -65,7 +67,7 @@ class ConversionStrategy(ABC):
     def convert(
         self,
         vi_name: str,
-        vi_context: dict[str, Any],
+        vi_context: VIContext,
         converted_deps: dict[str, Any],
         primitive_names: list[str],
         primitive_context: dict[int, dict[str, Any]],
@@ -110,11 +112,11 @@ class ConversionStrategy(ABC):
 
         return response.strip()
 
-    def _get_expected_subvis(self, vi_context: dict[str, Any]) -> list[str]:
+    def _get_expected_subvis(self, vi_context: VIContext) -> list[str]:
         """Extract expected SubVI names from operations (Operation dataclasses)."""
         return [
             op.name
-            for op in vi_context.get("operations", [])
+            for op in vi_context.operations
             if "SubVI" in op.labels and op.name
         ]
 

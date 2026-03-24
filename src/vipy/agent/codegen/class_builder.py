@@ -6,10 +6,13 @@ import ast
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
+from vipy.graph_types import VIContext
 from vipy.type_defaults import _is_class_refnum, _is_error_cluster
 
 from .ast_utils import parse_expr, to_function_name, to_var_name
 from .builder import build_args, generate_body, CodeGenContext
+
+_EMPTY_VI_CONTEXT = VIContext(name="")
 
 if TYPE_CHECKING:
     from vipy.memory_graph import InMemoryVIGraph
@@ -43,13 +46,13 @@ class ClassBuilder:
         config: ClassConfig | None = None,
     ) -> None:
         self.config = config or ClassConfig()
-        self._method_contexts: dict[str, dict[str, Any]] = {}
+        self._method_contexts: dict[str, VIContext] = {}
         self._import_resolver: Any = None
 
     def build_class_module(
         self,
         lvclass: LVClass,
-        method_contexts: dict[str, dict[str, Any]] | None = None,
+        method_contexts: dict[str, VIContext] | None = None,
         parent_class_name: str | None = None,
         vi_context_lookup: Any = None,
         import_resolver: Any = None,
@@ -200,10 +203,10 @@ class ClassBuilder:
         actual_static: list[LVMethod] = []
         actual_instance: list[LVMethod] = []
         for method in public_methods + protected_methods + private_methods:
-            vi_ctx = self._method_contexts.get(method.name, {})
+            vi_ctx = self._method_contexts.get(method.name, _EMPTY_VI_CONTEXT)
             has_class_wire = any(
                 self._is_self_input(inp, lvclass.name)
-                for inp in vi_ctx.get("inputs", [])
+                for inp in vi_ctx.inputs
             )
             if has_class_wire:
                 actual_instance.append(method)
@@ -368,12 +371,12 @@ class ClassBuilder:
         Without VI context, we assume all accessors are simple. This can be
         refined when method_contexts is provided.
         """
-        vi_context = self._method_contexts.get(method.name, {})
-        if not vi_context:
+        vi_context = self._method_contexts.get(method.name, _EMPTY_VI_CONTEXT)
+        if vi_context is _EMPTY_VI_CONTEXT:
             # No VI context - assume simple accessor
             return True
 
-        operations = vi_context.get("operations", [])
+        operations = vi_context.operations
         if not operations:
             # No operations - simple accessor
             return True
@@ -531,11 +534,11 @@ class ClassBuilder:
     ) -> ast.FunctionDef:
         """Build a static method."""
         func_name = to_function_name(method.name)
-        vi_context = self._method_contexts.get(method.name, {})
+        vi_context = self._method_contexts.get(method.name, _EMPTY_VI_CONTEXT)
 
         # Extract inputs/outputs from VI context
-        inputs = vi_context.get("inputs", [])
-        outputs = vi_context.get("outputs", [])
+        inputs = vi_context.inputs
+        outputs = vi_context.outputs
 
         # Filter out class instance input (even for "static" methods in LabVIEW)
         filtered_inputs = [
@@ -546,7 +549,7 @@ class ClassBuilder:
         args_obj = build_args(filtered_inputs)
 
         # Generate method body from operations
-        operations = vi_context.get("operations", [])
+        operations = vi_context.operations
         ctx = CodeGenContext.from_vi_context(vi_context, graph=self._graph)
         ctx.import_resolver = self._import_resolver
         body = generate_body(operations, ctx)
@@ -586,11 +589,11 @@ class ClassBuilder:
             prefix: Prefix for method name (e.g., "_" for protected, "__" for private)
         """
         func_name = prefix + to_function_name(method.name)
-        vi_context = self._method_contexts.get(method.name, {})
+        vi_context = self._method_contexts.get(method.name, _EMPTY_VI_CONTEXT)
 
         # Extract inputs/outputs from VI context
-        inputs = vi_context.get("inputs", [])
-        outputs = vi_context.get("outputs", [])
+        inputs = vi_context.inputs
+        outputs = vi_context.outputs
 
         # Find the class instance input by TYPE (becomes self)
         instance_input = None
@@ -611,7 +614,7 @@ class ClassBuilder:
         args_obj.args.insert(0, ast.arg(arg="self", annotation=None))
 
         # Generate method body from operations
-        operations = vi_context.get("operations", [])
+        operations = vi_context.operations
         ctx = CodeGenContext.from_vi_context(vi_context, graph=self._graph)
         ctx.import_resolver = self._import_resolver
         body = generate_body(operations, ctx)
@@ -756,7 +759,7 @@ class ClassBuilder:
 
 def build_class(
     lvclass: LVClass,
-    method_contexts: dict[str, dict[str, Any]] | None = None,
+    method_contexts: dict[str, VIContext] | None = None,
     parent_class_name: str | None = None,
     config: ClassConfig | None = None,
 ) -> str:

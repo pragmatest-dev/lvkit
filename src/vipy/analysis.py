@@ -161,7 +161,7 @@ def analyze_vi(
 
     # Extract controls with descriptions (Terminal dataclasses)
     controls = []
-    for inp in vi_context.get("inputs", []):
+    for inp in vi_context.inputs:
         name = inp.name or f"input_{inp.index}"
         type_str = inp.python_type()
         controls.append(
@@ -176,7 +176,7 @@ def analyze_vi(
 
     # Extract indicators with descriptions (Terminal dataclasses)
     indicators = []
-    for out in vi_context.get("outputs", []):
+    for out in vi_context.outputs:
         name = out.name or f"output_{out.index}"
         type_str = out.python_type()
         indicators.append(
@@ -190,16 +190,16 @@ def analyze_vi(
 
     # Keep dataclasses as-is (no conversion to dict)
     graph_structure = GraphStructure(
-        inputs=list(vi_context.get("inputs", [])),
-        outputs=list(vi_context.get("outputs", [])),
-        operations=list(vi_context.get("operations", [])),
-        constants=list(vi_context.get("constants", [])),
-        data_flow=list(vi_context.get("data_flow", [])),
+        inputs=list(vi_context.inputs),
+        outputs=list(vi_context.outputs),
+        operations=list(vi_context.operations),
+        constants=list(vi_context.constants),
+        data_flow=list(vi_context.data_flow),
     )
 
     # Generate dependency descriptions (Operation dataclasses)
     dependencies = {}
-    for op in vi_context.get("operations", []):
+    for op in vi_context.operations:
         if "SubVI" in op.labels and op.name:
             if op.name not in dependencies:  # Avoid duplicates
                 dependencies[op.name] = generate_dependency_description(op.name, graph)

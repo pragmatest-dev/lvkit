@@ -200,12 +200,12 @@ def generate_polymorphic_module(
                     lines.append(ast.unparse(node))
 
             # Collect inputs/outputs for union signature
-            for inp in vi_context.get("inputs", []):
-                idx = inp.get("slot_index", inp.get("index", len(all_inputs)))
+            for inp in vi_context.inputs:
+                idx = getattr(inp, "slot_index", getattr(inp, "index", len(all_inputs)))
                 if idx not in all_inputs:
                     all_inputs[idx] = inp
-            for out in vi_context.get("outputs", []):
-                idx = out.get("slot_index", out.get("index", len(all_outputs)))
+            for out in vi_context.outputs:
+                idx = getattr(out, "slot_index", getattr(out, "index", len(all_outputs)))
                 if idx not in all_outputs:
                     all_outputs[idx] = out
 
@@ -221,7 +221,7 @@ def generate_polymorphic_module(
     params = []
     for idx in sorted(all_inputs.keys()):
         inp = all_inputs[idx]
-        name = inp.get("name", f"arg_{idx}")
+        name = getattr(inp, "name", None) or f"arg_{idx}"
         var_name = name.lower().replace(" ", "_").replace("-", "_")
         var_name = "".join(c for c in var_name if c.isalnum() or c == "_")
         if var_name and not var_name[0].isalpha():
@@ -534,7 +534,7 @@ def {func_name}(*args, **kwargs) -> Any:
         for method in lvclass.methods:
             qualified_name = f"{lvclass.name}.lvclass:{method.name}.vi"
             ctx = graph.get_vi_context(qualified_name)
-            if ctx:
+            if ctx.inputs or ctx.outputs or ctx.operations:
                 method_contexts[method.name] = ctx
 
         # Build class wrapper with context lookup for SubVI resolution
@@ -607,12 +607,12 @@ def {func_name}(*args, **kwargs) -> Any:
             else:
                 # Get from graph context for AST-generated VIs
                 vi_context = graph.get_vi_context(vi_name)
-                for inp in vi_context.get("inputs", []):
+                for inp in vi_context.inputs:
                     name = inp.name or "input"
                     ctrl_type = inp.control_type or "Any"
                     ui_inputs.append((name, ctrl_type))
 
-                for out in vi_context.get("outputs", []):
+                for out in vi_context.outputs:
                     name = out.name or "output"
                     ctrl_type = out.control_type or "Any"
                     ui_outputs.append((name, ctrl_type))
