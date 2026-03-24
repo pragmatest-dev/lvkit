@@ -15,6 +15,8 @@ import time
 from pathlib import Path
 from typing import Any
 
+from vipy.graph_types import VIContext
+
 from ...llm import generate_code
 from ..context_builder import ContextBuilder
 from ..skeleton import generate_skeleton
@@ -32,7 +34,7 @@ class SkeletonStrategy(ConversionStrategy):
     def convert(
         self,
         vi_name: str,
-        vi_context: dict[str, Any],
+        vi_context: VIContext,
         converted_deps: dict[str, Any],
         primitive_names: list[str],
         primitive_context: dict[int, dict[str, Any]],
@@ -62,7 +64,7 @@ class SkeletonStrategy(ConversionStrategy):
         context = self._build_skeleton_prompt(base_context, skeleton)
 
         expected_subvis = self._get_expected_subvis(vi_context)
-        expected_output_count = len(vi_context.get("outputs", []))
+        expected_output_count = len(vi_context.outputs)
 
         code = ""
         errors: list[str] = []

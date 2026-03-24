@@ -11,6 +11,8 @@ from __future__ import annotations
 import time
 from typing import Any
 
+from vipy.graph_types import VIContext
+
 from ...llm import generate_code
 from ..context_builder import ContextBuilder
 from . import register_strategy
@@ -27,7 +29,7 @@ class TwoPhaseStrategy(ConversionStrategy):
     def convert(
         self,
         vi_name: str,
-        vi_context: dict[str, Any],
+        vi_context: VIContext,
         converted_deps: dict[str, Any],
         primitive_names: list[str],
         primitive_context: dict[int, dict[str, Any]],
@@ -48,7 +50,7 @@ class TwoPhaseStrategy(ConversionStrategy):
         )
 
         expected_subvis = self._get_expected_subvis(vi_context)
-        expected_output_count = len(vi_context.get("outputs", []))
+        expected_output_count = len(vi_context.outputs)
 
         # Phase 1: Generate plan
         plan_prompt = f"""{base_context}

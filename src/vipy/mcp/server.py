@@ -344,15 +344,22 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
 
         graph = _get_graph()
         context = graph.get_vi_context(vi_name)
-        if not context:
+        if not context.inputs and not context.outputs and not context.operations:
             return [TextContent(type="text", text=f"VI not found: {vi_name}")]
 
-        # Serialize with dataclass support
-        from dataclasses import asdict, is_dataclass
+        # Serialize with dataclass and Pydantic support
+        from dataclasses import asdict, fields, is_dataclass
+
+        from pydantic import BaseModel
 
         def _serialize(obj):
-            if is_dataclass(obj) and not isinstance(obj, type):
-                return asdict(obj)
+            if isinstance(obj, BaseModel):
+                return obj.model_dump()
+            elif is_dataclass(obj) and not isinstance(obj, type):
+                return {
+                    f.name: _serialize(getattr(obj, f.name))
+                    for f in fields(obj)
+                }
             elif isinstance(obj, list):
                 return [_serialize(x) for x in obj]
             elif isinstance(obj, dict):
@@ -371,7 +378,7 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
 
         graph = _get_graph()
         context = graph.get_vi_context(vi_name)
-        if not context:
+        if not context.inputs and not context.outputs and not context.operations:
             return [TextContent(type="text", text=f"VI not found: {vi_name}")]
 
         def _generate():

@@ -350,8 +350,8 @@ def {func_name}({params_str}) -> {return_type}:
         variant_ctx = self.graph.get_vi_context(first_variant)
 
         # Extract inputs and outputs from variant
-        inputs = variant_ctx.get("inputs", [])
-        outputs = variant_ctx.get("outputs", [])
+        inputs = variant_ctx.inputs
+        outputs = variant_ctx.outputs
 
         # Build parameter list from first variant
         params = []
@@ -713,13 +713,13 @@ def {func_name}({params_str}) -> {return_type}:
             result.append((name, self._map_type(typ)))
         return result
 
-    def _get_vi_outputs(self, vi_context: dict) -> list[tuple[str, str]]:
+    def _get_vi_outputs(self, vi_context: object) -> list[tuple[str, str]]:
         """Get output names and types from VI context.
 
         Uses the actual output names from the VI (e.g., "Settings Path", "error out")
         rather than generic names like "result_0", "result_1".
         """
-        outputs = vi_context.get("outputs", [])
+        outputs = vi_context.outputs
         result = []
         for out in outputs:
             # Terminal dataclass has name and type attributes
@@ -730,20 +730,20 @@ def {func_name}({params_str}) -> {return_type}:
 
     def _get_subvi_signatures(
         self,
-        vi_context: dict,
+        vi_context: object,
         from_vi_name: str,
     ) -> dict[str, VISignature]:
         """Get signatures for already-converted SubVIs.
 
         Args:
-            vi_context: VI context dict with subvi_calls and operations
+            vi_context: VIContext with subvi_calls and operations
             from_vi_name: Name of the VI doing the importing (for relative imports)
         """
         signatures = {}
         from_library = self._to_library_name(from_vi_name)
 
         # Check subvi_calls (SubVIs with CALLS relationship to VI nodes)
-        for subvi in vi_context.get("subvi_calls", []):
+        for subvi in vi_context.subvi_calls:
             # subvi_calls uses "vi_name" key (the target VI name)
             subvi_name = subvi.get("vi_name", "")
             if subvi_name and self.state.is_converted(subvi_name):
@@ -760,7 +760,7 @@ def {func_name}({params_str}) -> {return_type}:
                     )
 
         # Also check operations for SubVIs (handles stub/vilib VIs without CALLS relationships)
-        for op in vi_context.get("operations", []):
+        for op in vi_context.operations:
             # Operation dataclass has labels and name attributes
             if "SubVI" in op.labels:
                 subvi_name = op.name or ""
@@ -780,7 +780,7 @@ def {func_name}({params_str}) -> {return_type}:
 
         return signatures
 
-    def _get_primitive_mappings(self, vi_context: dict) -> dict[int, str]:
+    def _get_primitive_mappings(self, vi_context: object) -> dict[int, str]:
         """Get primResID -> function name mappings for a VI.
 
         Returns empty dict - primitive behavior is inferred by LLM from graph context

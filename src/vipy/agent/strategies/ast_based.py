@@ -14,6 +14,8 @@ import time
 from pathlib import Path
 from typing import Any
 
+from vipy.graph_types import VIContext
+
 from ...llm import generate_code
 from ..codegen import build_module
 from ..context_builder import ContextBuilder
@@ -35,7 +37,7 @@ class BaselineStrategy(ConversionStrategy):
     def convert(
         self,
         vi_name: str,
-        vi_context: dict[str, Any],
+        vi_context: VIContext,
         converted_deps: dict[str, Any],
         primitive_names: list[str],
         primitive_context: dict[int, dict[str, Any]],
@@ -62,7 +64,7 @@ class BaselineStrategy(ConversionStrategy):
 
         # Validate
         expected_subvis = self._get_expected_subvis(vi_context)
-        expected_output_count = len(vi_context.get("outputs", []))
+        expected_output_count = len(vi_context.outputs)
 
         validation = self.validator.validate(
             code, vi_name, [], expected_subvis,
@@ -105,7 +107,7 @@ class BaselineStrategy(ConversionStrategy):
     def _refine_with_llm(
         self,
         vi_name: str,
-        vi_context: dict[str, Any],
+        vi_context: VIContext,
         generated_code: str,
         errors: list[str],
         converted_deps: dict[str, Any],
@@ -128,7 +130,7 @@ class BaselineStrategy(ConversionStrategy):
         context = self._build_refinement_prompt(base_context, generated_code, errors)
 
         expected_subvis = self._get_expected_subvis(vi_context)
-        expected_output_count = len(vi_context.get("outputs", []))
+        expected_output_count = len(vi_context.outputs)
 
         for attempt in range(2, self.max_attempts + 1):
             response = generate_code(context, self.llm_config)

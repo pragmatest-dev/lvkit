@@ -122,12 +122,11 @@ class TestMemoryGraph:
 
     def test_vi_context_has_operations(self, graph):
         ctx = graph.get_vi_context("GraphicalTestRunner.lvlib:Get Settings Path.vi")
-        assert "operations" in ctx
-        assert len(ctx["operations"]) > 0
+        assert len(ctx.operations) > 0
 
     def test_vi_context_has_inputs(self, graph):
         ctx = graph.get_vi_context("GraphicalTestRunner.lvlib:Get Settings Path.vi")
-        assert "inputs" in ctx
+        assert ctx.inputs is not None
 
     def test_dataflow_not_empty(self, graph):
         df = graph.get_dataflow_graph("GraphicalTestRunner.lvlib:Get Settings Path.vi")

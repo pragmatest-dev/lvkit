@@ -16,6 +16,8 @@ import time
 from dataclasses import asdict, dataclass, is_dataclass
 from typing import Any
 
+from vipy.graph_types import VIContext
+
 from ..mcp.schemas import get_all_tool_schemas
 from ..types import TypeInfo
 
@@ -206,7 +208,7 @@ You receive structured context from a Neo4j graph database and output Python cod
 
 def build_prompt(
     vi_name: str,
-    vi_context: dict[str, Any],
+    vi_context: VIContext,
     subvi_imports: list[str],
     primitive_imports: list[str],
 ) -> str:
@@ -257,7 +259,7 @@ Output ONLY the Python code."""
 
 def convert_vi(
     vi_name: str,
-    vi_context: dict[str, Any],
+    vi_context: VIContext,
     subvi_imports: list[str],
     primitive_imports: list[str],
     model: str = "claude-sonnet-4-20250514",
@@ -347,7 +349,7 @@ def convert_vi(
 
 def convert_with_retry(
     vi_name: str,
-    vi_context: dict[str, Any],
+    vi_context: VIContext,
     subvi_imports: list[str],
     primitive_imports: list[str],
     validator,
@@ -374,9 +376,9 @@ def convert_with_retry(
 
     # Build expected SubVIs for completeness check
     expected_subvis = [
-        op["name"]
-        for op in vi_context.get("operations", [])
-        if "SubVI" in op.get("labels", []) and op.get("name")
+        op.name
+        for op in vi_context.operations
+        if "SubVI" in op.labels and op.name
     ]
 
     for attempt in range(1, max_attempts + 1):

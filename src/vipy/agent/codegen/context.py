@@ -8,7 +8,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
-from vipy.graph_types import Constant, Terminal
+from vipy.graph_types import Constant, Terminal, VIContext
 
 from .ast_utils import to_var_name
 
@@ -231,10 +231,10 @@ class CodeGenContext:
     @classmethod
     def from_vi_context(
         cls,
-        vi_context: dict[str, Any],
+        vi_context: VIContext,
         graph: InMemoryVIGraph | None = None,
     ) -> CodeGenContext:
-        """Create context from VI context dict (legacy).
+        """Create context from VIContext.
 
         Prefer from_graph() for new code.
         If no graph provided, builds one from data_flow wires and
@@ -245,14 +245,14 @@ class CodeGenContext:
 
         ctx = cls(
             graph=graph,
-            vi_inputs=vi_context.get("inputs", []),
+            vi_inputs=vi_context.inputs,
         )
 
-        for inp in vi_context.get("inputs", []):
+        for inp in vi_context.inputs:
             if inp.id:
                 ctx.bind(inp.id, to_var_name(inp.name or "input"))
 
-        for const in vi_context.get("constants", []):
+        for const in vi_context.constants:
             if const.id:
                 ctx.bind(const.id, _format_constant(const))
 
@@ -260,7 +260,7 @@ class CodeGenContext:
 
     @classmethod
     def _build_graph_from_vi_context(
-        cls, vi_context: dict[str, Any],
+        cls, vi_context: VIContext,
     ) -> InMemoryVIGraph | None:
         """Build a minimal graph for input/constant terminals only.
 
@@ -271,8 +271,8 @@ class CodeGenContext:
         from vipy.graph_types import PrimitiveNode
         from vipy.memory_graph import InMemoryVIGraph as _G
 
-        inputs = vi_context.get("inputs", [])
-        constants = vi_context.get("constants", [])
+        inputs = vi_context.inputs
+        constants = vi_context.constants
 
         tids: list[str] = []
         for inp in inputs:

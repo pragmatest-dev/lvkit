@@ -34,7 +34,7 @@ class ContextBuilder:
 
     @staticmethod
     def build_vi_context(
-        vi_context: dict,
+        vi_context: object,
         vi_name: str,
         converted_deps: dict[str, "VISignature"],
         shared_types: list["SharedType"],
@@ -105,7 +105,7 @@ class ContextBuilder:
 
         # Format key constants prominently
         key_constants = ContextBuilder._format_key_constants(
-            vi_context.get("constants", [])
+            vi_context.constants
         )
 
         return FUNCTION_TEMPLATE.format(
@@ -119,7 +119,7 @@ class ContextBuilder:
 
     @staticmethod
     def _clean_vi_context(
-        ctx: dict,
+        ctx: object,
         converted_deps: dict[str, "VISignature"] | None = None,
         primitive_mappings: dict[int, str] | None = None,
         primitive_context: dict[int, dict] | None = None,
@@ -147,7 +147,7 @@ class ContextBuilder:
         # Build enrichment mapping: op_id -> extra info for LLM
         enrichment: dict[str, dict] = {}
 
-        for op in ctx.get("operations", []):
+        for op in ctx.operations:
             # Operation dataclass - use attribute access
             op_info: dict = {}
 
@@ -175,13 +175,13 @@ class ContextBuilder:
         # Return context as-is (dataclasses), with enrichment alongside
         # TypeInfoEncoder will serialize dataclasses at json.dumps
         return {
-            "inputs": ctx.get("inputs", []),
-            "outputs": ctx.get("outputs", []),
-            "constants": ctx.get("constants", []),
-            "operations": ctx.get("operations", []),
-            "data_flow": ctx.get("data_flow", []),
-            "terminals": ctx.get("terminals", []),
-            "subvi_calls": ctx.get("subvi_calls", []),
+            "inputs": ctx.inputs,
+            "outputs": ctx.outputs,
+            "constants": ctx.constants,
+            "operations": ctx.operations,
+            "data_flow": ctx.data_flow,
+            "terminals": ctx.terminals,
+            "subvi_calls": ctx.subvi_calls,
             "enrichment": enrichment,
         }
 
@@ -378,7 +378,7 @@ class ContextBuilder:
 
     @staticmethod
     def build_method_context(
-        vi_context: dict,
+        vi_context: object,
         method_name: str,
         class_name: str,
         visibility: str,  # "public", "private", "protected"

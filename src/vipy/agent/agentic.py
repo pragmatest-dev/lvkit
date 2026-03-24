@@ -89,7 +89,7 @@ class AgenticConverter:
     def convert(
         self,
         vi_name: str,
-        vi_context: dict,
+        vi_context: object,
         converted_deps: dict,
         primitive_names: list[str],
         primitive_context: dict,
@@ -158,9 +158,9 @@ When ready, submit your final code with `submit_code`.
 
                     # Validate
                     expected_subvis = [
-                        op["name"]
-                        for op in vi_context.get("operations", [])
-                        if "SubVI" in op.get("labels", []) and op.get("name")
+                        op.name
+                        for op in vi_context.operations
+                        if "SubVI" in op.labels and op.name
                     ]
 
                     validation = self.validator.validate(
@@ -213,9 +213,9 @@ Try a different approach or tool.
                     tool_calls.append("submit_code (implicit)")
 
                     expected_subvis = [
-                        op["name"]
-                        for op in vi_context.get("operations", [])
-                        if "SubVI" in op.get("labels", []) and op.get("name")
+                        op.name
+                        for op in vi_context.operations
+                        if "SubVI" in op.labels and op.name
                     ]
 
                     validation = self.validator.validate(

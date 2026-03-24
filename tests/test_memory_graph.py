@@ -178,11 +178,11 @@ class TestTypedGraphNodes:
 
     def test_vi_context(self, graph_with_nodes: InMemoryVIGraph):
         ctx = graph_with_nodes.get_vi_context("Test.vi")
-        assert ctx["name"] == "Test.vi"
-        assert len(ctx["inputs"]) == 1
-        assert len(ctx["outputs"]) == 1
-        assert len(ctx["constants"]) == 1
-        assert "data_flow" in ctx
+        assert ctx.name == "Test.vi"
+        assert len(ctx.inputs) == 1
+        assert len(ctx.outputs) == 1
+        assert len(ctx.constants) == 1
+        assert ctx.data_flow is not None
 
 
 class TestRealVILoading:

@@ -7,7 +7,7 @@ import warnings
 from collections import deque
 from typing import TYPE_CHECKING, Any
 
-from vipy.graph_types import Operation, Terminal
+from vipy.graph_types import Operation, Terminal, VIContext
 from vipy.type_defaults import _is_error_cluster
 
 from .ast_optimizer import optimize_module
@@ -39,7 +39,7 @@ from .nodes import get_codegen
 
 
 def build_module(
-    vi_context: dict[str, Any],
+    vi_context: VIContext,
     vi_name: str,
     vi_context_lookup: Any = None,
     import_resolver: Any = None,
@@ -49,7 +49,7 @@ def build_module(
     """Build complete Python module from VI context.
 
     Args:
-        vi_context: VI context dict with operations, inputs, outputs, etc.
+        vi_context: VIContext with operations, inputs, outputs, etc.
         vi_name: Name of the VI (used for function name)
         vi_context_lookup: Deprecated, ignored.
         import_resolver: Optional callable (subvi_name) -> import statement string
@@ -68,7 +68,7 @@ def build_module(
     # Determine if we need error handling infrastructure
     # Read from vi_context if not explicitly passed
     if has_parallel_branches is None:
-        has_parallel_branches = vi_context.get("has_parallel_branches", False)
+        has_parallel_branches = vi_context.has_parallel_branches
     use_error_handling = needs_error_handling(has_parallel_branches, vi_context)
     ctx.use_held_error_model = use_error_handling
 
@@ -80,7 +80,7 @@ def build_module(
         body.append(build_held_error_init())
 
     # Generate operation code
-    body.extend(generate_body(vi_context.get("operations", []), ctx))
+    body.extend(generate_body(vi_context.operations, ctx))
 
     # Add held error check before return if we have error handling
     if use_error_handling:
@@ -385,18 +385,18 @@ def topological_sort_tiered(
 
 
 def build_return_stmt(
-    vi_context: dict[str, Any], ctx: CodeGenContext
+    vi_context: VIContext, ctx: CodeGenContext
 ) -> ast.Return | None:
     """Build return statement for function.
 
     Returns NamedTuple with output values resolved from context.
     Skips error cluster outputs - Python uses exceptions instead.
     """
-    outputs = vi_context.get("outputs", [])
+    outputs = vi_context.outputs
     if not outputs:
         return None
 
-    result_class = build_result_class_name(vi_context.get("name", "VI"))
+    result_class = build_result_class_name(vi_context.name)
 
     # Resolve output values, skipping error clusters
     keywords = []
@@ -431,7 +431,7 @@ def build_return_stmt(
 
 
 def build_module_ast(
-    vi_context: dict[str, Any],
+    vi_context: VIContext,
     vi_name: str,
     body: list[ast.stmt],
     ctx: CodeGenContext,
@@ -456,7 +456,7 @@ def build_module_ast(
 
 
 def build_imports(
-    vi_context: dict[str, Any],
+    vi_context: VIContext,
     ctx: CodeGenContext,
     use_error_handling: bool = False,
 ) -> list[ast.stmt]:
@@ -496,16 +496,16 @@ def build_imports(
     return imports
 
 
-def build_result_class(vi_context: dict[str, Any]) -> ast.ClassDef | None:
+def build_result_class(vi_context: VIContext) -> ast.ClassDef | None:
     """Build NamedTuple result class.
 
     Skips error cluster outputs - Python uses exceptions instead.
     """
-    outputs = vi_context.get("outputs", [])
+    outputs = vi_context.outputs
     if not outputs:
         return None
 
-    class_name = build_result_class_name(vi_context.get("name", "VI"))
+    class_name = build_result_class_name(vi_context.name)
 
     # Build fields, skipping error clusters
     fields = []
@@ -544,17 +544,17 @@ def build_result_class(vi_context: dict[str, Any]) -> ast.ClassDef | None:
 
 
 def build_function_def(
-    vi_context: dict[str, Any], vi_name: str, body: list[ast.stmt]
+    vi_context: VIContext, vi_name: str, body: list[ast.stmt]
 ) -> ast.FunctionDef:
     """Build function definition."""
     func_name = to_function_name(vi_name)
 
     # Build arguments
-    args = build_args(vi_context.get("inputs", []))
+    args = build_args(vi_context.inputs)
 
     # Build return annotation
     returns = None
-    if vi_context.get("outputs"):
+    if vi_context.outputs:
         result_class = build_result_class_name(vi_name)
         returns = ast.Name(id=result_class, ctx=ast.Load())
 

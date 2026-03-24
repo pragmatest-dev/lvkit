@@ -25,6 +25,7 @@ from ..graph_types import (
     PolyInfo,
     StructureNode,
     Terminal,
+    VIContext,
     VIMetadata,
     VINode,
     Wire,
@@ -696,15 +697,15 @@ class QueryMixin:
 
     # === Legacy API ===
 
-    def get_vi_context(self, vi_name: str) -> dict[str, Any]:
+    def get_vi_context(self, vi_name: str) -> VIContext:
         """Get complete VI context for code generation.
 
-        Returns a dict with inputs, outputs, constants, operations, etc.
+        Returns a VIContext with inputs, outputs, constants, operations, etc.
         Builds from typed graph nodes.
         """
         vi_name = self.resolve_vi_name(vi_name)
         if vi_name not in self._vi_nodes:
-            return {}
+            return VIContext(name=vi_name)
 
         # Build subvi_calls list
         subvi_calls = []
@@ -746,25 +747,25 @@ class QueryMixin:
 
         vi_meta = self._vi_metadata.get(vi_name, VIMetadata())
 
-        return {
-            "name": vi_name,
-            "library": vi_meta.library,
-            "qualified_name": vi_meta.qualified_name,
-            "inputs": inputs,
-            "outputs": outputs,
-            "constants": constants,
-            "operations": operations,
-            "terminals": terminals,
-            "data_flow": data_flow,
-            "subvi_calls": subvi_calls,
-            "poly_variants": self.get_poly_variants(vi_name),
-            "has_parallel_branches": self.has_parallel_branches(vi_name),
-        }
+        return VIContext(
+            name=vi_name,
+            library=vi_meta.library,
+            qualified_name=vi_meta.qualified_name,
+            inputs=inputs,
+            outputs=outputs,
+            constants=constants,
+            operations=operations,
+            terminals=terminals,
+            data_flow=data_flow,
+            subvi_calls=subvi_calls,
+            poly_variants=self.get_poly_variants(vi_name),
+            has_parallel_branches=self.has_parallel_branches(vi_name),
+        )
 
     def get_subvi_calls(self, vi_name: str) -> list[dict]:
         """Get SubVIs called by a VI."""
         ctx = self.get_vi_context(vi_name)
-        return ctx.get("subvi_calls", [])
+        return ctx.subvi_calls
 
     # === Polymorphic VI Methods ===
 
