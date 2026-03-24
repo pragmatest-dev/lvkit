@@ -100,12 +100,10 @@ class InvokeNodeCodeGen(NodeCodeGen):
                     return resolved
                 # Try tracing through graph to find source
                 flow = ctx.get_source(term.id)
-                if flow:
-                    src_term = flow.get("src_terminal")
-                    if src_term:
-                        resolved = ctx.resolve(src_term)
-                        if resolved:
-                            return resolved
+                if flow and flow.src_terminal:
+                    resolved = ctx.resolve(flow.src_terminal)
+                    if resolved:
+                        return resolved
 
         # Fallback: use object_name as variable
         obj_name = node.object_name or "ref"

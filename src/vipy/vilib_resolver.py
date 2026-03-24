@@ -3,12 +3,23 @@
 from __future__ import annotations
 
 import json
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
 from pydantic import BaseModel, Field
 
 from vipy.graph_types import ClusterField, EnumValue, LVType
+
+
+@dataclass
+class ResolutionContext:
+    """Context passed to VILibResolutionNeeded for diagnostics."""
+
+    caller_vi: str | None = None
+    poly_selector: str | None = None
+    wire_types: list[str] = field(default_factory=list)
+    terminal_names: list[str] = field(default_factory=list)
 
 
 def derive_python_name(typedef_name: str) -> str:
@@ -68,39 +79,30 @@ class VILibResolutionNeeded(Exception):
     to figure out terminal information and add Python hints based on context.
     """
 
-    def __init__(self, vi_name: str, context: dict[str, Any] | None = None):
+    def __init__(self, vi_name: str, context: ResolutionContext | None = None):
         self.vi_name = vi_name
-        self.context = context or {}
+        self.context = context or ResolutionContext()
         super().__init__(self._format_message())
 
     def _format_message(self) -> str:
         msg = f"VILib resolution needed for '{self.vi_name}'.\n"
 
-        if self.context.get("poly_selector"):
-            msg += f"\nPolymorphic selector: {self.context['poly_selector']}"
+        if self.context.poly_selector:
+            msg += f"\nPolymorphic selector: {self.context.poly_selector}"
             msg += "\n  (Add this to poly_selector_names in the variant's JSON entry)"
 
-        if self.context.get("caller_vi"):
-            msg += f"\nCaller VI: {self.context['caller_vi']}"
+        if self.context.caller_vi:
+            msg += f"\nCaller VI: {self.context.caller_vi}"
 
-        if self.context.get("terminal_names"):
+        if self.context.terminal_names:
             msg += "\n\nTerminal names from XML:\n"
-            for name in self.context["terminal_names"]:
+            for name in self.context.terminal_names:
                 msg += f"  - {name}\n"
 
-        if self.context.get("wire_types"):
+        if self.context.wire_types:
             msg += "\n\nWire types from dataflow:\n"
-            for wt in self.context["wire_types"]:
+            for wt in self.context.wire_types:
                 msg += f"  - {wt}\n"
-
-        if self.context.get("pdf_data"):
-            pdf = self.context["pdf_data"]
-            msg += f"\n\nPDF documentation (page {pdf.get('page', '?')}):\n"
-            msg += f"  Description: {pdf.get('description', 'N/A')[:200]}...\n"
-            if pdf.get("terminals"):
-                msg += "  Known terminals:\n"
-                for t in pdf["terminals"]:
-                    msg += f"    - {t.get('name', '?')} ({t.get('direction', '?')})\n"
 
         msg += "\nPlease add terminal info to data/vilib/<category>.json"
         return msg

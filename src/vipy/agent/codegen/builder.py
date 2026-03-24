@@ -336,7 +336,7 @@ def topological_sort_tiered(
                 source = ctx.get_source(current)
                 if not source:
                     break
-                src_term = source["src_terminal"]
+                src_term = source.src_terminal
                 if src_term in output_to_op:
                     dep_op_id = output_to_op[src_term]
                     if dep_op_id != op.id and dep_op_id in dependencies:
@@ -344,7 +344,7 @@ def topological_sort_tiered(
                     break
                 # Structure tunnels: source terminal's parent node may
                 # be an operation even if the terminal isn't an "output".
-                src_parent = source["src_parent_id"]
+                src_parent = source.src_parent_id
                 if src_parent in op_by_id and src_parent != op.id:
                     dependencies[op.id].add(src_parent)
                     break

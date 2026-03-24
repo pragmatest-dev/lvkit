@@ -391,14 +391,12 @@ class LoopCodeGen(NodeCodeGen):
         if not flow_info:
             return None
 
-        src_parent_name: str | None = flow_info.get("src_parent_name")
-        if src_parent_name:
-            return src_parent_name
+        if flow_info.src_parent_name:
+            return flow_info.src_parent_name
 
         # Recurse to trace further back
-        src_terminal = flow_info.get("src_terminal")
-        if src_terminal and src_terminal != terminal_uid:
-            return self._get_source_terminal_name(src_terminal, ctx)
+        if flow_info.src_terminal and flow_info.src_terminal != terminal_uid:
+            return self._get_source_terminal_name(flow_info.src_terminal, ctx)
 
         return None
 
@@ -424,30 +422,25 @@ class LoopCodeGen(NodeCodeGen):
 
         dest_list = ctx.get_destinations(terminal_uid)
         for dest_info in dest_list:
-            dest_name: str | None = dest_info.get("dest_parent_name")
-            dest_labels = dest_info.get("dest_parent_labels", [])
-
             # Check if it's a named indicator (output)
-            if dest_name and "Indicator" in dest_labels:
-                return dest_name
+            if dest_info.dest_parent_name and "Indicator" in dest_info.dest_parent_labels:
+                return dest_info.dest_parent_name
 
             # Check if it flows to a SubVI input - use SubVI name as hint
-            if "SubVI" in dest_labels and dest_name:
-                return dest_name
+            if "SubVI" in dest_info.dest_parent_labels and dest_info.dest_parent_name:
+                return dest_info.dest_parent_name
 
             # Recurse through tunnels/connections
-            dest_terminal = dest_info.get("dest_terminal")
-            if dest_terminal:
-                found = self._get_dest_terminal_name(dest_terminal, ctx, visited)
+            if dest_info.dest_terminal:
+                found = self._get_dest_terminal_name(dest_info.dest_terminal, ctx, visited)
                 if found:
                     return found
 
         # If no forward flow found, check source terminal's other destinations
         source = ctx.get_source(terminal_uid)
         if source:
-            src_id = source["src_terminal"]
-            if src_id not in visited:
-                found = self._get_dest_terminal_name(src_id, ctx, visited)
+            if source.src_terminal not in visited:
+                found = self._get_dest_terminal_name(source.src_terminal, ctx, visited)
                 if found:
                     return found
 
@@ -486,17 +479,14 @@ class LoopCodeGen(NodeCodeGen):
         # Trace through data flow
         flow_info = ctx.get_source(terminal_uid)
         if flow_info:
-            src_terminal = flow_info.get("src_terminal")
-            src_parent_id = flow_info.get("src_parent_id")
-
             # Check if source parent is an FP input
             for inp in ctx.vi_inputs:
-                if inp.id == src_parent_id:
+                if inp.id == flow_info.src_parent_id:
                     return inp.lv_type
 
             # Recurse to trace further
-            if src_terminal and src_terminal != terminal_uid:
-                return self._get_terminal_type(src_terminal, ctx, visited)
+            if flow_info.src_terminal and flow_info.src_terminal != terminal_uid:
+                return self._get_terminal_type(flow_info.src_terminal, ctx, visited)
 
         return None
 

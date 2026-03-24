@@ -8,7 +8,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
-from vipy.graph_types import Constant, Terminal, VIContext
+from vipy.graph_types import Constant, DestinationInfo, SourceInfo, Terminal, VIContext
 
 from .ast_utils import to_var_name
 
@@ -87,7 +87,7 @@ class CodeGenContext:
                     return True
         return False
 
-    def get_source(self, terminal_id: str) -> dict | None:
+    def get_source(self, terminal_id: str) -> SourceInfo | None:
         """Get source info for a terminal (first incoming edge)."""
         if self.graph is None:
             return None
@@ -95,26 +95,26 @@ class CodeGenContext:
         if not sources:
             return None
         src = sources[0]
-        return {
-            "src_terminal": src.terminal_id,
-            "src_parent_id": src.node_id,
-            "src_parent_name": src.name,
-            "src_parent_labels": src.labels,
-            "src_slot_index": src.index,
-        }
+        return SourceInfo(
+            src_terminal=src.terminal_id,
+            src_parent_id=src.node_id,
+            src_parent_name=src.name,
+            src_parent_labels=list(src.labels),
+            src_slot_index=src.index,
+        )
 
-    def get_destinations(self, terminal_id: str) -> list[dict]:
+    def get_destinations(self, terminal_id: str) -> list[DestinationInfo]:
         """Get all destinations for a terminal."""
         if self.graph is None:
             return []
         return [
-            {
-                "dest_terminal": dst.terminal_id,
-                "dest_parent_id": dst.node_id,
-                "dest_parent_name": dst.name,
-                "dest_parent_labels": dst.labels,
-                "dest_slot_index": dst.index,
-            }
+            DestinationInfo(
+                dest_terminal=dst.terminal_id,
+                dest_parent_id=dst.node_id,
+                dest_parent_name=dst.name,
+                dest_parent_labels=list(dst.labels),
+                dest_slot_index=dst.index,
+            )
             for dst in self.graph.outgoing_edges(terminal_id)
         ]
 

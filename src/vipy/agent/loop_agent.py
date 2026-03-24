@@ -259,13 +259,10 @@ class ConversionAgent:
             )
 
         stub_info = self.graph.get_stub_vi_info(vi_name)
-        if not stub_info:
-            # Fallback if stub info isn't available
-            stub_info = {"input_types": [], "output_types": []}
 
         func_name = self._to_function_name(vi_name)
-        input_types = stub_info.get("input_types", []) or []
-        output_types = stub_info.get("output_types", []) or []
+        input_types = stub_info.input_types if stub_info else []
+        output_types = stub_info.output_types if stub_info else []
 
         # Filter out Void types and generate meaningful parameter names
         params = []

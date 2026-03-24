@@ -284,12 +284,10 @@ class CaseCodeGen(NodeCodeGen):
         sel_term = node.selector_terminal
         flow = ctx.get_source(sel_term) if sel_term else None
         if flow:
-            src_parent_name = flow.get("src_parent_name")
-            if src_parent_name:
-                return to_var_name(src_parent_name)
+            if flow.src_parent_name:
+                return to_var_name(flow.src_parent_name)
             # Try labels
-            labels = flow.get("src_parent_labels", [])
-            for label in labels:
+            for label in flow.src_parent_labels:
                 if label not in ("Primitive", "operation"):
                     return to_var_name(label)
         return "selector"

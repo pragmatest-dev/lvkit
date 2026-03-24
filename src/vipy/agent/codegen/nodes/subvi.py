@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Any
 
 from vipy.graph_types import Operation
 from vipy.vilib_resolver import (
+    ResolutionContext,
     VILibResolutionNeeded,
     derive_python_location,
     get_resolver,
@@ -693,17 +694,14 @@ class SubVICodeGen(NodeCodeGen):
         node: Operation,
         ctx: CodeGenContext,
         vilib_vi: Any | None,
-    ) -> dict[str, Any]:
+    ) -> ResolutionContext:
         """Build context for VILibResolutionNeeded exception.
 
         Collects wire types from caller's dataflow to help resolve terminal indices.
         """
-        context: dict[str, Any] = {
-            "caller_vi": ctx.vi_name,
-        }
-
+        poly_selector: str | None = None
         if hasattr(node, 'poly_variant_name') and node.poly_variant_name:
-            context["poly_selector"] = node.poly_variant_name
+            poly_selector = node.poly_variant_name
 
         # Collect wire types from dataflow (actual indices being used)
         wire_types: list[str] = []
@@ -729,14 +727,17 @@ class SubVICodeGen(NodeCodeGen):
                 f"idx_{term_index} ({direction}, {type_info}, {wired_str})"
             )
 
-        context["wire_types"] = wire_types
-
         # Collect terminal names from vilib if available
+        terminal_names: list[str] = []
         if vilib_vi and vilib_vi.terminals:
             terminal_names = [
                 f"{t.name} (idx={t.index}, {t.direction})"
                 for t in vilib_vi.terminals
             ]
-            context["terminal_names"] = terminal_names
 
-        return context
+        return ResolutionContext(
+            caller_vi=ctx.vi_name,
+            poly_selector=poly_selector,
+            wire_types=wire_types,
+            terminal_names=terminal_names,
+        )

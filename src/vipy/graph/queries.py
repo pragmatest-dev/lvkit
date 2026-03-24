@@ -18,11 +18,16 @@ import networkx as nx
 
 from ..graph_types import (
     AnyGraphNode,
+    ClusterInfo,
     Constant,
+    ConstantInfo,
     ConstantNode,
     FPTerminal,
     Operation,
     PolyInfo,
+    PrimitiveInfo,
+    StubTerminalInfo,
+    StubVIInfo,
     StructureNode,
     Terminal,
     VIContext,
@@ -59,15 +64,20 @@ class QueryMixin:
     # === Cypher query compat ===
 
     def query(self, cypher: str, params: dict | None = None) -> list[dict]:
-        """Cypher query compatibility - routes to native methods."""
+        """Cypher query compatibility - routes to native methods.
+
+        Returns dicts for backward compatibility with legacy consumers.
+        """
+        from dataclasses import asdict
+
         cypher_lower = cypher.lower()
 
         if "constant" in cypher_lower:
-            return self.get_all_constants()
+            return [asdict(c) for c in self.get_all_constants()]
         elif "primitive" in cypher_lower:
-            return self.get_all_primitives()
+            return [asdict(p) for p in self.get_all_primitives()]
         elif "cluster" in cypher_lower:
-            return self.get_all_clusters()
+            return [asdict(c) for c in self.get_all_clusters()]
 
         return []
 
@@ -76,9 +86,9 @@ class QueryMixin:
         results = self.query(cypher, params)
         return results[0] if results else None
 
-    def get_all_constants(self) -> list[dict[str, Any]]:
+    def get_all_constants(self) -> list[ConstantInfo]:
         """Get all constants across all VIs for enum discovery."""
-        results = []
+        results: list[ConstantInfo] = []
         for vi_name, node_uids in self._vi_nodes.items():
             for uid in node_uids:
                 if uid not in self._graph:
@@ -86,20 +96,20 @@ class QueryMixin:
                 gnode = self._graph.nodes[uid].get("node")
                 if not isinstance(gnode, ConstantNode):
                     continue
-                results.append({
-                    "vi_name": vi_name,
-                    "value": gnode.raw_value or gnode.value or "",
-                    "label": gnode.label,
-                    "type": (
+                results.append(ConstantInfo(
+                    vi_name=vi_name,
+                    value=gnode.raw_value or gnode.value or "",
+                    label=gnode.label,
+                    type=(
                         gnode.lv_type.underlying_type if gnode.lv_type else "Any"
                     ),
-                    "python": gnode.value,
-                })
+                    python=gnode.value,
+                ))
         return results
 
-    def get_all_primitives(self) -> list[dict[str, Any]]:
+    def get_all_primitives(self) -> list[PrimitiveInfo]:
         """Get all primitives across all VIs for primitive discovery."""
-        results = []
+        results: list[PrimitiveInfo] = []
         for vi_name, node_uids in self._vi_nodes.items():
             for uid in node_uids:
                 if uid not in self._graph:
@@ -117,15 +127,15 @@ class QueryMixin:
                     for t in gnode.terminals
                     if t.direction == "output"
                 ]
-                results.append({
-                    "vi_name": vi_name,
-                    "prim_id": gnode.prim_id,
-                    "input_types": input_types,
-                    "output_types": output_types,
-                })
+                results.append(PrimitiveInfo(
+                    vi_name=vi_name,
+                    prim_id=gnode.prim_id,
+                    input_types=input_types,
+                    output_types=output_types,
+                ))
         return results
 
-    def get_all_clusters(self) -> list[dict[str, Any]]:
+    def get_all_clusters(self) -> list[ClusterInfo]:
         """Get all cluster types across all VIs for shared type discovery."""
         clusters: dict[str, set[str]] = {}
 
@@ -147,7 +157,7 @@ class QueryMixin:
                         clusters[name].add(vi_name)
 
         return [
-            {"name": name, "id": name, "vis": list(vis)}
+            ClusterInfo(name=name, id=name, vis=list(vis))
             for name, vis in clusters.items()
         ]
 
@@ -180,7 +190,7 @@ class QueryMixin:
         """Check if a VI is a stub (missing dependency)."""
         return vi_name in self._stubs
 
-    def get_stub_vi_info(self, vi_name: str) -> dict[str, Any] | None:
+    def get_stub_vi_info(self, vi_name: str) -> StubVIInfo | None:
         """Get stub VI info from vilib reference or call site inference."""
         if vi_name not in self._stubs:
             return None
@@ -189,23 +199,23 @@ class QueryMixin:
         resolver = get_vilib_resolver()
         vilib_info = resolver.get_context(vi_name)
         if vilib_info:
-            inputs = []
-            outputs = []
+            inputs: list[StubTerminalInfo] = []
+            outputs: list[StubTerminalInfo] = []
             for t in vilib_info.get("terminals", []):
                 term_type = t.get("type") or "Any"
                 if t.get("direction") == "in":
-                    inputs.append({"name": t["name"], "type": term_type})
+                    inputs.append(StubTerminalInfo(name=t["name"], type=term_type))
                 else:
-                    outputs.append({"name": t["name"], "type": term_type})
-            return {
-                "name": vi_name,
-                "vilib_path": vilib_info.get("vilib_path"),
-                "python_hint": vilib_info.get("python"),
-                "inputs": inputs,
-                "outputs": outputs,
-                "input_types": [i["type"] for i in inputs],
-                "output_types": [o["type"] for o in outputs],
-            }
+                    outputs.append(StubTerminalInfo(name=t["name"], type=term_type))
+            return StubVIInfo(
+                name=vi_name,
+                vilib_path=vilib_info.get("vilib_path"),
+                python_hint=vilib_info.get("python"),
+                inputs=inputs,
+                outputs=outputs,
+                input_types=[i.type for i in inputs],
+                output_types=[o.type for o in outputs],
+            )
 
         # Fall back to inferring from call site
         input_types: list[str] = []
@@ -233,11 +243,11 @@ class QueryMixin:
             if input_types or output_types:
                 break
 
-        return {
-            "name": vi_name,
-            "input_types": input_types,
-            "output_types": output_types,
-        }
+        return StubVIInfo(
+            name=vi_name,
+            input_types=input_types,
+            output_types=output_types,
+        )
 
     def get_vi_dependencies(self, vi_name: str) -> list[str]:
         """Get VIs that this VI depends on (SubVIs it calls)."""
