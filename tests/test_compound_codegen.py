@@ -9,6 +9,7 @@ import pytest
 from vipy.agent.codegen.context import CodeGenContext
 from vipy.agent.codegen.nodes.compound import ArrayBuildCodeGen, CompoundArithCodeGen
 from vipy.graph_types import Operation, Terminal
+from tests.helpers import make_ctx, make_graph_with_terminals, make_node
 
 
 class TestCompoundArithMakeVarName:
@@ -74,7 +75,7 @@ class TestCompoundArithGenerate:
 
     def test_generate_or_two_inputs(self, codegen: CompoundArithCodeGen):
         """Test generating OR of two inputs."""
-        ctx = CodeGenContext()
+        ctx = make_ctx("term1", "term2", "term_out")
         ctx.bind("term1", "flag_a")
         ctx.bind("term2", "flag_b")
 
@@ -106,7 +107,7 @@ class TestCompoundArithGenerate:
 
     def test_generate_and_two_inputs(self, codegen: CompoundArithCodeGen):
         """Test generating AND of two inputs."""
-        ctx = CodeGenContext()
+        ctx = make_ctx("term1", "term2", "term_out")
         ctx.bind("term1", "cond_a")
         ctx.bind("term2", "cond_b")
 
@@ -131,7 +132,7 @@ class TestCompoundArithGenerate:
 
     def test_generate_add_multiple_inputs(self, codegen: CompoundArithCodeGen):
         """Test generating addition of multiple inputs."""
-        ctx = CodeGenContext()
+        ctx = make_ctx("term1", "term2", "term3", "term_out")
         ctx.bind("term1", "x")
         ctx.bind("term2", "y")
         ctx.bind("term3", "z")
@@ -159,7 +160,7 @@ class TestCompoundArithGenerate:
 
     def test_generate_single_input_passthrough(self, codegen: CompoundArithCodeGen):
         """Test that single input is passed through without assignment."""
-        ctx = CodeGenContext()
+        ctx = make_ctx("term1", "term_out")
         ctx.bind("term1", "only_value")
 
         op = Operation(
@@ -284,7 +285,7 @@ class TestCompoundArithExecutable:
 
     def test_or_evaluates_correctly(self, codegen: CompoundArithCodeGen):
         """Test that generated OR code evaluates correctly at runtime."""
-        ctx = CodeGenContext()
+        ctx = make_ctx("term1", "term2", "term_out")
         ctx.bind("term1", "flag_a")
         ctx.bind("term2", "flag_b")
 
@@ -318,7 +319,7 @@ class TestCompoundArithExecutable:
 
     def test_and_evaluates_correctly(self, codegen: CompoundArithCodeGen):
         """Test that generated AND code evaluates correctly at runtime."""
-        ctx = CodeGenContext()
+        ctx = make_ctx("term1", "term2", "term_out")
         ctx.bind("term1", "cond_a")
         ctx.bind("term2", "cond_b")
 
@@ -352,7 +353,7 @@ class TestCompoundArithExecutable:
 
     def test_add_evaluates_correctly(self, codegen: CompoundArithCodeGen):
         """Test that generated ADD code evaluates correctly at runtime."""
-        ctx = CodeGenContext()
+        ctx = make_ctx("term1", "term2", "term3", "term_out")
         ctx.bind("term1", "a")
         ctx.bind("term2", "b")
         ctx.bind("term3", "c")
@@ -430,7 +431,7 @@ class TestArrayBuildGenerate:
 
     def test_generate_builds_list(self, codegen: ArrayBuildCodeGen):
         """Test that aBuild generates a list."""
-        ctx = CodeGenContext()
+        ctx = make_ctx("term1", "term2", "term3", "term_out")
         ctx.bind("term1", "val1")
         ctx.bind("term2", "val2")
         ctx.bind("term3", "val3")
@@ -460,7 +461,7 @@ class TestArrayBuildGenerate:
 
     def test_generate_handles_missing_inputs(self, codegen: ArrayBuildCodeGen):
         """Test that missing inputs become None placeholders."""
-        ctx = CodeGenContext()
+        ctx = make_ctx("term1", "term2", "term_out")
         ctx.bind("term1", "val1")
         # term2 is not bound
 
@@ -539,7 +540,7 @@ class TestArrayBuildExecutable:
 
     def test_build_array_produces_correct_list(self, codegen: ArrayBuildCodeGen):
         """Test that generated array build produces correct list at runtime."""
-        ctx = CodeGenContext()
+        ctx = make_ctx("term1", "term2", "term3", "term_out")
         ctx.bind("term1", "first")
         ctx.bind("term2", "second")
         ctx.bind("term3", "third")
@@ -571,7 +572,7 @@ class TestArrayBuildExecutable:
 
     def test_build_array_preserves_order(self, codegen: ArrayBuildCodeGen):
         """Test that array build preserves input order based on terminal index."""
-        ctx = CodeGenContext()
+        ctx = make_ctx("term_0", "term_1", "term_2", "term_out")
         ctx.bind("term_0", "zero")
         ctx.bind("term_1", "one")
         ctx.bind("term_2", "two")

@@ -163,7 +163,11 @@ class TestWaitMsPrimitive:
 
         assert resolved is not None
         assert resolved.name == "Wait (ms)"
-        assert "time.sleep" in resolved.python_code
+        # python_code may be a dict (template) or string
+        if isinstance(resolved.python_code, dict):
+            assert any("time.sleep" in v for v in resolved.python_code.values())
+        else:
+            assert "time.sleep" in resolved.python_code
         assert "import time" in resolved.imports
 
     def test_1302_has_correct_terminals(self):
@@ -278,63 +282,37 @@ class TestPolyResolverLookup:
 class TestInViEndToEnd:
     """End-to-end test that In.vi generates correct Python."""
 
-    def test_generates_without_error(self):
+    def _build_in_vi(self):
         from vipy.agent.codegen.builder import build_module
         from vipy.memory_graph import connect
 
         mg = connect()
         mg.load_vi("samples/DAQmx-Digital-IO/In.vi")
         ctx = mg.get_vi_context("In.vi")
-        code = build_module(ctx, "In.vi")
+        return build_module(ctx, "In.vi", graph=mg)
 
+    def test_generates_without_error(self):
+        code = self._build_in_vi()
         assert "def in_():" in code
 
     def test_uses_do_channel(self):
-        from vipy.agent.codegen.builder import build_module
-        from vipy.memory_graph import connect
-
-        mg = connect()
-        mg.load_vi("samples/DAQmx-Digital-IO/In.vi")
-        ctx = mg.get_vi_context("In.vi")
-        code = build_module(ctx, "In.vi")
-
+        code = self._build_in_vi()
         assert "do_channels.add_do_chan" in code
         assert "ai_channels" not in code
 
     def test_has_time_sleep(self):
-        from vipy.agent.codegen.builder import build_module
-        from vipy.memory_graph import connect
-
-        mg = connect()
-        mg.load_vi("samples/DAQmx-Digital-IO/In.vi")
-        ctx = mg.get_vi_context("In.vi")
-        code = build_module(ctx, "In.vi")
-
+        code = self._build_in_vi()
         assert "import time" in code
         assert "time.sleep(500 / 1000)" in code
 
     def test_boolean_values(self):
-        from vipy.agent.codegen.builder import build_module
-        from vipy.memory_graph import connect
-
-        mg = connect()
-        mg.load_vi("samples/DAQmx-Digital-IO/In.vi")
-        ctx = mg.get_vi_context("In.vi")
-        code = build_module(ctx, "In.vi")
-
+        code = self._build_in_vi()
         assert ".write(True)" in code
         assert ".write(False)" in code
         assert ".write(None)" not in code
         assert ".write('True')" not in code
 
     def test_no_path_wrapping(self):
-        from vipy.agent.codegen.builder import build_module
-        from vipy.memory_graph import connect
-
-        mg = connect()
-        mg.load_vi("samples/DAQmx-Digital-IO/In.vi")
-        ctx = mg.get_vi_context("In.vi")
-        code = build_module(ctx, "In.vi")
-
+        code = self._build_in_vi()
         assert "Path(" not in code
         assert "'Dev1/port0/line0'" in code

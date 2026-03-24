@@ -9,10 +9,11 @@ from __future__ import annotations
 import ast
 import xml.etree.ElementTree as ET
 
-from vipy.agent.codegen.context import CodeGenContext
 from vipy.agent.codegen.nodes.subvi import SubVICodeGen
-from vipy.graph_types import LVType, Operation, Terminal, Wire
+from vipy.graph_types import LVType, Operation, Terminal
 from vipy.parser.vi import _extract_subvi_info, _resolve_qualified_name
+
+from tests.helpers import make_ctx
 
 
 def _unparse(stmt: ast.stmt) -> str:
@@ -115,15 +116,15 @@ class TestVIPIExtraction:
 # === Part 2: Dynamic dispatch code generation ===
 
 
-def _make_ctx(
-    bindings: dict[str, str] | None = None,
-    wires: list[Wire] | None = None,
-) -> CodeGenContext:
-    """Create a CodeGenContext with pre-set bindings."""
-    ctx = CodeGenContext.from_wires(wires or [])
-    if bindings:
-        for term_id, value in bindings.items():
-            ctx.bind(term_id, value)
+def _make_ctx_with_bindings(
+    bindings: dict[str, str],
+    extra_terminals: list[str] | None = None,
+):
+    """Create a CodeGenContext with bindings and a graph that has the terminals."""
+    all_tids = list(bindings.keys()) + (extra_terminals or [])
+    ctx = make_ctx(*all_tids)
+    for tid, val in bindings.items():
+        ctx.bind(tid, val)
     return ctx
 
 
@@ -160,7 +161,7 @@ class TestDynamicDispatchCodegen:
                          lv_type=LVType(kind="primitive", ref_type="UDClassInst")),
             ],
         )
-        ctx = _make_ctx({"t_in_0": "test_result", "t_in_1": "test_name"})
+        ctx = _make_ctx_with_bindings({"t_in_0": "test_result", "t_in_1": "test_name"}, ["t_out_0"])
         gen = SubVICodeGen()
         frag = gen.generate(node, ctx)
 
@@ -180,7 +181,7 @@ class TestDynamicDispatchCodegen:
                          lv_type=LVType(kind="primitive", ref_type="UDClassInst")),
             ],
         )
-        ctx = _make_ctx({"t_str": "my_string", "t_obj": "my_object"})
+        ctx = _make_ctx_with_bindings({"t_str": "my_string", "t_obj": "my_object"})
         gen = SubVICodeGen()
         frag = gen.generate(node, ctx)
 
@@ -198,7 +199,7 @@ class TestDynamicDispatchCodegen:
                 Terminal(id="t_1", index=1, direction="input"),
             ],
         )
-        ctx = _make_ctx({"t_0": "first_input", "t_1": "second_input"})
+        ctx = _make_ctx_with_bindings({"t_0": "first_input", "t_1": "second_input"})
         gen = SubVICodeGen()
         frag = gen.generate(node, ctx)
 
@@ -221,7 +222,7 @@ class TestDynamicDispatchCodegen:
                          name="count"),
             ],
         )
-        ctx = _make_ctx({"t_in": "test_result"})
+        ctx = _make_ctx_with_bindings({"t_in": "test_result"}, ["t_out", "t_out2"])
         gen = SubVICodeGen()
         frag = gen.generate(node, ctx)
 
@@ -241,7 +242,7 @@ class TestDynamicDispatchCodegen:
                 Terminal(id="t_out", index=1, direction="output"),
             ],
         )
-        ctx = _make_ctx({"t_in": "obj"})
+        ctx = _make_ctx_with_bindings({"t_in": "obj"}, ["t_out"])
         gen = SubVICodeGen()
         # Should NOT raise VILibResolutionNeeded
         frag = gen.generate(node, ctx)
@@ -255,7 +256,7 @@ class TestDynamicDispatchCodegen:
                 Terminal(id="t_out", index=0, direction="output", name="version"),
             ],
         )
-        ctx = _make_ctx({})
+        ctx = _make_ctx_with_bindings({}, ["t_out"])
         gen = SubVICodeGen()
         frag = gen.generate(node, ctx)
 

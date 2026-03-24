@@ -461,13 +461,15 @@ class TestFlatSequenceCodeGen:
         self, codegen: FlatSequenceCodeGen,
     ):
         """Input tunnels bind outer variable to inner context."""
-        data_flow = [
-            Wire.from_terminals(
-                from_terminal_id="src",
-                to_terminal_id="tun_outer",
-            ),
-        ]
-        ctx = CodeGenContext.from_wires(data_flow)
+        from tests.helpers import make_graph_with_edge, make_node
+
+        # Build a graph with src -> tun_outer edge AND tun_inner terminal
+        graph = make_graph_with_edge("src", "tun_outer")
+        inner_node = make_node("inner_n", ["tun_inner"])
+        graph._graph.add_node("inner_n", node=inner_node)
+        graph._term_to_node["tun_inner"] = "inner_n"
+
+        ctx = CodeGenContext(graph=graph)
         ctx.bind("src", "task_ref")
 
         op = Operation(
@@ -499,7 +501,9 @@ class TestFlatSequenceCodeGen:
         self, codegen: FlatSequenceCodeGen,
     ):
         """Output tunnels propagate inner values outward."""
-        ctx = CodeGenContext()
+        from tests.helpers import make_ctx
+
+        ctx = make_ctx("tun_inner", "tun_outer")
         # Pre-bind what an inner operation would produce
         ctx.bind("tun_inner", "result_val")
 

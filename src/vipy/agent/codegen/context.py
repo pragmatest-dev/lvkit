@@ -74,6 +74,19 @@ class CodeGenContext:
 
         return None
 
+    def var_name_in_use(self, name: str) -> bool:
+        """Check if a variable name is already bound to any terminal in the graph."""
+        if self.graph is None:
+            return False
+        for node_id in self.graph._graph.nodes:
+            gnode = self.graph._graph.nodes[node_id].get("node")
+            if gnode is None:
+                continue
+            for t in gnode.terminals:
+                if t.var_name == name:
+                    return True
+        return False
+
     def get_source(self, terminal_id: str) -> dict | None:
         """Get source info for a terminal (first incoming edge)."""
         if self.graph is None:
@@ -169,22 +182,45 @@ class CodeGenContext:
     @classmethod
     def from_wires(cls, wires: list, bindings: dict[str, str] | None = None) -> CodeGenContext:
         """Create context from Wire list by building a graph. For tests."""
+        from vipy.graph_types import PrimitiveNode
         from vipy.memory_graph import InMemoryVIGraph
 
         graph = InMemoryVIGraph()
-        nodes: set[str] = set()
+        # Collect terminal IDs per node
+        node_terminals: dict[str, set[str]] = {}
         for w in wires:
-            src_nid = w.source.node_id
-            dst_nid = w.dest.node_id
-            if src_nid not in nodes:
-                graph._graph.add_node(src_nid, node=None)
-                nodes.add(src_nid)
-            if dst_nid not in nodes:
-                graph._graph.add_node(dst_nid, node=None)
-                nodes.add(dst_nid)
-            graph._graph.add_edge(src_nid, dst_nid, source=w.source, dest=w.dest)
-            graph._term_to_node[w.source.terminal_id] = src_nid
-            graph._term_to_node[w.dest.terminal_id] = dst_nid
+            node_terminals.setdefault(w.source.node_id, set()).add(w.source.terminal_id)
+            node_terminals.setdefault(w.dest.node_id, set()).add(w.dest.terminal_id)
+
+        for nid, tids in node_terminals.items():
+            node = PrimitiveNode(
+                id=nid, vi="test.vi", name=nid,
+                terminals=[
+                    Terminal(id=tid, index=i, direction="output")
+                    for i, tid in enumerate(sorted(tids))
+                ],
+            )
+            graph._graph.add_node(nid, node=node)
+            for tid in tids:
+                graph._term_to_node[tid] = nid
+
+        for w in wires:
+            graph._graph.add_edge(
+                w.source.node_id, w.dest.node_id,
+                source=w.source, dest=w.dest,
+            )
+
+        # Add nodes for binding terminals not already in the graph
+        if bindings:
+            for tid in bindings:
+                if tid not in graph._term_to_node:
+                    nid = f"_bind_{tid}"
+                    node = PrimitiveNode(
+                        id=nid, vi="test.vi", name=nid,
+                        terminals=[Terminal(id=tid, index=0, direction="output")],
+                    )
+                    graph._graph.add_node(nid, node=node)
+                    graph._term_to_node[tid] = nid
 
         ctx = cls(graph=graph)
         if bindings:
@@ -201,7 +237,12 @@ class CodeGenContext:
         """Create context from VI context dict (legacy).
 
         Prefer from_graph() for new code.
+        If no graph provided, builds one from data_flow wires and
+        input/constant terminal IDs so bind/resolve work correctly.
         """
+        if graph is None:
+            graph = cls._build_graph_from_vi_context(vi_context)
+
         ctx = cls(
             graph=graph,
             vi_inputs=vi_context.get("inputs", []),
@@ -216,6 +257,49 @@ class CodeGenContext:
                 ctx.bind(const.id, _format_constant(const))
 
         return ctx
+
+    @classmethod
+    def _build_graph_from_vi_context(
+        cls, vi_context: dict[str, Any],
+    ) -> InMemoryVIGraph | None:
+        """Build a minimal graph for input/constant terminals only.
+
+        Only creates terminal nodes for inputs and constants so that
+        bind/resolve work. Does NOT add wire edges to avoid the codegen
+        discovering auto-created graph structure.
+        """
+        from vipy.graph_types import PrimitiveNode
+        from vipy.memory_graph import InMemoryVIGraph as _G
+
+        inputs = vi_context.get("inputs", [])
+        constants = vi_context.get("constants", [])
+
+        tids: list[str] = []
+        for inp in inputs:
+            if inp.id:
+                tids.append(inp.id)
+        for const in constants:
+            if const.id:
+                tids.append(const.id)
+
+        if not tids:
+            return None
+
+        graph = _G()
+        for i, tid in enumerate(tids):
+            nid = f"_auto_{i}"
+            node = PrimitiveNode(
+                id=nid,
+                vi="test.vi",
+                name=nid,
+                terminals=[
+                    Terminal(id=tid, index=0, direction="output"),
+                ],
+            )
+            graph._graph.add_node(nid, node=node)
+            graph._term_to_node[tid] = nid
+
+        return graph
 
 
 def _format_constant(const: Constant) -> str:

@@ -11,7 +11,50 @@ from vipy.agent.codegen.condition_builder import (
     build_condition_expr,
 )
 from vipy.agent.codegen.context import CodeGenContext
-from vipy.graph_types import Operation, Terminal, Wire
+from vipy.graph_types import Operation, PrimitiveNode, Terminal, WireEnd
+from vipy.memory_graph import InMemoryVIGraph
+
+
+def _make_wired_ctx(
+    wires: list[tuple[str, str]],
+    bindings: dict[str, str] | None = None,
+) -> CodeGenContext:
+    """Build a CodeGenContext with proper nodes and edges from wire pairs.
+
+    Each wire pair is (src_terminal_id, dst_terminal_id).
+    Creates a PrimitiveNode per terminal so bind/resolve work correctly.
+    """
+    graph = InMemoryVIGraph()
+    added_nodes: dict[str, PrimitiveNode] = {}
+
+    for src_tid, dst_tid in wires:
+        for tid in (src_tid, dst_tid):
+            if tid not in added_nodes:
+                nid = f"node_{tid}"
+                node = PrimitiveNode(
+                    id=nid,
+                    vi="test.vi",
+                    name=nid,
+                    terminals=[Terminal(id=tid, index=0, direction="output")],
+                )
+                graph._graph.add_node(nid, node=node)
+                graph._term_to_node[tid] = nid
+                added_nodes[tid] = node
+
+        src_nid = f"node_{src_tid}"
+        dst_nid = f"node_{dst_tid}"
+        graph._graph.add_edge(
+            src_nid,
+            dst_nid,
+            source=WireEnd(terminal_id=src_tid, node_id=src_nid),
+            dest=WireEnd(terminal_id=dst_tid, node_id=dst_nid),
+        )
+
+    ctx = CodeGenContext(graph=graph)
+    if bindings:
+        for tid, vname in bindings.items():
+            ctx.bind(tid, vname)
+    return ctx
 
 
 class TestComparisonPrimitives:
@@ -19,14 +62,10 @@ class TestComparisonPrimitives:
 
     def test_build_equal_comparison(self):
         """Test building x == y comparison."""
-        data_flow = [
-            Wire.from_terminals(from_terminal_id="src_x", to_terminal_id="cmp_in1"),
-            Wire.from_terminals(from_terminal_id="src_y", to_terminal_id="cmp_in2"),
-            Wire.from_terminals(from_terminal_id="cmp_out", to_terminal_id="stop_term"),
-        ]
-        ctx = CodeGenContext.from_wires(data_flow)
-        ctx.bind("src_x", "count")
-        ctx.bind("src_y", "max_count")
+        ctx = _make_wired_ctx(
+            [("src_x", "cmp_in1"), ("src_y", "cmp_in2"), ("cmp_out", "stop_term")],
+            {"src_x": "count", "src_y": "max_count"},
+        )
 
         # Equal? primitive (1102)
         cmp_op = Operation(
@@ -52,14 +91,10 @@ class TestComparisonPrimitives:
 
     def test_build_greater_or_equal_comparison(self):
         """Test building x >= y comparison."""
-        data_flow = [
-            Wire.from_terminals(from_terminal_id="src_x", to_terminal_id="cmp_in1"),
-            Wire.from_terminals(from_terminal_id="src_y", to_terminal_id="cmp_in2"),
-            Wire.from_terminals(from_terminal_id="cmp_out", to_terminal_id="stop_term"),
-        ]
-        ctx = CodeGenContext.from_wires(data_flow)
-        ctx.bind("src_x", "i")
-        ctx.bind("src_y", "n")
+        ctx = _make_wired_ctx(
+            [("src_x", "cmp_in1"), ("src_y", "cmp_in2"), ("cmp_out", "stop_term")],
+            {"src_x": "i", "src_y": "n"},
+        )
 
         # Greater Or Equal? primitive (1103)
         cmp_op = Operation(
@@ -82,14 +117,10 @@ class TestComparisonPrimitives:
 
     def test_build_less_than_comparison(self):
         """Test building x < y comparison."""
-        data_flow = [
-            Wire.from_terminals(from_terminal_id="src_x", to_terminal_id="cmp_in1"),
-            Wire.from_terminals(from_terminal_id="src_y", to_terminal_id="cmp_in2"),
-            Wire.from_terminals(from_terminal_id="cmp_out", to_terminal_id="stop_term"),
-        ]
-        ctx = CodeGenContext.from_wires(data_flow)
-        ctx.bind("src_x", "value")
-        ctx.bind("src_y", "threshold")
+        ctx = _make_wired_ctx(
+            [("src_x", "cmp_in1"), ("src_y", "cmp_in2"), ("cmp_out", "stop_term")],
+            {"src_x": "value", "src_y": "threshold"},
+        )
 
         # Less? primitive (1107)
         cmp_op = Operation(
@@ -116,14 +147,10 @@ class TestBooleanPrimitives:
 
     def test_build_and_expression(self):
         """Test building x and y expression."""
-        data_flow = [
-            Wire.from_terminals(from_terminal_id="src_a", to_terminal_id="and_in1"),
-            Wire.from_terminals(from_terminal_id="src_b", to_terminal_id="and_in2"),
-            Wire.from_terminals(from_terminal_id="and_out", to_terminal_id="stop_term"),
-        ]
-        ctx = CodeGenContext.from_wires(data_flow)
-        ctx.bind("src_a", "flag_a")
-        ctx.bind("src_b", "flag_b")
+        ctx = _make_wired_ctx(
+            [("src_a", "and_in1"), ("src_b", "and_in2"), ("and_out", "stop_term")],
+            {"src_a": "flag_a", "src_b": "flag_b"},
+        )
 
         # And primitive (1100)
         and_op = Operation(
@@ -146,14 +173,10 @@ class TestBooleanPrimitives:
 
     def test_build_or_expression(self):
         """Test building x or y expression."""
-        data_flow = [
-            Wire.from_terminals(from_terminal_id="src_a", to_terminal_id="or_in1"),
-            Wire.from_terminals(from_terminal_id="src_b", to_terminal_id="or_in2"),
-            Wire.from_terminals(from_terminal_id="or_out", to_terminal_id="stop_term"),
-        ]
-        ctx = CodeGenContext.from_wires(data_flow)
-        ctx.bind("src_a", "done")
-        ctx.bind("src_b", "timeout")
+        ctx = _make_wired_ctx(
+            [("src_a", "or_in1"), ("src_b", "or_in2"), ("or_out", "stop_term")],
+            {"src_a": "done", "src_b": "timeout"},
+        )
 
         # Or primitive (1101)
         or_op = Operation(
@@ -180,12 +203,10 @@ class TestNotPrimitive:
 
     def test_build_not_expression(self):
         """Test building not x expression."""
-        data_flow = [
-            Wire.from_terminals(from_terminal_id="src_x", to_terminal_id="not_in"),
-            Wire.from_terminals(from_terminal_id="not_out", to_terminal_id="stop_term"),
-        ]
-        ctx = CodeGenContext.from_wires(data_flow)
-        ctx.bind("src_x", "running")
+        ctx = _make_wired_ctx(
+            [("src_x", "not_in"), ("not_out", "stop_term")],
+            {"src_x": "running"},
+        )
 
         # Not primitive (1109)
         not_op = Operation(
@@ -211,24 +232,18 @@ class TestNestedExpressions:
 
     def test_build_nested_or_with_comparisons(self):
         """Test building (a >= b) or (c == d) expression."""
-        data_flow = [
-            # First comparison inputs
-            Wire.from_terminals(from_terminal_id="src_a", to_terminal_id="cmp1_in1"),
-            Wire.from_terminals(from_terminal_id="src_b", to_terminal_id="cmp1_in2"),
-            # Second comparison inputs
-            Wire.from_terminals(from_terminal_id="src_c", to_terminal_id="cmp2_in1"),
-            Wire.from_terminals(from_terminal_id="src_d", to_terminal_id="cmp2_in2"),
-            # Comparison outputs to OR
-            Wire.from_terminals(from_terminal_id="cmp1_out", to_terminal_id="or_in1"),
-            Wire.from_terminals(from_terminal_id="cmp2_out", to_terminal_id="or_in2"),
-            # OR output to stop
-            Wire.from_terminals(from_terminal_id="or_out", to_terminal_id="stop_term"),
-        ]
-        ctx = CodeGenContext.from_wires(data_flow)
-        ctx.bind("src_a", "count")
-        ctx.bind("src_b", "max_count")
-        ctx.bind("src_c", "status")
-        ctx.bind("src_d", "done_status")
+        ctx = _make_wired_ctx(
+            [
+                ("src_a", "cmp1_in1"),
+                ("src_b", "cmp1_in2"),
+                ("src_c", "cmp2_in1"),
+                ("src_d", "cmp2_in2"),
+                ("cmp1_out", "or_in1"),
+                ("cmp2_out", "or_in2"),
+                ("or_out", "stop_term"),
+            ],
+            {"src_a": "count", "src_b": "max_count", "src_c": "status", "src_d": "done_status"},
+        )
 
         # Greater Or Equal? (1103)
         cmp1 = Operation(
@@ -279,15 +294,15 @@ class TestNestedExpressions:
 
     def test_build_not_of_comparison(self):
         """Test building not (x < y) expression."""
-        data_flow = [
-            Wire.from_terminals(from_terminal_id="src_x", to_terminal_id="cmp_in1"),
-            Wire.from_terminals(from_terminal_id="src_y", to_terminal_id="cmp_in2"),
-            Wire.from_terminals(from_terminal_id="cmp_out", to_terminal_id="not_in"),
-            Wire.from_terminals(from_terminal_id="not_out", to_terminal_id="stop_term"),
-        ]
-        ctx = CodeGenContext.from_wires(data_flow)
-        ctx.bind("src_x", "value")
-        ctx.bind("src_y", "limit")
+        ctx = _make_wired_ctx(
+            [
+                ("src_x", "cmp_in1"),
+                ("src_y", "cmp_in2"),
+                ("cmp_out", "not_in"),
+                ("not_out", "stop_term"),
+            ],
+            {"src_x": "value", "src_y": "limit"},
+        )
 
         # Less? (1107)
         cmp_op = Operation(
@@ -328,14 +343,10 @@ class TestCpdArithConditions:
 
     def test_build_cpd_arith_or(self):
         """Test building condition from cpdArith OR node."""
-        data_flow = [
-            Wire.from_terminals(from_terminal_id="src_a", to_terminal_id="cpd_in1"),
-            Wire.from_terminals(from_terminal_id="src_b", to_terminal_id="cpd_in2"),
-            Wire.from_terminals(from_terminal_id="cpd_out", to_terminal_id="stop_term"),
-        ]
-        ctx = CodeGenContext.from_wires(data_flow)
-        ctx.bind("src_a", "flag_1")
-        ctx.bind("src_b", "flag_2")
+        ctx = _make_wired_ctx(
+            [("src_a", "cpd_in1"), ("src_b", "cpd_in2"), ("cpd_out", "stop_term")],
+            {"src_a": "flag_1", "src_b": "flag_2"},
+        )
 
         # cpdArith with OR operation (no primResID)
         cpd_op = Operation(
@@ -359,14 +370,10 @@ class TestCpdArithConditions:
 
     def test_build_cpd_arith_and(self):
         """Test building condition from cpdArith AND node."""
-        data_flow = [
-            Wire.from_terminals(from_terminal_id="src_a", to_terminal_id="cpd_in1"),
-            Wire.from_terminals(from_terminal_id="src_b", to_terminal_id="cpd_in2"),
-            Wire.from_terminals(from_terminal_id="cpd_out", to_terminal_id="stop_term"),
-        ]
-        ctx = CodeGenContext.from_wires(data_flow)
-        ctx.bind("src_a", "condition_1")
-        ctx.bind("src_b", "condition_2")
+        ctx = _make_wired_ctx(
+            [("src_a", "cpd_in1"), ("src_b", "cpd_in2"), ("cpd_out", "stop_term")],
+            {"src_a": "condition_1", "src_b": "condition_2"},
+        )
 
         cpd_op = Operation(
             id="cpd1",
@@ -399,11 +406,10 @@ class TestEdgeCases:
 
     def test_returns_none_for_no_source_operation(self):
         """Test returns None when stop terminal has no source operation."""
-        data_flow = [
-            Wire.from_terminals(from_terminal_id="src1", to_terminal_id="stop_term"),
-        ]
-        ctx = CodeGenContext.from_wires(data_flow)
-        ctx.bind("src1", "some_value")
+        ctx = _make_wired_ctx(
+            [("src1", "stop_term")],
+            {"src1": "some_value"},
+        )
 
         # No operations provided that output to src1
         expr = build_condition_expr("stop_term", ctx, [])
@@ -411,10 +417,9 @@ class TestEdgeCases:
 
     def test_returns_none_for_unknown_primitive(self):
         """Test returns None for unknown primitive ID."""
-        data_flow = [
-            Wire.from_terminals(from_terminal_id="prim_out", to_terminal_id="stop_term"),
-        ]
-        ctx = CodeGenContext.from_wires(data_flow)
+        ctx = _make_wired_ctx(
+            [("prim_out", "stop_term")],
+        )
 
         # Unknown primitive ID
         unknown_op = Operation(
@@ -432,14 +437,11 @@ class TestEdgeCases:
 
     def test_returns_none_for_insufficient_inputs(self):
         """Test returns None when comparison has insufficient inputs."""
-        data_flow = [
-            # Only one input wired
-            Wire.from_terminals(from_terminal_id="src_x", to_terminal_id="cmp_in1"),
-            Wire.from_terminals(from_terminal_id="cmp_out", to_terminal_id="stop_term"),
-        ]
-        ctx = CodeGenContext.from_wires(data_flow)
-        ctx.bind("src_x", "value")
-        # cmp_in2 is not connected
+        # Only one input wired; cmp_in2 is not connected
+        ctx = _make_wired_ctx(
+            [("src_x", "cmp_in1"), ("cmp_out", "stop_term")],
+            {"src_x": "value"},
+        )
 
         # Equal? primitive needs 2 inputs
         cmp_op = Operation(

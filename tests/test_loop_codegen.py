@@ -10,6 +10,8 @@ from vipy.agent.codegen.context import CodeGenContext
 from vipy.agent.codegen.nodes.loop import LoopCodeGen, _negate_condition
 from vipy.graph_types import Operation, Tunnel, Wire
 
+from tests.conftest import make_ctx
+
 
 class TestMakeVarName:
     """Tests for LoopCodeGen._make_var_name()."""
@@ -151,7 +153,7 @@ class TestSingularize:
 
     def test_singularize_conflict_resolution(self, loop_codegen: LoopCodeGen):
         """Test that conflicts with existing bindings are resolved."""
-        ctx = CodeGenContext()
+        ctx = make_ctx("t1")
         ctx.bind("t1", "method")  # 'method' is already used
 
         # Should add suffix to avoid conflict
@@ -160,7 +162,7 @@ class TestSingularize:
 
     def test_singularize_multiple_conflicts(self, loop_codegen: LoopCodeGen):
         """Test resolving multiple conflicts."""
-        ctx = CodeGenContext()
+        ctx = make_ctx("t1", "t2")
         ctx.bind("t1", "item")
         ctx.bind("t2", "item_2")
 

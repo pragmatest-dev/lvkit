@@ -170,8 +170,23 @@ def test_code_fragment_creation():
 def test_context_resolution():
     """Test CodeGenContext variable resolution."""
     from vipy.agent.codegen import CodeGenContext
+    from vipy.graph_types import PrimitiveNode, Terminal
+    from vipy.memory_graph import InMemoryVIGraph
 
-    ctx = CodeGenContext()
+    # Build a graph with terminals for bind/resolve to work
+    graph = InMemoryVIGraph()
+    node = PrimitiveNode(
+        id="n1", vi="test.vi", name="n1",
+        terminals=[
+            Terminal(id="term:1", index=0, direction="output"),
+            Terminal(id="term:2", index=1, direction="output"),
+        ],
+    )
+    graph._graph.add_node("n1", node=node)
+    graph._term_to_node["term:1"] = "n1"
+    graph._term_to_node["term:2"] = "n1"
+
+    ctx = CodeGenContext(graph=graph)
     ctx.bind("term:1", "my_var")
 
     # Direct binding
@@ -180,18 +195,22 @@ def test_context_resolution():
     # Unknown terminal
     assert ctx.resolve("term:unknown") is None
 
-    # Child context
+    # Child context — shares the same graph
     child = ctx.child()
     child.bind("term:2", "child_var")
 
-    # Child can resolve parent bindings
+    # Child can resolve parent bindings (same graph)
     assert child.resolve("term:1") == "my_var"
     assert child.resolve("term:2") == "child_var"
 
 
 def test_context_from_vi_context():
     """Test CodeGenContext.from_vi_context initialization."""
+    from tests.helpers import make_graph_with_terminals
+
     from vipy.agent.codegen import CodeGenContext
+
+    graph = make_graph_with_terminals("inp:1", "inp:2", "const:1", "term:1")
 
     vi_context = {
         "inputs": [
@@ -206,7 +225,7 @@ def test_context_from_vi_context():
         ],
     }
 
-    ctx = CodeGenContext.from_vi_context(vi_context)
+    ctx = CodeGenContext.from_vi_context(vi_context, graph=graph)
 
     # Inputs should be bound
     assert ctx.resolve("inp:1") == "path_in"
@@ -457,9 +476,9 @@ def test_context_add_import():
 
 def test_context_merge_bindings():
     """Test merging bindings into context."""
-    from vipy.agent.codegen import CodeGenContext
+    from tests.helpers import make_ctx
 
-    ctx = CodeGenContext()
+    ctx = make_ctx("t1", "t2", "t3")
     ctx.bind("t1", "x")
 
     ctx.merge({"t2": "y", "t3": "z"})
@@ -471,19 +490,11 @@ def test_context_merge_bindings():
 
 def test_context_flow_map_tracing():
     """Test that context traces through data flow via graph."""
-    import networkx as nx
-    from vipy.agent.codegen import CodeGenContext
-    from vipy.graph_types import WireEnd
-    from vipy.memory_graph import InMemoryVIGraph
+    from tests.helpers import make_graph_with_edge
 
-    graph = InMemoryVIGraph()
-    graph._graph.add_node("p1", node=None)
-    graph._graph.add_node("p2", node=None)
-    src = WireEnd(terminal_id="source", node_id="p1")
-    dst = WireEnd(terminal_id="dest", node_id="p2")
-    graph._graph.add_edge("p1", "p2", source=src, dest=dst)
-    graph._term_to_node["source"] = "p1"
-    graph._term_to_node["dest"] = "p2"
+    from vipy.agent.codegen import CodeGenContext
+
+    graph = make_graph_with_edge("source", "dest")
 
     ctx = CodeGenContext(graph=graph)
     ctx.bind("source", "my_var")

@@ -371,7 +371,14 @@ class LoopCodeGen(NodeCodeGen):
         else:
             singular = base + "_item"
 
-        return singular
+        # Check for conflicts with existing bindings
+        candidate = singular
+        suffix = 2
+        while ctx.var_name_in_use(candidate):
+            candidate = f"{singular}_{suffix}"
+            suffix += 1
+
+        return candidate
 
     def _get_source_terminal_name(
         self, terminal_uid: str, ctx: CodeGenContext
