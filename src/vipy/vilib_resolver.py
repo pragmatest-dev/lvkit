@@ -139,6 +139,8 @@ class VIEntry(BaseModel):
     match_names: list[str] = Field(default_factory=list)
     # polySelector dropdown names from VI XML (exact strings)
     poly_selector_names: list[str] = Field(default_factory=list)
+    # Wrapper VI name for polymorphic variants (explicit, not derived)
+    base_vi: str | None = None
 
 
 class VILibResolver:
@@ -245,10 +247,9 @@ class VILibResolver:
 
                 # Register polySelector name lookups
                 # Key: (base_vi_name, poly_selector_name) → entry
-                if entry.poly_selector_names:
-                    base = vi_name.split(" (")[0] + ".vi"
+                if entry.poly_selector_names and entry.base_vi:
                     for ps_name in entry.poly_selector_names:
-                        self._by_poly_selector[(base, ps_name)] = entry
+                        self._by_poly_selector[(entry.base_vi, ps_name)] = entry
 
     def _load_types(self, types_path: Path) -> None:
         """Load type definitions from _types.json into LVType dataclasses."""
@@ -401,18 +402,13 @@ class VILibResolver:
         return None
 
     def find_variants(self, base_name: str) -> list[VIEntry]:
-        """Find all variant entries that start with a base VI name.
+        """Find all variant entries for a base/wrapper VI.
 
-        Args:
-            base_name: Base VI name like "DAQmx Create Virtual Channel"
-
-        Returns:
-            List of matching VIEntry objects
+        Uses the explicit base_vi field on each entry.
         """
-        base = base_name.replace(".vi", "")
         return [
-            entry for name, entry in self._by_name.items()
-            if name.startswith(base + " (") and name.endswith(").vi")
+            entry for entry in self._by_name.values()
+            if entry.base_vi == base_name
         ]
 
     def has_implementation(self, vi_name: str) -> bool:

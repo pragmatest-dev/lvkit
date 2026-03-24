@@ -436,19 +436,51 @@
       ],
       "status": "mapped",
       "terminals": [
-        { "name": "task in", "direction": "input", "python_param": "task_in", "index": 0 },
-        { "name": "task out", "direction": "output", "python_param": "task_out", "index": 4 },
-        { "name": "data", "direction": "output", "python_param": "data", "index": 6 },
-        { "name": "timeout", "direction": "input", "python_param": "timeout", "index": 9, "type": "NumFloat64" },
-        { "name": "error in", "direction": "input", "index": 11, "type": "Cluster" },
-        { "name": "error out", "direction": "output", "index": 15, "type": "Cluster" }
+        {
+          "name": "task in",
+          "direction": "input",
+          "python_param": "task_in",
+          "index": 0
+        },
+        {
+          "name": "task out",
+          "direction": "output",
+          "python_param": "task_out",
+          "index": 4
+        },
+        {
+          "name": "data",
+          "direction": "output",
+          "python_param": "data",
+          "index": 6
+        },
+        {
+          "name": "timeout",
+          "direction": "input",
+          "python_param": "timeout",
+          "index": 9,
+          "type": "NumFloat64"
+        },
+        {
+          "name": "error in",
+          "direction": "input",
+          "index": 11,
+          "type": "Cluster"
+        },
+        {
+          "name": "error out",
+          "direction": "output",
+          "index": 15,
+          "type": "Cluster"
+        }
       ],
       "ref_terminals": {
         "task_out": "passthrough_from:task_in"
       },
       "poly_selector_names": [
         "Digital 1D Bool\nNChan 1Samp"
-      ]
+      ],
+      "base_vi": "DAQmx Read.vi"
     },
     {
       "name": "DAQmx Read (Digital 1D U32 1Chan NSamp).vi",
@@ -687,21 +719,66 @@
       ],
       "status": "mapped",
       "terminals": [
-        { "name": "task in", "direction": "input", "python_param": "task_in", "index": 0 },
-        { "name": "auto start", "direction": "input", "python_param": "auto_start", "index": 1, "type": "Boolean" },
-        { "name": "task out", "direction": "output", "python_param": "task_out", "index": 4 },
-        { "name": "data", "direction": "input", "python_param": "data", "index": 7, "type": "Boolean" },
-        { "name": "timeout", "direction": "input", "python_param": "timeout", "index": 9, "type": "NumFloat64" },
-        { "name": "number of samples written", "direction": "output", "python_param": "samples_written", "index": 10, "type": "NumUInt32" },
-        { "name": "error in", "direction": "input", "index": 11, "type": "Cluster" },
-        { "name": "error out", "direction": "output", "index": 15, "type": "Cluster" }
+        {
+          "name": "task in",
+          "direction": "input",
+          "python_param": "task_in",
+          "index": 0
+        },
+        {
+          "name": "auto start",
+          "direction": "input",
+          "python_param": "auto_start",
+          "index": 1,
+          "type": "Boolean"
+        },
+        {
+          "name": "task out",
+          "direction": "output",
+          "python_param": "task_out",
+          "index": 4
+        },
+        {
+          "name": "data",
+          "direction": "input",
+          "python_param": "data",
+          "index": 7,
+          "type": "Boolean"
+        },
+        {
+          "name": "timeout",
+          "direction": "input",
+          "python_param": "timeout",
+          "index": 9,
+          "type": "NumFloat64"
+        },
+        {
+          "name": "number of samples written",
+          "direction": "output",
+          "python_param": "samples_written",
+          "index": 10,
+          "type": "NumUInt32"
+        },
+        {
+          "name": "error in",
+          "direction": "input",
+          "index": 11,
+          "type": "Cluster"
+        },
+        {
+          "name": "error out",
+          "direction": "output",
+          "index": 15,
+          "type": "Cluster"
+        }
       ],
       "ref_terminals": {
         "task_out": "passthrough_from:task_in"
       },
       "poly_selector_names": [
         "Digital Bool\n1Line 1Point"
-      ]
+      ],
+      "base_vi": "DAQmx Write.vi"
     },
     {
       "name": "DAQmx Write (Digital 1D U32 1Chan NSamp).vi",
@@ -786,7 +863,8 @@
       ],
       "poly_selector_names": [
         "AI Voltage"
-      ]
+      ],
+      "base_vi": "DAQmx Create Virtual Channel.vi"
     },
     {
       "name": "DAQmx Create Virtual Channel (AI Current).vi",
@@ -836,7 +914,8 @@
       "poly_selector_names": [
         "AI Current",
         "AI Current RMS"
-      ]
+      ],
+      "base_vi": "DAQmx Create Virtual Channel.vi"
     },
     {
       "name": "DAQmx Create Virtual Channel (AI Thermocouple).vi",
@@ -885,7 +964,8 @@
       ],
       "poly_selector_names": [
         "AI Temp TC"
-      ]
+      ],
+      "base_vi": "DAQmx Create Virtual Channel.vi"
     },
     {
       "name": "DAQmx Create Virtual Channel (AI RTD).vi",
@@ -934,7 +1014,8 @@
       ],
       "poly_selector_names": [
         "AI Temp RTD"
-      ]
+      ],
+      "base_vi": "DAQmx Create Virtual Channel.vi"
     },
     {
       "name": "DAQmx Create Virtual Channel (AI Strain Gage).vi",
@@ -983,7 +1064,8 @@
       ],
       "poly_selector_names": [
         "AI Strain Gage"
-      ]
+      ],
+      "base_vi": "DAQmx Create Virtual Channel.vi"
     },
     {
       "name": "DAQmx Create Virtual Channel (AI Accelerometer).vi",
@@ -1032,7 +1114,8 @@
       ],
       "poly_selector_names": [
         "AI Accelerometer"
-      ]
+      ],
+      "base_vi": "DAQmx Create Virtual Channel.vi"
     },
     {
       "name": "DAQmx Create Virtual Channel (AI Bridge).vi",
@@ -1081,7 +1164,8 @@
       ],
       "poly_selector_names": [
         "AI Bridge"
-      ]
+      ],
+      "base_vi": "DAQmx Create Virtual Channel.vi"
     },
     {
       "name": "DAQmx Create Virtual Channel (AI Force Bridge Table).vi",
@@ -1176,7 +1260,8 @@
       ],
       "poly_selector_names": [
         "AI Force IEPE"
-      ]
+      ],
+      "base_vi": "DAQmx Create Virtual Channel.vi"
     },
     {
       "name": "DAQmx Create Virtual Channel (AI Microphone).vi",
@@ -1225,7 +1310,8 @@
       ],
       "poly_selector_names": [
         "AI Microphone"
-      ]
+      ],
+      "base_vi": "DAQmx Create Virtual Channel.vi"
     },
     {
       "name": "DAQmx Create Virtual Channel (AI Pressure Bridge Table).vi",
@@ -1320,7 +1406,8 @@
       ],
       "poly_selector_names": [
         "AI Resistance"
-      ]
+      ],
+      "base_vi": "DAQmx Create Virtual Channel.vi"
     },
     {
       "name": "DAQmx Create Virtual Channel (AI Torque Bridge Table).vi",
@@ -1415,7 +1502,8 @@
       ],
       "poly_selector_names": [
         "AI Velocity IEPE"
-      ]
+      ],
+      "base_vi": "DAQmx Create Virtual Channel.vi"
     },
     {
       "name": "DAQmx Create Virtual Channel (AI Temperature Built-In Sensor).vi",
@@ -1454,7 +1542,8 @@
       ],
       "poly_selector_names": [
         "AI Temp Built-In Sensor"
-      ]
+      ],
+      "base_vi": "DAQmx Create Virtual Channel.vi"
     },
     {
       "name": "DAQmx Create Virtual Channel (AO Voltage).vi",
@@ -1503,7 +1592,8 @@
       ],
       "poly_selector_names": [
         "AO Voltage"
-      ]
+      ],
+      "base_vi": "DAQmx Create Virtual Channel.vi"
     },
     {
       "name": "DAQmx Create Virtual Channel (AO Current).vi",
@@ -1552,7 +1642,8 @@
       ],
       "poly_selector_names": [
         "AO Current"
-      ]
+      ],
+      "base_vi": "DAQmx Create Virtual Channel.vi"
     },
     {
       "name": "DAQmx Create Virtual Channel (AO FuncGen).vi",
@@ -1591,7 +1682,8 @@
       ],
       "poly_selector_names": [
         "AO FuncGen"
-      ]
+      ],
+      "base_vi": "DAQmx Create Virtual Channel.vi"
     },
     {
       "name": "DAQmx Create Virtual Channel (DI Line).vi",
@@ -1651,7 +1743,8 @@
       ],
       "poly_selector_names": [
         "Digital Input"
-      ]
+      ],
+      "base_vi": "DAQmx Create Virtual Channel.vi"
     },
     {
       "name": "DAQmx Create Virtual Channel (DI Channel).vi",
@@ -1747,7 +1840,8 @@
       ],
       "poly_selector_names": [
         "Digital Output"
-      ]
+      ],
+      "base_vi": "DAQmx Create Virtual Channel.vi"
     },
     {
       "name": "DAQmx Create Virtual Channel (DO Channel).vi",
@@ -1822,7 +1916,8 @@
       ],
       "poly_selector_names": [
         "CI Cnt Edges"
-      ]
+      ],
+      "base_vi": "DAQmx Create Virtual Channel.vi"
     },
     {
       "name": "DAQmx Create Virtual Channel (CI Freq).vi",
@@ -1871,7 +1966,8 @@
       ],
       "poly_selector_names": [
         "CI Freq"
-      ]
+      ],
+      "base_vi": "DAQmx Create Virtual Channel.vi"
     },
     {
       "name": "DAQmx Create Virtual Channel (CI Period).vi",
@@ -1920,7 +2016,8 @@
       ],
       "poly_selector_names": [
         "CI Period"
-      ]
+      ],
+      "base_vi": "DAQmx Create Virtual Channel.vi"
     },
     {
       "name": "DAQmx Create Virtual Channel (CI Pulse Width).vi",
@@ -1969,7 +2066,8 @@
       ],
       "poly_selector_names": [
         "CI Pulse Width"
-      ]
+      ],
+      "base_vi": "DAQmx Create Virtual Channel.vi"
     },
     {
       "name": "DAQmx Create Virtual Channel (CI Two Edge Sep).vi",
@@ -2018,7 +2116,8 @@
       ],
       "poly_selector_names": [
         "CI Two Edge Separation"
-      ]
+      ],
+      "base_vi": "DAQmx Create Virtual Channel.vi"
     },
     {
       "name": "DAQmx Create Virtual Channel (CO Pulse Freq).vi",
@@ -2067,7 +2166,8 @@
       ],
       "poly_selector_names": [
         "CO Pulse Freq"
-      ]
+      ],
+      "base_vi": "DAQmx Create Virtual Channel.vi"
     },
     {
       "name": "DAQmx Create Virtual Channel (CO Pulse Time).vi",
@@ -2116,7 +2216,8 @@
       ],
       "poly_selector_names": [
         "CO Pulse Time"
-      ]
+      ],
+      "base_vi": "DAQmx Create Virtual Channel.vi"
     },
     {
       "name": "DAQmx Create Virtual Channel (CO Pulse Ticks).vi",
@@ -2165,7 +2266,8 @@
       ],
       "poly_selector_names": [
         "CO Pulse Ticks"
-      ]
+      ],
+      "base_vi": "DAQmx Create Virtual Channel.vi"
     },
     {
       "name": "DAQmx Timing (Sample Clock).vi",
