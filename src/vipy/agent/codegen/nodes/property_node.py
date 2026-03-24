@@ -46,7 +46,7 @@ class PropertyNodeCodeGen(NodeCodeGen):
         output_by_index = {t.index: t for t in output_terms}
 
         for prop in properties:
-            prop_name = prop.get("name", "")
+            prop_name = prop.name
             attr_name = to_var_name(prop_name) if prop_name else "unknown_prop"
 
             # Check if this property has a wired output (read) or wired input (write)
@@ -104,7 +104,7 @@ class PropertyNodeCodeGen(NodeCodeGen):
         if not statements:
             comment = (
                 f"# Property Node: {node.object_name or 'unknown'}"
-                f" - {', '.join(p.get('name', '?') for p in properties)}"
+                f" - {', '.join(p.name for p in properties)}"
             )
             statements.append(ast.Expr(value=ast.Constant(value=comment)))
 

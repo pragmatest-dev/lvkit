@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from ..extractor import extract_vi_xml
+from ..graph_types import PolyInfo, VIMetadata
 from ..parser import (
     parse_connector_pane_types,
     parse_vi,
@@ -243,15 +244,14 @@ class LoadingMixin:
         if main_xml and main_xml.exists():
             poly_metadata = parse_vi_metadata(main_xml)
             if poly_metadata.get("is_polymorphic"):
-                self._poly_info[vi_name] = {
-                    "is_polymorphic": True,
-                    "variants": poly_metadata.get("poly_variants", []),
-                    "selectors": poly_metadata.get("poly_selectors", []),
-                }
-            self._vi_metadata[vi_name] = {
-                "library": poly_metadata.get("library"),
-                "qualified_name": poly_metadata.get("qualified_name"),
-            }
+                self._poly_info[vi_name] = PolyInfo(
+                    variants=poly_metadata.get("poly_variants", []),
+                    selectors=poly_metadata.get("poly_selectors", []),
+                )
+            self._vi_metadata[vi_name] = VIMetadata(
+                library=poly_metadata.get("library"),
+                qualified_name=poly_metadata.get("qualified_name"),
+            )
 
         # Add to dependency graph
         self._dep_graph.add_node(vi_name)

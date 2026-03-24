@@ -403,7 +403,7 @@ class Operation:
     operation: str | None = None
     object_name: str | None = None
     object_method_id: str | None = None
-    properties: list[dict[str, Any]] = field(default_factory=list)
+    properties: list[PropertyDef] = field(default_factory=list)
     method_name: str | None = None
     method_code: int | None = None
     case_frames: list[CaseFrame] = field(default_factory=list)
@@ -422,6 +422,21 @@ class Constant:
     name: str | None = None
 
 
+@dataclass
+class PolyInfo:
+    """Polymorphic VI metadata."""
+
+    is_polymorphic: bool = True
+    variants: list[str] = field(default_factory=list)
+    selectors: list[str] = field(default_factory=list)
+
+
+@dataclass
+class VIMetadata:
+    """VI metadata from main XML."""
+
+    library: str | None = None
+    qualified_name: str | None = None
 
 
 # ============================================================

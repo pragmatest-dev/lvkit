@@ -53,8 +53,8 @@ def to_library_name(
     """
     # 1. Check graph metadata for library membership
     if graph is not None:
-        meta = graph._vi_metadata.get(vi_name, {})
-        library = meta.get("library")
+        meta = graph._vi_metadata.get(vi_name)
+        library = meta.library if meta else None
         if library:
             return _sanitize_lib_name(library) or None
 
