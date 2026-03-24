@@ -277,10 +277,12 @@ def parse_vctp_types(xml_path: Path | str) -> dict[int, LVType]:
                         ref_td = flat_types.get(int(nested_type_id))
                         default_name = f"field_{len(fields)}"
                         # Use 'is not None' - Element bool is based on children count
-                        field_name = (
+                        from .utils import clean_labview_string
+                        raw_label = (
                             ref_td.get("Label", default_name)
                             if ref_td is not None else default_name
                         )
+                        field_name = clean_labview_string(raw_label) or default_name
                         fields.append(ClusterField(name=field_name, type=field_type))
 
             lv_type = LVType(
