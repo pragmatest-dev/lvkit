@@ -91,14 +91,14 @@ class TestGraphResolution:
         ctx = CodeGenContext(graph=graph)
         source = ctx.get_source("dest")
         assert source is not None
-        assert source["src_terminal"] == "src"
+        assert source.src_terminal == "src"
 
     def test_get_destinations(self):
         graph = make_graph_with_edge("src", "dest")
         ctx = CodeGenContext(graph=graph)
         dests = ctx.get_destinations("src")
         assert len(dests) == 1
-        assert dests[0]["dest_terminal"] == "dest"
+        assert dests[0].dest_terminal == "dest"
 
 
 class TestContextOperations:

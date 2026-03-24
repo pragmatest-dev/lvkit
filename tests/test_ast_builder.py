@@ -1133,7 +1133,7 @@ class TestWireSlotIndex:
         ctx = CodeGenContext(graph=graph)
         source_info = ctx.get_source("dest")
         assert source_info is not None
-        assert source_info["src_slot_index"] == 1
+        assert source_info.src_slot_index == 1
 
 
 # === to_var_name Tests ===

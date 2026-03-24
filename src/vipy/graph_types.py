@@ -459,6 +459,89 @@ class VIMetadata:
 
 
 # ============================================================
+# Source/Destination info types (returned by context queries)
+# ============================================================
+
+
+@dataclass
+class SourceInfo:
+    """Source terminal info from an incoming edge."""
+
+    src_terminal: str
+    src_parent_id: str
+    src_parent_name: str | None = None
+    src_parent_labels: list[str] = field(default_factory=list)
+    src_slot_index: int | None = None
+
+
+@dataclass
+class DestinationInfo:
+    """Destination terminal info from an outgoing edge."""
+
+    dest_terminal: str
+    dest_parent_id: str
+    dest_parent_name: str | None = None
+    dest_parent_labels: list[str] = field(default_factory=list)
+    dest_slot_index: int | None = None
+
+
+# ============================================================
+# Query result types (returned by graph queries)
+# ============================================================
+
+
+@dataclass
+class ConstantInfo:
+    """A constant value discovered across VIs."""
+
+    vi_name: str
+    value: str
+    label: str | None
+    type: str
+    python: Any
+
+
+@dataclass
+class PrimitiveInfo:
+    """A primitive node discovered across VIs."""
+
+    vi_name: str
+    prim_id: int | None
+    input_types: list[str]
+    output_types: list[str]
+
+
+@dataclass
+class ClusterInfo:
+    """A cluster type discovered across VIs."""
+
+    name: str
+    id: str
+    vis: list[str]
+
+
+@dataclass
+class StubTerminalInfo:
+    """Terminal info for a stub VI."""
+
+    name: str
+    type: str
+
+
+@dataclass
+class StubVIInfo:
+    """Info about a stub VI (missing dependency)."""
+
+    name: str
+    vilib_path: str | None = None
+    python_hint: str | None = None
+    inputs: list[StubTerminalInfo] = field(default_factory=list)
+    outputs: list[StubTerminalInfo] = field(default_factory=list)
+    input_types: list[str] = field(default_factory=list)
+    output_types: list[str] = field(default_factory=list)
+
+
+# ============================================================
 # Error handling types
 # ============================================================
 
