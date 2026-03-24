@@ -16,6 +16,8 @@ from ..graph_types import (
     FPTerminal,
     FrameInfo,
     Operation,
+    PolyInfo,
+    PropertyDef,
     StructureNode,
     Terminal,
     Tunnel,
@@ -42,7 +44,7 @@ class OperationsMixin:
     # These attributes are defined on InMemoryVIGraph in core.py
     _graph: nx.MultiDiGraph
     _vi_nodes: dict[str, set[str]]
-    _poly_info: dict[str, dict[str, Any]]
+    _poly_info: dict[str, PolyInfo]
 
     def _build_operation(
         self, uid: str, vi_name: str,
@@ -113,7 +115,7 @@ class OperationsMixin:
         operation: str | None = None
         object_name: str | None = None
         object_method_id: str | None = None
-        properties: list[dict[str, Any]] = []
+        properties: list[PropertyDef] = []
         method_name: str | None = None
         method_code: int | None = None
         poly_variant_name: str | None = None
@@ -123,7 +125,7 @@ class OperationsMixin:
             operation = gnode.operation
             object_name = gnode.object_name
             object_method_id = gnode.object_method_id
-            properties = [{"name": p.name} for p in gnode.properties]
+            properties = list(gnode.properties)
             method_name = gnode.method_name
             method_code = gnode.method_code
 

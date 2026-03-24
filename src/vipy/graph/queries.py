@@ -22,8 +22,10 @@ from ..graph_types import (
     ConstantNode,
     FPTerminal,
     Operation,
+    PolyInfo,
     StructureNode,
     Terminal,
+    VIMetadata,
     VINode,
     Wire,
     WireEnd,
@@ -47,11 +49,11 @@ class QueryMixin:
     _term_to_node: dict[str, str]
     _dep_graph: nx.DiGraph
     _stubs: set[str]
-    _poly_info: dict[str, dict[str, Any]]
+    _poly_info: dict[str, PolyInfo]
     _qualified_aliases: dict[str, str]
     _loaded_vis: set[str]
     _source_paths: dict[str, Path]
-    _vi_metadata: dict[str, dict[str, Any]]
+    _vi_metadata: dict[str, VIMetadata]
 
     # === Cypher query compat ===
 
@@ -742,12 +744,12 @@ class QueryMixin:
         operations = list(self.get_operations(vi_name))
         data_flow = list(self.get_wires(vi_name))
 
-        vi_meta = self._vi_metadata.get(vi_name, {})
+        vi_meta = self._vi_metadata.get(vi_name, VIMetadata())
 
         return {
             "name": vi_name,
-            "library": vi_meta.get("library"),
-            "qualified_name": vi_meta.get("qualified_name"),
+            "library": vi_meta.library,
+            "qualified_name": vi_meta.qualified_name,
             "inputs": inputs,
             "outputs": outputs,
             "constants": constants,
@@ -772,21 +774,21 @@ class QueryMixin:
 
     def get_poly_variants(self, vi_name: str) -> list[str]:
         """Get variants for a polymorphic VI."""
-        info = self._poly_info.get(vi_name, {})
-        return info.get("variants", [])
+        info = self._poly_info.get(vi_name)
+        return info.variants if info else []
 
     def get_polymorphic_groups(self) -> dict[str, list[str]]:
         """Get all polymorphic VIs and their variants."""
         return {
-            vi_name: info["variants"]
+            vi_name: info.variants
             for vi_name, info in self._poly_info.items()
-            if info.get("variants")
+            if info.variants
         }
 
     def get_poly_variant_wrappers(self) -> dict[str, str]:
         """Get mapping of variant VI names to their wrapper VI."""
         result: dict[str, str] = {}
-        for wrapper, variants in self._poly_info.items():
-            for variant in variants.get("variants", []):
+        for wrapper, info in self._poly_info.items():
+            for variant in info.variants:
                 result[variant] = wrapper
         return result

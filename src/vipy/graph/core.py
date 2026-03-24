@@ -16,7 +16,9 @@ from ..graph_types import (
     AnyGraphNode,
     ConstantNode,
     LVType,
+    PolyInfo,
     StructureNode,
+    VIMetadata,
     VINode,
     WireEnd,
 )
@@ -125,18 +127,16 @@ class InMemoryVIGraph(
         self._dep_graph: nx.DiGraph = nx.DiGraph()
         # Stub VIs (missing dependencies)
         self._stubs: set[str] = set()
-        # Polymorphic VI info: vi_name -> {is_polymorphic, variants}
-        self._poly_info: dict[str, dict[str, Any]] = {}
+        # Polymorphic VI info
+        self._poly_info: dict[str, PolyInfo] = {}
         # Qualified name aliases: "Lib.lvlib:VI.vi" -> "VI.vi" (for library VIs)
         self._qualified_aliases: dict[str, str] = {}
         # Track loaded VIs across multiple load_vi() calls to prevent re-parsing
         self._loaded_vis: set[str] = set()
-        # Unresolved terminal observations: list of dicts with diagnostic info
-        self._unresolved_observations: list[dict[str, Any]] = []
         # Source file paths: vi_name -> Path to original .vi file
         self._source_paths: dict[str, Path] = {}
-        # VI metadata: library, qualified_name
-        self._vi_metadata: dict[str, dict[str, Any]] = {}
+        # VI metadata
+        self._vi_metadata: dict[str, VIMetadata] = {}
 
     def clear(self) -> None:
         """Clear all loaded data."""
