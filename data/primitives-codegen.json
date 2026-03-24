@@ -2068,7 +2068,10 @@
           "type": "polymorphic"
         }
       ],
-      "python_code": "time.sleep(milliseconds_to_wait / 1000)",
+      "python_code": {
+        "_body": "time.sleep(milliseconds_to_wait / 1000)",
+        "ms_timer_value": "int(time.time() * 1000)"
+      },
       "inline": true,
       "imports": [
         "import time"
