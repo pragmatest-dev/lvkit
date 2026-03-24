@@ -8,40 +8,35 @@ from vipy.agent.codegen.context import CodeGenContext
 from vipy.graph_types import WireEnd
 from vipy.memory_graph import InMemoryVIGraph
 
-
-def _make_graph_with_edge(src_tid, dst_tid, src_node="p1", dst_node="p2"):
-    """Helper: create graph with one edge between two nodes."""
-    graph = InMemoryVIGraph()
-    graph._graph.add_node(src_node, node=None)
-    graph._graph.add_node(dst_node, node=None)
-    graph._graph.add_edge(
-        src_node, dst_node,
-        source=WireEnd(terminal_id=src_tid, node_id=src_node),
-        dest=WireEnd(terminal_id=dst_tid, node_id=dst_node),
-    )
-    graph._term_to_node[src_tid] = src_node
-    graph._term_to_node[dst_tid] = dst_node
-    return graph
+from tests.helpers import (
+    make_graph_with_edge,
+    make_graph_with_terminals,
+    make_node,
+)
 
 
 class TestGraphResolution:
     """Tests for resolve() walking the graph."""
 
     def test_resolve_direct_binding(self):
-        ctx = CodeGenContext()
+        graph = make_graph_with_terminals("t1")
+        ctx = CodeGenContext(graph=graph)
         ctx.bind("t1", "my_var")
         assert ctx.resolve("t1") == "my_var"
 
     def test_resolve_through_edge(self):
-        graph = _make_graph_with_edge("src", "dest")
+        graph = make_graph_with_edge("src", "dest")
         ctx = CodeGenContext(graph=graph)
         ctx.bind("src", "my_var")
         assert ctx.resolve("dest") == "my_var"
 
     def test_resolve_chain(self):
         graph = InMemoryVIGraph()
-        for n in ["p1", "p2", "p3"]:
-            graph._graph.add_node(n, node=None)
+        p1 = make_node("p1", ["a"])
+        p2 = make_node("p2", ["b", "c"])
+        p3 = make_node("p3", ["d"])
+        for nid, node in [("p1", p1), ("p2", p2), ("p3", p3)]:
+            graph._graph.add_node(nid, node=node)
         graph._graph.add_edge("p1", "p2",
             source=WireEnd(terminal_id="a", node_id="p1"),
             dest=WireEnd(terminal_id="b", node_id="p2"))
@@ -59,8 +54,10 @@ class TestGraphResolution:
 
     def test_resolve_cycle_detection(self):
         graph = InMemoryVIGraph()
-        graph._graph.add_node("p1", node=None)
-        graph._graph.add_node("p2", node=None)
+        p1 = make_node("p1", ["a"])
+        p2 = make_node("p2", ["b"])
+        graph._graph.add_node("p1", node=p1)
+        graph._graph.add_node("p2", node=p2)
         graph._graph.add_edge("p1", "p2",
             source=WireEnd(terminal_id="a", node_id="p1"),
             dest=WireEnd(terminal_id="b", node_id="p2"))
@@ -73,7 +70,8 @@ class TestGraphResolution:
         assert ctx.resolve("a") is None  # cycle, no binding
 
     def test_resolve_none_binding_treated_as_unresolved(self):
-        ctx = CodeGenContext()
+        graph = make_graph_with_terminals("t1")
+        ctx = CodeGenContext(graph=graph)
         ctx.bind("t1", "None")
         assert ctx.resolve("t1") is None
 
@@ -82,21 +80,21 @@ class TestGraphResolution:
         assert ctx.resolve("t1") is None
 
     def test_is_wired(self):
-        graph = _make_graph_with_edge("src", "dest")
+        graph = make_graph_with_edge("src", "dest")
         ctx = CodeGenContext(graph=graph)
         assert ctx.is_wired("src") is True
         assert ctx.is_wired("dest") is True
         assert ctx.is_wired("nonexistent") is False
 
     def test_get_source(self):
-        graph = _make_graph_with_edge("src", "dest")
+        graph = make_graph_with_edge("src", "dest")
         ctx = CodeGenContext(graph=graph)
         source = ctx.get_source("dest")
         assert source is not None
         assert source["src_terminal"] == "src"
 
     def test_get_destinations(self):
-        graph = _make_graph_with_edge("src", "dest")
+        graph = make_graph_with_edge("src", "dest")
         ctx = CodeGenContext(graph=graph)
         dests = ctx.get_destinations("src")
         assert len(dests) == 1
@@ -107,27 +105,35 @@ class TestContextOperations:
     """Tests for bind, merge, child."""
 
     def test_bind_and_resolve(self):
-        ctx = CodeGenContext()
+        graph = make_graph_with_terminals("t1")
+        ctx = CodeGenContext(graph=graph)
         ctx.bind("t1", "x")
         assert ctx.resolve("t1") == "x"
 
     def test_merge(self):
-        ctx = CodeGenContext()
+        graph = make_graph_with_terminals("t1", "t2")
+        ctx = CodeGenContext(graph=graph)
         ctx.merge({"t1": "a", "t2": "b"})
         assert ctx.resolve("t1") == "a"
         assert ctx.resolve("t2") == "b"
 
     def test_child_inherits_bindings(self):
-        ctx = CodeGenContext()
+        graph = make_graph_with_terminals("t1")
+        ctx = CodeGenContext(graph=graph)
         ctx.bind("t1", "x")
         child = ctx.child()
+        # child shares the same graph, so it sees parent's bindings
         assert child.resolve("t1") == "x"
 
     def test_child_does_not_affect_parent(self):
-        ctx = CodeGenContext()
+        # With graph-based context, child and parent share the same graph.
+        # Bindings set by child ARE visible to parent (no scoping).
+        # This is the intended behavior — var_name lives on the graph.
+        graph = make_graph_with_terminals("t1")
+        ctx = CodeGenContext(graph=graph)
         child = ctx.child()
         child.bind("t1", "x")
-        assert ctx.resolve("t1") is None
+        assert ctx.resolve("t1") == "x"
 
     def test_loop_index_vars(self):
         ctx = CodeGenContext()

@@ -320,7 +320,7 @@ class TestInViParallelEndToEnd:
         mg = connect()
         mg.load_vi("samples/DAQmx-Digital-IO/In.vi")
         ctx = mg.get_vi_context("In.vi")
-        return build_module(ctx, "In.vi")
+        return build_module(ctx, "In.vi", graph=mg)
 
     def test_generates_without_error(self):
         code = self._generate_in_vi()
