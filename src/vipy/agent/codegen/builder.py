@@ -342,6 +342,12 @@ def topological_sort_tiered(
                     if dep_op_id != op.id and dep_op_id in dependencies:
                         dependencies[op.id].add(dep_op_id)
                     break
+                # Structure tunnels: source terminal's parent node may
+                # be an operation even if the terminal isn't an "output".
+                src_parent = source["src_parent_id"]
+                if src_parent in op_by_id and src_parent != op.id:
+                    dependencies[op.id].add(src_parent)
+                    break
                 current = src_term
 
     # Tiered Kahn's algorithm — drain all ready ops per iteration

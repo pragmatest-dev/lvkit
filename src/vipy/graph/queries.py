@@ -548,16 +548,21 @@ class QueryMixin:
         ]
 
     def get_operation_order(self, vi_name: str) -> list[str]:
-        """Get operations in dataflow execution order.
+        """Get top-level operations in dataflow execution order.
 
         Returns operation node IDs in the order they should execute
         (topological sort based on wire connections).
+
+        Only includes top-level operations (parent=None). Nested operations
+        (inside structures like flat/stacked sequences, loops, cases) are
+        handled by their parent structure's codegen — including them here
+        creates cycles (structure ↔ child edges) that break topological sort.
         """
         node_uids = self._vi_nodes.get(vi_name)
         if node_uids is None:
             return []
 
-        # Get operation node IDs
+        # Get top-level operation node IDs only
         op_ids: set[str] = set()
         for uid in node_uids:
             if uid == vi_name:
@@ -568,7 +573,7 @@ class QueryMixin:
             if gnode is None:
                 continue
             op_kind = _graph_node_to_op_kind(gnode)
-            if op_kind in _OPERATION_KINDS:
+            if op_kind in _OPERATION_KINDS and gnode.parent is None:
                 op_ids.add(uid)
 
         if not op_ids:
@@ -584,16 +589,6 @@ class QueryMixin:
             for _, dest, edata in self._graph.out_edges(uid, data=True):
                 if dest in op_ids and dest != uid:
                     op_deps.add_edge(uid, dest)
-
-        # Also check edges FROM constants and VINode (FP terminals) to ops
-        # A constant feeding into an op means the op has a dependency on
-        # its input being available (but constants don't need ordering).
-        # We need edges between ops that share intermediate wiring.
-
-        # For edges through the VINode (FP terminals) or constants to ops:
-        # these are not op-to-op edges, but we need to consider transitive
-        # dependencies. The unified graph has edges: const->op, vi->op, op->vi
-        # so direct op->op edges from the graph capture the dependencies.
 
         try:
             return list(nx.topological_sort(op_deps))
