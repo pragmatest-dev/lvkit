@@ -44,6 +44,11 @@ def collect_class_vis(class_path: Path) -> list[Path]:
             vi_path = base_path / method.vi_path
             if vi_path.exists():
                 vi_paths.append(vi_path.resolve())
+                continue
+        # Fallback: look for method VI directly in the class directory
+        vi_path = base_path / f"{method.name}.vi"
+        if vi_path.exists():
+            vi_paths.append(vi_path.resolve())
 
     return vi_paths
 
@@ -187,7 +192,7 @@ def prepare_vi_documentation_data(
 
         controls.append({
             "name": inp.name or f"input_{inp.index}",
-            "type": inp.type or "Any",
+            "type": inp.python_type(),
             "default_value": default_val,
         })
 
@@ -196,7 +201,7 @@ def prepare_vi_documentation_data(
     for out in outputs_dc:
         indicators.append({
             "name": out.name or f"output_{out.index}",
-            "type": out.type or "Any",
+            "type": out.python_type(),
         })
 
     # Build graph dict with dataclasses (NOT dicts)
@@ -232,8 +237,8 @@ def prepare_vi_documentation_data(
                 variant_outputs = graph.get_outputs(variant_name)
                 variant_params.append({
                     "name": variant_name,
-                    "inputs": [{"name": inp.name, "type": inp.type} for inp in variant_inputs],
-                    "outputs": [{"name": out.name, "type": out.type} for out in variant_outputs],
+                    "inputs": [{"name": inp.name, "type": inp.python_type()} for inp in variant_inputs],
+                    "outputs": [{"name": out.name, "type": out.python_type()} for out in variant_outputs],
                 })
             except Exception:
                 pass  # Skip variants that can't be loaded
