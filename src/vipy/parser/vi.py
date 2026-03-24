@@ -383,8 +383,10 @@ def _extract_terminal_info(
                 dco = term.find("dco")
                 dco_uid = dco.get("uid") if dco is not None else None
 
-                # Get terminal index from dco. No guessing — unknown = -1.
+                # Get terminal index from dco.
                 # Primitives use "parmIndex", SubVIs use "paramIdx".
+                # Missing paramIdx = 0 (XML omits the default value).
+                # Missing parmIndex on primitives = genuinely unknown (-1).
                 parm_index = -1
                 if dco is not None:
                     for idx_field in ("parmIndex", "paramIdx"):
@@ -392,6 +394,10 @@ def _extract_terminal_info(
                         if idx_elem is not None and idx_elem.text:
                             parm_index = int(idx_elem.text)
                             break
+                    else:
+                        # No index field found. For SubVI calls, missing = 0.
+                        if elem_class in ("iUse", "polyIUse", "dynIUse"):
+                            parm_index = 0
 
                 # For specialized node classes (aDelete, aIndx, etc.),
                 # resolve index from named DCO references on the parent node.

@@ -228,23 +228,21 @@
     },
     {
       "name": "DAQmx Read.vi",
+      "category": "DAQmx",
       "description": "Reads samples from the task.",
-      "python_code": "{data} = {task_in}.read(number_of_samples_per_channel={num_samps})",
-      "inline": true,
-      "imports": [
-        "import nidaqmx"
-      ],
-      "status": "mapped",
       "terminals": [
         {
           "name": "task in",
+          "index": 0,
           "direction": "input",
-          "python_param": "task_in",
-          "index": 0
+          "type": "Refnum",
+          "python_param": "task_in"
         },
         {
           "name": "number of samples per channel",
+          "index": 11,
           "direction": "input",
+          "type": "Cluster",
           "python_param": "num_samps"
         },
         {
@@ -258,9 +256,19 @@
           "python_param": "task_out"
         }
       ],
+      "python": "",
+      "python_code": "{data} = {task_in}.read(number_of_samples_per_channel={num_samps})",
+      "inline": true,
+      "imports": [
+        "import nidaqmx"
+      ],
+      "status": "mapped",
+      "is_variant": false,
       "ref_terminals": {
         "task_out": "passthrough_from:task_in"
-      }
+      },
+      "match_names": [],
+      "poly_selector_names": []
     },
     {
       "name": "DAQmx Read (Analog 1D DBL 1Chan NSamp).vi",
@@ -416,6 +424,30 @@
       },
       "match_names": [
         "DAQmx Read (Digital 1D Bool 1Chan 1Samp).vi"
+      ]
+    },
+    {
+      "name": "DAQmx Read (Digital 1D Bool NChan 1Samp).vi",
+      "description": "Reads N-chan digital bool, 1 sample per channel.",
+      "python_code": "{data} = {task_in}.read()",
+      "inline": true,
+      "imports": [
+        "import nidaqmx"
+      ],
+      "status": "mapped",
+      "terminals": [
+        { "name": "task in", "direction": "input", "python_param": "task_in", "index": 0 },
+        { "name": "task out", "direction": "output", "python_param": "task_out", "index": 4 },
+        { "name": "data", "direction": "output", "python_param": "data", "index": 6 },
+        { "name": "timeout", "direction": "input", "python_param": "timeout", "index": 9, "type": "NumFloat64" },
+        { "name": "error in", "direction": "input", "index": 11, "type": "Cluster" },
+        { "name": "error out", "direction": "output", "index": 15, "type": "Cluster" }
+      ],
+      "ref_terminals": {
+        "task_out": "passthrough_from:task_in"
+      },
+      "poly_selector_names": [
+        "Digital 1D Bool\nNChan 1Samp"
       ]
     },
     {
@@ -643,6 +675,32 @@
       },
       "match_names": [
         "DAQmx Write (Digital 1D Bool 1Chan 1Samp).vi"
+      ]
+    },
+    {
+      "name": "DAQmx Write (Digital Bool 1Line 1Point).vi",
+      "description": "Writes 1-line digital bool, 1 point.",
+      "python_code": "{task_in}.write({data})",
+      "inline": true,
+      "imports": [
+        "import nidaqmx"
+      ],
+      "status": "mapped",
+      "terminals": [
+        { "name": "task in", "direction": "input", "python_param": "task_in", "index": 0 },
+        { "name": "auto start", "direction": "input", "python_param": "auto_start", "index": 1, "type": "Boolean" },
+        { "name": "task out", "direction": "output", "python_param": "task_out", "index": 4 },
+        { "name": "data", "direction": "input", "python_param": "data", "index": 7, "type": "Boolean" },
+        { "name": "timeout", "direction": "input", "python_param": "timeout", "index": 9, "type": "NumFloat64" },
+        { "name": "number of samples written", "direction": "output", "python_param": "samples_written", "index": 10, "type": "NumUInt32" },
+        { "name": "error in", "direction": "input", "index": 11, "type": "Cluster" },
+        { "name": "error out", "direction": "output", "index": 15, "type": "Cluster" }
+      ],
+      "ref_terminals": {
+        "task_out": "passthrough_from:task_in"
+      },
+      "poly_selector_names": [
+        "Digital Bool\n1Line 1Point"
       ]
     },
     {
@@ -1538,10 +1596,11 @@
     {
       "name": "DAQmx Create Virtual Channel (DI Line).vi",
       "description": "Creates DI Line channel.",
-      "python_code": "{task_in}.di_channels.add_di_chan({physical_channel})",
+      "python_code": "{task_in}.di_channels.add_di_chan({physical_channel}, line_grouping={line_grouping})",
       "inline": true,
       "imports": [
-        "import nidaqmx"
+        "import nidaqmx",
+        "from nidaqmx.constants import LineGrouping"
       ],
       "status": "mapped",
       "terminals": [
@@ -1562,6 +1621,26 @@
           "direction": "output",
           "python_param": "task_out",
           "index": 4
+        },
+        {
+          "name": "line grouping",
+          "direction": "input",
+          "python_param": "line_grouping",
+          "index": 9,
+          "type": "NumInt32",
+          "default": "LineGrouping.CHAN_FOR_ALL_LINES"
+        },
+        {
+          "name": "error in",
+          "direction": "input",
+          "index": 11,
+          "type": "Cluster"
+        },
+        {
+          "name": "error out",
+          "direction": "output",
+          "index": 15,
+          "type": "Cluster"
         }
       ],
       "ref_terminals": {
@@ -1613,10 +1692,11 @@
     {
       "name": "DAQmx Create Virtual Channel (DO Line).vi",
       "description": "Creates DO Line channel.",
-      "python_code": "{task_in}.do_channels.add_do_chan({physical_channel})",
+      "python_code": "{task_in}.do_channels.add_do_chan({physical_channel}, line_grouping={line_grouping})",
       "inline": true,
       "imports": [
-        "import nidaqmx"
+        "import nidaqmx",
+        "from nidaqmx.constants import LineGrouping"
       ],
       "status": "mapped",
       "terminals": [
@@ -1637,6 +1717,26 @@
           "direction": "output",
           "python_param": "task_out",
           "index": 4
+        },
+        {
+          "name": "line grouping",
+          "direction": "input",
+          "python_param": "line_grouping",
+          "index": 9,
+          "type": "NumInt32",
+          "default": "LineGrouping.CHAN_FOR_ALL_LINES"
+        },
+        {
+          "name": "error in",
+          "direction": "input",
+          "index": 11,
+          "type": "Cluster"
+        },
+        {
+          "name": "error out",
+          "direction": "output",
+          "index": 15,
+          "type": "Cluster"
         }
       ],
       "ref_terminals": {

@@ -159,30 +159,40 @@ class PolySubVIHandler(NodeTypeHandler):
     def _extract_poly_variant(self, elem: ET.Element) -> str | None:
         """Extract the selected polymorphic variant name.
 
-        The preferredInstIndex is an edit-time selection stored in the VI.
-        The variant list is in the polySelector's buf field.
-        Index offset: first 2 entries are "Automatic" and "-" separator.
+        The instanceSelector (class=polySelector) stores the edit-time
+        resolved variant. menuInstanceUsed is the actual selection index
+        (hex-encoded). The buf element has the variant name list.
         """
         import re
 
-        idx_elem = elem.find("preferredInstIndex")
-        if idx_elem is None or not idx_elem.text:
-            return None
-        try:
-            inst_index = int(idx_elem.text.strip(), 16)
-        except ValueError:
-            return None
-
-        # Find polySelector's buf with variant names
+        # Find the instanceSelector polySelector (direct child of polyIUse)
         for selector in elem.iter():
-            if selector.get("class") == "polySelector":
-                for child in selector.iter():
-                    if child.tag == "buf" and child.text:
-                        items = re.findall(r'"([^"]+)"', child.text)
-                        # Offset by 2: skip "Automatic" and "-"
-                        actual_index = inst_index + 2
-                        if 0 <= actual_index < len(items):
-                            return items[actual_index]
+            if selector.get("class") != "polySelector":
+                continue
+
+            # menuInstanceUsed = actual resolved variant index (hex)
+            menu_elem = selector.find("menuInstanceUsed")
+            if menu_elem is None or not menu_elem.text:
+                continue
+            try:
+                menu_index = int(menu_elem.text.strip(), 16)
+            except ValueError:
+                continue
+
+            # Index 0 = "Automatic" — no specific variant selected
+            if menu_index == 0:
+                return None
+
+            # Look up name from buf (variant name list in polySelector)
+            for child in selector.iter():
+                if child.tag == "buf" and child.text:
+                    items = re.findall(r'"([^"]+)"', child.text)
+                    if 0 <= menu_index < len(items):
+                        return items[menu_index]
+
+            # No buf — return index for resolver to map
+            return f"poly_index:{menu_index}"
+
         return None
 
 

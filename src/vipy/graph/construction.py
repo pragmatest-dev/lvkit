@@ -289,16 +289,30 @@ class ConstructionMixin:
         for node in bd.nodes:
             q_node_uid = self._qid(vi_name, node.uid)
 
-            # Get known terminal layout from primitive resolver for index matching
-            prim_terminals = None
+            # Get known terminal layout for index matching.
+            # Same system for all node types: primitives, node_types, vilib SubVIs.
+            known_terminals = None
             if isinstance(node, ParserPrimitiveNode) and node.prim_res_id:
                 prim_resolved = resolve_primitive(prim_id=node.prim_res_id)
                 if prim_resolved and prim_resolved.terminals:
-                    prim_terminals = prim_resolved.terminals
-            if not prim_terminals and node.node_type:
+                    known_terminals = prim_resolved.terminals
+            if not known_terminals and node.node_type:
                 nt_resolved = get_prim_resolver().resolve_by_node_type(node.node_type)
                 if nt_resolved and nt_resolved.terminals:
-                    prim_terminals = nt_resolved.terminals
+                    known_terminals = nt_resolved.terminals
+            if not known_terminals and isinstance(node, SubVINode):
+                # SubVI calls: look up vilib terminal layout
+                vilib_r = get_vilib_resolver()
+                subvi_name = node.name or ""
+                # Polymorphic: resolve to variant
+                if node.poly_variant_name:
+                    vilib_vi = vilib_r.resolve_poly_variant(subvi_name, node.poly_variant_name)
+                else:
+                    vilib_vi = None
+                if not vilib_vi:
+                    vilib_vi = vilib_r.resolve_by_name(subvi_name)
+                if vilib_vi and vilib_vi.terminals:
+                    known_terminals = vilib_vi.terminals
 
             # Collect terminals, then resolve unknown indices by elimination
             raw_terms: list[tuple[str, Any, LVType | None]] = []
@@ -309,9 +323,9 @@ class ConstructionMixin:
                         lv_type = self._enrich_type(t_info.parsed_type)
                     raw_terms.append((term_uid, t_info, lv_type))
 
-            # Resolve -1 indices by elimination against primitive resolver
-            if prim_terminals:
-                self._resolve_terminal_indices(raw_terms, prim_terminals)
+            # Resolve -1 indices by type+direction matching
+            if known_terminals:
+                self._resolve_terminal_indices(raw_terms, known_terminals)
 
             node_terminals: list[Terminal] = []
             for term_uid, t_info, lv_type in raw_terms:
@@ -773,7 +787,7 @@ class ConstructionMixin:
                 continue
 
             # Find resolver terminals: same direction, same type, not taken.
-            # "polymorphic" in JSON matches any parser category.
+            # "polymorphic" matches any parser category.
             matches = [
                 pt for pt in known_terminals
                 if pt.direction == prim_dir

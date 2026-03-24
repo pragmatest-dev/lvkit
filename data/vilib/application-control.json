@@ -1376,6 +1376,7 @@
           "name": "error out",
           "index": 0,
           "direction": "output",
+          "type": "Cluster",
           "python_param": "error_out"
         }
       ],
