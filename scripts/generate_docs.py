@@ -213,12 +213,27 @@ def prepare_vi_documentation_data(
         "data_flow": dataflow_dc,
     }
 
-    # Extract dependencies using QUALIFIED names from the dependency graph
-    # The dependency graph contains qualified names as the unique identifier
-    qualified_deps = graph.get_vi_dependencies(vi_name)
+    # Extract dependencies from both the dependency graph and operation tree
+    qualified_deps = set(graph.get_vi_dependencies(vi_name))
+
+    # Also extract SubVI names from operations (catches vilib VIs not in dep graph)
+    def _extract_subvi_names(ops):
+        names = []
+        for op in ops:
+            if "SubVI" in (op.labels or []) and op.name:
+                names.append(op.name)
+            names.extend(_extract_subvi_names(op.inner_nodes))
+            for frame in op.case_frames or []:
+                names.extend(_extract_subvi_names(frame.operations))
+        return names
+
+    qualified_deps.update(_extract_subvi_names(operations_dc))
+    # Remove self-reference
+    qualified_deps.discard(vi_name)
+
     dependencies = {
         dep_name: generate_dependency_description(dep_name, graph)
-        for dep_name in qualified_deps
+        for dep_name in sorted(qualified_deps)
     }
 
     # Get callers using QUALIFIED names from the dependency graph

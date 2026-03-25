@@ -51,6 +51,16 @@ class MermaidRenderer:
                 self._render_operation(inner_op, indent + "    ")
             self._lines.append(f'{indent}end')
             self._node_styles.append((nid, "loopStyle"))
+        elif "FlatSequence" in labels and op.case_frames:
+            self._lines.append(f'{indent}subgraph {nid}["Flat Sequence"]')
+            for i, frame in enumerate(op.case_frames):
+                frame_id = f"{nid}_f{i}"
+                self._lines.append(f'{indent}    subgraph {frame_id}["Frame {i}"]')
+                for inner_op in frame.operations:
+                    self._render_operation(inner_op, indent + "        ")
+                self._lines.append(f'{indent}    end')
+            self._lines.append(f'{indent}end')
+            self._node_styles.append((nid, "operationStyle"))
         elif "SubVI" in labels:
             label = self._escape(name or "SubVI")
             self._lines.append(f'{indent}{nid}["{label}"]')
@@ -122,6 +132,7 @@ class MermaidRenderer:
             nid = self._next_id()
             self._node_ids[const.id] = nid
             value = const.value
+            underlying = const.lv_type.underlying_type if const.lv_type else None
 
             # Check if this is an enum constant - display member name instead of raw value
             if const.lv_type and const.lv_type.values and value is not None:
@@ -135,6 +146,10 @@ class MermaidRenderer:
                         value_str = str(value)
                 except (ValueError, TypeError, AttributeError):
                     value_str = str(value)
+            elif underlying == "Boolean":
+                # Decode boolean: "00"/"0000"/0/False → False, else → True
+                raw = value if value is not None else const.raw_value
+                value_str = "False" if str(raw) in ("0", "00", "0000", "False", "None") else "True"
             else:
                 value_str = str(value) if value is not None else "None"
 
@@ -156,7 +171,7 @@ class MermaidRenderer:
             if to_id not in self._node_ids:
                 to_id = wire.to_terminal_id
 
-            if from_id in self._node_ids and to_id in self._node_ids:
+            if from_id in self._node_ids and to_id in self._node_ids and from_id != to_id:
                 self._lines.append(f'    {self._node_ids[from_id]} --> {self._node_ids[to_id]}')
 
         # Add click links for SubVIs
