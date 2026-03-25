@@ -438,7 +438,8 @@ class PrimitiveCodeGen(NodeCodeGen):
         """
         import re
 
-        # Build a combined pattern matching all names (longest first)
+        # Build a combined pattern matching all names (longest first).
+        # Tries {name} placeholder first (consumes braces), then bare \bname\b.
         names = sorted(
             [n for n in input_map if n],
             key=lambda x: -len(x),
@@ -446,8 +447,20 @@ class PrimitiveCodeGen(NodeCodeGen):
         if not names:
             return template
 
-        combined = "|".join(r"\b" + re.escape(n) + r"\b" for n in names)
-        return re.sub(combined, lambda m: input_map.get(m.group(), m.group()), template)
+        patterns = []
+        for n in names:
+            escaped = re.escape(n)
+            patterns.append(r"\{" + escaped + r"\}")  # {name} with braces
+            patterns.append(r"\b" + escaped + r"\b")  # bare name
+        combined = "|".join(patterns)
+
+        def _replace(m: re.Match) -> str:
+            text = m.group()
+            # Strip braces if matched as {name} placeholder
+            key = text.strip("{}") if text.startswith("{") else text
+            return input_map.get(key, text)
+
+        return re.sub(combined, _replace, template)
 
     def _emit_unknown(
         self, node: Operation, prim_id: int, ctx: CodeGenContext
