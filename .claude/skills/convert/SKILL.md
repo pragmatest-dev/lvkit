@@ -93,6 +93,32 @@ Generated Python is a **functional transliteration**, not idiomatic code:
 
 **This is intentional.** Working-but-awkward Python is easier for AI to refactor than generating from scratch. The workflow: VI → AST → working Python → AI cleanup → idiomatic code.
 
+## Polishing Rules
+
+When improving generated code, **preserve execution semantics**:
+
+### Safe to change (cosmetic):
+- **Variable names** — `daqmx_create_task_task_out` → `task`
+- **Garbled unicode names** — fix encoding artifacts in field/variable names
+- **Unused imports** — remove imports nothing references
+- **Add docstrings** — describe what the function does
+- **String formatting** — `500 / 1000` → `0.5`
+- **Context managers** — wrap task.start()/stop()/close() in `try/finally` or `with`
+
+### NEVER change (behavioral):
+- **Parallel branches** — `ThreadPoolExecutor` blocks represent real LabVIEW parallelism. Do NOT serialize them. Independent operations within a tier execute concurrently.
+- **Operation order** — the topological sort is correct. Do NOT reorder operations.
+- **Loop structure** — `while not stop` preserves LabVIEW's stop terminal semantics. Do NOT add defaults like `stop=False` or restructure the loop.
+- **Function parameters** — these are front panel controls. Do NOT add defaults, remove params, or change types.
+- **Return values** — these are front panel indicators. Do NOT remove outputs.
+- **Error cluster handling** — if error terminals are present, the held-error pattern is intentional.
+
+### Judgment calls (ask if unsure):
+- **Removing a `time.sleep` that looks unnecessary** — it might be a deliberate delay for hardware timing
+- **Simplifying a case structure** — the branches may have side effects
+- **Inlining a SubVI call** — the SubVI may be reused elsewhere
+- **Changing data types** — LabVIEW types map to specific Python types for a reason
+
 ## Resolving Unknowns
 
 When generation encounters unknown VIs or primitives:
