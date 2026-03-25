@@ -76,8 +76,12 @@ class MermaidRenderer:
             self._lines.append(f'{indent}{nid}(["{loop_label}"])')
             self._node_styles.append((nid, "loopStyle"))
         elif "CaseStructure" in labels:
-            label = self._escape(name or "Case")
-            self._lines.append(f'{indent}{nid}{{{{"{label}"}}}}')
+            cases = [str(f.selector_value) for f in op.case_frames] if op.case_frames else []
+            case_label = " | ".join(cases[:4])
+            if len(cases) > 4:
+                case_label += " | ..."
+            label = f"Case [{case_label}]" if case_label else "Case"
+            self._lines.append(f'{indent}{nid}{{{{"{self._escape(label)}"}}}}')
             self._node_styles.append((nid, "caseStyle"))
         else:
             # Include operation type for compound arithmetic
@@ -162,7 +166,8 @@ class MermaidRenderer:
         for op in operations:
             self._render_operation(op)
 
-        # Render edges
+        # Render edges (deduplicated)
+        rendered_edges: set[tuple[str, str]] = set()
         for wire in data_flow:
             from_id = wire.from_parent_id
             if from_id not in self._node_ids:
@@ -172,7 +177,10 @@ class MermaidRenderer:
                 to_id = wire.to_terminal_id
 
             if from_id in self._node_ids and to_id in self._node_ids and from_id != to_id:
-                self._lines.append(f'    {self._node_ids[from_id]} --> {self._node_ids[to_id]}')
+                edge_key = (self._node_ids[from_id], self._node_ids[to_id])
+                if edge_key not in rendered_edges:
+                    rendered_edges.add(edge_key)
+                    self._lines.append(f'    {edge_key[0]} --> {edge_key[1]}')
 
         # Add click links for SubVIs
         for nid, vi_name in self._subvi_nodes:
