@@ -17,7 +17,6 @@ from .enums import EnumRegistry
 from .loop_config import ConversionConfig, ConversionResult
 from .primitives import PrimitiveRegistry
 from .state import ConversionState, get_progress
-from .strategies import get_strategy
 from .types import SharedTypeRegistry
 from .validator import CodeValidator, ValidatorConfig
 
@@ -151,28 +150,29 @@ class ConversionAgent:
         primitive_names = self.primitive_registry.get_primitive_names(vi_name)
         primitive_context = self.primitive_registry.get_primitive_context(vi_name)
 
-        # Use strategy for conversion
-        strategy_cls = get_strategy(self.config.strategy)
-        if strategy_cls is None:
-            # Fallback to baseline (AST-based) if strategy not found
-            from .strategies.ast_based import BaselineStrategy
-            strategy_cls = BaselineStrategy
+        # Use AST-based code generation directly
+        from .codegen import build_module
+        import time as _time
 
-        strategy = strategy_cls(
-            validator=self.validator,
-            llm_config=self.config.llm_config,
-            output_dir=self.config.output_dir,
-            max_attempts=self.config.max_retries,
-        )
+        _start = _time.time()
+        try:
+            code = build_module(vi_context, vi_name, graph=self.graph)
+            from dataclasses import dataclass
 
-        # Run strategy conversion
-        result = strategy.convert(
-            vi_name=vi_name,
-            vi_context=vi_context,
-            converted_deps=subvi_sigs,
-            primitive_names=primitive_names,
-            primitive_context=primitive_context,
-        )
+            @dataclass
+            class _StrategyResult:
+                code: str
+                success: bool
+                error: str | None = None
+                time_seconds: float = 0.0
+                attempts: int = 1
+
+            result = _StrategyResult(code=code, success=True, time_seconds=_time.time() - _start)
+        except Exception as e:
+            result = _StrategyResult(code="", success=False, error=str(e), time_seconds=_time.time() - _start)
+
+        # Suppress unused variable warnings
+        _ = (subvi_sigs, primitive_names, primitive_context)
 
         if result.success:
             # Success - write to file
@@ -474,39 +474,35 @@ def {func_name}({params_str}) -> {return_type}:
         primitive_names = self.primitive_registry.get_primitive_names(vi_name)
         primitive_context = self.primitive_registry.get_primitive_context(vi_name)
 
-        from .strategies.ast_based import BaselineStrategy
-        strategy = BaselineStrategy(
-            validator=self.validator,
-            llm_config=self.config.llm_config,
-            output_dir=self.config.output_dir,
-            max_attempts=self.config.max_retries,
-        )
+        from .codegen import build_module
 
-        result = strategy.convert(
-            vi_name=vi_name,
-            vi_context=vi_context,
-            converted_deps=subvi_sigs,
-            primitive_names=primitive_names,
-            primitive_context=primitive_context,
-        )
+        try:
+            code = build_module(vi_context, vi_name, graph=self.graph)
+            result_success = True
+            result_code = code
+            result_error = None
+        except Exception as e:
+            result_success = False
+            result_code = ""
+            result_error = str(e)
 
-        if result.success:
-            output_path = self._write_vi_module(vi_name, result.code)
+        if result_success:
+            output_path = self._write_vi_module(vi_name, result_code)
             return ConversionResult(
                 vi_name=vi_name,
-                python_code=result.code,
+                python_code=result_code,
                 output_path=output_path,
                 success=True,
-                attempts=result.attempts,
+                attempts=1,
             )
 
         return ConversionResult(
             vi_name=vi_name,
-            python_code=result.code,
+            python_code=result_code,
             output_path=None,
             success=False,
-            errors=result.errors,
-            attempts=result.attempts,
+            errors=[result_error] if result_error else [],
+            attempts=1,
         )
 
     def _to_param_name(self, name: str | None) -> str:

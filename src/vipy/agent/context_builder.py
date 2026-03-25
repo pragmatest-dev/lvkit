@@ -7,14 +7,22 @@ from __future__ import annotations
 
 import json
 import re
+from dataclasses import asdict, is_dataclass
 from typing import TYPE_CHECKING
-
-from .claude_agent import TypeInfoEncoder
 from .context_templates import FUNCTION_TEMPLATE, METHOD_TEMPLATE, UI_WRAPPER_TEMPLATE
 
 if TYPE_CHECKING:
     from .types import SharedType
     from .validator import ValidationError
+
+
+class TypeInfoEncoder(json.JSONEncoder):
+    """JSON encoder that handles dataclasses."""
+
+    def default(self, obj):
+        if is_dataclass(obj) and not isinstance(obj, type):
+            return asdict(obj)
+        return super().default(obj)
 
 
 class ContextBuilder:
