@@ -296,6 +296,10 @@ class UnusedImportRemover(ast.NodeTransformer):
             # Track name references
             if isinstance(child, ast.Name) and isinstance(child.ctx, ast.Load):
                 self.used_names.add(child.id)
+                # Dotted names like "Enum.MEMBER" in keyword args —
+                # also track the prefix as a used name
+                if "." in child.id:
+                    self.used_names.add(child.id.split(".")[0])
 
             # Track attribute access (e.g., module.func)
             elif isinstance(child, ast.Attribute) and isinstance(child.ctx, ast.Load):

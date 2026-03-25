@@ -303,7 +303,11 @@ class CodeGenContext:
 
 
 def _format_constant(const: Constant) -> str:
-    """Format a constant value as a Python expression."""
+    """Format a constant value as a Python expression.
+
+    Note: enum imports are handled by the SubVI codegen (subvi.py) which
+    adds the correct relative import when generating the function call.
+    """
     if const.lv_type and const.lv_type.values and const.lv_type.typedef_name:
         try:
             int_value = int(const.value)
