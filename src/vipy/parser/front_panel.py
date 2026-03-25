@@ -28,6 +28,7 @@ def _lvtype_to_parsed(lv_type: LVType) -> ParsedType:
         ref_type=lv_type.ref_type,
         classname=lv_type.classname,
         field_names=[f.name for f in lv_type.fields] if lv_type.fields else None,
+        enum_values=lv_type.values,
     )
 
 

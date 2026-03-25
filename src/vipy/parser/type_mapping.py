@@ -152,12 +152,18 @@ def parse_type_map_rich(xml_path: Path | str) -> dict[int, LVType]:
                     typedef_qname = ctl_filename
 
                 # Create LVType for this typedef
+                # Carry enum values from VCTP if available
+                enum_values = None
+                if flat_id in vctp_types and vctp_types[flat_id].values:
+                    enum_values = vctp_types[flat_id].values
+
                 if typedef_path:
                     type_map[heap_id] = LVType(
                         kind="typedef_ref",
                         underlying_type=underlying_type or existing_type_name,
                         typedef_path=typedef_path,
                         typedef_name=typedef_qname,
+                        values=enum_values,
                     )
                 else:
                     type_map[heap_id] = _make_primitive_lvtype(

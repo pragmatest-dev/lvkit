@@ -28,6 +28,7 @@ class ParsedType:
     ref_type: str | None = None  # For Refnum: "UDClassInst", "Queue", "Notifier", etc.
     classname: str | None = None  # For class refnums: "TestCase.lvclass"
     field_names: list[str] | None = None  # For clusters: field names from type map
+    enum_values: dict | None = None  # For enums: {name: EnumValue} from VCTP
 
 
 @dataclass

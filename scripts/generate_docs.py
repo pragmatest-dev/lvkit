@@ -227,7 +227,12 @@ def prepare_vi_documentation_data(
                 names.extend(_extract_subvi_names(frame.operations))
         return names
 
-    qualified_deps.update(_extract_subvi_names(operations_dc))
+    op_names = set(_extract_subvi_names(operations_dc))
+    # Only add operation names that aren't already covered by a qualified dep
+    # e.g. don't add "addSuccess.vi" if "TestCase.lvclass:addSuccess.vi" exists
+    for op_name in op_names:
+        if not any(dep.endswith(f":{op_name}") or dep == op_name for dep in qualified_deps):
+            qualified_deps.add(op_name)
     # Remove self-reference
     qualified_deps.discard(vi_name)
 
