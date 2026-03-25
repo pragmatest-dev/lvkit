@@ -7,6 +7,7 @@ import importlib.util
 import json
 import sys
 import traceback
+import warnings
 from pathlib import Path
 
 from . import __version__, convert_vi, convert_xml, summarize_vi
@@ -186,6 +187,55 @@ def main() -> int:
         help="Run MCP server for VI analysis",
     )
 
+    # Generate command - AST-based Python generation (replaces convert)
+    gen_parser = subparsers.add_parser(
+        "generate",
+        help="Generate Python from VI files using deterministic AST pipeline",
+    )
+    gen_parser.add_argument(
+        "input_path",
+        help="Path to .vi, .lvlib, .lvclass, or directory",
+    )
+    gen_parser.add_argument(
+        "-o", "--output", default="outputs",
+        help="Output directory",
+    )
+    gen_parser.add_argument(
+        "--search-path",
+        action="append",
+        dest="search_paths",
+        default=[],
+        help="Search paths for SubVI resolution (can be repeated)",
+    )
+    gen_parser.add_argument(
+        "--no-expand", action="store_true",
+        help="Don't expand SubVIs",
+    )
+
+    # Docs command - generate HTML documentation
+    docs_parser = subparsers.add_parser(
+        "docs",
+        help="Generate HTML documentation for VI files",
+    )
+    docs_parser.add_argument(
+        "input_path",
+        help="Path to .vi, .lvlib, .lvclass, or directory",
+    )
+    docs_parser.add_argument(
+        "output_dir", help="Output directory for HTML files",
+    )
+    docs_parser.add_argument(
+        "--search-path",
+        action="append",
+        dest="search_paths",
+        default=[],
+        help="Search paths for SubVI resolution (can be repeated)",
+    )
+    docs_parser.add_argument(
+        "--no-expand", action="store_true",
+        help="Don't expand SubVIs",
+    )
+
     args = parser.parse_args()
 
     if args.command == "convert":
@@ -208,6 +258,10 @@ def main() -> int:
         return cmd_explore(args)
     elif args.command == "mcp":
         return cmd_mcp(args)
+    elif args.command == "generate":
+        return cmd_generate(args)
+    elif args.command == "docs":
+        return cmd_docs(args)
     else:
         parser.print_help()
         return 0
@@ -215,6 +269,11 @@ def main() -> int:
 
 def cmd_convert(args: argparse.Namespace) -> int:
     """Handle the convert command."""
+    warnings.warn(
+        "'vipy convert' is deprecated. Use 'vipy generate' instead.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
     input_path = Path(args.input)
 
     if not input_path.exists():
@@ -417,6 +476,11 @@ def cmd_structure(args: argparse.Namespace) -> int:
 
 def cmd_graph(args: argparse.Namespace) -> int:
     """Handle the graph command - load VIs into Neo4j."""
+    warnings.warn(
+        "'vipy graph' is deprecated. Use 'vipy generate' instead.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
     input_path = Path(args.input)
 
     if not input_path.exists():
@@ -901,6 +965,58 @@ def cmd_mcp(args: argparse.Namespace) -> int:
         return 0
     except Exception as e:
         print(f"Error: {e}", file=sys.stderr)
+        return 1
+
+
+def cmd_generate(args: argparse.Namespace) -> int:
+    """Handle the generate command - AST-based Python generation."""
+    from .pipeline import generate_python
+
+    input_path = Path(args.input_path)
+
+    if not input_path.exists():
+        print(f"Error: Path not found: {input_path}", file=sys.stderr)
+        return 1
+
+    try:
+        sp = [Path(p) for p in args.search_paths] if args.search_paths else None
+        result = generate_python(
+            input_path,
+            args.output,
+            search_paths=sp,
+            expand_subvis=not args.no_expand,
+        )
+        return 1 if result["error"] > 0 else 0
+
+    except Exception as e:
+        print(f"Error: {e}", file=sys.stderr)
+        traceback.print_exc()
+        return 1
+
+
+def cmd_docs(args: argparse.Namespace) -> int:
+    """Handle the docs command - generate HTML documentation."""
+    from .docs.generate import generate_documents
+
+    input_path = Path(args.input_path)
+
+    if not input_path.exists():
+        print(f"Error: Path not found: {input_path}", file=sys.stderr)
+        return 1
+
+    try:
+        result = generate_documents(
+            library_path=str(input_path),
+            output_dir=args.output_dir,
+            search_paths=args.search_paths if args.search_paths else None,
+            expand_subvis=not args.no_expand,
+        )
+        print("\n" + result)
+        return 0
+
+    except Exception as e:
+        print(f"Error: {e}", file=sys.stderr)
+        traceback.print_exc()
         return 1
 
 
