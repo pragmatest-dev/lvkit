@@ -432,18 +432,22 @@ class PrimitiveCodeGen(NodeCodeGen):
 
         Templates should use terminal names or index-based refs (in_1, in_2)
         to reference inputs by their actual wire connections.
+
+        Uses single-pass replacement to avoid double-substitution when
+        input names overlap with resolved values (e.g., x→y and y→x).
         """
         import re
 
-        result = template
+        # Build a combined pattern matching all names (longest first)
+        names = sorted(
+            [n for n in input_map if n],
+            key=lambda x: -len(x),
+        )
+        if not names:
+            return template
 
-        # Sort by length (longest first) to avoid partial replacements
-        for name, value in sorted(input_map.items(), key=lambda x: -len(x[0])):
-            if name:
-                pattern = r"\b" + re.escape(name) + r"\b"
-                result = re.sub(pattern, lambda m: value, result)
-
-        return result
+        combined = "|".join(r"\b" + re.escape(n) + r"\b" for n in names)
+        return re.sub(combined, lambda m: input_map.get(m.group(), m.group()), template)
 
     def _emit_unknown(
         self, node: Operation, prim_id: int, ctx: CodeGenContext

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import xml.etree.ElementTree as ET
 
-from vipy.constants import TERMINAL_CLASS
+from vipy.constants import STRUCTURE_NODE_CLASSES, TERMINAL_CLASS
 from vipy.graph_types import Tunnel
 
 from ..models import CaseFrame, CaseStructure
@@ -18,6 +18,31 @@ SELECTOR_DCO_CLASSES = ("cSelDCO", "caseSel")
 
 # All tunnel DCO classes
 ALL_TUNNEL_CLASSES = ("csTun", "selTun", "commentTun")
+
+
+def _find_own_descendants(
+    elem: ET.Element,
+    class_name: str,
+) -> list[ET.Element]:
+    """Find elements with class_name inside elem, stopping at nested structure boundaries.
+
+    Walks the XML subtree but does NOT recurse into nested structure elements
+    (caseStruct, select, forLoop, etc.), so only elements belonging to THIS
+    structure are returned.
+    """
+    results: list[ET.Element] = []
+
+    def _walk(e: ET.Element) -> None:
+        for child in e:
+            child_class = child.get("class", "")
+            if child_class == class_name:
+                results.append(child)
+            # Stop at nested structure boundaries
+            if child_class not in STRUCTURE_NODE_CLASSES:
+                _walk(child)
+
+    _walk(elem)
+    return results
 
 
 def extract_case_structures(root: ET.Element) -> list[CaseStructure]:
@@ -100,11 +125,12 @@ def _extract_one_case_structure(
                     )
                     tunnels.extend(new_tunnels)
 
-    # Extract caseSel tunnels from nested structures.
-    # These route shift register values across the case boundary
-    # to sRN nodes inside the case frames.
+    # Extract caseSel tunnels from sRN nodes inside this case's diagrams.
+    # These route shift register values across the case boundary.
     # caseSel termList: [...inner_per_frame..., outer_structural]
-    for case_sel in case_elem.findall(".//*[@class='caseSel']"):
+    # IMPORTANT: use _find_own_descendants to avoid picking up caseSel
+    # elements from nested case structures.
+    for case_sel in _find_own_descendants(case_elem, "caseSel"):
         cs_tl = case_sel.find("termList")
         if cs_tl is not None:
             term_refs = [
@@ -123,7 +149,7 @@ def _extract_one_case_structure(
 
     # Extract commentTun tunnels from comment nodes (annotations).
     # commentTun passes data through transparently — same layout as selTun.
-    for comment_tun in case_elem.findall(".//*[@class='commentTun']"):
+    for comment_tun in _find_own_descendants(case_elem, "commentTun"):
         ct_tl = comment_tun.find("termList")
         if ct_tl is not None:
             term_refs = [

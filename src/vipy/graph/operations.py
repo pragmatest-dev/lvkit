@@ -159,8 +159,11 @@ class OperationsMixin:
     def _tunnels_from_terminals(terminals: list[Terminal]) -> list[Tunnel]:
         """Reconstruct Tunnel objects from StructureNode's terminal metadata.
 
-        Pairs outer/inner terminals by paired_id to rebuild the Tunnel
-        objects that codegen consumers expect on Operation.tunnels.
+        Iterates BOTH outer and inner TunnelTerminals to build the full
+        tunnel set. This is necessary because each outer terminal's
+        paired_id stores only ONE inner (the first frame's), but case
+        structures have one inner per frame. Inner terminals' paired_id
+        points back to the outer, so iterating them captures all pairs.
         """
         tunnels: list[Tunnel] = []
         seen_pairs: set[tuple[str, str]] = set()
@@ -170,11 +173,16 @@ class OperationsMixin:
                 continue
             if not term.tunnel_type or not term.paired_id:
                 continue
-            if term.boundary != "outer":
+
+            if term.boundary == "outer":
+                outer_uid = term.id
+                inner_uid = term.paired_id
+            elif term.boundary == "inner":
+                outer_uid = term.paired_id
+                inner_uid = term.id
+            else:
                 continue
 
-            outer_uid = term.id
-            inner_uid = term.paired_id
             pair_key = (outer_uid, inner_uid)
             if pair_key in seen_pairs:
                 continue
