@@ -304,6 +304,8 @@ class BlockDiagram:
     loops: list[LoopStructure] = field(default_factory=list)
     case_structures: list[CaseStructure] = field(default_factory=list)
     flat_sequences: list[FlatSequenceStructure] = field(default_factory=list)
+    # Maps sRN UID → containing structure UID (for scoped terminal collection)
+    srn_to_structure: dict[str, str] = field(default_factory=dict)
 
     def get_node(self, uid: str) -> Node | None:
         """Get a node by UID."""

@@ -15,7 +15,9 @@ from pathlib import Path
 
 from vipy.constants import (
     MULTI_LABEL_CLASS,
+    NODE_CLASS_SHIFT_REG,
     OPERATION_NODE_CLASSES,
+    STRUCTURE_NODE_CLASSES,
     TERMINAL_CLASS,
     TERMINAL_CONTAINER_CLASSES,
 )
@@ -200,8 +202,10 @@ def _parse_block_diagram(
     wires = _extract_wires(root)
     fp_terminals = extract_fp_terminals(root, fp_xml, type_map)
     enum_labels = _extract_enum_labels(root)
+    srn_to_structure: dict[str, str] = {}
     terminal_info = _extract_terminal_info(
         root, constants, fp_terminals, wires, type_map,
+        srn_to_structure=srn_to_structure,
     )
     loops = extract_loops(root)
     case_structures = extract_case_structures(root)
@@ -217,6 +221,7 @@ def _parse_block_diagram(
         loops=loops,
         case_structures=case_structures,
         flat_sequences=flat_sequences,
+        srn_to_structure=srn_to_structure,
     )
 
 
@@ -348,124 +353,182 @@ def _extract_enum_labels(root: ET.Element) -> dict[str, list[str]]:
     return enums
 
 
+def _process_element_terminals(
+    elem: ET.Element,
+    wire_sources: set[str],
+    wire_sinks: set[str],
+    type_map: dict[int, LVType] | None,
+    terminal_info: dict[str, TerminalInfo],
+) -> None:
+    """Extract terminals from a single TERMINAL_CONTAINER_CLASSES element."""
+    elem_uid = elem.get("uid")
+    elem_class = elem.get("class", "")
+
+    term_list = elem.findall(
+        f"./termList/SL__arrayElement[@class='{TERMINAL_CLASS}']",
+    )
+
+    for list_position, term in enumerate(term_list):
+        term_uid = term.get("uid")
+        if not term_uid:
+            continue
+
+        dco = term.find("dco")
+        dco_uid = dco.get("uid") if dco is not None else None
+
+        # Get terminal index from dco.
+        # Primitives use "parmIndex", SubVIs use "paramIdx".
+        # Missing paramIdx = 0 (XML omits the default value).
+        # Missing parmIndex on primitives = genuinely unknown (-1).
+        parm_index = -1
+        if dco is not None:
+            for idx_field in ("parmIndex", "paramIdx"):
+                idx_elem = dco.find(idx_field)
+                if idx_elem is not None and idx_elem.text:
+                    parm_index = int(idx_elem.text)
+                    break
+            else:
+                # No index field found. For SubVI calls, missing = 0.
+                if elem_class in ("iUse", "polyIUse", "dynIUse"):
+                    parm_index = 0
+
+        # For specialized node classes (aDelete, aIndx, etc.),
+        # resolve index from named DCO references on the parent node.
+        if parm_index == -1 and dco_uid and elem_class in _NODE_DCO_MAP:
+            dco_map = _NODE_DCO_MAP[elem_class]
+            for ref_tag, ref_index in dco_map.items():
+                ref_elem = elem.find(ref_tag)
+                if ref_elem is not None:
+                    # Direct ref: element has uid matching dco
+                    if ref_elem.get("uid") == dco_uid:
+                        parm_index = ref_index
+                        break
+                    # List ref (dcoList, lengthDCOList): children
+                    # have uids. Position in list = dimension.
+                    # Stride by number of list-type refs to interleave.
+                    for pos, child in enumerate(ref_elem):
+                        if child.get("uid") == dco_uid:
+                            # Count how many list-type refs exist
+                            # to determine stride for interleaving
+                            n_lists = sum(
+                                1 for rt in dco_map
+                                if elem.find(rt) is not None
+                                and len(elem.find(rt)) > 0
+                            )
+                            parm_index = ref_index + (pos * max(n_lists, 1))
+                            break
+                if parm_index >= 0:
+                    break
+
+        # sRN terminals never have parmIndex — use list position
+        if parm_index == -1 and elem_class == NODE_CLASS_SHIFT_REG:
+            parm_index = list_position
+
+        # Determine direction from wire connectivity
+        if term_uid in wire_sources:
+            is_output = True
+        elif term_uid in wire_sinks:
+            is_output = False
+        else:
+            # Unwired terminal - fall back to flag-based detection
+            term_flags = safe_int(term.find("objFlags"))
+            dco_obj = dco.find("objFlags") if dco is not None else None
+            dco_flags = safe_int(dco_obj)
+            combined_flags = term_flags | dco_flags
+            is_output = is_output_terminal(combined_flags)
+
+        # Resolve TypeID to ParsedType
+        type_desc_elem = term.find(".//typeDesc")
+        type_desc_str = (
+            type_desc_elem.text if type_desc_elem is not None
+            else None
+        )
+        parsed_type = None
+        if type_desc_str and type_map:
+            lv_type = resolve_type_rich(type_desc_str, type_map)
+            parsed_type = _lvtype_to_parsed(lv_type)
+
+        # Extract terminal label from dco or terminal element
+        term_name = None
+        if dco is not None:
+            term_name = extract_label(dco)
+        if not term_name:
+            term_name = extract_label(term)
+
+        terminal_info[term_uid] = TerminalInfo(
+            uid=term_uid,
+            parent_uid=elem_uid,
+            index=parm_index,
+            is_output=is_output,
+            parsed_type=parsed_type,
+            name=term_name,
+        )
+
+
+def _walk_and_extract_terminals(
+    elem: ET.Element,
+    wire_sources: set[str],
+    wire_sinks: set[str],
+    type_map: dict[int, LVType] | None,
+    terminal_info: dict[str, TerminalInfo],
+    srn_to_structure: dict[str, str],
+    current_structure_uid: str | None,
+) -> None:
+    """Walk XML tree hierarchically, extracting terminals and tracking sRN containment."""
+    elem_uid = elem.get("uid")
+    elem_class = elem.get("class", "")
+
+    # Extract terminals from this element if it's a terminal container
+    if elem_uid and elem_class in TERMINAL_CONTAINER_CLASSES:
+        _process_element_terminals(
+            elem, wire_sources, wire_sinks, type_map, terminal_info,
+        )
+
+    # Record sRN → structure containment
+    if elem_uid and elem_class == NODE_CLASS_SHIFT_REG and current_structure_uid:
+        srn_to_structure[elem_uid] = current_structure_uid
+
+    # Update structure context for children
+    if elem_uid and elem_class in STRUCTURE_NODE_CLASSES:
+        next_structure_uid = elem_uid
+    else:
+        next_structure_uid = current_structure_uid
+
+    # Recurse into children
+    for child in elem:
+        _walk_and_extract_terminals(
+            child, wire_sources, wire_sinks, type_map,
+            terminal_info, srn_to_structure, next_structure_uid,
+        )
+
+
 def _extract_terminal_info(
     root: ET.Element,
     constants: list[Constant],
     fp_terminals: list[FPTerminal],
     wires: list[Wire],
     type_map: dict[int, LVType] | None = None,
+    srn_to_structure: dict[str, str] | None = None,
 ) -> dict[str, TerminalInfo]:
-    """Extract detailed terminal info for graph-native representation."""
+    """Extract detailed terminal info for graph-native representation.
+
+    Walks the XML tree hierarchically to preserve structure containment.
+    Populates srn_to_structure (if provided) mapping sRN UIDs to their
+    containing structure UIDs.
+    """
     terminal_info: dict[str, TerminalInfo] = {}
+    if srn_to_structure is None:
+        srn_to_structure = {}
 
     # Build wire connectivity maps for direction inference
     wire_sources: set[str] = {w.from_term for w in wires}
     wire_sinks: set[str] = {w.to_term for w in wires}
 
-    # Extract terminals from operation nodes
-    for elem in root.iter():
-        elem_uid = elem.get("uid")
-        elem_class = elem.get("class", "")
-
-        if not elem_uid:
-            continue
-
-        if elem_class in TERMINAL_CONTAINER_CLASSES:
-            term_list = elem.findall(
-                f"./termList/SL__arrayElement[@class='{TERMINAL_CLASS}']",
-            )
-
-            for list_position, term in enumerate(term_list):
-                term_uid = term.get("uid")
-                if not term_uid:
-                    continue
-
-                dco = term.find("dco")
-                dco_uid = dco.get("uid") if dco is not None else None
-
-                # Get terminal index from dco.
-                # Primitives use "parmIndex", SubVIs use "paramIdx".
-                # Missing paramIdx = 0 (XML omits the default value).
-                # Missing parmIndex on primitives = genuinely unknown (-1).
-                parm_index = -1
-                if dco is not None:
-                    for idx_field in ("parmIndex", "paramIdx"):
-                        idx_elem = dco.find(idx_field)
-                        if idx_elem is not None and idx_elem.text:
-                            parm_index = int(idx_elem.text)
-                            break
-                    else:
-                        # No index field found. For SubVI calls, missing = 0.
-                        if elem_class in ("iUse", "polyIUse", "dynIUse"):
-                            parm_index = 0
-
-                # For specialized node classes (aDelete, aIndx, etc.),
-                # resolve index from named DCO references on the parent node.
-                if parm_index == -1 and dco_uid and elem_class in _NODE_DCO_MAP:
-                    dco_map = _NODE_DCO_MAP[elem_class]
-                    for ref_tag, ref_index in dco_map.items():
-                        ref_elem = elem.find(ref_tag)
-                        if ref_elem is not None:
-                            # Direct ref: element has uid matching dco
-                            if ref_elem.get("uid") == dco_uid:
-                                parm_index = ref_index
-                                break
-                            # List ref (dcoList, lengthDCOList): children
-                            # have uids. Position in list = dimension.
-                            # Stride by number of list-type refs to interleave.
-                            for pos, child in enumerate(ref_elem):
-                                if child.get("uid") == dco_uid:
-                                    # Count how many list-type refs exist
-                                    # to determine stride for interleaving
-                                    n_lists = sum(
-                                        1 for rt in dco_map
-                                        if elem.find(rt) is not None
-                                        and len(elem.find(rt)) > 0
-                                    )
-                                    parm_index = ref_index + (pos * max(n_lists, 1))
-                                    break
-                        if parm_index >= 0:
-                            break
-
-                # Determine direction from wire connectivity
-                if term_uid in wire_sources:
-                    is_output = True
-                elif term_uid in wire_sinks:
-                    is_output = False
-                else:
-                    # Unwired terminal - fall back to flag-based detection
-                    term_flags = safe_int(term.find("objFlags"))
-                    dco_obj = dco.find("objFlags") if dco is not None else None
-                    dco_flags = safe_int(dco_obj)
-                    combined_flags = term_flags | dco_flags
-                    is_output = is_output_terminal(combined_flags)
-
-                # Resolve TypeID to ParsedType
-                type_desc_elem = term.find(".//typeDesc")
-                type_desc_str = (
-                    type_desc_elem.text if type_desc_elem is not None
-                    else None
-                )
-                parsed_type = None
-                if type_desc_str and type_map:
-                    lv_type = resolve_type_rich(type_desc_str, type_map)
-                    parsed_type = _lvtype_to_parsed(lv_type)
-
-                # Extract terminal label from dco or terminal element
-                term_name = None
-                if dco is not None:
-                    term_name = extract_label(dco)
-                if not term_name:
-                    term_name = extract_label(term)
-
-                terminal_info[term_uid] = TerminalInfo(
-                    uid=term_uid,
-                    parent_uid=elem_uid,
-                    index=parm_index,
-                    is_output=is_output,
-                    parsed_type=parsed_type,
-                    name=term_name,
-                )
+    # Walk XML hierarchically — preserves structure containment for sRN nodes
+    _walk_and_extract_terminals(
+        root, wire_sources, wire_sinks, type_map,
+        terminal_info, srn_to_structure, None,
+    )
 
     # Constants have a single output terminal
     for const in constants:

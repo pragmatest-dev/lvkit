@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 
 from vipy.graph_types import CaseFrame, Operation
 
-from ..ast_utils import parse_expr
+from ..ast_utils import build_assign, parse_expr, to_var_name
 from ..fragment import CodeFragment
 from .base import NodeCodeGen, get_codegen
 
@@ -116,6 +116,12 @@ class CaseCodeGen(NodeCodeGen):
         else:
             else_body = [ast.Pass()]
 
+        # Handle output tunnels and pre-declare variables that exit the case
+        output_bindings = self._bind_output_tunnels(node, ctx)
+        bindings.update(output_bindings)
+        pre_decls = self._pre_declare_outputs(node, output_bindings, ctx)
+        statements.extend(pre_decls)
+
         # Simplify pass-only branches:
         # if x: pass; else: work() → if not x: work()
         # if x: work(); else: pass → if x: work()
@@ -145,10 +151,6 @@ class CaseCodeGen(NodeCodeGen):
                 orelse=else_body,
             )
         statements.append(if_stmt)
-
-        # Handle output tunnels
-        output_bindings = self._bind_output_tunnels(node, ctx)
-        bindings.update(output_bindings)
 
         return CodeFragment(
             statements=statements,
@@ -198,19 +200,19 @@ class CaseCodeGen(NodeCodeGen):
 
             cases.append(ast.match_case(pattern=pattern, guard=None, body=body))
 
+        # Handle output tunnels and pre-declare variables that exit the case
+        output_bindings = self._bind_output_tunnels(node, ctx)
+        bindings.update(output_bindings)
+        pre_decls = self._pre_declare_outputs(node, output_bindings, ctx)
+
         # Build match statement
         match_stmt = ast.Match(
             subject=parse_expr(selector_var),
             cases=cases,
         )
-        statements.append(match_stmt)
-
-        # Handle output tunnels
-        output_bindings = self._bind_output_tunnels(node, ctx)
-        bindings.update(output_bindings)
 
         return CodeFragment(
-            statements=statements,
+            statements=pre_decls + [match_stmt],
             bindings=bindings,
             imports=all_imports,
         )
@@ -340,6 +342,48 @@ class CaseCodeGen(NodeCodeGen):
             bindings=bindings,
             imports=inner_fragment.imports,
         )
+
+    def _pre_declare_outputs(
+        self,
+        node: Operation,
+        output_bindings: dict[str, str],
+        ctx: CodeGenContext,
+    ) -> list[ast.stmt]:
+        """Pre-declare output tunnel variables before the case structure.
+
+        In LabVIEW, every output tunnel guarantees a value exits regardless
+        of which frame runs. In Python, variables assigned inside an if/else
+        branch don't exist if that branch didn't execute. Pre-declaring with
+        None ensures the variable is always in scope.
+
+        Skips variables that are already in scope (function parameters,
+        pass-through tunnels where input == output variable name).
+        """
+        param_names = {to_var_name(inp.name or "") for inp in ctx.vi_inputs}
+        # Collect input tunnel variable names (already in scope)
+        input_vars: set[str] = set()
+        for tunnel in node.tunnels:
+            outer_var = ctx.resolve(tunnel.outer_terminal_uid)
+            if outer_var:
+                input_vars.add(outer_var)
+
+        pre_decls: list[ast.stmt] = []
+        declared: set[str] = set()
+        for _outer_term, var_name in output_bindings.items():
+            if not var_name or var_name == "None":
+                continue
+            if var_name in param_names:
+                continue  # Function parameter — already in scope
+            if var_name in input_vars:
+                continue  # Pass-through — same var enters and exits
+            if var_name in declared:
+                continue
+            declared.add(var_name)
+            pre_decls.append(
+                build_assign(var_name, ast.Constant(value=None))
+            )
+
+        return pre_decls
 
     def _bind_input_tunnels(
         self, node: Operation, ctx: CodeGenContext

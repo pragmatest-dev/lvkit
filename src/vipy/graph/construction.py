@@ -1025,10 +1025,21 @@ class ConstructionMixin:
                 if ti and ti.parent_uid and ti.parent_uid not in known_node_uids:
                     tunnel_srn_parents.add(ti.parent_uid)
 
+        # Extract raw UID from qualified UID for srn_to_structure lookup
+        raw_structure_uid = (
+            structure_uid.split("::")[-1]
+            if "::" in structure_uid
+            else structure_uid
+        )
+
         all_srn_parents: set[str] = set()
         for uid, ti in bd.terminal_info.items():
             if ti.parent_uid and ti.parent_uid not in known_node_uids:
-                all_srn_parents.add(ti.parent_uid)
+                # Scope to sRNs belonging to THIS structure
+                if not bd.srn_to_structure or bd.srn_to_structure.get(
+                    ti.parent_uid,
+                ) == raw_structure_uid:
+                    all_srn_parents.add(ti.parent_uid)
 
         for srn_uid in all_srn_parents:
             # Collect all terminals owned by this sRN
