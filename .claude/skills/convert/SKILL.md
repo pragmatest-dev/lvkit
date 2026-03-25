@@ -8,117 +8,104 @@ allowed-tools: Bash, Read, Write, Edit, Glob, Grep
 
 Convert LabVIEW VI files to Python without requiring a LabVIEW license.
 
-## Quick Start
+## Workflow
+
+The conversion is a two-step process: **deterministic AST codegen** produces working Python, then **AI review** improves it.
+
+### Step 1: Generate Python
 
 ```bash
-# Standard conversion with dependencies
-vipy agent "path/to/file.vi" -o outputs --search-path samples/OpenG/extracted --generate-ui
+# Single VI
+vipy generate "path/to/file.vi" -o outputs --search-path samples/OpenG/extracted
 
-# Generate HTML documentation
-vipy mcp  # Then use analyze_vi or generate_documents tools
+# LabVIEW class
+vipy generate "path/to/MyClass.lvclass" -o outputs --search-path samples/OpenG/extracted
+
+# Directory of VIs
+vipy generate "path/to/vi_folder/" -o outputs --search-path samples/OpenG/extracted
 ```
 
-## Architecture
+### Step 2: Review & improve
 
-Two-stage pipeline:
-1. **Structural Parsing**: VI → pylabview → XML → parser → typed dataclasses
-2. **Code Generation**: AST-based deterministic generation (preferred) or LLM-assisted
+Read the generated output. The AST codegen produces **working but non-idiomatic Python**. Improve it:
 
-Key principle: **Everything is dataclasses, not dicts**. Use attribute access (`op.name`), never `.get()`.
+1. **Check the error summary** — 0 errors means clean generation
+2. **Read the generated files** — look for awkward variable names, verbose patterns
+3. **Handle unresolved VIs** — if errors mention `VILibResolutionNeeded` or `TerminalResolutionNeeded`:
+   - Read the diagnostic info (terminal names, wire types, indices)
+   - Add the missing VI info to `data/vilib/` or `data/primitives-codegen.json`
+   - Re-run `vipy generate`
+4. **Refactor** — simplify logic, improve variable names, use Pythonic idioms
+5. **Verify** — run the generated code, check imports resolve
+
+### Step 3: Generate documentation
+
+```bash
+vipy docs "path/to/file.vi" output_dir --search-path samples/OpenG/extracted
+```
+
+Produces HTML with Mermaid dataflow diagrams, parameter tables, and cross-references.
 
 ## Commands
 
 ```bash
-vipy check              # Check dependencies
-vipy agent <vi> -o dir  # Full conversion with validation loop
-vipy mcp                # Start MCP server for IDE integration
-vipy summarize <xml>    # Debug: show VI summary
-vipy explore            # Run NiceGUI explorer for converted VIs
+vipy generate <path> -o dir   # AST-based Python generation (primary)
+vipy docs <path> <dir>        # HTML documentation
+vipy check                    # Check dependencies (pylabview, etc.)
+vipy structure <path>         # Show project structure
+vipy mcp                      # Start MCP server for IDE integration
+vipy explore                  # NiceGUI explorer for converted VIs
+vipy agent <path> -o dir      # Legacy: LLM validation loop (fallback)
 ```
 
 ## MCP Tools
 
-The MCP server provides:
-- `analyze_vi` - Parse VI and return structure (inputs, outputs, dataflow graph)
-- `generate_documents` - Create HTML documentation for VIs/libraries
-- `generate_python` - AST-based Python code generation
+The MCP server (`vipy mcp`) provides tools for IDE integration:
+- `load_vi` — Load VI into persistent in-memory graph
+- `list_loaded_vis` — List loaded VIs
+- `get_vi_context` — Get full VI context (inputs, outputs, operations, wires)
+- `generate_ast_code` — Generate Python from loaded VI
+- `generate_python` — Full pipeline: load + generate + write files
+- `generate_documents` — Create HTML documentation
+- `analyze_vi` — Parse and return VI structure
 
 ## Key Data Structures
 
+All types in `src/vipy/graph_types.py`:
 ```python
-# All from src/vipy/graph_types.py
-Operation   # SubVI or primitive: id, name, labels, terminals, primResID
-Terminal    # Terminal on operation: id, index, direction, name, type
-Wire        # Connection: from_terminal_id, to_terminal_id, from_parent_*
-Constant    # Value: id, value, lv_type, raw_value, name
-FPTerminalNode  # Front panel: id, name, type, lv_type, default_value
+VIContext    # Complete VI context: name, inputs, outputs, operations, constants
+Operation   # SubVI or primitive: id, name, labels, terminals, case_frames
+Terminal    # Connection point: id, index, direction, name, lv_type
+Wire        # Edge: source (WireEnd), dest (WireEnd)
+Constant    # Value: id, value, lv_type, raw_value
 ```
 
-## Context Access Pattern
-
-```python
-# get_vi_context() returns dict with DATACLASS instances
-context = graph.get_vi_context(vi_name)
-for op in context["operations"]:    # Operation dataclass
-    if "SubVI" in op.labels:        # Attribute access
-        name = op.name              # NOT op.get("name")
-```
-
-## Output Structure
-
-```
-outputs/
-├── package_name/
-│   ├── openg/           # OpenG VIs (__ogtk suffix)
-│   ├── vilib/           # vi.lib VIs
-│   ├── libraryname/     # .lvlib VIs
-│   ├── primitives.py    # Generated primitive wrappers
-│   └── app.py           # NiceGUI explorer
-```
+**Everything is typed dataclasses.** Use attribute access (`ctx.operations`, `op.name`), never `.get()`.
 
 ## Output Expectations
 
-Generated Python is a **functional transliteration**, not idiomatic code. It preserves LabVIEW's dataflow semantics but reads like code from a non-native Python speaker:
+Generated Python is a **functional transliteration**, not idiomatic code:
+- Preserves LabVIEW's dataflow semantics
+- Verbose variable names from terminal labels
+- Explicit parallel branches with `concurrent.futures`
+- Shift registers become explicit assignments
+- Flat sequences become sequential code blocks
 
-- **Loops**: Shift registers become explicit variable assignments (`shift_reg_0 = ...`), tunnels become intermediate variables
-- **Data flow**: Explicit wiring becomes verbose variable passing
-- **Naming**: Terminal labels become variable names (may be awkward)
-- **Patterns**: Won't use Pythonic idioms (comprehensions, context managers, unpacking)
-- **Classes**: `.lvclass` will produce granular, poorly-architected Python - many tiny accessor methods, no cohesive design
+**This is intentional.** Working-but-awkward Python is easier for AI to refactor than generating from scratch. The workflow: VI → AST → working Python → AI cleanup → idiomatic code.
 
-**This is intentional.** In an agent-in-the-loop workflow, the awkward-but-working Python becomes the artifact to refine. The theory: even bad Python is more easily understood and corrected than graph descriptions or dataflow diagrams.
+## Resolving Unknowns
 
-Workflow: VI → stilted Python → agent/human refactors → idiomatic code
-
-## Stubs and Agent Opportunities
-
-The AST generator creates **unimplemented stubs** when it encounters:
-- Unknown primitives (missing from `data/primitives/`)
-- Unrecognized vilib VIs (missing from `data/vilib/`)
-- Complex structures it doesn't fully understand
-
-These stubs look like:
-```python
-def PRIMITIVE_1234():
-    """Unknown primitive - needs implementation"""
-    raise NotImplementedError("Primitive 1234 not implemented")
-```
-
-**Stubs are opportunities for agent improvement.** When reviewing generated code:
-1. Look for `PRIMITIVE_*` functions or `NotImplementedError` stubs
-2. Search for `???` placeholders in variable assignments
-3. Check for type annotation gaps
-
-The agent can fill these in by:
-- Looking up the primitive in LabVIEW documentation
-- Inferring behavior from context and connected wires
-- Using LLM refinement to complete the logic
-
-This is the intended workflow: AST generates valid-but-incomplete code, agent completes the gaps.
+When generation encounters unknown VIs or primitives:
+1. `VILibResolutionNeeded` — missing vilib VI terminal definitions
+   - Check `data/vilib/*.json` for the VI
+   - Use the reported wire types and indices to fill in terminal info
+2. `TerminalResolutionNeeded` — missing primitive terminal mapping
+   - Check `data/primitives-codegen.json` for the primResID
+   - Look up in `docs/labview_programming_reference_manual.pdf`
+3. Re-run `vipy generate` after adding the data
 
 ## Troubleshooting
 
-- **Missing SubVI**: Add `--search-path` to VI library directory
-- **Unknown primitive**: Check `data/primitives/` for primResID
-- **Type resolution needed**: Check `data/vilib/` for terminal indices
-- **Agent error**: Check that code uses dataclass attributes, not `.get()`
+- **Missing SubVI**: Add `--search-path` pointing to the VI's library directory
+- **Type errors**: Check that code uses dataclass attributes, not `.get()`
+- **Import issues**: Check the generated `__init__.py` and import paths
