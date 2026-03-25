@@ -258,6 +258,10 @@ class PrimitiveCodeGen(NodeCodeGen):
             if term.index in resolver_error_indices:
                 continue
 
+            # Skip unwired outputs — no consumer, no assignment needed
+            if not ctx.is_wired(term.id):
+                continue
+
             term_id = term.id
             term_index = term.index
             term_name = term.name or ""
