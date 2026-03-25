@@ -206,10 +206,15 @@ class SubVICodeGen(NodeCodeGen):
                 if param_key in ref_passthrough:
                     bindings[term_id] = ref_passthrough[param_key]
                     output_var_map[param_key] = ref_passthrough[param_key]
-                else:
+                elif "{" + param_key + "}" in template:
+                    # Output appears in template — will be assigned
                     var_name = f"{func_name}_{param_key}"
                     output_var_map[param_key] = var_name
                     bindings[term_id] = var_name
+                elif ctx.is_wired(term_id):
+                    # Output not in template but wired downstream — bind to None
+                    bindings[term_id] = "None"
+                # else: not in template, not wired — skip entirely
             else:
                 # Output not in vilib definition - bind to None
                 bindings[term_id] = "None"
