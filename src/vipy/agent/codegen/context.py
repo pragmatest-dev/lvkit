@@ -304,17 +304,17 @@ class CodeGenContext:
 
 def _format_constant(const: Constant) -> str:
     """Format a constant value as a Python expression."""
-    if const.lv_type and const.lv_type.kind == "enum" and const.lv_type.values:
+    if const.lv_type and const.lv_type.values and const.lv_type.typedef_name:
         try:
             int_value = int(const.value)
             for member_name, enum_val in const.lv_type.values.items():
                 if enum_val.value == int_value:
-                    if const.lv_type.typedef_name:
-                        from vipy.vilib_resolver import derive_python_name
+                    if not member_name.isidentifier():
+                        break  # e.g. "<Null>" — not valid Python
+                    from vipy.vilib_resolver import derive_python_name
 
-                        class_name = derive_python_name(const.lv_type.typedef_name)
-                        return f"{class_name}.{member_name}"
-                    return str(const.value)
+                    class_name = derive_python_name(const.lv_type.typedef_name)
+                    return f"{class_name}.{member_name}"
         except (ValueError, TypeError):
             pass
 
