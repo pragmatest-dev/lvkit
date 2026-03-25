@@ -173,6 +173,7 @@ class InMemoryVIGraph(
             classname=parsed_type.classname,
             typedef_path=parsed_type.typedef_path,
             typedef_name=parsed_type.typedef_name,
+            values=parsed_type.enum_values,
         )
 
         # Carry field names from type map (raw clusters have these)
@@ -184,8 +185,10 @@ class InMemoryVIGraph(
             resolver = get_vilib_resolver()
             resolved = resolver.resolve_type(parsed_type.typedef_name)
             if resolved:
-                lv_type.values = resolved.values
-                lv_type.fields = resolved.fields
+                if resolved.values:
+                    lv_type.values = resolved.values
+                if resolved.fields:
+                    lv_type.fields = resolved.fields
                 lv_type.description = resolved.description
 
         return lv_type
