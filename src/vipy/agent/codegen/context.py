@@ -30,6 +30,7 @@ class CodeGenContext:
     loop_depth: int = 0
     use_held_error_model: bool = False
     _branch_counter: int = field(default=0, repr=False)
+    _allocated_vars: set[str] = field(default_factory=set, repr=False)
     vi_inputs: list[Terminal] = field(default_factory=list)
     import_resolver: Any = field(default=None, repr=False)
 
@@ -87,6 +88,86 @@ class CodeGenContext:
                     return True
         return False
 
+    def make_output_var(
+        self, base_name: str, node_id: str, terminal_id: str | None = None,
+    ) -> str:
+        """Generate a unique variable name for an operation output.
+
+        Single naming path: if the terminal wires to a structure boundary
+        tunnel, the tunnel owns the name (derived from downstream consumer
+        or terminal metadata). Otherwise, uses base_name with collision
+        handling.
+
+        Shared by primitive and SubVI handlers for consistent behavior.
+        """
+        # Check if this terminal wires to a structure boundary tunnel
+        if terminal_id:
+            tunnel_name = self._get_tunnel_var_name(terminal_id)
+            if tunnel_name:
+                return tunnel_name
+
+        var_name = to_var_name(base_name)
+        if var_name in self._allocated_vars or self.var_name_in_use(var_name):
+            op_suffix = node_id.split("::")[-1] if "::" in node_id else node_id
+            var_name = f"{var_name}_{op_suffix}"
+        self._allocated_vars.add(var_name)
+        return var_name
+
+    def _get_tunnel_var_name(self, terminal_id: str) -> str | None:
+        """Check if terminal wires to a structure boundary tunnel.
+
+        If yes, derive the variable name from the tunnel's outer terminal:
+        1. Downstream consumer's terminal name (what the next operation calls it)
+        2. Outer terminal's own name
+        3. None (fall through to default naming)
+
+        This ensures all frames in a case structure use the same variable
+        name for the same output tunnel — no override dict needed.
+        """
+        if self.graph is None:
+            return None
+
+        from vipy.graph_types import TunnelTerminal
+
+        for dest in self.graph.outgoing_edges(terminal_id):
+            dest_gnode = self.graph._graph.nodes.get(dest.node_id, {}).get("node")
+            if dest_gnode is None:
+                continue
+
+            # Find the destination terminal on the structure node
+            for term in dest_gnode.terminals:
+                if term.id != dest.terminal_id:
+                    continue
+                if not isinstance(term, TunnelTerminal):
+                    continue
+                if term.boundary != "inner" or not term.paired_id:
+                    continue
+
+                # This terminal IS a tunnel inner — derive name from outer
+                outer_id = term.paired_id
+
+                # Priority 1: downstream consumer of the outer terminal
+                for outer_dest in self.graph.outgoing_edges(outer_id):
+                    # Skip self-edges (tunnel inner terminals on same structure)
+                    if outer_dest.node_id == dest.node_id:
+                        continue
+                    if outer_dest.name:
+                        name = to_var_name(outer_dest.name)
+                        self._allocated_vars.add(name)
+                        return name
+
+                # Priority 2: outer terminal's own name
+                outer_term = next(
+                    (t for t in dest_gnode.terminals if t.id == outer_id),
+                    None,
+                )
+                if outer_term and outer_term.name:
+                    name = to_var_name(outer_term.name)
+                    self._allocated_vars.add(name)
+                    return name
+
+        return None
+
     def get_source(self, terminal_id: str) -> SourceInfo | None:
         """Get source info for a terminal (first incoming edge)."""
         if self.graph is None:
@@ -137,6 +218,7 @@ class CodeGenContext:
             imports=self.imports,
             loop_depth=self.loop_depth + (1 if increment_loop_depth else 0),
             use_held_error_model=self.use_held_error_model,
+            _allocated_vars=self._allocated_vars,  # Shared — same scope
             vi_inputs=self.vi_inputs,
             import_resolver=self.import_resolver,
         )

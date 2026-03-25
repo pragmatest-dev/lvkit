@@ -65,9 +65,7 @@ class SubVICodeGen(NodeCodeGen):
             return self._generate_inline(node, ctx, vilib_vi)
 
         func_name = to_function_name(subvi_name)
-        # Use operation ID suffix for unique result vars when same VI called multiple times
-        op_suffix = node.id.split("::")[-1] if "::" in node.id else node.id
-        result_var = f"{func_name}_{op_suffix}_result"
+        result_var = ctx.make_output_var(f"{func_name}_result", node.id)
 
         # Gather input arguments with proper names
         args, keywords = self._build_arguments(node, ctx, vilib_vi)

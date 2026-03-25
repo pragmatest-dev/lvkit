@@ -300,7 +300,7 @@ class PrimitiveCodeGen(NodeCodeGen):
                     vi_name=ctx.vi_name if ctx else None,
                 )
 
-            var_name = to_var_name(term_name) if term_name else f"out_{term_index}"
+            var_name = ctx.make_output_var(term_name, node.id, terminal_id=term_id) if term_name else f"out_{term_index}"
             outputs.append((term_id, term_name, var_name))
 
         return outputs
