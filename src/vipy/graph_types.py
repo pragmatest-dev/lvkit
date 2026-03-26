@@ -43,6 +43,10 @@ class LVType:
     def to_python(self) -> str:
         """Render as Python type annotation string."""
         if self.kind == "primitive":
+            # Refnum with class name → use the class type
+            if self.underlying_type == "Refnum" and self.classname:
+                name = _sanitize_type_name(self.classname.replace(".lvclass", ""))
+                return name or "Any"
             return _LV_TO_PYTHON_TYPE.get(self.underlying_type or "", "Any")
         elif self.kind == "array":
             inner = self.element_type.to_python() if self.element_type else "Any"
@@ -586,6 +590,8 @@ _LV_TO_PYTHON_TYPE: dict[str, str] = {
     "Boolean": "bool",
     "Path": "Path",
     "Variant": "Any",
+    "LVVariant": "Any",
+    "Refnum": "Any",
     "Void": "None",
 }
 
