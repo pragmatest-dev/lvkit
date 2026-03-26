@@ -142,11 +142,14 @@ Only after completing steps 1-5. Add to `data/primitives-codegen.json` under `pr
 ```
 
 Rules:
+- Terminal **indices** MUST be confirmed from observed wiring (Steps 2-3), NEVER assumed from documentation order. The documentation lists terminals in a different order than the connector pane indices. Example: Split 1D Array docs list "array, index" but the connector pane has index=2 for the numeric index and index=3 for the array.
+- Terminal **directions** MUST be confirmed from observed `is_output` flags in the parser data, not from documentation
 - Terminal names MUST be valid Python identifiers (no `x=y?`, no `NaN/Path/Refnum?`)
-- Template expressions MUST use `in_N` index references, NEVER terminal names
+- Template expressions MUST use `in_N` index references matching the OBSERVED connector pane indices
 - Include ALL terminals that appear in the actual VI data, including error clusters
 - `python_code` dict keys match output terminal names
-- Mark `"verified": true` only if confirmed from PDF, `false` if uncertain
+- Mark `"verified": true` only if indices confirmed from observed connections
+- The parser reports **element types** for array terminals (e.g., NumUInt8 for Array of UInt8). Don't confuse element types with scalar types — check the output terminal types and wiring context
 
 ## Step 7: Re-run generation
 
@@ -160,8 +163,10 @@ If a NEW primitive fails, start this process again for that one.
 ## NEVER do these things
 
 - NEVER guess a function name from terminal types alone
-- NEVER say "polymorphic" to explain away type mismatches
+- NEVER say "polymorphic" to explain away type mismatches — ask the user
 - NEVER copy a name from another entry because "it looks similar"
 - NEVER fill python_code without confirming semantics from the documentation
+- NEVER assume terminal indices from documentation listing order — always confirm from observed wiring in Steps 2-3
+- NEVER assume a primResID maps to a different function based on terminal types — primitive polymorphism must be observed in data or confirmed by the user
 - NEVER skip the context check (Step 3) — it reveals what the function actually does
 - NEVER batch-fill entries — one at a time, fully verified

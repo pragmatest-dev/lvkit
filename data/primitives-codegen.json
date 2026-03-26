@@ -426,15 +426,15 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "in",
-          "name": "array",
-          "type": "array"
-        },
-        {
-          "index": 1,
           "direction": "out",
           "name": "subarray",
           "type": "polymorphic"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "array",
+          "type": "array"
         },
         {
           "index": 2,
@@ -451,11 +451,12 @@
         }
       ],
       "python_code": {
-        "subarray": "in_0[in_2:in_2 + in_3]"
+        "subarray": "in_1[in_2:in_2 + in_3]"
       },
       "inline": true,
       "verified": true,
-      "pdf_page": 402
+      "pdf_page": 402,
+      "note": "Confirmed: idx=0 out (subarray), idx=1 in (array), idx=2 in (index), idx=3 in (length). From TrackWhiskerDroppedFrames_2P.vi."
     },
     "1608": {
       "name": "Flatten To String",
