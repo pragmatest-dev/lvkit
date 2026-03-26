@@ -303,22 +303,35 @@ class PrimitiveCodeGen(NodeCodeGen):
             _key, expr_template = exprs[expr_idx]
             expr_idx += 1
 
-            # Check if expression is a bare input reference
-            if not re.match(r'^in_\d+$', expr_template):
+            # Case 1: bare input reference (in_N) — identity passthrough
+            if re.match(r'^in_\d+$', expr_template):
+                resolved_var = input_map.get(expr_template)
+                if (
+                    resolved_var
+                    and resolved_var.isidentifier()
+                    and resolved_var not in ('None', 'True', 'False')
+                ):
+                    bindings[term.id] = resolved_var
+                    skip_ids.add(term.id)
                 continue
 
-            # Substitute to get the resolved variable name
-            resolved_var = input_map.get(expr_template)
-            if not resolved_var:
+            # Case 2: single-use simple expression — inline into consumer
+            # If this output has exactly one consumer and the expression is
+            # simple (no function calls, no string literals), bind the
+            # substituted expression directly. Turns
+            # `equal_478 = x == y; if equal_478:` into `if x == y:`.
+            if ctx.graph is None:
                 continue
-
-            # Must be a real variable, not a literal or keyword
-            if (
-                resolved_var.isidentifier()
-                and resolved_var not in ('None', 'True', 'False')
-            ):
-                bindings[term.id] = resolved_var
-                skip_ids.add(term.id)
+            consumers = ctx.graph.outgoing_edges(term.id)
+            if len(consumers) != 1:
+                continue
+            substituted = self._substitute_template(expr_template, input_map, resolved)
+            # Only inline simple expressions — no parens (function calls),
+            # no quotes (string literals), no brackets (subscripts)
+            if any(c in substituted for c in "('\"["):
+                continue
+            bindings[term.id] = substituted
+            skip_ids.add(term.id)
 
         return bindings, skip_ids
 
