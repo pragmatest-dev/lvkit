@@ -41,7 +41,12 @@ def derive_python_name(typedef_name: str) -> str:
     name = filename.replace(".ctl", "")
 
     # Convert to CamelCase: "System Directory Type" -> "SystemDirectoryType"
-    return "".join(word.capitalize() for word in name.replace("_", " ").split())
+    # Replace hyphens and underscores with spaces for splitting
+    name = name.replace("-", " ").replace("_", " ")
+    result = "".join(word.capitalize() for word in name.split())
+    # Ensure the result is a valid Python identifier
+    result = "".join(c for c in result if c.isalnum() or c == "_")
+    return result or "UnknownType"
 
 
 def derive_python_location(typedef_name: str) -> tuple[str, str]:
