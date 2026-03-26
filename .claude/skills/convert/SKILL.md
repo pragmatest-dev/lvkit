@@ -10,7 +10,7 @@ Convert LabVIEW VI files to Python without requiring a LabVIEW license.
 
 ## Workflow
 
-The conversion is a two-step process: **deterministic AST codegen** produces working Python, then **AI review** improves it.
+The conversion is a **loop**: generate → resolve unknowns → re-generate → polish. Repeat until 0 errors.
 
 ### Step 1: Generate Python
 
@@ -25,26 +25,24 @@ vipy generate "path/to/MyClass.lvclass" -o outputs --search-path samples/OpenG/e
 vipy generate "path/to/vi_folder/" -o outputs --search-path samples/OpenG/extracted
 ```
 
-### Step 2: Review & improve
+### Step 2: Resolve unknowns (loop until 0 errors)
 
-Read the generated output. The AST codegen produces **working but non-idiomatic Python**. Improve it:
+If the error summary shows errors, resolve them ONE AT A TIME:
 
-1. **Check the error summary** — 0 errors means clean generation
-2. **Read the generated files** — look for awkward variable names, verbose patterns
-3. **Handle unresolved VIs** — if errors mention `VILibResolutionNeeded` or `TerminalResolutionNeeded`:
-   - Read the diagnostic info (terminal names, wire types, indices)
-   - Add the missing VI info to `data/vilib/` or `data/primitives-codegen.json`
-   - Re-run `vipy generate`
-4. **Refactor** — simplify logic, improve variable names, use Pythonic idioms
-5. **Verify** — run the generated code, check imports resolve
+- `TerminalResolutionNeeded` → invoke `/resolve-primitive` skill with the primResID
+- `VILibResolutionNeeded` → invoke `/resolve-vilib` skill with the VI name
 
-### Step 3: Generate documentation
+After resolving each unknown, re-run `vipy generate`. Repeat until 0 errors.
+
+### Step 3: Polish
+
+Only after 0 errors. Read the generated code and improve cosmetics (see Polishing Rules below). NEVER change execution semantics.
+
+### Step 4: Generate documentation
 
 ```bash
 vipy docs "path/to/file.vi" output_dir --search-path samples/OpenG/extracted
 ```
-
-Produces HTML with Mermaid dataflow diagrams, parameter tables, and cross-references.
 
 ## Commands
 
@@ -119,16 +117,13 @@ When improving generated code, **preserve execution semantics**:
 - **Inlining a SubVI call** — the SubVI may be reused elsewhere
 - **Changing data types** — LabVIEW types map to specific Python types for a reason
 
-## Resolving Unknowns
+## Resolving Primitives
 
-When generation encounters unknown VIs or primitives:
-1. `VILibResolutionNeeded` — missing vilib VI terminal definitions
-   - Check `data/vilib/*.json` for the VI
-   - Use the reported wire types and indices to fill in terminal info
-2. `TerminalResolutionNeeded` — missing primitive terminal mapping
-   - Check `data/primitives-codegen.json` for the primResID
-   - Look up in `docs/labview_programming_reference_manual.pdf`
-3. Re-run `vipy generate` after adding the data
+Use the `/resolve-primitive` skill. It has the complete step-by-step process for identifying and verifying unknown primitives against the LabVIEW documentation.
+
+## Resolving vilib VIs
+
+Use the `/resolve-vilib` skill. It has the complete step-by-step process for looking up vilib VI terminals in the LabVIEW documentation.
 
 ## Troubleshooting
 

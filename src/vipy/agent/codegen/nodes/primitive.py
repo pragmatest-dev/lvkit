@@ -224,6 +224,18 @@ class PrimitiveCodeGen(NodeCodeGen):
                 key = to_var_name(name) + "_values"
                 input_map[key] = ", ".join(values)
 
+        # Fill defaults for JSON-defined terminals not in the node.
+        # Unwired terminals don't appear in node.terminals but templates
+        # may reference them as in_N. Use the JSON default or None.
+        if resolved and resolved.terminals:
+            node_indices = {t.index for t in node.terminals}
+            for rt in resolved.terminals:
+                if rt.direction == "in" and rt.index not in node_indices:
+                    key = f"in_{rt.index}"
+                    if key not in input_map:
+                        default = getattr(rt, "default_value", None)
+                        input_map[key] = default if default is not None else "None"
+
         return input_map
 
     def _get_wired_outputs(
@@ -321,24 +333,33 @@ class PrimitiveCodeGen(NodeCodeGen):
         bindings: dict[str, str] = {}
         imports: set[str] = set()
 
+        # Handle _import (add to fragment imports)
+        imp = hint.get("_import")
+        if imp:
+            imports.add(imp)
+
         # Handle _body (side effect statement)
         body = hint.get("_body")
         if body:
             body_substituted = self._substitute_template(body, input_map, resolved)
             statements.append(parse_stmt(body_substituted))
 
-        # Handle each output
-        for term_id, term_name, var_name in wired_outputs:
-            # Find matching expression in hint
-            expr = self._find_output_expr(hint, term_name)
-
-            if expr:
-                expr_substituted = self._substitute_template(expr, input_map, resolved)
+        # Handle each output — match by position, not name.
+        # The graph knows the literal connections; we just need
+        # to pair each wired output with its expression.
+        exprs = [v for k, v in hint.items() if k not in ("_body", "_import")]
+        for i, (term_id, term_name, var_name) in enumerate(wired_outputs):
+            if i < len(exprs):
+                expr_substituted = self._substitute_template(exprs[i], input_map, resolved)
+                # Pure passthrough: expression is just a variable name — bind directly
+                if expr_substituted.isidentifier() and expr_substituted != var_name:
+                    bindings[term_id] = expr_substituted
+                    continue
                 expr_ast = parse_expr(expr_substituted)
                 statements.append(build_assign(var_name, expr_ast))
                 bindings[term_id] = var_name
             else:
-                # No hint for this output - placeholder
+                # More outputs than expressions — placeholder
                 statements.append(
                     build_assign(var_name, ast.Constant(value=None))
                 )
@@ -413,7 +434,7 @@ class PrimitiveCodeGen(NodeCodeGen):
         # Normalized match
         normalized = to_var_name(term_name).rstrip("_")
         for key, expr in hint.items():
-            if key == "_body":
+            if key in ("_body", "_import"):
                 continue
             if to_var_name(key).rstrip("_") == normalized:
                 return expr
@@ -463,25 +484,29 @@ class PrimitiveCodeGen(NodeCodeGen):
     def _emit_unknown(
         self, node: Operation, prim_id: int, ctx: CodeGenContext
     ) -> CodeFragment:
-        """Emit placeholder for unknown primitive.
+        """Raise TerminalResolutionNeeded for unknown primitives.
 
-        Emits a pass-through comment so downstream operations still work.
-        LabVIEW primitives always produce outputs even if we can't translate
-        them — using raise would break the dataflow for everything after.
+        Unknown primitives MUST be resolved before generation can proceed.
+        Silent placeholders hide failures — the conversion loop depends on
+        errors being raised so they can be resolved one at a time.
         """
-        node_name = node.name or "unknown"
+        from vipy.primitive_resolver import TerminalResolutionNeeded
 
-        # Emit a TODO comment (as string literal) so it's visible
-        comment = ast.Expr(
-            value=ast.Constant(
-                value=f"# TODO: Unknown primitive {prim_id} ({node_name})"
-            )
-        )
-
-        # Bind outputs to None so downstream operations can resolve them
-        bindings: dict[str, str] = {}
+        # Collect available terminal info for the diagnostic
+        available = []
         for term in node.terminals:
-            if term.direction == "output":
-                bindings[term.id] = "None"
+            available.append({
+                "index": term.index,
+                "name": term.name,
+                "type": term.lv_type.underlying_type if term.lv_type else None,
+                "direction": term.direction,
+            })
 
-        return CodeFragment(statements=[comment], bindings=bindings)
+        raise TerminalResolutionNeeded(
+            prim_id=prim_id,
+            prim_name=node.name or "unknown",
+            terminal_direction="unknown",
+            terminal_type=None,
+            available=available,
+            vi_name=ctx.vi_name,
+        )

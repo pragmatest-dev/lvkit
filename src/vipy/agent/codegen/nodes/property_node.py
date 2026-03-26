@@ -58,11 +58,12 @@ class PropertyNodeCodeGen(NodeCodeGen):
                 if not ctx.is_wired(term.id):
                     continue
                 # Generate: var = ref.attr
-                var_name = f"{ref_var}_{attr_name}"
+                var_name = to_var_name(f"{ref_var}_{attr_name}")
+                ref_expr = parse_expr(ref_var)
                 stmt = ast.Assign(
                     targets=[ast.Name(id=var_name, ctx=ast.Store())],
                     value=ast.Attribute(
-                        value=ast.Name(id=ref_var, ctx=ast.Load()),
+                        value=ref_expr,
                         attr=attr_name,
                         ctx=ast.Load(),
                     ),
@@ -80,15 +81,16 @@ class PropertyNodeCodeGen(NodeCodeGen):
                 if value is None:
                     continue
                 # Generate: ref.attr = value
+                ref_expr = parse_expr(ref_var)
                 stmt = ast.Assign(
                     targets=[
                         ast.Attribute(
-                            value=ast.Name(id=ref_var, ctx=ast.Load()),
+                            value=ref_expr,
                             attr=attr_name,
                             ctx=ast.Store(),
                         )
                     ],
-                    value=ast.Name(id=value, ctx=ast.Load()),
+                    value=parse_expr(value),
                 )
                 statements.append(stmt)
 

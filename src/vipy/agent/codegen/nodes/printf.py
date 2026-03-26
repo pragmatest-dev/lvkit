@@ -33,27 +33,34 @@ class PrintfCodeGen(NodeCodeGen):
         if not outputs:
             return CodeFragment.empty()
 
-        # Resolve all input values
+        # Resolve wired non-error input values.
+        # Unwired terminals are empty slots, not args.
+        # Error cluster terminals are passthrough, not format args.
         input_values = []
         for t in inputs:
+            if not ctx.is_wired(t.id):
+                continue
+            if t.is_error_cluster:
+                continue
             val = ctx.resolve(t.id) or "None"
             input_values.append(val)
 
         # First input is format string, rest are arguments.
-        # Only include as many args as the format string has placeholders.
+        # Generate f-string by replacing %s/%d/%f placeholders with {arg}.
         if len(input_values) >= 2:
-            fmt_str = input_values[0]
+            fmt_str = input_values[0].strip("'\"")
             args = input_values[1:]
-            # Count format placeholders (%s, %d, %f, etc.)
             import re
-            placeholder_count = len(re.findall(r'%[sdfeEgGoxXcr]', fmt_str.strip("'\"")))
-            if placeholder_count > 0:
-                args = args[:placeholder_count]
-            if len(args) == 1:
-                expr_str = f"{fmt_str} % {args[0]}"
-            else:
-                args_str = ", ".join(args)
-                expr_str = f"{fmt_str} % ({args_str},)"
+            arg_idx = 0
+            def _replace_placeholder(m: re.Match) -> str:
+                nonlocal arg_idx
+                if arg_idx < len(args):
+                    replacement = f"{{{args[arg_idx]}}}"
+                    arg_idx += 1
+                    return replacement
+                return m.group()
+            result = re.sub(r'%[sdfeEgGoxXcr]', _replace_placeholder, fmt_str)
+            expr_str = f"f'{result}'"
         elif len(input_values) == 1:
             expr_str = f"str({input_values[0]})"
         else:

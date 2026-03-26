@@ -430,9 +430,8 @@ class TestFlatSequenceCodeGen:
         inner_op = Operation(
             id="prim1",
             name="Add",
-            labels=["Primitive"],
-            node_type="prim",
-            primResID=1,
+            labels=["SubVI"],
+            node_type="iUse",
             terminals=[],
         )
 

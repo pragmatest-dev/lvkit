@@ -28,9 +28,8 @@ def _make_op(
     return Operation(
         id=op_id,
         name=name,
-        labels=["Primitive"],
-        node_type="prim",
-        primResID=1,
+        labels=["SubVI"],
+        node_type="iUse",
         terminals=terminals or [],
     )
 
@@ -155,7 +154,7 @@ class TestParallelCodegen:
         a = _make_op("A")
         ctx = CodeGenContext()
         stmts = generate_body([a], ctx)
-        code = ast.unparse(ast.Module(body=stmts, type_ignores=[]))
+        code = ast.unparse(ast.fix_missing_locations(ast.Module(body=stmts, type_ignores=[])))
         assert "ThreadPoolExecutor" not in code
 
     def test_two_independent_ops_emit_executor(self):
@@ -164,7 +163,7 @@ class TestParallelCodegen:
         b = _make_op("B")
         ctx = CodeGenContext()
         stmts = generate_body([a, b], ctx)
-        code = ast.unparse(ast.Module(body=stmts, type_ignores=[]))
+        code = ast.unparse(ast.fix_missing_locations(ast.Module(body=stmts, type_ignores=[])))
         assert "ThreadPoolExecutor" in code
         assert "_executor.submit" in code
 
@@ -179,7 +178,7 @@ class TestParallelCodegen:
         wires = [Wire.from_terminals(from_terminal_id="a_out", to_terminal_id="b_in")]
         ctx = CodeGenContext.from_wires(wires)
         stmts = generate_body([a, b], ctx)
-        code = ast.unparse(ast.Module(body=stmts, type_ignores=[]))
+        code = ast.unparse(ast.fix_missing_locations(ast.Module(body=stmts, type_ignores=[])))
         assert "ThreadPoolExecutor" not in code
 
     def test_diamond_has_executor_for_middle_tier(self):
@@ -205,7 +204,7 @@ class TestParallelCodegen:
         ]
         ctx = CodeGenContext.from_wires(wires)
         stmts = generate_body([a, b, c, d], ctx)
-        code = ast.unparse(ast.Module(body=stmts, type_ignores=[]))
+        code = ast.unparse(ast.fix_missing_locations(ast.Module(body=stmts, type_ignores=[])))
         assert "ThreadPoolExecutor" in code
 
     def test_imports_include_concurrent_futures(self):
