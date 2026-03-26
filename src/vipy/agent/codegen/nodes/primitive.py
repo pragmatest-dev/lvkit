@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import ast
+import re
 from typing import TYPE_CHECKING, Any
 
 from vipy.graph_types import Operation
@@ -61,8 +62,20 @@ class PrimitiveCodeGen(NodeCodeGen):
         # Resolve input values from context (use resolved terminals for names)
         input_map = self._build_input_map(node, ctx, resolved)
 
-        # Get wired output terminals
-        wired_outputs = self._get_wired_outputs(node, resolved, ctx)
+        # Detect passthrough outputs BEFORE allocating variable names.
+        # Passthroughs (template is just `in_N`) bind directly to the input
+        # variable — no assignment, no make_output_var() allocation.
+        passthrough_bindings: dict[str, str] = {}
+        passthrough_term_ids: set[str] = set()
+        if isinstance(resolved.python_code, dict):
+            passthrough_bindings, passthrough_term_ids = self._detect_passthroughs(
+                node, resolved.python_code, input_map, ctx, resolved,
+            )
+
+        # Get wired output terminals (excluding passthroughs)
+        wired_outputs = self._get_wired_outputs(
+            node, resolved, ctx, skip_term_ids=passthrough_term_ids,
+        )
 
         # Build code based on code type
         if isinstance(resolved.python_code, dict):
@@ -73,6 +86,9 @@ class PrimitiveCodeGen(NodeCodeGen):
             fragment = self._build_string_hint(
                 resolved.python_code, input_map, wired_outputs, ctx, resolved
             )
+
+        # Merge passthrough bindings
+        fragment.bindings.update(passthrough_bindings)
 
         # Add imports from primitive definition (normalize bare module names)
         if resolved.imports:
@@ -238,8 +254,77 @@ class PrimitiveCodeGen(NodeCodeGen):
 
         return input_map
 
+    def _detect_passthroughs(
+        self,
+        node: Operation,
+        hint: dict[str, str],
+        input_map: dict[str, str],
+        ctx: CodeGenContext,
+        resolved: Any,
+    ) -> tuple[dict[str, str], set[str]]:
+        """Detect output terminals that are pure passthroughs.
+
+        A passthrough is when the template expression is just `in_N` — the
+        output IS the input. For these, bind the output terminal directly to
+        the input variable instead of allocating a new name.
+
+        Uses the same output terminal iteration order as _build_dict_hint
+        (skip error clusters, skip unwired) to match expressions by position.
+        """
+        bindings: dict[str, str] = {}
+        skip_ids: set[str] = set()
+
+        exprs = [(k, v) for k, v in hint.items() if k not in ("_body", "_import")]
+
+        # Build resolved output name lookup
+        resolved_outputs: dict[int, str] = {}
+        if resolved and resolved.terminals:
+            for rt in resolved.terminals:
+                if rt.direction == "out":
+                    resolved_outputs[rt.index] = rt.name
+
+        # Iterate output terminals in the same order as _get_wired_outputs
+        expr_idx = 0
+        for term in node.terminals:
+            if term.direction != "output":
+                continue
+            if term.is_error_cluster:
+                continue
+            if not ctx.is_wired(term.id):
+                continue
+            term_name = term.name or ""
+            if not term_name and term.index in resolved_outputs:
+                term_name = resolved_outputs[term.index]
+            if term_name and "error" in term_name.lower():
+                continue
+
+            if expr_idx >= len(exprs):
+                break
+            _key, expr_template = exprs[expr_idx]
+            expr_idx += 1
+
+            # Check if expression is a bare input reference
+            if not re.match(r'^in_\d+$', expr_template):
+                continue
+
+            # Substitute to get the resolved variable name
+            resolved_var = input_map.get(expr_template)
+            if not resolved_var:
+                continue
+
+            # Must be a real variable, not a literal or keyword
+            if (
+                resolved_var.isidentifier()
+                and resolved_var not in ('None', 'True', 'False')
+            ):
+                bindings[term.id] = resolved_var
+                skip_ids.add(term.id)
+
+        return bindings, skip_ids
+
     def _get_wired_outputs(
-        self, node: Operation, resolved: Any, ctx: CodeGenContext
+        self, node: Operation, resolved: Any, ctx: CodeGenContext,
+        skip_term_ids: set[str] | None = None,
     ) -> list[tuple[str, str, str]]:
         """Get list of (terminal_id, terminal_name, var_name) for wired outputs.
 
@@ -259,6 +344,10 @@ class PrimitiveCodeGen(NodeCodeGen):
         outputs = []
         for term in node.terminals:
             if term.direction != "output":
+                continue
+
+            # Skip passthrough terminals (already bound by _detect_passthroughs)
+            if skip_term_ids and term.id in skip_term_ids:
                 continue
 
             # Skip error terminals — detected by actual type, not JSON labels.
@@ -351,10 +440,6 @@ class PrimitiveCodeGen(NodeCodeGen):
         for i, (term_id, term_name, var_name) in enumerate(wired_outputs):
             if i < len(exprs):
                 expr_substituted = self._substitute_template(exprs[i], input_map, resolved)
-                # Pure passthrough: expression is just a variable name — bind directly
-                if expr_substituted.isidentifier() and expr_substituted != var_name:
-                    bindings[term_id] = expr_substituted
-                    continue
                 expr_ast = parse_expr(expr_substituted)
                 statements.append(build_assign(var_name, expr_ast))
                 bindings[term_id] = var_name
@@ -455,8 +540,6 @@ class PrimitiveCodeGen(NodeCodeGen):
         Uses single-pass replacement to avoid double-substitution when
         input names overlap with resolved values (e.g., x→y and y→x).
         """
-        import re
-
         # Build a combined pattern matching all names (longest first).
         # Tries {name} placeholder first (consumes braces), then bare \bname\b.
         names = sorted(
