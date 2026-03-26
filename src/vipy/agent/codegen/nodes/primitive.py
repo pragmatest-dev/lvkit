@@ -46,6 +46,10 @@ class PrimitiveCodeGen(NodeCodeGen):
                 return CodeFragment.empty()
             return self._emit_unknown(node, prim_id, ctx)
 
+        # Type-aware override: some primResIDs are polymorphic and need
+        # different templates based on actual terminal types at the call site.
+        resolved = self._apply_type_override(node, resolved, resolver)
+
         # Check if primitive is truly unknown (no code, unknown confidence, or comment-only code)
         code = resolved.python_code if resolved else None
         is_unknown = (
@@ -480,6 +484,41 @@ class PrimitiveCodeGen(NodeCodeGen):
             return input_map.get(key, text)
 
         return re.sub(combined, _replace, template)
+
+    def _apply_type_override(
+        self, node: Operation, resolved: Any, resolver: Any
+    ) -> Any:
+        """Override template for polymorphic prims based on actual terminal types.
+
+        Some primResIDs share an ID for different type variants (e.g., 1056
+        is Split 1D Array for arrays but Split Number for numerics).
+        """
+        if not resolved or not node.terminals:
+            return resolved
+
+        prim_id = node.primResID
+        # Get the actual input types from the node's terminals
+        input_types = {
+            t.index: (t.lv_type.underlying_type if t.lv_type else None)
+            for t in node.terminals if t.direction == "input"
+        }
+
+        # 1056: Split 1D Array (arrays) vs Split Number (numerics)
+        # Same primResID, different semantics. When inputs are numeric,
+        # use bit-shift instead of list slicing. Remap to 1056's indices.
+        if prim_id == 1056 and not any(
+            t and "Array" in t for t in input_types.values()
+        ):
+            from copy import deepcopy
+            override = deepcopy(resolved)
+            override.python_code = {
+                "first_subarray": "in_2 >> 16",
+                "second_subarray": "in_2 & 0xFFFF",
+            }
+            override.name = "Split Number (via 1056)"
+            return override
+
+        return resolved
 
     def _emit_unknown(
         self, node: Operation, prim_id: int, ctx: CodeGenContext
