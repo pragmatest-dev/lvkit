@@ -236,14 +236,11 @@ class PrimitiveCodeGen(NodeCodeGen):
         """
         # Build index → name dict from resolved terminals
         resolved_outputs: dict[int, str] = {}
-        resolver_error_indices: set[int] = set()
         expandable_out_index: int | None = None
         if resolved and resolved.terminals:
             for rt in resolved.terminals:
                 if rt.direction == "out":
                     resolved_outputs[rt.index] = rt.name
-                    if rt.type == "cluster" and rt.name and "error" in rt.name.lower():
-                        resolver_error_indices.add(rt.index)
                     if getattr(rt, "expandable", False):
                         expandable_out_index = rt.index
 
@@ -252,10 +249,11 @@ class PrimitiveCodeGen(NodeCodeGen):
             if term.direction != "output":
                 continue
 
-            # Skip error terminals — Python uses exceptions
+            # Skip error terminals — detected by actual type, not JSON labels.
+            # Polymorphic prims reuse IDs with different semantics, so JSON
+            # error labels can be wrong (e.g., 8003 is Variant To Data, not
+            # Open/Create/Replace File).
             if term.is_error_cluster:
-                continue
-            if term.index in resolver_error_indices:
                 continue
 
             # Skip unwired outputs — no consumer, no assignment needed
