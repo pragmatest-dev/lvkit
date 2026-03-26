@@ -37,7 +37,9 @@ class NMuxCodeGen(NodeCodeGen):
         selector_term = inputs[0]
         value_terms = inputs[1:]
 
-        selector_var = ctx.resolve(selector_term.id) or "0"
+        selector_var = ctx.resolve(selector_term.id)
+        if not selector_var or selector_var in ("''", '""'):
+            selector_var = "0"
         values = []
         for t in value_terms:
             val = ctx.resolve(t.id)

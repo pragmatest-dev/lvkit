@@ -128,6 +128,7 @@ def create_import_resolver(
     vi_paths: dict[str, Path],
     graph: InMemoryVIGraph | None = None,
     vilib_resolver: object | None = None,
+    caller_library: str | None = None,
 ) -> Any:
     """Create an import resolver for a VI.
 
@@ -137,6 +138,7 @@ def create_import_resolver(
         vi_paths: Dict mapping fully qualified VI names to their output paths
         graph: Memory graph for library metadata lookup
         vilib_resolver: VILib resolver for vilib membership check
+        caller_library: Library subdirectory of the calling VI (e.g., "testcaselvclass")
 
     Returns:
         Callable that takes a SubVI name and returns the correct import statement
@@ -144,26 +146,33 @@ def create_import_resolver(
     def resolver(subvi_name: str) -> str:
         func_name = to_function_name(subvi_name)
 
+        # Resolve to qualified name for library lookup
+        qualified = subvi_name
+        if graph:
+            resolved_name = graph.resolve_vi_name(subvi_name)
+            if resolved_name:
+                qualified = resolved_name
+
         # Look up the dependency's path
-        if subvi_name in vi_paths:
+        if qualified in vi_paths:
+            dep_path = vi_paths[qualified]
+        elif subvi_name in vi_paths:
             dep_path = vi_paths[subvi_name]
         else:
-            # Not in our paths - compute it
             dep_path, _ = get_output_path(
-                output_dir, subvi_name, create_dirs=False,
+                output_dir, qualified, create_dirs=False,
                 graph=graph, vilib_resolver=vilib_resolver,
             )
 
-        # Build absolute package import
-        dep_module = dep_path.stem  # filename without .py
+        dep_module = dep_path.stem
         dep_library = to_library_name(
-            subvi_name, graph=graph, vilib_resolver=vilib_resolver,
+            qualified, graph=graph, vilib_resolver=vilib_resolver,
         )
 
-        if dep_library:
-            return f"from {package_name}.{dep_library}.{dep_module} import {func_name}"
-        else:
-            return f"from {package_name}.{dep_module} import {func_name}"
+        # Build relative import: go up from caller, down to dependency
+        up = ".." if caller_library else "."
+        down = f"{dep_library}.{dep_module}" if dep_library else dep_module
+        return f"from {up}{down} import {func_name}"
 
     return resolver
 
@@ -203,9 +212,13 @@ def _generate_polymorphic_module(
         variant_funcs.append(func_name)
 
         try:
+            variant_lib = to_library_name(
+                variant_name, graph=graph, vilib_resolver=vilib_resolver,
+            )
             import_resolver = create_import_resolver(
                     package_name, output_dir, vi_paths,
                     graph=graph, vilib_resolver=vilib_resolver,
+                    caller_library=variant_lib,
                 )
             code = build_module(
                 vi_context, vi_name=variant_name,
@@ -448,6 +461,28 @@ def generate_python(
 
     # Identify polymorphic groups (from VI metadata, not heuristics)
     poly_groups = graph.get_polymorphic_groups()
+
+    # Structural fallback: detect polymorphic groups by finding VIs whose
+    # names follow the pattern "Base (Variant)". Group them under the base
+    # name even if the wrapper VI isn't in the conversion order.
+    from collections import defaultdict
+    _variant_candidates: dict[str, list[str]] = defaultdict(list)
+    for vi_name in order:
+        if vi_name in poly_groups:
+            continue
+        name_no_ext = vi_name.replace(".vi", "").replace(".VI", "")
+        if "(" in name_no_ext and ")" in name_no_ext:
+            # Extract base: "Filter Error Codes (Array)__suffix" → "Filter Error Codes__suffix"
+            paren_start = name_no_ext.index("(")
+            paren_end = name_no_ext.rindex(")")
+            base_part = name_no_ext[:paren_start].rstrip()
+            suffix_part = name_no_ext[paren_end + 1:]
+            wrapper_name = base_part + suffix_part + ".vi"
+            _variant_candidates[wrapper_name].append(vi_name)
+    for wrapper_name, variants in _variant_candidates.items():
+        if len(variants) >= 2 and wrapper_name not in poly_groups:
+            poly_groups[wrapper_name] = variants
+
     poly_variants: set[str] = set()
     for variants in poly_groups.values():
         poly_variants.update(variants)
@@ -460,6 +495,13 @@ def generate_python(
             graph=graph, vilib_resolver=vilib_resolver,
         )
         vi_paths[vi_name] = path
+
+    # Redirect polymorphic variant paths to their wrapper's path
+    for wrapper_name, variants in poly_groups.items():
+        wrapper_path = vi_paths.get(wrapper_name)
+        if wrapper_path:
+            for variant_name in variants:
+                vi_paths[variant_name] = wrapper_path
 
     generated: list[tuple[str, Path | None, str]] = []
 
@@ -548,9 +590,13 @@ def {func_name}(*args, **kwargs) -> Any:
             vi_context = graph.get_vi_context(vi_name)
 
             try:
+                caller_lib = to_library_name(
+                    vi_name, graph=graph, vilib_resolver=vilib_resolver,
+                )
                 import_resolver = create_import_resolver(
                     vi_folder_name, output_dir_resolved, vi_paths,
                     graph=graph, vilib_resolver=vilib_resolver,
+                    caller_library=caller_lib,
                 )
                 code = build_module(
                     vi_context, vi_name,
@@ -578,6 +624,30 @@ def {func_name}(*args, **kwargs) -> Any:
                 print(f"         -> FAILED: {e}")
                 generated.append((vi_name, error_path, "error"))
 
+    # Generate polymorphic wrappers for structurally-detected groups
+    # whose wrapper VI wasn't in the conversion order
+    for wrapper_name, variants in poly_groups.items():
+        wrapper_path = vi_paths.get(wrapper_name)
+        if not wrapper_path:
+            wrapper_path, _ = get_output_path(
+                output_dir_resolved, wrapper_name, graph=graph,
+                vilib_resolver=vilib_resolver,
+            )
+            vi_paths[wrapper_name] = wrapper_path
+        if not wrapper_path.exists():
+            try:
+                code = _generate_polymorphic_module(
+                    wrapper_name, variants, graph, vilib_resolver,
+                    vi_folder_name, output_dir_resolved, vi_paths,
+                )
+                ast.parse(code)
+                wrapper_path.write_text(code)
+                generated.append((wrapper_name, wrapper_path, "ast"))
+            except Exception as e:
+                import traceback
+                print(f"  [poly wrapper] FAILED for {wrapper_name}: {e}")
+                traceback.print_exc()
+
     # Generate minimal __init__.py (just makes it a package)
     init_path = output_dir_resolved / "__init__.py"
     if not init_path.exists():
@@ -599,9 +669,14 @@ def {func_name}(*args, **kwargs) -> Any:
                 method_contexts[method.name] = ctx
 
         # Build class wrapper with context lookup for SubVI resolution
+        class_lib = to_library_name(
+            lvclass.qualified_name or lvclass.name,
+            graph=graph, vilib_resolver=vilib_resolver,
+        )
         import_resolver = create_import_resolver(
                 vi_folder_name, output_dir_resolved, vi_paths,
                 graph=graph, vilib_resolver=vilib_resolver,
+                caller_library=class_lib,
             )
         builder = ClassBuilder(config=ClassConfig())
         module = builder.build_class_module(

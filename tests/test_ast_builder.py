@@ -80,11 +80,11 @@ def test_build_module_with_primitive():
                 id="op:1",
                 name="Add",
                 labels=["Primitive"],
-                primResID=1,
+                primResID=1061,
                 terminals=[
-                    Terminal(id="term:1", index=0, direction="input", name="x"),
-                    Terminal(id="term:2", index=1, direction="input", name="y"),
-                    Terminal(id="term:3", index=2, direction="output", name="x+y"),
+                    Terminal(id="term:1", index=1, direction="input", name="x"),
+                    Terminal(id="term:2", index=2, direction="input", name="y"),
+                    Terminal(id="term:3", index=0, direction="output", name="result"),
                 ],
             ),
         ],
@@ -331,8 +331,9 @@ def test_build_module_real_vi():
 
 
 def test_unknown_primitive_raises_at_runtime():
-    """Test that unknown primitives generate NotImplementedError."""
+    """Test that unknown primitives raise TerminalResolutionNeeded."""
     from vipy.agent.codegen import build_module
+    from vipy.primitive_resolver import TerminalResolutionNeeded
 
     vi_context = VIContext(
         name="Unknown Prim.vi",
@@ -346,15 +347,10 @@ def test_unknown_primitive_raises_at_runtime():
         ],
     )
 
-    result = build_module(vi_context, "Unknown Prim.vi")
+    with pytest.raises(TerminalResolutionNeeded) as exc_info:
+        build_module(vi_context, "Unknown Prim.vi")
 
-    # Should be valid Python
-    ast.parse(result)
-
-    # Should have TODO comment for unknown primitive (not raise —
-    # raise would break dataflow for downstream operations)
-    assert "TODO" in result
-    assert "99999" in result
+    assert "99999" in str(exc_info.value)
 
 
 def test_unknown_node_type_emits_warning():

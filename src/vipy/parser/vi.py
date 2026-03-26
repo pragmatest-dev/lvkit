@@ -388,8 +388,9 @@ def _process_element_terminals(
                     parm_index = int(idx_elem.text)
                     break
             else:
-                # No index field found. For SubVI calls, missing = 0.
-                if elem_class in ("iUse", "polyIUse", "dynIUse"):
+                # No index field found. XML omits parmIndex when it's 0.
+                # Applies to SubVI calls AND primitives.
+                if elem_class in ("iUse", "polyIUse", "dynIUse", "prim"):
                     parm_index = 0
 
         # For specialized node classes (aDelete, aIndx, etc.),
@@ -420,8 +421,11 @@ def _process_element_terminals(
                 if parm_index >= 0:
                     break
 
-        # sRN terminals never have parmIndex — use list position
-        if parm_index == -1 and elem_class == NODE_CLASS_SHIFT_REG:
+        # Last resort: use list position as index.
+        # Covers sRN terminals, printf expandable terminals, and any
+        # other terminal type without explicit parmIndex in the XML.
+        # The termList order IS the natural index.
+        if parm_index == -1:
             parm_index = list_position
 
         # Determine direction from wire connectivity
