@@ -670,7 +670,7 @@ def {func_name}(*args, **kwargs) -> Any:
 
         # Build class wrapper with context lookup for SubVI resolution
         class_lib = to_library_name(
-            lvclass.qualified_name or lvclass.name,
+            lvclass.name,
             graph=graph, vilib_resolver=vilib_resolver,
         )
         import_resolver = create_import_resolver(
