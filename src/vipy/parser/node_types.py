@@ -68,9 +68,17 @@ class LoopNode(Node):
 
 @dataclass
 class SelectNode(Node):
-    """Select node (class="select")."""
+    """Select/nMux node (class="select" or "nMux").
 
-    pass
+    nMux is a bundle/unbundle node at structure boundaries.
+    dco_agg_uid identifies the aggregate (cluster) terminal's DCO.
+    dco_list_uids identify the field value terminals' DCOs.
+    """
+
+    dco_agg_uid: str | None = None
+    dco_list_uids: list[str] = field(default_factory=list)
+    # Maps terminal UID → DCO UID for role matching
+    term_to_dco: dict[str, str] = field(default_factory=dict)
 
 
 # =============================================================================
@@ -432,8 +440,8 @@ class PrintfHandler(NodeTypeHandler):
 class NMuxHandler(NodeTypeHandler):
     """Handler for Node Multiplexer (class="nMux").
 
-    Selects between inputs based on a selector value.
-    Like a ternary operator or indexed selection.
+    nMux is a bundle/unbundle node at structure boundaries.
+    dcoAgg is the aggregate (cluster) terminal, dcoList are field terminals.
     """
 
     xml_class = "nMux"
@@ -441,7 +449,38 @@ class NMuxHandler(NodeTypeHandler):
 
     def parse(self, elem: ET.Element) -> SelectNode:
         common = self._extract_common(elem)
-        return SelectNode(**common)
+
+        # Extract dcoAgg (aggregate/cluster terminal DCO uid)
+        dco_agg_elem = elem.find("dcoAgg")
+        dco_agg_uid = dco_agg_elem.get("uid") if dco_agg_elem is not None else None
+
+        # Extract dcoList (field terminal DCO uids)
+        dco_list_elem = elem.find("dcoList")
+        dco_list_uids: list[str] = []
+        if dco_list_elem is not None:
+            for child in dco_list_elem.findall("SL__arrayElement"):
+                uid = child.get("uid")
+                if uid:
+                    dco_list_uids.append(uid)
+
+        # Map terminal UID → DCO UID
+        term_to_dco: dict[str, str] = {}
+        term_list = elem.find("termList")
+        if term_list is not None:
+            for term_elem in term_list.findall("SL__arrayElement"):
+                t_uid = term_elem.get("uid")
+                dco_elem = term_elem.find("dco")
+                if t_uid and dco_elem is not None:
+                    d_uid = dco_elem.get("uid")
+                    if d_uid:
+                        term_to_dco[t_uid] = d_uid
+
+        return SelectNode(
+            **common,
+            dco_agg_uid=dco_agg_uid,
+            dco_list_uids=dco_list_uids,
+            term_to_dco=term_to_dco,
+        )
 
 
 class GenericHandler(NodeTypeHandler):
