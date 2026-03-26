@@ -303,24 +303,25 @@
         {
           "index": 2,
           "direction": "in",
-          "name": "array",
-          "type": "polymorphic"
+          "name": "index",
+          "type": "polymorphic",
+          "default_value": "0"
         },
         {
           "index": 3,
           "direction": "in",
-          "name": "index",
-          "type": "polymorphic",
-          "default_value": "0"
+          "name": "array",
+          "type": "polymorphic"
         }
       ],
       "python_code": {
-        "first_subarray": "in_2[:in_3]",
-        "second_subarray": "in_2[in_3:]"
+        "first_subarray": "in_3[:in_2]",
+        "second_subarray": "in_3[in_2:]"
       },
       "inline": true,
       "verified": true,
-      "pdf_page": 412
+      "pdf_page": 412,
+      "note": "Connector pane: idx=2 is index (numeric), idx=3 is array. Confirmed from pco.camera_FloatingMean_Example.vi instances."
     },
     "1103": {
       "name": "Greater Or Equal?",
