@@ -320,6 +320,10 @@ class PrimitiveCodeGen(NodeCodeGen):
             # simple (no function calls, no string literals), bind the
             # substituted expression directly. Turns
             # `equal_478 = x == y; if equal_478:` into `if x == y:`.
+            # Skip if hint has _body — the _body creates variables that
+            # output expressions depend on (e.g., Match Pattern's _m).
+            if "_body" in hint:
+                continue
             if ctx.graph is None:
                 continue
             consumers = ctx.graph.outgoing_edges(term.id)
