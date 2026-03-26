@@ -18,71 +18,79 @@ if TYPE_CHECKING:
 class NMuxCodeGen(NodeCodeGen):
     """Generate code for LabVIEW nMux (Node Multiplexer).
 
-    nMux selects between N inputs based on a selector index.
-    In Python this becomes: result = [val0, val1, ...][selector]
+    nMux is a bundle/unbundle node at structure boundaries, NOT
+    an indexed selector. Terminals are marked with roles:
+    - agg: aggregate (cluster/object wire passthrough)
+    - list: field values entering/exiting the cluster
+
+    Currently generates passthrough bindings only. Actual
+    bundle/unbundle expressions (cluster.field) need type info
+    we don't yet have.
     """
 
     def generate(self, node: Operation, ctx: CodeGenContext) -> CodeFragment:
-        # Separate selector input (lowest index input) from value inputs
-        inputs = sorted(
-            [t for t in node.terminals if t.direction == "input"],
-            key=lambda t: t.index,
-        )
-        outputs = [t for t in node.terminals if t.direction == "output"]
+        """Generate code for nMux (bundle/unbundle at structure boundaries).
 
-        if not inputs or not outputs:
-            return CodeFragment.empty()
+        nMux terminals have roles from the parser:
+        - agg: the cluster/object wire (passthrough)
+        - list: field values being bundled into or unbundled from the cluster
 
-        # First input is the selector
-        selector_term = inputs[0]
-        value_terms = inputs[1:]
+        The codegen treats agg terminals as passthrough bindings and
+        list terminals as the actual data values at the boundary.
+        """
+        agg_in = [t for t in node.terminals if t.direction == "input" and t.nmux_role == "agg"]
+        agg_out = [t for t in node.terminals if t.direction == "output" and t.nmux_role == "agg"]
+        list_in = [t for t in node.terminals if t.direction == "input" and t.nmux_role == "list"]
+        list_out = [t for t in node.terminals if t.direction == "output" and t.nmux_role == "list"]
 
-        selector_var = ctx.resolve(selector_term.id)
-        if not selector_var or selector_var in ("''", '""'):
-            selector_var = "0"
-        values = []
-        for t in value_terms:
-            val = ctx.resolve(t.id)
-            if val is None:
-                # Type-based default for unwired mux input
-                ptype = t.python_type() if hasattr(t, 'python_type') else "Any"
-                if ptype.startswith("list"):
-                    val = "[]"
-                elif ptype == "str":
-                    val = "''"
-                elif ptype == "bool":
-                    val = "False"
-                elif ptype in ("int", "float"):
-                    val = "0"
-                else:
-                    val = "None"
-            values.append(val)
+        # Fallback: if no roles marked, use old passthrough logic
+        if not any(t.nmux_role for t in node.terminals):
+            inputs = [t for t in node.terminals if t.direction == "input"]
+            outputs = [t for t in node.terminals if t.direction == "output"]
+            return self._passthrough(inputs, outputs, ctx)
 
-        # Build: result = [val0, val1, ...][selector]
-        statements: list[ast.stmt] = []
         bindings: dict[str, str] = {}
 
-        out_term = outputs[0]
-        var_name = to_var_name(out_term.name or "mux_result")
+        # AGG passthrough: bind agg outputs to agg input value
+        agg_var = None
+        if agg_in:
+            agg_var = ctx.resolve(agg_in[0].id)
+        for t in agg_out:
+            if agg_var:
+                bindings[t.id] = agg_var
 
-        if len(values) == 0:
-            # No value inputs — cluster unbundle pass-through
-            expr = parse_expr(selector_var)
-        elif len(values) == 1:
-            # Only one value — just pass through
-            expr = parse_expr(values[0])
-        else:
-            list_expr = ast.Subscript(
-                value=ast.List(
-                    elts=[parse_expr(v) for v in values],
-                    ctx=ast.Load(),
-                ),
-                slice=parse_expr(selector_var),
-                ctx=ast.Load(),
-            )
-            expr = list_expr
+        # LIST passthrough: bind list outputs to list input values
+        # At structure boundaries, list terminals carry the actual
+        # data values through. Pair them by position.
+        for i, t in enumerate(sorted(list_out, key=lambda t: t.index)):
+            if i < len(list_in):
+                val = ctx.resolve(list_in[i].id)
+                if val:
+                    bindings[t.id] = val
+            elif agg_var:
+                # Single list output with no list input:
+                # the field is extracted from the cluster
+                bindings[t.id] = agg_var
 
-        statements.append(build_assign(var_name, expr))
-        bindings[out_term.id] = var_name
+        # LIST inputs with AGG output (bundle): bind agg output
+        # to first list input as passthrough
+        if list_in and agg_out and not list_out:
+            val = ctx.resolve(list_in[0].id)
+            if val:
+                for t in agg_out:
+                    bindings[t.id] = val
 
-        return CodeFragment(statements=statements, bindings=bindings)
+        return CodeFragment(statements=[], bindings=bindings)
+
+    @staticmethod
+    def _passthrough(
+        inputs: list, outputs: list, ctx: CodeGenContext,
+    ) -> CodeFragment:
+        """Fallback: bind all outputs to first input."""
+        bindings: dict[str, str] = {}
+        input_var = None
+        if inputs:
+            input_var = ctx.resolve(inputs[0].id)
+        for out_term in outputs:
+            bindings[out_term.id] = input_var or "None"
+        return CodeFragment(statements=[], bindings=bindings)

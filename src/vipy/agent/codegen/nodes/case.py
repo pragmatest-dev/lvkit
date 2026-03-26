@@ -35,6 +35,11 @@ class CaseCodeGen(NodeCodeGen):
         if not node.case_frames:
             return CodeFragment.empty()
 
+        # Error cluster selectors: detect via type, not resolved name.
+        # In LabVIEW, error clusters are values; in Python, exceptions.
+        if self._is_error_selector_by_type(node, ctx):
+            return self._generate_error_case(node, ctx)
+
         # Get selector value
         selector_var = None
         if node.selector_terminal:
@@ -42,11 +47,6 @@ class CaseCodeGen(NodeCodeGen):
 
         if not selector_var:
             selector_var = self._fallback_selector(node, ctx)
-
-        # Error cluster selectors: Python uses exceptions instead.
-        # Emit only the "no error" frame body without the if/else guard.
-        if self._is_error_selector(selector_var):
-            return self._generate_error_unwrap(node, ctx)
 
         # Determine if this is boolean or multi-case
         if self._is_boolean_selector(node.case_frames):
@@ -241,6 +241,10 @@ class CaseCodeGen(NodeCodeGen):
     ) -> CodeFragment:
         """Generate code for a single case frame.
 
+        Uses the same tiered topological sort as the top-level body
+        so that inner operations respect data dependencies (e.g., a
+        case selector depending on a sibling primitive result).
+
         Args:
             frame: Case frame with operations
             ctx: Code generation context
@@ -248,29 +252,25 @@ class CaseCodeGen(NodeCodeGen):
         Returns:
             CodeFragment with frame statements
         """
-        statements: list[ast.stmt] = []
+        # Lazy import: builder → get_codegen → case creates a cycle
+        # at module level. Safe inside method.
+        from ..builder import generate_body
+
+        body = generate_body(frame.operations, ctx)
+
+        # Collect bindings that were set during body generation
         bindings: dict[str, str] = {}
-        all_imports: set[str] = set()
-
         for op in frame.operations:
-            codegen = get_codegen(op)
-            fragment = codegen.generate(op, ctx)
-
-            # Add statements to body
-            statements.extend(fragment.statements)
-
-            # Merge bindings (inner operations provide values)
-            for term_id, var_name in fragment.bindings.items():
-                ctx.bind(term_id, var_name)
-                bindings[term_id] = var_name
-
-            # Collect imports
-            all_imports.update(fragment.imports)
+            for term in op.terminals:
+                if term.direction == "output":
+                    var = ctx.resolve(term.id)
+                    if var:
+                        bindings[term.id] = var
 
         return CodeFragment(
-            statements=statements,
+            statements=body,
             bindings=bindings,
-            imports=all_imports,
+            imports=set(),
         )
 
     @staticmethod
@@ -296,51 +296,100 @@ class CaseCodeGen(NodeCodeGen):
 
     @staticmethod
     def _is_error_selector(selector_var: str) -> bool:
-        """Check if selector comes from an error cluster.
+        """Check if resolved selector name looks like an error cluster.
 
-        In LabVIEW, case structures on error clusters check no-error vs error.
-        In Python, exceptions handle this — no guard needed.
+        Fallback heuristic — prefer _is_error_selector_by_type().
         """
         lower = selector_var.lower()
         return "error" in lower and (
             "in" in lower or "out" in lower or "no_error" in lower
         )
 
-    def _generate_error_unwrap(
-        self, node: Operation, ctx: CodeGenContext
-    ) -> CodeFragment:
-        """Generate code for error-selector case: emit "no error" frame only.
+    @staticmethod
+    def _is_error_selector_by_type(
+        node: Operation, ctx: CodeGenContext,
+    ) -> bool:
+        """Check if the selector terminal carries an error cluster type.
 
-        Python exceptions replace LabVIEW's error cluster branching.
-        We emit the "no error" (True/first) frame body directly.
+        Error clusters have fields ['status', 'code', 'source'].
+        This is more reliable than checking the resolved variable name
+        because error output terminals are often unbound in Python
+        (exceptions replace error cluster values).
         """
-        # Bind input tunnels
+        sel_id = node.selector_terminal
+        if not sel_id or ctx.graph is None:
+            return False
+        # Find the selector terminal on this node
+        for term in node.terminals:
+            if term.id == sel_id and term.lv_type:
+                lv = term.lv_type
+                if lv.kind == "cluster" and lv.fields:
+                    field_names = {f.name for f in lv.fields}
+                    if {"status", "code", "source"} <= field_names:
+                        return True
+        return False
+
+    def _generate_error_case(
+        self, node: Operation, ctx: CodeGenContext,
+    ) -> CodeFragment:
+        """Generate code for an error-cluster case structure.
+
+        In LabVIEW, error clusters are values checked by case structures.
+        In Python, errors are exceptions — no value to test. We emit only
+        the no-error frame body (the happy path). If the error frame had
+        operations, we add a comment noting the omitted logic.
+
+        96% of error frames are empty (45/47 in TestCase.lvclass).
+        """
         self._bind_input_tunnels(node, ctx)
 
-        # Find the "no error" frame (typically True or first frame)
-        target_frame = None
+        # Identify no-error and error frames
+        no_error_frame = None
+        error_frame = None
         for frame in node.case_frames:
             val = str(frame.selector_value).lower()
             if val in ("true", "no error", "0"):
-                target_frame = frame
-                break
-        if target_frame is None and node.case_frames:
-            target_frame = node.case_frames[0]
+                no_error_frame = frame
+            elif val in ("false", "error", "1", "default"):
+                error_frame = frame
 
-        if target_frame is None:
+        if no_error_frame is None and node.case_frames:
+            no_error_frame = node.case_frames[0]
+
+        if no_error_frame is None:
             return CodeFragment.empty()
 
-        inner_fragment = self._generate_frame_body(target_frame, ctx)
+        statements: list[ast.stmt] = []
 
-        # Handle output tunnels
+        # Log if the error frame had real operations (AST can't emit
+        # comments, so we just note it at generation time).
+        if (
+            error_frame is not None
+            and error_frame.operations
+            and len(error_frame.operations) > 0
+        ):
+            op_names = ", ".join(
+                op.name or op.node_type or "?"
+                for op in error_frame.operations
+            )
+            import warnings
+            warnings.warn(
+                f"LV error frame omitted in {node.id}: {op_names}",
+                stacklevel=2,
+            )
+
+        # Emit no-error frame body
+        no_error_fragment = self._generate_frame_body(no_error_frame, ctx)
+        statements.extend(no_error_fragment.statements or [])
+
         output_bindings = self._bind_output_tunnels(node, ctx)
-        bindings = dict(inner_fragment.bindings)
+        bindings = dict(no_error_fragment.bindings)
         bindings.update(output_bindings)
 
         return CodeFragment(
-            statements=inner_fragment.statements or [],
+            statements=statements,
             bindings=bindings,
-            imports=inner_fragment.imports,
+            imports=no_error_fragment.imports,
         )
 
     def _pre_declare_outputs(

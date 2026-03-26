@@ -252,7 +252,7 @@ class CodeGenContext:
         )
 
         for inp in graph.get_inputs(vi_name):
-            if inp.id:
+            if inp.id and not inp.is_error_cluster:
                 ctx.bind(inp.id, to_var_name(inp.name or "input"))
 
         for const in graph.get_constants(vi_name):
@@ -331,7 +331,7 @@ class CodeGenContext:
         )
 
         for inp in vi_context.inputs:
-            if inp.id:
+            if inp.id and not inp.is_error_cluster:
                 ctx.bind(inp.id, to_var_name(inp.name or "input"))
 
         for const in vi_context.constants:

@@ -34,6 +34,7 @@ from ..parser.node_types import (
     CpdArithNode,
     InvokeNode,
     PropertyNode,
+    SelectNode,
     SubVINode,
 )
 from ..parser.node_types import (
@@ -436,6 +437,31 @@ class ConstructionMixin:
                     bd, parser_tunnels, q_node_uid, term_lookup, vi_name,
                 )
 
+                # Add selector terminal so the topo sort sees it as
+                # an input dependency (otherwise the case structure can
+                # be processed before its selector source is bound).
+                if selector_term and case_struct:
+                    sel_ti = bd.terminal_info.get(
+                        case_struct.selector_terminal_uid
+                    )
+                    sel_terminal = Terminal(
+                        id=selector_term,
+                        index=sel_ti.index if sel_ti else 0,
+                        direction="input",
+                        name="selector",
+                    )
+                    structure_terminals.append(sel_terminal)
+                    # Register in term_lookup so wire edges resolve
+                    if case_struct.selector_terminal_uid not in term_lookup:
+                        term_lookup[case_struct.selector_terminal_uid] = (
+                            WireEnd(
+                                terminal_id=selector_term,
+                                node_id=q_node_uid,
+                                index=sel_terminal.index,
+                                name="selector",
+                            )
+                        )
+
                 graph_node = StructureNode(
                     id=q_node_uid,
                     vi=vi_name,
@@ -532,6 +558,21 @@ class ConstructionMixin:
                     description=description,
                     **prim_kwargs,
                 )
+
+            # Mark nMux terminal roles (agg vs list)
+            if isinstance(node, SelectNode) and node.dco_agg_uid:
+                agg_dco = node.dco_agg_uid
+                list_dcos = set(node.dco_list_uids)
+                for term in graph_node.terminals:
+                    raw_tid = (
+                        term.id.split("::")[-1]
+                        if "::" in term.id else term.id
+                    )
+                    dco_uid = node.term_to_dco.get(raw_tid)
+                    if dco_uid == agg_dco:
+                        term.nmux_role = "agg"
+                    elif dco_uid in list_dcos:
+                        term.nmux_role = "list"
 
             g.add_node(q_node_uid, node=graph_node)
             vi_node_uids.add(q_node_uid)

@@ -100,6 +100,7 @@ class Terminal(BaseModel):
     name: str | None = None
     lv_type: LVType | None = None
     var_name: str | None = None  # set during codegen when this terminal produces a value
+    nmux_role: str | None = None  # "agg" (cluster) or "list" (field) for nMux nodes
 
     def python_type(self) -> str:
         """Python type string derived from lv_type."""

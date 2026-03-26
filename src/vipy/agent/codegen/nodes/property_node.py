@@ -45,19 +45,23 @@ class PropertyNodeCodeGen(NodeCodeGen):
         input_by_index = {t.index: t for t in input_terms}
         output_by_index = {t.index: t for t in output_terms}
 
+        # Each property maps to one output terminal (read) or one input
+        # terminal (write). Pair properties with terminals by position,
+        # skipping the ref terminal at index 0.
+        seen_outputs: set[str] = set()
+        seen_inputs: set[str] = set()
+
         for prop in properties:
             prop_name = prop.name
             attr_name = to_var_name(prop_name) if prop_name else "unknown_prop"
 
-            # Check if this property has a wired output (read) or wired input (write)
-            # Property nodes can have multiple properties, each with its own terminals
-            # For now, generate reads for all output terminals, writes for value inputs
-
-            # Generate reads for output terminals
+            # Generate reads: find next unprocessed wired output
             for idx, term in output_by_index.items():
+                if term.id in seen_outputs:
+                    continue
                 if not ctx.is_wired(term.id):
                     continue
-                # Generate: var = ref.attr
+                seen_outputs.add(term.id)
                 var_name = to_var_name(f"{ref_var}_{attr_name}")
                 ref_expr = parse_expr(ref_var)
                 stmt = ast.Assign(
@@ -70,17 +74,20 @@ class PropertyNodeCodeGen(NodeCodeGen):
                 )
                 statements.append(stmt)
                 bindings[term.id] = var_name
+                break  # One output per property
 
-            # Generate writes for non-ref input terminals
+            # Generate writes: find next unprocessed wired input
             for idx, term in input_by_index.items():
                 if idx == 0:
                     continue  # Skip ref input
+                if term.id in seen_inputs:
+                    continue
                 if not ctx.is_wired(term.id):
                     continue
+                seen_inputs.add(term.id)
                 value = ctx.resolve(term.id)
                 if value is None:
                     continue
-                # Generate: ref.attr = value
                 ref_expr = parse_expr(ref_var)
                 stmt = ast.Assign(
                     targets=[
@@ -93,6 +100,7 @@ class PropertyNodeCodeGen(NodeCodeGen):
                     value=parse_expr(value),
                 )
                 statements.append(stmt)
+                break  # One input per property
 
         # Bind any remaining wired output terminals that weren't handled above
         # (e.g., reference passthrough, error out, or property nodes with empty properties list)

@@ -42,6 +42,8 @@ class InvokeNodeCodeGen(NodeCodeGen):
                 continue
             if term.index == 0:
                 continue  # Skip ref input
+            if term.is_error_cluster:
+                continue  # Python uses exceptions
             if not ctx.is_wired(term.id):
                 continue
             value = ctx.resolve(term.id)
