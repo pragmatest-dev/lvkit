@@ -58,18 +58,13 @@ class NMuxCodeGen(NodeCodeGen):
                 bindings[t.id] = agg_var
 
         # Get fields for field index lookup.
-        # Named types: dep_graph by classname.
-        # Anonymous clusters: terminal's own lv_type.fields.
         class_fields = None
         agg_terminals = agg_in or agg_out
         if agg_terminals and agg_terminals[0].lv_type:
-            agg_type = agg_terminals[0].lv_type
-            if agg_type.classname and ctx.graph is not None:
-                class_fields = ctx.graph.get_class_fields(
-                    agg_type.classname,
+            if ctx.graph is not None:
+                class_fields = ctx.graph.get_type_fields(
+                    agg_terminals[0].lv_type,
                 )
-            if class_fields is None and agg_type.fields:
-                class_fields = agg_type.fields
 
         if list_in and list_out:
             # LIST in + LIST out = passthrough at structure boundary
