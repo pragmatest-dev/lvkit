@@ -179,7 +179,6 @@ class ClassBuilder:
         body.append(init_method)
 
         # Group methods by type for ordering
-        static_methods: list[LVMethod] = []
         accessors: list[LVMethod] = []
         public_methods: list[LVMethod] = []
         protected_methods: list[LVMethod] = []
@@ -564,7 +563,8 @@ class ClassBuilder:
         # Build return annotation - filter error clusters and class output
         filtered_outputs = [
             out for out in outputs
-            if not self._is_error_output(out) and not self._is_self_output(out, class_name)
+            if not self._is_error_output(out)
+            and not self._is_self_output(out, class_name)
         ]
 
         returns = self._build_return_annotation(filtered_outputs)
@@ -639,7 +639,8 @@ class ClassBuilder:
         # Build return annotation - filter error clusters and class output
         filtered_outputs = [
             out for out in outputs
-            if not self._is_error_output(out) and not self._is_self_output(out, class_name)
+            if not self._is_error_output(out)
+            and not self._is_self_output(out, class_name)
         ]
 
         returns = self._build_return_annotation(filtered_outputs)

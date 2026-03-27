@@ -6,11 +6,10 @@ import ast
 
 import pytest
 
+from tests.conftest import make_ctx
 from vipy.agent.codegen.context import CodeGenContext
 from vipy.agent.codegen.nodes.loop import LoopCodeGen, _negate_condition
 from vipy.graph_types import Operation, Tunnel, Wire
-
-from tests.conftest import make_ctx
 
 
 class TestMakeVarName:
@@ -348,7 +347,9 @@ class TestLoopCodeGenGenerate:
     ):
         """Test for loop with single array input uses enumerate pattern."""
         data_flow = [
-            Wire.from_terminals(from_terminal_id="input_arr", to_terminal_id="tun_outer"),
+            Wire.from_terminals(
+                from_terminal_id="input_arr", to_terminal_id="tun_outer"
+            ),
         ]
         ctx = CodeGenContext.from_wires(data_flow)
         ctx.bind("input_arr", "items")
@@ -393,7 +394,9 @@ class TestLoopCodeGenGenerate:
     ):
         """Test for loop with N terminal (count) uses range pattern."""
         data_flow = [
-            Wire.from_terminals(from_terminal_id="count_src", to_terminal_id="lmax_outer"),
+            Wire.from_terminals(
+                from_terminal_id="count_src", to_terminal_id="lmax_outer"
+            ),
         ]
         ctx = CodeGenContext.from_wires(data_flow)
         ctx.bind("count_src", "10")
@@ -484,7 +487,9 @@ class TestLoopCodeGenGenerate:
         """Test while loop with lMax accumulator generates append calls."""
         # lMax with incoming flow = accumulator (builds list)
         data_flow = [
-            Wire.from_terminals(from_terminal_id="inner_result", to_terminal_id="lmax_inner"),
+            Wire.from_terminals(
+                from_terminal_id="inner_result", to_terminal_id="lmax_inner"
+            ),
         ]
         ctx = CodeGenContext.from_wires(data_flow)
         ctx.bind("inner_result", "computed_value")
@@ -652,7 +657,9 @@ class TestLoopCodeGenExecutable:
         - Outer terminal is bound to the accumulator variable
         """
         data_flow = [
-            Wire.from_terminals(from_terminal_id="val_src", to_terminal_id="lmax_inner"),
+            Wire.from_terminals(
+                from_terminal_id="val_src", to_terminal_id="lmax_inner"
+            ),
         ]
         ctx = CodeGenContext.from_wires(data_flow)
         ctx.bind("val_src", "iteration")

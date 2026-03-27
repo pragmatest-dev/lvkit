@@ -7,7 +7,7 @@ _load_vi_recursive, _find_subvi, _resolve_class_vi_path.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from ..extractor import extract_vi_xml
 from ..graph_types import PolyInfo, VIMetadata

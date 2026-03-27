@@ -111,7 +111,9 @@ class CodeValidator:
                 return ValidationResult(is_valid=False, errors=syntax_errors)
 
         # 2. Signature check - reject dict-wrapper anti-pattern
-        signature_errors = self._check_signature(code, expected_input_count, expected_output_count)
+        signature_errors = self._check_signature(
+            code, expected_input_count, expected_output_count
+        )
         errors.extend(signature_errors)
 
         # 3. Import resolution (medium cost)
@@ -180,7 +182,11 @@ class CodeValidator:
                                 errors.append(
                                     ValidationError(
                                         category="signature",
-                                        message=f"Do not wrap inputs in a dict. Use named parameters instead of '{param.arg}: {ann}'",
+                                        message=(
+                                            f"Do not wrap inputs in a dict."
+                                            f" Use named parameters instead of"
+                                            f" '{param.arg}: {ann}'"
+                                        ),
                                     )
                                 )
 
@@ -191,12 +197,17 @@ class CodeValidator:
                         errors.append(
                             ValidationError(
                                 category="signature",
-                                message=f"Do not return dict. Use tuple or direct values instead of '-> {ret_ann}'",
+                                message=(
+                                    f"Do not return dict."
+                                    f" Use tuple or direct values instead of"
+                                    f" '-> {ret_ann}'"
+                                ),
                             )
                         )
 
-                # NOTE: Output count is checked via NamedTuple field count in _check_namedtuple
-                # Don't check return elements here - NamedTuple returns ONE value containing N fields
+                # NOTE: Output count is checked via NamedTuple field count in
+                # _check_namedtuple. Don't check return elements here -
+                # NamedTuple returns ONE value containing N fields.
 
                 break  # Only check first function
 
@@ -241,13 +252,17 @@ class CodeValidator:
                 errors.append(
                     ValidationError(
                         category="completeness",
-                        message=f"Primitive '{prim_name}' from VI graph not used in generated code",
+                        message=(
+                            f"Primitive '{prim_name}' from VI graph"
+                            f" not used in generated code"
+                        ),
                     )
                 )
 
         # Check SubVIs are handled (either called or commented as TODO)
         for subvi_name in expected_subvis:
-            # Convert to potential function name (same logic as context.py _to_function_name)
+            # Convert to potential function name
+            # (same logic as context.py _to_function_name)
             func_name = subvi_name.replace(".vi", "").replace(".VI", "")
             func_name = func_name.replace(" ", "_").replace("-", "_").lower()
             # Remove any non-alphanumeric chars except underscore
@@ -257,7 +272,10 @@ class CodeValidator:
                 errors.append(
                     ValidationError(
                         category="completeness",
-                        message=f"SubVI '{subvi_name}' from VI graph not handled in generated code",
+                        message=(
+                            f"SubVI '{subvi_name}' from VI graph"
+                            f" not handled in generated code"
+                        ),
                     )
                 )
 
@@ -376,7 +394,9 @@ class CodeValidator:
             if re.search(rf'from\s+pathlib\s+import\s+[^#\n]*\b{name}\b', code):
                 errors.append(ValidationError(
                     category="import",
-                    message=f"Invalid import: {name} should be from typing, not pathlib",
+                    message=(
+                        f"Invalid import: {name} should be from typing, not pathlib"
+                    ),
                 ))
 
         # Built-in types imported from typing (Python 3.9+)
@@ -471,7 +491,9 @@ class CodeValidator:
             )
         return None
 
-    def _check_namedtuple(self, code: str, expected_output_count: int) -> list[ValidationError]:
+    def _check_namedtuple(
+        self, code: str, expected_output_count: int
+    ) -> list[ValidationError]:
         """Check that function returns a NamedTuple with correct field count.
 
         Args:
@@ -500,14 +522,20 @@ class CodeValidator:
                         namedtuple_class = node.name
                         # Count fields (class body with AnnAssign)
                         for item in node.body:
-                            if isinstance(item, ast.AnnAssign) and isinstance(item.target, ast.Name):
+                            if isinstance(item, ast.AnnAssign) and isinstance(
+                                item.target, ast.Name
+                            ):
                                 namedtuple_fields.append(item.target.id)
                         break
 
         if not namedtuple_class:
             errors.append(ValidationError(
                 category="namedtuple",
-                message=f"Missing NamedTuple class for return type. Define a class like 'class FuncResult(NamedTuple):' with {expected_output_count} fields.",
+                message=(
+                    f"Missing NamedTuple class for return type."
+                    f" Define a class like 'class FuncResult(NamedTuple):'"
+                    f" with {expected_output_count} fields."
+                ),
             ))
             return errors
 
@@ -515,7 +543,11 @@ class CodeValidator:
         if len(namedtuple_fields) < expected_output_count:
             errors.append(ValidationError(
                 category="namedtuple",
-                message=f"NamedTuple '{namedtuple_class}' has {len(namedtuple_fields)} fields but expected at least {expected_output_count}.",
+                message=(
+                    f"NamedTuple '{namedtuple_class}' has"
+                    f" {len(namedtuple_fields)} fields but expected"
+                    f" at least {expected_output_count}."
+                ),
             ))
 
         return errors
@@ -551,16 +583,26 @@ class CodeValidator:
                     if len(node.args.args) > 0:
                         warnings.append(ValidationError(
                             category="docstring",
-                            message=f"Function '{node.name}' docstring is missing Args section.",
+                            message=(
+                                f"Function '{node.name}' docstring"
+                                f" is missing Args section."
+                            ),
                         ))
 
                 # Check for Returns section
                 if node.returns:
                     ret_type = ast.unparse(node.returns)
-                    if ret_type != "None" and "Returns:" not in docstring and "returns:" not in docstring.lower():
+                    if (
+                        ret_type != "None"
+                        and "Returns:" not in docstring
+                        and "returns:" not in docstring.lower()
+                    ):
                         warnings.append(ValidationError(
                             category="docstring",
-                            message=f"Function '{node.name}' docstring is missing Returns section.",
+                            message=(
+                                f"Function '{node.name}' docstring"
+                                f" is missing Returns section."
+                            ),
                         ))
 
                 break  # Only check first public function

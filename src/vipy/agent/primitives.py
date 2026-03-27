@@ -30,9 +30,13 @@ def lookup_primitive(prim_id: int | str) -> dict | None:
     return None
 
 
-def lookup_primitive_by_types(input_types: list[str], output_types: list[str]) -> dict | None:
+def lookup_primitive_by_types(
+    input_types: list[str], output_types: list[str]
+) -> dict | None:
     """Fallback lookup by type signature."""
-    resolved = get_resolver().resolve(input_types=input_types, output_types=output_types)
+    resolved = get_resolver().resolve(
+        input_types=input_types, output_types=output_types
+    )
     if resolved and resolved.confidence != "unknown":
         return {
             "name": resolved.name,
@@ -58,7 +62,7 @@ class PrimitiveUsage:
     python_code: str | None = None  # Python code (inline template or full function)
     inline: bool = True  # True = inline at call sites, False = generate module
     terminals: list[dict] = field(default_factory=list)
-    confidence: str = "unknown"  # exact_id, exact_name, exact_type, compatible_type, unknown
+    confidence: str = "unknown"  # exact_id, exact_name, exact_type, compatible_type
 
     def is_inline(self) -> bool:
         """Check if this primitive can be used inline (no wrapper needed)."""
@@ -349,7 +353,11 @@ from typing import Any
             )
 
         # All retries failed
-        print(f"  ERROR: Failed to generate {func_name} after {max_retries} attempts: {errors}", file=sys.stderr)
+        msg = (
+            f"  ERROR: Failed to generate {func_name}"
+            f" after {max_retries} attempts: {errors}"
+        )
+        print(msg, file=sys.stderr)
         raise RuntimeError(f"Failed to generate primitive {func_name}: {errors}")
 
     def _build_primitive_prompt(self, usage: PrimitiveUsage, func_name: str) -> str:
@@ -377,7 +385,8 @@ from typing import Any
 
         # Choose prompt based on available info
         if python_code and python_code.strip() and not python_code.startswith("#"):
-            return f"""Generate a Python function implementing LabVIEW's "{known_name or f'primitive {usage.prim_res_id}'}".
+            vi_label = known_name or f"primitive {usage.prim_res_id}"
+            return f"""Generate a Python function implementing LabVIEW's "{vi_label}".
 
 Function name: {func_name}
 Python equivalent: {python_code}
@@ -415,7 +424,8 @@ Requirements:
 Output ONLY the function definition, no explanations.
 """
         else:
-            return f"""Generate a Python function for LabVIEW primitive #{usage.prim_res_id}.
+            prim_id = usage.prim_res_id
+            return f"""Generate a Python function for LabVIEW primitive #{prim_id}.
 
 Input types: {input_str}
 Output types: {output_str}
@@ -477,7 +487,9 @@ Output ONLY the function definition, no explanations.
         typing_names = {'Optional', 'Any', 'List', 'Dict', 'Tuple', 'Union', 'Callable'}
         for name in typing_names:
             if re.search(rf'from pathlib import[^#\n]*\b{name}\b', code):
-                errors.append(f"Invalid import: {name} should be from typing, not pathlib")
+                errors.append(
+                    f"Invalid import: {name} should be from typing, not pathlib"
+                )
 
         return "; ".join(errors) if errors else None
 
@@ -538,7 +550,7 @@ Output ONLY the function definition, no explanations.
             vi_name: Name of the VI
 
         Returns:
-            Dict mapping primResID -> {name, python_function, python_code, inline, terminals, confidence}
+            Dict mapping primResID -> primitive context info
         """
         context: dict[int, dict] = {}
         for prim in self.get_primitives_for_vi(vi_name):

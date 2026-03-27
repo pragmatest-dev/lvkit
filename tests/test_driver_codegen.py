@@ -18,7 +18,6 @@ from vipy.agent.codegen.ast_optimizer import eliminate_dead_code
 from vipy.agent.codegen.context import _format_constant
 from vipy.graph_types import Constant, LVType
 
-
 # =============================================================
 # Boolean constant formatting
 # =============================================================

@@ -131,7 +131,7 @@ def parse_polymorphic_info(root: ET.Element) -> dict[str, Any]:
     }
 
     # Check for AllowPolyTypeAdapt flag - this indicates a polymorphic wrapper
-    # VIs that merely CALL polymorphic VIs have PolyVI TypeDesc but AllowPolyTypeAdapt="0"
+    # VIs that call polymorphic VIs have PolyVI TypeDesc but AllowPolyTypeAdapt="0"
     exec2 = root.find(".//LVSR//Execution2")
     if exec2 is None or exec2.get("AllowPolyTypeAdapt") != "1":
         # Also check for selector-based polymorphic (ShowPolySelector)

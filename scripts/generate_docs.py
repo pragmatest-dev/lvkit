@@ -2,20 +2,21 @@
 """Deterministic HTML documentation generator for LabVIEW VIs.
 
 Usage:
-    python scripts/generate_docs.py <vi_or_library_path> <output_dir> [--search-path PATH ...]
+    python scripts/generate_docs.py <vi_or_library_path> <output_dir>
+        [--search-path PATH ...]
 """
-import sys
 import argparse
+import sys
 from pathlib import Path
 
 # Add src to path if running as script
 if __name__ == "__main__":
     sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from vipy.memory_graph import InMemoryVIGraph
-from vipy.structure import parse_lvlib, parse_lvclass
 from vipy.docs.html_generator import HTMLDocGenerator
 from vipy.docs.utils import generate_dependency_description
+from vipy.memory_graph import InMemoryVIGraph
+from vipy.structure import parse_lvclass, parse_lvlib
 
 
 def collect_library_vis(library_path: Path) -> list[Path]:
@@ -156,7 +157,10 @@ def build_cross_references(graph: InMemoryVIGraph) -> dict:
 
 
 def prepare_vi_documentation_data(
-    vi_name: str, graph: InMemoryVIGraph, poly_groups: dict, icon_map: dict[str, str] | None = None
+    vi_name: str,
+    graph: InMemoryVIGraph,
+    poly_groups: dict,
+    icon_map: dict[str, str] | None = None,
 ) -> dict:
     """Prepare all data needed for one VI documentation page.
 
@@ -165,9 +169,6 @@ def prepare_vi_documentation_data(
         graph: InMemoryVIGraph containing the VI
         poly_groups: Polymorphic groups from graph.get_polymorphic_groups()
     """
-    from vipy.graph_types import Constant, Operation, Terminal, Wire
-
-    vi_context = graph.get_vi_context(vi_name)
 
     # Get dataclasses (not dicts)
     inputs_dc = graph.get_inputs(vi_name)
@@ -231,7 +232,10 @@ def prepare_vi_documentation_data(
     # Only add operation names that aren't already covered by a qualified dep
     # e.g. don't add "addSuccess.vi" if "TestCase.lvclass:addSuccess.vi" exists
     for op_name in op_names:
-        if not any(dep.endswith(f":{op_name}") or dep == op_name for dep in qualified_deps):
+        if not any(
+            dep.endswith(f":{op_name}") or dep == op_name
+            for dep in qualified_deps
+        ):
             qualified_deps.add(op_name)
     # Remove self-reference
     qualified_deps.discard(vi_name)
@@ -257,8 +261,14 @@ def prepare_vi_documentation_data(
                 variant_outputs = graph.get_outputs(variant_name)
                 variant_params.append({
                     "name": variant_name,
-                    "inputs": [{"name": inp.name, "type": inp.python_type()} for inp in variant_inputs],
-                    "outputs": [{"name": out.name, "type": out.python_type()} for out in variant_outputs],
+                    "inputs": [
+                        {"name": inp.name, "type": inp.python_type()}
+                        for inp in variant_inputs
+                    ],
+                    "outputs": [
+                        {"name": out.name, "type": out.python_type()}
+                        for out in variant_outputs
+                    ],
                 })
             except Exception:
                 pass  # Skip variants that can't be loaded
@@ -288,7 +298,8 @@ def generate_documents(
     search_paths: list[str] | None = None,
     expand_subvis: bool = True,
 ) -> str:
-    """Generate HTML documentation for a LabVIEW library, class, directory, or single VI."""
+    """Generate HTML documentation for a LabVIEW library, class, directory,
+    or single VI."""
     import time
 
     start_time = time.time()
@@ -299,7 +310,7 @@ def generate_documents(
         raise FileNotFoundError(f"Path not found: {library_path}")
 
     # Determine input type and collect VI paths
-    print(f"[TIMING] Starting VI discovery...")
+    print("[TIMING] Starting VI discovery...")
     t0 = time.time()
     if library_path_obj.suffix == ".vi":
         doc_type = "vi"
@@ -338,26 +349,43 @@ def generate_documents(
     failed_vis = []
 
     for i, vi_path in enumerate(vi_paths, 1):
-        print(f"[TIMING]   Starting VI {i}/{len(vi_paths)}: {vi_path.name}...", flush=True)
+        print(
+            f"[TIMING]   Starting VI {i}/{len(vi_paths)}: {vi_path.name}...",
+            flush=True,
+        )
         vi_start = time.time()
         before_count = len(graph.list_vis())
         try:
             graph.load_vi(
-                vi_path, expand_subvis=expand_subvis, search_paths=search_path_objs or None
+                vi_path,
+                expand_subvis=expand_subvis,
+                search_paths=search_path_objs or None,
             )
             after_count = len(graph.list_vis())
             new_vis = after_count - before_count
             loaded_vis.append(vi_path.name)
-            print(f"[TIMING]   Loaded VI {i}/{len(vi_paths)}: {vi_path.name} ({time.time() - vi_start:.2f}s) - Graph: {before_count} → {after_count} (+{new_vis} new VIs)", flush=True)
+            print(
+                f"[TIMING]   Loaded VI {i}/{len(vi_paths)}: {vi_path.name}"
+                f" ({time.time() - vi_start:.2f}s)"
+                f" - Graph: {before_count} → {after_count} (+{new_vis} new VIs)",
+                flush=True,
+            )
         except Exception as e:
             failed_vis.append(f"{vi_path.name}: {str(e)}")
-            print(f"[TIMING]   Failed VI {i}/{len(vi_paths)}: {vi_path.name} - {str(e)}", flush=True)
+            print(
+                f"[TIMING]   Failed VI {i}/{len(vi_paths)}: {vi_path.name}"
+                f" - {str(e)}",
+                flush=True,
+            )
 
     total_loaded = len(graph.list_vis())
-    print(f"[TIMING] VI loading complete: {time.time() - t0:.2f}s - Loaded {len(loaded_vis)} VIs, expanded to {total_loaded} total")
+    print(
+        f"[TIMING] VI loading complete: {time.time() - t0:.2f}s"
+        f" - Loaded {len(loaded_vis)} VIs, expanded to {total_loaded} total"
+    )
 
     if not loaded_vis:
-        return f"Failed to load any VIs. Errors:\n" + "\n".join(failed_vis)
+        return "Failed to load any VIs. Errors:\n" + "\n".join(failed_vis)
 
     # Cross-references now come from the dependency graph (qualified names)
     # No need for separate cross_refs building
@@ -367,10 +395,13 @@ def generate_documents(
     poly_variant_to_wrapper = graph.get_poly_variant_wrappers()
 
     # Collect and copy icons
-    print(f"[TIMING] Collecting VI icons...")
+    print("[TIMING] Collecting VI icons...")
     t0 = time.time()
     icon_map = collect_icons(graph, output_dir_obj)
-    print(f"[TIMING] Icon collection: {time.time() - t0:.2f}s - Found {len(icon_map)} icons")
+    print(
+        f"[TIMING] Icon collection: {time.time() - t0:.2f}s"
+        f" - Found {len(icon_map)} icons"
+    )
 
     # Create HTML generator
     generator = HTMLDocGenerator(output_dir_obj, doc_title, doc_type)
@@ -388,24 +419,32 @@ def generate_documents(
 
     for i, vi_name in enumerate(all_vis, 1):
         try:
-            vi_data = prepare_vi_documentation_data(vi_name, graph, poly_groups, icon_map)
+            vi_data = prepare_vi_documentation_data(
+                vi_name, graph, poly_groups, icon_map
+            )
             generator.generate_vi_page(vi_data)
             generated_count += 1
             if i % 50 == 0:
-                print(f"[TIMING]   Generated {i}/{total_loaded} pages ({time.time() - t0:.2f}s elapsed)")
+                print(
+                    f"[TIMING]   Generated {i}/{total_loaded} pages"
+                    f" ({time.time() - t0:.2f}s elapsed)"
+                )
         except Exception as e:
             failed_vis.append(f"{vi_name}: {str(e)}")
-    print(f"[TIMING] HTML generation: {time.time() - t0:.2f}s - Generated {generated_count} pages")
+    print(
+        f"[TIMING] HTML generation: {time.time() - t0:.2f}s"
+        f" - Generated {generated_count} pages"
+    )
 
     # Generate index page - filter out poly variants (only show wrappers)
-    print(f"[TIMING] Generating index page...")
+    print("[TIMING] Generating index page...")
     t0 = time.time()
     vis_for_index = [vi for vi in all_vis if vi not in poly_variant_to_wrapper]
     generator.generate_index_page(vis_for_index)
     print(f"[TIMING] Index generation: {time.time() - t0:.2f}s")
 
     # Write CSS assets
-    print(f"[TIMING] Writing CSS assets...")
+    print("[TIMING] Writing CSS assets...")
     t0 = time.time()
     generator.write_assets()
     print(f"[TIMING] CSS writing: {time.time() - t0:.2f}s")
@@ -431,11 +470,22 @@ def generate_documents(
 
 def main():
     """CLI entry point."""
-    parser = argparse.ArgumentParser(description="Generate HTML documentation for LabVIEW VIs")
-    parser.add_argument("library_path", help="Path to .lvlib, .lvclass, .vi file, or directory")
+    parser = argparse.ArgumentParser(
+        description="Generate HTML documentation for LabVIEW VIs"
+    )
+    parser.add_argument(
+        "library_path", help="Path to .lvlib, .lvclass, .vi file, or directory"
+    )
     parser.add_argument("output_dir", help="Output directory for HTML files")
-    parser.add_argument("--search-path", action="append", dest="search_paths", help="Search path for dependencies")
-    parser.add_argument("--no-expand", action="store_true", help="Don't expand SubVI dependencies")
+    parser.add_argument(
+        "--search-path",
+        action="append",
+        dest="search_paths",
+        help="Search path for dependencies",
+    )
+    parser.add_argument(
+        "--no-expand", action="store_true", help="Don't expand SubVI dependencies"
+    )
 
     args = parser.parse_args()
 

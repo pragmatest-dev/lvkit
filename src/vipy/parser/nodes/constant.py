@@ -21,7 +21,8 @@ def extract_constants(root: ET.Element) -> list[Constant]:
     """
     constants = []
 
-    for term in root.findall(f".//nodeList//SL__arrayElement[@class='{TERMINAL_CLASS}']"):
+    selector = f".//nodeList//SL__arrayElement[@class='{TERMINAL_CLASS}']"
+    for term in root.findall(selector):
         dco = term.find(f"dco[@class='{CONSTANT_DCO_CLASS}']")
         if dco is None:
             continue

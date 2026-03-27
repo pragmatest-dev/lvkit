@@ -47,7 +47,7 @@ class PrimitiveCodeGen(NodeCodeGen):
                 return CodeFragment.empty()
             return self._emit_unknown(node, prim_id, ctx)
 
-        # Check if primitive is truly unknown (no code, unknown confidence, or comment-only code)
+        # Check if primitive is truly unknown (no code, unknown confidence, or comment)
         code = resolved.python_code if resolved else None
         is_unknown = (
             not resolved
@@ -166,7 +166,9 @@ class PrimitiveCodeGen(NodeCodeGen):
                         prim_id=node.primResID or 0,
                         prim_name=node.name or "unknown",
                         terminal_direction="input",
-                        terminal_type=term.lv_type.underlying_type if term.lv_type else None,
+                        terminal_type=(
+                            term.lv_type.underlying_type if term.lv_type else None
+                        ),
                         available=avail,
                         vi_name=ctx.vi_name,
                     )
@@ -175,16 +177,36 @@ class PrimitiveCodeGen(NodeCodeGen):
                 resolved_value = default_value
             else:
                 # Unwired terminal — use default from JSON or type-based default
-                if term_name and ("refnum" in term_name.lower() or "file_path" in term_name.lower()) and node.primResID in (8010, 8011, 8003, 8005):
-                    vi_short = (ctx.vi_name or "output").replace(".vi", "").replace(":", "_").replace(".", "_")
-                    resolved_value = f"open(Path(__file__).parent / '{vi_short}.txt', 'a+')"
+                if (
+                    term_name
+                    and (
+                        "refnum" in term_name.lower()
+                        or "file_path" in term_name.lower()
+                    )
+                    and node.primResID in (8010, 8011, 8003, 8005)
+                ):
+                    vi_short = (
+                        (ctx.vi_name or "output")
+                        .replace(".vi", "")
+                        .replace(":", "_")
+                        .replace(".", "_")
+                    )
+                    resolved_value = (
+                        f"open(Path(__file__).parent / '{vi_short}.txt', 'a+')"
+                    )
                     ctx.imports.add("from pathlib import Path")
-                elif term_name and "vi_path" in term_name.lower() and node.primResID in (9101,):
+                elif (
+                    term_name
+                    and "vi_path" in term_name.lower()
+                    and node.primResID in (9101,)
+                ):
                     resolved_value = "Path(__file__)"
                     ctx.imports.add("from pathlib import Path")
                 else:
                     tname = (term_name or "").lower()
-                    ptype = term.python_type() if hasattr(term, 'python_type') else "Any"
+                    ptype = (
+                        term.python_type() if hasattr(term, 'python_type') else "Any"
+                    )
                     if "array" in tname or ptype.startswith("list"):
                         resolved_value = "[]"
                     elif "string" in tname or ptype == "str":
@@ -207,7 +229,8 @@ class PrimitiveCodeGen(NodeCodeGen):
                 for base_idx in expandable_indices:
                     if term_index == base_idx or (
                         term_index > base_idx
-                        and (term_index - base_idx) % max(len(expandable_indices), 1) == 0
+                        and (term_index - base_idx)
+                        % max(len(expandable_indices), 1) == 0
                     ):
                         if base_idx not in expandable_groups:
                             expandable_groups[base_idx] = []
@@ -224,7 +247,7 @@ class PrimitiveCodeGen(NodeCodeGen):
 
         # Add expandable placeholders for template substitution.
         # Single group: {expandable_inputs} for backward compat.
-        # Multiple groups: {name_values} per group (e.g., {index_values}, {length_values}).
+        # Multiple groups: {name_values} per group (e.g., {index_values}).
         if len(expandable_groups) == 1:
             values = list(expandable_groups.values())[0]
             input_map["expandable_inputs"] = ", ".join(values)
@@ -405,12 +428,18 @@ class PrimitiveCodeGen(NodeCodeGen):
                     prim_id=node.primResID or 0,
                     prim_name=node.name or "unknown",
                     terminal_direction="output",
-                    terminal_type=term.lv_type.underlying_type if term.lv_type else None,
+                    terminal_type=(
+                        term.lv_type.underlying_type if term.lv_type else None
+                    ),
                     available=avail,
                     vi_name=ctx.vi_name if ctx else None,
                 )
 
-            var_name = ctx.make_output_var(term_name, node.id, terminal_id=term_id) if term_name else f"out_{term_index}"
+            var_name = (
+                ctx.make_output_var(term_name, node.id, terminal_id=term_id)
+                if term_name
+                else f"out_{term_index}"
+            )
             outputs.append((term_id, term_name, var_name))
 
         return outputs
@@ -450,7 +479,9 @@ class PrimitiveCodeGen(NodeCodeGen):
         exprs = [v for k, v in hint.items() if k not in ("_body", "_import")]
         for i, (term_id, term_name, var_name) in enumerate(wired_outputs):
             if i < len(exprs):
-                expr_substituted = self._substitute_template(exprs[i], input_map, resolved)
+                expr_substituted = self._substitute_template(
+                    exprs[i], input_map, resolved
+                )
                 expr_ast = parse_expr(expr_substituted)
                 statements.append(build_assign(var_name, expr_ast))
                 bindings[term_id] = var_name

@@ -63,4 +63,9 @@ __all__ = [
     "Tunnel",
     "GraphConstant",
     "GraphWire",
+    "summarize_vi",
+    "ConvertedVI",
+    "convert_vi",
+    "convert_xml",
+    "generate_nicegui_code",
 ]

@@ -14,7 +14,8 @@ class LabVIEWError(Exception):
         self.code = code
         self.message = message
         self.source = source
-        super().__init__(f"LabVIEW Error {code}: {message}" if message else f"LabVIEW Error {code}")
+        msg = f"LabVIEW Error {code}: {message}" if message else f"LabVIEW Error {code}"
+        super().__init__(msg)
 
     def to_cluster(self) -> dict:
         """Convert to LabVIEW-style error cluster dict."""

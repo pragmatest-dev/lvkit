@@ -10,7 +10,10 @@ from pydantic import BaseModel, Field
 
 TOOL_DEFINITIONS = {
     "analyze_vi": {
-        "description": "Analyze a LabVIEW VI file and return its structure (inputs, outputs, dataflow graph, dependencies).",
+        "description": (
+            "Analyze a LabVIEW VI file and return its structure"
+            " (inputs, outputs, dataflow graph, dependencies)."
+        ),
         "input_schema": {
             "type": "object",
             "properties": {
@@ -33,7 +36,7 @@ TOOL_DEFINITIONS = {
         },
     },
     "generate_documents": {
-        "description": "Generate static HTML documentation for VIs, libraries, or directories.",
+        "description": "Generate static HTML docs for VIs, libraries, or directories.",
         "input_schema": {
             "type": "object",
             "properties": {
@@ -60,7 +63,7 @@ TOOL_DEFINITIONS = {
         },
     },
     "generate_python": {
-        "description": "Generate Python code from a VI using AST translation. Writes files to output_dir.",
+        "description": "Generate Python code from a VI using AST translation.",
         "input_schema": {
             "type": "object",
             "properties": {
@@ -79,7 +82,7 @@ TOOL_DEFINITIONS = {
         },
     },
     "load_vi": {
-        "description": "Load a VI into the in-memory graph. Graph persists across tool calls.",
+        "description": "Load a VI into the in-memory graph. Persists across calls.",
         "input_schema": {
             "type": "object",
             "properties": {
@@ -103,7 +106,10 @@ TOOL_DEFINITIONS = {
         "input_schema": {"type": "object", "properties": {}},
     },
     "get_vi_context": {
-        "description": "Get the full context for a loaded VI including resolved primitives, terminals, and dataflow.",
+        "description": (
+            "Get the full context for a loaded VI including"
+            " resolved primitives, terminals, and dataflow."
+        ),
         "input_schema": {
             "type": "object",
             "properties": {
@@ -116,7 +122,7 @@ TOOL_DEFINITIONS = {
         },
     },
     "generate_ast_code": {
-        "description": "Generate Python code from a loaded VI using deterministic AST translation.",
+        "description": "Generate Python from a loaded VI using AST translation.",
         "input_schema": {
             "type": "object",
             "properties": {

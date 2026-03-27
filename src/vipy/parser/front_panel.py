@@ -102,7 +102,11 @@ def extract_fp_terminals(
         fp_dco_uid = dco.get("uid") if dco is not None else None
 
         label_elem = fp_term.find(".//label/textRec/text")
-        name = clean_labview_string(label_elem.text) if label_elem is not None and label_elem.text else None
+        name = (
+            clean_labview_string(label_elem.text)
+            if label_elem is not None and label_elem.text
+            else None
+        )
 
         # Look up typeDesc from FP DCO
         type_desc = dco_types.get(fp_dco_uid) if fp_dco_uid else None
@@ -164,7 +168,9 @@ def parse_connector_pane(fp_xml_path: Path | str) -> ConnectorPane | None:
         return None
 
     con_id_elem = con_pane.find("conId")
-    pattern_id = int(con_id_elem.text) if con_id_elem is not None and con_id_elem.text else 0
+    pattern_id = (
+        int(con_id_elem.text) if con_id_elem is not None and con_id_elem.text else 0
+    )
 
     slots: list[ConnectorPaneSlot] = []
     cons = con_pane.find("cons")

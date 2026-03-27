@@ -283,7 +283,9 @@ class SharedTypeRegistry:
             # Generate dataclass
             lines.append("@dataclass")
             lines.append(f"class {shared_type.name}:")
-            lines.append(f'    """Cluster from LabVIEW: {shared_type.original_name}."""')
+            lines.append(
+                f'    """Cluster from LabVIEW: {shared_type.original_name}."""'
+            )
             lines.append("")
             if shared_type.fields:
                 for field_name, field_type in shared_type.fields:

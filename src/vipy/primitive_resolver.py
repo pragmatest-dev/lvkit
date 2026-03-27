@@ -40,16 +40,25 @@ class TerminalResolutionNeeded(Exception):
         super().__init__(self._format_message())
 
     def _format_message(self) -> str:
-        msg = f"Terminal resolution needed for primitive {self.prim_id} ({self.prim_name}).\n"
+        msg = (
+            f"Terminal resolution needed for primitive"
+            f" {self.prim_id} ({self.prim_name}).\n"
+        )
         if self.vi_name:
             msg += f"  In VI: {self.vi_name}\n"
-        msg += f"  Wired terminal: direction={self.terminal_direction}, type={self.terminal_type}\n"
+        msg += (
+            f"  Wired terminal: direction={self.terminal_direction},"
+            f" type={self.terminal_type}\n"
+        )
         msg += "  Available resolver terminals (same direction, unassigned):\n"
         for t in self.available:
             msg += f"    - index={t['index']} name={t['name']} type={t['type']}\n"
         if not self.available:
             msg += "    (none available)\n"
-        msg += f"\n  Fix: add/update terminal in data/primitives-codegen.json under primitive {self.prim_id}"
+        msg += (
+            f"\n  Fix: add/update terminal in data/primitives-codegen.json"
+            f" under primitive {self.prim_id}"
+        )
         return msg
 
 
@@ -62,10 +71,13 @@ class PrimitiveTerminal(BaseModel):
     index: int
     direction: str  # "in" or "out"
     name: str | None = ""
-    type: str | None = None  # LabVIEW type category: "numeric", "string", "boolean", "array", "cluster", "path", "refnum", "variant", "polymorphic"
+    # LabVIEW type: "numeric", "string", "boolean", "array",
+    # "cluster", "path", "refnum", "variant", "polymorphic"
+    type: str | None = None
     default_value: str | None = None
     expandable: bool = False  # True if this terminal can be resized (N instances)
-    dco_ref: str | None = None  # Named DCO reference tag in XML (e.g., "srcDCO4", "delDCO")
+    # Named DCO reference tag in XML (e.g., "srcDCO4", "delDCO")
+    dco_ref: str | None = None
 
 
 class PrimitiveEntry(BaseModel):
@@ -113,7 +125,8 @@ class PrimitiveResolver:
         self._by_id: dict[str, dict] = {}
         self._by_name: dict[str, dict] = {}  # Normalized name -> primitive
         self._by_signature: dict[tuple, list[dict]] = {}
-        self._by_node_type: dict[str, dict] = {}  # node_type -> info (aBuild, cpdArith, etc.)
+        # node_type -> info (aBuild, cpdArith, etc.)
+        self._by_node_type: dict[str, dict] = {}
         self._type_aliases: dict[str, str] = {
             # Normalize type names
             "string": "String",
@@ -254,7 +267,10 @@ class PrimitiveResolver:
                     name=prim.get("name", f"primitive_{prim_id}"),
                     python_code=prim.get("python_code", ""),
                     inline=prim.get("inline", True),
-                    terminals=[PrimitiveTerminal.model_validate(t) for t in prim.get("terminals", [])],
+                    terminals=[
+                        PrimitiveTerminal.model_validate(t)
+                        for t in prim.get("terminals", [])
+                    ],
                     confidence="exact_id",
                     description=prim.get("guess_reason", ""),
                     imports=prim.get("imports", []),
@@ -288,7 +304,8 @@ class PrimitiveResolver:
         """Resolve primitive by name.
 
         Args:
-            name: Primitive name (e.g., "Build Array", "build_array", "Index Array Function")
+            name: Primitive name (e.g., "Build Array", "build_array",
+                "Index Array Function")
 
         Returns:
             ResolvedPrimitive or None if not found
@@ -301,7 +318,10 @@ class PrimitiveResolver:
                 name=prim.get("name", name),
                 python_code=prim.get("python_code", ""),
                 inline=prim.get("inline", True),
-                terminals=[PrimitiveTerminal.model_validate(t) for t in prim.get("terminals", [])],
+                terminals=[
+                    PrimitiveTerminal.model_validate(t)
+                    for t in prim.get("terminals", [])
+                ],
                 confidence="exact_name",
                 description=prim.get("guess_reason", prim.get("category", "")),
             )
@@ -322,7 +342,10 @@ class PrimitiveResolver:
                 name=info.get("name", node_type),
                 python_code=info.get("python_code"),
                 inline=info.get("inline", True),
-                terminals=[PrimitiveTerminal.model_validate(t) for t in info.get("terminals", [])],
+                terminals=[
+                    PrimitiveTerminal.model_validate(t)
+                    for t in info.get("terminals", [])
+                ],
                 confidence="node_type",
                 description=info.get("description", ""),
             )
@@ -346,7 +369,10 @@ class PrimitiveResolver:
                 name=prim.get("name", "unknown"),
                 python_code=prim.get("python_code", ""),
                 inline=prim.get("inline", True),
-                terminals=[PrimitiveTerminal.model_validate(t) for t in prim.get("terminals", [])],
+                terminals=[
+                    PrimitiveTerminal.model_validate(t)
+                    for t in prim.get("terminals", [])
+                ],
                 confidence="exact_type",
             )
 
@@ -366,7 +392,10 @@ class PrimitiveResolver:
                 name=best_match.get("name", "unknown"),
                 python_code=best_match.get("python_code", ""),
                 inline=best_match.get("inline", True),
-                terminals=[PrimitiveTerminal.model_validate(t) for t in best_match.get("terminals", [])],
+                terminals=[
+                    PrimitiveTerminal.model_validate(t)
+                    for t in best_match.get("terminals", [])
+                ],
                 confidence="compatible_type",
             )
 
@@ -409,8 +438,13 @@ class PrimitiveResolver:
     def stats(self) -> dict:
         """Get resolver statistics."""
         # Count primitives by source
-        with_id = sum(1 for p in self._by_name.values() if p.get("id") or p.get("prim_id"))
-        from_pdf = sum(1 for p in self._by_name.values() if p.get("source") == "NI PDF Documentation")
+        with_id = sum(
+            1 for p in self._by_name.values() if p.get("id") or p.get("prim_id")
+        )
+        from_pdf = sum(
+            1 for p in self._by_name.values()
+            if p.get("source") == "NI PDF Documentation"
+        )
         return {
             "primitives_by_id": len(self._by_id),
             "primitives_by_name": len(self._by_name),

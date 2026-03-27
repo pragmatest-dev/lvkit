@@ -153,8 +153,10 @@ def generate_nicegui_code(
     return "\n".join(lines)
 
 
-def _generate_init_vars(lines: list[str], ctrl: FPControl, var_name: str, indent: str) -> None:
-    """Generate instance variable declarations for a control, including cluster children."""
+def _generate_init_vars(
+    lines: list[str], ctrl: FPControl, var_name: str, indent: str
+) -> None:
+    """Generate instance variable declarations for a control and cluster children."""
     if ctrl.control_type == "stdClust" and ctrl.children:
         # For clusters, create variables for each child
         for child in ctrl.children:
@@ -184,8 +186,14 @@ def _generate_widget(ctrl: FPControl, var_name: str, indent: int = 0) -> list[st
     elif ctrl.control_type == "stdPath":
         return [
             f"{pad}with ui.row().classes('items-center'):",
-            f"{pad}    ui.input('{label}').bind_value(self, '{var_name}').classes('flex-grow')",
-            f"{pad}    ui.button(icon='folder', on_click=lambda: self._browse_{var_name}())",
+            (
+                f"{pad}    ui.input('{label}')"
+                f".bind_value(self, '{var_name}').classes('flex-grow')"
+            ),
+            (
+                f"{pad}    ui.button("
+                f"icon='folder', on_click=lambda: self._browse_{var_name}())"
+            ),
         ]
     elif ctrl.control_type == "stdBool":
         return [

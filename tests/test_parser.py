@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import tempfile
 from pathlib import Path
 
 import pytest
@@ -21,13 +20,11 @@ from vipy.parser import (
     Wire,
     WiringRule,
     parse_connector_pane,
-    parse_connector_pane_types,
     parse_polymorphic_info,
     parse_subvi_paths,
     parse_vi,
     parse_vi_metadata,
 )
-
 
 # === Model Dataclass Tests ===
 
@@ -75,7 +72,9 @@ class TestConstant:
 
     def test_constant_creation_with_label(self):
         """Test creating a Constant with a label."""
-        const = Constant(uid="c2", type_desc="stdString", value="48656C6C6F", label="greeting")
+        const = Constant(
+            uid="c2", type_desc="stdString", value="48656C6C6F", label="greeting"
+        )
         assert const.label == "greeting"
 
 
@@ -95,7 +94,9 @@ class TestFPTerminal:
 
     def test_fp_terminal_input(self):
         """Test creating an input (control) FP terminal."""
-        fp = FPTerminal(uid="fp1", fp_dco_uid="dco1", name="Input Value", is_indicator=False)
+        fp = FPTerminal(
+            uid="fp1", fp_dco_uid="dco1", name="Input Value", is_indicator=False
+        )
         assert fp.uid == "fp1"
         assert fp.fp_dco_uid == "dco1"
         assert fp.name == "Input Value"
@@ -103,7 +104,9 @@ class TestFPTerminal:
 
     def test_fp_terminal_output(self):
         """Test creating an output (indicator) FP terminal."""
-        fp = FPTerminal(uid="fp2", fp_dco_uid="dco2", name="Output Value", is_indicator=True)
+        fp = FPTerminal(
+            uid="fp2", fp_dco_uid="dco2", name="Output Value", is_indicator=True
+        )
         assert fp.is_indicator is True
 
 
@@ -358,7 +361,9 @@ class TestBlockDiagram:
             constants=[],
             wires=[],
             terminal_info={
-                "t1": TerminalInfo(uid="t1", parent_uid="node1", index=0, is_output=False),
+                "t1": TerminalInfo(
+                    uid="t1", parent_uid="node1", index=0, is_output=False
+                ),
             },
         )
         assert bd.get_parent_uid("t1") == "node1"

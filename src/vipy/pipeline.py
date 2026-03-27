@@ -472,7 +472,7 @@ def generate_python(
             continue
         name_no_ext = vi_name.replace(".vi", "").replace(".VI", "")
         if "(" in name_no_ext and ")" in name_no_ext:
-            # Extract base: "Filter Error Codes (Array)__suffix" → "Filter Error Codes__suffix"
+            # Extract base: "Filter (Array)__sfx" → "Filter__sfx"
             paren_start = name_no_ext.index("(")
             paren_end = name_no_ext.rindex(")")
             base_part = name_no_ext[:paren_start].rstrip()

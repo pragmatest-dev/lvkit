@@ -17,7 +17,6 @@ from vipy.graph_types import (
     Tunnel,
     TunnelTerminal,
     VINode,
-    Wire,
     WireEnd,
 )
 from vipy.memory_graph import InMemoryVIGraph

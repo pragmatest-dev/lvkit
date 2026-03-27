@@ -242,7 +242,10 @@ class TestNestedExpressions:
                 ("cmp2_out", "or_in2"),
                 ("or_out", "stop_term"),
             ],
-            {"src_a": "count", "src_b": "max_count", "src_c": "status", "src_d": "done_status"},
+            {
+                "src_a": "count", "src_b": "max_count",
+                "src_c": "status", "src_d": "done_status",
+            },
         )
 
         # Greater Or Equal? (1103)

@@ -1,14 +1,19 @@
 """Regression tests for parser refactoring."""
 
-import pytest
 from pathlib import Path
-from vipy.parser import parse_vi, VIMetadata, ParsedVI
-from vipy.parser.type_mapping import parse_type_map_rich
-from vipy.parser.metadata import parse_vi_metadata, parse_subvi_paths
-from vipy.memory_graph import InMemoryVIGraph
-from vipy.extractor import extract_vi_xml
 
-TEST_VI = Path("samples/JKI-VI-Tester/source/User Interfaces/Graphical Test Runner/Graphical Test Runner Support/Get Settings Path.vi")
+import pytest
+
+from vipy.extractor import extract_vi_xml
+from vipy.memory_graph import InMemoryVIGraph
+from vipy.parser import ParsedVI, VIMetadata, parse_vi
+from vipy.parser.metadata import parse_subvi_paths, parse_vi_metadata
+from vipy.parser.type_mapping import parse_type_map_rich
+
+TEST_VI = Path(
+    "samples/JKI-VI-Tester/source/User Interfaces/"
+    "Graphical Test Runner/Graphical Test Runner Support/Get Settings Path.vi"
+)
 SEARCH_PATHS = [Path("samples/OpenG/extracted")]
 
 
@@ -48,7 +53,8 @@ class TestVIMetadata:
     """Tests for VIMetadata (qualified_name, subvi refs, source_path)."""
 
     def test_qualified_name(self, parsed_metadata):
-        assert parsed_metadata.qualified_name == "GraphicalTestRunner.lvlib:Get Settings Path.vi"
+        expected = "GraphicalTestRunner.lvlib:Get Settings Path.vi"
+        assert parsed_metadata.qualified_name == expected
 
     def test_subvi_qualified_names_not_empty(self, parsed_metadata):
         assert len(parsed_metadata.subvi_qualified_names) > 0
@@ -92,7 +98,8 @@ class TestMetadata:
     def test_qualified_name(self, extracted_xml):
         _, _, main_xml = extracted_xml
         metadata = parse_vi_metadata(main_xml)
-        assert metadata.get("qualified_name") == "GraphicalTestRunner.lvlib:Get Settings Path.vi"
+        expected = "GraphicalTestRunner.lvlib:Get Settings Path.vi"
+        assert metadata.get("qualified_name") == expected
 
 
 class TestSubVIPaths:
@@ -117,7 +124,8 @@ class TestMemoryGraph:
         assert len(graph._loaded_vis) > 1
 
     def test_dependencies_exist(self, graph):
-        deps = graph.get_vi_dependencies("GraphicalTestRunner.lvlib:Get Settings Path.vi")
+        vi_name = "GraphicalTestRunner.lvlib:Get Settings Path.vi"
+        deps = graph.get_vi_dependencies(vi_name)
         assert len(deps) > 0
 
     def test_vi_context_has_operations(self, graph):

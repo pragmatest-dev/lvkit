@@ -30,10 +30,15 @@ class PrimitiveLookup:
         """
         if api_data_path is None:
             # Default to data/ directory relative to this file
-            api_data_path = Path(__file__).parent.parent.parent / "data" / "labview-api-scraped.json"
+            api_data_path = (
+                Path(__file__).parent.parent.parent
+                / "data" / "labview-api-scraped.json"
+            )
 
         self.primitives: list[PrimitiveInfo] = []
-        self._by_signature: dict[tuple[tuple[str, ...], tuple[str, ...]], list[PrimitiveInfo]] = {}
+        self._by_signature: dict[
+            tuple[tuple[str, ...], tuple[str, ...]], list[PrimitiveInfo]
+        ] = {}
 
         self._load(Path(api_data_path))
 
@@ -140,9 +145,15 @@ class PrimitiveLookup:
         # Try matching with wildcards/compatibility, score by match quality
         scored_matches: list[tuple[int, PrimitiveInfo]] = []
         for (ref_in, ref_out), primitives in self._by_signature.items():
-            if self._types_match(in_norm, ref_in) and self._types_match(out_norm, ref_out):
+            if (
+                self._types_match(in_norm, ref_in)
+                and self._types_match(out_norm, ref_out)
+            ):
                 # Score: higher is better (exact matches score higher)
-                score = self._match_score(in_norm, ref_in) + self._match_score(out_norm, ref_out)
+                score = (
+                    self._match_score(in_norm, ref_in)
+                    + self._match_score(out_norm, ref_out)
+                )
                 for p in primitives:
                     scored_matches.append((score, p))
 

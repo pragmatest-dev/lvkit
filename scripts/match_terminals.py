@@ -65,16 +65,23 @@ def analyze_vi(vi_name: str, obs_data: dict, vilib_entries: dict) -> None:
     print(f"{'='*60}")
 
     # Get vilib entry
-    vilib_entry = vilib_entries.get(vi_name) or vilib_entries.get(vi_name.replace(".vi", ""))
+    vilib_entry = (
+        vilib_entries.get(vi_name) or vilib_entries.get(vi_name.replace(".vi", ""))
+    )
     vilib_terminals = vilib_entry.get("terminals", []) if vilib_entry else []
 
     # Get observations
     terminal_map = obs_data.get("terminal_map", {})
-    vilib_from_obs = obs_data.get("vilib_terminals", [])
 
     # Separate by direction
-    obs_inputs = [(int(idx), info) for idx, info in terminal_map.items() if info["direction"] == "input"]
-    obs_outputs = [(int(idx), info) for idx, info in terminal_map.items() if info["direction"] == "output"]
+    obs_inputs = [
+        (int(idx), info) for idx, info in terminal_map.items()
+        if info["direction"] == "input"
+    ]
+    obs_outputs = [
+        (int(idx), info) for idx, info in terminal_map.items()
+        if info["direction"] == "output"
+    ]
     obs_inputs.sort()
     obs_outputs.sort()
 
@@ -134,7 +141,9 @@ def analyze_vi(vi_name: str, obs_data: dict, vilib_entries: dict) -> None:
                 candidates = [idx for idx, info in obs_outputs]
 
             # Filter out already-assigned indices
-            assigned = {t.get("index") for t in vilib_terminals if t.get("index") is not None}
+            assigned = {
+                t.get("index") for t in vilib_terminals if t.get("index") is not None
+            }
             candidates = [c for c in candidates if c not in assigned]
 
             print(f"  '{name}' ({direction}, {typ})")
@@ -154,7 +163,10 @@ def analyze_vi(vi_name: str, obs_data: dict, vilib_entries: dict) -> None:
             obs_dir = obs_info.get("direction")
             obs_dir_mapped = "in" if obs_dir == "input" else "out"
             if obs_dir_mapped != vilib_dir:
-                print(f"  MISMATCH [{idx}] '{name}': vilib={vilib_dir}, observed={obs_dir}")
+                print(
+                    f"  MISMATCH [{idx}] '{name}':"
+                    f" vilib={vilib_dir}, observed={obs_dir}"
+                )
             else:
                 print(f"  OK [{idx}] '{name}': {vilib_dir}")
 
@@ -177,7 +189,9 @@ def main():
     # Filter by VI name if provided
     if len(sys.argv) > 1:
         vi_filter = sys.argv[1]
-        observations = {k: v for k, v in observations.items() if vi_filter.lower() in k.lower()}
+        observations = {
+            k: v for k, v in observations.items() if vi_filter.lower() in k.lower()
+        }
 
     if not observations:
         print(f"No observations matching '{sys.argv[1]}'")

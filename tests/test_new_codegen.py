@@ -6,18 +6,16 @@ from __future__ import annotations
 import ast
 import warnings
 
-import pytest
-
-from vipy.agent.codegen.builder import generate_body, topological_sort_tiered
+from tests.helpers import make_graph_with_edge, make_graph_with_terminals, make_node
+from vipy.agent.codegen.builder import topological_sort_tiered
 from vipy.agent.codegen.context import CodeGenContext
-from vipy.agent.codegen.fragment import CodeFragment
 from vipy.agent.codegen.nodes.case import CaseCodeGen
 from vipy.agent.codegen.nodes.nmux import NMuxCodeGen
 from vipy.agent.codegen.nodes.property_node import PropertyNodeCodeGen
 from vipy.graph_types import (
     CaseFrame,
-    LVType,
     ClusterField,
+    LVType,
     Operation,
     PrimitiveNode,
     PropertyDef,
@@ -26,9 +24,6 @@ from vipy.graph_types import (
     WireEnd,
 )
 from vipy.memory_graph import InMemoryVIGraph
-
-from tests.helpers import make_graph_with_edge, make_graph_with_terminals, make_node
-
 
 # ── Helpers ─────────────────────────────────────────────────────────
 
@@ -157,7 +152,7 @@ class TestErrorInputNotBound:
     """from_vi_context should NOT bind error cluster inputs."""
 
     def test_error_input_skipped(self):
-        from vipy.graph_types import VIContext, Constant
+        from vipy.graph_types import VIContext
 
         error_term = Terminal(
             id="err_in", index=0, direction="input",
@@ -204,7 +199,9 @@ class TestNMuxRoles:
         # Wire agg_in → agg_out
         ctx.graph._graph.add_edge(
             ctx.graph._term_to_node["agg_in"], "nmux_node",
-            source=WireEnd(terminal_id="agg_in", node_id=ctx.graph._term_to_node["agg_in"]),
+            source=WireEnd(
+                terminal_id="agg_in", node_id=ctx.graph._term_to_node["agg_in"]
+            ),
             dest=WireEnd(terminal_id="agg_out", node_id="nmux_node"),
         )
         codegen = NMuxCodeGen()
@@ -228,7 +225,7 @@ class TestNMuxRoles:
         assert fragment.bindings.get("list_out") == "field_val"
 
     def test_no_roles_produces_no_bindings(self):
-        """Without roles, nMux produces no bindings (roles always set by construction)."""
+        """Without roles, nMux produces no bindings (roles set by construction)."""
         op = self._make_nmux_op([
             Terminal(id="in_0", index=0, direction="input"),
             Terminal(id="out_0", index=1, direction="output"),
@@ -442,7 +439,9 @@ class TestInvokeErrorSkip:
 
         graph = InMemoryVIGraph()
         # Create source nodes that wire into the invoke terminals
-        for tid, nid in [("ref_t", "src_ref"), ("err_t", "src_err"), ("data_t", "src_data")]:
+        for tid, nid in [
+            ("ref_t", "src_ref"), ("err_t", "src_err"), ("data_t", "src_data")
+        ]:
             node = make_node(nid, [tid])
             graph._graph.add_node(nid, node=node)
             graph._term_to_node[tid] = nid

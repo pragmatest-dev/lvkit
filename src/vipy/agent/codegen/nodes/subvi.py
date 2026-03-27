@@ -369,7 +369,9 @@ class SubVICodeGen(NodeCodeGen):
                     prim_id=subvi_name or "unknown",
                     prim_name=subvi_name or "unknown",
                     terminal_direction="input",
-                    terminal_type=term.lv_type.underlying_type if term.lv_type else None,
+                    terminal_type=(
+                        term.lv_type.underlying_type if term.lv_type else None
+                    ),
                     available=[],
                     vi_name=ctx.vi_name if ctx else None,
                 )
@@ -411,7 +413,9 @@ class SubVICodeGen(NodeCodeGen):
             enum_class_name = value.split('.')[0]
             if ctx.import_resolver:
                 import_stmt = ctx.import_resolver(vilib_vi.name)
-                import_stmt = import_stmt.rsplit(" import ", 1)[0] + f" import {enum_class_name}"
+                import_stmt = (
+                    import_stmt.rsplit(" import ", 1)[0] + f" import {enum_class_name}"
+                )
                 ctx.add_import(import_stmt)
             else:
                 module = to_module_name(vilib_vi.name)
@@ -458,7 +462,10 @@ class SubVICodeGen(NodeCodeGen):
                         # Get import statement and replace func name with enum class
                         import_stmt = ctx.import_resolver(vilib_vi.name)
                         # Replace the function import with enum class import
-                        import_stmt = import_stmt.rsplit(" import ", 1)[0] + f" import {class_name}"
+                        import_stmt = (
+                            import_stmt.rsplit(" import ", 1)[0]
+                            + f" import {class_name}"
+                        )
                         ctx.add_import(import_stmt)
                     else:
                         ctx.add_import(f"from {package} import {class_name}")
@@ -524,7 +531,9 @@ class SubVICodeGen(NodeCodeGen):
                     prim_id=subvi_name or "unknown",
                     prim_name=subvi_name or "unknown",
                     terminal_direction="output",
-                    terminal_type=term.lv_type.underlying_type if term.lv_type else None,
+                    terminal_type=(
+                        term.lv_type.underlying_type if term.lv_type else None
+                    ),
                     available=[],
                     vi_name=ctx.vi_name if ctx else None,
                 )

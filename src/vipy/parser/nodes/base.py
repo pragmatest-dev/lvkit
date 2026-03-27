@@ -28,7 +28,8 @@ def extract_terminal_types(
     input_types: list[str] = []
     output_types: list[str] = []
 
-    for term in elem.findall(f".//termList/SL__arrayElement[@class='{TERMINAL_CLASS}']"):
+    selector = f".//termList/SL__arrayElement[@class='{TERMINAL_CLASS}']"
+    for term in elem.findall(selector):
         type_desc = term.find(".//typeDesc")
         obj_flags = term.find("objFlags")
 

@@ -26,9 +26,9 @@ FUNCTION_TEMPLATE = '''Convert this LabVIEW VI to a Python function.
 - MUST include `from __future__ import annotations` at the top
 - MUST include `from typing import Any` if you use Any in type annotations
 - MUST include type annotations on ALL parameters and return type
-- Each VI input becomes a NAMED function parameter (e.g., `def func(path: str, count: int)`)
+- Each VI input becomes a NAMED parameter (e.g., `def func(path: str, count: int)`)
 - Do NOT wrap inputs in a dict - use individual named parameters
-- Use `data_flow` to understand execution order and wire connections (source -> destination)
+- Use `data_flow` to understand execution order and wire connections (src -> dest)
 - Use the Key Constants section above - it shows the Python equivalent for each constant
 
 ## Return Values (CRITICAL)
@@ -50,8 +50,9 @@ def get_settings_path(...) -> GetSettingsPathResult:
     return GetSettingsPathResult(config_path=path, error_out=error)
 ```
 
-- Count the outputs in JSON carefully - your NamedTuple MUST have that exact number of fields
-- Field names: Convert terminal names to snake_case (e.g., "system directory path" -> system_directory_path)
+- Count the outputs in JSON carefully - NamedTuple MUST have that exact number of fields
+- Field names: Convert terminal names to snake_case (e.g., "system directory path"
+  -> system_directory_path)
 - Add comment with original terminal name after each field
 - For cluster outputs (stdClust), use dict type
 - For array outputs (indArr), use list type
@@ -128,7 +129,7 @@ Visibility: {visibility}
 
 ## Requirements
 - Create a single method `{method_name}` - NO nested function definitions
-- Call operations inline (e.g., `result = self._helper(value)` or `result = some_primitive(value)`)
+- Call operations inline (e.g., `result = self._helper(value)` or `result = prim(v)`)
 - Access class data via self._data attributes
 - Call other class methods via self.method_name()
 - External SubVI calls should be imported functions

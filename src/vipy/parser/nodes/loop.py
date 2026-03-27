@@ -90,7 +90,7 @@ def extract_loops(root: ET.Element) -> list[LoopStructure]:
             stop_condition_uid: str | None = None
             loop_test_dco = loop_elem.find("loopTestDCO[@class='lTst']")
             if loop_test_dco is not None:
-                # The termList inside contains the terminal that receives the stop boolean
+                # The termList inside has the terminal receiving the stop boolean
                 term_list = loop_test_dco.find("termList")
                 if term_list is not None:
                     first_term = term_list.find("SL__arrayElement")

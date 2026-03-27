@@ -43,7 +43,7 @@ class VIEntry:
     category: str
     description: str = ""
     terminals: list[Terminal] = field(default_factory=list)
-    vi_path: str | None = None  # e.g., "vi.lib/Utility/sysdir.llb/Get System Directory.vi"
+    vi_path: str | None = None  # e.g., "vi.lib/Utility/sysdir.llb/..."
     is_polymorphic: bool = False
     python_hint: str | None = None
     status: str = "needs_review"  # needs_review, needs_terminals, complete
@@ -91,7 +91,7 @@ def parse_terminals_from_text(text: str, vi_name: str) -> list[Terminal]:
         return terminals
 
     # Extract text from Inputs/Outputs to end of section
-    # Section ends at: another VI definition (name repeated on two lines) or page boundary
+    # Section ends at: another VI definition (repeated name) or page boundary
     io_text = text[io_pos + len("Inputs/Outputs"):]
 
     # Find the next VI/function definition (pattern: "Name\nName\n" at start of line)
@@ -110,9 +110,6 @@ def parse_terminals_from_text(text: str, vi_name: str) -> list[Terminal]:
 
     # Split by bullet points (• character)
     bullet_sections = re.split(r"\n•\s*", io_text)
-
-    # Track if we've seen an output indicator - terminals after are outputs
-    seen_output = False
 
     for section in bullet_sections:
         if not section.strip():
@@ -162,11 +159,12 @@ def parse_terminals_from_text(text: str, vi_name: str) -> list[Terminal]:
         output_keywords = ["returns", "result", "output", "is the", "contains the"]
         if any(kw in name.lower() for kw in output_keywords):
             direction = "out"
-            seen_output = True
         # Output indicators in description start (first 100 chars)
-        elif any(kw in description.lower()[:100] for kw in ["returns", "is the resulting", "is the output"]):
+        elif any(
+            kw in description.lower()[:100]
+            for kw in ["returns", "is the resulting", "is the output"]
+        ):
             direction = "out"
-            seen_output = True
 
         # Try to determine type from description
         terminal_type = infer_type_from_description(description, name)
@@ -175,7 +173,9 @@ def parse_terminals_from_text(text: str, vi_name: str) -> list[Terminal]:
         enum_values = extract_enum_values(description)
 
         # Extract default value if mentioned
-        default_match = re.search(r"(?:default|The default is)\s+(?:is\s+)?([^.]+)", description, re.I)
+        default_match = re.search(
+            r"(?:default|The default is)\s+(?:is\s+)?([^.]+)", description, re.I
+        )
         default_value = default_match.group(1).strip() if default_match else None
 
         terminal = Terminal(
@@ -202,7 +202,12 @@ def infer_type_from_description(description: str, name: str) -> str | None:
         return "Path"
 
     # Boolean types
-    if name_lower.endswith("?") or "boolean" in desc_lower or "TRUE" in description or "FALSE" in description:
+    if (
+        name_lower.endswith("?")
+        or "boolean" in desc_lower
+        or "TRUE" in description
+        or "FALSE" in description
+    ):
         return "Boolean"
 
     # String types
@@ -280,7 +285,10 @@ def parse_toc_for_vis(doc: fitz.Document) -> list[tuple[str, int, int]]:
             continue
 
         # Skip non-function entries
-        skip_keywords = ["example", "overview", "constant", "palette", "format code", "considerations"]
+        skip_keywords = [
+            "example", "overview", "constant",
+            "palette", "format code", "considerations",
+        ]
         if any(kw in title.lower() for kw in skip_keywords):
             continue
 
@@ -293,7 +301,7 @@ def parse_toc_for_vis(doc: fitz.Document) -> list[tuple[str, int, int]]:
         # 1. End with "Function" or "VI"
         # 2. Contain "Function" or "VI"
         # 3. Are at depth level 4+ (deep entries are usually individual functions)
-        # 4. Have a capital letter followed by lowercase (proper noun style, like "Get System Directory")
+        # 4. Have a capital + lowercase (proper noun style, like "Get System Directory")
         is_function_vi = (
             title.endswith("Function")
             or title.endswith("VI")
@@ -303,8 +311,10 @@ def parse_toc_for_vis(doc: fitz.Document) -> list[tuple[str, int, int]]:
 
         is_deep_entry = level >= 4
 
-        # Check for proper-noun style name (capital + lowercase, at least 3 words usually)
-        has_proper_name = bool(re.match(r"^[A-Z][a-z]", title)) and len(title.split()) >= 2
+        # Check for proper-noun style name (capital + lowercase, at least 2 words)
+        has_proper_name = (
+            bool(re.match(r"^[A-Z][a-z]", title)) and len(title.split()) >= 2
+        )
 
         if is_function_vi or (is_deep_entry and has_proper_name):
             entries.append((title, page, level))

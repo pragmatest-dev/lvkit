@@ -225,7 +225,9 @@ def build_branch_execution(
     return statements
 
 
-def needs_error_handling(has_parallel_branches: bool, vi_context: VIContext | None = None) -> bool:
+def needs_error_handling(
+    has_parallel_branches: bool, vi_context: VIContext | None = None
+) -> bool:
     """Determine if a VI needs error handling infrastructure.
 
     The held error model is only needed when:

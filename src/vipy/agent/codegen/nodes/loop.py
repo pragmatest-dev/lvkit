@@ -430,16 +430,24 @@ class LoopCodeGen(NodeCodeGen):
         dest_list = ctx.get_destinations(terminal_uid)
         for dest_info in dest_list:
             # Check if it's a named indicator (output)
-            if dest_info.dest_parent_name and "Indicator" in dest_info.dest_parent_labels:
+            if (
+                dest_info.dest_parent_name
+                and "Indicator" in dest_info.dest_parent_labels
+            ):
                 return dest_info.dest_parent_name
 
             # Check if it flows to a SubVI input - use SubVI name as hint
-            if "SubVI" in dest_info.dest_parent_labels and dest_info.dest_parent_name:
+            if (
+                "SubVI" in dest_info.dest_parent_labels
+                and dest_info.dest_parent_name
+            ):
                 return dest_info.dest_parent_name
 
             # Recurse through tunnels/connections
             if dest_info.dest_terminal:
-                found = self._get_dest_terminal_name(dest_info.dest_terminal, ctx, visited)
+                found = self._get_dest_terminal_name(
+                    dest_info.dest_terminal, ctx, visited
+                )
                 if found:
                     return found
 

@@ -9,14 +9,12 @@ complete pipeline that unit tests miss.
 from __future__ import annotations
 
 import ast
-import re
 import warnings
 from pathlib import Path
 
 import pytest
 
 from vipy.agent.codegen.builder import build_module
-from vipy.graph_types import VIContext
 from vipy.memory_graph import InMemoryVIGraph
 
 SEARCH_PATHS = [Path("samples/OpenG/extracted")]

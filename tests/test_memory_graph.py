@@ -6,7 +6,13 @@ from pathlib import Path
 
 import pytest
 
-from vipy.graph_types import ConstantNode, PrimitiveNode, StructureNode, Terminal, VINode, WireEnd
+from vipy.graph_types import (
+    ConstantNode,
+    PrimitiveNode,
+    Terminal,
+    VINode,
+    WireEnd,
+)
 from vipy.memory_graph import InMemoryVIGraph, connect
 
 
@@ -132,17 +138,35 @@ class TestTypedGraphNodes:
         graph._graph.add_node("add1", node=prim_node)
 
         # Edges with typed WireEnd
-        src_fp = WireEnd(terminal_id="fp_in", node_id=vi_name, index=0, name="X", labels=["Control", "Input"])
-        dst_t1 = WireEnd(terminal_id="t1", node_id="add1", index=0, labels=["Primitive"])
+        src_fp = WireEnd(
+            terminal_id="fp_in", node_id=vi_name, index=0, name="X",
+            labels=["Control", "Input"],
+        )
+        dst_t1 = WireEnd(
+            terminal_id="t1", node_id="add1", index=0, labels=["Primitive"]
+        )
         graph._graph.add_edge(vi_name, "add1", source=src_fp, dest=dst_t1, vi=vi_name)
 
-        src_const = WireEnd(terminal_id="const1", node_id="const1", index=0, labels=["Constant"])
-        dst_t2 = WireEnd(terminal_id="t2", node_id="add1", index=1, labels=["Primitive"])
-        graph._graph.add_edge("const1", "add1", source=src_const, dest=dst_t2, vi=vi_name)
+        src_const = WireEnd(
+            terminal_id="const1", node_id="const1", index=0, labels=["Constant"]
+        )
+        dst_t2 = WireEnd(
+            terminal_id="t2", node_id="add1", index=1, labels=["Primitive"]
+        )
+        graph._graph.add_edge(
+            "const1", "add1", source=src_const, dest=dst_t2, vi=vi_name
+        )
 
-        src_t3 = WireEnd(terminal_id="t3", node_id="add1", index=2, labels=["Primitive"])
-        dst_fp_out = WireEnd(terminal_id="fp_out", node_id=vi_name, index=1, name="Sum", labels=["Indicator", "Output"])
-        graph._graph.add_edge("add1", vi_name, source=src_t3, dest=dst_fp_out, vi=vi_name)
+        src_t3 = WireEnd(
+            terminal_id="t3", node_id="add1", index=2, labels=["Primitive"]
+        )
+        dst_fp_out = WireEnd(
+            terminal_id="fp_out", node_id=vi_name, index=1, name="Sum",
+            labels=["Indicator", "Output"],
+        )
+        graph._graph.add_edge(
+            "add1", vi_name, source=src_t3, dest=dst_fp_out, vi=vi_name
+        )
 
         graph._vi_nodes[vi_name] = {vi_name, "const1", "add1"}
         graph._dep_graph.add_node(vi_name)

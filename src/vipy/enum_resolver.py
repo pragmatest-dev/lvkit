@@ -85,7 +85,9 @@ class EnumResolver:
             enums_path: Path to labview-enums.json
         """
         if enums_path is None:
-            enums_path = Path(__file__).parent.parent.parent / "data" / "labview-enums.json"
+            enums_path = (
+                Path(__file__).parent.parent.parent / "data" / "labview-enums.json"
+            )
 
         self._by_full_path: dict[str, ResolvedEnum] = {}  # vilib_path:control_file
         self._by_name: dict[str, ResolvedEnum] = {}  # normalized name
@@ -142,7 +144,7 @@ class EnumResolver:
         Args:
             name: Enum name (e.g., "System Directory Type")
             control_file: Control file name (e.g., "System Directory Type.ctl")
-            vilib_path: Full vilib path (e.g., "Utility/sysdir.llb:System Directory Type.ctl")
+            vilib_path: Full vilib path (e.g., "Utility/sysdir.llb:SystemDirType.ctl")
 
         Returns:
             ResolvedEnum or None
