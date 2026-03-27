@@ -126,81 +126,34 @@ def parse_type_map_rich(xml_path: Path | str) -> dict[int, LVType]:
             if flat_id is None:
                 continue
 
-            existing_type_name = type_names.get(heap_id, "unknown")
+            # Use VCTP result directly — it has the full type info
+            if flat_id in vctp_types:
+                lv_type = vctp_types[flat_id]
+                type_map[heap_id] = lv_type
 
-            # Check if this is a typedef
+            # Add typedef identity if this heap_id is a typedef
             if flat_id in flat_to_typedef:
-                underlying_type, ctl_filename = flat_to_typedef[flat_id]
-
-                # Build path and qualified name from VICC if available
-                typedef_path = None
-                typedef_qname = None
-                if ctl_filename and ctl_filename in vicc_paths:
-                    path_tokens = vicc_paths[ctl_filename]
-                    typedef_path = build_relative_path(path_tokens)
-
-                    # Extract owner chain (containers in path)
-                    owner_chain = [
-                        t for t in path_tokens[:-1]
-                        if t.endswith(('.llb', '.lvlib', '.lvclass'))
-                    ]
-                    typedef_qname = build_qualified_name(
-                        owner_chain, ctl_filename
-                    )
-                elif ctl_filename:
-                    # No path info, just use filename
-                    typedef_qname = ctl_filename
-
-                # Create LVType for this typedef
-                # Carry enum values from VCTP if available
-                enum_values = None
-                if flat_id in vctp_types and vctp_types[flat_id].values:
-                    enum_values = vctp_types[flat_id].values
-
-                if typedef_path:
-                    type_map[heap_id] = LVType(
-                        kind="typedef_ref",
-                        underlying_type=underlying_type or existing_type_name,
-                        typedef_path=typedef_path,
-                        typedef_name=typedef_qname,
-                        values=enum_values,
-                    )
-                else:
-                    type_map[heap_id] = _make_primitive_lvtype(
-                        underlying_type or existing_type_name
-                    )
-
-            # For non-typedefs (clusters, arrays, refnums), use VCTP full type info
-            elif flat_id in vctp_types:
-                vctp_type = vctp_types[flat_id]
-                # Copy fields/element_type/ref_type from VCTP parsed type
-                if vctp_type.kind == "cluster" and vctp_type.fields:
-                    type_map[heap_id] = LVType(
-                        kind="cluster",
-                        underlying_type=existing_type_name,
-                        fields=vctp_type.fields,
-                    )
-                elif vctp_type.kind == "array" and vctp_type.element_type:
-                    type_map[heap_id] = LVType(
-                        kind="array",
-                        underlying_type=existing_type_name,
-                        element_type=vctp_type.element_type,
-                        dimensions=vctp_type.dimensions,
-                    )
-                elif vctp_type.kind == "enum" and vctp_type.values:
-                    type_map[heap_id] = LVType(
-                        kind="enum",
-                        underlying_type=existing_type_name,
-                        values=vctp_type.values,
-                    )
-                elif vctp_type.underlying_type == "Refnum" and vctp_type.ref_type:
-                    # Refnum with class info or other ref_type
-                    type_map[heap_id] = LVType(
-                        kind="primitive",
-                        underlying_type="Refnum",
-                        ref_type=vctp_type.ref_type,
-                        classname=vctp_type.classname,
-                    )
+                _, ctl_filename = flat_to_typedef[flat_id]
+                if ctl_filename and heap_id in type_map:
+                    # Build qualified name from VICC path info
+                    if ctl_filename in vicc_paths:
+                        path_tokens = vicc_paths[ctl_filename]
+                        type_map[heap_id].typedef_path = (
+                            build_relative_path(path_tokens)
+                        )
+                        owner_chain = [
+                            t for t in path_tokens[:-1]
+                            if t.endswith(
+                                ('.llb', '.lvlib', '.lvclass'),
+                            )
+                        ]
+                        type_map[heap_id].typedef_name = (
+                            build_qualified_name(
+                                owner_chain, ctl_filename,
+                            )
+                        )
+                    else:
+                        type_map[heap_id].typedef_name = ctl_filename
 
     except ET.ParseError:
         pass  # Fall back to comment-based parsing only
@@ -327,6 +280,7 @@ def parse_vctp_types(xml_path: Path | str) -> dict[int, LVType]:
 
             # Parse enum labels if present
             enum_values = None
+            td_fields: list[ClusterField] | None = None
             if nested is not None:
                 enum_labels = nested.findall("EnumLabel")
                 if enum_labels:
@@ -335,11 +289,32 @@ def parse_vctp_types(xml_path: Path | str) -> dict[int, LVType]:
                         if el.text:
                             enum_values[el.text] = EnumValue(value=i)
 
+                # Recurse into nested type's children (cluster fields,
+                # array elements, etc.) — same as top-level parsing.
+                if underlying == "Cluster":
+                    from .utils import clean_labview_string
+                    td_fields = []
+                    for child in nested.findall("TypeDesc"):
+                        child_tid = child.get("TypeID")
+                        if child_tid:
+                            ft = resolve_type(int(child_tid), visited)
+                            ref = flat_types.get(int(child_tid))
+                            default = f"field_{len(td_fields)}"
+                            raw = (
+                                ref.get("Label", default)
+                                if ref is not None else default
+                            )
+                            name = clean_labview_string(raw) or default
+                            td_fields.append(
+                                ClusterField(name=name, type=ft),
+                            )
+
             lv_type = LVType(
-                kind="typedef_ref" if typedef_name else _get_kind(underlying or ""),
+                kind=_get_kind(underlying or ""),
                 underlying_type=underlying,
                 typedef_name=typedef_name,
                 values=enum_values,
+                fields=td_fields if td_fields else None,
             )
 
         elif type_name in ("UnitUInt16", "UnitUInt32", "UnitUInt8") or (
