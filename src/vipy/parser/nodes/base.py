@@ -61,10 +61,10 @@ def extract_tunnel_mapping(dco: ET.Element, dco_class: str) -> Tunnel | None:
     if dco_term_list is None:
         return None
 
-    term_refs = [
-        e.get("uid")
+    term_refs: list[str] = [
+        uid
         for e in dco_term_list.findall("SL__arrayElement")
-        if e.get("uid")
+        if (uid := e.get("uid"))
     ]
 
     # Format is [inner_uid, outer_uid]

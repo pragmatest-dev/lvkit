@@ -46,6 +46,11 @@ class OperationsMixin:
     _vi_nodes: dict[str, set[str]]
     _poly_info: dict[str, PolyInfo]
 
+    if TYPE_CHECKING:
+        # Stubs for methods defined on other mixins / core, resolved via MRO
+        def resolve_vi_name(self, vi_name: str) -> str: ...
+        def get_poly_variants(self, vi_name: str) -> list[str]: ...
+
     def _build_operation(
         self, uid: str, vi_name: str,
     ) -> Operation:

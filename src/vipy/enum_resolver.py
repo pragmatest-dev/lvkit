@@ -63,7 +63,8 @@ class ResolvedEnum:
             self._to_python_name(v.name): v.index
             for v in self.values.values()
         }
-        return IntEnum(self._to_python_name(self.name), members)
+        enum_cls: type[IntEnum] = IntEnum(self._to_python_name(self.name), members)  # type: ignore[assignment]
+        return enum_cls
 
     @staticmethod
     def _to_python_name(name: str) -> str:

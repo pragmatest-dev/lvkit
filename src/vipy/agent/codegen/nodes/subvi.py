@@ -224,12 +224,13 @@ class SubVICodeGen(NodeCodeGen):
 
         # Parse as statement(s) - supports multi-line
         try:
-            parsed = ast.parse(template, mode="exec")
-            statements = parsed.body
+            parsed_mod = ast.parse(template, mode="exec")
+            statements: list[ast.stmt] = parsed_mod.body
         except SyntaxError:
             # Fallback: wrap as expression statement
-            parsed = ast.parse(template, mode="eval")
-            statements = [ast.Expr(value=parsed.body)]
+            parsed_expr = ast.parse(template, mode="eval")
+            assert isinstance(parsed_expr, ast.Expression)
+            statements = [ast.Expr(value=parsed_expr.body)]
 
         # Build imports from vilib imports
         imports = set(vilib_vi.imports) if vilib_vi.imports else set()

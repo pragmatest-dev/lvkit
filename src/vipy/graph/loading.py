@@ -10,8 +10,11 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from ..extractor import extract_vi_xml
-from ..graph_types import PolyInfo, VIMetadata
+from ..graph_types import LVType, PolyInfo, VIMetadata
 from ..parser import (
+    BlockDiagram,
+    ConnectorPane,
+    FrontPanel,
     parse_connector_pane_types,
     parse_vi,
     parse_vi_metadata,
@@ -44,6 +47,20 @@ class LoadingMixin:
     _loaded_vis: set[str]
     _source_paths: dict[str, Path]
     _vi_metadata: dict[str, VIMetadata]
+
+    if TYPE_CHECKING:
+        # Stubs for methods defined on other mixins / core, resolved via MRO
+        def clear(self) -> None: ...
+        def _add_vi_to_graph(
+            self,
+            bd: BlockDiagram,
+            fp: FrontPanel | None,
+            conpane: ConnectorPane | None,
+            wiring_rules: dict[int, int],
+            vi_name: str,
+            type_map: dict[int, LVType] | None = None,
+            iuse_to_qname: dict[str, str] | None = None,
+        ) -> None: ...
 
     def load_vi(
         self,

@@ -108,7 +108,6 @@ class Terminal(BaseModel):
 
     model_config = {"arbitrary_types_allowed": True}
 
-    kind: str = "terminal"
     id: str
     index: int
     direction: str  # "input" or "output"
@@ -117,6 +116,8 @@ class Terminal(BaseModel):
     var_name: str | None = None  # set during codegen
     nmux_role: str | None = None  # "agg" or "list"
     nmux_field_index: int | None = None  # class field index
+    wiring_rule: int = 0  # 0=unknown, 1=required, 2=recommended, 3=optional
+    default_value: Any = None
 
     def python_type(self) -> str:
         """Python type string derived from lv_type."""

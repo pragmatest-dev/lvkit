@@ -480,7 +480,12 @@ class NMuxHandler(NodeTypeHandler):
                         # Extract <i> field index from LIST DCOs
                         if d_uid in list_dco_set:
                             i_elem = dco_elem.find("i")
-                            idx = int(i_elem.text) if i_elem is not None else 0
+                            idx = (
+                                int(i_elem.text)
+                                if i_elem is not None
+                                and i_elem.text
+                                else 0
+                            )
                             dco_field_index[d_uid] = idx
 
         return SelectNode(

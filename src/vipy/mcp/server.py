@@ -350,7 +350,7 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
                 expand_subvis=expand_subvis,
                 search_paths=search_path_objs,
             )
-            return list(graph.get_all_vi_names())
+            return list(graph.list_vis())
 
         loaded = await asyncio.to_thread(_load)
         return [
@@ -359,7 +359,7 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
 
     elif name == "list_loaded_vis":
         graph = _get_graph()
-        vis = list(graph.get_all_vi_names())
+        vis = list(graph.list_vis())
         return [
             TextContent(type="text", text=json.dumps({"loaded_vis": vis}, indent=2))
         ]

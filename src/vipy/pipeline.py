@@ -17,6 +17,7 @@ from typing import Any
 from vipy.agent.codegen import build_module
 from vipy.agent.codegen.ast_utils import to_function_name, to_module_name
 from vipy.memory_graph import InMemoryVIGraph
+from vipy.vilib_resolver import VILibResolver
 from vipy.vilib_resolver import get_resolver as get_vilib_resolver
 
 # Increase recursion limit for deeply nested VIs
@@ -49,7 +50,7 @@ def _sanitize_lib_name(name: str) -> str:
 def to_library_name(
     vi_name: str,
     graph: InMemoryVIGraph | None = None,
-    vilib_resolver: object | None = None,
+    vilib_resolver: VILibResolver | None = None,
 ) -> str | None:
     """Determine output subdirectory from VI library membership.
 
@@ -99,7 +100,7 @@ def get_output_path(
     vi_name: str,
     create_dirs: bool = True,
     graph: InMemoryVIGraph | None = None,
-    vilib_resolver: object | None = None,
+    vilib_resolver: VILibResolver | None = None,
 ) -> tuple[Path, str | None]:
     """Get output path and library name for a VI.
 
@@ -127,7 +128,7 @@ def create_import_resolver(
     output_dir: Path,
     vi_paths: dict[str, Path],
     graph: InMemoryVIGraph | None = None,
-    vilib_resolver: object | None = None,
+    vilib_resolver: VILibResolver | None = None,
     caller_library: str | None = None,
 ) -> Any:
     """Create an import resolver for a VI.
@@ -539,7 +540,7 @@ def generate_python(
 
         if has_vilib:
             # Generate vilib/openg implementation
-            code = vilib_resolver.get_implementation(vi_name)
+            code = vilib_resolver.get_implementation(vi_name) or ""
             output_path.write_text(code)
             print(f"         -> vilib: {output_path.name}")
             generated.append((vi_name, output_path, "vilib"))
@@ -562,6 +563,7 @@ def {func_name}(*args, **kwargs) -> Any:
             # Generate polymorphic module with all variants
             # (already checked all_inlined above - only reach here if not all inlined)
             variants = poly_groups[vi_name]
+            code = ""
             try:
                 code = _generate_polymorphic_module(
                     vi_name, variants, graph, vilib_resolver,
@@ -588,6 +590,7 @@ def {func_name}(*args, **kwargs) -> Any:
         else:
             # Use AST builder for regular VIs
             vi_context = graph.get_vi_context(vi_name)
+            code = ""
 
             try:
                 caller_lib = to_library_name(
@@ -611,9 +614,8 @@ def {func_name}(*args, **kwargs) -> Any:
 
             except SyntaxError as e:
                 error_path = output_dir_resolved / f"{module_name}.error.py"
-                fallback = code if "code" in dir() else "# generation failed"
                 error_path.write_text(
-                    f"# SYNTAX ERROR: {e}\n\n{fallback}"
+                    f"# SYNTAX ERROR: {e}\n\n{code}"
                 )
                 print(f"         -> SYNTAX ERROR: {error_path.name}")
                 generated.append((vi_name, error_path, "error"))

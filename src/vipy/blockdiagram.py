@@ -10,6 +10,7 @@ from .parser import (
     Constant,
     parse_vi,
 )
+from .parser.node_types import PrimitiveNode
 
 # === Primitive Tracking ===
 # Tracks primitives encountered during parsing (for analysis)
@@ -192,7 +193,7 @@ def summarize_vi(
 
         if node.node_type == "iUse":
             lines.append(f'  {ref} SubVI: "{node.name}"')
-        elif node.node_type == "prim":
+        elif node.node_type == "prim" and isinstance(node, PrimitiveNode):
             # Include primResID and terminal types - LLM infers meaning from context
             type_info = ""
             if node.input_types or node.output_types:

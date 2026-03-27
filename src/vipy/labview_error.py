@@ -86,10 +86,12 @@ class LabVIEWError(Exception):
         if not status:
             return None  # No error
 
+        raw_code = cluster.get("code", 0)
+        code = raw_code if isinstance(raw_code, int) else int(str(raw_code))
         return cls(
-            code=cluster.get("code", 0),
-            source=cluster.get("source", ""),
-            message=cluster.get("message", ""),
+            code=code,
+            source=str(cluster.get("source", "")),
+            message=str(cluster.get("message", "")),
         )
 
     def to_cluster(self) -> dict[str, bool | int | str]:

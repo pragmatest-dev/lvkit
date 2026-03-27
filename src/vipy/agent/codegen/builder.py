@@ -212,6 +212,7 @@ def _generate_parallel_tier(
             body=body,
             decorator_list=[],
             returns=None,
+            type_params=[],
         )
         inner_stmts.append(func_def)
 
@@ -532,7 +533,7 @@ def build_result_class(vi_context: VIContext) -> ast.ClassDef | None:
         class_body.append(ann)
 
     if not class_body:
-        class_body = [ast.Pass()]
+        class_body: list[ast.stmt] = [ast.Pass()]
 
     return ast.ClassDef(
         name=class_name,
@@ -540,6 +541,7 @@ def build_result_class(vi_context: VIContext) -> ast.ClassDef | None:
         keywords=[],
         body=class_body,
         decorator_list=[],
+        type_params=[],
     )
 
 
@@ -568,6 +570,7 @@ def build_function_def(
         body=body,
         decorator_list=[],
         returns=returns,
+        type_params=[],
     )
 
 

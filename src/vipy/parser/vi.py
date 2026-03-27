@@ -319,8 +319,12 @@ def _extract_wires(root: ET.Element) -> list[Wire]:
     wires = []
 
     for sig in root.findall(".//signalList/SL__arrayElement[@class='signal']"):
-        uid = sig.get("uid")
-        terms = [t.get("uid") for t in sig.findall("termList/SL__arrayElement")]
+        uid = sig.get("uid") or ""
+        terms: list[str] = [
+            t_uid
+            for t in sig.findall("termList/SL__arrayElement")
+            if (t_uid := t.get("uid"))
+        ]
 
         if len(terms) >= 2:
             source = terms[0]
@@ -361,7 +365,7 @@ def _process_element_terminals(
     terminal_info: dict[str, TerminalInfo],
 ) -> None:
     """Extract terminals from a single TERMINAL_CONTAINER_CLASSES element."""
-    elem_uid = elem.get("uid")
+    elem_uid = elem.get("uid") or ""
     elem_class = elem.get("class", "")
 
     term_list = elem.findall(
@@ -413,8 +417,8 @@ def _process_element_terminals(
                             # to determine stride for interleaving
                             n_lists = sum(
                                 1 for rt in dco_map
-                                if elem.find(rt) is not None
-                                and len(elem.find(rt)) > 0
+                                if (rt_elem := elem.find(rt)) is not None
+                                and len(rt_elem) > 0
                             )
                             parm_index = ref_index + (pos * max(n_lists, 1))
                             break

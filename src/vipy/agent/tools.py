@@ -238,10 +238,10 @@ class AgentTools:
             # Format data flow as readable text
             lines = ["Data flow connections:", ""]
             for flow in data_flow:
-                from_name = flow.get("from_parent_name", "?")
-                from_labels = flow.get("from_parent_labels", [])
-                to_name = flow.get("to_parent_name", "?")
-                to_labels = flow.get("to_parent_labels", [])
+                from_name = flow.source.name or "?"
+                from_labels = flow.source.labels
+                to_name = flow.dest.name or "?"
+                to_labels = flow.dest.labels
 
                 from_type = next(
                     (lbl for lbl in from_labels if lbl not in ("Input", "Output")), ""

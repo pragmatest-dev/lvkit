@@ -8,8 +8,9 @@ from __future__ import annotations
 import json
 import re
 from dataclasses import asdict, is_dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
+from ..graph_types import VIContext
 from .context_templates import FUNCTION_TEMPLATE, METHOD_TEMPLATE, UI_WRAPPER_TEMPLATE
 
 if TYPE_CHECKING:
@@ -21,10 +22,10 @@ if TYPE_CHECKING:
 class TypeInfoEncoder(json.JSONEncoder):
     """JSON encoder that handles dataclasses."""
 
-    def default(self, obj):
-        if is_dataclass(obj) and not isinstance(obj, type):
-            return asdict(obj)
-        return super().default(obj)
+    def default(self, o: Any) -> Any:
+        if is_dataclass(o) and not isinstance(o, type):
+            return asdict(o)
+        return super().default(o)
 
 
 class ContextBuilder:
@@ -44,7 +45,7 @@ class ContextBuilder:
 
     @staticmethod
     def build_vi_context(
-        vi_context: object,
+        vi_context: VIContext,
         vi_name: str,
         converted_deps: dict[str, VISignature],
         shared_types: list[SharedType],
@@ -133,7 +134,7 @@ class ContextBuilder:
 
     @staticmethod
     def _clean_vi_context(
-        ctx: object,
+        ctx: VIContext,
         converted_deps: dict[str, VISignature] | None = None,
         primitive_mappings: dict[int, str] | None = None,
         primitive_context: dict[int, dict] | None = None,
@@ -415,7 +416,7 @@ class ContextBuilder:
 
     @staticmethod
     def build_method_context(
-        vi_context: object,
+        vi_context: VIContext,
         method_name: str,
         class_name: str,
         visibility: str,  # "public", "private", "protected"

@@ -6,14 +6,13 @@ import re
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from ..primitive_resolver import get_resolver
 
 if TYPE_CHECKING:
     from ..graph import VIGraph
     from ..llm import LLMConfig
-    from .strategies.base import ConversionStrategy
 
 
 def lookup_primitive(prim_id: int | str) -> dict | None:
@@ -59,7 +58,8 @@ class PrimitiveUsage:
     generated_name: str | None = None  # Python function name once generated
     # Resolved info from PrimitiveResolver
     resolved_name: str | None = None
-    python_code: str | None = None  # Python code (inline template or full function)
+    # Python code (inline template or full function)
+    python_code: str | dict[str, str] | None = None
     inline: bool = True  # True = inline at call sites, False = generate module
     terminals: list[dict] = field(default_factory=list)
     confidence: str = "unknown"  # exact_id, exact_name, exact_type, compatible_type
@@ -191,7 +191,7 @@ class PrimitiveRegistry:
         self,
         output_dir: Path,
         llm_config: LLMConfig | None = None,
-        strategy: ConversionStrategy | None = None,
+        strategy: Any | None = None,
     ) -> Path:
         """Generate the primitives/ package with implementations.
 
@@ -289,7 +289,7 @@ from typing import Any
         self,
         usage: PrimitiveUsage,
         llm_config: LLMConfig,
-        strategy: ConversionStrategy | None = None,
+        strategy: Any | None = None,
     ) -> tuple[str | None, str | None]:
         """Generate a primitive using the same validation/retry loop as VI conversion.
 
@@ -306,7 +306,7 @@ from typing import Any
         """
         from ..llm import generate_code
         from .context_builder import ContextBuilder
-        from .validator import CodeValidator
+        from .validator import CodeValidator, ValidatorConfig
 
         # Build primitive context as a simplified VI context
         # This lets us use the same strategy/validation system
@@ -321,7 +321,7 @@ from typing import Any
         original_prompt = prompt
 
         # Use validator for proper validation
-        validator = CodeValidator()
+        validator = CodeValidator(ValidatorConfig(output_dir=Path(".")))
 
         # Expected output count from terminal info
         output_terminals = [t for t in usage.terminals if t.get("direction") == "out"]
@@ -384,7 +384,12 @@ from typing import Any
             terminal_info = "\n".join(term_lines)
 
         # Choose prompt based on available info
-        if python_code and python_code.strip() and not python_code.startswith("#"):
+        if (
+            python_code
+            and isinstance(python_code, str)
+            and python_code.strip()
+            and not python_code.startswith("#")
+        ):
             vi_label = known_name or f"primitive {usage.prim_res_id}"
             return f"""Generate a Python function implementing LabVIEW's "{vi_label}".
 
