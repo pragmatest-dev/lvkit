@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import ast
+import re
 from typing import TYPE_CHECKING
 
 from vipy.graph_types import Operation
@@ -50,7 +51,6 @@ class PrintfCodeGen(NodeCodeGen):
         if len(input_values) >= 2:
             fmt_str = input_values[0].strip("'\"")
             args = input_values[1:]
-            import re
             arg_idx = 0
             def _replace_placeholder(m: re.Match) -> str:
                 nonlocal arg_idx

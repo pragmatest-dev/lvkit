@@ -7,7 +7,7 @@ import re
 from typing import TYPE_CHECKING, Any
 
 from vipy.graph_types import Operation
-from vipy.primitive_resolver import TerminalResolutionNeeded
+from vipy.primitive_resolver import TerminalResolutionNeeded, get_resolver
 
 from ..ast_utils import (
     build_assign,
@@ -31,8 +31,6 @@ class PrimitiveCodeGen(NodeCodeGen):
 
     def generate(self, node: Operation, ctx: CodeGenContext) -> CodeFragment:
         """Generate code for a primitive node."""
-        from ....primitive_resolver import get_resolver
-
         prim_id = node.primResID
 
         # Get primitive hint — try prim_id first, then node_type
@@ -622,8 +620,6 @@ class PrimitiveCodeGen(NodeCodeGen):
         Silent placeholders hide failures — the conversion loop depends on
         errors being raised so they can be resolved one at a time.
         """
-        from vipy.primitive_resolver import TerminalResolutionNeeded
-
         # Collect available terminal info for the diagnostic
         available = []
         for term in node.terminals:

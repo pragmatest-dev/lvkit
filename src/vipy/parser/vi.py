@@ -23,8 +23,10 @@ from vipy.constants import (
     TERMINAL_CLASS,
     TERMINAL_CONTAINER_CLASSES,
 )
+from vipy.extractor import extract_vi_xml
 from vipy.graph_types import LVType
 
+from ..type_defaults import get_default_for_type
 from .flags import is_indicator, is_output_terminal
 from .front_panel import (
     _lvtype_to_parsed,
@@ -44,6 +46,7 @@ from .models import (
     VIMetadata,
     Wire,
 )
+from .node_types import parse_node
 from .nodes import (
     extract_case_structures,
     extract_constants,
@@ -108,7 +111,6 @@ def parse_vi(
     """
     # Extract XML from VI file if needed
     if vi_path is not None and bd_xml is None:
-        from vipy.extractor import extract_vi_xml
         bd_xml, fp_xml, main_xml = extract_vi_xml(vi_path)
 
     if bd_xml is None:
@@ -303,8 +305,6 @@ def _parse_front_panel(
 
 def _extract_nodes(root: ET.Element) -> list[Node]:
     """Extract nodes from the block diagram using node type factory."""
-    from .node_types import parse_node
-
     nodes = []
 
     for cls in OPERATION_NODE_CLASSES:
@@ -950,7 +950,6 @@ def _decode_cluster_default(data: bytes, lv_type: LVType) -> str | None:
             field_val, bytes_consumed = _decode_element(data[idx:], field.type)
             if field_val is None:
                 # Use type default for this field
-                from ..type_defaults import get_default_for_type
                 field_val = get_default_for_type(field.type)
 
             field_values[field.name] = field_val

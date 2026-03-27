@@ -16,7 +16,10 @@ from typing import Any
 from mcp.server import Server
 from mcp.server.stdio import stdio_server
 from mcp.types import TextContent, Tool
+from pydantic import BaseModel
 
+from ..agent.codegen import build_module
+from ..memory_graph import InMemoryVIGraph
 from .tools import analyze_vi, generate_documents, generate_python
 
 # Create MCP server instance
@@ -30,8 +33,6 @@ def _get_graph():
     """Get or create the in-memory graph."""
     global _graph
     if _graph is None:
-        from ..memory_graph import InMemoryVIGraph
-
         _graph = InMemoryVIGraph()
     return _graph
 
@@ -376,8 +377,6 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
             return [TextContent(type="text", text=f"VI not found: {vi_name}")]
 
         # Serialize with dataclass and Pydantic support
-        from pydantic import BaseModel
-
         def _serialize(obj):
             if isinstance(obj, BaseModel):
                 return obj.model_dump()
@@ -408,8 +407,6 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
             return [TextContent(type="text", text=f"VI not found: {vi_name}")]
 
         def _generate():
-            from ..agent.codegen import build_module
-
             return build_module(context, vi_name)
 
         try:

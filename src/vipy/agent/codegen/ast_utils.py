@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import ast
+import keyword
 import logging
 from typing import Any
 
@@ -209,7 +210,6 @@ def to_var_name(name: str) -> str:
     if not result:
         result = "var"
     # Handle Python keywords
-    import keyword
     if keyword.iskeyword(result):
         result = result + "_"
     return result

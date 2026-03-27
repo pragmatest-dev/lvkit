@@ -39,6 +39,7 @@ from __future__ import annotations
 import ast
 
 from vipy.graph_types import VIContext
+from vipy.type_defaults import _is_error_cluster
 
 
 def build_held_error_init() -> ast.stmt:
@@ -260,8 +261,6 @@ def needs_error_handling(
 
 def _has_error_terminals(vi_context: VIContext) -> bool:
     """Check if VI has any error cluster terminals."""
-    from vipy.type_defaults import _is_error_cluster
-
     # Check inputs
     for inp in vi_context.inputs:
         if inp.lv_type and _is_error_cluster(inp.lv_type):

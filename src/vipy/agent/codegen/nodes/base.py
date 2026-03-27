@@ -8,9 +8,10 @@ from typing import TYPE_CHECKING
 
 from vipy.graph_types import Operation
 
+from ..fragment import CodeFragment
+
 if TYPE_CHECKING:
     from ..context import CodeGenContext
-    from ..fragment import CodeFragment
 
 
 class CodeGenError(Exception):
@@ -142,8 +143,6 @@ class UnknownNodeCodeGen(NodeCodeGen):
     """Generator for unsupported node types - emits warning comment."""
 
     def generate(self, node: Operation, ctx: CodeGenContext) -> CodeFragment:
-        from ..fragment import CodeFragment
-
         node_id = node.id
         node_name = node.name or "unknown"
         labels = node.labels

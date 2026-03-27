@@ -11,6 +11,7 @@ from pathlib import Path
 
 from ..graph_types import ClusterField, EnumValue, LVType
 from ..naming import build_qualified_name, build_relative_path
+from .utils import clean_labview_string
 
 
 def parse_type_map_rich(xml_path: Path | str) -> dict[int, LVType]:
@@ -236,7 +237,6 @@ def parse_vctp_types(xml_path: Path | str) -> dict[int, LVType]:
                         ref_td = flat_types.get(int(nested_type_id))
                         default_name = f"field_{len(fields)}"
                         # Use 'is not None' - Element bool is based on children count
-                        from .utils import clean_labview_string
                         raw_label = (
                             ref_td.get("Label", default_name)
                             if ref_td is not None else default_name
@@ -292,7 +292,6 @@ def parse_vctp_types(xml_path: Path | str) -> dict[int, LVType]:
                 # Recurse into nested type's children (cluster fields,
                 # array elements, etc.) — same as top-level parsing.
                 if underlying == "Cluster":
-                    from .utils import clean_labview_string
                     td_fields = []
                     for child in nested.findall("TypeDesc"):
                         child_tid = child.get("TypeID")
