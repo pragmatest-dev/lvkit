@@ -7,6 +7,7 @@ import re
 from typing import TYPE_CHECKING, Any
 
 from vipy.graph_types import Operation
+from vipy.primitive_resolver import TerminalResolutionNeeded
 from vipy.vilib_resolver import (
     ResolutionContext,
     VILibResolutionNeeded,
@@ -365,7 +366,6 @@ class SubVICodeGen(NodeCodeGen):
                 param_name = to_var_name(term_name)
 
             if not param_name:
-                from vipy.primitive_resolver import TerminalResolutionNeeded
                 raise TerminalResolutionNeeded(
                     prim_id=subvi_name or "unknown",
                     prim_name=subvi_name or "unknown",
@@ -527,7 +527,6 @@ class SubVICodeGen(NodeCodeGen):
                 field = to_var_name(term_name)
 
             if not field:
-                from vipy.primitive_resolver import TerminalResolutionNeeded
                 raise TerminalResolutionNeeded(
                     prim_id=subvi_name or "unknown",
                     prim_name=subvi_name or "unknown",

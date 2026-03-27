@@ -5,6 +5,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from ..vilib_resolver import get_resolver as get_vilib_resolver
+
 if TYPE_CHECKING:
     from ..memory_graph import InMemoryVIGraph
 
@@ -24,8 +26,6 @@ def generate_dependency_description(subvi_name: str, graph: InMemoryVIGraph) -> 
     Returns:
         One-sentence description
     """
-    from ..vilib_resolver import get_resolver as get_vilib_resolver
-
     # First check vilib resolver
     try:
         resolver = get_vilib_resolver()

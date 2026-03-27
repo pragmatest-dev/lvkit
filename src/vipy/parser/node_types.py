@@ -8,6 +8,7 @@ Each LabVIEW node type (prim, iUse, cpdArith, aBuild, etc.) has:
 
 from __future__ import annotations
 
+import re
 import xml.etree.ElementTree as ET
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
@@ -172,8 +173,6 @@ class PolySubVIHandler(NodeTypeHandler):
         resolved variant. menuInstanceUsed is the actual selection index
         (hex-encoded). The buf element has the variant name list.
         """
-        import re
-
         # Find the instanceSelector polySelector (direct child of polyIUse)
         for selector in elem.iter():
             if selector.get("class") != "polySelector":

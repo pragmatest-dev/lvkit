@@ -14,7 +14,7 @@ from ..enum_resolver import EnumResolver
 from ..graph_types import VIContext
 from ..llm import generate_code
 from ..vilib_resolver import get_resolver as get_vilib_resolver
-from .codegen import ClassBuilder, ClassConfig
+from .codegen import ClassBuilder, ClassConfig, build_module
 from .context import VISignature
 from .context_builder import ContextBuilder
 from .enums import EnumRegistry
@@ -156,8 +156,6 @@ class ConversionAgent:
         primitive_context = self.primitive_registry.get_primitive_context(vi_name)
 
         # Use AST-based code generation directly
-        from .codegen import build_module
-
         @dataclass
         class _StrategyResult:
             code: str
@@ -480,8 +478,6 @@ def {func_name}({params_str}) -> {return_type}:
         """Fallback to normal conversion for non-polymorphic VI."""
         # This shouldn't happen but handle gracefully
         vi_context = self.graph.get_vi_context(vi_name)
-
-        from .codegen import build_module
 
         try:
             code = build_module(vi_context, vi_name, graph=self.graph)

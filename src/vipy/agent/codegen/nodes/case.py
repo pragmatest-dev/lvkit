@@ -281,8 +281,6 @@ class CaseCodeGen(NodeCodeGen):
         builds a variable name from it. Falls back to "selector" only
         when no information is available.
         """
-        from ..ast_utils import to_var_name
-
         sel_term = node.selector_terminal
         flow = ctx.get_source(sel_term) if sel_term else None
         if flow:

@@ -11,6 +11,7 @@ query/query_single, get_all_constants/primitives/clusters.
 from __future__ import annotations
 
 from collections.abc import Iterator
+from dataclasses import asdict
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -74,8 +75,6 @@ class QueryMixin:
 
         Returns dicts for backward compatibility with legacy consumers.
         """
-        from dataclasses import asdict
-
         cypher_lower = cypher.lower()
 
         if "constant" in cypher_lower:

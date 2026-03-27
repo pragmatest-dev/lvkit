@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from ..extractor import extract_vi_xml
-from ..graph_types import LVType, PolyInfo, VIMetadata
+from ..graph_types import ClusterField, LVType, PolyInfo, VIMetadata
 from ..parser import (
     BlockDiagram,
     ConnectorPane,
@@ -179,8 +179,6 @@ class LoadingMixin:
         cls_qname = ":".join(chain + [cls_name]) if chain else cls_name
 
         # Add class node to dep_graph with field info
-        from ..graph_types import ClusterField, LVType
-
         def _field_to_lvtype(lv_type_name: str) -> LVType | None:
             if not lv_type_name:
                 return None
