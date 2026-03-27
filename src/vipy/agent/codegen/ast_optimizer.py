@@ -337,6 +337,31 @@ def eliminate_dead_code(module: ast.Module) -> ast.Module:
     return eliminator.optimize(module)
 
 
+class ConstantFolder(ast.NodeTransformer):
+    """Fold constant expressions at compile time.
+
+    Evaluates BoolOp (and/or) and BinOp with all-constant operands.
+    E.g., `True or False` → `True`.
+    """
+
+    def visit_BoolOp(self, node: ast.BoolOp) -> ast.AST:
+        self.generic_visit(node)
+        if all(isinstance(v, ast.Constant) for v in node.values):
+            result = node.values[0].value
+            for v in node.values[1:]:
+                if isinstance(node.op, ast.Or):
+                    result = result or v.value
+                elif isinstance(node.op, ast.And):
+                    result = result and v.value
+            return ast.Constant(value=result)
+        return node
+
+
+def fold_constants(module: ast.Module) -> ast.Module:
+    """Fold constant expressions in module AST."""
+    return ConstantFolder().visit(module)
+
+
 def optimize_module(module: ast.Module) -> ast.Module:
     """Run all optimization passes on module.
 
@@ -347,6 +372,7 @@ def optimize_module(module: ast.Module) -> ast.Module:
         Fully optimized module
     """
     module = remove_duplicate_imports(module)
+    module = fold_constants(module)
     module = eliminate_dead_code(module)
     module = remove_unused_imports(module)
     return module

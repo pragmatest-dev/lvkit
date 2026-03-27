@@ -551,6 +551,7 @@ class ClassBuilder:
         # Generate method body from operations
         operations = vi_context.operations
         ctx = CodeGenContext.from_vi_context(vi_context, graph=self._graph)
+        ctx.vi_name = vi_context.name
         ctx.import_resolver = self._import_resolver
         body = generate_body(operations, ctx)
         self._collected_imports.update(ctx.imports)
@@ -616,6 +617,7 @@ class ClassBuilder:
         # Generate method body from operations
         operations = vi_context.operations
         ctx = CodeGenContext.from_vi_context(vi_context, graph=self._graph)
+        ctx.vi_name = vi_context.name
         ctx.import_resolver = self._import_resolver
         body = generate_body(operations, ctx)
         self._collected_imports.update(ctx.imports)
