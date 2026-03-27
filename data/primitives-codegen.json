@@ -652,6 +652,235 @@
       "verified": true,
       "pdf_page": 657
     },
+    "1077": {
+      "name": "Path To String",
+      "terminals": [
+        {"index": 0, "direction": "out", "name": "string", "type": "String"},
+        {"index": 1, "direction": "in", "name": "path", "type": "Path"}
+      ],
+      "python_code": {"string": "str(in_1)"},
+      "inline": true,
+      "verified": true,
+      "pdf_page": 665
+    },
+    "1058": {
+      "name": "Increment",
+      "terminals": [
+        {"index": 0, "direction": "out", "name": "result", "type": "numeric"},
+        {"index": 1, "direction": "in", "name": "x", "type": "numeric"}
+      ],
+      "python_code": {"result": "in_1 + 1"},
+      "inline": true,
+      "verified": true,
+      "pdf_page": 544
+    },
+    "1070": {
+      "name": "Random Number (0-1)",
+      "terminals": [
+        {"index": 0, "direction": "out", "name": "number", "type": "NumFloat64"}
+      ],
+      "python_code": {"number": "random.random()"},
+      "_import": "import random",
+      "verified": true,
+      "pdf_page": 618
+    },
+    "1078": {
+      "name": "String To Path",
+      "terminals": [
+        {"index": 0, "direction": "out", "name": "path", "type": "Path"},
+        {"index": 1, "direction": "in", "name": "string", "type": "String"}
+      ],
+      "python_code": {"path": "Path(in_1)"},
+      "inline": true,
+      "verified": true,
+      "pdf_page": 666
+    },
+    "1105": {
+      "name": "Less?",
+      "terminals": [
+        {"index": 0, "direction": "out", "name": "result", "type": "Boolean"},
+        {"index": 1, "direction": "in", "name": "x", "type": "polymorphic"},
+        {"index": 2, "direction": "in", "name": "y", "type": "polymorphic"}
+      ],
+      "python_code": {"result": "in_1 < in_2"},
+      "inline": true,
+      "verified": true,
+      "pdf_page": 749
+    },
+    "1114": {
+      "name": "Greater Or Equal?",
+      "terminals": [
+        {"index": 0, "direction": "out", "name": "result", "type": "Boolean"},
+        {"index": 1, "direction": "in", "name": "x", "type": "polymorphic"},
+        {"index": 2, "direction": "in", "name": "y", "type": "polymorphic"}
+      ],
+      "python_code": {"result": "in_1 >= in_2"},
+      "inline": true,
+      "verified": true,
+      "pdf_page": 750
+    },
+    "1117": {
+      "name": "Not Equal To 0?",
+      "terminals": [
+        {"index": 0, "direction": "out", "name": "result", "type": "Boolean"},
+        {"index": 1, "direction": "in", "name": "x", "type": "numeric"}
+      ],
+      "python_code": {"result": "in_1 != 0"},
+      "inline": true,
+      "verified": true,
+      "pdf_page": 752
+    },
+    "1143": {
+      "name": "To Unsigned Byte Integer",
+      "terminals": [
+        {"index": 0, "direction": "out", "name": "result", "type": "NumUInt8"},
+        {"index": 1, "direction": "in", "name": "x", "type": "numeric"}
+      ],
+      "python_code": {"result": "int(in_1) & 0xFF"},
+      "inline": true,
+      "verified": true,
+      "pdf_page": 533
+    },
+    "1189": {
+      "name": "Flatten To String",
+      "terminals": [
+        {"index": 0, "direction": "out", "name": "data_string", "type": "String"},
+        {"index": 1, "direction": "in", "name": "anything", "type": "polymorphic"}
+      ],
+      "python_code": {"data_string": "str(in_1)"},
+      "inline": true,
+      "verified": true,
+      "pdf_page": 553
+    },
+    "1422": {
+      "name": "Array Of Strings To Path",
+      "terminals": [
+        {"index": 0, "direction": "in", "name": "names", "type": "Array"},
+        {"index": 1, "direction": "in", "name": "is_relative", "type": "Boolean"},
+        {"index": 2, "direction": "out", "name": "path", "type": "Path"}
+      ],
+      "python_code": {"path": "Path(*in_0) if not in_1 else Path(*in_0)"},
+      "inline": true,
+      "verified": true,
+      "pdf_page": 665
+    },
+    "1609": {
+      "name": "Unflatten From String",
+      "terminals": [
+        {"index": 0, "direction": "out", "name": "value", "type": "String"},
+        {"index": 1, "direction": "in", "name": "binary_string", "type": "Array"}
+      ],
+      "python_code": {"value": "bytes(in_1).decode('latin-1')"},
+      "inline": true,
+      "verified": false,
+      "pdf_page": 704
+    },
+    "1300": {
+      "name": "Tick Count (ms)",
+      "terminals": [
+        {"index": 0, "direction": "out", "name": "millisecond_timer_value", "type": "NumUInt32"}
+      ],
+      "python_code": {"millisecond_timer_value": "int(time.time() * 1000)"},
+      "_import": "import time",
+      "verified": true,
+      "pdf_page": 1834
+    },
+    "1423": {
+      "name": "Path To Array Of Strings",
+      "terminals": [
+        {"index": 0, "direction": "in", "name": "path", "type": "Path"},
+        {"index": 1, "direction": "out", "name": "empty_path", "type": "Boolean"},
+        {"index": 2, "direction": "out", "name": "names", "type": "Array"}
+      ],
+      "python_code": {
+        "empty_path": "str(in_0) == ''",
+        "names": "list(in_0.parts) if in_0 else []"
+      },
+      "verified": true,
+      "pdf_page": 664
+    },
+    "1164": {
+      "name": "Get Type Information",
+      "terminals": [
+        {"index": 0, "direction": "out", "name": "error_out", "type": "Cluster"},
+        {"index": 2, "direction": "out", "name": "names", "type": "Array"},
+        {"index": 3, "direction": "out", "name": "name", "type": "String"},
+        {"index": 8, "direction": "in", "name": "error_in", "type": "Cluster"},
+        {"index": 9, "direction": "in", "name": "type_enum", "type": "UnitUInt16"},
+        {"index": 10, "direction": "in", "name": "include_control", "type": "Boolean"},
+        {"index": 11, "direction": "in", "name": "reference", "type": "Refnum"}
+      ],
+      "python_code": {
+        "names": "[]",
+        "name": "''"
+      },
+      "verified": false,
+      "pdf_page": null
+    },
+    "3914": {
+      "name": "Match Regular Expression",
+      "terminals": [
+        {"index": 0, "direction": "in", "name": "string", "type": "String"},
+        {"index": 1, "direction": "in", "name": "multiline", "type": "Boolean"},
+        {"index": 2, "direction": "in", "name": "ignore_case", "type": "Boolean"},
+        {"index": 3, "direction": "in", "name": "dotall", "type": "Boolean"},
+        {"index": 4, "direction": "out", "name": "after_match", "type": "String"},
+        {"index": 5, "direction": "in", "name": "regular_expression", "type": "String"},
+        {"index": 7, "direction": "in", "name": "replacement_string", "type": "String"},
+        {"index": 8, "direction": "out", "name": "offset", "type": "NumInt32"},
+        {"index": 9, "direction": "in", "name": "offset_in", "type": "NumInt32"},
+        {"index": 10, "direction": "out", "name": "replacement_count", "type": "NumInt32"},
+        {"index": 11, "direction": "in", "name": "error_in", "type": "Cluster"},
+        {"index": 15, "direction": "out", "name": "error_out", "type": "Cluster"}
+      ],
+      "python_code": {
+        "_import": "import re",
+        "_body": "_result = re.search(in_5, in_0[in_9:])",
+        "after_match": "in_0[in_9:][_result.end():] if _result else ''",
+        "offset": "(in_9 + _result.start()) if _result else -1"
+      },
+      "verified": false,
+      "pdf_page": 660
+    },
+    "8070": {
+      "name": "List Folder",
+      "terminals": [
+        {"index": 0, "direction": "out", "name": "error_out", "type": "Cluster"},
+        {"index": 1, "direction": "out", "name": "has_contents", "type": "Boolean"},
+        {"index": 2, "direction": "out", "name": "filenames", "type": "Array"},
+        {"index": 3, "direction": "out", "name": "path_out", "type": "Refnum"},
+        {"index": 7, "direction": "in", "name": "pattern", "type": "String"},
+        {"index": 8, "direction": "in", "name": "error_in", "type": "Cluster"},
+        {"index": 10, "direction": "in", "name": "datalog_type", "type": "NumInt32"},
+        {"index": 11, "direction": "in", "name": "path", "type": "Path"}
+      ],
+      "python_code": {
+        "filenames": "[f.name for f in Path(in_11).iterdir() if f.is_file()]",
+        "has_contents": "any(Path(in_11).iterdir())",
+        "path_out": "in_11"
+      },
+      "_import": "from pathlib import Path",
+      "verified": false,
+      "pdf_page": 1794
+    },
+    "1538": {
+      "name": "Search/Split String",
+      "terminals": [
+        {"index": 0, "direction": "out", "name": "offset_of_match", "type": "NumInt32"},
+        {"index": 1, "direction": "out", "name": "substring_before_match", "type": "String"},
+        {"index": 2, "direction": "out", "name": "match_rest_of_string", "type": "String"},
+        {"index": 3, "direction": "in", "name": "offset", "type": "NumInt32"},
+        {"index": 4, "direction": "in", "name": "string", "type": "String"},
+        {"index": 5, "direction": "in", "name": "search_string_char", "type": "String"}
+      ],
+      "python_code": {
+        "offset_of_match": "in_4.find(in_5, in_3)",
+        "substring_before_match": "in_4[:in_4.find(in_5, in_3)] if in_4.find(in_5, in_3) >= 0 else in_4",
+        "match_rest_of_string": "in_4[in_4.find(in_5, in_3):] if in_4.find(in_5, in_3) >= 0 else ''"
+      },
+      "verified": true,
+      "pdf_page": 719
+    },
     "1102": {
       "name": "Equal?",
       "terminals": [
