@@ -76,11 +76,16 @@ class CodeGenContext:
         return None
 
     def var_name_in_use(self, name: str) -> bool:
-        """Check if a variable name is already bound to any terminal in the graph."""
+        """Check if a variable name is already bound to a terminal in this VI.
+
+        Scoped to the current VI to prevent cross-VI name pollution when
+        the class builder shares the graph across multiple method generations.
+        """
         if self.graph is None:
             return False
-        for node_id in self.graph._graph.nodes:
-            gnode = self.graph._graph.nodes[node_id].get("node")
+        vi_nodes = self.graph._vi_nodes.get(self.vi_name, set()) if self.vi_name else set()
+        for node_id in vi_nodes or self.graph._graph.nodes:
+            gnode = self.graph._graph.nodes.get(node_id, {}).get("node")
             if gnode is None:
                 continue
             for t in gnode.terminals:
@@ -107,7 +112,7 @@ class CodeGenContext:
                 return tunnel_name
 
         var_name = to_var_name(base_name)
-        if var_name in self._allocated_vars or self.var_name_in_use(var_name):
+        if var_name in self._allocated_vars:
             op_suffix = node_id.split("::")[-1] if "::" in node_id else node_id
             var_name = f"{var_name}_{op_suffix}"
         self._allocated_vars.add(var_name)

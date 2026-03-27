@@ -642,7 +642,8 @@
         }
       ],
       "python_code": {
-        "_body": "import re as _re; _m = _re.search(in_1, in_0[in_2:])",
+        "_import": "import re",
+        "_body": "_m = re.search(in_1, in_0[in_2:])",
         "before_substring": "in_0[in_2:][:_m.start()] if _m else in_0[in_2:]",
         "match_substring": "_m.group() if _m else ''",
         "after_substring": "in_0[in_2:][_m.end():] if _m else ''",
