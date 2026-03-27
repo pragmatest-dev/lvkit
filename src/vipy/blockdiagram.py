@@ -350,10 +350,6 @@ def create_llm_prompt(summary: str, mode: str = "script", summary_format: str = 
     Returns:
         Complete prompt string
     """
-    if summary_format == "cypher":
-        from .legacy.cypher import create_prompt
-        return create_prompt(summary, mode)
-
     if mode == "gui":
         return f"""{summary}
 
@@ -374,9 +370,3 @@ Convert this LabVIEW VI to an equivalent Python function.
 - Map system directories to appropriate Python equivalents (e.g., APPDATA, HOME)
 - Output ONLY the Python code, no explanations."""
 
-
-# Backwards compatibility alias
-def summarize_vi_cypher(bd_xml_path, main_xml_path=None):
-    """Deprecated: Use legacy.cypher.from_blockdiagram() instead."""
-    from .legacy.cypher import from_blockdiagram
-    return from_blockdiagram(bd_xml_path, main_xml_path)

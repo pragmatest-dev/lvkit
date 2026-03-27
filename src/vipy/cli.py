@@ -10,10 +10,7 @@ import traceback
 import warnings
 from pathlib import Path
 
-from . import __version__, convert_vi, convert_xml, summarize_vi
-from .legacy.cypher import from_blockdiagram as summarize_vi_cypher
-from .legacy.cypher import from_directory, from_lvclass, from_lvlib, from_project, from_vi
-from .legacy.graph import GraphConfig, VIGraph
+from . import __version__
 from .llm import LLMConfig, check_ollama_available, list_models
 from .memory_graph import InMemoryVIGraph
 from .structure import (
@@ -37,33 +34,10 @@ def main() -> int:
     # Convert command
     convert_parser = subparsers.add_parser("convert", help="Convert a VI to Python")
     convert_parser.add_argument("input", help="VI file (.vi) or block diagram XML (*_BDHb.xml)")
-    convert_parser.add_argument("-o", "--output", help="Output Python file")
-    convert_parser.add_argument("--model", default="qwen2.5-coder:14b", help="Ollama model to use")
-    convert_parser.add_argument("--main-xml", help="Main VI XML file (if using BDHb input)")
-    convert_parser.add_argument("--fp-xml", help="Front panel XML file (if using BDHb input)")
-    convert_parser.add_argument(
-        "--mode",
-        choices=["script", "gui"],
-        default="script",
-        help="Output mode: 'script' for single file, 'gui' for NiceGUI frontend/backend split",
-    )
-    convert_parser.add_argument(
-        "--format",
-        choices=["text", "cypher"],
-        default="text",
-        help="Summary format: 'text' (default) or 'cypher' (Neo4j graph format)",
-    )
-
     # Summarize command (for debugging/inspection)
     summary_parser = subparsers.add_parser("summarize", help="Show VI summary without converting")
     summary_parser.add_argument("input", help="Block diagram XML (*_BDHb.xml)")
     summary_parser.add_argument("--main-xml", help="Main VI XML file")
-    summary_parser.add_argument(
-        "--format",
-        choices=["text", "cypher"],
-        default="text",
-        help="Output format: 'text' (default) or 'cypher' (Neo4j graph format)",
-    )
 
     # Check command (no additional arguments needed)
     subparsers.add_parser("check", help="Check if dependencies are available")
@@ -74,23 +48,6 @@ def main() -> int:
     struct_parser.add_argument("--json", action="store_true", help="Output as JSON")
     struct_parser.add_argument("--plan", action="store_true", help="Generate Python structure plan")
 
-    # Graph command - load VIs into Neo4j
-    graph_parser = subparsers.add_parser("graph", help="Load VIs into Neo4j graph database")
-    graph_parser.add_argument("input", help="VI, directory, .lvlib, .lvclass, or .lvproj")
-    graph_parser.add_argument("--uri", default="bolt://localhost:7687", help="Neo4j URI")
-    graph_parser.add_argument("--user", default="neo4j", help="Neo4j username")
-    graph_parser.add_argument("--password", default="vipy-password", help="Neo4j password")
-    graph_parser.add_argument("--clear", action="store_true", help="Clear existing graph first")
-    graph_parser.add_argument("--no-expand", action="store_true", help="Don't expand SubVIs")
-    graph_parser.add_argument("--cypher", action="store_true", help="Output Cypher only, don't load to Neo4j")
-    graph_parser.add_argument(
-        "--search-path",
-        action="append",
-        dest="search_paths",
-        metavar="DIR",
-        help="Additional directories to search for SubVIs (can be repeated)",
-    )
-
     # Agent command - convert with validation loop
     agent_parser = subparsers.add_parser(
         "agent",
@@ -98,9 +55,6 @@ def main() -> int:
     )
     agent_parser.add_argument("input", help="VI, directory, .lvlib, .lvclass, or .lvproj")
     agent_parser.add_argument("-o", "--output", required=True, help="Output directory")
-    agent_parser.add_argument("--uri", default="bolt://localhost:7687", help="Neo4j URI")
-    agent_parser.add_argument("--user", default="neo4j", help="Neo4j username")
-    agent_parser.add_argument("--password", default="vipy-password", help="Neo4j password")
     agent_parser.add_argument("--max-retries", type=int, default=3, help="Max LLM retries per VI")
     agent_parser.add_argument("--model", default="qwen2.5-coder:14b", help="Ollama model")
     agent_parser.add_argument("--no-typecheck", action="store_true", help="Skip mypy type checking")
@@ -217,69 +171,12 @@ def main() -> int:
 
 
 def cmd_convert(args: argparse.Namespace) -> int:
-    """Handle the convert command."""
-    warnings.warn(
-        "'vipy convert' is deprecated. Use 'vipy generate' instead.",
-        DeprecationWarning,
-        stacklevel=2,
+    """Handle the convert command — deprecated, use 'vipy generate'."""
+    print(
+        "Error: 'vipy convert' has been removed. Use 'vipy generate' instead.",
+        file=sys.stderr,
     )
-    input_path = Path(args.input)
-
-    if not input_path.exists():
-        print(f"Error: File not found: {input_path}", file=sys.stderr)
-        return 1
-
-    config = LLMConfig(model=args.model)
-    mode = args.mode
-
-    try:
-        if input_path.suffix == ".vi":
-            result = convert_vi(input_path, args.output, llm_config=config, mode=mode)
-        elif input_path.name.endswith("_BDHb.xml"):
-            # Auto-detect front panel XML if not specified
-            fp_xml = args.fp_xml
-            if fp_xml is None and mode == "gui":
-                fp_path = input_path.parent / input_path.name.replace("_BDHb.xml", "_FPHb.xml")
-                if fp_path.exists():
-                    fp_xml = str(fp_path)
-
-            result = convert_xml(
-                input_path,
-                args.main_xml,
-                fp_xml,
-                args.output,
-                llm_config=config,
-                mode=mode,
-                summary_format=args.format,
-            )
-        else:
-            print(f"Error: Unsupported file type: {input_path.suffix}", file=sys.stderr)
-            print("Expected .vi file or *_BDHb.xml", file=sys.stderr)
-            return 1
-
-        # Handle output based on mode
-        if mode == "gui" and hasattr(result, "frontend_code"):
-            if args.output:
-                output_path = Path(args.output)
-                print(f"Backend written to: {output_path.stem}_backend.py")
-                print(f"Frontend written to: {output_path.stem}_frontend.py")
-            else:
-                print("# === BACKEND ===")
-                print(result.backend_code)
-                print("\n# === FRONTEND ===")
-                print(result.frontend_code)
-        else:
-            if args.output:
-                # Already written by convert function
-                print(f"Written to {args.output}")
-            else:
-                print(result)
-
-        return 0
-
-    except Exception as e:
-        print(f"Error: {e}", file=sys.stderr)
-        return 1
+    return 1
 
 
 def cmd_summarize(args: argparse.Namespace) -> int:
@@ -291,10 +188,9 @@ def cmd_summarize(args: argparse.Namespace) -> int:
         return 1
 
     try:
-        if args.format == "cypher":
-            summary = summarize_vi_cypher(input_path, args.main_xml)
-        else:
-            summary = summarize_vi(input_path, args.main_xml)
+        from .blockdiagram import summarize_vi
+
+        summary = summarize_vi(input_path, args.main_xml)
         print(summary)
         return 0
     except Exception as e:
@@ -424,123 +320,12 @@ def cmd_structure(args: argparse.Namespace) -> int:
 
 
 def cmd_graph(args: argparse.Namespace) -> int:
-    """Handle the graph command - load VIs into Neo4j."""
-    warnings.warn(
-        "'vipy graph' is deprecated. Use 'vipy generate' instead.",
-        DeprecationWarning,
-        stacklevel=2,
+    """Handle the graph command — deprecated, use 'vipy generate'."""
+    print(
+        "Error: 'vipy graph' has been removed. Use 'vipy generate' instead.",
+        file=sys.stderr,
     )
-    input_path = Path(args.input)
-
-    if not input_path.exists():
-        print(f"Error: Path not found: {input_path}", file=sys.stderr)
-        return 1
-
-    expand_subvis = not args.no_expand
-
-    # Build search paths
-    search_paths: list[Path] = []
-    if args.search_paths:
-        for sp in args.search_paths:
-            p = Path(sp)
-            if p.exists():
-                search_paths.append(p)
-                print(f"Added search path: {p}")
-            else:
-                print(f"Warning: Search path does not exist: {sp}")
-
-    try:
-        # For --cypher mode, generate Cypher without loading
-        if args.cypher:
-            suffix = input_path.suffix.lower()
-            if suffix == ".vi":
-                from .extractor import extract_vi_xml
-                bd_xml, fp_xml, main_xml = extract_vi_xml(input_path)
-                cypher = from_vi(bd_xml, fp_xml, main_xml, expand_subvis=expand_subvis)
-            elif suffix == ".lvlib":
-                cypher = from_lvlib(input_path, expand_subvis=expand_subvis)
-            elif suffix == ".lvclass":
-                cypher = from_lvclass(input_path, expand_subvis=expand_subvis)
-            elif suffix == ".lvproj":
-                cypher = from_project(input_path, expand_subvis=expand_subvis)
-            elif input_path.is_dir():
-                cypher = from_directory(input_path, expand_subvis=expand_subvis)
-            else:
-                print(f"Error: Unsupported file type: {suffix}", file=sys.stderr)
-                return 1
-            print(cypher)
-            return 0
-
-        # Load into Neo4j
-        config = GraphConfig(
-            uri=args.uri,
-            username=args.user,
-            password=args.password,
-        )
-
-        print(f"Connecting to Neo4j at {args.uri}...")
-        graph = VIGraph(config)
-        graph.connect()
-
-        if args.clear:
-            print("Clearing existing graph...")
-            graph.clear()
-
-        # Load based on input type
-        suffix = input_path.suffix.lower()
-        print("Loading VI graph...")
-
-        if suffix == ".vi":
-            graph.load_vi(input_path, expand_subvis=expand_subvis, search_paths=search_paths or None)
-        elif suffix == ".lvlib":
-            cypher = from_lvlib(input_path, expand_subvis=expand_subvis)
-            graph._load_cypher(cypher)
-        elif suffix == ".lvclass":
-            cypher = from_lvclass(input_path, expand_subvis=expand_subvis)
-            graph._load_cypher(cypher)
-        elif suffix == ".lvproj":
-            cypher = from_project(input_path, expand_subvis=expand_subvis)
-            graph._load_cypher(cypher)
-        elif input_path.is_dir():
-            cypher = from_directory(input_path, expand_subvis=expand_subvis)
-            graph._load_cypher(cypher)
-        else:
-            print(f"Error: Unsupported file type: {suffix}", file=sys.stderr)
-            print("Supported: .vi, .lvlib, .lvclass, .lvproj, or directory", file=sys.stderr)
-            return 1
-
-        # Show summary
-        vis = graph.list_vis()
-        print(f"Loaded {len(vis)} VI(s) into Neo4j")
-        for vi in vis[:10]:
-            print(f"  - {vi}")
-        if len(vis) > 10:
-            print(f"  ... and {len(vis) - 10} more")
-
-        # Show conversion order
-        order = graph.get_conversion_order()
-        if order:
-            print("\nConversion order (leaves first):")
-            for i, vi in enumerate(order, 1):
-                print(f"  {i}. {vi}")
-
-        # Report primitives discovered
-        from .blockdiagram import get_primitives_seen
-        prims = get_primitives_seen()
-        if prims:
-            print(f"\nPrimitives found ({len(prims)} unique):")
-            for pid, info in list(prims.items())[:10]:
-                vis = ", ".join(info["vi_names"][:3])
-                print(f"  #{pid}: {info['count']}x in [{vis}]")
-            if len(prims) > 10:
-                print(f"  ... and {len(prims) - 10} more")
-
-        graph.close()
-        return 0
-
-    except Exception as e:
-        print(f"Error: {e}", file=sys.stderr)
-        return 1
+    return 1
 
 
 def cmd_agent(args: argparse.Namespace) -> int:

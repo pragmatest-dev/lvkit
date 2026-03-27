@@ -2,6 +2,9 @@
 
 __version__ = "0.1.0"
 
+from .blockdiagram import summarize_vi
+from .converter import ConvertedVI, convert_vi, convert_xml
+from .frontpanel import generate_nicegui_code
 from .graph_types import (
     Constant as GraphConstant,
     Operation,

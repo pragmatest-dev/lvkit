@@ -10,7 +10,6 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 
 from .blockdiagram import create_llm_prompt, summarize_vi
-from .legacy.cypher import from_blockdiagram as summarize_vi_cypher
 from .frontpanel import generate_nicegui_code, summarize_front_panel
 from .llm import LLMConfig, generate_code
 from .parser import parse_vi
@@ -173,10 +172,7 @@ def convert_xml(
     bd_xml_path = Path(bd_xml_path)
 
     # Generate backend summary and code
-    if summary_format == "cypher":
-        summary = summarize_vi_cypher(bd_xml_path, main_xml_path)
-    else:
-        summary = summarize_vi(bd_xml_path, main_xml_path)
+    summary = summarize_vi(bd_xml_path, main_xml_path)
 
     # Add front panel info to summary if available and in gui mode
     vi = None
