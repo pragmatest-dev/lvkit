@@ -5,10 +5,14 @@ resolve() queries the graph directly. One graph. No copies.
 
 from __future__ import annotations
 
+from collections import deque
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
-from vipy.graph_types import Constant, DestinationInfo, SourceInfo, Terminal, VIContext
+from vipy.graph_types import (
+    Constant, DestinationInfo, SourceInfo, Terminal, TunnelTerminal, VIContext,
+)
+from vipy.vilib_resolver import derive_python_name
 
 from .ast_utils import to_var_name
 
@@ -29,9 +33,14 @@ class CodeGenContext:
     imports: set[str] = field(default_factory=set)
     loop_depth: int = 0
     use_held_error_model: bool = False
+    # Lives on context (not builder) because child() must share it
+    # across the same generation pass.
     _branch_counter: int = field(default=0, repr=False)
     _allocated_vars: set[str] = field(default_factory=set, repr=False)
     vi_inputs: list[Terminal] = field(default_factory=list)
+    # Lives on context because subvi.py reads it at arbitrary depth
+    # in the codegen tree. Passing as parameter would thread through
+    # every generate() call.
     import_resolver: Any = field(default=None, repr=False)
 
     def is_wired(self, terminal_id: str) -> bool:
@@ -42,7 +51,7 @@ class CodeGenContext:
 
     def bind(self, terminal_id: str, var_name: str) -> None:
         """Set var_name on a terminal in the graph."""
-        if self.graph:
+        if self.graph is not None:
             self.graph.set_var_name(terminal_id, var_name)
 
     def resolve(self, terminal_id: str) -> str | None:
@@ -54,11 +63,11 @@ class CodeGenContext:
         if self.graph is None:
             return None
 
-        queue = [terminal_id]
+        queue: deque[str] = deque([terminal_id])
         seen: set[str] = set()
 
         while queue:
-            tid = queue.pop(0)
+            tid = queue.popleft()
             if tid in seen:
                 continue
             seen.add(tid)
@@ -76,15 +85,23 @@ class CodeGenContext:
         return None
 
     def var_name_in_use(self, name: str) -> bool:
-        """Check if a variable name is already bound to a terminal in this VI.
+        """Check if a variable name is already bound in this context.
 
-        Scoped to the current VI to prevent cross-VI name pollution when
-        the class builder shares the graph across multiple method generations.
+        Checks _allocated_vars first (cheapest), then graph terminals.
+        When vi_name is set, scopes the graph scan to the current VI
+        to prevent cross-VI name pollution from the class builder.
         """
+        if name in self._allocated_vars:
+            return True
         if self.graph is None:
             return False
-        vi_nodes = self.graph._vi_nodes.get(self.vi_name, set()) if self.vi_name else set()
-        for node_id in vi_nodes or self.graph._graph.nodes:
+        # Scope to current VI if known, otherwise scan all nodes
+        node_ids = self.graph._graph.nodes
+        if self.vi_name:
+            vi_nodes = self.graph._vi_nodes.get(self.vi_name)
+            if vi_nodes:
+                node_ids = vi_nodes
+        for node_id in node_ids:
             gnode = self.graph._graph.nodes.get(node_id, {}).get("node")
             if gnode is None:
                 continue
@@ -131,8 +148,6 @@ class CodeGenContext:
         """
         if self.graph is None:
             return None
-
-        from vipy.graph_types import TunnelTerminal
 
         for dest in self.graph.outgoing_edges(terminal_id):
             dest_gnode = self.graph._graph.nodes.get(dest.node_id, {}).get("node")
@@ -256,14 +271,9 @@ class CodeGenContext:
             vi_inputs=list(graph.get_inputs(vi_name)),
         )
 
-        for inp in graph.get_inputs(vi_name):
-            if inp.id and not inp.is_error_cluster:
-                ctx.bind(inp.id, to_var_name(inp.name or "input"))
-
-        for const in graph.get_constants(vi_name):
-            if const.id:
-                ctx.bind(const.id, _format_constant(const))
-
+        _bind_inputs_and_constants(
+            ctx, graph.get_inputs(vi_name), graph.get_constants(vi_name),
+        )
         return ctx
 
     @classmethod
@@ -335,14 +345,7 @@ class CodeGenContext:
             vi_inputs=vi_context.inputs,
         )
 
-        for inp in vi_context.inputs:
-            if inp.id and not inp.is_error_cluster:
-                ctx.bind(inp.id, to_var_name(inp.name or "input"))
-
-        for const in vi_context.constants:
-            if const.id:
-                ctx.bind(const.id, _format_constant(const))
-
+        _bind_inputs_and_constants(ctx, vi_context.inputs, vi_context.constants)
         return ctx
 
     @classmethod
@@ -389,6 +392,24 @@ class CodeGenContext:
         return graph
 
 
+def _bind_inputs_and_constants(
+    ctx: CodeGenContext,
+    inputs: list | Any,
+    constants: list | Any,
+) -> None:
+    """Bind input and constant terminals on the context.
+
+    Shared by from_graph() and from_vi_context(). Skips error cluster
+    inputs (Python uses exceptions instead).
+    """
+    for inp in inputs:
+        if inp.id and not inp.is_error_cluster:
+            ctx.bind(inp.id, to_var_name(inp.name or "input"))
+    for const in constants:
+        if const.id:
+            ctx.bind(const.id, _format_constant(const))
+
+
 def _format_constant(const: Constant) -> str:
     """Format a constant value as a Python expression.
 
@@ -402,8 +423,6 @@ def _format_constant(const: Constant) -> str:
                 if enum_val.value == int_value:
                     if not member_name.isidentifier():
                         break  # e.g. "<Null>" — not valid Python
-                    from vipy.vilib_resolver import derive_python_name
-
                     class_name = derive_python_name(const.lv_type.typedef_name)
                     return f"{class_name}.{member_name}"
         except (ValueError, TypeError):
