@@ -2,29 +2,13 @@
 
 __version__ = "0.1.0"
 
-from .blockdiagram import summarize_vi, summarize_vi_cypher
-from .converter import ConvertedVI, convert_vi, convert_xml
-from .frontpanel import generate_nicegui_code
-from .legacy.cypher import from_blockdiagram as cypher_from_blockdiagram
-from .legacy.cypher import from_directory as cypher_from_directory
-from .legacy.cypher import from_lvclass as cypher_from_lvclass
-from .legacy.cypher import from_lvlib as cypher_from_lvlib
-from .legacy.cypher import from_project as cypher_from_project
-from .legacy.cypher import from_vi as cypher_from_vi
-from .legacy.graph import GraphConfig, VIGraph
-from .legacy.graph import connect as connect_graph
 from .graph_types import (
     Constant as GraphConstant,
-)
-from .graph_types import (
     Operation,
     Terminal,
     Tunnel,
-)
-from .graph_types import (
     Wire as GraphWire,
 )
-from .llm import LLMConfig
 from .parser import (
     BlockDiagram,
     ConnectorPane,
@@ -49,17 +33,6 @@ from .structure import (
 )
 
 __all__ = [
-    "convert_vi",
-    "convert_xml",
-    "ConvertedVI",
-    "summarize_vi",
-    "summarize_vi_cypher",
-    "cypher_from_blockdiagram",
-    "cypher_from_vi",
-    "cypher_from_directory",
-    "cypher_from_lvlib",
-    "cypher_from_lvclass",
-    "cypher_from_project",
     "parse_vi",
     "ParsedVI",
     "VIMetadata",
@@ -69,7 +42,6 @@ __all__ = [
     "Node",
     "Wire",
     "Constant",
-    "LLMConfig",
     "parse_lvclass",
     "parse_lvlib",
     "discover_project_structure",
@@ -77,13 +49,8 @@ __all__ = [
     "LVClass",
     "LVLibrary",
     "LVMethod",
-    "generate_nicegui_code",
     "FrontPanel",
     "FPControl",
-    "VIGraph",
-    "GraphConfig",
-    "connect_graph",
-    # Graph types (enriched dataclasses)
     "Terminal",
     "Operation",
     "Tunnel",

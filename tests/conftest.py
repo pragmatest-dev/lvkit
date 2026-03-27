@@ -2,15 +2,7 @@
 
 from __future__ import annotations
 
-import warnings
-
 import pytest
-
-# Legacy module deprecation warnings are expected — they fire on import
-# because vipy.__init__ re-exports legacy APIs for backward compat.
-warnings.filterwarnings("ignore", message="vipy.legacy is deprecated")
-warnings.filterwarnings("ignore", message="vipy.cypher is deprecated")
-warnings.filterwarnings("ignore", message="vipy.graph is deprecated")
 
 from vipy.agent.codegen.context import CodeGenContext
 
