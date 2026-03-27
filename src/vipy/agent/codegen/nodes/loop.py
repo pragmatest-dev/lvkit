@@ -147,6 +147,10 @@ class LoopCodeGen(NodeCodeGen):
             for tunnel in tunnels:
                 if tunnel.tunnel_type == "lpTun":
                     outer_var = ctx.resolve(tunnel.outer_terminal_uid)
+                    # Resolved value must be a valid Python identifier
+                    # (constants like '\x12' from the graph are not iterable names)
+                    if outer_var and not outer_var.isidentifier():
+                        outer_var = to_var_name(outer_var) or "items"
                     if outer_var and tunnel.inner_terminal_uid:
                         outer_term = tunnel.outer_terminal_uid
                         inner_term = tunnel.inner_terminal_uid
