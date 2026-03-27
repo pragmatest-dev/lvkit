@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import ast
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from vipy.graph_types import Operation
 
@@ -69,8 +69,10 @@ class NMuxCodeGen(NodeCodeGen):
                     bindings[t.id] = val
             elif agg_var:
                 # Single list output with no list input:
-                # the field is extracted from the cluster
-                bindings[t.id] = agg_var
+                # field extraction from the cluster. Derive field
+                # name from downstream consumer's terminal name.
+                field = self._derive_field_name(t, agg_var, ctx)
+                bindings[t.id] = field
 
         # LIST inputs with AGG output (bundle): bind agg output
         # to first list input as passthrough
@@ -81,6 +83,28 @@ class NMuxCodeGen(NodeCodeGen):
                     bindings[t.id] = val
 
         return CodeFragment(statements=[], bindings=bindings)
+
+    @staticmethod
+    def _derive_field_name(
+        term: Any, agg_var: str, ctx: CodeGenContext,
+    ) -> str:
+        """Derive a field name for an nMux LIST output from downstream wiring.
+
+        When the LIST output is a field extracted from the AGG cluster,
+        the downstream consumer's terminal name often reveals the field name
+        (e.g., wired to a SubVI input named "testmethodname").
+        Falls back to agg_var if no name found.
+        """
+        if ctx.graph is not None:
+            for dest in ctx.graph.outgoing_edges(term.id):
+                if dest.name:
+                    field = to_var_name(dest.name)
+                    return f"{agg_var}.{field}"
+        # Fallback: use terminal's own name if available
+        if term.name:
+            field = to_var_name(term.name)
+            return f"{agg_var}.{field}"
+        return agg_var
 
     @staticmethod
     def _passthrough(

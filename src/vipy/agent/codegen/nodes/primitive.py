@@ -579,7 +579,19 @@ class PrimitiveCodeGen(NodeCodeGen):
             key = text.strip("{}") if text.startswith("{") else text
             return input_map.get(key, text)
 
-        return re.sub(combined, _replace, template)
+        result = re.sub(combined, _replace, template)
+
+        # Replace any remaining unsubstituted in_N placeholders with None
+        leftover = re.findall(r'\bin_\d+\b', result)
+        if leftover:
+            import warnings
+            warnings.warn(
+                f"Unresolved template placeholders: {leftover}",
+                stacklevel=3,
+            )
+            result = re.sub(r'\bin_(\d+)\b', 'None', result)
+
+        return result
 
     def _emit_unknown(
         self, node: Operation, prim_id: int, ctx: CodeGenContext
