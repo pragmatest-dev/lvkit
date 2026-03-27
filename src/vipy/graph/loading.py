@@ -431,10 +431,9 @@ class LoadingMixin:
                 )
             # Typedef dependencies
             if lv_type.typedef_name:
-                # Typedefs are resolved by vilib_resolver, not file loading
-                # They'll be in dep_graph if we add them, but for now
-                # vilib_resolver handles them separately
-                pass
+                self._ensure_typedef_loaded(
+                    lv_type.typedef_name, search_paths, caller_dir,
+                )
 
     def _ensure_type_loaded(
         self,
@@ -469,6 +468,66 @@ class LoadingMixin:
                 # Stub it — we know the type exists but can't find it
                 self._dep_graph.add_node(classname, node_type="class")
                 self._stubs.add(classname)
+
+    def _ensure_typedef_loaded(
+        self,
+        typedef_name: str,
+        search_paths: list[Path],
+        caller_dir: Path,
+    ) -> None:
+        """Ensure a typedef is in the dep_graph with its fields.
+
+        Checks vilib_resolver first (built-in typedefs), then searches
+        for .ctl files on disk (user project typedefs). Same as class loading.
+        """
+        if self._dep_graph.has_node(typedef_name):
+            return
+
+        # Try vilib_resolver (built-in typedefs)
+        from ..vilib_resolver import get_resolver
+        resolver = get_resolver()
+        resolved = resolver.resolve_type(typedef_name)
+        if resolved and resolved.fields:
+            self._dep_graph.add_node(
+                typedef_name,
+                node_type="typedef",
+                fields=resolved.fields,
+            )
+            return
+
+        # Try loading .ctl file from disk (user project typedefs)
+        leaf = typedef_name.rsplit(":", 1)[-1]
+        if leaf.endswith(".ctl"):
+            ctl_path = self._find_file(leaf, search_paths, caller_dir)
+            if ctl_path:
+                fields = self._parse_ctl_fields(ctl_path)
+                self._dep_graph.add_node(
+                    typedef_name,
+                    node_type="typedef",
+                    fields=fields,
+                )
+                return
+
+        # Stub it
+        self._dep_graph.add_node(typedef_name, node_type="typedef")
+        self._stubs.add(typedef_name)
+
+    def _parse_ctl_fields(self, ctl_path: Path) -> list | None:
+        """Parse fields from a .ctl typedef file."""
+        import xml.etree.ElementTree as ET
+
+        from ..graph_types import ClusterField, LVType
+        from ..parser.type_mapping import parse_type_map_rich
+
+        try:
+            type_map = parse_type_map_rich(ctl_path)
+            # Find the main cluster type (usually the first cluster)
+            for lv_type in type_map.values():
+                if lv_type.fields:
+                    return lv_type.fields
+        except Exception:
+            pass
+        return None
 
     def _find_file(
         self,

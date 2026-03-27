@@ -197,13 +197,21 @@ class InMemoryVIGraph(
         return lv_type
 
     def get_class_fields(self, classname: str) -> list | None:
-        """Get fields for a class from dep_graph.
-
-        Returns ordered list of ClusterField objects, or None if class not found.
-        """
+        """Get fields for a named type from dep_graph by key."""
         if not self._dep_graph.has_node(classname):
             return None
         return self._dep_graph.nodes[classname].get("fields")
+
+    def get_type_fields(self, lv_type: LVType) -> list | None:
+        """Get fields for any type. One API, all cases.
+
+        Named types (class, typedef) → dep_graph lookup.
+        Anonymous clusters → inline fields on the type itself.
+        """
+        name = lv_type.classname or lv_type.typedef_name
+        if name:
+            return self.get_class_fields(name)
+        return lv_type.fields
 
     def set_var_name(self, terminal_id: str, var_name: str) -> None:
         """Set the Python variable name on a terminal. Called during codegen."""
