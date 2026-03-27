@@ -1,13 +1,17 @@
-"""Code generator for Node Multiplexer (nMux) nodes."""
+"""Code generator for Node Multiplexer (nMux) nodes.
+
+nMux is bundle/unbundle at structure boundaries. Field resolution
+uses the <i> field index from XML + dep_graph class fields. No heuristics.
+"""
 
 from __future__ import annotations
 
 import ast
 from typing import TYPE_CHECKING, Any
 
-from vipy.graph_types import Operation
+from vipy.graph_types import Operation, TypeResolutionNeeded
 
-from ..ast_utils import build_assign, parse_expr, to_var_name
+from ..ast_utils import parse_expr, to_var_name
 from ..fragment import CodeFragment
 from .base import NodeCodeGen
 
@@ -15,134 +19,132 @@ if TYPE_CHECKING:
     from ..context import CodeGenContext
 
 
+
+
 class NMuxCodeGen(NodeCodeGen):
-    """Generate code for LabVIEW nMux (Node Multiplexer).
+    """Generate code for LabVIEW nMux (bundle/unbundle at structure boundaries).
 
-    nMux is a bundle/unbundle node at structure boundaries, NOT
-    an indexed selector. Terminals are marked with roles:
-    - agg: aggregate (cluster/object wire passthrough)
-    - list: field values entering/exiting the cluster
+    Terminals have roles set by graph construction:
+    - agg: the aggregate cluster/class wire (passthrough)
+    - list: individual field values (each has nmux_field_index from <i> in XML)
 
-    Currently generates passthrough bindings only. Actual
-    bundle/unbundle expressions (cluster.field) need type info
-    we don't yet have.
+    Field resolution: nmux_field_index → dep_graph fields[i].name.
+    No string matching, no downstream guessing.
     """
 
     def generate(self, node: Operation, ctx: CodeGenContext) -> CodeFragment:
-        """Generate code for nMux (bundle/unbundle at structure boundaries).
+        def _by_role(direction: str, role: str) -> list:
+            return [
+                t for t in node.terminals
+                if t.direction == direction and t.nmux_role == role
+            ]
 
-        nMux terminals have roles from the parser:
-        - agg: the cluster/object wire (passthrough)
-        - list: field values being bundled into or unbundled from the cluster
-
-        The codegen treats agg terminals as passthrough bindings and
-        list terminals as the actual data values at the boundary.
-        """
-        agg_in = [t for t in node.terminals if t.direction == "input" and t.nmux_role == "agg"]
-        agg_out = [t for t in node.terminals if t.direction == "output" and t.nmux_role == "agg"]
-        list_in = [t for t in node.terminals if t.direction == "input" and t.nmux_role == "list"]
-        list_out = [t for t in node.terminals if t.direction == "output" and t.nmux_role == "list"]
-
-        # Fallback: if no roles marked, use old passthrough logic
-        if not any(t.nmux_role for t in node.terminals):
-            inputs = [t for t in node.terminals if t.direction == "input"]
-            outputs = [t for t in node.terminals if t.direction == "output"]
-            return self._passthrough(inputs, outputs, ctx)
+        agg_in = _by_role("input", "agg")
+        agg_out = _by_role("output", "agg")
+        list_in = _by_role("input", "list")
+        list_out = _by_role("output", "list")
 
         bindings: dict[str, str] = {}
+        statements: list[ast.stmt] = []
 
-        # AGG passthrough: bind agg outputs to agg input value
+        # Resolve AGG input variable
         agg_var = None
         if agg_in:
             agg_var = ctx.resolve(agg_in[0].id)
+
+        # AGG passthrough: bind agg outputs to agg input value
         for t in agg_out:
             if agg_var:
                 bindings[t.id] = agg_var
 
-        # LIST passthrough: bind list outputs to list input values
-        # At structure boundaries, list terminals carry the actual
-        # data values through. Pair them by position.
-        for i, t in enumerate(sorted(list_out, key=lambda t: t.index)):
-            if i < len(list_in):
-                val = ctx.resolve(list_in[i].id)
-                if val:
-                    bindings[t.id] = val
-            elif agg_var:
-                # Single list output with no list input:
-                # field extraction from the cluster.
-                field = self._derive_field_name(
-                    t, agg_var, agg_in, i, ctx,
-                )
-                bindings[t.id] = field
-
-        # LIST inputs with AGG output (bundle): bind agg output
-        # to first list input as passthrough
-        if list_in and agg_out and not list_out:
-            val = ctx.resolve(list_in[0].id)
-            if val:
-                for t in agg_out:
-                    bindings[t.id] = val
-
-        return CodeFragment(statements=[], bindings=bindings)
-
-    @staticmethod
-    def _derive_field_name(
-        term: Any, agg_var: str, agg_terminals: list,
-        list_index: int, ctx: CodeGenContext,
-    ) -> str:
-        """Derive a field name for an nMux LIST output.
-
-        Resolution order:
-        1. AGG terminal's lv_type.fields (from dep_graph class info)
-           — match LIST terminal type against field types
-        2. Downstream consumer's terminal name
-        3. Terminal's own name
-        4. Fallback to bare agg_var
-        """
-        # 1. Match against class/cluster fields from AGG terminal type
-        if agg_terminals:
+        # Get fields for field index lookup.
+        # Named types: dep_graph by classname.
+        # Anonymous clusters: terminal's own lv_type.fields.
+        class_fields = None
+        agg_terminals = agg_in or agg_out
+        if agg_terminals and agg_terminals[0].lv_type:
             agg_type = agg_terminals[0].lv_type
-            if agg_type and agg_type.fields:
-                list_type = term.lv_type.underlying_type if term.lv_type else None
-                if list_type:
-                    # Find fields matching this type
-                    matches = [
-                        f for f in agg_type.fields
-                        if f.name  # has a name
-                    ]
-                    # Try type-unique match first
-                    type_matches = [
-                        f for f in matches
-                        # Can't match by type yet (fields don't have types stored)
-                        # Just use positional: list_index maps to field position
-                    ]
-                    if list_index < len(matches):
-                        field = to_var_name(matches[list_index].name)
-                        return f"{agg_var}.{field}"
+            if agg_type.classname and ctx.graph is not None:
+                class_fields = ctx.graph.get_class_fields(
+                    agg_type.classname,
+                )
+            if class_fields is None and agg_type.fields:
+                class_fields = agg_type.fields
 
-        # 2. Downstream consumer's terminal name
-        if ctx.graph is not None:
-            for dest in ctx.graph.outgoing_edges(term.id):
-                if dest.name:
-                    field = to_var_name(dest.name)
-                    return f"{agg_var}.{field}"
+        if list_in and list_out:
+            # LIST in + LIST out = passthrough at structure boundary
+            sorted_in = sorted(list_in, key=lambda t: t.index)
+            sorted_out = sorted(list_out, key=lambda t: t.index)
+            for i, t_out in enumerate(sorted_out):
+                if i < len(sorted_in):
+                    val = ctx.resolve(sorted_in[i].id)
+                    if val:
+                        bindings[t_out.id] = val
 
-        # 3. Terminal's own name
-        if term.name:
-            field = to_var_name(term.name)
-            return f"{agg_var}.{field}"
+        elif list_out and not list_in:
+            # LIST out only = unbundle (extract fields from cluster)
+            for t in sorted(list_out, key=lambda t: t.index):
+                if agg_var:
+                    field_expr = self._field_expr(
+                        t, agg_var, class_fields,
+                    )
+                    bindings[t.id] = field_expr
 
-        return agg_var
+        elif list_in and not list_out:
+            # LIST in only = bundle (assign fields on cluster)
+            if agg_var:
+                for t in sorted(list_in, key=lambda t: t.index):
+                    val = ctx.resolve(t.id)
+                    if not val:
+                        continue
+                    field_name = self._field_name(
+                        t, class_fields,
+                    )
+                    if field_name:
+                        stmt = ast.Assign(
+                            targets=[ast.Attribute(
+                                value=parse_expr(agg_var),
+                                attr=field_name,
+                                ctx=ast.Store(),
+                            )],
+                            value=parse_expr(val),
+                        )
+                        statements.append(stmt)
+                    else:
+                        raise TypeResolutionNeeded(
+                            type_name=f"field[{t.nmux_field_index}]",
+                            context=t.id,
+                        )
+
+        return CodeFragment(statements=statements, bindings=bindings)
 
     @staticmethod
-    def _passthrough(
-        inputs: list, outputs: list, ctx: CodeGenContext,
-    ) -> CodeFragment:
-        """Fallback: bind all outputs to first input."""
-        bindings: dict[str, str] = {}
-        input_var = None
-        if inputs:
-            input_var = ctx.resolve(inputs[0].id)
-        for out_term in outputs:
-            bindings[out_term.id] = input_var or "None"
-        return CodeFragment(statements=[], bindings=bindings)
+    def _field_name(term: Any, class_fields: list | None) -> str | None:
+        """Get Python field name for a LIST terminal using nmux_field_index.
+
+        Returns None if field index is missing or out of range.
+        """
+        if term.nmux_field_index is not None and class_fields:
+            if term.nmux_field_index < len(class_fields):
+                return to_var_name(class_fields[term.nmux_field_index].name)
+        return None
+
+    @staticmethod
+    def _field_expr(
+        term: Any, agg_var: str,
+        class_fields: list | None,
+    ) -> str:
+        """Resolve field expression for a LIST output terminal (unbundle).
+
+        Uses nmux_field_index → dep_graph fields[i].name.
+        Returns bare agg_var with warning if field cannot be resolved.
+        """
+        if term.nmux_field_index is not None and class_fields:
+            if term.nmux_field_index < len(class_fields):
+                field_name = to_var_name(class_fields[term.nmux_field_index].name)
+                return f"{agg_var}.{field_name}"
+
+        raise TypeResolutionNeeded(
+            type_name=f"field[{term.nmux_field_index}]",
+            context=term.id,
+        )

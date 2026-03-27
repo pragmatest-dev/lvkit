@@ -17,7 +17,6 @@ from typing import Any, Literal, Union
 
 from pydantic import BaseModel
 
-
 # ============================================================
 # Shared types (used by both graph and codegen layers)
 # ============================================================
@@ -88,8 +87,24 @@ class ClusterField:
     type: LVType | None = None
 
 
+class TypeResolutionNeeded(Exception):
+    """Raised when a named type dependency cannot be resolved.
+
+    Same pattern as VILibResolutionNeeded / TerminalResolutionNeeded.
+    The type is referenced but not loaded in the dep_graph.
+    """
+
+    def __init__(self, type_name: str, context: str = ""):
+        self.type_name = type_name
+        self.context = context
+        msg = f"Type resolution needed for '{type_name}'"
+        if context:
+            msg += f" (referenced by {context})"
+        super().__init__(msg)
+
+
 class Terminal(BaseModel):
-    """A connection point on a node. Every node has terminals — edges connect to them."""
+    """A connection point on a node. Edges connect to them."""
 
     model_config = {"arbitrary_types_allowed": True}
 
@@ -99,8 +114,9 @@ class Terminal(BaseModel):
     direction: str  # "input" or "output"
     name: str | None = None
     lv_type: LVType | None = None
-    var_name: str | None = None  # set during codegen when this terminal produces a value
-    nmux_role: str | None = None  # "agg" (cluster) or "list" (field) for nMux nodes
+    var_name: str | None = None  # set during codegen
+    nmux_role: str | None = None  # "agg" or "list"
+    nmux_field_index: int | None = None  # class field index
 
     def python_type(self) -> str:
         """Python type string derived from lv_type."""

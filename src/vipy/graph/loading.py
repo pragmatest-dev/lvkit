@@ -159,9 +159,36 @@ class LoadingMixin:
         cls_qname = ":".join(chain + [cls.name + ".lvclass"]) if chain else cls.name + ".lvclass"
 
         # Add class node to dep_graph with field info
-        from ..graph_types import ClusterField
+        from ..graph_types import ClusterField, LVType
+
+        def _field_to_lvtype(lv_type_name: str) -> LVType | None:
+            if not lv_type_name:
+                return None
+            # Leaf component for classification
+            leaf = lv_type_name.rsplit(":", 1)[-1]
+            if leaf.endswith(".lvclass"):
+                return LVType(
+                    kind="class",
+                    underlying_type=lv_type_name,
+                    classname=lv_type_name,
+                )
+            if leaf.endswith(".ctl"):
+                return LVType(
+                    kind="typedef_ref",
+                    underlying_type=lv_type_name,
+                    typedef_name=lv_type_name,
+                )
+            if leaf == "Cluster":
+                return LVType(kind="cluster", underlying_type=lv_type_name)
+            if leaf == "Array":
+                return LVType(kind="array", underlying_type=lv_type_name)
+            return LVType(kind="primitive", underlying_type=lv_type_name)
+
         fields = [
-            ClusterField(name=f.name)
+            ClusterField(
+                name=f.name,
+                type=_field_to_lvtype(f.lv_type_name),
+            )
             for f in cls.private_data_fields
         ]
         self._dep_graph.add_node(
@@ -367,6 +394,13 @@ class LoadingMixin:
                     self._dep_graph.add_node(subvi_qname)
                     self._dep_graph.add_edge(vi_name, subvi_qname)
 
+        # Load type dependencies: classes referenced in type_map
+        # that aren't in the dep_graph yet.
+        if type_map and expand_subvis:
+            self._load_type_dependencies(
+                type_map, search_paths, bd_xml.parent, visited,
+            )
+
         # Build the unified graph for this VI AFTER all callees are loaded.
         # Callees are in the graph → cross-VI edges work → types propagate.
         self._add_vi_to_graph(
@@ -375,6 +409,87 @@ class LoadingMixin:
         )
 
         return vi_name
+
+    def _load_type_dependencies(
+        self,
+        type_map: dict,
+        search_paths: list[Path],
+        caller_dir: Path,
+        visited: set[str],
+    ) -> None:
+        """Load named types referenced in a VI's type_map.
+
+        Any class, typedef, or library referenced by a VI is a dependency
+        that must be in the dep_graph. Same as SubVI loading — find it,
+        load it, or stub it.
+        """
+        for lv_type in type_map.values():
+            # Class dependencies
+            if lv_type.classname and lv_type.classname != "LabVIEW Object":
+                self._ensure_type_loaded(
+                    lv_type.classname, search_paths, caller_dir,
+                )
+            # Typedef dependencies
+            if lv_type.typedef_name:
+                # Typedefs are resolved by vilib_resolver, not file loading
+                # They'll be in dep_graph if we add them, but for now
+                # vilib_resolver handles them separately
+                pass
+
+    def _ensure_type_loaded(
+        self,
+        classname: str,
+        search_paths: list[Path],
+        caller_dir: Path,
+    ) -> None:
+        """Ensure a named type is in the dep_graph.
+
+        If not already loaded, search for the .lvclass file and load it.
+        """
+        if self._dep_graph.has_node(classname):
+            return
+
+        # Extract the leaf filename from qualified name
+        # e.g. "Lib.lvlib:TestSuite.lvclass" → "TestSuite.lvclass"
+        leaf = classname.rsplit(":", 1)[-1]
+
+        if leaf.endswith(".lvclass"):
+            cls_path = self._find_file(leaf, search_paths, caller_dir)
+            if cls_path:
+                # Determine owner_chain from qualified name
+                parts = classname.split(":")
+                owner_chain = parts[:-1] if len(parts) > 1 else None
+                self.load_lvclass(
+                    cls_path,
+                    expand_subvis=True,
+                    search_paths=search_paths,
+                    owner_chain=owner_chain,
+                )
+            else:
+                # Stub it — we know the type exists but can't find it
+                self._dep_graph.add_node(classname, node_type="class")
+                self._stubs.add(classname)
+
+    def _find_file(
+        self,
+        filename: str,
+        search_paths: list[Path],
+        caller_dir: Path,
+    ) -> Path | None:
+        """Find a file by name in search paths."""
+        # Check caller's directory first
+        candidate = caller_dir / filename
+        if candidate.exists():
+            return candidate
+
+        for search_path in search_paths:
+            candidate = search_path / filename
+            if candidate.exists():
+                return candidate
+            for found in search_path.rglob(filename):
+                return found
+
+        return None
 
     def _find_subvi(
         self,

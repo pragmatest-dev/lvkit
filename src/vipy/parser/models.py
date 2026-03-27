@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from ..graph_types import Tunnel
+    from ..graph_types import ClusterField, Tunnel
 
 
 @dataclass
@@ -19,16 +19,15 @@ class ParsedType:
 
     The graph layer enriches this to LVType by adding:
     - values (enum members from vilib_resolver)
-    - fields (cluster fields from vilib_resolver)
     """
     kind: str  # "primitive", "cluster", "array", "typedef_ref"
     type_name: str  # "Path", "Cluster", "NumInt32"
-    typedef_path: str | None = None  # For typedefs: "vi.lib/Utility/sysdir.llb/..."
-    typedef_name: str | None = None  # Qualified name: "sysdir.llb:Type.ctl"
-    ref_type: str | None = None  # For Refnum: "UDClassInst", "Queue", "Notifier", etc.
-    classname: str | None = None  # For class refnums: "TestCase.lvclass"
-    field_names: list[str] | None = None  # For clusters: field names from type map
-    enum_values: dict | None = None  # For enums: {name: EnumValue} from VCTP
+    typedef_path: str | None = None
+    typedef_name: str | None = None  # Qualified: "sysdir.llb:Type.ctl"
+    ref_type: str | None = None  # "UDClassInst", "Queue", etc.
+    classname: str | None = None  # "Lib.lvlib:TestCase.lvclass"
+    fields: list[ClusterField] | None = None  # Recursive cluster fields
+    enum_values: dict | None = None  # {name: EnumValue} from VCTP
 
 
 @dataclass

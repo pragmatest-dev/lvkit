@@ -227,8 +227,8 @@ class TestNMuxRoles:
         fragment = codegen.generate(op, ctx)
         assert fragment.bindings.get("list_out") == "field_val"
 
-    def test_fallback_no_roles(self):
-        """Without roles, falls back to passthrough."""
+    def test_no_roles_produces_no_bindings(self):
+        """Without roles, nMux produces no bindings (roles always set by construction)."""
         op = self._make_nmux_op([
             Terminal(id="in_0", index=0, direction="input"),
             Terminal(id="out_0", index=1, direction="output"),
@@ -236,7 +236,7 @@ class TestNMuxRoles:
         ctx = _make_ctx_with_binding("in_0", "value")
         codegen = NMuxCodeGen()
         fragment = codegen.generate(op, ctx)
-        assert fragment.bindings.get("out_0") == "value"
+        assert fragment.bindings == {}
 
 
 # ── Property node dedup ────────────────────────────────────────────

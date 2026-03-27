@@ -44,7 +44,6 @@ from ..primitive_resolver import get_resolver as get_prim_resolver
 from ..primitive_resolver import resolve_primitive
 from ..vilib_resolver import get_resolver as get_vilib_resolver
 
-
 # Type categories for terminal matching
 _TYPE_CATEGORIES = {
     # String types
@@ -559,7 +558,7 @@ class ConstructionMixin:
                     **prim_kwargs,
                 )
 
-            # Mark nMux terminal roles (agg vs list)
+            # Mark nMux terminal roles (agg vs list) and field indices
             if isinstance(node, SelectNode) and node.dco_agg_uid:
                 agg_dco = node.dco_agg_uid
                 list_dcos = set(node.dco_list_uids)
@@ -573,6 +572,9 @@ class ConstructionMixin:
                         term.nmux_role = "agg"
                     elif dco_uid in list_dcos:
                         term.nmux_role = "list"
+                        # Set field index from <i> tag in XML
+                        if dco_uid in node.dco_field_index:
+                            term.nmux_field_index = node.dco_field_index[dco_uid]
 
             g.add_node(q_node_uid, node=graph_node)
             vi_node_uids.add(q_node_uid)
