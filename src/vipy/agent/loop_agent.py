@@ -48,7 +48,7 @@ class ConversionAgent:
 
     def __init__(
         self,
-        graph: "VIGraph | InMemoryVIGraph",
+        graph: VIGraph | InMemoryVIGraph,
         config: ConversionConfig,
     ) -> None:
         self.graph = graph
@@ -151,8 +151,9 @@ class ConversionAgent:
         primitive_context = self.primitive_registry.get_primitive_context(vi_name)
 
         # Use AST-based code generation directly
-        from .codegen import build_module
         import time as _time
+
+        from .codegen import build_module
 
         _start = _time.time()
         try:
@@ -564,7 +565,7 @@ def {func_name}({params_str}) -> {return_type}:
         }
         return type_map.get(lv_type, "Any")
 
-    def convert_lvclass(self, lvclass: "LVClass") -> ConversionResult:
+    def convert_lvclass(self, lvclass: LVClass) -> ConversionResult:
         """Convert a LabVIEW class to a Python class.
 
         Uses AST-based ClassBuilder for code generation. The class methods
@@ -635,7 +636,7 @@ def {func_name}({params_str}) -> {return_type}:
             errors=[e.message for e in validation.errors],
         )
 
-    def convert_lvlib(self, lvlib: "LVLibrary") -> list[ConversionResult]:
+    def convert_lvlib(self, lvlib: LVLibrary) -> list[ConversionResult]:
         """Convert a LabVIEW library to a Python package.
 
         Args:
@@ -1138,7 +1139,7 @@ def {func_name}({params_str}) -> {return_type}:
 
         (lib_dir / "__init__.py").write_text("\n".join(lines))
 
-    def _generate_class_init(self, lvclass: "LVClass") -> list[str]:
+    def _generate_class_init(self, lvclass: LVClass) -> list[str]:
         """Generate __init__ method for a class."""
         lines = ["    def __init__(self) -> None:"]
 
@@ -1152,7 +1153,7 @@ def {func_name}({params_str}) -> {return_type}:
         lines.append("")
         return lines
 
-    def _convert_method(self, lvclass: "LVClass", method) -> list[str]:
+    def _convert_method(self, lvclass: LVClass, method) -> list[str]:
         """Convert a single class method."""
         # Get VI context from graph - structured data for LLM
         vi_context = self.graph.get_vi_context(method.name)

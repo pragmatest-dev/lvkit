@@ -9,10 +9,8 @@ This module provides:
 
 from __future__ import annotations
 
-from pathlib import Path
-
 # Import dataclasses from parser
-from .parser import FPControl, FrontPanel, parse_vi
+from .parser import FPControl, FrontPanel
 
 # Map LabVIEW DDO classes to NiceGUI widgets
 WIDGET_MAP = {

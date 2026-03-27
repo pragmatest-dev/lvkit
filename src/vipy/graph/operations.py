@@ -7,7 +7,7 @@ _get_children_of, _build_case_frames_from_parent, _build_sequence_frames_from_pa
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 import networkx as nx
 

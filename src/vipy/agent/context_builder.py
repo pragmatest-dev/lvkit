@@ -9,6 +9,7 @@ import json
 import re
 from dataclasses import asdict, is_dataclass
 from typing import TYPE_CHECKING
+
 from .context_templates import FUNCTION_TEMPLATE, METHOD_TEMPLATE, UI_WRAPPER_TEMPLATE
 
 if TYPE_CHECKING:
@@ -44,8 +45,8 @@ class ContextBuilder:
     def build_vi_context(
         vi_context: object,
         vi_name: str,
-        converted_deps: dict[str, "VISignature"],
-        shared_types: list["SharedType"],
+        converted_deps: dict[str, VISignature],
+        shared_types: list[SharedType],
         primitives_available: list[str],
         primitive_mappings: dict[int, str] | None = None,
         primitive_context: dict[int, dict] | None = None,
@@ -128,7 +129,7 @@ class ContextBuilder:
     @staticmethod
     def _clean_vi_context(
         ctx: object,
-        converted_deps: dict[str, "VISignature"] | None = None,
+        converted_deps: dict[str, VISignature] | None = None,
         primitive_mappings: dict[int, str] | None = None,
         primitive_context: dict[int, dict] | None = None,
     ) -> dict:
@@ -391,8 +392,8 @@ class ContextBuilder:
         class_name: str,
         visibility: str,  # "public", "private", "protected"
         is_static: bool,
-        converted_deps: dict[str, "VISignature"],
-        shared_types: list["SharedType"],
+        converted_deps: dict[str, VISignature],
+        shared_types: list[SharedType],
     ) -> str:
         """Build context for converting a class method.
 
@@ -446,7 +447,7 @@ class ContextBuilder:
     @staticmethod
     def build_error_context(
         code: str,
-        errors: list["ValidationError"],
+        errors: list[ValidationError],
         original_prompt: str = "",
     ) -> str:
         """Build context for error correction.
@@ -586,7 +587,7 @@ Output ONLY the corrected Python code, no explanations."""
         )
 
     @staticmethod
-    def _format_shared_types(types: list["SharedType"]) -> str:
+    def _format_shared_types(types: list[SharedType]) -> str:
         """Format shared types for context."""
         if not types:
             return "# No shared types needed"

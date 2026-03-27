@@ -49,7 +49,7 @@ class TerminalObservation:
     def _serialize_type(self, type_obj: Any) -> dict[str, Any] | str:
         """Serialize LVType to JSON-compatible dict."""
         # Import here to avoid circular dependency
-        from vipy.graph_types import ClusterField, EnumValue, LVType
+        from vipy.graph_types import LVType
 
         if isinstance(type_obj, LVType):
             result = {
@@ -78,7 +78,7 @@ class TerminalObservation:
             return str(type_obj)
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "TerminalObservation":
+    def from_dict(cls, data: dict[str, Any]) -> TerminalObservation:
         return cls(
             index=data["index"],
             direction=data["direction"],
@@ -108,7 +108,7 @@ class TerminalCollector:
             try:
                 with open(self.pending_file) as f:
                     self.data = json.load(f)
-            except (json.JSONDecodeError, IOError):
+            except (OSError, json.JSONDecodeError):
                 self.data = {"observations": {}}
 
     def save(self) -> None:

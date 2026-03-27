@@ -9,8 +9,7 @@ from typing import TYPE_CHECKING
 from ..llm import LLMConfig
 
 if TYPE_CHECKING:
-    from ..graph import VIGraph
-    from ..memory_graph import InMemoryVIGraph
+    pass
 
 # Type alias for graph - accepts either Neo4j or in-memory graph
 GraphType = "VIGraph | InMemoryVIGraph"

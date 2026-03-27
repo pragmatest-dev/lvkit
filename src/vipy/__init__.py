@@ -7,9 +7,13 @@ from .converter import ConvertedVI, convert_vi, convert_xml
 from .frontpanel import generate_nicegui_code
 from .graph_types import (
     Constant as GraphConstant,
+)
+from .graph_types import (
     Operation,
     Terminal,
     Tunnel,
+)
+from .graph_types import (
     Wire as GraphWire,
 )
 from .parser import (
