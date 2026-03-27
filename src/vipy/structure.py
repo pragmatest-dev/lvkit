@@ -8,6 +8,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from vipy.graph_types import _LV_TO_PYTHON_TYPE
+
 
 @dataclass
 class LVMethod:
@@ -232,9 +234,6 @@ def _lv_type_to_python(lv_type: str) -> str:
 
     Uses the canonical type mapping from graph_types.py.
     """
-    # Import here to avoid circular import
-    from vipy.graph_types import _LV_TO_PYTHON_TYPE
-
     # Additional types not in the core mapping
     extra_types = {
         "Refnum": "Any",  # VI references, notifiers, etc.

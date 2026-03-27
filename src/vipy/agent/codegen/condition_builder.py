@@ -11,6 +11,8 @@ from typing import TYPE_CHECKING
 
 from vipy.graph_types import Operation
 
+from .ast_utils import parse_expr
+
 if TYPE_CHECKING:
     from .context import CodeGenContext
 
@@ -165,8 +167,6 @@ def _build_comparison(
         return None
 
     # Build Compare AST
-    from .ast_utils import parse_expr
-
     return ast.Compare(
         left=parse_expr(left_val),
         ops=[cmp_op()],
@@ -215,7 +215,6 @@ def _build_boolean_op(
         # Fall back to resolved variable
         resolved = ctx.resolve(inp.id)
         if resolved:
-            from .ast_utils import parse_expr
             values.append(parse_expr(resolved))
 
     if len(values) < 2:
@@ -255,7 +254,6 @@ def _build_not(
     # Fall back to resolved variable
     resolved = ctx.resolve(inp.id)
     if resolved:
-        from .ast_utils import parse_expr
         return ast.UnaryOp(op=ast.Not(), operand=parse_expr(resolved))
 
     return None
@@ -279,8 +277,6 @@ def _build_cpd_arith(
     Returns:
         AST BoolOp expression or None
     """
-    from .ast_utils import parse_expr
-
     # Map operation name to AST operator
     op_map = {
         "or": ast.Or,

@@ -9,7 +9,9 @@ Architecture:
 
 from __future__ import annotations
 
+import json
 import re
+import struct
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
@@ -61,7 +63,6 @@ def _load_node_dco_maps() -> dict[str, dict[str, int]]:
 
     Returns: {node_class: {dco_ref_tag: terminal_index}}
     """
-    import json
     data_dir = Path(__file__).parent.parent.parent.parent / "data"
     codegen_path = data_dir / "primitives-codegen.json"
     if not codegen_path.exists():
@@ -880,7 +881,6 @@ def _decode_numeric_default(data: bytes) -> str | None:
         if len(data) == 4:
             return str(int.from_bytes(data, 'big', signed=True))
         elif len(data) == 8:
-            import struct
             try:
                 float_val = struct.unpack('>d', data)[0]
                 if float_val == int(float_val):
@@ -1004,7 +1004,6 @@ def _decode_element(data: bytes, elem_type: LVType | None) -> tuple[str | None, 
         return str(val), size
 
     if underlying.startswith("NumFloat") or underlying.startswith("NumComplex"):
-        import struct
         if underlying in ("NumFloat32", "NumComplex64"):
             if len(data) < 4:
                 return None, 0

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import ast
+import warnings
 from typing import TYPE_CHECKING
 
 from vipy.graph_types import CaseFrame, Operation
@@ -371,7 +372,6 @@ class CaseCodeGen(NodeCodeGen):
                 op.name or op.node_type or "?"
                 for op in error_frame.operations
             )
-            import warnings
             warnings.warn(
                 f"LV error frame omitted in {node.id}: {op_names}",
                 stacklevel=2,

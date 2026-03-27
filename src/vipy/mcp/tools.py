@@ -95,8 +95,6 @@ def generate_documents(
     Returns:
         Summary message with statistics
     """
-    import subprocess
-
     # Build command
     script_path = (
         Path(__file__).parent.parent.parent.parent / "scripts" / "generate_docs.py"
@@ -147,10 +145,6 @@ def generate_python(
     Returns:
         CodeGenResult with generated files, errors, and review needs.
     """
-    import json
-    import subprocess
-    from pathlib import Path
-
     # Build command
     script_path = (
         Path(__file__).parent.parent.parent.parent / "scripts" / "generate_python.py"
