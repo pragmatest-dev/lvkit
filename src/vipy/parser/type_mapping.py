@@ -367,6 +367,8 @@ def parse_vctp_types(xml_path: Path | str) -> dict[int, LVType]:
 
             if ref_type == "UDClassInst":
                 # Extract class name from <Item Text="...">
+                # Bare filename from VCTP; qualified by _enrich_type()
+                # using the dep_graph at graph construction time.
                 item = td.find("Item")
                 if item is not None:
                     classname = item.get("Text")  # e.g., "TestCase.lvclass"

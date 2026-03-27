@@ -191,6 +191,12 @@ class InMemoryVIGraph(
                     lv_type.fields = resolved.fields
                 lv_type.description = resolved.description
 
+        # Enrich class types from dep_graph (project structure)
+        if lv_type.classname and self._dep_graph.has_node(lv_type.classname):
+            node_data = self._dep_graph.nodes[lv_type.classname]
+            if node_data.get("fields") and not lv_type.fields:
+                lv_type.fields = list(node_data["fields"])
+
         return lv_type
 
     def set_var_name(self, terminal_id: str, var_name: str) -> None:
