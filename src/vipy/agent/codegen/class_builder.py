@@ -10,12 +10,13 @@ from vipy.graph_types import VIContext
 from vipy.type_defaults import _is_class_refnum, _is_error_cluster
 
 from .ast_utils import parse_expr, to_function_name, to_var_name
-from .builder import build_args, generate_body, CodeGenContext
+from .builder import CodeGenContext, build_args, generate_body
 
 _EMPTY_VI_CONTEXT = VIContext(name="")
 
 if TYPE_CHECKING:
     from vipy.memory_graph import InMemoryVIGraph
+
     from ...structure import LVClass, LVMethod
 
 

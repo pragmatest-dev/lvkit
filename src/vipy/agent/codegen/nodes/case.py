@@ -9,7 +9,7 @@ from vipy.graph_types import CaseFrame, Operation
 
 from ..ast_utils import build_assign, parse_expr, to_var_name
 from ..fragment import CodeFragment
-from .base import NodeCodeGen, get_codegen
+from .base import NodeCodeGen
 
 if TYPE_CHECKING:
     from ..context import CodeGenContext

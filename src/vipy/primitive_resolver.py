@@ -44,7 +44,7 @@ class TerminalResolutionNeeded(Exception):
         if self.vi_name:
             msg += f"  In VI: {self.vi_name}\n"
         msg += f"  Wired terminal: direction={self.terminal_direction}, type={self.terminal_type}\n"
-        msg += f"  Available resolver terminals (same direction, unassigned):\n"
+        msg += "  Available resolver terminals (same direction, unassigned):\n"
         for t in self.available:
             msg += f"    - index={t['index']} name={t['name']} type={t['type']}\n"
         if not self.available:

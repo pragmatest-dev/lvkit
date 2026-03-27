@@ -348,7 +348,7 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
             return [TextContent(type="text", text=f"VI not found: {vi_name}")]
 
         # Serialize with dataclass and Pydantic support
-        from dataclasses import asdict, fields, is_dataclass
+        from dataclasses import fields, is_dataclass
 
         from pydantic import BaseModel
 

@@ -10,7 +10,12 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
 from vipy.graph_types import (
-    Constant, DestinationInfo, SourceInfo, Terminal, TunnelTerminal, VIContext,
+    Constant,
+    DestinationInfo,
+    SourceInfo,
+    Terminal,
+    TunnelTerminal,
+    VIContext,
 )
 from vipy.vilib_resolver import derive_python_name
 
