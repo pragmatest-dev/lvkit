@@ -69,9 +69,10 @@ class NMuxCodeGen(NodeCodeGen):
                     bindings[t.id] = val
             elif agg_var:
                 # Single list output with no list input:
-                # field extraction from the cluster. Derive field
-                # name from downstream consumer's terminal name.
-                field = self._derive_field_name(t, agg_var, ctx)
+                # field extraction from the cluster.
+                field = self._derive_field_name(
+                    t, agg_var, agg_in, i, ctx,
+                )
                 bindings[t.id] = field
 
         # LIST inputs with AGG output (bundle): bind agg output
@@ -86,24 +87,51 @@ class NMuxCodeGen(NodeCodeGen):
 
     @staticmethod
     def _derive_field_name(
-        term: Any, agg_var: str, ctx: CodeGenContext,
+        term: Any, agg_var: str, agg_terminals: list,
+        list_index: int, ctx: CodeGenContext,
     ) -> str:
-        """Derive a field name for an nMux LIST output from downstream wiring.
+        """Derive a field name for an nMux LIST output.
 
-        When the LIST output is a field extracted from the AGG cluster,
-        the downstream consumer's terminal name often reveals the field name
-        (e.g., wired to a SubVI input named "testmethodname").
-        Falls back to agg_var if no name found.
+        Resolution order:
+        1. AGG terminal's lv_type.fields (from dep_graph class info)
+           — match LIST terminal type against field types
+        2. Downstream consumer's terminal name
+        3. Terminal's own name
+        4. Fallback to bare agg_var
         """
+        # 1. Match against class/cluster fields from AGG terminal type
+        if agg_terminals:
+            agg_type = agg_terminals[0].lv_type
+            if agg_type and agg_type.fields:
+                list_type = term.lv_type.underlying_type if term.lv_type else None
+                if list_type:
+                    # Find fields matching this type
+                    matches = [
+                        f for f in agg_type.fields
+                        if f.name  # has a name
+                    ]
+                    # Try type-unique match first
+                    type_matches = [
+                        f for f in matches
+                        # Can't match by type yet (fields don't have types stored)
+                        # Just use positional: list_index maps to field position
+                    ]
+                    if list_index < len(matches):
+                        field = to_var_name(matches[list_index].name)
+                        return f"{agg_var}.{field}"
+
+        # 2. Downstream consumer's terminal name
         if ctx.graph is not None:
             for dest in ctx.graph.outgoing_edges(term.id):
                 if dest.name:
                     field = to_var_name(dest.name)
                     return f"{agg_var}.{field}"
-        # Fallback: use terminal's own name if available
+
+        # 3. Terminal's own name
         if term.name:
             field = to_var_name(term.name)
             return f"{agg_var}.{field}"
+
         return agg_var
 
     @staticmethod

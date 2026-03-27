@@ -102,6 +102,7 @@ class LoadingMixin:
         lvlib_path: Path | str,
         expand_subvis: bool = True,
         search_paths: list[Path] | None = None,
+        owner_chain: list[str] | None = None,
     ) -> None:
         """Load all VIs from a .lvlib file."""
         lvlib_path = Path(lvlib_path)
@@ -110,17 +111,42 @@ class LoadingMixin:
         if search_paths is None:
             search_paths = [lvlib_path.parent]
 
+        chain = list(owner_chain or [])
+        lib_qname = ":".join(chain + [lib.name + ".lvlib"]) if chain else lib.name + ".lvlib"
+
+        # Add library node to dep_graph
+        self._dep_graph.add_node(lib_qname, node_type="library")
+
         for member in lib.members:
             if member.member_type == "VI":
                 vi_path = lvlib_path.parent / member.url
                 if vi_path.exists():
                     self.load_vi(vi_path, expand_subvis, search_paths)
+                    # Ownership edge
+                    vi_qname = lib_qname + ":" + Path(member.url).name
+                    if vi_qname in self._dep_graph:
+                        self._dep_graph.add_edge(lib_qname, vi_qname, rel="owns")
+            elif member.member_type == "Class":
+                class_path = lvlib_path.parent / member.url
+                if class_path.exists():
+                    self.load_lvclass(
+                        class_path, expand_subvis, search_paths,
+                        owner_chain=chain + [lib.name + ".lvlib"],
+                    )
+            elif member.member_type == "Library":
+                nested_path = lvlib_path.parent / member.url
+                if nested_path.exists():
+                    self.load_lvlib(
+                        nested_path, expand_subvis, search_paths,
+                        owner_chain=chain + [lib.name + ".lvlib"],
+                    )
 
     def load_lvclass(
         self,
         lvclass_path: Path | str,
         expand_subvis: bool = True,
         search_paths: list[Path] | None = None,
+        owner_chain: list[str] | None = None,
     ) -> None:
         """Load all VIs from a .lvclass file."""
         lvclass_path = Path(lvclass_path)
@@ -129,10 +155,30 @@ class LoadingMixin:
         if search_paths is None:
             search_paths = [lvclass_path.parent]
 
+        chain = list(owner_chain or [])
+        cls_qname = ":".join(chain + [cls.name + ".lvclass"]) if chain else cls.name + ".lvclass"
+
+        # Add class node to dep_graph with field info
+        from ..graph_types import ClusterField
+        fields = [
+            ClusterField(name=f.name)
+            for f in cls.private_data_fields
+        ]
+        self._dep_graph.add_node(
+            cls_qname,
+            node_type="class",
+            fields=fields,
+            parent_class=cls.parent_class,
+        )
+
         for method in cls.methods:
             vi_path = self._resolve_class_vi_path(lvclass_path.parent, method.vi_path)
             if vi_path and vi_path.exists():
                 self.load_vi(vi_path, expand_subvis, search_paths)
+                # Ownership edge
+                vi_name = cls_qname + ":" + Path(method.vi_path).name
+                if vi_name in self._dep_graph:
+                    self._dep_graph.add_edge(cls_qname, vi_name, rel="owns")
 
     def _resolve_class_vi_path(self, cls_dir: Path, relative_path: str) -> Path | None:
         """Resolve VI path from lvclass relative URL."""
