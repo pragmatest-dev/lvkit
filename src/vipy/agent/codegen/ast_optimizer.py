@@ -357,9 +357,65 @@ class ConstantFolder(ast.NodeTransformer):
         return node
 
 
+class DeadBranchEliminator(ast.NodeTransformer):
+    """Remove branches with constant conditions and code after raise.
+
+    - `if True: body` → body (inline)
+    - `if False: body` → removed
+    - `if not True: body; else: alt` → alt (inline)
+    - Code after `raise` in a block → removed
+    """
+
+    def visit_If(self, node: ast.If) -> ast.AST | list[ast.stmt] | None:
+        self.generic_visit(node)
+        test = node.test
+
+        # if True: / if False:
+        if isinstance(test, ast.Constant) and isinstance(test.value, bool):
+            if test.value:
+                return node.body  # inline the True branch
+            else:
+                return node.orelse or None  # inline else or remove
+
+        # if not <const>:
+        if (
+            isinstance(test, ast.UnaryOp)
+            and isinstance(test.op, ast.Not)
+            and isinstance(test.operand, ast.Constant)
+            and isinstance(test.operand.value, bool)
+        ):
+            if not test.operand.value:  # not False = True
+                return node.body
+            else:  # not True = False
+                return node.orelse or None
+
+        return node
+
+    def _truncate_after_raise(self, stmts: list[ast.stmt]) -> list[ast.stmt]:
+        """Remove statements after a raise in a block."""
+        result = []
+        for stmt in stmts:
+            result.append(stmt)
+            if isinstance(stmt, ast.Raise):
+                break
+        return result
+
+    def visit_FunctionDef(self, node: ast.FunctionDef) -> ast.FunctionDef:
+        self.generic_visit(node)
+        node.body = self._truncate_after_raise(node.body)
+        if not node.body:
+            node.body = [ast.Pass()]
+        return node
+
+
 def fold_constants(module: ast.Module) -> ast.Module:
     """Fold constant expressions in module AST."""
     return ConstantFolder().visit(module)
+
+
+def eliminate_dead_branches(module: ast.Module) -> ast.Module:
+    """Remove branches with constant conditions."""
+    return DeadBranchEliminator().visit(module)
 
 
 def optimize_module(module: ast.Module) -> ast.Module:
@@ -373,6 +429,7 @@ def optimize_module(module: ast.Module) -> ast.Module:
     """
     module = remove_duplicate_imports(module)
     module = fold_constants(module)
+    module = eliminate_dead_branches(module)
     module = eliminate_dead_code(module)
     module = remove_unused_imports(module)
     return module
