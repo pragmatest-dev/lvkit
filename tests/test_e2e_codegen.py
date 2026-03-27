@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import ast
 import re
+import warnings
 from pathlib import Path
 
 import pytest
@@ -244,7 +245,13 @@ class TestTestCaseLvclass:
             if not ctx.operations:
                 continue
             try:
-                code = build_module(ctx, vi_name, graph=testcase_graph)
+                # Error frame omission warnings are expected — we emit
+                # no-error body only for error-based case structures.
+                with warnings.catch_warnings():
+                    warnings.filterwarnings(
+                        "ignore", message="LV error frame omitted",
+                    )
+                    code = build_module(ctx, vi_name, graph=testcase_graph)
                 ast.parse(code)
                 successes += 1
             except Exception as e:
@@ -267,7 +274,11 @@ class TestTestCaseLvclass:
             if not ctx.operations:
                 continue
             try:
-                code = build_module(ctx, vi_name, graph=testcase_graph)
+                with warnings.catch_warnings():
+                    warnings.filterwarnings(
+                        "ignore", message="LV error frame omitted",
+                    )
+                    code = build_module(ctx, vi_name, graph=testcase_graph)
                 assert_no_garbage(code, vi_name)
             except Exception:
                 pass  # Generation failures caught by other test

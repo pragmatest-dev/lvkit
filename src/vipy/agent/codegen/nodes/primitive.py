@@ -116,29 +116,28 @@ class PrimitiveCodeGen(NodeCodeGen):
 
         # Build index → (name, default_value) dict from resolved terminals
         resolved_inputs: dict[int, tuple[str, str | None]] = {}
-        # Also track which resolver indices are error/expandable terminals
-        resolver_error_indices: set[int] = set()
         expandable_indices: set[int] = set()
         if resolved and resolved.terminals:
             for rt in resolved.terminals:
                 if rt.direction == "in":
                     default = getattr(rt, "default_value", None)
                     resolved_inputs[rt.index] = (rt.name, default)
-                    if rt.type == "cluster" and rt.name and "error" in rt.name.lower():
-                        resolver_error_indices.add(rt.index)
                     if getattr(rt, "expandable", False):
                         expandable_indices.add(rt.index)
+
+        # Check which terminal indices the template actually references
+        template_str = str(resolved.python_code) if resolved else ""
+        template_refs = set(re.findall(r"\bin_(\d+)\b", template_str))
 
         for term in node.terminals:
             if term.direction != "input":
                 continue
 
-            # Skip error terminals — Python uses exceptions
-            # Check parser type, resolver name, AND resolver type
+            # Skip error cluster inputs unless the template references
+            # them (e.g. Merge Errors processes error data as values).
             if term.is_error_cluster:
-                continue
-            if term.index in resolver_error_indices:
-                continue
+                if str(term.index) not in template_refs:
+                    continue
 
             term_id = term.id
             term_index = term.index
@@ -150,11 +149,6 @@ class PrimitiveCodeGen(NodeCodeGen):
                 resolved_name, default_value = resolved_inputs[term_index]
                 if not term_name:
                     term_name = resolved_name
-
-            # Skip error inputs by resolved name
-            if term_name and "error" in term_name.lower():
-                continue
-
 
             # Resolve from context - None means unwired
             value = ctx.resolve(term_id)
@@ -581,15 +575,10 @@ class PrimitiveCodeGen(NodeCodeGen):
 
         result = re.sub(combined, _replace, template)
 
-        # Replace any remaining unsubstituted in_N placeholders with None
-        leftover = re.findall(r'\bin_\d+\b', result)
-        if leftover:
-            import warnings
-            warnings.warn(
-                f"Unresolved template placeholders: {leftover}",
-                stacklevel=3,
-            )
-            result = re.sub(r'\bin_(\d+)\b', 'None', result)
+        # Replace any remaining unsubstituted in_N placeholders with
+        # type default. This happens for unwired optional inputs — the
+        # terminal exists in the primitive definition but has no wire.
+        result = re.sub(r'\bin_(\d+)\b', 'None', result)
 
         return result
 
