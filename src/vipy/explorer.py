@@ -9,6 +9,7 @@ from __future__ import annotations
 import argparse
 import importlib
 import sys
+import traceback
 from pathlib import Path
 from typing import Any
 
@@ -99,7 +100,6 @@ class ProjectExplorer:
                         return cls
         except Exception as e:
             print(f"Failed to load {module_id}: {e}")
-            import traceback
             traceback.print_exc()
 
         return None

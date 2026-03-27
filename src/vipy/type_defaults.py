@@ -10,6 +10,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from .vilib_resolver import derive_python_name
+
 if TYPE_CHECKING:
     from .graph_types import LVType
 
@@ -84,14 +86,12 @@ def get_default_for_type(lv_type: LVType | None) -> str:
                 if enum_val.value == 0:
                     if lv_type.typedef_name:
                         # Use qualified enum reference
-                        from .vilib_resolver import derive_python_name
                         class_name = derive_python_name(lv_type.typedef_name)
                         return f"{class_name}.{member_name}"
                     return f"0  # {member_name}"
             # If no value 0, use first member
             first_member = next(iter(lv_type.values.keys()), None)
             if first_member and lv_type.typedef_name:
-                from .vilib_resolver import derive_python_name
                 class_name = derive_python_name(lv_type.typedef_name)
                 return f"{class_name}.{first_member}"
         return "0"

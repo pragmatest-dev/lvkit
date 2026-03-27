@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import ast
+import re
 from typing import TYPE_CHECKING, Any
 
 from vipy.graph_types import Operation
@@ -152,7 +153,6 @@ class SubVICodeGen(NodeCodeGen):
                 template = template.replace(placeholder, value or "None")
 
         # Check for unresolved input placeholders — same as vilib resolution
-        import re
         unresolved_inputs = {
             m for m in re.findall(r'\{(\w+)\}', template)
             if m not in set(vilib_outputs.values())

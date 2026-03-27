@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+from dataclasses import fields, is_dataclass
 from pathlib import Path
 from typing import Any
 
@@ -375,8 +376,6 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
             return [TextContent(type="text", text=f"VI not found: {vi_name}")]
 
         # Serialize with dataclass and Pydantic support
-        from dataclasses import fields, is_dataclass
-
         from pydantic import BaseModel
 
         def _serialize(obj):

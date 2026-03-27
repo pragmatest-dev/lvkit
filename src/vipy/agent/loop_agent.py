@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 import ast
+import re
 import shutil
+import time
+from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -153,12 +156,9 @@ class ConversionAgent:
         primitive_context = self.primitive_registry.get_primitive_context(vi_name)
 
         # Use AST-based code generation directly
-        import time as _time
-        from dataclasses import dataclass as _dataclass
-
         from .codegen import build_module
 
-        @_dataclass
+        @dataclass
         class _StrategyResult:
             code: str
             success: bool
@@ -170,19 +170,19 @@ class ConversionAgent:
             def errors(self) -> list[str]:
                 return [self.error] if self.error else []
 
-        _start = _time.time()
+        _start = time.time()
         try:
             code = build_module(vi_context, vi_name, graph=self.graph)
 
             result = _StrategyResult(
-                code=code, success=True, time_seconds=_time.time() - _start
+                code=code, success=True, time_seconds=time.time() - _start
             )
         except Exception as e:
             result = _StrategyResult(
                 code="",
                 success=False,
                 error=str(e),
-                time_seconds=_time.time() - _start,
+                time_seconds=time.time() - _start,
             )
 
         # Suppress unused variable warnings
@@ -517,7 +517,6 @@ def {func_name}({params_str}) -> {return_type}:
         if not name:
             return "arg"
         # Convert to snake_case and remove invalid chars
-        import re
         name = re.sub(r'[^\w\s]', '', name.lower())
         name = re.sub(r'\s+', '_', name)
         if name and name[0].isdigit():

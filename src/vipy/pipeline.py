@@ -10,13 +10,17 @@ import ast
 import re
 import shutil
 import sys
+import traceback
+from collections import defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from vipy.agent.codegen import build_module
+from vipy.agent.codegen import ClassBuilder, ClassConfig, build_module
 from vipy.agent.codegen.ast_utils import to_function_name, to_module_name
 from vipy.memory_graph import InMemoryVIGraph
+from vipy.structure import parse_lvclass
+from vipy.terminal_collector import get_collector
 from vipy.vilib_resolver import VILibResolver
 from vipy.vilib_resolver import get_resolver as get_vilib_resolver
 
@@ -466,14 +470,13 @@ def generate_python(
     # Structural fallback: detect polymorphic groups by finding VIs whose
     # names follow the pattern "Base (Variant)". Group them under the base
     # name even if the wrapper VI isn't in the conversion order.
-    from collections import defaultdict
     _variant_candidates: dict[str, list[str]] = defaultdict(list)
     for vi_name in order:
         if vi_name in poly_groups:
             continue
         name_no_ext = vi_name.replace(".vi", "").replace(".VI", "")
         if "(" in name_no_ext and ")" in name_no_ext:
-            # Extract base: "Filter (Array)__sfx" → "Filter__sfx"
+            # Extract base: "Filter (Array)__sfx" -> "Filter__sfx"
             paren_start = name_no_ext.index("(")
             paren_end = name_no_ext.rindex(")")
             base_part = name_no_ext[:paren_start].rstrip()
@@ -583,7 +586,6 @@ def {func_name}(*args, **kwargs) -> Any:
                 generated.append((vi_name, error_path, "error"))
             except Exception as e:
                 print(f"         -> FAILED: {e}")
-                import traceback
                 traceback.print_exc()
                 generated.append((vi_name, None, "failed"))
 
@@ -646,7 +648,6 @@ def {func_name}(*args, **kwargs) -> Any:
                 wrapper_path.write_text(code)
                 generated.append((wrapper_name, wrapper_path, "ast"))
             except Exception as e:
-                import traceback
                 print(f"  [poly wrapper] FAILED for {wrapper_name}: {e}")
                 traceback.print_exc()
 
@@ -657,9 +658,6 @@ def {func_name}(*args, **kwargs) -> Any:
 
     # Generate class wrapper if input was an lvclass
     if input_path.suffix.lower() == ".lvclass":
-        from vipy.agent.codegen import ClassBuilder, ClassConfig
-        from vipy.structure import parse_lvclass
-
         lvclass = parse_lvclass(input_path)
 
         # Get method contexts from graph
@@ -709,7 +707,6 @@ def {func_name}(*args, **kwargs) -> Any:
     print(f"  error: {error_count}")
 
     # Save terminal observations for incremental collection
-    from vipy.terminal_collector import get_collector
     collector = get_collector()
     if collector.data.get("observations"):
         collector.save()

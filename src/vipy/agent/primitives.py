@@ -8,7 +8,10 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from ..llm import generate_code
 from ..primitive_resolver import get_resolver
+from .context_builder import ContextBuilder
+from .validator import CodeValidator, ValidatorConfig, deduplicate_imports
 
 if TYPE_CHECKING:
     from ..graph import VIGraph
@@ -246,8 +249,6 @@ class PrimitiveRegistry:
         implementation: str,
     ) -> None:
         """Write a single primitive implementation file."""
-        from .validator import deduplicate_imports
-
         file_path = primitives_dir / f"{func_name}.py"
 
         content = f'''"""Primitive: {func_name}."""
@@ -304,10 +305,6 @@ from typing import Any
         Returns:
             Tuple of (function_name, implementation) or (None, None)
         """
-        from ..llm import generate_code
-        from .context_builder import ContextBuilder
-        from .validator import CodeValidator, ValidatorConfig
-
         # Build primitive context as a simplified VI context
         # This lets us use the same strategy/validation system
         func_name = (

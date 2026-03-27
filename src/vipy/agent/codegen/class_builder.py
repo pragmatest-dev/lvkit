@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Any
 from vipy.graph_types import VIContext
 from vipy.type_defaults import _is_class_refnum, _is_error_cluster
 
+from .ast_optimizer import optimize_module
 from .ast_utils import parse_expr, to_function_name, to_var_name
 from .builder import CodeGenContext, build_args, generate_body
 
@@ -91,7 +92,6 @@ class ClassBuilder:
         module = ast.Module(body=module_body, type_ignores=[])
 
         # Run optimizer (dead code, unreachable, duplicate imports)
-        from .ast_optimizer import optimize_module
         module = optimize_module(module)
 
         return module

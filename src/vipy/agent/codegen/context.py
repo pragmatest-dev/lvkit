@@ -7,22 +7,21 @@ from __future__ import annotations
 
 from collections import deque
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from vipy.graph_types import (
     Constant,
     DestinationInfo,
+    PrimitiveNode,
     SourceInfo,
     Terminal,
     TunnelTerminal,
     VIContext,
 )
+from vipy.memory_graph import InMemoryVIGraph
 from vipy.vilib_resolver import derive_python_name
 
 from .ast_utils import to_var_name
-
-if TYPE_CHECKING:
-    from vipy.memory_graph import InMemoryVIGraph
 
 
 @dataclass
@@ -286,9 +285,6 @@ class CodeGenContext:
         cls, wires: list, bindings: dict[str, str] | None = None
     ) -> CodeGenContext:
         """Create context from Wire list by building a graph. For tests."""
-        from vipy.graph_types import PrimitiveNode
-        from vipy.memory_graph import InMemoryVIGraph
-
         graph = InMemoryVIGraph()
         # Collect terminal IDs per node
         node_terminals: dict[str, set[str]] = {}
@@ -365,9 +361,6 @@ class CodeGenContext:
         bind/resolve work. Does NOT add wire edges to avoid the codegen
         discovering auto-created graph structure.
         """
-        from vipy.graph_types import PrimitiveNode
-        from vipy.memory_graph import InMemoryVIGraph as _G
-
         inputs = vi_context.inputs
         constants = vi_context.constants
 
@@ -382,7 +375,7 @@ class CodeGenContext:
         if not tids:
             return None
 
-        graph = _G()
+        graph = InMemoryVIGraph()
         for i, tid in enumerate(tids):
             nid = f"_auto_{i}"
             node = PrimitiveNode(

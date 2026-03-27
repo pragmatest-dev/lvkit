@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING, Any
 
 from ..graph_types import VIContext
 from .context_templates import FUNCTION_TEMPLATE, METHOD_TEMPLATE, UI_WRAPPER_TEMPLATE
+from .validator import ErrorFormatter
 
 if TYPE_CHECKING:
     from .context import VISignature
@@ -491,8 +492,6 @@ class ContextBuilder:
         Returns:
             Prompt for LLM to fix errors
         """
-        from .validator import ErrorFormatter
-
         error_text = ErrorFormatter.format(errors)
 
         context = ""

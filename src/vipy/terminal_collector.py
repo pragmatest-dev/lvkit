@@ -17,6 +17,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+from vipy.graph_types import LVType
+
 
 class TerminalObservation:
     """A single observation of terminal usage from a caller."""
@@ -48,9 +50,6 @@ class TerminalObservation:
 
     def _serialize_type(self, type_obj: Any) -> dict[str, Any] | str:
         """Serialize LVType to JSON-compatible dict."""
-        # Import here to avoid circular dependency
-        from vipy.graph_types import LVType
-
         if isinstance(type_obj, LVType):
             result = {
                 "kind": type_obj.kind,
