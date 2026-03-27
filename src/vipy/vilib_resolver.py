@@ -68,7 +68,8 @@ def derive_python_location(typedef_name: str) -> tuple[str, str]:
         filename = typedef_name
 
     # Container becomes package: "sysdir.llb" -> "sysdir"
-    package = container.replace(".llb", "").replace(".lvlib", "").replace(".lvclass", "").lower()
+    package = container.replace(".llb", "").replace(".lvlib", "")
+    package = package.replace(".lvclass", "").lower()
     package = package.replace(" ", "_").replace("-", "_")
 
     # Filename becomes class name
@@ -175,10 +176,10 @@ class VILibResolver:
         self._vis: dict[str, VIEntry] = {}
         self._by_name: dict[str, VIEntry] = {}  # Lookup by VI name only
         self._pdf_entries: dict[str, dict] = {}  # Raw PDF data for context
-        self._types: dict[str, LVType] = {}  # Type definitions indexed by qualified name
+        self._types: dict[str, LVType] = {}  # Indexed by qualified name
         self._category_files: dict[str, Path] = {}  # VI name → category file
-        self._variants: dict[str, list[VIEntry]] = {}  # VI name → list of variants
-        self._by_poly_selector: dict[tuple[str, str], VIEntry] = {}  # (base, selector) → entry
+        self._variants: dict[str, list[VIEntry]] = {}  # VI name → variants
+        self._by_poly_selector: dict[tuple[str, str], VIEntry] = {}  # (base, sel)
 
         # Load vilib data from category files
         vilib_dir = data_dir / "vilib"
@@ -471,7 +472,11 @@ class VILibResolver:
             lv_type = self.resolve_type(typedef_path)
             if lv_type and lv_type.values:
                 # Derive Python class name from typedef_name
-                class_name = derive_python_name(lv_type.typedef_name) if lv_type.typedef_name else "Unknown"
+                class_name = (
+                    derive_python_name(lv_type.typedef_name)
+                    if lv_type.typedef_name
+                    else "Unknown"
+                )
                 lines.append("")
                 lines.append(f"class {class_name}(IntEnum):")
                 lines.append(f'    """{lv_type.description or class_name}"""')
@@ -754,7 +759,7 @@ class VILibResolver:
         observed_map: dict[int, dict[str, Any]] = {}
         for wired_term in wired_terminals:
             if wired_term.index < 0:
-                continue  # Unresolved — should have been resolved during graph construction
+                continue  # Unresolved — should be resolved during graph construction
 
             lv_type = getattr(wired_term, 'lv_type', None)
             type_str = None
@@ -931,7 +936,11 @@ class VILibResolver:
             data = {}
 
         # Derive Python name from typedef_name
-        python_name = derive_python_name(lv_type.typedef_name) if lv_type.typedef_name else "Unknown"
+        python_name = (
+            derive_python_name(lv_type.typedef_name)
+            if lv_type.typedef_name
+            else "Unknown"
+        )
 
         # Serialize LVType
         type_data: dict[str, Any] = {

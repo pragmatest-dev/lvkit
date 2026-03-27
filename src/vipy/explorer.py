@@ -12,13 +12,13 @@ import sys
 from pathlib import Path
 from typing import Any
 
+from nicegui import ui
+
 # Set up package imports - add PARENT to path so this dir is a package
 _pkg_dir = Path(__file__).parent
 _pkg_name = _pkg_dir.name
 if str(_pkg_dir.parent) not in sys.path:
     sys.path.insert(0, str(_pkg_dir.parent))
-
-from nicegui import ui
 
 
 class ProjectExplorer:
@@ -123,7 +123,9 @@ class ProjectExplorer:
             with splitter.before:
                 with ui.column().classes("p-2 h-full"):
                     ui.label("Project Explorer").classes("text-lg font-bold mb-2")
-                    ui.label(str(self.root_dir)).classes("text-xs text-gray-500 mb-2 truncate")
+                    ui.label(str(self.root_dir)).classes(
+                        "text-xs text-gray-500 mb-2 truncate"
+                    )
                     self.tree = ui.tree(
                         tree_data,
                         label_key="label",
@@ -136,7 +138,9 @@ class ProjectExplorer:
                     self.panels = ui.tab_panels(self.tabs).classes("w-full flex-grow")
                     with self.panels:
                         with ui.tab_panel("_welcome").classes("p-8"):
-                            ui.label("Select a VI from the tree.").classes("text-xl text-gray-500")
+                            ui.label("Select a VI from the tree.").classes(
+                                "text-xl text-gray-500"
+                            )
 
     def on_tree_select(self, e) -> None:
         """Handle tree node selection."""

@@ -46,7 +46,12 @@ class MermaidRenderer:
         loop_type = op.loop_type
 
         if "Loop" in labels and inner_nodes:
-            loop_label = "While Loop" if loop_type == "whileLoop" else "For Loop" if loop_type == "forLoop" else "Loop"
+            if loop_type == "whileLoop":
+                loop_label = "While Loop"
+            elif loop_type == "forLoop":
+                loop_label = "For Loop"
+            else:
+                loop_label = "Loop"
             self._lines.append(f'{indent}subgraph {nid}["{loop_label}"]')
             for inner_op in inner_nodes:
                 self._render_operation(inner_op, indent + "    ")
@@ -73,11 +78,20 @@ class MermaidRenderer:
             self._lines.append(f'{indent}{nid}["{label}"]')
             self._node_styles.append((nid, "primitiveStyle"))
         elif "Loop" in labels:
-            loop_label = "While Loop" if loop_type == "whileLoop" else "For Loop" if loop_type == "forLoop" else "Loop"
+            if loop_type == "whileLoop":
+                loop_label = "While Loop"
+            elif loop_type == "forLoop":
+                loop_label = "For Loop"
+            else:
+                loop_label = "Loop"
             self._lines.append(f'{indent}{nid}(["{loop_label}"])')
             self._node_styles.append((nid, "loopStyle"))
         elif "CaseStructure" in labels:
-            cases = [str(f.selector_value) for f in op.case_frames] if op.case_frames else []
+            cases = (
+                [str(f.selector_value) for f in op.case_frames]
+                if op.case_frames
+                else []
+            )
             case_label = " | ".join(cases[:4])
             if len(cases) > 4:
                 case_label += " | ..."
@@ -94,7 +108,9 @@ class MermaidRenderer:
             self._lines.append(f'{indent}{nid}["{label}"]')
             self._node_styles.append((nid, "operationStyle"))
 
-    def render(self, graph: dict[str, Any], vi_name_to_filename: Callable[[str], str]) -> str:
+    def render(
+        self, graph: dict[str, Any], vi_name_to_filename: Callable[[str], str]
+    ) -> str:
         """Render graph to Mermaid flowchart HTML."""
         inputs = graph.get("inputs", [])
         outputs = graph.get("outputs", [])
@@ -139,7 +155,7 @@ class MermaidRenderer:
             value = const.value
             underlying = const.lv_type.underlying_type if const.lv_type else None
 
-            # Check if this is an enum constant - display member name instead of raw value
+            # Check if this is an enum constant - display member name not raw value
             if const.lv_type and const.lv_type.values and value is not None:
                 try:
                     int_value = int(value)
@@ -154,7 +170,11 @@ class MermaidRenderer:
             elif underlying == "Boolean":
                 # Decode boolean: "00"/"0000"/0/False → False, else → True
                 raw = value if value is not None else const.raw_value
-                value_str = "False" if str(raw) in ("0", "00", "0000", "False", "None") else "True"
+                value_str = (
+                    "False"
+                    if str(raw) in ("0", "00", "0000", "False", "None")
+                    else "True"
+                )
             else:
                 value_str = str(value) if value is not None else "None"
 
@@ -177,7 +197,11 @@ class MermaidRenderer:
             if to_id not in self._node_ids:
                 to_id = wire.to_terminal_id
 
-            if from_id in self._node_ids and to_id in self._node_ids and from_id != to_id:
+            if (
+                from_id in self._node_ids
+                and to_id in self._node_ids
+                and from_id != to_id
+            ):
                 edge_key = (self._node_ids[from_id], self._node_ids[to_id])
                 if edge_key not in rendered_edges:
                     rendered_edges.add(edge_key)
@@ -190,14 +214,26 @@ class MermaidRenderer:
                 self._lines.append(f'    click {nid} href "{link}"')
 
         # Style definitions
-        self._lines.append("    classDef controlStyle fill:#bbdefb,stroke:#1976d2,stroke-width:2px")
-        self._lines.append("    classDef indicatorStyle fill:#fff3e0,stroke:#f57c00,stroke-width:2px")
+        self._lines.append(
+            "    classDef controlStyle fill:#bbdefb,stroke:#1976d2,stroke-width:2px"
+        )
+        self._lines.append(
+            "    classDef indicatorStyle fill:#fff3e0,stroke:#f57c00,stroke-width:2px"
+        )
         self._lines.append("    classDef constantStyle fill:#f3e5f5,stroke:#7b1fa2")
         self._lines.append("    classDef subviStyle fill:#e8f5e9,stroke:#388e3c")
-        self._lines.append("    classDef primitiveStyle fill:#fffde7,stroke:#f9a825,stroke-width:2px")
-        self._lines.append("    classDef operationStyle fill:#e0e0e0,stroke:#616161,stroke-width:2px")
-        self._lines.append("    classDef loopStyle fill:#e1bee7,stroke:#8e24aa,stroke-width:2px")
-        self._lines.append("    classDef caseStyle fill:#b2ebf2,stroke:#00838f,stroke-width:2px")
+        self._lines.append(
+            "    classDef primitiveStyle fill:#fffde7,stroke:#f9a825,stroke-width:2px"
+        )
+        self._lines.append(
+            "    classDef operationStyle fill:#e0e0e0,stroke:#616161,stroke-width:2px"
+        )
+        self._lines.append(
+            "    classDef loopStyle fill:#e1bee7,stroke:#8e24aa,stroke-width:2px"
+        )
+        self._lines.append(
+            "    classDef caseStyle fill:#b2ebf2,stroke:#00838f,stroke-width:2px"
+        )
 
         # Apply styles
         for nid, style in self._node_styles:
@@ -269,7 +305,6 @@ class HTMLDocGenerator:
         callers = vi_data.get("callers", [])
         graph = vi_data.get("graph", {})
         is_poly = vi_data.get("is_polymorphic", False)
-        poly_variants = vi_data.get("poly_variants", [])
         variant_params = vi_data.get("variant_params", [])
         icon_path = vi_data.get("icon_path")
 
@@ -281,14 +316,20 @@ class HTMLDocGenerator:
             target_lib = self._extract_library_group(target_vi_name)
             # If same library, use just the filename
             if target_lib == current_lib:
-                return target_path.split("/", 1)[1] if "/" in target_path else target_path
+                return (
+                    target_path.split("/", 1)[1]
+                    if "/" in target_path
+                    else target_path
+                )
             # Otherwise use relative path from subdirectory
             return "../" + target_path
 
         # Build sections with relative links
         controls_html = self._render_controls_table(controls)
         indicators_html = self._render_indicators_table(indicators)
-        dependencies_html = self._render_dependencies_section(dependencies, relative_link)
+        dependencies_html = self._render_dependencies_section(
+            dependencies, relative_link
+        )
         callers_html = self._render_callers_section(callers, relative_link)
         self._mermaid.all_vis = self.all_vis
         dataflow_html = self._mermaid.render(graph, relative_link)
@@ -297,6 +338,24 @@ class HTMLDocGenerator:
         poly_html = ""
         if is_poly and variant_params:
             poly_html = self._render_polymorphic_section(variant_params, relative_link)
+
+        # Pre-compute values used inside the HTML f-string
+        icon_html = (
+            f'<img src="{icon_path}" alt="VI Icon" class="vi-icon">'
+            if icon_path
+            else ""
+        )
+        vi_type_label = (
+            f"{'Polymorphic ' if is_poly else ''}{self.doc_type.capitalize()}"
+        )
+        if is_poly:
+            summary_text = (
+                f"Polymorphic VI with {len(variant_params)} variant(s)"
+            )
+        else:
+            summary_text = (
+                f"Takes {len(controls)} input(s), returns {len(indicators)} output(s)"
+            )
 
         return f"""<!DOCTYPE html>
 <html lang="en">
@@ -322,10 +381,10 @@ class HTMLDocGenerator:
 
     <header>
         <div class="vi-header">
-            {f'<img src="{icon_path}" alt="VI Icon" class="vi-icon">' if icon_path else ''}
+            {icon_html}
             <div class="vi-header-text">
                 <h1>{vi_name}</h1>
-                <p class="vi-type">{"Polymorphic " if is_poly else ""}{self.doc_type.capitalize()}</p>
+                <p class="vi-type">{vi_type_label}</p>
             </div>
         </div>
     </header>
@@ -333,7 +392,7 @@ class HTMLDocGenerator:
     <main>
         <section id="summary">
             <h2>Summary</h2>
-            <p>{"⚡ Polymorphic VI with " + str(len(variant_params)) + " variant(s)" if is_poly else f"Takes {len(controls)} input(s), returns {len(indicators)} output(s)"}</p>
+            <p>{summary_text}</p>
         </section>
 
         {poly_html}
@@ -436,7 +495,9 @@ class HTMLDocGenerator:
         </table>
         """
 
-    def _render_dependencies_section(self, dependencies: dict[str, str], link_fn: Callable[[str], str]) -> str:
+    def _render_dependencies_section(
+        self, dependencies: dict[str, str], link_fn: Callable[[str], str]
+    ) -> str:
         """Render dependencies with links.
 
         Args:
@@ -449,7 +510,11 @@ class HTMLDocGenerator:
         items = []
         for qualified_name, description in dependencies.items():
             # Display the short name but link using qualified name
-            display_name = qualified_name.split(":")[-1] if ":" in qualified_name else qualified_name
+            display_name = (
+                qualified_name.split(":")[-1]
+                if ":" in qualified_name
+                else qualified_name
+            )
 
             # Only create link if this VI has a documentation page
             if qualified_name in self.all_vis:
@@ -477,7 +542,9 @@ class HTMLDocGenerator:
         </ul>
         """
 
-    def _render_callers_section(self, callers: list[str], link_fn: Callable[[str], str]) -> str:
+    def _render_callers_section(
+        self, callers: list[str], link_fn: Callable[[str], str]
+    ) -> str:
         """Render reverse links (who calls this VI).
 
         Args:
@@ -490,7 +557,11 @@ class HTMLDocGenerator:
         items = []
         for qualified_name in callers:
             # Display the short name but link using qualified name
-            display_name = qualified_name.split(":")[-1] if ":" in qualified_name else qualified_name
+            display_name = (
+                qualified_name.split(":")[-1]
+                if ":" in qualified_name
+                else qualified_name
+            )
             link = link_fn(qualified_name)
             items.append(
                 f"""
@@ -504,7 +575,9 @@ class HTMLDocGenerator:
         </ul>
         """
 
-    def _render_polymorphic_section(self, variant_params: list[dict], link_fn: Callable[[str], str]) -> str:
+    def _render_polymorphic_section(
+        self, variant_params: list[dict], link_fn: Callable[[str], str]
+    ) -> str:
         """Render polymorphic variants section with parameter comparison.
 
         Args:
@@ -536,7 +609,9 @@ class HTMLDocGenerator:
         variant_links = []
         for variant in variant_params:
             link = link_fn(variant["name"])
-            variant_links.append(f'<li><a href="{link}"><code>{variant["name"]}</code></a></li>')
+            variant_links.append(
+                f'<li><a href="{link}"><code>{variant["name"]}</code></a></li>'
+            )
 
         # Build parameter comparison table
         param_rows = []
@@ -551,9 +626,16 @@ class HTMLDocGenerator:
                 else:
                     present_in.append("—")
 
-            common_badge = '<span class="param-common">All</span>' if is_common else '<span class="param-some">Some</span>'
+            common_badge = (
+                '<span class="param-common">All</span>'
+                if is_common
+                else '<span class="param-some">Some</span>'
+            )
             cells = "".join(f"<td>{mark}</td>" for mark in present_in)
-            param_rows.append(f"<tr><td><strong>{param_name}</strong> (input)</td><td>{common_badge}</td>{cells}</tr>")
+            param_rows.append(
+                f"<tr><td><strong>{param_name}</strong> (input)</td>"
+                f"<td>{common_badge}</td>{cells}</tr>"
+            )
 
         # Output parameters
         for param_name in sorted(all_output_names):
@@ -565,12 +647,22 @@ class HTMLDocGenerator:
                 else:
                     present_in.append("—")
 
-            common_badge = '<span class="param-common">All</span>' if is_common else '<span class="param-some">Some</span>'
+            common_badge = (
+                '<span class="param-common">All</span>'
+                if is_common
+                else '<span class="param-some">Some</span>'
+            )
             cells = "".join(f"<td>{mark}</td>" for mark in present_in)
-            param_rows.append(f"<tr><td><strong>{param_name}</strong> (output)</td><td>{common_badge}</td>{cells}</tr>")
+            param_rows.append(
+                f"<tr><td><strong>{param_name}</strong> (output)</td>"
+                f"<td>{common_badge}</td>{cells}</tr>"
+            )
 
         # Build table header with variant names
-        variant_headers = "".join(f"<th>{v['name'].split(':')[-1] if ':' in v['name'] else v['name']}</th>" for v in variant_params)
+        variant_headers = "".join(
+            f"<th>{v['name'].split(':')[-1] if ':' in v['name'] else v['name']}</th>"
+            for v in variant_params
+        )
 
         return f"""
         <section id="polymorphic-variants" class="poly-section">
@@ -600,11 +692,12 @@ class HTMLDocGenerator:
         """Extract library/group name from VI name for grouping.
 
         Examples:
-            "GraphicalTestRunner.lvlib:Get Settings Path.vi" -> "GraphicalTestRunner.lvlib"
+            "GraphicalTestRunner.lvlib:Get Settings Path.vi"
+                -> "GraphicalTestRunner.lvlib"
             "Build Path__ogtk.vi" -> "OpenG"
             "Get System Directory.vi" -> "vi.lib"
         """
-        # Check for library-qualified name (Library.lvlib:VI.vi or Library.lvclass:VI.vi)
+        # Check for library-qualified name (Library.lvlib:VI.vi or lvclass:VI.vi)
         if ".lvlib:" in vi_name:
             return vi_name.split(":")[0]
         if ".lvclass:" in vi_name:
@@ -663,17 +756,23 @@ class HTMLDocGenerator:
                 # Get icon path (adjust from VI page relative to index relative)
                 icon_html = ""
                 if vi_name in self.icon_map:
-                    # icon_map paths are "../icons/..." for VI pages, need "icons/..." for index
+                    # icon_map has "../icons/..." for VI pages; index needs "icons/..."
                     icon_path = self.icon_map[vi_name].replace("../", "")
-                    icon_html = f'<img src="{icon_path}" alt="" class="vi-icon-small">'
-                vi_links.append(f'<li>{icon_html}<a href="{link}">{display_name}</a></li>')
+                    icon_html = (
+                        f'<img src="{icon_path}" alt="" class="vi-icon-small">'
+                    )
+                vi_links.append(
+                    f'<li>{icon_html}<a href="{link}">{display_name}</a></li>'
+                )
 
+            vi_count = len(vis_in_library)
+            vi_plural = "s" if vi_count != 1 else ""
             library_sections.append(f"""
             <details class="library-accordion" open>
                 <summary class="library-header">
                     <div class="library-header-content">
                         <span class="library-name">{library}</span>
-                        <span class="library-count">{len(vis_in_library)} VI{"s" if len(vis_in_library) != 1 else ""}</span>
+                        <span class="library-count">{vi_count} VI{vi_plural}</span>
                     </div>
                 </summary>
                 <ul class="vi-list">
@@ -681,6 +780,10 @@ class HTMLDocGenerator:
                 </ul>
             </details>
             """)
+
+        lib_count = len(sorted_libraries)
+        lib_word = "library" if lib_count == 1 else "libraries"
+        toc_summary = f"Total VIs: {len(all_vis)} across {lib_count} {lib_word}"
 
         return f"""<!DOCTYPE html>
 <html lang="en">
@@ -699,7 +802,7 @@ class HTMLDocGenerator:
     <main>
         <section id="toc">
             <h2>Table of Contents</h2>
-            <p>Total VIs: {len(all_vis)} across {len(sorted_libraries)} librar{"y" if len(sorted_libraries) == 1 else "ies"}</p>
+            <p>{toc_summary}</p>
             {''.join(library_sections)}
         </section>
     </main>
@@ -714,7 +817,8 @@ class HTMLDocGenerator:
     def _vi_name_to_filename(self, vi_name: str) -> str:
         """Convert VI name to safe HTML filename with library subdirectory.
 
-        Returns path like "OpenG/Build_Path_ogtk.html" or "vi.lib/Get_System_Directory.html"
+        Returns path like "OpenG/Build_Path_ogtk.html"
+        or "vi.lib/Get_System_Directory.html"
         """
         # Get library group for subdirectory
         library_group = self._extract_library_group(vi_name)
@@ -728,7 +832,10 @@ class HTMLDocGenerator:
         safe_name = safe_name.replace(".vi", "").replace(".VI", "")
         # Replace spaces and other unsafe characters with underscores
         safe_name = safe_name.replace(" ", "_").replace("(", "_").replace(")", "_")
-        safe_name = safe_name.replace("[", "_").replace("]", "_").replace("{", "_").replace("}", "_")
+        safe_name = (
+            safe_name.replace("[", "_").replace("]", "_")
+            .replace("{", "_").replace("}", "_")
+        )
         safe_name = safe_name.replace("<", "_").replace(">", "_").replace("|", "_")
         safe_name = safe_name.replace("?", "_").replace("*", "_").replace('"', "_")
         # Remove any consecutive underscores

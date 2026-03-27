@@ -102,7 +102,9 @@ def _infer_from_context(vi_name: str, vi_context: Any) -> str:
     if subvi_count:
         parts.append(f"calls {subvi_count} SubVI(s)")
 
-    base_name = Path(vi_name).stem.split(":")[-1] if ":" in vi_name else Path(vi_name).stem
+    base_name = (
+        Path(vi_name).stem.split(":")[-1] if ":" in vi_name else Path(vi_name).stem
+    )
 
     if parts:
         return f"{base_name} - {', '.join(parts)}"

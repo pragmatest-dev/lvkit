@@ -2,7 +2,7 @@
 
 Supports two modes:
 1. Stateless tools (analyze_vi, generate_documents, generate_python) - subprocess-based
-2. Stateful graph tools (load_vi, get_vi_context, etc.) - in-memory graph persists across calls
+2. Stateful graph tools (load_vi, get_vi_context, etc.) - graph persists across calls
 """
 
 from __future__ import annotations
@@ -43,30 +43,35 @@ async def list_tools() -> list[Tool]:
             name="analyze_vi",
             description=(
                 "Analyze a LabVIEW VI file and describe what it does. "
-                "Returns JSON with VI structure (inputs, outputs, dataflow graph, dependencies). "
+                "Returns JSON with VI structure "
+                "(inputs, outputs, dataflow graph, dependencies). "
                 "\n\n"
                 "IMPORTANT: Present the results visually and descriptively:\n"
                 "1. Summary: 1-2 sentences describing what the VI does\n"
-                "2. Controls table: Input parameters with name, type, default value, description\n"
+                "2. Controls table: Input parameters (name, type, default, desc)\n"
                 "3. Indicators table: Output parameters with name, type, description\n"
-                "4. Dataflow diagram: Create a visual flowchart showing the block diagram dataflow. "
+                "4. Dataflow diagram: Visual flowchart of the block diagram dataflow. "
                 "Show left-to-right flow from inputs → operations → outputs. "
                 "Use graph.operations and graph.data_flow to build the visualization. "
-                "Prefer Mermaid flowchart format, but render it appropriately for your environment: "
-                "if you cannot display rendered diagrams (e.g., terminal), draw ASCII art instead. "
-                "CRITICAL: The user must SEE the dataflow visually - do NOT just dump raw JSON or show "
-                "unrendered Mermaid code as plain text.\n"
+                "Prefer Mermaid flowchart format, but render appropriately for your "
+                "environment: if rendered diagrams are unsupported (e.g., terminal), "
+                "draw ASCII art instead. "
+                "CRITICAL: The user must SEE the dataflow visually - do NOT dump raw "
+                "JSON or show unrendered Mermaid code as plain text.\n"
                 "5. Dependencies: List SubVIs called with 1-sentence descriptions\n"
-                "6. How it works: Detailed step-by-step breakdown using execution_order\n"
+                "6. How it works: Step-by-step breakdown using execution_order\n"
                 "\n"
-                "Focus on creating a clear, visual block diagram - LabVIEW is a visual dataflow language!"
+                "Focus on a clear, visual block diagram - "
+                "LabVIEW is a visual dataflow language!"
             ),
             inputSchema={
                 "type": "object",
                 "properties": {
                     "vi_path": {
                         "type": "string",
-                        "description": "Path to VI file (.vi) or block diagram XML (*_BDHb.xml)",
+                        "description": (
+                            "Path to VI file (.vi) or block diagram XML (*_BDHb.xml)"
+                        ),
                     },
                     "search_paths": {
                         "type": "array",
@@ -76,7 +81,10 @@ async def list_tools() -> list[Tool]:
                     },
                     "expand_subvis": {
                         "type": "boolean",
-                        "description": "Load all SubVI dependencies (slower, complete) or just this VI (faster, limited)",
+                        "description": (
+                            "Load all SubVI dependencies (slower, complete) "
+                            "or just this VI (faster, limited)"
+                        ),
                         "default": True,
                     },
                 },
@@ -86,9 +94,10 @@ async def list_tools() -> list[Tool]:
         Tool(
             name="generate_documents",
             description=(
-                "Generate static HTML documentation for LabVIEW VIs, libraries, classes, or directories. "
-                "Creates a complete static website with individual pages for each VI, cross-references, "
-                "and a table of contents.\n\n"
+                "Generate static HTML documentation for LabVIEW VIs, libraries, "
+                "classes, or directories. "
+                "Creates a complete static website with individual pages for each VI, "
+                "cross-references, and a table of contents.\n\n"
                 "Each VI page includes:\n"
                 "- Summary and signature (inputs/outputs)\n"
                 "- Detailed parameter tables\n"
@@ -98,14 +107,18 @@ async def list_tools() -> list[Tool]:
                 "The output is a self-contained static HTML site with embedded CSS, "
                 "suitable for browsing locally or hosting on a web server.\n\n"
                 "IMPORTANT: This tool generates files directly and returns a summary. "
-                "You should inform the user where the documentation was generated and provide the path to index.html."
+                "Inform the user where the docs were generated and provide the path "
+                "to index.html."
             ),
             inputSchema={
                 "type": "object",
                 "properties": {
                     "library_path": {
                         "type": "string",
-                        "description": "Path to .lvlib file, .lvclass file, .vi file, or directory containing VIs",
+                        "description": (
+                            "Path to .lvlib file, .lvclass file, .vi file, "
+                            "or directory containing VIs"
+                        ),
                     },
                     "output_dir": {
                         "type": "string",
@@ -114,12 +127,17 @@ async def list_tools() -> list[Tool]:
                     "search_paths": {
                         "type": "array",
                         "items": {"type": "string"},
-                        "description": "Optional list of search paths for resolving dependencies",
+                        "description": (
+                            "Optional list of search paths for resolving dependencies"
+                        ),
                         "default": [],
                     },
                     "expand_subvis": {
                         "type": "boolean",
-                        "description": "Load SubVI dependencies for complete cross-references (slower) or just library VIs (faster)",
+                        "description": (
+                            "Load SubVI dependencies for complete cross-references "
+                            "(slower) or just library VIs (faster)"
+                        ),
                         "default": True,
                     },
                 },
@@ -129,9 +147,11 @@ async def list_tools() -> list[Tool]:
         Tool(
             name="generate_python",
             description=(
-                "Generate Python code from a LabVIEW VI using AST-based translation.\n\n"
+                "Generate Python code from a LabVIEW VI using AST-based "
+                "translation.\n\n"
                 "This tool converts VI dataflow logic to executable Python code. "
-                "It handles SubVI dependencies, primitives, and control/indicator types.\n\n"
+                "It handles SubVI dependencies, primitives, and control/indicator "
+                "types.\n\n"
                 "OUTPUT REVIEW WORKFLOW:\n"
                 "1. Files are written to output_dir/<package_name>/\n"
                 "2. Response includes list of generated files with status (ok/error)\n"
@@ -153,7 +173,9 @@ async def list_tools() -> list[Tool]:
                 "properties": {
                     "vi_path": {
                         "type": "string",
-                        "description": "Path to VI file (.vi) or block diagram XML (*_BDHb.xml)",
+                        "description": (
+                            "Path to VI file (.vi) or block diagram XML (*_BDHb.xml)"
+                        ),
                     },
                     "output_dir": {
                         "type": "string",
@@ -162,7 +184,9 @@ async def list_tools() -> list[Tool]:
                     "search_paths": {
                         "type": "array",
                         "items": {"type": "string"},
-                        "description": "Search paths for VI dependencies (e.g., OpenG libraries)",
+                        "description": (
+                            "Search paths for VI dependencies (e.g., OpenG libraries)"
+                        ),
                         "default": [],
                     },
                 },
@@ -173,10 +197,12 @@ async def list_tools() -> list[Tool]:
         Tool(
             name="load_vi",
             description=(
-                "Load a VI into the in-memory graph. The graph persists across tool calls.\n\n"
+                "Load a VI into the in-memory graph. "
+                "The graph persists across tool calls.\n\n"
                 "Use this to load VIs before querying them with get_vi_context, "
                 "get_primitive_info, or generate_ast_code.\n\n"
-                "Returns list of loaded VIs (includes dependencies if expand_subvis=true)."
+                "Returns list of loaded VIs "
+                "(includes dependencies if expand_subvis=true)."
             ),
             inputSchema={
                 "type": "object",
@@ -228,7 +254,8 @@ async def list_tools() -> list[Tool]:
         Tool(
             name="generate_ast_code",
             description=(
-                "Generate Python code from a loaded VI using deterministic AST translation.\n\n"
+                "Generate Python code from a loaded VI using deterministic "
+                "AST translation.\n\n"
                 "Always produces valid Python syntax. May have PRIMITIVE_xxx stubs for "
                 "unknown primitives that need manual implementation.\n\n"
                 "Use after load_vi to generate code for a specific VI."

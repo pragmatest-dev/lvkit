@@ -18,7 +18,7 @@ if TYPE_CHECKING:
 class CompoundArithCodeGen(NodeCodeGen):
     """Generate code for LabVIEW compound arithmetic operations.
 
-    cpdArith combines multiple inputs with a single operation (typically OR for booleans).
+    cpdArith combines multiple inputs with a single operation (OR for booleans).
     Used for combining error conditions or stop conditions.
 
     Structure:
@@ -115,7 +115,9 @@ class CompoundArithCodeGen(NodeCodeGen):
         # For boolean operations, use semantic name
         if operation in ("or", "and"):
             # Check if any input suggests this is a stop/done condition
-            stop_keywords = {"stop", "done", "exit", "quit", "end", "finish", "complete"}
+            stop_keywords = {
+                "stop", "done", "exit", "quit", "end", "finish", "complete"
+            }
             for name in input_names:
                 name_lower = name.lower()
                 if any(kw in name_lower for kw in stop_keywords):

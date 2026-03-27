@@ -11,6 +11,15 @@ from vipy.graph_types import Operation, Terminal, VIContext
 from vipy.type_defaults import _is_error_cluster
 
 from .ast_optimizer import optimize_module
+from .ast_utils import parse_expr, to_function_name, to_var_name
+from .context import CodeGenContext
+from .error_handler import (
+    build_held_error_check,
+    build_held_error_init,
+    build_labview_error_import,
+    needs_error_handling,
+)
+from .nodes import get_codegen
 
 if TYPE_CHECKING:
     from vipy.memory_graph import InMemoryVIGraph
@@ -27,15 +36,6 @@ def _is_error_terminal(term: Terminal) -> bool:
     return "error" in name_lower and (
         "in" in name_lower or "out" in name_lower
     )
-from .ast_utils import parse_expr, to_function_name, to_var_name
-from .context import CodeGenContext
-from .error_handler import (
-    build_held_error_check,
-    build_held_error_init,
-    build_labview_error_import,
-    needs_error_handling,
-)
-from .nodes import get_codegen
 
 
 def build_module(
@@ -61,7 +61,7 @@ def build_module(
         Python source code as string
     """
     # Initialize context with inputs and constants
-    ctx = CodeGenContext.from_vi_context(vi_context, graph=graph)  # graph = InMemoryVIGraph
+    ctx = CodeGenContext.from_vi_context(vi_context, graph=graph)  # InMemoryVIGraph
     ctx.import_resolver = import_resolver
     ctx.vi_name = vi_name
 

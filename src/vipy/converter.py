@@ -23,7 +23,9 @@ class ExtractedVI:
     fp_xml: Path | None = None
 
 
-def extract_vi(vi_path: Path | str, output_dir: Path | str | None = None) -> ExtractedVI:
+def extract_vi(
+    vi_path: Path | str, output_dir: Path | str | None = None
+) -> ExtractedVI:
     """Extract a VI file to XML using pylabview.
 
     Args:

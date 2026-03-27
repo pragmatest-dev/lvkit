@@ -31,7 +31,9 @@ class ConversionState:
         self._converted: dict[str, ConvertedModule] = {}
         self._failed: set[str] = set()
 
-    def mark_converted(self, name: str, output_path: Path, library_name: str | None = None) -> None:
+    def mark_converted(
+        self, name: str, output_path: Path, library_name: str | None = None
+    ) -> None:
         """Mark a VI as successfully converted.
 
         Parses the generated file to extract signature and exports.

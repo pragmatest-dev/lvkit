@@ -478,7 +478,7 @@ def _walk_and_extract_terminals(
     srn_to_structure: dict[str, str],
     current_structure_uid: str | None,
 ) -> None:
-    """Walk XML tree hierarchically, extracting terminals and tracking sRN containment."""
+    """Walk XML tree, extracting terminals and tracking sRN containment."""
     elem_uid = elem.get("uid")
     elem_class = elem.get("class", "")
 

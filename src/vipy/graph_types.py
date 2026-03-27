@@ -13,7 +13,7 @@ codegen compatibility until full migration.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Literal, Union
+from typing import Any, Literal
 
 from pydantic import BaseModel
 
@@ -278,7 +278,7 @@ class ConstantNode(GraphNode):
 
 
 # Discriminated union of all node types
-AnyGraphNode = Union[VINode, PrimitiveNode, StructureNode, ConstantNode]
+AnyGraphNode = VINode | PrimitiveNode | StructureNode | ConstantNode
 
 
 # ============================================================

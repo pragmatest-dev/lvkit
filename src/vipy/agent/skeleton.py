@@ -40,7 +40,8 @@ class SkeletonOp:
     inputs: list[str]  # variable names
     outputs: list[str]  # variable names
     python_expr: str | None  # deterministic expression or None for ???
-    pre_statements: list[str] = field(default_factory=list)  # statements to emit before assignment
+    # Statements to emit before the assignment
+    pre_statements: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -73,8 +74,10 @@ class Skeleton:
     constants: list[tuple[str, str, str]]  # (var_name, value, type)
     operations: list[SkeletonOp]
     unknowns: list[int]  # primitive IDs we don't know
-    output_sources: dict[str, str] = field(default_factory=dict)  # output_name -> source_var
-    dependencies: list[SkeletonDep] = field(default_factory=list)  # SubVI dependencies
+    # output_name -> source_var
+    output_sources: dict[str, str] = field(default_factory=dict)
+    # SubVI dependencies
+    dependencies: list[SkeletonDep] = field(default_factory=list)
 
 
 class SkeletonGenerator:
@@ -245,7 +248,9 @@ class SkeletonGenerator:
             if "SubVI" in labels:
                 subvi_name = op.name or ""
                 vilib_vi = self.vilib_resolver.resolve_by_name(subvi_name)
-                result_var = self._to_var_name(subvi_name.replace(".vi", "")) + "_result"
+                result_var = (
+                    self._to_var_name(subvi_name.replace(".vi", "")) + "_result"
+                )
 
                 for term in output_terms:
                     term_id = term.id
@@ -264,10 +269,12 @@ class SkeletonGenerator:
                         self._terminal_to_var[term_id] = f"{result_var}.{field_name}"
                     else:
                         # Fallback for non-vilib SubVIs
-                        self._terminal_to_var[term_id] = f"{result_var}.output_{term_index}"
+                        self._terminal_to_var[term_id] = (
+                            f"{result_var}.output_{term_index}"
+                        )
 
             elif "Primitive" in labels:
-                # Get output terminal names from primitive resolver (PrimitiveTerminal objects)
+                # Get output terminal names from primitive resolver
                 prim_resolver = get_primitive_resolver()
                 resolved = prim_resolver.resolve(prim_id=prim_id)
                 terminal_names: dict[int, str] = {}
@@ -328,13 +335,17 @@ class SkeletonGenerator:
                     source_var = self._find_source_var(term_id, vi_context)
                     op_inputs.append(source_var or "???")
                 elif term.direction == "output":
-                    out_var = self._terminal_to_var.get(term_id, f"v_{op_id}_{term.index}")
+                    out_var = self._terminal_to_var.get(
+                        term_id, f"v_{op_id}_{term.index}"
+                    )
                     op_outputs.append(out_var)
 
             if "SubVI" in labels:
                 # SubVI call returns a NamedTuple result
                 subvi_name = op.name or ""
-                result_var = self._to_var_name(subvi_name.replace(".vi", "")) + "_result"
+                result_var = (
+                    self._to_var_name(subvi_name.replace(".vi", "")) + "_result"
+                )
 
                 # Check if we have vilib implementation
                 vilib_vi = self.vilib_resolver.resolve_by_name(subvi_name)
@@ -347,16 +358,18 @@ class SkeletonGenerator:
                     # vilib VI with implementation
                     python_expr = f"{func_name}({', '.join(op_inputs)})"
                 else:
-                    python_expr = f"{func_name}({', '.join(op_inputs)})  # ??? not converted"
+                    python_expr = (
+                        f"{func_name}({', '.join(op_inputs)})  # ??? not converted"
+                    )
 
-                # SubVI has single result variable (fields accessed via _terminal_to_var)
+                # SubVI has single result var; fields accessed via _terminal_to_var
                 operations.append(SkeletonOp(
                     op_id=op_id,
                     op_type="subvi",
                     prim_id=None,
                     name=subvi_name,
                     inputs=op_inputs,
-                    outputs=[result_var],  # Single result var, fields tracked separately
+                    outputs=[result_var],  # Single result; fields in _terminal_to_var
                     python_expr=python_expr,
                 ))
 
@@ -374,7 +387,11 @@ class SkeletonGenerator:
                     pre_statements: list[str] = []
                     if isinstance(resolved.python_code, dict):
                         # Dict format: {output_name: expr, ...}
-                        python_expr, generated_outputs, pre_statements = self._handle_dict_primitive_hint(
+                        (
+                            python_expr,
+                            generated_outputs,
+                            pre_statements,
+                        ) = self._handle_dict_primitive_hint(
                             resolved.python_code, input_map, op, resolved.terminals
                         )
                         # Override op_outputs with generated ones
@@ -615,7 +632,10 @@ class SkeletonGenerator:
             for other_id, deps in dependencies.items():
                 if op_id in deps:
                     in_degree[other_id] -= 1
-                    if in_degree[other_id] == 0 and other_id not in [r.id for r in result]:
+                    if (
+                        in_degree[other_id] == 0
+                        and other_id not in [r.id for r in result]
+                    ):
                         queue.append(other_id)
 
         # Add any remaining (might have cycles or disconnected)
@@ -1037,9 +1057,9 @@ class SkeletonGenerator:
             # Descriptions often contain "on Windows" or "on Unix"
             if " on Windows" in python_hint or " on Unix" in python_hint:
                 # This is a description, not code - extract the concept
-                # e.g., "os.environ['PROGRAMDATA'] on Windows, '/usr/local/share' on Unix"
+                # e.g., "os.environ['PROGRAMDATA'] on Windows, '...' on Unix"
                 return f"None  # TODO: {python_hint}"
-            # Check if it looks like valid Python (starts with quote, number, or identifier)
+            # Check if it looks like valid Python (quote, number, or identifier)
             stripped = python_hint.strip()
             if stripped and (
                 stripped[0] in "\"'0123456789-" or

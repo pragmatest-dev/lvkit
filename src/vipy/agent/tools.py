@@ -53,14 +53,19 @@ class AgentTools:
         return [
             {
                 "name": "read_subvi",
-                "description": "Read the Python code of an already-converted SubVI to understand how to call it",
+                "description": (
+                    "Read the Python code of an already-converted SubVI"
+                    " to understand how to call it"
+                ),
                 "parameters": {
-                    "vi_name": "Name of the VI (e.g., 'Create Dir if Non-Existant__ogtk.vi')"
+                    "vi_name": (
+                        "Name of the VI (e.g., 'Create Dir if Non-Existant__ogtk.vi')"
+                    )
                 }
             },
             {
                 "name": "check_types",
-                "description": "Run mypy type checker on Python code and get any errors",
+                "description": "Run mypy type checker on Python code and get errors",
                 "parameters": {
                     "code": "Python code to check"
                 }
@@ -69,19 +74,27 @@ class AgentTools:
                 "name": "read_primitive",
                 "description": "Read the implementation of a primitive function",
                 "parameters": {
-                    "function_name": "Name of the primitive function (e.g., 'build_path')"
+                    "function_name": (
+                        "Name of the primitive function (e.g., 'build_path')"
+                    )
                 }
             },
             {
                 "name": "query_dataflow",
-                "description": "Get detailed data flow for a VI showing how data moves between operations",
+                "description": (
+                    "Get detailed data flow for a VI showing how data"
+                    " moves between operations"
+                ),
                 "parameters": {
                     "vi_name": "Name of the VI to query"
                 }
             },
             {
                 "name": "submit_code",
-                "description": "Submit final Python code for validation. Use this when you're confident the code is correct.",
+                "description": (
+                    "Submit final Python code for validation."
+                    " Use this when you're confident the code is correct."
+                ),
                 "parameters": {
                     "code": "Final Python code"
                 }
@@ -162,7 +175,9 @@ class AgentTools:
     def _read_primitive(self, function_name: str) -> ToolResult:
         """Read a primitive implementation."""
         if not function_name:
-            return ToolResult(success=False, output="", error="function_name is required")
+            return ToolResult(
+                success=False, output="", error="function_name is required"
+            )
 
         # Look for the primitive in the primitives package
         primitives_init = self.primitives_dir / "__init__.py"
@@ -190,7 +205,10 @@ class AgentTools:
             elif in_function:
                 if line.strip() == "":
                     function_lines.append(line)
-                elif line.startswith(" " * (indent_level + 1)) or line.strip().startswith("#"):
+                elif (
+                    line.startswith(" " * (indent_level + 1))
+                    or line.strip().startswith("#")
+                ):
                     function_lines.append(line)
                 elif line.strip() and not line.startswith(" " * (indent_level + 1)):
                     # End of function
@@ -225,8 +243,12 @@ class AgentTools:
                 to_name = flow.get("to_parent_name", "?")
                 to_labels = flow.get("to_parent_labels", [])
 
-                from_type = next((l for l in from_labels if l not in ("Input", "Output")), "")
-                to_type = next((l for l in to_labels if l not in ("Input", "Output")), "")
+                from_type = next(
+                    (lbl for lbl in from_labels if lbl not in ("Input", "Output")), ""
+                )
+                to_type = next(
+                    (lbl for lbl in to_labels if lbl not in ("Input", "Output")), ""
+                )
 
                 lines.append(f"  {from_name} ({from_type}) → {to_name} ({to_type})")
 
@@ -240,7 +262,9 @@ def format_tools_for_prompt(tools: AgentTools) -> str:
     descriptions = tools.get_tool_descriptions()
 
     lines = ["## Available Tools", ""]
-    lines.append("You can use these tools by responding with a tool call in this format:")
+    lines.append(
+        "You can use these tools by responding with a tool call in this format:"
+    )
     lines.append("```")
     lines.append("TOOL: tool_name")
     lines.append("PARAM: param_name = value")

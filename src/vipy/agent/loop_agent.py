@@ -168,9 +168,16 @@ class ConversionAgent:
                 time_seconds: float = 0.0
                 attempts: int = 1
 
-            result = _StrategyResult(code=code, success=True, time_seconds=_time.time() - _start)
+            result = _StrategyResult(
+                code=code, success=True, time_seconds=_time.time() - _start
+            )
         except Exception as e:
-            result = _StrategyResult(code="", success=False, error=str(e), time_seconds=_time.time() - _start)
+            result = _StrategyResult(
+                code="",
+                success=False,
+                error=str(e),
+                time_seconds=_time.time() - _start,
+            )
 
         # Suppress unused variable warnings
         _ = (subvi_sigs, primitive_names, primitive_context)
@@ -183,11 +190,15 @@ class ConversionAgent:
             ui_path = None
             if self.config.generate_ui:
                 # Extract function signature from generated code
-                func_name, func_inputs, _, func_enums = self._extract_function_signature(result.code)
+                func_name, func_inputs, _, func_enums = (
+                    self._extract_function_signature(result.code)
+                )
                 # Use output names from VI context (not generic result_0, result_1)
                 func_outputs = self._get_vi_outputs(vi_context)
                 if func_name is not None:  # Valid function found
-                    ui_path = self._generate_ui_wrapper(vi_name, func_name, func_inputs, func_outputs, func_enums)
+                    ui_path = self._generate_ui_wrapper(
+                        vi_name, func_name, func_inputs, func_outputs, func_enums
+                    )
 
             return ConversionResult(
                 vi_name=vi_name,
@@ -241,12 +252,16 @@ class ConversionAgent:
             # Generate UI wrapper if enabled
             ui_path = None
             if self.config.generate_ui:
-                func_name, func_inputs, func_outputs, func_enums = self._extract_function_signature(code)
+                func_name, func_inputs, func_outputs, func_enums = (
+                    self._extract_function_signature(code)
+                )
                 # Also get enum info from vilib context - match by type annotation
                 vilib_enums = self._get_vilib_enums_by_type(vi_name, func_inputs)
                 func_enums.update(vilib_enums)
                 if func_name is not None:
-                    ui_path = self._generate_ui_wrapper(vi_name, func_name, func_inputs, func_outputs, func_enums)
+                    ui_path = self._generate_ui_wrapper(
+                        vi_name, func_name, func_inputs, func_outputs, func_enums
+                    )
 
             return ConversionResult(
                 vi_name=vi_name,
@@ -314,9 +329,13 @@ def {func_name}({params_str}) -> {return_type}:
         # Generate UI wrapper if enabled
         ui_path = None
         if self.config.generate_ui:
-            func_name_parsed, func_inputs, func_outputs, func_enums = self._extract_function_signature(code)
+            func_name_parsed, func_inputs, func_outputs, func_enums = (
+                self._extract_function_signature(code)
+            )
             if func_name_parsed is not None:
-                ui_path = self._generate_ui_wrapper(vi_name, func_name_parsed, func_inputs, func_outputs, func_enums)
+                ui_path = self._generate_ui_wrapper(
+                    vi_name, func_name_parsed, func_inputs, func_outputs, func_enums
+                )
 
         return ConversionResult(
             vi_name=vi_name,
@@ -429,7 +448,8 @@ def {func_name}({params_str}) -> {return_type}:
             dispatch_code.append("    else:")
             first_param = self._to_param_name(inputs[0].name) if inputs else "input"
             dispatch_code.append(
-                f'        raise TypeError(f"No variant handles type: {{type({first_param})}}")'
+                f'        raise TypeError(f"No variant handles type:'
+                f' {{type({first_param})}}")'
             )
 
         imports_str = "\n".join(variant_imports)
@@ -471,9 +491,6 @@ def {func_name}({params_str}) -> {return_type}:
         """Fallback to normal conversion for non-polymorphic VI."""
         # This shouldn't happen but handle gracefully
         vi_context = self.graph.get_vi_context(vi_name)
-        subvi_sigs = self._get_subvi_signatures(vi_context, vi_name)
-        primitive_names = self.primitive_registry.get_primitive_names(vi_name)
-        primitive_context = self.primitive_registry.get_primitive_context(vi_name)
 
         from .codegen import build_module
 
@@ -678,7 +695,9 @@ def {func_name}({params_str}) -> {return_type}:
         self.enum_registry.discover_from_graph(self.graph)
 
         # Generate types.py files
-        types_files = self.type_registry.generate_all_types_files(self.config.output_dir)
+        types_files = self.type_registry.generate_all_types_files(
+            self.config.output_dir
+        )
         if types_files:
             print(f"  Generated {len(types_files)} types.py file(s)")
 
@@ -693,7 +712,10 @@ def {func_name}({params_str}) -> {return_type}:
         # Report discovered enums
         enum_stats = self.enum_registry.stats()
         if enum_stats["enum_count"] > 0:
-            print(f"  Discovered {enum_stats['enum_count']} enum(s) in {enum_stats['vis_with_enums']} VI(s)")
+            print(
+                f"  Discovered {enum_stats['enum_count']} enum(s)"
+                f" in {enum_stats['vis_with_enums']} VI(s)"
+            )
 
     def _extract_io(
         self,
@@ -753,13 +775,18 @@ def {func_name}({params_str}) -> {return_type}:
                         ),
                     )
 
-        # Also check operations for SubVIs (handles stub/vilib VIs without CALLS relationships)
+        # Also check operations for SubVIs
+        # (handles stub/vilib VIs without CALLS relationships)
         for op in vi_context.operations:
             # Operation dataclass has labels and name attributes
             if "SubVI" in op.labels:
                 subvi_name = op.name or ""
                 # Skip if already found via subvi_calls or not converted
-                if subvi_name and subvi_name not in signatures and self.state.is_converted(subvi_name):
+                if (
+                    subvi_name
+                    and subvi_name not in signatures
+                    and self.state.is_converted(subvi_name)
+                ):
                     module = self.state.get_module(subvi_name)
                     if module:
                         signatures[subvi_name] = VISignature(
@@ -857,7 +884,10 @@ def {func_name}({params_str}) -> {return_type}:
                 values: list[tuple[int, str]] = []
                 for idx, enum_val in resolved.values.items():
                     # Use description as display name, fallback to enum member name
-                    display = enum_val.description or enum_val.name.replace("_", " ").title()
+                    display = (
+                        enum_val.description
+                        or enum_val.name.replace("_", " ").title()
+                    )
                     values.append((idx, display))
 
                 # Sort by value
@@ -877,7 +907,12 @@ def {func_name}({params_str}) -> {return_type}:
     def _extract_function_signature(
         self,
         code: str,
-    ) -> tuple[str | None, list[tuple[str, str]], list[tuple[str, str]], dict[str, list[tuple[int, str]]]]:
+    ) -> tuple[
+        str | None,
+        list[tuple[str, str]],
+        list[tuple[str, str]],
+        dict[str, list[tuple[int, str]]],
+    ]:
         """Extract function signature from generated Python code.
 
         Parses the AST to find the main function and extract its
@@ -930,7 +965,9 @@ def {func_name}({params_str}) -> {return_type}:
         enums: dict[str, list[tuple[int, str]]] = {}
 
         # Get parameter names that are int type (potential enums)
-        int_params = {name for name, typ in params if typ in ("int", "int32", "integer")}
+        int_params = {
+            name for name, typ in params if typ in ("int", "int32", "integer")
+        }
         if not int_params:
             return enums
 
@@ -938,7 +975,11 @@ def {func_name}({params_str}) -> {return_type}:
         for node in ast.walk(func):
             if isinstance(node, ast.Dict):
                 # Check if all keys are integer constants
-                if not node.keys or not all(isinstance(k, ast.Constant) and isinstance(k.value, int) for k in node.keys if k is not None):
+                if not node.keys or not all(
+                    isinstance(k, ast.Constant) and isinstance(k.value, int)
+                    for k in node.keys
+                    if k is not None
+                ):
                     continue
 
                 # Extract key-value pairs
@@ -1052,9 +1093,15 @@ def {func_name}({params_str}) -> {return_type}:
                         # Extract annotated fields
                         fields = []
                         for item in node.body:
-                            if isinstance(item, ast.AnnAssign) and isinstance(item.target, ast.Name):
+                            if isinstance(item, ast.AnnAssign) and isinstance(
+                                item.target, ast.Name
+                            ):
                                 field_name = item.target.id
-                                field_type = ast.unparse(item.annotation) if item.annotation else "Any"
+                                field_type = (
+                                    ast.unparse(item.annotation)
+                                    if item.annotation
+                                    else "Any"
+                                )
                                 fields.append((field_name, field_type))
                         return fields if fields else None
         return None

@@ -282,7 +282,9 @@ class CodeGenContext:
         return ctx
 
     @classmethod
-    def from_wires(cls, wires: list, bindings: dict[str, str] | None = None) -> CodeGenContext:
+    def from_wires(
+        cls, wires: list, bindings: dict[str, str] | None = None
+    ) -> CodeGenContext:
         """Create context from Wire list by building a graph. For tests."""
         from vipy.graph_types import PrimitiveNode
         from vipy.memory_graph import InMemoryVIGraph

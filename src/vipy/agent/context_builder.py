@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING
 from .context_templates import FUNCTION_TEMPLATE, METHOD_TEMPLATE, UI_WRAPPER_TEMPLATE
 
 if TYPE_CHECKING:
+    from .context import VISignature
     from .types import SharedType
     from .validator import ValidationError
 
@@ -99,9 +100,13 @@ class ContextBuilder:
 
         # Always add common imports (harmless if unused)
         import_lines.append("from pathlib import Path  # Use for file paths")
-        import_lines.append("from typing import Any  # Use if needed for type annotations")
+        import_lines.append(
+            "from typing import Any  # Use if needed for type annotations"
+        )
 
-        available_imports = "\n".join(import_lines) if import_lines else "# No special imports needed"
+        available_imports = (
+            "\n".join(import_lines) if import_lines else "# No special imports needed"
+        )
 
         # Build shared types section
         types_section = ContextBuilder._format_shared_types(shared_types)
@@ -204,10 +209,14 @@ class ContextBuilder:
             name = inp.get("name", "unknown")
             typ = inp.get("type", "Any")
             labels = inp.get("labels", [])
-            label_str = ", ".join(l for l in labels if l not in ("Input", "Output"))
+            label_str = ", ".join(
+                lbl for lbl in labels if lbl not in ("Input", "Output")
+            )
             children = inp.get("children", [])
             if children:
-                child_info = ", ".join(f"{c['name']}: {c.get('type', 'Any')}" for c in children)
+                child_info = ", ".join(
+                    f"{c['name']}: {c.get('type', 'Any')}" for c in children
+                )
                 lines.append(f"  - {name}: {label_str} ({child_info})")
             else:
                 lines.append(f"  - {name}: {label_str or typ}")
@@ -223,10 +232,14 @@ class ContextBuilder:
             name = out.get("name", "unknown")
             typ = out.get("type", "Any")
             labels = out.get("labels", [])
-            label_str = ", ".join(l for l in labels if l not in ("Input", "Output"))
+            label_str = ", ".join(
+                lbl for lbl in labels if lbl not in ("Input", "Output")
+            )
             children = out.get("children", [])
             if children:
-                child_info = ", ".join(f"{c['name']}: {c.get('type', 'Any')}" for c in children)
+                child_info = ", ".join(
+                    f"{c['name']}: {c.get('type', 'Any')}" for c in children
+                )
                 lines.append(f"  - {name}: {label_str} ({child_info})")
             else:
                 lines.append(f"  - {name}: {label_str or typ}")
@@ -242,7 +255,10 @@ class ContextBuilder:
             cid = const.get("id", "").split(":")[-1]  # Get just the UID
             value = const.get("python") or const.get("value", "?")
             typ = const.get("type", "")
-            lines.append(f"  - c_{cid}: {value} ({typ})" if typ else f"  - c_{cid}: {value}")
+            if typ:
+                lines.append(f"  - c_{cid}: {value} ({typ})")
+            else:
+                lines.append(f"  - c_{cid}: {value}")
         return "\n".join(lines)
 
     @staticmethod
@@ -277,8 +293,14 @@ class ContextBuilder:
                        if t.get("direction") == "output" and t.get("type") != "Void"]
 
             # Sort by index and get types
-            in_types = [t.get("type", "Any") for t in sorted(inputs, key=lambda x: x.get("index", 0))]
-            out_types = [t.get("type", "Any") for t in sorted(outputs, key=lambda x: x.get("index", 0))]
+            in_types = [
+                t.get("type", "Any")
+                for t in sorted(inputs, key=lambda x: x.get("index", 0))
+            ]
+            out_types = [
+                t.get("type", "Any")
+                for t in sorted(outputs, key=lambda x: x.get("index", 0))
+            ]
 
             # Format return type
             if len(out_types) == 0:
@@ -353,14 +375,20 @@ class ContextBuilder:
                     value = value[:47] + "..."
                 from_desc = f'"{value}"'
             elif "Control" in from_labels or "Input" in from_labels:
-                from_desc = ContextBuilder._to_var_name(from_name) if from_name else "input"
+                from_desc = (
+                    ContextBuilder._to_var_name(from_name) if from_name else "input"
+                )
             elif "SubVI" in from_labels and from_name:
                 func_name = ContextBuilder._to_function_name(from_name)
-                from_desc = f"{func_name}()[{from_idx}]" if from_idx > 0 else f"{func_name}()"
+                from_desc = (
+                    f"{func_name}()[{from_idx}]" if from_idx > 0 else f"{func_name}()"
+                )
             elif "Primitive" in from_labels and from_prim is not None:
                 # Use generated name if available
                 func_name = primitive_mappings.get(from_prim, f"primitive_{from_prim}")
-                from_desc = f"{func_name}()[{from_idx}]" if from_idx > 0 else f"{func_name}()"
+                from_desc = (
+                    f"{func_name}()[{from_idx}]" if from_idx > 0 else f"{func_name}()"
+                )
             else:
                 from_desc = from_name or "?"
 
@@ -423,7 +451,9 @@ class ContextBuilder:
             type_names = ", ".join(t.name for t in shared_types)
             import_lines.append(f"from types import {type_names}")
 
-        available_imports = "\n".join(import_lines) if import_lines else "# No special imports"
+        available_imports = (
+            "\n".join(import_lines) if import_lines else "# No special imports"
+        )
 
         # Determine method name with visibility prefix
         prefix = ""
@@ -539,11 +569,11 @@ Output ONLY the corrected Python code, no explanations."""
             default = ContextBuilder._get_default(typ)
             output_attrs.append(f"        self.{py_name} = {default}")
 
-        # Generate input widgets (5 levels of indentation: class > def > with card > with div > with column)
+        # Generate input widgets (5 levels: class > def > card > div > column)
         input_widgets = []
         for name, typ in inputs:
             py_name = ContextBuilder._to_var_name(name)
-            # Check if this parameter has enum options (try both py_name and display name)
+            # Check for enum options (try both py_name and display name)
             enum_options = enums.get(py_name) or enums.get(name)
             widget = ContextBuilder._get_input_widget(name, typ, py_name, enum_options)
             input_widgets.append(f"                    {widget}")
@@ -580,8 +610,14 @@ Output ONLY the corrected Python code, no explanations."""
             class_name=class_name,
             input_attrs="\n".join(input_attrs) if input_attrs else "        pass",
             output_attrs="\n".join(output_attrs) if output_attrs else "        pass",
-            input_widgets="\n".join(input_widgets) if input_widgets else "                pass",
-            output_widgets="\n".join(output_widgets) if output_widgets else "                ui.label('No outputs')",
+            input_widgets=(
+                "\n".join(input_widgets) if input_widgets else "                pass"
+            ),
+            output_widgets=(
+                "\n".join(output_widgets)
+                if output_widgets
+                else "                ui.label('No outputs')"
+            ),
             function_call=function_call,
             result_assignment=result_assignment,
         )
@@ -641,13 +677,15 @@ Output ONLY the corrected Python code, no explanations."""
                     lines.append(f"  Type: {const_type}")
             elif value:
                 # Regular constant - show value
-                # Try to interpret enum-like values (e.g., "Public Application Data (type 7)")
+                # Try to interpret enum-like values (e.g., "Public App Data (type 7)")
                 if "type" in value.lower() and any(c.isdigit() for c in value):
-                    # Looks like a LabVIEW enum/ring value - extract the number
+                    # LabVIEW enum/ring value - extract the number
                     match = re.search(r'\(type\s*(\d+)\)', value, re.IGNORECASE)
                     if match:
                         type_num = match.group(1)
-                        lines.append(f"- **{value}** -> use value `{type_num}` when calling functions")
+                        lines.append(
+                            f"- **{value}** -> use value `{type_num}` when calling"
+                        )
                         has_hints = True
                         continue
                 # Show as-is
@@ -799,8 +837,15 @@ Output ONLY the corrected Python code, no explanations."""
             return ContextBuilder._get_cluster_input(label, var_name)
 
         # Column layout: label above widget
-        widget_code = ContextBuilder._get_input_widget_inner(type_str, var_name, enum_options)
-        return f"with ui.column().classes('gap-1 w-full'):\n                        ui.label('{label}').classes('text-sm text-gray-600')\n                        {widget_code}"
+        widget_code = ContextBuilder._get_input_widget_inner(
+            type_str, var_name, enum_options
+        )
+        label_cls = "text-sm text-gray-600"
+        return (
+            f"with ui.column().classes('gap-1 w-full'):\n"
+            f"                        ui.label('{label}').classes('{label_cls}')\n"
+            f"                        {widget_code}"
+        )
 
     @staticmethod
     def _get_input_widget_inner(
@@ -813,12 +858,20 @@ Output ONLY the corrected Python code, no explanations."""
         if enum_options:
             options_dict = {v: f"{v}: {lbl}" for v, lbl in enum_options}
             first_value = enum_options[0][0]
-            return f"ui.select({options_dict}, value={first_value}).bind_value(self, '{var_name}').classes('flex-1')"
+            return (
+                f"ui.select({options_dict}, value={first_value})"
+                f".bind_value(self, '{var_name}').classes('flex-1')"
+            )
 
         type_lower = type_str.lower()
         if "bool" in type_lower:
             return f"ui.switch().bind_value(self, '{var_name}')"
-        if "int" in type_lower or "float" in type_lower or "num" in type_lower or "dbl" in type_lower:
+        if (
+            "int" in type_lower
+            or "float" in type_lower
+            or "num" in type_lower
+            or "dbl" in type_lower
+        ):
             return f"ui.number().bind_value(self, '{var_name}').classes('flex-1')"
         if "path" in type_lower:
             return f"ui.input().bind_value(self, '{var_name}').classes('flex-1')"
@@ -828,8 +881,11 @@ Output ONLY the corrected Python code, no explanations."""
     @staticmethod
     def _get_cluster_input(label: str, var_name: str) -> str:
         """Get cluster input as expandable visual group."""
-        return f"""with ui.expansion('{label}').classes('w-full'):
-                        ui.textarea().bind_value(self, '{var_name}').classes('w-full font-mono text-xs')"""
+        return (
+            f"with ui.expansion('{label}').classes('w-full'):\n"
+            f"                        ui.textarea().bind_value(self, '{var_name}')"
+            f".classes('w-full font-mono text-xs')"
+        )
 
     @staticmethod
     def _get_output_widget(label: str, type_str: str, var_name: str) -> str:
@@ -844,7 +900,12 @@ Output ONLY the corrected Python code, no explanations."""
 
         # Column layout: label above widget (matches input style)
         widget_code = ContextBuilder._get_output_widget_inner(type_str, var_name)
-        return f"with ui.column().classes('gap-1 w-full'):\n                        ui.label('{label}').classes('text-sm text-gray-600')\n                        {widget_code}"
+        label_cls = "text-sm text-gray-600"
+        return (
+            f"with ui.column().classes('gap-1 w-full'):\n"
+            f"                        ui.label('{label}').classes('{label_cls}')\n"
+            f"                        {widget_code}"
+        )
 
     @staticmethod
     def _get_output_widget_inner(type_str: str, var_name: str) -> str:
@@ -853,12 +914,22 @@ Output ONLY the corrected Python code, no explanations."""
         if "bool" in type_lower:
             return f"ui.switch().bind_value_from(self, '{var_name}').props('disable')"
         if "int" in type_lower or "float" in type_lower or "num" in type_lower:
-            return f"ui.number().bind_value_from(self, '{var_name}').props('readonly').classes('flex-1')"
+            return (
+                f"ui.number().bind_value_from(self, '{var_name}')"
+                f".props('readonly').classes('flex-1')"
+            )
         # Default to text display with background for output styling
-        return f"ui.label().bind_text_from(self, '{var_name}').classes('flex-1 p-2 bg-gray-100 rounded')"
+        return (
+            f"ui.label().bind_text_from(self, '{var_name}')"
+            f".classes('flex-1 p-2 bg-gray-100 rounded')"
+        )
 
     @staticmethod
     def _get_cluster_output(label: str, var_name: str) -> str:
         """Get cluster output as expandable visual group."""
-        return f"""with ui.expansion('{label}').classes('w-full'):
-                        ui.label().bind_text_from(self, '{var_name}').classes('w-full font-mono text-xs whitespace-pre-wrap')"""
+        cls = "w-full font-mono text-xs whitespace-pre-wrap"
+        return (
+            f"with ui.expansion('{label}').classes('w-full'):\n"
+            f"                        ui.label().bind_text_from(self, '{var_name}')"
+            f".classes('{cls}')"
+        )

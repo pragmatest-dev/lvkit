@@ -24,7 +24,7 @@ def _find_own_descendants(
     elem: ET.Element,
     class_name: str,
 ) -> list[ET.Element]:
-    """Find elements with class_name inside elem, stopping at nested structure boundaries.
+    """Find elements with class_name, stopping at nested structure boundaries.
 
     Walks the XML subtree but does NOT recurse into nested structure elements
     (caseStruct, select, forLoop, etc.), so only elements belonging to THIS

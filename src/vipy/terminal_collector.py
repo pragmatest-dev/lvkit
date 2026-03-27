@@ -239,7 +239,10 @@ class TerminalCollector:
                         break
                     elif not types:
                         # No type info, match by direction only if unambiguous
-                        same_dir = [t for t in unmatched_vilib if t.get("direction") == direction]
+                        same_dir = [
+                            t for t in unmatched_vilib
+                            if t.get("direction") == direction
+                        ]
                         if len(same_dir) == 1:
                             matches.append((idx, vt.get("name", "")))
                             unmatched_vilib.remove(vt)
@@ -264,8 +267,9 @@ class TerminalCollector:
                     info = term_map[idx]
                     names = ", ".join(info["observed_names"][:3]) or "-"
                     types = ", ".join(info["observed_types"][:3]) or "-"
+                    cnt = info['count']
                     lines.append(
-                        f"| {idx} | {info['direction']} | {names} | {types} | {info['count']} |"
+                        f"| {idx} | {info['direction']} | {names} | {types} | {cnt} |"
                     )
                 lines.append("")
 

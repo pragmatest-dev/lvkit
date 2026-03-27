@@ -7,11 +7,11 @@ It serializes the dataclass output to JSON for command-line use.
 Usage:
     python scripts/analyze_vi.py <vi_path> [--search-path PATH ...] [--no-expand]
 """
-import sys
-import json
 import argparse
-from pathlib import Path
+import json
+import sys
 from dataclasses import asdict
+from pathlib import Path
 
 # Add src to path if running as script
 if __name__ == "__main__":
@@ -22,10 +22,19 @@ from vipy.analysis import analyze_vi as core_analyze_vi
 
 def main():
     """CLI entry point - wraps core function and serializes to JSON."""
-    parser = argparse.ArgumentParser(description="Analyze a LabVIEW VI and return structured JSON")
-    parser.add_argument("vi_path", help="Path to VI file (.vi) or block diagram XML (*_BDHb.xml)")
-    parser.add_argument("--search-path", action="append", dest="search_paths", help="Search path for dependencies")
-    parser.add_argument("--no-expand", action="store_true", help="Don't expand SubVI dependencies")
+    parser = argparse.ArgumentParser(
+        description="Analyze a LabVIEW VI and return structured JSON"
+    )
+    parser.add_argument(
+        "vi_path", help="Path to VI file (.vi) or block diagram XML (*_BDHb.xml)"
+    )
+    parser.add_argument(
+        "--search-path", action="append", dest="search_paths",
+        help="Search path for dependencies",
+    )
+    parser.add_argument(
+        "--no-expand", action="store_true", help="Don't expand SubVI dependencies"
+    )
 
     args = parser.parse_args()
 

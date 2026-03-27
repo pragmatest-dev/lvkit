@@ -306,7 +306,9 @@ class ConstructionMixin:
                 subvi_name = node.name or ""
                 # Polymorphic: resolve to variant
                 if node.poly_variant_name:
-                    vilib_vi = vilib_r.resolve_poly_variant(subvi_name, node.poly_variant_name)
+                    vilib_vi = vilib_r.resolve_poly_variant(
+                        subvi_name, node.poly_variant_name
+                    )
                 else:
                     vilib_vi = None
                 if not vilib_vi:
@@ -766,7 +768,9 @@ class ConstructionMixin:
             for call_term in gnode.terminals:
                 callee_t = None
                 if call_term.index is not None and call_term.index >= 0:
-                    callee_t = callee_term_map.get((call_term.index, call_term.direction))
+                    callee_t = callee_term_map.get(
+                        (call_term.index, call_term.direction)
+                    )
                 else:
                     # idx=-1: match by elimination — find unmatched callee
                     # terminal with same direction
@@ -874,8 +878,12 @@ class ConstructionMixin:
                 dst_node = g.nodes.get(dst.node_id, {}).get("node")
                 if not src_node or not dst_node:
                     continue
-                src_term = next((t for t in src_node.terminals if t.id == src.terminal_id), None)
-                dst_term = next((t for t in dst_node.terminals if t.id == dst.terminal_id), None)
+                src_term = next(
+                    (t for t in src_node.terminals if t.id == src.terminal_id), None
+                )
+                dst_term = next(
+                    (t for t in dst_node.terminals if t.id == dst.terminal_id), None
+                )
                 if not src_term or not dst_term:
                     continue
                 if src_term.lv_type and not dst_term.lv_type:

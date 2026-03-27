@@ -9,11 +9,10 @@ from __future__ import annotations
 import ast
 import xml.etree.ElementTree as ET
 
+from tests.helpers import make_ctx
 from vipy.agent.codegen.nodes.subvi import SubVICodeGen
 from vipy.graph_types import LVType, Operation, Terminal
 from vipy.parser.vi import _extract_subvi_info, _resolve_qualified_name
-
-from tests.helpers import make_ctx
 
 
 def _unparse(stmt: ast.stmt) -> str:
@@ -161,7 +160,9 @@ class TestDynamicDispatchCodegen:
                          lv_type=LVType(kind="primitive", ref_type="UDClassInst")),
             ],
         )
-        ctx = _make_ctx_with_bindings({"t_in_0": "test_result", "t_in_1": "test_name"}, ["t_out_0"])
+        ctx = _make_ctx_with_bindings(
+            {"t_in_0": "test_result", "t_in_1": "test_name"}, ["t_out_0"]
+        )
         gen = SubVICodeGen()
         frag = gen.generate(node, ctx)
 

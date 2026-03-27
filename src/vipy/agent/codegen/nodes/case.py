@@ -171,7 +171,6 @@ class CaseCodeGen(NodeCodeGen):
         Returns:
             CodeFragment with match-case
         """
-        statements: list[ast.stmt] = []
         bindings: dict[str, str] = {}
         all_imports: set[str] = set()
 

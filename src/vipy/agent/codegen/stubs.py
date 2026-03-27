@@ -61,7 +61,9 @@ class StubGenerator:
         usages = info["usages"]
 
         # Compute union signature
-        union_inputs, union_outputs, usage_summary = self._compute_union_signature(usages)
+        union_inputs, union_outputs, usage_summary = (
+            self._compute_union_signature(usages)
+        )
 
         lines = []
         lines.append(f'"""STUB: {vi_name}')
@@ -155,7 +157,9 @@ class StubGenerator:
         for usage in usages:
             in_names = [i["name"] for i in usage["inputs"]]
             out_names = [o["name"] for o in usage["outputs"]]
-            summary.append(f"{usage['caller']}: ({', '.join(in_names)}) -> ({', '.join(out_names)})")
+            ins = ', '.join(in_names)
+            outs = ', '.join(out_names)
+            summary.append(f"{usage['caller']}: ({ins}) -> ({outs})")
 
         return union_inputs, union_outputs, summary
 

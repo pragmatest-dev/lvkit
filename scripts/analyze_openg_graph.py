@@ -16,7 +16,6 @@ import csv
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
 
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
@@ -53,7 +52,8 @@ def guess_category(vi_name: str) -> str:
     """Guess category from VI name patterns."""
     name_lower = vi_name.lower()
 
-    if any(x in name_lower for x in ["path", "file", "dir", "folder", "copy", "delete"]):
+    file_keywords = ["path", "file", "dir", "folder", "copy", "delete"]
+    if any(x in name_lower for x in file_keywords):
         return "openg/file"
     if any(x in name_lower for x in ["array", "1d", "2d", "index", "sort", "reverse"]):
         return "openg/array"
@@ -167,12 +167,16 @@ def _determine_inline(analysis: VIAnalysis) -> None:
 
     if len(analysis.subvi_calls) > 2:
         analysis.confidence = "low"
-        analysis.derivation = f"Has {len(analysis.subvi_calls)} SubVI calls - convert normally"
+        analysis.derivation = (
+            f"Has {len(analysis.subvi_calls)} SubVI calls - convert normally"
+        )
         return
 
     if len(analysis.primitives) > 3:
         analysis.confidence = "low"
-        analysis.derivation = f"Has {len(analysis.primitives)} primitives - convert normally"
+        analysis.derivation = (
+            f"Has {len(analysis.primitives)} primitives - convert normally"
+        )
         return
 
     # Empty VI (just pass-through or type definition)
@@ -196,7 +200,9 @@ def _determine_inline(analysis: VIAnalysis) -> None:
             analysis.python_inline = _build_inline_from_primitive(
                 prim, analysis.inputs, analysis.outputs, analysis.wires
             )
-            analysis.derivation = f"Single prim {prim['id']} ({prim['name']}) → {python_hint}"
+            analysis.derivation = (
+                f"Single prim {prim['id']} ({prim['name']}) → {python_hint}"
+            )
             _extract_imports(analysis, python_hint)
         else:
             analysis.confidence = "medium"
@@ -213,7 +219,9 @@ def _determine_inline(analysis: VIAnalysis) -> None:
 
         if all_have_hints:
             analysis.confidence = "medium"
-            analysis.derivation = f"Sequence: {' → '.join(prim_names)} (prims {prim_ids})"
+            analysis.derivation = (
+                f"Sequence: {' → '.join(prim_names)} (prims {prim_ids})"
+            )
             # Could try to chain the operations here
         else:
             analysis.confidence = "low"
@@ -241,8 +249,7 @@ def _build_inline_from_primitive(
     if not python_hint:
         return ""
 
-    # Get input/output names from FP terminals
-    input_names = [inp.get("name", f"in{i}") for i, inp in enumerate(inputs)]
+    # Get output names from FP terminals
     output_names = [out.get("name", f"out{i}") for i, out in enumerate(outputs)]
 
     # Try to build substituted template
@@ -354,7 +361,9 @@ def main():
     high = sum(1 for a in analyses if a.confidence == "high")
     med = sum(1 for a in analyses if a.confidence == "medium")
     low = sum(1 for a in analyses if a.confidence == "low")
-    print(f"\nSummary: {high} high, {med} medium, {low} low confidence", file=sys.stderr)
+    print(
+        f"\nSummary: {high} high, {med} medium, {low} low confidence", file=sys.stderr
+    )
 
 
 if __name__ == "__main__":

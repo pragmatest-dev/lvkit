@@ -6,10 +6,10 @@ import ast
 
 import pytest
 
+from tests.helpers import make_ctx
 from vipy.agent.codegen.context import CodeGenContext
 from vipy.agent.codegen.nodes.compound import ArrayBuildCodeGen, CompoundArithCodeGen
 from vipy.graph_types import Operation, Terminal
-from tests.helpers import make_ctx, make_graph_with_terminals, make_node
 
 
 class TestCompoundArithMakeVarName:

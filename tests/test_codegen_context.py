@@ -2,17 +2,14 @@
 
 from __future__ import annotations
 
-import pytest
-
-from vipy.agent.codegen.context import CodeGenContext
-from vipy.graph_types import WireEnd
-from vipy.memory_graph import InMemoryVIGraph
-
 from tests.helpers import (
     make_graph_with_edge,
     make_graph_with_terminals,
     make_node,
 )
+from vipy.agent.codegen.context import CodeGenContext
+from vipy.graph_types import WireEnd
+from vipy.memory_graph import InMemoryVIGraph
 
 
 class TestGraphResolution:

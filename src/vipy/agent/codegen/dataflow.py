@@ -64,7 +64,8 @@ class DataFlowTracer:
                 term_index = term.index
                 term_dir = term.direction
                 term_name = term.name
-                term_type = term.python_type() if hasattr(term, 'python_type') else term.get("type")
+                has_pt = hasattr(term, 'python_type')
+                term_type = term.python_type() if has_pt else term.get("type")
             else:
                 term_id = term.get("id")
                 term_index = term.get("index", 0)
@@ -100,7 +101,9 @@ class DataFlowTracer:
                     term_index = term.index
                     term_dir = term.direction
                     term_name = term.name
-                    term_type = term.python_type() if hasattr(term, 'python_type') else None
+                    term_type = (
+                        term.python_type() if hasattr(term, 'python_type') else None
+                    )
                 else:
                     term_id = term.get("id")
                     term_index = term.get("index", 0)
@@ -109,7 +112,12 @@ class DataFlowTracer:
                     term_type = term.get("type")
 
                 if term_id not in self._terminals:
-                    parent_type = "primitive" if "Primitive" in op_labels else "subvi" if "SubVI" in op_labels else "operation"
+                    if "Primitive" in op_labels:
+                        parent_type = "primitive"
+                    elif "SubVI" in op_labels:
+                        parent_type = "subvi"
+                    else:
+                        parent_type = "operation"
                     self._terminals[term_id] = TerminalInfo(
                         id=term_id,
                         index=term_index,

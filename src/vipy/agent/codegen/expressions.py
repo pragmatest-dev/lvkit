@@ -129,7 +129,9 @@ class ExpressionBuilder:
         else:
             code = ", ".join(expressions)
 
-        return Expression(code=code, output_vars=output_vars, pre_statements=pre_statements)
+        return Expression(
+            code=code, output_vars=output_vars, pre_statements=pre_statements
+        )
 
     def _build_string_hint(
         self,

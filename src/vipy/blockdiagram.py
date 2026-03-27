@@ -9,7 +9,6 @@ from .constants import SYSTEM_DIR_TYPES
 from .parser import (
     Constant,
     parse_vi,
-    parse_vi_metadata,
 )
 
 # === Primitive Tracking ===
@@ -100,7 +99,9 @@ def decode_labview_string(hex_value: str) -> str | None:
         return None
 
 
-def decode_constant(const: Constant, context_hint: str | None = None) -> tuple[str, str]:
+def decode_constant(
+    const: Constant, context_hint: str | None = None
+) -> tuple[str, str]:
     """Decode a constant value to (type, human-readable value).
 
     Args:
@@ -150,7 +151,9 @@ def decode_constant(const: Constant, context_hint: str | None = None) -> tuple[s
     return ("raw", value)
 
 
-def summarize_vi(bd_xml_path: Path | str, main_xml_path: Path | str | None = None) -> str:
+def summarize_vi(
+    bd_xml_path: Path | str, main_xml_path: Path | str | None = None
+) -> str:
     """Generate a summary of a VI for LLM processing.
 
     Args:
@@ -236,8 +239,12 @@ def summarize_vi(bd_xml_path: Path | str, main_xml_path: Path | str | None = Non
         from_parent = bd.term_to_parent.get(wire.from_term, wire.from_term)
         to_parent = bd.term_to_parent.get(wire.to_term, wire.to_term)
 
-        from_desc = _describe_terminal(from_parent, node_refs, uid_to_node, uid_to_const)
-        to_desc = _describe_terminal(to_parent, node_refs, uid_to_node, uid_to_const)
+        from_desc = _describe_terminal(
+            from_parent, node_refs, uid_to_node, uid_to_const
+        )
+        to_desc = _describe_terminal(
+            to_parent, node_refs, uid_to_node, uid_to_const
+        )
 
         lines.append(f"  {from_desc} -> {to_desc}")
 
@@ -251,7 +258,9 @@ def summarize_vi(bd_xml_path: Path | str, main_xml_path: Path | str | None = Non
     return "\n".join(lines)
 
 
-def _get_enum_value_label(const: Constant, enum_labels: dict[str, list[str]]) -> str | None:
+def _get_enum_value_label(
+    const: Constant, enum_labels: dict[str, list[str]]
+) -> str | None:
     """Get the label for an enum constant value."""
     try:
         if len(const.value) == 8:
@@ -267,13 +276,19 @@ def _get_enum_value_label(const: Constant, enum_labels: dict[str, list[str]]) ->
                 dir_info = SYSTEM_DIR_TYPES.get(int_val)
                 if dir_info:
                     name, win_env, unix_path = dir_info
-                    return f"{name} (type {int_val}) -> Python: os.environ['{win_env}'] on Windows, '{unix_path}' on Unix"
+                    return (
+                        f"{name} (type {int_val}) -> Python:"
+                        f" os.environ['{win_env}'] on Windows,"
+                        f" '{unix_path}' on Unix"
+                    )
     except (ValueError, TypeError):
         pass
     return None
 
 
-def _describe_terminal(parent_uid: str, node_refs: dict, uid_to_node: dict, uid_to_const: dict) -> str:
+def _describe_terminal(
+    parent_uid: str, node_refs: dict, uid_to_node: dict, uid_to_const: dict
+) -> str:
     """Create a human-readable description of a terminal."""
     if parent_uid in node_refs:
         return node_refs[parent_uid]
@@ -303,7 +318,9 @@ def _get_fp_terminal_names(bd_xml_path: Path) -> dict[str, str]:
         Dict mapping DCO uid to terminal name
     """
     # Derive front panel XML path from block diagram path
-    fp_xml_path = bd_xml_path.parent / bd_xml_path.name.replace("_BDHb.xml", "_FPHb.xml")
+    fp_xml_path = (
+        bd_xml_path.parent / bd_xml_path.name.replace("_BDHb.xml", "_FPHb.xml")
+    )
 
     if not fp_xml_path.exists():
         return {}
@@ -320,7 +337,7 @@ def _get_fp_terminal_names(bd_xml_path: Path) -> dict[str, str]:
                 continue
 
             # Look for the label inside the ddo's partsList
-            # Structure: fPDCO/ddo/partsList/SL__arrayElement[@class='label']/textRec/text
+            # fPDCO/ddo/partsList/SL__arrayElement[@class='label']/textRec/text
             ddo = fp_dco.find("ddo")
             if ddo is not None:
                 # Try multiple paths where label might be
@@ -339,7 +356,9 @@ def _get_fp_terminal_names(bd_xml_path: Path) -> dict[str, str]:
         return {}
 
 
-def create_llm_prompt(summary: str, mode: str = "script", summary_format: str = "text") -> str:
+def create_llm_prompt(
+    summary: str, mode: str = "script", summary_format: str = "text"
+) -> str:
     """Create a full prompt for the LLM to convert the VI to Python.
 
     Args:
@@ -353,7 +372,7 @@ def create_llm_prompt(summary: str, mode: str = "script", summary_format: str = 
     if mode == "gui":
         return f"""{summary}
 
-Convert this LabVIEW VI to a Python backend function that will be called from a NiceGUI frontend.
+Convert this LabVIEW VI to a Python backend function called from a NiceGUI frontend.
 - Create a single function that takes the INPUT controls as parameters
 - Return the OUTPUT indicators as a tuple (or single value if one output)
 - Use os.path for path operations

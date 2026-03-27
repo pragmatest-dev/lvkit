@@ -7,7 +7,6 @@ import importlib.util
 import json
 import sys
 import traceback
-import warnings
 from pathlib import Path
 
 from . import __version__
@@ -33,9 +32,13 @@ def main() -> int:
 
     # Convert command
     convert_parser = subparsers.add_parser("convert", help="Convert a VI to Python")
-    convert_parser.add_argument("input", help="VI file (.vi) or block diagram XML (*_BDHb.xml)")
+    convert_parser.add_argument(
+        "input", help="VI file (.vi) or block diagram XML (*_BDHb.xml)"
+    )
     # Summarize command (for debugging/inspection)
-    summary_parser = subparsers.add_parser("summarize", help="Show VI summary without converting")
+    summary_parser = subparsers.add_parser(
+        "summarize", help="Show VI summary without converting"
+    )
     summary_parser.add_argument("input", help="Block diagram XML (*_BDHb.xml)")
     summary_parser.add_argument("--main-xml", help="Main VI XML file")
 
@@ -43,22 +46,36 @@ def main() -> int:
     subparsers.add_parser("check", help="Check if dependencies are available")
 
     # Structure command
-    struct_parser = subparsers.add_parser("structure", help="Analyze LabVIEW project structure")
+    struct_parser = subparsers.add_parser(
+        "structure", help="Analyze LabVIEW project structure"
+    )
     struct_parser.add_argument("input", help="Directory, .lvlib, or .lvclass file")
     struct_parser.add_argument("--json", action="store_true", help="Output as JSON")
-    struct_parser.add_argument("--plan", action="store_true", help="Generate Python structure plan")
+    struct_parser.add_argument(
+        "--plan", action="store_true", help="Generate Python structure plan"
+    )
 
     # Agent command - convert with validation loop
     agent_parser = subparsers.add_parser(
         "agent",
         help="Convert VIs to Python with validation loop",
     )
-    agent_parser.add_argument("input", help="VI, directory, .lvlib, .lvclass, or .lvproj")
+    agent_parser.add_argument(
+        "input", help="VI, directory, .lvlib, .lvclass, or .lvproj"
+    )
     agent_parser.add_argument("-o", "--output", required=True, help="Output directory")
-    agent_parser.add_argument("--max-retries", type=int, default=3, help="Max LLM retries per VI")
-    agent_parser.add_argument("--model", default="qwen2.5-coder:14b", help="Ollama model")
-    agent_parser.add_argument("--no-typecheck", action="store_true", help="Skip mypy type checking")
-    agent_parser.add_argument("--generate-ui", action="store_true", help="Generate NiceGUI wrappers")
+    agent_parser.add_argument(
+        "--max-retries", type=int, default=3, help="Max LLM retries per VI"
+    )
+    agent_parser.add_argument(
+        "--model", default="qwen2.5-coder:14b", help="Ollama model"
+    )
+    agent_parser.add_argument(
+        "--no-typecheck", action="store_true", help="Skip mypy type checking"
+    )
+    agent_parser.add_argument(
+        "--generate-ui", action="store_true", help="Generate NiceGUI wrappers"
+    )
     agent_parser.add_argument(
         "--search-path",
         action="append",
@@ -86,7 +103,7 @@ def main() -> int:
     )
 
     # MCP server command
-    mcp_parser = subparsers.add_parser(
+    subparsers.add_parser(
         "mcp",
         help="Run MCP server for VI analysis",
     )
@@ -155,7 +172,11 @@ def main() -> int:
     elif args.command == "agent":
         return cmd_agent(args)
     elif args.command in ("experiment", "claude"):
-        print(f"Error: 'vipy {args.command}' has been removed. Use 'vipy generate' instead.", file=sys.stderr)
+        print(
+            f"Error: 'vipy {args.command}' has been removed."
+            " Use 'vipy generate' instead.",
+            file=sys.stderr,
+        )
         return 1
     elif args.command == "explore":
         return cmd_explore(args)
@@ -359,7 +380,9 @@ def cmd_agent(args: argparse.Namespace) -> int:
         print(f"Loading VIs from {input_path}...")
 
         if suffix == ".vi" or suffix == ".xml":
-            graph.load_vi(input_path, expand_subvis=True, search_paths=search_paths or None)
+            graph.load_vi(
+                input_path, expand_subvis=True, search_paths=search_paths or None
+            )
         elif suffix == ".lvlib":
             graph.load_lvlib(
                 input_path, expand_subvis=True, search_paths=search_paths or None
@@ -410,7 +433,8 @@ def cmd_agent(args: argparse.Namespace) -> int:
             print("\nFailed VIs:")
             for r in results:
                 if not r.success:
-                    print(f"  - {r.vi_name}: {r.errors[0] if r.errors else 'Unknown error'}")
+                    err = r.errors[0] if r.errors else "Unknown error"
+                    print(f"  - {r.vi_name}: {err}")
 
         return 0 if failed == 0 else 1
 

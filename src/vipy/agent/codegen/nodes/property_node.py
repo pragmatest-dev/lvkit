@@ -103,7 +103,7 @@ class PropertyNodeCodeGen(NodeCodeGen):
                 break  # One input per property
 
         # Bind any remaining wired output terminals that weren't handled above
-        # (e.g., reference passthrough, error out, or property nodes with empty properties list)
+        # (e.g., reference passthrough, error out, or nodes with empty properties list)
         for term in output_terms:
             if term.id not in bindings and ctx.is_wired(term.id):
                 var_name = to_var_name(term.name or f"{ref_var}_prop_{term.index}")

@@ -13,14 +13,13 @@ import csv
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
 
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from vipy.extractor import extract_vi_xml
-from vipy.parser import parse_block_diagram, parse_connector_pane
 from vipy.frontpanel import parse_front_panel
+from vipy.parser import parse_block_diagram
 
 
 @dataclass
@@ -203,7 +202,7 @@ def analyze_vi(vi_path: Path, category: str) -> VIAnalysis | None:
     else:
         try:
             bd_xml, fp_xml, main_xml = extract_vi_xml(vi_path)
-        except Exception as e:
+        except Exception:
             return None
         vi_name = vi_path.stem
     analysis = VIAnalysis(
@@ -238,7 +237,6 @@ def analyze_vi(vi_path: Path, category: str) -> VIAnalysis | None:
     if fp_xml and fp_xml.exists():
         try:
             fp = parse_front_panel(fp_xml, bd_xml)
-            conpane = parse_connector_pane(fp_xml)
 
             for ctrl in fp.controls:
                 term_info = {
@@ -325,13 +323,16 @@ def guess_category(vi_name: str) -> str:
     name_lower = vi_name.lower()
 
     # File operations
-    if any(x in name_lower for x in ["path", "file", "dir", "folder", "copy", "delete", "list"]):
+    file_kws = ["path", "file", "dir", "folder", "copy", "delete", "list"]
+    if any(x in name_lower for x in file_kws):
         return "openg/file"
     # Array operations
-    if any(x in name_lower for x in ["array", "1d", "2d", "index", "sort", "search", "reverse"]):
+    array_kws = ["array", "1d", "2d", "index", "sort", "search", "reverse"]
+    if any(x in name_lower for x in array_kws):
         return "openg/array"
     # String operations
-    if any(x in name_lower for x in ["string", "str", "trim", "split", "join", "format"]):
+    string_kws = ["string", "str", "trim", "split", "join", "format"]
+    if any(x in name_lower for x in string_kws):
         return "openg/string"
     # Error handling
     if any(x in name_lower for x in ["error", "err"]):
@@ -431,7 +432,10 @@ def main():
     high = sum(1 for a in analyses if a.confidence == "high")
     med = sum(1 for a in analyses if a.confidence == "medium")
     low = sum(1 for a in analyses if a.confidence == "low")
-    print(f"\nSummary: {high} high, {med} medium, {low} low confidence", file=sys.stderr)
+    print(
+        f"\nSummary: {high} high, {med} medium, {low} low confidence",
+        file=sys.stderr,
+    )
 
 
 if __name__ == "__main__":
