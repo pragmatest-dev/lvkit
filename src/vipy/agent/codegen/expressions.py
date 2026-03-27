@@ -18,8 +18,8 @@ class Expression:
     """A generated expression."""
     code: str
     output_vars: list[str]
-    needs_import: list[str] = None  # Additional imports needed
-    pre_statements: list[str] = None  # Statements to emit before the assignment
+    needs_import: list[str] | None = None  # Additional imports needed
+    pre_statements: list[str] | None = None  # Statements to emit before the assignment
 
     def __post_init__(self):
         if self.needs_import is None:

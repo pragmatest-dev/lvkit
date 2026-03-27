@@ -30,7 +30,7 @@ def parse_type_map(xml_path: Path | str) -> dict[int, str]:
     """
     rich_map = parse_type_map_rich(xml_path)
     # Return simple type names for backward compatibility
-    return {k: v.type for k, v in rich_map.items()}
+    return {k: v.underlying_type or v.kind for k, v in rich_map.items()}
 
 
 def resolve_type(type_ref: str, type_map: dict[int, str]) -> str:

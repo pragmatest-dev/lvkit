@@ -220,7 +220,7 @@ class FunctionBuilder:
                     break
 
             # Second try: out_id might BE the terminal ID directly
-            if source_var is None:
+            if source_var is None and out_id is not None:
                 source_var = self.tracer.resolve_source(out_id)
 
             fields.append(OutputField(

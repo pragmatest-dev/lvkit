@@ -43,9 +43,13 @@ def extract_constants(root: ET.Element) -> list[Constant]:
 
         if const_val is not None:
             constants.append(Constant(
-                uid=uid,
-                type_desc=type_desc.text if type_desc is not None else "unknown",
-                value=const_val.text,
+                uid=uid or "",
+                type_desc=(
+                    (type_desc.text or "unknown")
+                    if type_desc is not None
+                    else "unknown"
+                ),
+                value=const_val.text or "",
                 label=label,
             ))
 

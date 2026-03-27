@@ -12,7 +12,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from nicegui import ui
+from nicegui import ui  # type: ignore[import-not-found]
 
 # Set up package imports - add PARENT to path so this dir is a package
 _pkg_dir = Path(__file__).parent

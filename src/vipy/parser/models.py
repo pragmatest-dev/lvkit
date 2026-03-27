@@ -306,6 +306,11 @@ class BlockDiagram:
     # Maps sRN UID → containing structure UID (for scoped terminal collection)
     srn_to_structure: dict[str, str] = field(default_factory=dict)
 
+    @property
+    def term_to_parent(self) -> dict[str, str]:
+        """Map terminal UID to parent node UID, built from terminal_info."""
+        return {uid: info.parent_uid for uid, info in self.terminal_info.items()}
+
     def get_node(self, uid: str) -> Node | None:
         """Get a node by UID."""
         for node in self.nodes:

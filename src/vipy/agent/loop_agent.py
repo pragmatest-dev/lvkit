@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from ..enum_resolver import EnumResolver
+from ..graph_types import VIContext
 from ..llm import generate_code
 from ..vilib_resolver import get_resolver as get_vilib_resolver
 from .codegen import ClassBuilder, ClassConfig
@@ -97,6 +98,7 @@ class ConversionAgent:
 
             if result.success:
                 library_name = self._to_library_name(vi_name)
+                assert result.output_path is not None
                 self.state.mark_converted(vi_name, result.output_path, library_name)
                 print(f"  ✓ Success ({result.attempts} attempt(s))")
             else:
@@ -152,21 +154,25 @@ class ConversionAgent:
 
         # Use AST-based code generation directly
         import time as _time
+        from dataclasses import dataclass as _dataclass
 
         from .codegen import build_module
+
+        @_dataclass
+        class _StrategyResult:
+            code: str
+            success: bool
+            error: str | None = None
+            time_seconds: float = 0.0
+            attempts: int = 1
+
+            @property
+            def errors(self) -> list[str]:
+                return [self.error] if self.error else []
 
         _start = _time.time()
         try:
             code = build_module(vi_context, vi_name, graph=self.graph)
-            from dataclasses import dataclass
-
-            @dataclass
-            class _StrategyResult:
-                code: str
-                success: bool
-                error: str | None = None
-                time_seconds: float = 0.0
-                attempts: int = 1
 
             result = _StrategyResult(
                 code=code, success=True, time_seconds=_time.time() - _start
@@ -212,23 +218,6 @@ class ConversionAgent:
         # Strategy failed
         errors = result.errors
 
-        # Max retries exceeded - try agentic mode if enabled
-        if self.config.use_agentic_fallback:
-            print("    Standard conversion failed, trying agentic mode...")
-            agentic_result = self._try_agentic_conversion(
-                vi_name, vi_context, subvi_sigs, primitive_names, primitive_context
-            )
-            if agentic_result.success:
-                output_path = self._write_vi_module(vi_name, agentic_result.python_code)
-                return ConversionResult(
-                    vi_name=vi_name,
-                    python_code=agentic_result.python_code,
-                    output_path=output_path,
-                    success=True,
-                    attempts=self.config.max_retries + agentic_result.attempts,
-                )
-            errors = agentic_result.errors
-
         return ConversionResult(
             vi_name=vi_name,
             python_code=result.code,  # Use the code from failed strategy attempt
@@ -246,7 +235,7 @@ class ConversionAgent:
         """
         # Check if this is a known vilib VI with implementation
         if self.vilib_resolver.has_implementation(vi_name):
-            code = self.vilib_resolver.get_implementation(vi_name)
+            code = self.vilib_resolver.get_implementation(vi_name) or ""
             output_path = self._write_vi_module(vi_name, code)
 
             # Generate UI wrapper if enabled
@@ -535,11 +524,6 @@ def {func_name}({params_str}) -> {return_type}:
             name = f"param_{name}"
         return name or "arg"
 
-    def _to_module_name(self, vi_name: str) -> str:
-        """Convert VI name to module name (file path)."""
-        # Use the same logic as _write_vi_module
-        return self._to_function_name(vi_name)
-
     def _type_to_param_name(self, lv_type: str) -> str:
         """Generate a meaningful parameter name from LabVIEW type."""
         name_map = {
@@ -598,7 +582,7 @@ def {func_name}({params_str}) -> {return_type}:
         module_name = self._to_module_name(lvclass.name)
 
         # 1. Load method VIs into graph to get their contexts
-        method_contexts: dict[str, dict] = {}
+        method_contexts: dict[str, VIContext] = {}
         loaded_vis = set(self.graph.list_vis())
 
         for method in lvclass.methods:
@@ -729,7 +713,7 @@ def {func_name}({params_str}) -> {return_type}:
             result.append((name, self._map_type(typ)))
         return result
 
-    def _get_vi_outputs(self, vi_context: object) -> list[tuple[str, str]]:
+    def _get_vi_outputs(self, vi_context: VIContext) -> list[tuple[str, str]]:
         """Get output names and types from VI context.
 
         Uses the actual output names from the VI (e.g., "Settings Path", "error out")
@@ -746,7 +730,7 @@ def {func_name}({params_str}) -> {return_type}:
 
     def _get_subvi_signatures(
         self,
-        vi_context: object,
+        vi_context: VIContext,
         from_vi_name: str,
     ) -> dict[str, VISignature]:
         """Get signatures for already-converted SubVIs.
@@ -801,7 +785,7 @@ def {func_name}({params_str}) -> {return_type}:
 
         return signatures
 
-    def _get_primitive_mappings(self, vi_context: object) -> dict[int, str]:
+    def _get_primitive_mappings(self, vi_context: VIContext) -> dict[int, str]:
         """Get primResID -> function name mappings for a VI.
 
         Returns empty dict - primitive behavior is inferred by LLM from graph context

@@ -133,10 +133,10 @@ def _extract_one_case_structure(
     for case_sel in _find_own_descendants(case_elem, "caseSel"):
         cs_tl = case_sel.find("termList")
         if cs_tl is not None:
-            term_refs = [
-                e.get("uid")
+            term_refs: list[str] = [
+                uid
                 for e in cs_tl.findall("SL__arrayElement")
-                if e.get("uid")
+                if (uid := e.get("uid"))
             ]
             if len(term_refs) >= 2:
                 outer_uid = term_refs[-1]
@@ -152,10 +152,10 @@ def _extract_one_case_structure(
     for comment_tun in _find_own_descendants(case_elem, "commentTun"):
         ct_tl = comment_tun.find("termList")
         if ct_tl is not None:
-            term_refs = [
-                e.get("uid")
+            term_refs: list[str] = [
+                uid
                 for e in ct_tl.findall("SL__arrayElement")
-                if e.get("uid")
+                if (uid := e.get("uid"))
             ]
             if len(term_refs) >= 2:
                 outer_uid = term_refs[-1]
@@ -219,10 +219,10 @@ def _extract_case_tunnels(
     if dco_term_list is None:
         return []
 
-    term_refs = [
-        e.get("uid")
+    term_refs: list[str] = [
+        uid
         for e in dco_term_list.findall("SL__arrayElement")
-        if e.get("uid")
+        if (uid := e.get("uid"))
     ]
 
     # Layout: [frame0_inner, frame1_inner, ..., outer_self]

@@ -963,7 +963,12 @@ class VILibResolver:
 
         if lv_type.fields:
             type_data["fields"] = [
-                {"name": f.name, "type": f.type.underlying_type or "Any"}
+                {
+                    "name": f.name,
+                    "type": (f.type.underlying_type or "Any")
+                    if f.type
+                    else "Any",
+                }
                 for f in lv_type.fields
             ]
 

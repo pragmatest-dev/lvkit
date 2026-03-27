@@ -13,7 +13,7 @@ import re
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
-from ..graph_types import Operation, Wire
+from ..graph_types import Operation, VIContext, Wire
 from ..primitive_resolver import PrimitiveTerminal
 from ..primitive_resolver import get_resolver as get_primitive_resolver
 from ..vilib_resolver import VILibResolver
@@ -94,7 +94,7 @@ class SkeletonGenerator:
         self._vars: dict[str, SkeletonVar] = {}
         self._enum_imports: set[str] = set()  # Track enum types to import
 
-    def generate(self, vi_context: object, vi_name: str) -> Skeleton:
+    def generate(self, vi_context: VIContext, vi_name: str) -> Skeleton:
         """Generate skeleton from VI context.
 
         Args:
@@ -173,7 +173,9 @@ class SkeletonGenerator:
             if out.lv_type:
                 type_hint = out.lv_type.to_python()
             else:
-                lv_type = out.python_type() or self._map_control_type(out.control_type)
+                lv_type = out.python_type() or self._map_control_type(
+                    getattr(out, "control_type", None)
+                )
                 type_hint = self._map_type(lv_type) if lv_type else "Any"
             outputs.append((name, type_hint))
 
@@ -585,7 +587,7 @@ class SkeletonGenerator:
 
         return "\n".join(lines)
 
-    def _topological_sort_ops(self, operations: list, vi_context: object) -> list:
+    def _topological_sort_ops(self, operations: list, vi_context: VIContext) -> list:
         """Sort operations in execution order based on data dependencies.
 
         An operation can execute when all its input wires have data.
@@ -650,7 +652,7 @@ class SkeletonGenerator:
         op: Operation,
         op_inputs: list[str],
         prim_terminals: list[PrimitiveTerminal],
-        vi_context: object,
+        vi_context: VIContext,
     ) -> dict[str, str]:
         """Build map from primitive terminal names to actual input values.
 
@@ -808,7 +810,7 @@ class SkeletonGenerator:
         else:
             return ", ".join(expressions), output_vars, pre_statements
 
-    def _build_data_flow_map(self, vi_context: object) -> None:
+    def _build_data_flow_map(self, vi_context: VIContext) -> None:
         """Build mapping from destination terminals to source terminals."""
         self._flow_map = {}  # dest_terminal_id -> source info
         self._wired_terminals: set[str] = set()  # All terminals with wires
@@ -831,7 +833,7 @@ class SkeletonGenerator:
         return term_id in self._wired_terminals
 
     def _find_source_var(
-        self, term_id: str, vi_context: object, visited: set[str] | None = None
+        self, term_id: str, vi_context: VIContext, visited: set[str] | None = None
     ) -> str | None:
         """Find the source variable for a terminal from data flow.
 
@@ -952,7 +954,7 @@ class SkeletonGenerator:
         const_id: str,
         label: str | None,
         type_hint: str,
-        vi_context: object,
+        vi_context: VIContext,
         ops_by_id: dict[str, Operation],
     ) -> str:
         """Derive a meaningful name for a constant.
@@ -1196,7 +1198,7 @@ class SkeletonGenerator:
 
 
 def generate_skeleton(
-    vi_context: object,
+    vi_context: VIContext,
     vi_name: str,
     converted_deps: dict[str, VISignature] | None = None,
 ) -> str:

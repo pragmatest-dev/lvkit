@@ -61,6 +61,12 @@ class QueryMixin:
     _source_paths: dict[str, Path]
     _vi_metadata: dict[str, VIMetadata]
 
+    if TYPE_CHECKING:
+        # Stubs for methods defined on other mixins / core, resolved via MRO
+        def _build_operation(self, uid: str, vi_name: str) -> Operation: ...
+        def _kind_to_labels(self, kind: str) -> list[str]: ...
+        def has_parallel_branches(self, vi_name: str) -> bool: ...
+
     # === Cypher query compat ===
 
     def query(self, cypher: str, params: dict | None = None) -> list[dict]:
@@ -101,7 +107,9 @@ class QueryMixin:
                     value=gnode.raw_value or gnode.value or "",
                     label=gnode.label,
                     type=(
-                        gnode.lv_type.underlying_type if gnode.lv_type else "Any"
+                        (gnode.lv_type.underlying_type or "Any")
+                        if gnode.lv_type
+                        else "Any"
                     ),
                     python=gnode.value,
                 ))

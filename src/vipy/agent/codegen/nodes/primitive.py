@@ -57,7 +57,7 @@ class PrimitiveCodeGen(NodeCodeGen):
         )
         if is_unknown:
             # Unknown primitive - emit explicit error
-            return self._emit_unknown(node, prim_id, ctx)
+            return self._emit_unknown(node, prim_id or 0, ctx)
 
         # Resolve input values from context (use resolved terminals for names)
         input_map = self._build_input_map(node, ctx, resolved)
@@ -84,7 +84,7 @@ class PrimitiveCodeGen(NodeCodeGen):
             )
         else:
             fragment = self._build_string_hint(
-                resolved.python_code, input_map, wired_outputs, ctx, resolved
+                resolved.python_code or "", input_map, wired_outputs, ctx, resolved
             )
 
         # Merge passthrough bindings
@@ -602,7 +602,7 @@ class PrimitiveCodeGen(NodeCodeGen):
             text = m.group()
             # Strip braces if matched as {name} placeholder
             key = text.strip("{}") if text.startswith("{") else text
-            return input_map.get(key, text)
+            return input_map[key] if key in input_map else text
 
         result = re.sub(combined, _replace, template)
 

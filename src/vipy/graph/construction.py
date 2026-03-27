@@ -104,6 +104,8 @@ def _lv_type_category(underlying: str, kind: str) -> str:
 if TYPE_CHECKING:
     import networkx as nx
 
+    from ..parser.models import ParsedType
+
 
 class ConstructionMixin:
     """Mixin providing graph construction methods."""
@@ -112,6 +114,15 @@ class ConstructionMixin:
     _graph: nx.MultiDiGraph
     _vi_nodes: dict[str, set[str]]
     _term_to_node: dict[str, str]
+
+    if TYPE_CHECKING:
+        # Stubs for methods defined on other mixins / core, resolved via MRO
+        @staticmethod
+        def _qid(vi_name: str, uid: str) -> str: ...
+        def _enrich_type(
+            self, parsed_type: ParsedType | None,
+        ) -> LVType | None: ...
+        def resolve_vi_name(self, vi_name: str) -> str: ...
 
     @staticmethod
     def _format_lv_type_for_display(lv_type: LVType) -> str:
@@ -441,10 +452,11 @@ class ConstructionMixin:
                 # Add selector terminal so the topo sort sees it as
                 # an input dependency (otherwise the case structure can
                 # be processed before its selector source is bound).
-                if selector_term and case_struct:
-                    sel_ti = bd.terminal_info.get(
-                        case_struct.selector_terminal_uid
-                    )
+                sel_uid = (
+                    case_struct.selector_terminal_uid if case_struct else None
+                )
+                if selector_term and sel_uid:
+                    sel_ti = bd.terminal_info.get(sel_uid)
                     sel_terminal = Terminal(
                         id=selector_term,
                         index=sel_ti.index if sel_ti else 0,
@@ -453,8 +465,8 @@ class ConstructionMixin:
                     )
                     structure_terminals.append(sel_terminal)
                     # Register in term_lookup so wire edges resolve
-                    if case_struct.selector_terminal_uid not in term_lookup:
-                        term_lookup[case_struct.selector_terminal_uid] = (
+                    if sel_uid not in term_lookup:
+                        term_lookup[sel_uid] = (
                             WireEnd(
                                 terminal_id=selector_term,
                                 node_id=q_node_uid,

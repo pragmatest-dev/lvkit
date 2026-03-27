@@ -121,7 +121,7 @@ class TerminalCollector:
         self,
         vi_name: str,
         caller_vi: str,
-        node_terminals: list[dict[str, Any]],
+        node_terminals: list[Any],
         vilib_terminals: list[dict[str, Any]] | None = None,
     ) -> None:
         """Record terminal observations from a caller.

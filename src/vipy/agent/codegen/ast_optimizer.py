@@ -74,7 +74,7 @@ class DeadCodeEliminator(ast.NodeTransformer):
         # Process function body, removing dead assignments
         new_body = []
         for stmt in node.body:
-            if self._is_dead_assignment(stmt):
+            if isinstance(stmt, ast.Assign) and self._is_dead_assignment(stmt):
                 # Dead assignment — but preserve side effects (function calls)
                 if self._has_side_effects(stmt.value):
                     new_body.append(ast.Expr(value=stmt.value))
@@ -88,7 +88,7 @@ class DeadCodeEliminator(ast.NodeTransformer):
             # Function must have at least one statement
             new_body = [ast.Pass()]
 
-        node.body = new_body
+        node.body = new_body  # type: ignore[misc]  # ast node attrs are mutable at runtime
         return node
 
     def _is_dead_assignment(self, stmt: ast.stmt) -> bool:
@@ -346,9 +346,10 @@ class ConstantFolder(ast.NodeTransformer):
 
     def visit_BoolOp(self, node: ast.BoolOp) -> ast.AST:
         self.generic_visit(node)
-        if all(isinstance(v, ast.Constant) for v in node.values):
-            result = node.values[0].value
-            for v in node.values[1:]:
+        const_values = [v for v in node.values if isinstance(v, ast.Constant)]
+        if len(const_values) == len(node.values):
+            result = const_values[0].value
+            for v in const_values[1:]:
                 if isinstance(node.op, ast.Or):
                     result = result or v.value
                 elif isinstance(node.op, ast.And):

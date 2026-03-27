@@ -153,7 +153,7 @@ def build_branch_function(
 
     # Ensure non-empty body
     if not body:
-        body = [ast.Pass()]
+        body: list[ast.stmt] = [ast.Pass()]
 
     return ast.FunctionDef(
         name=func_name,
@@ -169,6 +169,7 @@ def build_branch_function(
         body=body,
         decorator_list=[],
         returns=None,
+        type_params=[],
     )
 
 
