@@ -27,6 +27,7 @@ class LVPrivateDataField:
     name: str
     python_type: str = "Any"  # Inferred Python type
     default_value: str | None = None  # Default value expression
+    lv_type_name: str = ""  # Raw LV type from VCTP (e.g. "String", "Boolean")
 
 
 @dataclass
@@ -135,16 +136,14 @@ def _parse_private_data_fields(lvclass_path: Path) -> list[LVPrivateDataField]:
 
     Any method VI that uses the class object will have the
     "Cluster of class private data" type definition in its VCTP section.
+    Field names and LV type names are extracted from the same XML's VCTP.
 
-    Args:
-        lvclass_path: Path to the .lvclass file
-
-    Returns:
-        List of private data fields with names and types
+    For user-defined field types (classes, typedefs), the LV type name here
+    is bare (e.g. "Refnum"). Full qualification happens at the dep_graph
+    level where ownership context is known.
     """
     class_dir = lvclass_path.parent
 
-    # Look for any extracted XML file (not _BDHb, _FPHb variants)
     for xml_path in class_dir.glob("*.xml"):
         if "_BDHb" in xml_path.name or "_FPHb" in xml_path.name:
             continue
@@ -171,16 +170,10 @@ def _parse_private_data_fields(lvclass_path: Path) -> list[LVPrivateDataField]:
 def _resolve_type_ids(
     root: ET.Element, type_ids: list[str | None]
 ) -> list[LVPrivateDataField]:
-    """Resolve TypeID references to actual field definitions.
+    """Resolve TypeID references to field definitions from VCTP.
 
-    TypeDescs in VCTP/Section are ordered by FlatTypeID (0, 1, 2, ...).
-
-    Args:
-        root: XML root element
-        type_ids: List of TypeID values to resolve
-
-    Returns:
-        List of private data fields
+    Gets field name from Label, LV type name from Type attribute,
+    and extracts qualified classname from <Item> elements for class fields.
     """
     fields: list[LVPrivateDataField] = []
 
@@ -188,18 +181,15 @@ def _resolve_type_ids(
     if vctp is None:
         return fields
 
-    # TypeDescs are in order - FlatTypeID N is the Nth TypeDesc element
     type_descs = [elem for elem in vctp if elem.tag == "TypeDesc"]
 
     for tid in type_ids:
         if tid is None:
             continue
-
         try:
             idx = int(tid)
         except ValueError:
             continue
-
         if idx >= len(type_descs):
             continue
 
@@ -207,24 +197,32 @@ def _resolve_type_ids(
 
         label = type_elem.get("Label", "")
         if not label:
-            # Check nested TypeDesc for label (e.g., TypeDef wrapper)
             nested = type_elem.find("TypeDesc")
             if nested is not None:
                 label = nested.get("Label", "")
+        if not label:
+            continue
 
-        if label:
-            lv_type = type_elem.get("Type", "")
-            # For TypeDef wrappers, get the nested type
-            if lv_type == "TypeDef":
-                nested = type_elem.find("TypeDesc")
-                if nested is not None:
-                    lv_type = nested.get("Type", "")
+        lv_type = type_elem.get("Type", "")
+        # For TypeDef wrappers, get the nested type
+        if lv_type == "TypeDef":
+            nested = type_elem.find("TypeDesc")
+            if nested is not None:
+                lv_type = nested.get("Type", "")
 
-            python_type = _lv_type_to_python(lv_type)
-            fields.append(LVPrivateDataField(
-                name=label,
-                python_type=python_type,
-            ))
+        # For class refnums, extract qualified classname from <Item> chain
+        ref_type = type_elem.get("RefType", "")
+        if ref_type == "UDClassInst":
+            items = type_elem.findall("Item")
+            if items:
+                lv_type = ":".join(it.get("Text", "") for it in items)
+
+        python_type = _lv_type_to_python(lv_type)
+        fields.append(LVPrivateDataField(
+            name=label,
+            python_type=python_type,
+            lv_type_name=lv_type,
+        ))
 
     return fields
 

@@ -8,7 +8,6 @@ _kind_to_labels, and module-level helper functions.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
 
 import networkx as nx
 
@@ -176,28 +175,35 @@ class InMemoryVIGraph(
             values=parsed_type.enum_values,
         )
 
-        # Carry field names from type map (raw clusters have these)
-        if parsed_type.field_names:
-            from ..graph_types import ClusterField
-            lv_type.fields = [ClusterField(name=n) for n in parsed_type.field_names]
+        # Anonymous clusters: fields ARE the type definition (no external
+        # identity to reference). Carry them on the terminal with full
+        # recursive type info from the type_map.
+        if parsed_type.fields and not parsed_type.classname:
+            lv_type.fields = parsed_type.fields
 
+        # Enrich enum values from vilib resolver (values are leaf data,
+        # not structural — safe to carry on the terminal).
         if parsed_type.typedef_name:
             resolver = get_vilib_resolver()
             resolved = resolver.resolve_type(parsed_type.typedef_name)
             if resolved:
                 if resolved.values:
                     lv_type.values = resolved.values
-                if resolved.fields:
-                    lv_type.fields = resolved.fields
                 lv_type.description = resolved.description
 
-        # Enrich class types from dep_graph (project structure)
-        if lv_type.classname and self._dep_graph.has_node(lv_type.classname):
-            node_data = self._dep_graph.nodes[lv_type.classname]
-            if node_data.get("fields") and not lv_type.fields:
-                lv_type.fields = list(node_data["fields"])
+        # Class/typedef fields: codegen queries dep_graph or vilib_resolver
+        # by classname/typedef_name. No copies.
 
         return lv_type
+
+    def get_class_fields(self, classname: str) -> list | None:
+        """Get fields for a class from dep_graph.
+
+        Returns ordered list of ClusterField objects, or None if class not found.
+        """
+        if not self._dep_graph.has_node(classname):
+            return None
+        return self._dep_graph.nodes[classname].get("fields")
 
     def set_var_name(self, terminal_id: str, var_name: str) -> None:
         """Set the Python variable name on a terminal. Called during codegen."""

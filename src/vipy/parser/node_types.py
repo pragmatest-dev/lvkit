@@ -13,10 +13,9 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Any
 
-from .utils import clean_labview_string
-
 from .models import Node
 from .nodes.base import extract_label, extract_terminal_types
+from .utils import clean_labview_string
 
 # =============================================================================
 # Node Subclasses
@@ -79,6 +78,8 @@ class SelectNode(Node):
     dco_list_uids: list[str] = field(default_factory=list)
     # Maps terminal UID → DCO UID for role matching
     term_to_dco: dict[str, str] = field(default_factory=dict)
+    # Maps DCO UID → field index from <i> tag (nMux bundle/unbundle)
+    dco_field_index: dict[str, int] = field(default_factory=dict)
 
 
 # =============================================================================
@@ -463,8 +464,10 @@ class NMuxHandler(NodeTypeHandler):
                 if uid:
                     dco_list_uids.append(uid)
 
-        # Map terminal UID → DCO UID
+        # Map terminal UID → DCO UID, and extract field index from <i> tag
         term_to_dco: dict[str, str] = {}
+        dco_field_index: dict[str, int] = {}
+        list_dco_set = set(dco_list_uids)
         term_list = elem.find("termList")
         if term_list is not None:
             for term_elem in term_list.findall("SL__arrayElement"):
@@ -474,12 +477,18 @@ class NMuxHandler(NodeTypeHandler):
                     d_uid = dco_elem.get("uid")
                     if d_uid:
                         term_to_dco[t_uid] = d_uid
+                        # Extract <i> field index from LIST DCOs
+                        if d_uid in list_dco_set:
+                            i_elem = dco_elem.find("i")
+                            idx = int(i_elem.text) if i_elem is not None else 0
+                            dco_field_index[d_uid] = idx
 
         return SelectNode(
             **common,
             dco_agg_uid=dco_agg_uid,
             dco_list_uids=dco_list_uids,
             term_to_dco=term_to_dco,
+            dco_field_index=dco_field_index,
         )
 
 
