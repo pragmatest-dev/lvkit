@@ -9,7 +9,7 @@ from __future__ import annotations
 import ast
 from typing import TYPE_CHECKING, Any
 
-from vipy.graph_types import Operation, TypeResolutionNeeded
+from vipy.graph_types import ClusterField, Operation, TypeResolutionNeeded
 
 from ..ast_utils import parse_expr, to_var_name
 from ..fragment import CodeFragment
@@ -33,7 +33,7 @@ class NMuxCodeGen(NodeCodeGen):
     """
 
     def generate(self, node: Operation, ctx: CodeGenContext) -> CodeFragment:
-        def _by_role(direction: str, role: str) -> list:
+        def _by_role(direction: str, role: str) -> list[Any]:
             return [
                 t for t in node.terminals
                 if t.direction == direction and t.nmux_role == role
@@ -114,7 +114,7 @@ class NMuxCodeGen(NodeCodeGen):
         return CodeFragment(statements=statements, bindings=bindings)
 
     @staticmethod
-    def _field_name(term: Any, class_fields: list | None) -> str | None:
+    def _field_name(term: Any, class_fields: list[ClusterField] | None) -> str | None:
         """Get Python field name for a LIST terminal using nmux_field_index.
 
         Returns None if field index is missing or out of range.
@@ -127,7 +127,7 @@ class NMuxCodeGen(NodeCodeGen):
     @staticmethod
     def _field_expr(
         term: Any, agg_var: str,
-        class_fields: list | None,
+        class_fields: list[ClusterField] | None,
     ) -> str:
         """Resolve field expression for a LIST output terminal (unbundle).
 

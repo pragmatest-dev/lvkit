@@ -16,6 +16,7 @@ from ..parser import (
     parse_vi,
     parse_vi_metadata,
 )
+from ..parser.type_mapping import parse_type_map_rich
 from ..structure import (
     get_project_classes,
     get_project_libraries,
@@ -38,11 +39,11 @@ class LoadingMixin:
     _term_to_node: dict[str, str]
     _dep_graph: nx.DiGraph
     _stubs: set[str]
-    _poly_info: dict[str, dict[str, Any]]
+    _poly_info: dict[str, PolyInfo]
     _qualified_aliases: dict[str, str]
     _loaded_vis: set[str]
     _source_paths: dict[str, Path]
-    _vi_metadata: dict[str, dict[str, Any]]
+    _vi_metadata: dict[str, VIMetadata]
 
     def load_vi(
         self,
@@ -112,7 +113,8 @@ class LoadingMixin:
             search_paths = [lvlib_path.parent]
 
         chain = list(owner_chain or [])
-        lib_qname = ":".join(chain + [lib.name + ".lvlib"]) if chain else lib.name + ".lvlib"
+        lib_name = lib.name + ".lvlib"
+        lib_qname = ":".join(chain + [lib_name]) if chain else lib_name
 
         # Add library node to dep_graph
         self._dep_graph.add_node(lib_qname, node_type="library")
@@ -156,7 +158,8 @@ class LoadingMixin:
             search_paths = [lvclass_path.parent]
 
         chain = list(owner_chain or [])
-        cls_qname = ":".join(chain + [cls.name + ".lvclass"]) if chain else cls.name + ".lvclass"
+        cls_name = cls.name + ".lvclass"
+        cls_qname = ":".join(chain + [cls_name]) if chain else cls_name
 
         # Add class node to dep_graph with field info
         from ..graph_types import ClusterField, LVType
@@ -477,57 +480,38 @@ class LoadingMixin:
     ) -> None:
         """Ensure a typedef is in the dep_graph with its fields.
 
-        Checks vilib_resolver first (built-in typedefs), then searches
-        for .ctl files on disk (user project typedefs). Same as class loading.
+        Same as class/VI loading: find .ctl on disk → extract XML →
+        parse type_map → add fields to dep_graph.
         """
         if self._dep_graph.has_node(typedef_name):
             return
 
-        # Try vilib_resolver (built-in typedefs)
-        from ..vilib_resolver import get_resolver
-        resolver = get_resolver()
-        resolved = resolver.resolve_type(typedef_name)
-        if resolved and resolved.fields:
-            self._dep_graph.add_node(
-                typedef_name,
-                node_type="typedef",
-                fields=resolved.fields,
-            )
-            return
-
-        # Try loading .ctl file from disk (user project typedefs)
         leaf = typedef_name.rsplit(":", 1)[-1]
-        if leaf.endswith(".ctl"):
-            ctl_path = self._find_file(leaf, search_paths, caller_dir)
-            if ctl_path:
-                fields = self._parse_ctl_fields(ctl_path)
-                self._dep_graph.add_node(
-                    typedef_name,
-                    node_type="typedef",
-                    fields=fields,
-                )
-                return
+        ctl_path = self._find_file(leaf, search_paths, caller_dir)
+
+        if ctl_path:
+            try:
+                _, _, main_xml = extract_vi_xml(ctl_path)
+                if main_xml and main_xml.exists():
+                    type_map = parse_type_map_rich(main_xml)
+                    # Find the primary type (first with fields)
+                    fields = None
+                    for lv_type in type_map.values():
+                        if lv_type.fields:
+                            fields = lv_type.fields
+                            break
+                    self._dep_graph.add_node(
+                        typedef_name,
+                        node_type="typedef",
+                        fields=fields,
+                    )
+                    return
+            except (RuntimeError, OSError):
+                pass
 
         # Stub it
         self._dep_graph.add_node(typedef_name, node_type="typedef")
         self._stubs.add(typedef_name)
-
-    def _parse_ctl_fields(self, ctl_path: Path) -> list | None:
-        """Parse fields from a .ctl typedef file."""
-        import xml.etree.ElementTree as ET
-
-        from ..graph_types import ClusterField, LVType
-        from ..parser.type_mapping import parse_type_map_rich
-
-        try:
-            type_map = parse_type_map_rich(ctl_path)
-            # Find the main cluster type (usually the first cluster)
-            for lv_type in type_map.values():
-                if lv_type.fields:
-                    return lv_type.fields
-        except Exception:
-            pass
-        return None
 
     def _find_file(
         self,

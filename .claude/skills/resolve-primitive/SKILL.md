@@ -22,6 +22,8 @@ Write down the EXACT diagnostic output:
 - Every terminal: index, direction, type
 - The VI name
 
+**IMPORTANT: Primitives only show WIRED terminals.** Unlike VIs (which show all connector pane terminals), primitives only include terminals that have wires connected. A primitive with 7 possible terminals may only show 5 in a given VI. When matching against documentation, the observed terminals are a SUBSET of the full terminal list. Match by the terminals you see, not by total count.
+
 ## Step 2: Get more instances
 
 Search for ALL instances of this primResID across our VIs to see terminal variations:
@@ -110,10 +112,10 @@ Does the terminal signature (types, count, directions) fit the range?
 ## Step 5: Search the LabVIEW documentation
 
 The full text is at `docs/labview_ref_manual.txt`. Search for candidate functions matching:
-- The terminal COUNT (number of inputs and outputs)
 - The terminal TYPES (matching the actual types from Step 1)
 - The CATEGORY (matching the range from Step 4)
 - The CONTEXT (matching the connected operations from Step 3)
+- The observed terminals must be a SUBSET of the documented terminals (primitives only show wired terminals, not all possible ones)
 
 Read the FULL Inputs/Outputs section. Confirm EVERY terminal name, direction, and type matches the actual data.
 

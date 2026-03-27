@@ -13,6 +13,7 @@ import networkx as nx
 
 from ..graph_types import (
     AnyGraphNode,
+    ClusterField,
     ConstantNode,
     LVType,
     PolyInfo,
@@ -196,13 +197,20 @@ class InMemoryVIGraph(
 
         return lv_type
 
-    def get_class_fields(self, classname: str) -> list | None:
+    def get_class_fields(
+        self, classname: str,
+    ) -> list[ClusterField] | None:
         """Get fields for a named type from dep_graph by key."""
         if not self._dep_graph.has_node(classname):
             return None
-        return self._dep_graph.nodes[classname].get("fields")
+        fields: list[ClusterField] | None = (
+            self._dep_graph.nodes[classname].get("fields")
+        )
+        return fields
 
-    def get_type_fields(self, lv_type: LVType) -> list | None:
+    def get_type_fields(
+        self, lv_type: LVType,
+    ) -> list[ClusterField] | None:
         """Get fields for any type. One API, all cases.
 
         Named types (class, typedef) → dep_graph lookup.
