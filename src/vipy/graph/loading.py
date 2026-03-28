@@ -9,6 +9,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+import networkx as nx
+
 from ..extractor import extract_vi_xml
 from ..graph_types import ClusterField, LVType, PolyInfo, VIMetadata
 from ..parser import (
@@ -28,9 +30,6 @@ from ..structure import (
     parse_lvlib,
     parse_lvproj,
 )
-
-if TYPE_CHECKING:
-    import networkx as nx
 
 
 class LoadingMixin:

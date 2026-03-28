@@ -5,7 +5,8 @@ from __future__ import annotations
 import ast
 import keyword
 import logging
-from typing import Any
+
+from vipy.graph_types import ScalarValue
 
 logger = logging.getLogger(__name__)
 
@@ -116,7 +117,7 @@ def build_name(name: str) -> ast.Name:
     return ast.Name(id=name, ctx=ast.Load())
 
 
-def build_constant(value: Any) -> ast.Constant:
+def build_constant(value: ScalarValue) -> ast.Constant:
     """Build a constant value."""
     return ast.Constant(value=value)
 

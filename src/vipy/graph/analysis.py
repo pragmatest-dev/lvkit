@@ -6,7 +6,7 @@ has_parallel_branches.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+import networkx as nx
 
 from ..graph_types import (
     BranchPoint,
@@ -14,9 +14,6 @@ from ..graph_types import (
     VINode,
 )
 from .core import _OPERATION_KINDS, _graph_node_to_op_kind
-
-if TYPE_CHECKING:
-    import networkx as nx
 
 
 class AnalysisMixin:

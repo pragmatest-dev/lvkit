@@ -34,9 +34,6 @@ from .core import (
     _graph_node_to_op_kind,
 )
 
-if TYPE_CHECKING:
-    pass
-
 
 class OperationsMixin:
     """Mixin providing operation building and inner-node methods."""

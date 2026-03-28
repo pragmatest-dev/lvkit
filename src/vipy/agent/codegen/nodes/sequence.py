@@ -3,15 +3,12 @@
 from __future__ import annotations
 
 import ast
-from typing import TYPE_CHECKING
 
 from vipy.graph_types import Operation
 
+from ..context import CodeGenContext
 from ..fragment import CodeFragment
 from .base import NodeCodeGen
-
-if TYPE_CHECKING:
-    from ..context import CodeGenContext
 
 
 class FlatSequenceCodeGen(NodeCodeGen):

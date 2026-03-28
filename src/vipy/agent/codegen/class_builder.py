@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import ast
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any
 
-from vipy.graph_types import VIContext, _is_error_cluster
+from vipy.graph_types import Terminal, VIContext, _is_error_cluster
+from vipy.memory_graph import InMemoryVIGraph
+from vipy.structure import LVClass, LVMethod
 from vipy.type_defaults import _is_class_refnum
 
 from .ast_optimizer import optimize_module
@@ -14,11 +16,6 @@ from .ast_utils import parse_expr, to_function_name, to_var_name
 from .builder import CodeGenContext, build_args, generate_body
 
 _EMPTY_VI_CONTEXT = VIContext(name="")
-
-if TYPE_CHECKING:
-    from vipy.memory_graph import InMemoryVIGraph
-
-    from ...structure import LVClass, LVMethod
 
 
 @dataclass
@@ -49,15 +46,14 @@ class ClassBuilder:
     ) -> None:
         self.config = config or ClassConfig()
         self._method_contexts: dict[str, VIContext] = {}
-        self._import_resolver: Any = None
+        self._import_resolver: Callable[[str], str] | None = None
 
     def build_class_module(
         self,
         lvclass: LVClass,
         method_contexts: dict[str, VIContext] | None = None,
         parent_class_name: str | None = None,
-        vi_context_lookup: Any = None,
-        import_resolver: Any = None,
+        import_resolver: Callable[[str], str] | None = None,
         graph: InMemoryVIGraph | None = None,
     ) -> ast.Module:
         """Build complete module with class definition.
@@ -66,9 +62,6 @@ class ClassBuilder:
             lvclass: Parsed LVClass object
             method_contexts: Dict mapping method name to VI context
             parent_class_name: Parent class name (overrides lvclass.parent_class)
-            vi_context_lookup: Deprecated, ignored. Kept for API compatibility.
-                              Terminal names are populated on Terminal objects
-                              via resolve_name().
             import_resolver: Callable to resolve import paths for SubVIs
 
         Returns:
@@ -675,7 +668,7 @@ class ClassBuilder:
         transformer = InstanceToSelfTransformer()
         return [transformer.visit(stmt) for stmt in body]
 
-    def _is_self_input(self, inp: Any, class_name: str) -> bool:
+    def _is_self_input(self, inp: Terminal, class_name: str) -> bool:
         """Check if input is the class instance (becomes self).
 
         Uses lv_type to detect class refnums by type, not name.
@@ -685,7 +678,7 @@ class ClassBuilder:
             return True
         return False
 
-    def _is_self_output(self, out: Any, class_name: str) -> bool:
+    def _is_self_output(self, out: Terminal, class_name: str) -> bool:
         """Check if output is the class instance (filtered from return).
 
         Uses lv_type to detect class refnums by type, not name.
@@ -695,7 +688,7 @@ class ClassBuilder:
             return True
         return False
 
-    def _is_error_output(self, out: Any) -> bool:
+    def _is_error_output(self, out: Terminal) -> bool:
         """Check if output is an error cluster (should not be in return).
 
         Python uses exceptions instead of error clusters.
@@ -706,13 +699,13 @@ class ClassBuilder:
             return True
 
         # Fallback: check name pattern
-        out_name = (out.name if hasattr(out, "name") else str(out)).lower()
+        out_name = (out.name or str(out) if hasattr(out, "name") else str(out)).lower()
         if "error" in out_name and ("in" in out_name or "out" in out_name):
             return True
 
         return False
 
-    def _build_return_annotation(self, outputs: list[Any]) -> ast.expr:
+    def _build_return_annotation(self, outputs: list[Terminal]) -> ast.expr:
         """Build return type annotation from outputs using lv_type."""
         if not outputs:
             return ast.Constant(value=None)

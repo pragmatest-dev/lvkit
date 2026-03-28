@@ -3,10 +3,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
-if TYPE_CHECKING:
-    from ..graph_types import ClusterField, Tunnel
+from ..graph_types import ClusterField, LVType, Tunnel
 
 
 @dataclass
@@ -278,7 +277,7 @@ class VIMetadata:
     """
     qualified_name: str | None = None  # e.g., "Library.lvlib:VI.vi"
     source_path: str | None = None  # Path to original .vi file
-    type_map: dict = field(default_factory=dict)  # TypeID → LVType mapping
+    type_map: dict[int, LVType] = field(default_factory=dict)  # TypeID → LVType mapping
     subvi_qualified_names: list[str] = field(default_factory=list)  # From VIVI entries
     iuse_to_qualified_name: dict[str, str] = field(
         default_factory=dict,

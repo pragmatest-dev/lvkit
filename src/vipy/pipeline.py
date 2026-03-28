@@ -12,6 +12,7 @@ import shutil
 import sys
 import traceback
 from collections import defaultdict
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -134,7 +135,7 @@ def create_import_resolver(
     graph: InMemoryVIGraph | None = None,
     vilib_resolver: VILibResolver | None = None,
     caller_library: str | None = None,
-) -> Any:
+) -> Callable[[str], str]:
     """Create an import resolver for a VI.
 
     Args:
@@ -191,7 +192,7 @@ def _generate_polymorphic_module(
     wrapper_name: str,
     variants: list[str],
     graph: InMemoryVIGraph,
-    vilib_resolver: Any,
+    vilib_resolver: VILibResolver | None,
     package_name: str,
     output_dir: Path,
     vi_paths: dict[str, Path],

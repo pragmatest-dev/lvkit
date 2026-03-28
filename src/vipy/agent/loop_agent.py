@@ -8,11 +8,13 @@ import shutil
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING
 
 from ..enum_resolver import EnumResolver
+from ..graph import VIGraph
 from ..graph_types import VIContext
 from ..llm import generate_code
+from ..memory_graph import InMemoryVIGraph
+from ..structure import LVClass, LVLibrary
 from ..vilib_resolver import get_resolver as get_vilib_resolver
 from .codegen import ClassBuilder, ClassConfig, build_module
 from .codegen.ast_utils import to_function_name, to_module_name
@@ -24,11 +26,6 @@ from .primitives import PrimitiveRegistry
 from .state import ConversionState, get_progress
 from .types import SharedTypeRegistry
 from .validator import CodeValidator, ValidatorConfig
-
-if TYPE_CHECKING:
-    from ..graph import VIGraph
-    from ..memory_graph import InMemoryVIGraph
-    from ..structure import LVClass, LVLibrary
 
 
 class ConversionAgent:

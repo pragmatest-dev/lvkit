@@ -4,12 +4,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TYPE_CHECKING
 
 from ..llm import LLMConfig
-
-if TYPE_CHECKING:
-    pass
 
 # Type alias for graph - accepts either Neo4j or in-memory graph
 GraphType = "VIGraph | InMemoryVIGraph"

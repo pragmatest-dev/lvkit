@@ -182,7 +182,7 @@ class ControlSchema(BaseModel):
 
     name: str
     type: str
-    default_value: Any = None
+    default_value: str | int | float | bool | None = None
     description: str = ""
     slot_index: int
 

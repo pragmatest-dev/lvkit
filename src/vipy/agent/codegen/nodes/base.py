@@ -4,15 +4,12 @@ from __future__ import annotations
 
 import ast
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING
 
 from vipy.graph_types import Operation
 
 from ..ast_utils import to_var_name
+from ..context import CodeGenContext
 from ..fragment import CodeFragment
-
-if TYPE_CHECKING:
-    from ..context import CodeGenContext
 
 
 class CodeGenError(Exception):

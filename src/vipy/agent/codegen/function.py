@@ -6,13 +6,10 @@ Builds function signatures, bodies, and return statements.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING
 
 from .ast_utils import to_function_name
-
-if TYPE_CHECKING:
-    from .dataflow import DataFlowTracer
-    from .imports import ImportBuilder
+from .dataflow import DataFlowTracer
+from .imports import ImportBuilder
 
 
 @dataclass

@@ -4,16 +4,13 @@ from __future__ import annotations
 
 import ast
 import warnings
-from typing import TYPE_CHECKING
 
 from vipy.graph_types import CaseFrame, Operation, _is_error_cluster
 
 from ..ast_utils import build_assign, parse_expr, to_var_name
+from ..context import CodeGenContext
 from ..fragment import CodeFragment
 from .base import NodeCodeGen
-
-if TYPE_CHECKING:
-    from ..context import CodeGenContext
 
 
 class CaseCodeGen(NodeCodeGen):
