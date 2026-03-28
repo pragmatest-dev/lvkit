@@ -9,7 +9,7 @@ from vipy.graph_types import Operation, Tunnel
 
 from ..ast_utils import build_assign, parse_expr, to_var_name
 from ..fragment import CodeFragment
-from .base import NodeCodeGen, get_codegen
+from .base import NodeCodeGen
 
 if TYPE_CHECKING:
     from ..context import CodeGenContext
@@ -509,17 +509,7 @@ class LoopCodeGen(NodeCodeGen):
         self, inner_nodes: list[Operation], ctx: CodeGenContext
     ) -> list[ast.stmt]:
         """Generate code for inner loop nodes."""
-        statements = []
-
-        for node in inner_nodes:
-            codegen = get_codegen(node)
-            fragment = codegen.generate(node, ctx)
-
-            statements.extend(fragment.statements)
-            ctx.merge(fragment.bindings)
-            ctx.imports.update(fragment.imports)
-
-        return statements
+        return ctx.generate_body(inner_nodes)
 
     def _build_while_loop(
         self, node: Operation, body: list[ast.stmt], ctx: CodeGenContext

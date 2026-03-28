@@ -6,8 +6,8 @@ import ast
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
-from vipy.graph_types import VIContext
-from vipy.type_defaults import _is_class_refnum, _is_error_cluster
+from vipy.graph_types import VIContext, _is_error_cluster
+from vipy.type_defaults import _is_class_refnum
 
 from .ast_optimizer import optimize_module
 from .ast_utils import parse_expr, to_function_name, to_var_name

@@ -272,7 +272,7 @@ class TestSequenceParallelIntegration:
             ],
             tunnels=[],
         )
-        ctx = CodeGenContext()
+        ctx = CodeGenContext(_body_generator=generate_body)
         fragment = FlatSequenceCodeGen().generate(op, ctx)
         code = ast.unparse(ast.Module(body=fragment.statements, type_ignores=[]))
         assert "ThreadPoolExecutor" in code

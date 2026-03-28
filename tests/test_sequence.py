@@ -537,7 +537,7 @@ class TestCodeGenRegistry:
     """Test that sequence codegens are properly registered."""
 
     def test_flat_sequence_returns_correct_codegen(self):
-        from vipy.agent.codegen.nodes.base import get_codegen
+        from vipy.agent.codegen.nodes import get_codegen
 
         op = Operation(
             id="1", name="Flat Sequence",
@@ -548,7 +548,7 @@ class TestCodeGenRegistry:
         assert isinstance(cg, FlatSequenceCodeGen)
 
     def test_stacked_sequence_returns_correct_codegen(self):
-        from vipy.agent.codegen.nodes.base import get_codegen
+        from vipy.agent.codegen.nodes import get_codegen
 
         op = Operation(
             id="1", name="Stacked Sequence",

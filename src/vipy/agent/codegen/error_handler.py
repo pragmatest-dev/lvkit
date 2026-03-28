@@ -38,8 +38,7 @@ from __future__ import annotations
 
 import ast
 
-from vipy.graph_types import VIContext
-from vipy.type_defaults import _is_error_cluster
+from vipy.graph_types import VIContext, _is_error_cluster
 
 
 def build_held_error_init() -> ast.stmt:
