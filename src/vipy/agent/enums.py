@@ -3,12 +3,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING
 
 from ..enum_resolver import EnumResolver, ResolvedEnum, get_enum_resolver
-
-if TYPE_CHECKING:
-    from ..graph import VIGraph
+from ..graph import VIGraph
 
 
 @dataclass

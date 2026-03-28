@@ -43,9 +43,6 @@ from ..graph_types import (
 from ..vilib_resolver import get_resolver as get_vilib_resolver
 from .core import _OPERATION_KINDS, _graph_node_to_op_kind
 
-if TYPE_CHECKING:
-    pass
-
 
 class QueryMixin:
     """Mixin providing graph query methods."""
@@ -101,9 +98,13 @@ class QueryMixin:
                 gnode = self._graph.nodes[uid].get("node")
                 if not isinstance(gnode, ConstantNode):
                     continue
+                _const_value: str = (
+                    gnode.raw_value
+                    or (str(gnode.value) if gnode.value is not None else "")
+                )
                 results.append(ConstantInfo(
                     vi_name=vi_name,
-                    value=gnode.raw_value or gnode.value or "",
+                    value=_const_value,
                     label=gnode.label,
                     type=(
                         (gnode.lv_type.underlying_type or "Any")

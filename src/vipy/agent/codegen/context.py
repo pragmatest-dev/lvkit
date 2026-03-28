@@ -48,7 +48,7 @@ class CodeGenContext:
     # Lives on context because subvi.py reads it at arbitrary depth
     # in the codegen tree. Passing as parameter would thread through
     # every generate() call.
-    import_resolver: Any = field(default=None, repr=False)
+    import_resolver: Callable[[str], str] | None = field(default=None, repr=False)
     # Callback for recursive body generation. Set by builder.py,
     # used by case/loop codegen to generate inner node code without
     # importing back into the builder (which would create a cycle).
@@ -453,7 +453,10 @@ def _format_constant(const: Constant) -> str:
     Note: enum imports are handled by the SubVI codegen (subvi.py) which
     adds the correct relative import when generating the function call.
     """
-    if const.lv_type and const.lv_type.values and const.lv_type.typedef_name:
+    if (
+        const.lv_type and const.lv_type.values
+        and const.lv_type.typedef_name and const.value is not None
+    ):
         try:
             int_value = int(const.value)
             for member_name, enum_val in const.lv_type.values.items():

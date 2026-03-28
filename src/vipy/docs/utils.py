@@ -3,12 +3,10 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
 
+from ..graph_types import VIContext
+from ..memory_graph import InMemoryVIGraph
 from ..vilib_resolver import get_resolver as get_vilib_resolver
-
-if TYPE_CHECKING:
-    from ..memory_graph import InMemoryVIGraph
 
 
 def generate_dependency_description(subvi_name: str, graph: InMemoryVIGraph) -> str:
@@ -84,7 +82,7 @@ def _infer_from_name(vi_name: str) -> str:
     return f"Performs {name.lower()} operation (no I/O)"
 
 
-def _infer_from_context(vi_name: str, vi_context: Any) -> str:
+def _infer_from_context(vi_name: str, vi_context: VIContext) -> str:
     """Infer description from VI inputs/outputs."""
     inputs = vi_context.inputs
     outputs = vi_context.outputs

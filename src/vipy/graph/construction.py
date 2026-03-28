@@ -7,6 +7,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+import networkx as nx
+
 from ..blockdiagram import decode_constant
 from ..graph_types import (
     AnyGraphNode,
@@ -30,6 +32,7 @@ from ..parser import (
     ConnectorPane,
     FrontPanel,
 )
+from ..parser.models import ParsedType
 from ..parser.node_types import (
     CpdArithNode,
     InvokeNode,
@@ -99,12 +102,6 @@ def _lv_type_category(underlying: str, kind: str) -> str:
     if ul.startswith("num") or ul.startswith("unit"):
         return "numeric"
     return "unknown"
-
-
-if TYPE_CHECKING:
-    import networkx as nx
-
-    from ..parser.models import ParsedType
 
 
 class ConstructionMixin:

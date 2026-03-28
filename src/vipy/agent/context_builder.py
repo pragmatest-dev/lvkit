@@ -8,17 +8,14 @@ from __future__ import annotations
 import json
 import re
 from dataclasses import asdict, is_dataclass
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from ..graph_types import VIContext
 from .codegen.ast_utils import to_function_name
+from .context import VISignature
 from .context_templates import FUNCTION_TEMPLATE, METHOD_TEMPLATE, UI_WRAPPER_TEMPLATE
-from .validator import ErrorFormatter
-
-if TYPE_CHECKING:
-    from .context import VISignature
-    from .types import SharedType
-    from .validator import ValidationError
+from .types import SharedType
+from .validator import ErrorFormatter, ValidationError
 
 
 class TypeInfoEncoder(json.JSONEncoder):

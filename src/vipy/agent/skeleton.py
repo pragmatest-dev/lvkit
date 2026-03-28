@@ -11,16 +11,13 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING
 
 from ..graph_types import Operation, VIContext, Wire
 from ..primitive_resolver import PrimitiveTerminal
 from ..primitive_resolver import get_resolver as get_primitive_resolver
 from ..vilib_resolver import VILibResolver
 from .codegen.ast_utils import to_function_name
-
-if TYPE_CHECKING:
-    from .context import VISignature
+from .context import VISignature
 
 
 @dataclass
@@ -151,7 +148,10 @@ class SkeletonGenerator:
             name = self._to_var_name(inp.name or "input")
             type_hint = self._map_type(inp.python_type())
             wiring_rule = inp.wiring_rule
-            default_value = inp.default_value
+            raw_default = inp.default_value
+            default_value: str | None = (
+                str(raw_default) if raw_default is not None else None
+            )
 
             inputs.append(SkeletonInput(
                 name=name,

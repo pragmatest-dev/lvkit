@@ -8,13 +8,8 @@ Used in code generation when we need a default value, such as:
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
-from .graph_types import _is_error_cluster
+from .graph_types import LVType, _is_error_cluster
 from .vilib_resolver import derive_python_name
-
-if TYPE_CHECKING:
-    from .graph_types import LVType
 
 # Map LabVIEW numeric type names to Python defaults
 _NUMERIC_DEFAULTS: dict[str, str] = {

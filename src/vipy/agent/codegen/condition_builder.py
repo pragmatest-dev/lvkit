@@ -7,15 +7,11 @@ expressions. It handles comparison primitives and boolean operations.
 from __future__ import annotations
 
 import ast
-from typing import TYPE_CHECKING
 
 from vipy.graph_types import Operation
 
 from .ast_utils import parse_expr
-
-if TYPE_CHECKING:
-    from .context import CodeGenContext
-
+from .context import CodeGenContext
 
 # Mapping of primitive IDs to AST comparison operators
 COMPARISON_PRIMITIVES: dict[int, type[ast.cmpop]] = {

@@ -4,23 +4,21 @@ from __future__ import annotations
 
 import ast
 import re
-from typing import TYPE_CHECKING, Any
 
-from vipy.graph_types import Operation
+from vipy.graph_types import Operation, Terminal
 from vipy.primitive_resolver import TerminalResolutionNeeded
 from vipy.vilib_resolver import (
     ResolutionContext,
+    VIEntry,
     VILibResolutionNeeded,
     derive_python_location,
     get_resolver,
 )
 
 from ..ast_utils import to_function_name, to_module_name, to_var_name
+from ..context import CodeGenContext
 from ..fragment import CodeFragment
 from .base import NodeCodeGen
-
-if TYPE_CHECKING:
-    from ..context import CodeGenContext
 
 
 def _is_error_param_name(name: str) -> bool:
@@ -114,7 +112,7 @@ class SubVICodeGen(NodeCodeGen):
         )
 
     def _generate_inline(
-        self, node: Operation, ctx: CodeGenContext, vilib_vi: Any
+        self, node: Operation, ctx: CodeGenContext, vilib_vi: VIEntry
     ) -> CodeFragment:
         """Generate inline Python code instead of function call.
 
@@ -126,6 +124,7 @@ class SubVICodeGen(NodeCodeGen):
         Becomes: "get_array_size_0_size = len(my_array)"
         With binding: size_terminal_id -> "get_array_size_0_size"
         """
+        assert vilib_vi.python_code is not None
         template = vilib_vi.python_code
         func_name = to_function_name(node.name or "inline")
 
@@ -133,6 +132,8 @@ class SubVICodeGen(NodeCodeGen):
         vilib_inputs: dict[int, str] = {}
         vilib_outputs: dict[int, str] = {}
         for vt in vilib_vi.terminals:
+            if vt.index is None:
+                continue
             param_key = vt.python_param or to_var_name(vt.name)
             if vt.direction in ("in", "input"):
                 vilib_inputs[vt.index] = param_key
@@ -244,7 +245,7 @@ class SubVICodeGen(NodeCodeGen):
 
     def _resolve_poly_variant(
         self, base_name: str, node: Operation, ctx: CodeGenContext
-    ) -> Any | None:
+    ) -> VIEntry | None:
         """Resolve a polymorphic VI to its specific variant.
 
         Uses poly_variant_name (edit-time selection extracted from the VI's
@@ -259,7 +260,7 @@ class SubVICodeGen(NodeCodeGen):
     def _get_vilib_vi(
         self, subvi_name: str, node: Operation | None = None,
         ctx: CodeGenContext | None = None
-    ) -> Any | None:
+    ) -> VIEntry | None:
         """Look up SubVI in vilib resolver.
 
         If the VI is found but has no terminal indices, raises VILibResolutionNeeded
@@ -324,7 +325,7 @@ class SubVICodeGen(NodeCodeGen):
         self,
         node: Operation,
         ctx: CodeGenContext,
-        vilib_vi: Any | None,
+        vilib_vi: VIEntry | None,
     ) -> tuple[list[str], dict[str, str]]:
         """Build input arguments, using vilib names if available."""
         subvi_name = node.name or ""
@@ -393,8 +394,8 @@ class SubVICodeGen(NodeCodeGen):
     def _resolve_enum_value(
         self,
         value: str,
-        term: Any,
-        vilib_vi: Any,
+        term: Terminal,
+        vilib_vi: VIEntry,
         ctx: CodeGenContext,
     ) -> str:
         """Resolve enum constant to enum reference if applicable.
@@ -478,7 +479,7 @@ class SubVICodeGen(NodeCodeGen):
 
     @staticmethod
     def _build_vilib_terminal_map(
-        vilib_vi: Any | None, direction: str,
+        vilib_vi: VIEntry | None, direction: str,
     ) -> dict[int, str]:
         """Build index → terminal name mapping from vilib VI.
 
@@ -487,7 +488,7 @@ class SubVICodeGen(NodeCodeGen):
         result: dict[int, str] = {}
         if vilib_vi:
             for vt in vilib_vi.terminals:
-                if vt.direction == direction:
+                if vt.direction == direction and vt.index is not None:
                     result[vt.index] = vt.python_param or vt.name
         return result
 
@@ -495,7 +496,7 @@ class SubVICodeGen(NodeCodeGen):
         self,
         node: Operation,
         result_var: str,
-        vilib_vi: Any | None,
+        vilib_vi: VIEntry | None,
         ctx: CodeGenContext,
     ) -> dict[str, str]:
         """Build output terminal bindings using vilib names."""
@@ -695,7 +696,7 @@ class SubVICodeGen(NodeCodeGen):
         )
 
     @staticmethod
-    def _is_class_terminal(term: Any) -> bool:
+    def _is_class_terminal(term: Terminal) -> bool:
         """Check if a terminal carries a class instance (UDClassInst)."""
         if hasattr(term, "lv_type") and term.lv_type:
             return term.lv_type.ref_type == "UDClassInst"
@@ -705,7 +706,7 @@ class SubVICodeGen(NodeCodeGen):
         self,
         node: Operation,
         ctx: CodeGenContext,
-        vilib_vi: Any | None,
+        vilib_vi: VIEntry | None,
     ) -> ResolutionContext:
         """Build context for VILibResolutionNeeded exception.
 

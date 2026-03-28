@@ -4,12 +4,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TYPE_CHECKING
 
+from ..graph import VIGraph
 from .codegen.ast_utils import to_module_name
-
-if TYPE_CHECKING:
-    from ..graph import VIGraph
 
 
 @dataclass

@@ -3,16 +3,13 @@
 from __future__ import annotations
 
 import ast
-from typing import TYPE_CHECKING, Any
 
-from vipy.graph_types import Operation, Tunnel
+from vipy.graph_types import LVType, Operation, Tunnel
 
 from ..ast_utils import build_assign, parse_expr, to_var_name
+from ..context import CodeGenContext
 from ..fragment import CodeFragment
 from .base import NodeCodeGen
-
-if TYPE_CHECKING:
-    from ..context import CodeGenContext
 
 
 class LoopCodeGen(NodeCodeGen):
@@ -466,7 +463,7 @@ class LoopCodeGen(NodeCodeGen):
         terminal_uid: str,
         ctx: CodeGenContext,
         visited: set[str] | None = None,
-    ) -> Any | None:
+    ) -> LVType | None:
         """Get the LVType for a terminal by tracing back to its source.
 
         Traces through data flow to find the source FP terminal's lv_type.

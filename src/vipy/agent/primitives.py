@@ -6,16 +6,12 @@ import re
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
 
-from ..llm import generate_code
+from ..graph import VIGraph
+from ..llm import LLMConfig, generate_code
 from ..primitive_resolver import get_resolver
 from .context_builder import ContextBuilder
 from .validator import CodeValidator, ValidatorConfig, deduplicate_imports
-
-if TYPE_CHECKING:
-    from ..graph import VIGraph
-    from ..llm import LLMConfig
 
 
 def lookup_primitive(prim_id: int | str) -> dict | None:
@@ -194,7 +190,6 @@ class PrimitiveRegistry:
         self,
         output_dir: Path,
         llm_config: LLMConfig | None = None,
-        strategy: Any | None = None,
     ) -> Path:
         """Generate the primitives/ package with implementations.
 
@@ -227,7 +222,7 @@ class PrimitiveRegistry:
 
                 complex_count += 1
                 func_name, impl = self._generate_primitive_with_strategy(
-                    usage, llm_config, strategy
+                    usage, llm_config
                 )
                 if func_name and impl:
                     self._write_primitive_file(primitives_dir, func_name, impl)
@@ -290,7 +285,6 @@ from typing import Any
         self,
         usage: PrimitiveUsage,
         llm_config: LLMConfig,
-        strategy: Any | None = None,
     ) -> tuple[str | None, str | None]:
         """Generate a primitive using the same validation/retry loop as VI conversion.
 

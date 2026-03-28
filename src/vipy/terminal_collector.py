@@ -29,7 +29,7 @@ class TerminalObservation:
         direction: str,
         name: str | None = None,
         wire_type: str | None = None,
-        type_info: Any | None = None,  # LVType when available
+        type_info: LVType | None = None,
     ):
         self.index = index
         self.direction = direction  # "input" or "output"

@@ -5,9 +5,10 @@ from __future__ import annotations
 import ast
 import warnings
 from collections import deque
-from typing import TYPE_CHECKING, Any
+from collections.abc import Callable
 
 from vipy.graph_types import Operation, Terminal, VIContext
+from vipy.memory_graph import InMemoryVIGraph
 
 from .ast_optimizer import optimize_module
 from .ast_utils import parse_expr, to_function_name, to_var_name
@@ -20,15 +21,11 @@ from .error_handler import (
 )
 from .nodes import get_codegen
 
-if TYPE_CHECKING:
-    from vipy.memory_graph import InMemoryVIGraph
-
 
 def build_module(
     vi_context: VIContext,
     vi_name: str,
-    vi_context_lookup: Any = None,
-    import_resolver: Any = None,
+    import_resolver: Callable[[str], str] | None = None,
     has_parallel_branches: bool | None = None,
     graph: InMemoryVIGraph | None = None,
 ) -> str:
@@ -37,7 +34,6 @@ def build_module(
     Args:
         vi_context: VIContext with operations, inputs, outputs, etc.
         vi_name: Name of the VI (used for function name)
-        vi_context_lookup: Deprecated, ignored.
         import_resolver: Optional callable (subvi_name) -> import statement string
         has_parallel_branches: If True, enable held error model for parallel
                               branch error handling. If None, reads from vi_context.

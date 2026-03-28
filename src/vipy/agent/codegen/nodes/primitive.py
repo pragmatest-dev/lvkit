@@ -4,10 +4,13 @@ from __future__ import annotations
 
 import ast
 import re
-from typing import TYPE_CHECKING, Any
 
 from vipy.graph_types import Operation
-from vipy.primitive_resolver import TerminalResolutionNeeded, get_resolver
+from vipy.primitive_resolver import (
+    ResolvedPrimitive,
+    TerminalResolutionNeeded,
+    get_resolver,
+)
 
 from ..ast_utils import (
     build_assign,
@@ -15,11 +18,9 @@ from ..ast_utils import (
     parse_stmt,
     to_var_name,
 )
+from ..context import CodeGenContext
 from ..fragment import CodeFragment
 from .base import NodeCodeGen
-
-if TYPE_CHECKING:
-    from ..context import CodeGenContext
 
 
 class PrimitiveCodeGen(NodeCodeGen):
@@ -99,7 +100,7 @@ class PrimitiveCodeGen(NodeCodeGen):
         return fragment
 
     def _build_input_map(
-        self, node: Operation, ctx: CodeGenContext, resolved: Any
+        self, node: Operation, ctx: CodeGenContext, resolved: ResolvedPrimitive | None
     ) -> dict[str, str]:
         """Build mapping from terminal names to resolved variable names.
 
@@ -119,7 +120,7 @@ class PrimitiveCodeGen(NodeCodeGen):
             for rt in resolved.terminals:
                 if rt.direction == "in":
                     default = getattr(rt, "default_value", None)
-                    resolved_inputs[rt.index] = (rt.name, default)
+                    resolved_inputs[rt.index] = (rt.name or "", default)
                     if getattr(rt, "expandable", False):
                         expandable_indices.add(rt.index)
 
@@ -275,7 +276,7 @@ class PrimitiveCodeGen(NodeCodeGen):
         hint: dict[str, str],
         input_map: dict[str, str],
         ctx: CodeGenContext,
-        resolved: Any,
+        resolved: ResolvedPrimitive | None,
     ) -> tuple[dict[str, str], set[str]]:
         """Detect output terminals that are pure passthroughs.
 
@@ -296,7 +297,7 @@ class PrimitiveCodeGen(NodeCodeGen):
         if resolved and resolved.terminals:
             for rt in resolved.terminals:
                 if rt.direction == "out":
-                    resolved_outputs[rt.index] = rt.name
+                    resolved_outputs[rt.index] = rt.name or ""
 
         # Iterate output terminals in the same order as _get_wired_outputs
         expr_idx = 0
@@ -355,7 +356,7 @@ class PrimitiveCodeGen(NodeCodeGen):
         return bindings, skip_ids
 
     def _get_wired_outputs(
-        self, node: Operation, resolved: Any, ctx: CodeGenContext,
+        self, node: Operation, resolved: ResolvedPrimitive | None, ctx: CodeGenContext,
         skip_term_ids: set[str] | None = None,
     ) -> list[tuple[str, str, str]]:
         """Get list of (terminal_id, terminal_name, var_name) for wired outputs.
@@ -369,7 +370,7 @@ class PrimitiveCodeGen(NodeCodeGen):
         if resolved and resolved.terminals:
             for rt in resolved.terminals:
                 if rt.direction == "out":
-                    resolved_outputs[rt.index] = rt.name
+                    resolved_outputs[rt.index] = rt.name or ""
                     if getattr(rt, "expandable", False):
                         expandable_out_index = rt.index
 
@@ -448,7 +449,7 @@ class PrimitiveCodeGen(NodeCodeGen):
         input_map: dict[str, str],
         wired_outputs: list[tuple[str, str, str]],
         ctx: CodeGenContext,
-        resolved: Any,
+        resolved: ResolvedPrimitive | None,
     ) -> CodeFragment:
         """Build code from dict-format hint.
 
@@ -498,7 +499,7 @@ class PrimitiveCodeGen(NodeCodeGen):
         input_map: dict[str, str],
         wired_outputs: list[tuple[str, str, str]],
         ctx: CodeGenContext,
-        resolved: Any,
+        resolved: ResolvedPrimitive | None,
     ) -> CodeFragment:
         """Build code from string-format hint."""
         statements: list[ast.stmt] = []
@@ -567,7 +568,8 @@ class PrimitiveCodeGen(NodeCodeGen):
         return None
 
     def _substitute_template(
-        self, template: str, input_map: dict[str, str], resolved: Any = None
+        self, template: str, input_map: dict[str, str],
+        resolved: ResolvedPrimitive | None = None,
     ) -> str:
         """Substitute variable names in template string.
 

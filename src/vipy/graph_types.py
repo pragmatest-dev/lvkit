@@ -17,6 +17,9 @@ from typing import Any, Literal
 
 from pydantic import BaseModel
 
+# Type alias for scalar constant/default values
+ScalarValue = str | int | float | bool | None
+
 # ============================================================
 # Shared types (used by both graph and codegen layers)
 # ============================================================
@@ -142,7 +145,7 @@ class Terminal(BaseModel):
     nmux_role: str | None = None  # "agg" or "list"
     nmux_field_index: int | None = None  # class field index
     wiring_rule: int = 0  # 0=unknown, 1=required, 2=recommended, 3=optional
-    default_value: Any = None
+    default_value: ScalarValue = None
 
     def python_type(self) -> str:
         """Python type string derived from lv_type."""
@@ -167,8 +170,8 @@ class FPTerminal(Terminal):
     is_indicator: bool = False
     is_public: bool = True
     control_type: str | None = None
-    default_value: Any = None
-    enum_values: list[Any] = []
+    default_value: ScalarValue = None
+    enum_values: list[str] = []
 
 
 class TunnelTerminal(Terminal):
@@ -294,7 +297,7 @@ class ConstantNode(GraphNode):
     """A constant value. One output terminal (index 0)."""
 
     kind: Literal["constant"] = "constant"
-    value: Any = None
+    value: ScalarValue = None
     lv_type: LVType | None = None
     raw_value: str | None = None
     label: str | None = None
@@ -460,7 +463,7 @@ class Constant:
     """A constant value for code generation."""
 
     id: str
-    value: Any
+    value: ScalarValue
     lv_type: LVType | None = None
     raw_value: str | None = None
     name: str | None = None
@@ -542,7 +545,7 @@ class ConstantInfo:
     value: str
     label: str | None
     type: str
-    python: Any
+    python: ScalarValue
 
 
 @dataclass
