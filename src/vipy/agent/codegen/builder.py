@@ -14,9 +14,14 @@ from .ast_optimizer import optimize_module
 from .ast_utils import parse_expr, to_function_name, to_var_name
 from .context import CodeGenContext
 from .error_handler import (
+    ErrorHandlingPattern,
+    build_clear_try_except,
     build_held_error_check,
     build_held_error_init,
     build_labview_error_import,
+    build_merge_try_except,
+    classify_error_node,
+    find_error_path_ops,
     needs_error_handling,
 )
 from .nodes import get_codegen
@@ -47,11 +52,9 @@ def build_module(
     ctx.import_resolver = import_resolver
     ctx.vi_name = vi_name
 
-    # Determine if we need error handling infrastructure
-    # Read from vi_context if not explicitly passed
-    if has_parallel_branches is None:
-        has_parallel_branches = vi_context.has_parallel_branches
-    use_error_handling = needs_error_handling(has_parallel_branches, vi_context)
+    # Determine if we need error handling infrastructure (graph-driven).
+    # True only if Merge Errors (prim 2401) exists in the VI's operations.
+    use_error_handling = needs_error_handling(vi_context.operations, vi_context)
     ctx.use_held_error_model = use_error_handling
 
     # Generate function body
@@ -93,6 +96,9 @@ def generate_body(
     tiers emit sequential code. Multi-op tiers are wrapped in
     concurrent.futures.ThreadPoolExecutor.
 
+    Statements are tagged with the operation IDs that produced them so
+    Clear Errors can scope its try/except to only the error-path ops.
+
     Args:
         operations: List of Operation nodes
         ctx: Code generation context
@@ -104,25 +110,92 @@ def generate_body(
     # (case frames, loop bodies) without circular imports.
     ctx._body_generator = generate_body
 
-    statements: list[ast.stmt] = []
+    # Tagged statements: (set of op IDs, statement)
+    tagged: list[tuple[set[str], ast.stmt]] = []
 
     # All operations passed here are top-level (inner loop ops are in inner_nodes)
     tiers = topological_sort_tiered(operations, ctx)
 
     for tier in tiers:
-        if len(tier) == 1:
-            # Single-op tier — emit as plain statement (no executor overhead)
-            node = tier[0]
-            codegen = get_codegen(node)
-            fragment = codegen.generate(node, ctx)
-            statements.extend(fragment.statements)
-            ctx.merge(fragment.bindings)
-            ctx.imports.update(fragment.imports)
+        # Extract Clear Errors ops from the tier before dispatching
+        clear_ops = [
+            op for op in tier
+            if classify_error_node(op) == ErrorHandlingPattern.CLEAR
+        ]
+        if clear_ops:
+            clear_ids = {op.id for op in clear_ops}
+            remaining = [
+                op for op in tier if op.id not in clear_ids
+            ]
         else:
-            # Multi-op tier — wrap in ThreadPoolExecutor
-            statements.extend(_generate_parallel_tier(tier, ctx))
+            remaining = tier
 
-    return statements
+        # Process remaining operations
+        if remaining:
+            if len(remaining) == 1:
+                node = remaining[0]
+                codegen = get_codegen(node)
+                fragment = codegen.generate(node, ctx)
+                for s in fragment.statements:
+                    tagged.append(({node.id}, s))
+                ctx.merge(fragment.bindings)
+                ctx.imports.update(fragment.imports)
+            else:
+                tier_ids = {op.id for op in remaining}
+                stmts = _generate_parallel_tier(remaining, ctx)
+                for s in stmts:
+                    tagged.append((tier_ids, s))
+
+        # Apply Clear Errors wrapping for each extracted clear op
+        for clear_op in clear_ops:
+            _apply_clear_wrapping(
+                clear_op, operations, ctx, tagged,
+            )
+
+    return [stmt for _, stmt in tagged]
+
+
+def _apply_clear_wrapping(
+    clear_op: Operation,
+    all_ops: list[Operation],
+    ctx: CodeGenContext,
+    tagged: list[tuple[set[str], ast.stmt]],
+) -> None:
+    """Apply scoped Clear Errors wrapping to tagged statements.
+
+    Traces upstream from the Clear Errors' error input to find which
+    operations are on its error wire, then wraps only those statements.
+    Falls back to wrapping everything if no graph is available.
+    """
+    if not tagged:
+        return
+
+    # Clear Errors generates except LabVIEWError — ensure import
+    ctx.imports.add("from vipy.labview_error import LabVIEWError")
+
+    error_op_ids = find_error_path_ops(clear_op, all_ops, ctx)
+
+    if error_op_ids:
+        # Scoped: wrap only statements from error-path operations
+        to_wrap: list[ast.stmt] = []
+        keep: list[tuple[set[str], ast.stmt]] = []
+        for op_ids, stmt in tagged:
+            if op_ids & error_op_ids:
+                to_wrap.append(stmt)
+            else:
+                keep.append((op_ids, stmt))
+        if to_wrap:
+            wrapped = build_clear_try_except(to_wrap)
+            keep.append(({clear_op.id}, wrapped))
+        tagged.clear()
+        tagged.extend(keep)
+    else:
+        # No graph or no upstream found — wrap everything
+        all_stmts = [stmt for _, stmt in tagged]
+        tagged.clear()
+        tagged.append(
+            ({clear_op.id}, build_clear_try_except(all_stmts)),
+        )
 
 
 def _generate_parallel_tier(
@@ -167,14 +240,18 @@ def _generate_parallel_tier(
         ctx._branch_counter += 1
 
         # Collect unique variable names this branch produces.
-        # Skip constants/literals/keywords — only actual assignable
-        # variable names need returning from the branch.
-        bound_vars = list(dict.fromkeys(
-            v for v in fragment.bindings.values()
-            if v and v.isidentifier()
-            and v not in ("None", "True", "False")
-            and "." not in v
-        ))
+        # Include both direct identifiers (e.g., "result") and root
+        # variables from dotted bindings (e.g., "result" from
+        # "result.field") when the root was assigned in this branch.
+        assigned_in_branch = _extract_assigned_names(stmts)
+        raw_vars: list[str] = []
+        for v in fragment.bindings.values():
+            if not v or v in ("None", "True", "False"):
+                continue
+            root = v.split(".")[0] if "." in v else v
+            if root.isidentifier() and root in assigned_in_branch:
+                raw_vars.append(root)
+        bound_vars = list(dict.fromkeys(raw_vars))
 
         body = list(stmts)
 
@@ -215,6 +292,13 @@ def _generate_parallel_tier(
                 value=_build_submit(ast.Name(id=func_name, ctx=ast.Load())),
             ))
 
+    # Always merge bindings — even when all ops produce zero statements.
+    # Passthrough primitives (e.g., Variant To Data, inlined Subtract)
+    # generate no code but carry critical bindings that downstream
+    # tiers depend on for input resolution.
+    for fragment in fragments:
+        ctx.merge(fragment.bindings)
+
     if not inner_stmts:
         return []
 
@@ -241,7 +325,10 @@ def _generate_parallel_tier(
         body=inner_stmts,
     )
 
-    # Build future.result() unpacking after the with block
+    # Build future.result() unpacking after the with block.
+    # When held-error model is active, wrap each .result() call in
+    # try/except so exceptions are captured and the first error is
+    # raised at the merge point (LabVIEW Merge Errors semantics).
     for future_var, bound_vars in branch_info:
         result_expr = ast.Call(
             func=ast.Attribute(
@@ -258,17 +345,34 @@ def _generate_parallel_tier(
                 elts=[ast.Name(id=v, ctx=ast.Store()) for v in bound_vars],
                 ctx=ast.Store(),
             )
-        post_stmts.append(ast.Assign(targets=[target], value=result_expr))
+        result_stmt = ast.Assign(targets=[target], value=result_expr)
+
+        if ctx.use_held_error_model:
+            # Wrap in try/except: _held_error = _held_error or e
+            result_var = bound_vars[0] if len(bound_vars) == 1 else None
+            post_stmts.append(build_merge_try_except(result_stmt, result_var))
+        else:
+            post_stmts.append(result_stmt)
 
     ast.fix_missing_locations(with_stmt)
     for stmt in post_stmts:
         ast.fix_missing_locations(stmt)
 
-    # Merge bindings (terminal→variable mappings for downstream resolution)
-    for fragment in fragments:
-        ctx.merge(fragment.bindings)
-
     return [with_stmt] + post_stmts
+
+
+def _extract_assigned_names(stmts: list[ast.stmt]) -> set[str]:
+    """Extract variable names assigned in a list of statements."""
+    names: set[str] = set()
+    for stmt in stmts:
+        if isinstance(stmt, ast.Assign):
+            for target in stmt.targets:
+                if isinstance(target, ast.Name):
+                    names.add(target.id)
+        elif isinstance(stmt, ast.AnnAssign):
+            if isinstance(stmt.target, ast.Name):
+                names.add(stmt.target.id)
+    return names
 
 
 def _build_submit(callable_expr: ast.expr) -> ast.Call:
@@ -459,14 +563,11 @@ def build_imports(
         )
     )
 
-    # Common imports
+    # Common imports (hardcoded — no try/except needed)
     common = ["from pathlib import Path", "from typing import Any, NamedTuple"]
     for imp in common:
-        try:
-            tree = ast.parse(imp)
-            imports.extend(tree.body)
-        except SyntaxError:
-            pass
+        tree = ast.parse(imp)
+        imports.extend(tree.body)
 
     # Add LabVIEWError import if using error handling
     if use_error_handling:

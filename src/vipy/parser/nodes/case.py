@@ -7,7 +7,7 @@ import xml.etree.ElementTree as ET
 from vipy.constants import STRUCTURE_NODE_CLASSES, TERMINAL_CLASS
 from vipy.graph_types import Tunnel
 
-from ..models import CaseFrame, CaseStructure
+from ..models import CaseFrame, CaseStructure, TerminalInfo
 from .base import extract_tunnel_mapping
 
 # Tunnel DCO classes used in case structures
@@ -45,19 +45,17 @@ def _find_own_descendants(
     return results
 
 
-def extract_case_structures(root: ET.Element) -> list[CaseStructure]:
+def extract_case_structures(
+    root: ET.Element,
+    terminal_info: dict[str, TerminalInfo] | None = None,
+) -> list[CaseStructure]:
     """Extract case structures with frame mappings.
 
     Handles both class='caseStruct' and class='select' elements.
 
-    Case structures in LabVIEW have:
-    - A selector terminal that receives the value to switch on
-    - Multiple diagram frames (cases), each with its own set of operations
-    - Input/output tunnels that connect outer terminals to each frame's inner
-      terminals
-
     Args:
         root: XML root element
+        terminal_info: Terminal info dict (uid → TerminalInfo) for type lookup
 
     Returns:
         List of CaseStructure with frame mappings
@@ -73,7 +71,7 @@ def extract_case_structures(root: ET.Element) -> list[CaseStructure]:
         if not case_uid:
             continue
 
-        cs = _extract_one_case_structure(case_elem, case_uid)
+        cs = _extract_one_case_structure(case_elem, case_uid, terminal_info)
         if cs:
             case_structures.append(cs)
 
@@ -83,6 +81,7 @@ def extract_case_structures(root: ET.Element) -> list[CaseStructure]:
 def _extract_one_case_structure(
     case_elem: ET.Element,
     case_uid: str,
+    terminal_info: dict[str, TerminalInfo] | None = None,
 ) -> CaseStructure | None:
     """Extract a single case structure from an XML element."""
     selector_terminal_uid: str | None = None
@@ -166,28 +165,76 @@ def _extract_one_case_structure(
                         tunnel_type="commentTun",
                     ))
 
+    # Resolve selector type from the terminal's actual wire type.
+    # This is the source of truth — overrides the DCO-based guess.
+    if selector_terminal_uid and terminal_info:
+        ti = terminal_info.get(selector_terminal_uid)
+        if ti and ti.parsed_type:
+            selector_type = _type_name_to_selector_type(
+                ti.parsed_type.type_name,
+            )
+
+    # Extract selector value mapping from SelectRangeArray32.
+    # Maps diagramIdx → integer index.
+    selector_values_by_diag: dict[int, int] = {}
+    select_range = case_elem.find("SelectRangeArray32")
+    if select_range is not None:
+        for sr_elem in select_range.findall(
+            "SL__arrayElement[@class='SelectorRange']"
+        ):
+            start = sr_elem.findtext("start")
+            diag_idx = sr_elem.findtext("diagramIdx")
+            if start is not None and diag_idx is not None:
+                selector_values_by_diag[int(diag_idx)] = int(start)
+
+    # For string selectors, the start values in SelectRangeArray32 are
+    # indices into SelectStringArray (hex-encoded string labels).
+    string_labels: list[str] = []
+    if selector_type == "string":
+        ssa = case_elem.find("SelectStringArray")
+        if ssa is not None:
+            for item in ssa.findall("SL__arrayElement"):
+                hex_text = item.text or ""
+                try:
+                    string_labels.append(
+                        bytes.fromhex(hex_text).decode("utf-8")
+                    )
+                except (ValueError, UnicodeDecodeError):
+                    string_labels.append(hex_text)
+
+    # Detect default case: SelectDefaultCase holds the hex diagram index
+    # of the default frame (FF = no default).
+    default_diag_idx: int | None = None
+    default_case_elem = case_elem.findtext("SelectDefaultCase")
+    if default_case_elem and default_case_elem.upper() != "FF":
+        try:
+            default_diag_idx = int(default_case_elem, 16)
+        except ValueError:
+            pass
+
     # Extract diagram frames (cases)
     if diag_list is not None:
         for idx, diag_elem in enumerate(
             diag_list.findall("SL__arrayElement[@class='diag']")
         ):
-            frame = _extract_frame(diag_elem, idx)
+            resolved_selector: str | None = None
+            if idx in selector_values_by_diag:
+                sv = selector_values_by_diag[idx]
+                if selector_type == "boolean":
+                    resolved_selector = "True" if sv == 1 else "False"
+                elif selector_type == "string" and sv < len(string_labels):
+                    resolved_selector = string_labels[sv]
+                else:
+                    # Integer, enum, error — use raw value
+                    resolved_selector = str(sv)
+
+            is_default = idx == default_diag_idx
+
+            frame = _extract_frame(
+                diag_elem, idx, resolved_selector, is_default,
+            )
             if frame:
                 frames.append(frame)
-
-    # Infer selector type if not determined
-    if not selector_type and frames:
-        selector_values = [str(f.selector_value) for f in frames]
-        if set(selector_values) <= {
-            "True", "False", "Default", "true", "false", "default",
-        }:
-            selector_type = "boolean"
-        elif all(
-            v.isdigit() or v == "Default" for v in selector_values
-        ):
-            selector_type = "integer"
-        else:
-            selector_type = "string"
 
     return CaseStructure(
         uid=case_uid,
@@ -244,35 +291,39 @@ def _extract_case_tunnels(
     return tunnels
 
 
-def _extract_frame(diag_elem: ET.Element, index: int) -> CaseFrame | None:
+def _extract_frame(
+    diag_elem: ET.Element,
+    index: int,
+    selector_value: str | None = None,
+    is_default: bool = False,
+) -> CaseFrame | None:
     """Extract a single case frame from a diagram element.
 
     Args:
         diag_elem: Diagram element containing the case operations
         index: Index of the frame in the diagramList
+        selector_value: Pre-resolved selector value from SelectRangeArray
+        is_default: Whether this frame is the default case
 
     Returns:
         CaseFrame or None if invalid
     """
-    # Get selector value from the diagram element
-    # This is typically stored in a 'selStr' attribute or child
-    selector_value = diag_elem.get("selStr", "")
+    # Use pre-resolved selector value when available
+    if not selector_value:
+        # Fallback: try diagram element's selStr attribute
+        selector_value = diag_elem.get("selStr", "")
 
-    # Try alternate location for selector string
     if not selector_value:
         sel_str_elem = diag_elem.find("selStr")
         if sel_str_elem is not None and sel_str_elem.text:
             selector_value = sel_str_elem.text
 
-    # If still no selector, use index-based default
+    # Last resort: index-based default (0=False, 1=True)
     if not selector_value:
-        if index == 0:
-            selector_value = "True"  # Default first case for boolean
-        else:
-            selector_value = "False"  # Default second case for boolean
+        selector_value = "True" if index == 1 else "False"
 
-    # Determine if this is the default case
-    is_default = "Default" in selector_value or selector_value.lower() == "default"
+    if is_default:
+        selector_value = "Default"
 
     # Find operations inside this diagram (direct children only,
     # not recursing into nested structures like inner case/loop nodeList)
@@ -291,16 +342,36 @@ def _extract_frame(diag_elem: ET.Element, index: int) -> CaseFrame | None:
     )
 
 
-def _infer_selector_type(dco: ET.Element) -> str | None:
-    """Infer the selector type from the cSelDCO element.
+def _type_name_to_selector_type(type_name: str) -> str | None:
+    """Map a ParsedType.type_name to a selector type category.
 
     Args:
-        dco: The cSelDCO element
+        type_name: From TerminalInfo.parsed_type.type_name
+            e.g. "Boolean", "String", "NumInt32", "Enum", "Cluster"
 
     Returns:
-        Type string ("boolean", "integer", "enum", "string") or None
+        "boolean", "integer", "string", "enum", "error", or None
     """
-    # Check for type hints in the element
+    tn = type_name.lower()
+    if tn == "boolean":
+        return "boolean"
+    if tn == "string":
+        return "string"
+    if tn.startswith("num") or tn in ("i32", "u32", "i16", "u16", "i8", "u8"):
+        return "integer"
+    if "enum" in tn:
+        return "enum"
+    if tn == "cluster":
+        # Error cluster selector
+        return "error"
+    return None
+
+
+def _infer_selector_type(dco: ET.Element) -> str | None:
+    """Fallback: infer selector type from cSelDCO's typeDesc element.
+
+    Used when terminal_info is not available.
+    """
     type_elem = dco.find("typeDesc")
     if type_elem is not None:
         type_text = type_elem.text or ""
@@ -315,5 +386,4 @@ def _infer_selector_type(dco: ET.Element) -> str | None:
         elif "string" in type_lower:
             return "string"
 
-    # Default to None (will be inferred from frame values later)
     return None

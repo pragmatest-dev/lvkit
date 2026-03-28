@@ -102,6 +102,17 @@ class ResolvedPrimitive(BaseModel):
     imports: list[str] = Field(default_factory=list)
 
 
+def _collect_imports(prim: dict) -> list[str]:
+    """Collect imports from both 'imports' (list) and '_import' (string) fields."""
+    imports = list(prim.get("imports", []))
+    imp = prim.get("_import")
+    if isinstance(imp, str):
+        imports.append(imp)
+    elif isinstance(imp, list):
+        imports.extend(imp)
+    return imports
+
+
 class PrimitiveResolver:
     """Multi-strategy primitive resolver."""
 
@@ -273,7 +284,7 @@ class PrimitiveResolver:
                     ],
                     confidence="exact_id",
                     description=prim.get("guess_reason", ""),
-                    imports=prim.get("imports", []),
+                    imports=_collect_imports(prim),
                 )
 
         # Strategy 2: Name-based lookup
@@ -324,6 +335,7 @@ class PrimitiveResolver:
                 ],
                 confidence="exact_name",
                 description=prim.get("guess_reason", prim.get("category", "")),
+                imports=_collect_imports(prim),
             )
         return None
 
@@ -348,6 +360,7 @@ class PrimitiveResolver:
                 ],
                 confidence="node_type",
                 description=info.get("description", ""),
+                imports=_collect_imports(info),
             )
         return None
 

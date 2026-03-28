@@ -123,6 +123,7 @@ class VITerminal(BaseModel):
     enum: str | None = None
     enum_values: list[tuple[int, str]] | None = None
     python_param: str | None = None
+    default_value: str | None = None
 
 
 class VIEntry(BaseModel):

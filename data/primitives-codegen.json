@@ -25,13 +25,13 @@
       "note": "0 inputs, 1 Boolean output. Always primIdx 377-381. Constant primitive - actual value (True/False) determined by VI data, not primResID."
     },
     "1104": {
-      "name": "Equal? (Polymorphic)",
+      "name": "Greater?",
       "terminals": [
         {
           "index": 0,
           "direction": "out",
-          "name": "equal",
-          "type": "polymorphic"
+          "name": "x_greater_than_y",
+          "type": "boolean"
         },
         {
           "index": 1,
@@ -47,7 +47,7 @@
         }
       ],
       "python_code": {
-        "equal": "in_1 == in_2"
+        "x_greater_than_y": "in_1 > in_2"
       },
       "inline": true,
       "verified": true,
@@ -55,23 +55,23 @@
       "note": "Same as 1102 but for arrays/clusters. Same semantics."
     },
     "1054": {
-      "name": "Reverse 1D Array",
+      "name": "Absolute Value",
       "terminals": [
         {
           "index": 0,
           "direction": "out",
-          "name": "reversed array",
-          "type": "polymorphic"
+          "name": "abs_x",
+          "type": "numeric"
         },
         {
           "index": 1,
           "direction": "in",
-          "name": "array",
-          "type": "polymorphic"
+          "name": "x",
+          "type": "numeric"
         }
       ],
       "python_code": {
-        "reversed_array": "in_1[::-1]"
+        "abs_x": "abs(in_1)"
       },
       "inline": true,
       "verified": true,
@@ -102,26 +102,31 @@
       "pdf_page": 419
     },
     "1051": {
-      "name": "Concatenate Strings",
+      "name": "Subtract",
       "terminals": [
         {
           "index": 0,
           "direction": "out",
-          "name": "concatenated string",
-          "type": "polymorphic"
+          "name": "difference",
+          "type": "numeric"
         },
         {
           "index": 1,
           "direction": "in",
-          "name": "string",
-          "type": "polymorphic",
-          "expandable": true
+          "name": "x",
+          "type": "numeric"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "y",
+          "type": "numeric"
         }
       ],
-      "python_code": "''.join([{expandable_inputs}])",
+      "python_code": {"difference": "in_1 - in_2"},
       "inline": true,
       "verified": true,
-      "pdf_page": 649
+      "pdf_page": 517
     },
     "1142": {
       "name": "Type Conversion",
@@ -422,41 +427,40 @@
       "pdf_page": 649
     },
     "1516": {
-      "name": "Array Subset",
+      "name": "Select",
       "terminals": [
         {
           "index": 0,
           "direction": "out",
-          "name": "subarray",
+          "name": "result",
           "type": "polymorphic"
         },
         {
           "index": 1,
           "direction": "in",
-          "name": "array",
-          "type": "array"
+          "name": "f_value",
+          "type": "polymorphic"
         },
         {
           "index": 2,
           "direction": "in",
-          "name": "index",
-          "type": "polymorphic",
-          "default_value": "0"
+          "name": "selector",
+          "type": "Boolean"
         },
         {
           "index": 3,
           "direction": "in",
-          "name": "length",
+          "name": "t_value",
           "type": "polymorphic"
         }
       ],
       "python_code": {
-        "subarray": "in_1[in_2:in_2 + in_3]"
+        "result": "in_3 if in_2 else in_1"
       },
       "inline": true,
       "verified": true,
-      "pdf_page": 402,
-      "note": "Confirmed: idx=0 out (subarray), idx=1 in (array), idx=2 in (index), idx=3 in (length). From TrackWhiskerDroppedFrames_2P.vi."
+      "pdf_page": 754,
+      "note": "Select function: result = t_value if selector else f_value. primResID=1516 primIndex=136. All 334 class='prim' instances are Select; real Array Subset uses class='subset' (node_type resolution)."
     },
     "1608": {
       "name": "Flatten To String",
@@ -533,16 +537,16 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "in",
-          "name": "array",
-          "type": "array"
-        },
-        {
-          "index": 1,
           "direction": "out",
           "name": "element",
           "type": "polymorphic",
           "expandable": true
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "array",
+          "type": "array"
         },
         {
           "index": 2,
@@ -552,7 +556,7 @@
           "default_value": "0"
         }
       ],
-      "python_code": "in_0[in_2]",
+      "python_code": "in_1[in_2]",
       "inline": true,
       "verified": true,
       "pdf_page": 392

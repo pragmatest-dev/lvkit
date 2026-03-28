@@ -8,7 +8,13 @@ from __future__ import annotations
 
 import ast
 
-from vipy.graph_types import ClusterField, Operation, Terminal, TypeResolutionNeeded
+from vipy.graph_types import (
+    ClusterField,
+    Operation,
+    Terminal,
+    TypeResolutionNeeded,
+    _is_error_cluster,
+)
 
 from ..ast_utils import parse_expr, to_var_name
 from ..context import CodeGenContext
@@ -82,6 +88,21 @@ class NMuxCodeGen(NodeCodeGen):
 
         elif list_in and not list_out:
             # LIST in only = bundle (assign fields on cluster)
+            # If bundling status on an error cluster → raise instead
+            if (
+                agg_terminals
+                and agg_terminals[0].lv_type
+                and _is_error_cluster(agg_terminals[0].lv_type)
+            ):
+                # Error cluster bundle: raise if setting status,
+                # skip otherwise (no error cluster object in
+                # exception model)
+                if self._bundles_status(list_in, class_fields):
+                    return self._generate_error_bundle(
+                        list_in, class_fields, ctx,
+                    )
+                return CodeFragment.empty()
+
             if agg_var:
                 for t in sorted(list_in, key=lambda t: t.index):
                     val = ctx.resolve(t.id)
@@ -107,6 +128,75 @@ class NMuxCodeGen(NodeCodeGen):
                         )
 
         return CodeFragment(statements=statements, bindings=bindings)
+
+    @staticmethod
+    def _bundles_status(
+        list_in: list[Terminal],
+        class_fields: list[ClusterField] | None,
+    ) -> bool:
+        """Check if any LIST input maps to the 'status' field."""
+        if not class_fields:
+            return False
+        for t in list_in:
+            if t.nmux_field_index is not None:
+                if t.nmux_field_index < len(class_fields):
+                    if to_var_name(
+                        class_fields[t.nmux_field_index].name,
+                    ) == "status":
+                        return True
+        return False
+
+    def _generate_error_bundle(
+        self,
+        list_in: list[Terminal],
+        class_fields: list[ClusterField] | None,
+        ctx: CodeGenContext,
+    ) -> CodeFragment:
+        """Generate conditional raise for error cluster bundle.
+
+        Only called when status IS being bundled (checked by caller).
+        Generates:
+            if <status_val>:
+                raise LabVIEWError(code=<code_val>, source=<source_val>)
+        """
+        field_values: dict[str, str] = {}
+        for t in sorted(list_in, key=lambda t: t.index):
+            val = ctx.resolve(t.id)
+            if not val:
+                continue
+            field_name = self._field_name(t, class_fields)
+            if field_name:
+                field_values[field_name] = val
+
+        status_val = field_values.get("status", "True")
+        code_val = field_values.get("code", "0")
+        source_val = field_values.get("source", "''")
+
+        raise_stmt = ast.Raise(
+            exc=ast.Call(
+                func=ast.Name(id="LabVIEWError", ctx=ast.Load()),
+                args=[],
+                keywords=[
+                    ast.keyword(
+                        arg="code", value=parse_expr(code_val),
+                    ),
+                    ast.keyword(
+                        arg="source", value=parse_expr(source_val),
+                    ),
+                ],
+            ),
+            cause=None,
+        )
+        if_stmt = ast.If(
+            test=parse_expr(status_val),
+            body=[raise_stmt],
+            orelse=[],
+        )
+
+        imports = {"from vipy.labview_error import LabVIEWError"}
+        return CodeFragment(
+            statements=[if_stmt], bindings={}, imports=imports,
+        )
 
     @staticmethod
     def _field_name(

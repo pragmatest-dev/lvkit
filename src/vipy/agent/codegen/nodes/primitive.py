@@ -5,7 +5,7 @@ from __future__ import annotations
 import ast
 import re
 
-from vipy.graph_types import Operation
+from vipy.graph_types import Operation, Terminal
 from vipy.primitive_resolver import (
     ResolvedPrimitive,
     TerminalResolutionNeeded,
@@ -34,13 +34,30 @@ class PrimitiveCodeGen(NodeCodeGen):
         """Generate code for a primitive node."""
         prim_id = node.primResID
 
-        # Get primitive hint — try prim_id first, then node_type
+        # Merge Errors (prim 2401) is a structural signal, not a code node.
+        # In the exception model, error merging happens via try/except on
+        # future.result() calls — the primitive itself produces no code.
+        if prim_id == 2401:
+            return CodeFragment.empty()
+
+        # Get primitive hint.
+        # Specialized node_types (subset, aBuild, etc.) take priority over
+        # prim_id because some primResIDs are shared between different
+        # functions (e.g., 1516 = both Array Subset and Select, distinguished
+        # by XML class). Generic "prim" nodes use prim_id lookup.
+        # If node_type resolves but has no usable code, fall through to prim_id.
         resolver = get_resolver()
         resolved = None
-        if prim_id is not None:
+        node_type = getattr(node, 'node_type', None)
+        if node_type and node_type != 'prim':
+            resolved = resolver.resolve_by_node_type(node_type)
+            # Fall through if node_type resolved but has no code
+            if resolved and not resolved.python_code:
+                resolved = None
+        if not resolved and prim_id is not None:
             resolved = resolver.resolve(prim_id=prim_id)
-        if not resolved and hasattr(node, 'node_type') and node.node_type:
-            resolved = resolver.resolve_by_node_type(node.node_type)
+        if not resolved and node_type and node_type == 'prim':
+            resolved = resolver.resolve_by_node_type(node_type)
         if not resolved:
             if prim_id is None:
                 return CodeFragment.empty()
@@ -176,12 +193,9 @@ class PrimitiveCodeGen(NodeCodeGen):
                 resolved_value = default_value
             else:
                 # Unwired terminal — use default from JSON or type-based default
+                ut = (term.lv_type.underlying_type or "") if term.lv_type else ""
                 if (
-                    term_name
-                    and (
-                        "refnum" in term_name.lower()
-                        or "file_path" in term_name.lower()
-                    )
+                    ut == "Refnum"
                     and node.primResID in (8010, 8011, 8003, 8005)
                 ):
                     vi_short = (
@@ -195,30 +209,14 @@ class PrimitiveCodeGen(NodeCodeGen):
                     )
                     ctx.imports.add("from pathlib import Path")
                 elif (
-                    term_name
-                    and "vi_path" in term_name.lower()
+                    ut == "Path"
                     and node.primResID in (9101,)
                 ):
                     resolved_value = "Path(__file__)"
                     ctx.imports.add("from pathlib import Path")
                 else:
-                    tname = (term_name or "").lower()
-                    ptype = (
-                        term.python_type() if hasattr(term, 'python_type') else "Any"
-                    )
-                    if "array" in tname or ptype.startswith("list"):
-                        resolved_value = "[]"
-                    elif "string" in tname or ptype == "str":
-                        resolved_value = "''"
-                    elif "index" in tname or "offset" in tname or "count" in tname:
-                        resolved_value = "0"
-                    elif "path" in tname or ptype == "Path":
-                        resolved_value = "Path('.')"
-                        ctx.imports.add("from pathlib import Path")
-                    elif "bool" in tname or ptype == "bool":
-                        resolved_value = "False"
-                    else:
-                        resolved_value = "None"
+                    # Default for unwired terminal — use the type
+                    resolved_value = self._default_for_type(term, ctx)
 
             # Expandable terminal: collect into group by base index.
             # Expanded terminals have indices that are offset from the base
@@ -311,9 +309,6 @@ class PrimitiveCodeGen(NodeCodeGen):
             term_name = term.name or ""
             if not term_name and term.index in resolved_outputs:
                 term_name = resolved_outputs[term.index]
-            if term_name and "error" in term_name.lower():
-                continue
-
             if expr_idx >= len(exprs):
                 break
             _key, expr_template = exprs[expr_idx]
@@ -401,11 +396,6 @@ class PrimitiveCodeGen(NodeCodeGen):
             # Match by connector pane index (sparse dict lookup)
             if not term_name and term_index in resolved_outputs:
                 term_name = resolved_outputs[term_index]
-
-            # Skip error outputs by resolved name
-            if term_name and "error" in term_name.lower():
-                continue
-
 
             # Expandable output: accept all terminals mapped to expandable index
             if expandable_out_index is not None and term_index == expandable_out_index:
@@ -548,25 +538,6 @@ class PrimitiveCodeGen(NodeCodeGen):
 
         return CodeFragment(statements=statements, bindings=bindings)
 
-    def _find_output_expr(self, hint: dict[str, str], term_name: str) -> str | None:
-        """Find expression for an output terminal in hint dict."""
-        if not term_name:
-            return None
-
-        # Direct match
-        if term_name in hint:
-            return hint[term_name]
-
-        # Normalized match
-        normalized = to_var_name(term_name).rstrip("_")
-        for key, expr in hint.items():
-            if key in ("_body", "_import"):
-                continue
-            if to_var_name(key).rstrip("_") == normalized:
-                return expr
-
-        return None
-
     def _substitute_template(
         self, template: str, input_map: dict[str, str],
         resolved: ResolvedPrimitive | None = None,
@@ -612,6 +583,27 @@ class PrimitiveCodeGen(NodeCodeGen):
         result = re.sub(r'\bin_(\d+)\b', 'None', result)
 
         return result
+
+    @staticmethod
+    def _default_for_type(term: Terminal, ctx: CodeGenContext) -> str:
+        """Return a Python default value based on the terminal's lv_type."""
+        lv_type = term.lv_type
+        if lv_type:
+            ut = lv_type.underlying_type or ""
+            if ut == "Boolean":
+                return "False"
+            if ut == "String":
+                return "''"
+            if ut == "Path":
+                ctx.imports.add("from pathlib import Path")
+                return "Path('.')"
+            if ut.startswith("Num") or lv_type.kind in (
+                "int", "float", "numeric",
+            ):
+                return "0"
+            if lv_type.kind == "array":
+                return "[]"
+        return "None"
 
     def _emit_unknown(
         self, node: Operation, prim_id: int, ctx: CodeGenContext
