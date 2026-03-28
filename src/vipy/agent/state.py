@@ -195,7 +195,7 @@ class ConversionState:
         try:
             tree = ast.parse(code)
             for node in ast.iter_child_nodes(tree):
-                if isinstance(node, (ast.Import, ast.ImportFrom)):
+                if isinstance(node, ast.Import | ast.ImportFrom):
                     imports.append(ast.unparse(node))
         except SyntaxError:
             pass

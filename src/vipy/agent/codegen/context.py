@@ -481,7 +481,7 @@ def _format_constant(const: Constant) -> str:
         return "True" if value in ("True", "1", "01") else "False"
     if underlying == "Path":
         return f"Path('{value}')"
-    if isinstance(value, (int, float)):
+    if isinstance(value, int | float):
         return str(value)
     if isinstance(value, str):
         if value == '""':

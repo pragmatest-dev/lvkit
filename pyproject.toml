@@ -28,6 +28,7 @@ dev = [
     "pytest",
     "ruff",
     "mypy",
+    "pre-commit",
 ]
 neo4j = [
     "neo4j",
