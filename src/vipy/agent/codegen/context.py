@@ -5,13 +5,16 @@ resolve() queries the graph directly. One graph. No copies.
 
 from __future__ import annotations
 
+import ast
 from collections import deque
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
 
 from vipy.graph_types import (
     Constant,
     DestinationInfo,
+    Operation,
     PrimitiveNode,
     SourceInfo,
     Terminal,
@@ -46,6 +49,39 @@ class CodeGenContext:
     # in the codegen tree. Passing as parameter would thread through
     # every generate() call.
     import_resolver: Any = field(default=None, repr=False)
+    # Callback for recursive body generation. Set by builder.py,
+    # used by case/loop codegen to generate inner node code without
+    # importing back into the builder (which would create a cycle).
+    _body_generator: Callable[
+        [list[Operation], CodeGenContext], list[ast.stmt]
+    ] | None = field(default=None, repr=False)
+
+    def generate_body(self, operations: list[Operation]) -> list[ast.stmt]:
+        """Generate code for a list of operations.
+
+        Delegates to the registered body generator (set by builder.py).
+        Used by case/loop/sequence codegen for recursive inner-node
+        generation without importing builder (which would be circular).
+
+        If no body generator was registered (e.g. unit tests calling a
+        node codegen directly), falls back to sequential dispatch via
+        get_codegen. This import is safe at runtime because node files
+        only reference CodeGenContext inside TYPE_CHECKING guards.
+        """
+        if self._body_generator is not None:
+            return self._body_generator(operations, self)
+
+        # Fallback: sequential dispatch (no parallel tiers)
+        from .nodes import get_codegen
+
+        stmts: list[ast.stmt] = []
+        for node in operations:
+            codegen = get_codegen(node)
+            fragment = codegen.generate(node, self)
+            stmts.extend(fragment.statements)
+            self.merge(fragment.bindings)
+            self.imports.update(fragment.imports)
+        return stmts
 
     def is_wired(self, terminal_id: str) -> bool:
         """Check if a terminal has any edge connected."""
@@ -245,6 +281,7 @@ class CodeGenContext:
             _allocated_vars=self._allocated_vars,  # Shared — same scope
             vi_inputs=self.vi_inputs,
             import_resolver=self.import_resolver,
+            _body_generator=self._body_generator,
         )
 
     _LOOP_INDEX_VARS = "ijklmn"

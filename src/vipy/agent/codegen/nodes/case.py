@@ -252,11 +252,7 @@ class CaseCodeGen(NodeCodeGen):
         Returns:
             CodeFragment with frame statements
         """
-        # Lazy import: builder → get_codegen → case creates a cycle
-        # at module level. Safe inside method.
-        from ..builder import generate_body
-
-        body = generate_body(frame.operations, ctx)
+        body = ctx.generate_body(frame.operations)
 
         # Collect bindings that were set during body generation
         bindings: dict[str, str] = {}

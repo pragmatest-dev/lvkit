@@ -87,6 +87,31 @@ class ClusterField:
     type: LVType | None = None
 
 
+def _is_error_cluster(lv_type: LVType) -> bool:
+    """Check if a type is an error cluster.
+
+    Detects error clusters by:
+    1. TypeDef name contains "error" (case-insensitive)
+    2. Cluster with status/code/source fields
+    """
+    if lv_type.kind not in ("cluster", "typedef_ref"):
+        return False
+
+    # Check typedef name
+    typedef_name = lv_type.typedef_name or ""
+    if "error" in typedef_name.lower():
+        return True
+
+    # Check field names for error cluster pattern
+    if lv_type.fields:
+        field_names = {f.name.lower() for f in lv_type.fields}
+        error_fields = {"status", "code", "source"}
+        if error_fields <= field_names:
+            return True
+
+    return False
+
+
 class TypeResolutionNeeded(Exception):
     """Raised when a named type dependency cannot be resolved.
 
@@ -126,11 +151,8 @@ class Terminal(BaseModel):
     @property
     def is_error_cluster(self) -> bool:
         """Check if this terminal carries a LabVIEW error cluster."""
-        if self.lv_type:
-            from vipy.type_defaults import _is_error_cluster
-
-            if _is_error_cluster(self.lv_type):
-                return True
+        if self.lv_type and _is_error_cluster(self.lv_type):
+            return True
         name = (self.name or "").lower()
         return "error" in name and (
             "in" in name or "out" in name or "no error" in name

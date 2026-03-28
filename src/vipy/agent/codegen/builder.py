@@ -7,8 +7,7 @@ import warnings
 from collections import deque
 from typing import TYPE_CHECKING, Any
 
-from vipy.graph_types import Operation, Terminal, VIContext
-from vipy.type_defaults import _is_error_cluster
+from vipy.graph_types import Operation, Terminal, VIContext, _is_error_cluster
 
 from .ast_optimizer import optimize_module
 from .ast_utils import parse_expr, to_function_name, to_var_name
@@ -118,6 +117,10 @@ def generate_body(
     Returns:
         List of AST statements
     """
+    # Register self as the body generator for recursive calls
+    # (case frames, loop bodies) without circular imports.
+    ctx._body_generator = generate_body
+
     statements: list[ast.stmt] = []
 
     # All operations passed here are top-level (inner loop ops are in inner_nodes)

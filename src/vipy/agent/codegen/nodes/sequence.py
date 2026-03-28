@@ -7,7 +7,6 @@ from typing import TYPE_CHECKING
 
 from vipy.graph_types import Operation
 
-from ..builder import generate_body
 from ..fragment import CodeFragment
 from .base import NodeCodeGen
 
@@ -44,8 +43,8 @@ class FlatSequenceCodeGen(NodeCodeGen):
 
         # Generate code for each frame sequentially
         for frame in node.case_frames:
-            # Use generate_body for frame ops — gets parallel tiers for free
-            frame_stmts = generate_body(frame.operations, ctx)
+            # Use ctx.generate_body for frame ops — gets parallel tiers for free
+            frame_stmts = ctx.generate_body(frame.operations)
             for stmt in frame_stmts:
                 ast.fix_missing_locations(stmt)
             all_statements.extend(frame_stmts)

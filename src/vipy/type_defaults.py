@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from .graph_types import _is_error_cluster
 from .vilib_resolver import derive_python_name
 
 if TYPE_CHECKING:
@@ -144,31 +145,6 @@ def _get_primitive_default(type_name: str) -> str:
 
     # Unknown - default to None
     return "None"
-
-
-def _is_error_cluster(lv_type: LVType) -> bool:
-    """Check if a type is an error cluster.
-
-    Detects error clusters by:
-    1. TypeDef name contains "error" (case-insensitive)
-    2. Cluster with status/code/source fields
-    """
-    if lv_type.kind not in ("cluster", "typedef_ref"):
-        return False
-
-    # Check typedef name
-    typedef_name = lv_type.typedef_name or ""
-    if "error" in typedef_name.lower():
-        return True
-
-    # Check field names for error cluster pattern
-    if lv_type.fields:
-        field_names = {f.name.lower() for f in lv_type.fields}
-        error_fields = {"status", "code", "source"}
-        if error_fields <= field_names:
-            return True
-
-    return False
 
 
 def _is_class_refnum(lv_type: LVType, class_name: str) -> bool:
