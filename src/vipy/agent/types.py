@@ -6,6 +6,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from .codegen.ast_utils import to_module_name
+
 if TYPE_CHECKING:
     from ..graph import VIGraph
 
@@ -188,7 +190,7 @@ class SharedTypeRegistry:
         elif scope.startswith("library:"):
             lib_name = scope.split(":", 1)[1]
             types = self.get_library_types(lib_name)
-            lib_dir = output_dir / self._to_module_name(lib_name)
+            lib_dir = output_dir / to_module_name(lib_name)
             lib_dir.mkdir(parents=True, exist_ok=True)
             output_path = lib_dir / "types.py"
         else:
@@ -257,7 +259,7 @@ class SharedTypeRegistry:
             return f"from types import {type_name}"
         elif shared_type.scope.startswith("library:"):
             lib_name = shared_type.scope.split(":", 1)[1]
-            lib_module = self._to_module_name(lib_name)
+            lib_module = to_module_name(lib_name)
             # Check if from_module is in the same library
             if from_module.startswith(lib_module):
                 return f"from types import {type_name}"
@@ -341,12 +343,6 @@ class SharedTypeRegistry:
         if result and not result[0].isalpha():
             result = "field_" + result
         return result or "value"
-
-    def _to_module_name(self, name: str) -> str:
-        """Convert to valid Python module name."""
-        result = name.lower().replace(" ", "_").replace("-", "_").replace(".", "_")
-        result = "".join(c for c in result if c.isalnum() or c == "_")
-        return result or "module"
 
     def _to_enum_name(self, value: str) -> str:
         """Convert enum value to valid Python enum name."""

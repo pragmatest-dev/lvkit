@@ -17,6 +17,7 @@ from ..graph_types import Operation, VIContext, Wire
 from ..primitive_resolver import PrimitiveTerminal
 from ..primitive_resolver import get_resolver as get_primitive_resolver
 from ..vilib_resolver import VILibResolver
+from .codegen.ast_utils import to_function_name
 
 if TYPE_CHECKING:
     from .context import VISignature
@@ -112,7 +113,7 @@ class SkeletonGenerator:
         self._build_data_flow_map(vi_context)
 
         # Extract function name
-        function_name = self._to_function_name(vi_name)
+        function_name = to_function_name(vi_name)
         namedtuple_name = self._to_class_name(vi_name) + "Result"
 
         # Build dependencies from subvi_calls
@@ -124,7 +125,7 @@ class SkeletonGenerator:
                 continue
             seen_deps.add(subvi_name)
 
-            func_name = self._to_function_name(subvi_name)
+            func_name = to_function_name(subvi_name)
             result_class = self._to_class_name(subvi_name) + "Result"
             vilib_vi = self.vilib_resolver.resolve_by_name(subvi_name)
 
@@ -351,7 +352,7 @@ class SkeletonGenerator:
 
                 # Check if we have vilib implementation
                 vilib_vi = self.vilib_resolver.resolve_by_name(subvi_name)
-                func_name = self._to_function_name(subvi_name)
+                func_name = to_function_name(subvi_name)
 
                 if subvi_name in self.converted_deps:
                     sig = self.converted_deps[subvi_name]
@@ -1105,17 +1106,6 @@ class SkeletonGenerator:
         """Generate a new variable name."""
         self._var_counter += 1
         return f"{prefix}_{self._var_counter}"
-
-    def _to_function_name(self, name: str) -> str:
-        """Convert VI name to Python function name."""
-        name = name.replace(".vi", "").replace(".VI", "")
-        if ":" in name:
-            name = name.split(":")[-1]
-        result = name.lower().replace(" ", "_").replace("-", "_")
-        result = "".join(c for c in result if c.isalnum() or c == "_")
-        if result and not result[0].isalpha():
-            result = "vi_" + result
-        return result or "vi_function"
 
     def _to_class_name(self, name: str) -> str:
         """Convert VI name to PascalCase class name."""

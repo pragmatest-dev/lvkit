@@ -8,6 +8,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
+from .ast_utils import to_function_name
+
 if TYPE_CHECKING:
     from .dataflow import DataFlowTracer
     from .imports import ImportBuilder
@@ -126,7 +128,7 @@ class FunctionBuilder:
         Returns:
             FunctionDef ready for rendering
         """
-        func_name = self._to_function_name(vi_name)
+        func_name = to_function_name(vi_name)
         result_class = self._to_class_name(vi_name) + "Result"
 
         # Build parameters
@@ -241,17 +243,6 @@ class FunctionBuilder:
         if words:
             return " ".join(words) + "."
         return "Generated function."
-
-    def _to_function_name(self, name: str) -> str:
-        """Convert VI name to Python function name."""
-        name = name.replace(".vi", "").replace(".VI", "")
-        if ":" in name:
-            name = name.split(":")[-1]
-        result = name.lower().replace(" ", "_").replace("-", "_")
-        result = "".join(c for c in result if c.isalnum() or c == "_")
-        if result and not result[0].isalpha():
-            result = "vi_" + result
-        return result or "vi_function"
 
     def _to_class_name(self, name: str) -> str:
         """Convert VI name to PascalCase class name."""

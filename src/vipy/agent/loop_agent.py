@@ -15,6 +15,7 @@ from ..graph_types import VIContext
 from ..llm import generate_code
 from ..vilib_resolver import get_resolver as get_vilib_resolver
 from .codegen import ClassBuilder, ClassConfig, build_module
+from .codegen.ast_utils import to_function_name, to_module_name
 from .context import VISignature
 from .context_builder import ContextBuilder
 from .enums import EnumRegistry
@@ -263,7 +264,7 @@ class ConversionAgent:
 
         stub_info = self.graph.get_stub_vi_info(vi_name)
 
-        func_name = self._to_function_name(vi_name)
+        func_name = to_function_name(vi_name)
         input_types = stub_info.input_types if stub_info else []
         output_types = stub_info.output_types if stub_info else []
 
@@ -347,7 +348,7 @@ def {func_name}({params_str}) -> {return_type}:
             # No variants found - treat as regular VI
             return self._convert_regular_vi(vi_name)
 
-        func_name = self._to_function_name(vi_name)
+        func_name = to_function_name(vi_name)
 
         # Get signature from the first variant (all variants should have same structure)
         first_variant = variants[0]
@@ -379,9 +380,9 @@ def {func_name}({params_str}) -> {return_type}:
         variant_imports = []
 
         for variant in variants:
-            variant_func = self._to_function_name(variant)
+            variant_func = to_function_name(variant)
             variant_imports.append(
-                f"from .{self._to_module_name(variant)} import {variant_func}"
+                f"from .{to_module_name(variant)} import {variant_func}"
             )
 
             # Infer dispatch condition from variant name
@@ -574,7 +575,7 @@ def {func_name}({params_str}) -> {return_type}:
         Returns:
             ConversionResult for the class
         """
-        module_name = self._to_module_name(lvclass.name)
+        module_name = to_module_name(lvclass.name)
 
         # 1. Load method VIs into graph to get their contexts
         method_contexts: dict[str, VIContext] = {}
@@ -641,7 +642,7 @@ def {func_name}({params_str}) -> {return_type}:
         Returns:
             List of ConversionResults for each member
         """
-        lib_name = self._to_module_name(lvlib.name)
+        lib_name = to_module_name(lvlib.name)
         lib_dir = self.config.output_dir / lib_name
         lib_dir.mkdir(parents=True, exist_ok=True)
 
@@ -811,7 +812,7 @@ def {func_name}({params_str}) -> {return_type}:
         enums: dict[str, list[tuple[int, str]]] | None = None,
     ) -> Path:
         """Generate NiceGUI wrapper for a VI in the appropriate library folder."""
-        module_name = self._to_module_name(vi_name)
+        module_name = to_module_name(vi_name)
         library_name = self._to_library_name(vi_name)
         ui_code = ContextBuilder.build_ui_wrapper(
             vi_name=vi_name,
@@ -1234,15 +1235,6 @@ def {func_name}({params_str}) -> {return_type}:
         # Assume entire response is code
         return response.strip()
 
-    def _to_function_name(self, name: str) -> str:
-        """Convert VI name to Python function name."""
-        name = name.replace(".vi", "").replace(".VI", "")
-        result = name.lower().replace(" ", "_").replace("-", "_")
-        result = "".join(c for c in result if c.isalnum() or c == "_")
-        if result and not result[0].isalpha():
-            result = "vi_" + result
-        return result or "vi_function"
-
     def _to_class_name(self, name: str) -> str:
         """Convert name to PascalCase class name."""
         name = name.replace(".lvclass", "").replace(".LVCLASS", "")
@@ -1265,16 +1257,6 @@ def {func_name}({params_str}) -> {return_type}:
             vi_name = parts[1]
             return (library, vi_name)
         return (None, name)
-
-    def _to_module_name(self, name: str) -> str:
-        """Convert name to valid Python module name (without library prefix)."""
-        # Extract just the VI name part
-        _, vi_name = self._parse_qualified_name(name)
-        vi_name = vi_name.replace(".vi", "").replace(".VI", "")
-        vi_name = vi_name.replace(".lvclass", "").replace(".lvlib", "")
-        result = vi_name.lower().replace(" ", "_").replace("-", "_")
-        result = "".join(c for c in result if c.isalnum() or c == "_")
-        return result or "module"
 
     def _to_library_name(self, name: str) -> str | None:
         """Extract library name from qualified VI name.
@@ -1310,7 +1292,7 @@ def {func_name}({params_str}) -> {return_type}:
         Returns:
             Tuple of (output_path, library_name)
         """
-        module_name = self._to_module_name(vi_name)
+        module_name = to_module_name(vi_name)
         library_name = self._to_library_name(vi_name)
 
         if library_name:

@@ -6,7 +6,7 @@ import ast
 import warnings
 from typing import TYPE_CHECKING
 
-from vipy.graph_types import CaseFrame, Operation
+from vipy.graph_types import CaseFrame, Operation, _is_error_cluster
 
 from ..ast_utils import build_assign, parse_expr, to_var_name
 from ..fragment import CodeFragment
@@ -289,38 +289,22 @@ class CaseCodeGen(NodeCodeGen):
         return "selector"
 
     @staticmethod
-    def _is_error_selector(selector_var: str) -> bool:
-        """Check if resolved selector name looks like an error cluster.
-
-        Fallback heuristic — prefer _is_error_selector_by_type().
-        """
-        lower = selector_var.lower()
-        return "error" in lower and (
-            "in" in lower or "out" in lower or "no_error" in lower
-        )
-
-    @staticmethod
     def _is_error_selector_by_type(
         node: Operation, ctx: CodeGenContext,
     ) -> bool:
         """Check if the selector terminal carries an error cluster type.
 
-        Error clusters have fields ['status', 'code', 'source'].
-        This is more reliable than checking the resolved variable name
-        because error output terminals are often unbound in Python
-        (exceptions replace error cluster values).
+        Uses the canonical _is_error_cluster() check from graph_types.
+        More reliable than checking the resolved variable name because
+        error output terminals are often unbound in Python (exceptions
+        replace error cluster values).
         """
         sel_id = node.selector_terminal
         if not sel_id or ctx.graph is None:
             return False
-        # Find the selector terminal on this node
         for term in node.terminals:
             if term.id == sel_id and term.lv_type:
-                lv = term.lv_type
-                if lv.kind == "cluster" and lv.fields:
-                    field_names = {f.name for f in lv.fields}
-                    if {"status", "code", "source"} <= field_names:
-                        return True
+                return _is_error_cluster(term.lv_type)
         return False
 
     def _generate_error_case(

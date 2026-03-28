@@ -92,21 +92,3 @@ class InvokeNodeCodeGen(NodeCodeGen):
             statements.append(ast.Expr(value=call))
 
         return CodeFragment(statements=statements, bindings=bindings)
-
-    def _resolve_ref_input(self, node: Operation, ctx: CodeGenContext) -> str:
-        """Resolve the object reference input (typically terminal index 0)."""
-        for term in node.terminals:
-            if term.direction == "input" and term.index == 0:
-                resolved = ctx.resolve(term.id)
-                if resolved:
-                    return resolved
-                # Try tracing through graph to find source
-                flow = ctx.get_source(term.id)
-                if flow and flow.src_terminal:
-                    resolved = ctx.resolve(flow.src_terminal)
-                    if resolved:
-                        return resolved
-
-        # Fallback: use object_name as variable
-        obj_name = node.object_name or "ref"
-        return to_var_name(obj_name)
