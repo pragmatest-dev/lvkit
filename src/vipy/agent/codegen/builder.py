@@ -7,7 +7,7 @@ import warnings
 from collections import deque
 from typing import TYPE_CHECKING, Any
 
-from vipy.graph_types import Operation, Terminal, VIContext, _is_error_cluster
+from vipy.graph_types import Operation, Terminal, VIContext
 
 from .ast_optimizer import optimize_module
 from .ast_utils import parse_expr, to_function_name, to_var_name
@@ -22,19 +22,6 @@ from .nodes import get_codegen
 
 if TYPE_CHECKING:
     from vipy.memory_graph import InMemoryVIGraph
-
-
-def _is_error_terminal(term: Terminal) -> bool:
-    """Check if a terminal is an error cluster (skip in Python codegen).
-
-    Uses LVType when available, falls back to name-based heuristic.
-    """
-    if term.lv_type and _is_error_cluster(term.lv_type):
-        return True
-    name_lower = (term.name or "").lower()
-    return "error" in name_lower and (
-        "in" in name_lower or "out" in name_lower
-    )
 
 
 def build_module(
@@ -405,7 +392,7 @@ def build_return_stmt(
     # Resolve output values, skipping error clusters
     keywords = []
     for out in outputs:
-        if _is_error_terminal(out):
+        if out.is_error_cluster:
             continue
 
         out_id = out.id
@@ -514,7 +501,7 @@ def build_result_class(vi_context: VIContext) -> ast.ClassDef | None:
     # Build fields, skipping error clusters
     fields = []
     for out in outputs:
-        if _is_error_terminal(out):
+        if out.is_error_cluster:
             continue
 
         name = to_var_name(out.name or "output")
@@ -592,7 +579,7 @@ def build_args(inputs: list[Terminal]) -> ast.arguments:
     defaults = []
 
     for inp in inputs:
-        if _is_error_terminal(inp):
+        if inp.is_error_cluster:
             continue
 
         name = to_var_name(inp.name or "input")

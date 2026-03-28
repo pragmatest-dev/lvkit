@@ -11,6 +11,7 @@ from dataclasses import asdict, is_dataclass
 from typing import TYPE_CHECKING, Any
 
 from ..graph_types import VIContext
+from .codegen.ast_utils import to_function_name
 from .context_templates import FUNCTION_TEMPLATE, METHOD_TEMPLATE, UI_WRAPPER_TEMPLATE
 from .validator import ErrorFormatter
 
@@ -114,7 +115,7 @@ class ContextBuilder:
         types_section = ContextBuilder._format_shared_types(shared_types)
 
         # Generate function name
-        function_name = ContextBuilder._to_function_name(vi_name)
+        function_name = to_function_name(vi_name)
 
         # Format enum context
         enum_section = ContextBuilder._format_enum_context(enum_context)
@@ -315,7 +316,7 @@ class ContextBuilder:
             # Build callable description based on type
             if "SubVI" in labels and name:
                 # SubVI: show as imported function
-                func_name = ContextBuilder._to_function_name(name)
+                func_name = to_function_name(name)
                 sig = f"({', '.join(in_types)}) -> {ret_type}"
                 lines.append(f"  - {func_name}{sig}  # SubVI: {name}")
             elif "Primitive" in labels and prim_id is not None:
@@ -381,7 +382,7 @@ class ContextBuilder:
                     ContextBuilder._to_var_name(from_name) if from_name else "input"
                 )
             elif "SubVI" in from_labels and from_name:
-                func_name = ContextBuilder._to_function_name(from_name)
+                func_name = to_function_name(from_name)
                 from_desc = (
                     f"{func_name}()[{from_idx}]" if from_idx > 0 else f"{func_name}()"
                 )
@@ -403,7 +404,7 @@ class ContextBuilder:
             if "Indicator" in to_labels or "Output" in to_labels:
                 to_desc = ContextBuilder._to_var_name(to_name) if to_name else "output"
             elif "SubVI" in to_labels and to_name:
-                func_name = ContextBuilder._to_function_name(to_name)
+                func_name = to_function_name(to_name)
                 to_desc = f"{func_name}.input[{to_idx}]"
             elif "Primitive" in to_labels and to_prim is not None:
                 # Use generated name if available
@@ -464,7 +465,7 @@ class ContextBuilder:
         elif visibility == "protected":
             prefix = "__"
 
-        py_method_name = prefix + ContextBuilder._to_function_name(method_name)
+        py_method_name = prefix + to_function_name(method_name)
         static_decorator = "@staticmethod" if is_static else ""
 
         return METHOD_TEMPLATE.format(
@@ -749,23 +750,6 @@ Output ONLY the corrected Python code, no explanations."""
                 lines.append("  (* = used in this VI)")
 
         return "\n".join(lines)
-
-    @staticmethod
-    def _to_function_name(name: str) -> str:
-        """Convert VI name to Python function name."""
-        # Remove extension
-        name = name.replace(".vi", "").replace(".VI", "")
-        # Remove lvlib prefix (e.g., "MyLib.lvlib:Function Name" -> "Function Name")
-        if ":" in name:
-            name = name.split(":")[-1]
-        # Replace spaces and dashes with underscores
-        result = name.lower().replace(" ", "_").replace("-", "_")
-        # Remove invalid characters
-        result = "".join(c for c in result if c.isalnum() or c == "_")
-        # Ensure starts with letter
-        if result and not result[0].isalpha():
-            result = "vi_" + result
-        return result or "vi_function"
 
     @staticmethod
     def _to_class_name(name: str) -> str:
