@@ -21,12 +21,6 @@ from ..fragment import CodeFragment
 from .base import NodeCodeGen
 
 
-def _is_error_param_name(name: str) -> bool:
-    """Check if a resolved parameter name indicates an error cluster."""
-    lower = name.lower()
-    return "error" in lower and ("in" in lower or "out" in lower or "no_error" in lower)
-
-
 class SubVICodeGen(NodeCodeGen):
     """Generate code for SubVI calls.
 
@@ -140,6 +134,15 @@ class SubVICodeGen(NodeCodeGen):
             elif vt.direction in ("out", "output"):
                 vilib_outputs[vt.index] = param_key
 
+        # Build default values from vilib terminal definitions
+        vilib_defaults: dict[str, str] = {}
+        for vt in vilib_vi.terminals:
+            if vt.direction in ("in", "input"):
+                param_key = vt.python_param or to_var_name(vt.name)
+                default = getattr(vt, "default_value", None)
+                if default is not None:
+                    vilib_defaults[param_key] = default
+
         # Substitute input placeholders with wired values
         for term in node.terminals:
             if term.direction != "input":
@@ -152,7 +155,14 @@ class SubVICodeGen(NodeCodeGen):
             if term_index in vilib_inputs:
                 param_key = vilib_inputs[term_index]
                 placeholder = "{" + param_key + "}"
-                template = template.replace(placeholder, value or "None")
+                fallback = vilib_defaults.get(param_key, "None")
+                template = template.replace(placeholder, value or fallback)
+
+        # Substitute any remaining unresolved input placeholders with defaults
+        for param_key, default in vilib_defaults.items():
+            placeholder = "{" + param_key + "}"
+            if placeholder in template:
+                template = template.replace(placeholder, default)
 
         # Check for unresolved input placeholders — same as vilib resolution
         unresolved_inputs = {
@@ -199,9 +209,6 @@ class SubVICodeGen(NodeCodeGen):
 
             if term_index in vilib_outputs:
                 param_key = vilib_outputs[term_index]
-                # Skip error outputs by resolved name
-                if _is_error_param_name(param_key):
-                    continue
                 # Check for ref passthrough - bind to same input variable
                 if param_key in ref_passthrough:
                     bindings[term_id] = ref_passthrough[param_key]
@@ -378,10 +385,6 @@ class SubVICodeGen(NodeCodeGen):
                     vi_name=ctx.vi_name if ctx else None,
                 )
 
-            # Skip error parameters by resolved name
-            if _is_error_param_name(param_name):
-                continue
-
             # Check if this parameter is an enum typedef - generate enum reference
             final_value = self._resolve_enum_value(
                 value, term, vilib_vi, ctx
@@ -516,7 +519,7 @@ class SubVICodeGen(NodeCodeGen):
             term_name = term.name or ""
 
             # Skip error terminals — Python uses exceptions
-            if term.is_error_cluster or _is_error_param_name(term_name):
+            if term.is_error_cluster:
                 continue
 
             # Priority: vilib name > terminal name (enriched from callee)
@@ -640,8 +643,6 @@ class SubVICodeGen(NodeCodeGen):
                 field = to_var_name(
                     term.name or f"out_{term.index}"
                 )
-                if _is_error_param_name(field):
-                    continue
                 has_non_class_output = True
                 bindings[term.id] = f"{result_var}.{field}"
 

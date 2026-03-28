@@ -698,14 +698,22 @@ class LoopCodeGen(NodeCodeGen):
         return results
 
     def _has_incoming_flow(self, terminal_uid: str, ctx: CodeGenContext) -> bool:
-        """Check if a terminal has any incoming data flow.
+        """Check if a terminal has incoming data flow from the loop body.
 
         Used to distinguish:
         - lMax as N terminal (no incoming flow to inner terminal)
         - lMax as accumulator (has incoming flow from loop body)
+
+        Structural edges (tunnel outer→inner on the same structure node)
+        are NOT data flow — they're the tunnel's own pass-through.
         """
-        # Check if this terminal is the destination of any flow
-        return ctx.has_incoming(terminal_uid)
+        if ctx.graph is None:
+            return False
+        node_id = ctx.graph._term_to_node.get(terminal_uid)
+        for src in ctx.graph.incoming_edges(terminal_uid):
+            if src.node_id != node_id:
+                return True
+        return False
 
 
 # Comparison operator inversions for cleaner negation

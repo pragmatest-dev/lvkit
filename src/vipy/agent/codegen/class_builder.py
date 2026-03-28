@@ -6,7 +6,7 @@ import ast
 from collections.abc import Callable
 from dataclasses import dataclass
 
-from vipy.graph_types import Terminal, VIContext, _is_error_cluster
+from vipy.graph_types import Terminal, VIContext
 from vipy.memory_graph import InMemoryVIGraph
 from vipy.structure import LVClass, LVMethod
 from vipy.type_defaults import _is_class_refnum
@@ -692,18 +692,9 @@ class ClassBuilder:
         """Check if output is an error cluster (should not be in return).
 
         Python uses exceptions instead of error clusters.
+        Uses is_error_cluster which checks the type — no name guessing.
         """
-        # Check by lv_type if available
-        lv_type = getattr(out, "lv_type", None)
-        if lv_type and _is_error_cluster(lv_type):
-            return True
-
-        # Fallback: check name pattern
-        out_name = (out.name or str(out) if hasattr(out, "name") else str(out)).lower()
-        if "error" in out_name and ("in" in out_name or "out" in out_name):
-            return True
-
-        return False
+        return out.is_error_cluster
 
     def _build_return_annotation(self, outputs: list[Terminal]) -> ast.expr:
         """Build return type annotation from outputs using lv_type."""

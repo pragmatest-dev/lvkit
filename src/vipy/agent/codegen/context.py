@@ -447,6 +447,45 @@ def _bind_inputs_and_constants(
             ctx.bind(const.id, _format_constant(const))
 
 
+def _decode_numeric_constant(value: str, underlying_type: str) -> str:
+    """Decode a numeric constant using its LabVIEW type.
+
+    The value may be a decimal string ("42"), a raw hex string from the VI
+    binary ("7FFFFFFFFFFFFFFF"), or a pre-decoded value ("3.14").
+    The underlying_type tells us how to interpret it.
+    """
+    import struct
+
+    # Already a valid Python number?
+    try:
+        return str(int(value))
+    except ValueError:
+        pass
+    try:
+        return str(float(value))
+    except ValueError:
+        pass
+
+    # Raw hex from VI binary — decode using the type
+    is_hex = all(c in "0123456789abcdefABCDEF" for c in value) and len(value) > 0
+    if not is_hex:
+        # Non-printable single char = encoded integer
+        if len(value) == 1 and not value.isprintable():
+            return str(ord(value))
+        return repr(value)
+
+    if "Float64" in underlying_type or "DBL" in underlying_type:
+        hex_padded = value.zfill(16)
+        float_val = struct.unpack(">d", bytes.fromhex(hex_padded))[0]
+        return str(float_val)
+    if "Float32" in underlying_type or "SGL" in underlying_type:
+        hex_padded = value.zfill(8)
+        float_val = struct.unpack(">f", bytes.fromhex(hex_padded))[0]
+        return str(float_val)
+    # Integer types (Int8, Int16, Int32, Int64, UInt*, etc.)
+    return str(int(value, 16))
+
+
 def _format_constant(const: Constant) -> str:
     """Format a constant value as a Python expression.
 
@@ -477,12 +516,26 @@ def _format_constant(const: Constant) -> str:
 
     if value is None:
         return "None"
+
+    # Type-driven decoding: use underlying_type when available.
     if underlying == "Boolean":
         return "True" if value in ("True", "1", "01") else "False"
     if underlying == "Path":
         return f"Path('{value}')"
+    if underlying and underlying.startswith("Num") and isinstance(value, str):
+        return _decode_numeric_constant(value, underlying)
+    if underlying == "String" and isinstance(value, str):
+        if value == '""':
+            return "''"
+        if len(value) >= 2 and value.startswith('"') and value.endswith('"'):
+            return repr(value[1:-1])
+        return repr(value)
+
+    # Already-decoded Python values
     if isinstance(value, int | float):
         return str(value)
+
+    # No type info — best-effort fallback
     if isinstance(value, str):
         if value == '""':
             return "''"
@@ -496,5 +549,7 @@ def _format_constant(const: Constant) -> str:
             return str(float(value))
         except ValueError:
             pass
+        if len(value) == 1 and not value.isprintable():
+            return str(ord(value))
         return repr(value)
     return repr(value)

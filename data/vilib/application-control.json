@@ -1355,21 +1355,23 @@
           "name": "error code (0)",
           "index": 6,
           "direction": "input",
-          "type": "Cluster",
-          "python_param": "error_code_0"
+          "type": "NumInt32",
+          "python_param": "error_code_0",
+          "default_value": "0"
         },
         {
           "name": "error message (\"\")",
           "index": 9,
           "direction": "input",
-          "type": "NumInt32",
-          "python_param": "error_message"
+          "type": "String",
+          "python_param": "error_message",
+          "default_value": "''"
         },
         {
           "name": "error in (no error)",
           "index": 8,
           "direction": "input",
-          "type": "String",
+          "type": "Cluster",
           "python_param": "error_in_no_error"
         },
         {
@@ -1381,10 +1383,11 @@
         }
       ],
       "python": "",
-      "python_code": "raise LabVIEWError({error_code_0}, {error_message})",
+      "python_code": "if {error_code_0} != 0:\n    raise LabVIEWError(code={error_code_0}, message={error_message} or get_error_description({error_code_0}))",
       "inline": true,
       "imports": [
-        "from vipy.errors import LabVIEWError"
+        "from vipy.labview_error import LabVIEWError",
+        "from vipy.labview_error_codes import get_error_description"
       ],
       "status": "complete",
       "page": 1870,

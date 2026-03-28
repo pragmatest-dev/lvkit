@@ -318,14 +318,15 @@ class CaseCodeGen(NodeCodeGen):
         """
         self._bind_input_tunnels(node, ctx)
 
-        # Identify no-error and error frames
+        # Identify no-error and error frames.
+        # Error cluster status: False (0) = no error, True (1) = error.
         no_error_frame = None
         error_frame = None
         for frame in node.case_frames:
             val = str(frame.selector_value).lower()
-            if val in ("true", "no error", "0"):
+            if val in ("false", "no error", "0"):
                 no_error_frame = frame
-            elif val in ("false", "error", "1", "default"):
+            elif val in ("true", "error", "1", "default"):
                 error_frame = frame
 
         if no_error_frame is None and node.case_frames:

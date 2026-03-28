@@ -446,30 +446,39 @@ class ConstructionMixin:
                     bd, parser_tunnels, q_node_uid, term_lookup, vi_name,
                 )
 
-                # Add selector terminal so the topo sort sees it as
-                # an input dependency (otherwise the case structure can
-                # be processed before its selector source is bound).
+                # Mark the selector terminal. The caseSel tunnel already
+                # created a TunnelTerminal for this UID — find it and
+                # tag it as the selector. Only create a new Terminal if
+                # the tunnel wasn't found (shouldn't happen normally).
                 sel_uid = (
                     case_struct.selector_terminal_uid if case_struct else None
                 )
                 if selector_term and sel_uid:
-                    sel_ti = bd.terminal_info.get(sel_uid)
-                    sel_terminal = Terminal(
-                        id=selector_term,
-                        index=sel_ti.index if sel_ti else 0,
-                        direction="input",
-                        name="selector",
+                    existing = next(
+                        (t for t in structure_terminals
+                         if t.id == selector_term),
+                        None,
                     )
-                    structure_terminals.append(sel_terminal)
+                    if existing:
+                        existing.name = "selector"
+                        sel_index = existing.index
+                    else:
+                        sel_ti = bd.terminal_info.get(sel_uid)
+                        sel_index = sel_ti.index if sel_ti else 0
+                        sel_terminal = Terminal(
+                            id=selector_term,
+                            index=sel_index,
+                            direction="input",
+                            name="selector",
+                        )
+                        structure_terminals.append(sel_terminal)
                     # Register in term_lookup so wire edges resolve
                     if sel_uid not in term_lookup:
-                        term_lookup[sel_uid] = (
-                            WireEnd(
-                                terminal_id=selector_term,
-                                node_id=q_node_uid,
-                                index=sel_terminal.index,
-                                name="selector",
-                            )
+                        term_lookup[sel_uid] = WireEnd(
+                            terminal_id=selector_term,
+                            node_id=q_node_uid,
+                            index=sel_index,
+                            name="selector",
                         )
 
                 graph_node = StructureNode(

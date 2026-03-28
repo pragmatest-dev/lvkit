@@ -351,3 +351,54 @@ class TestInViParallelEndToEnd:
         code = self._generate_in_vi()
         assert ".write(True)" in code
         assert ".write(False)" in code
+
+
+class TestPassthroughBindingsInParallelTier:
+    """Regression: passthrough bindings must be merged even when all
+    ops in a parallel tier produce zero statements.
+
+    Bug: _generate_parallel_tier returned early when inner_stmts was
+    empty, skipping ctx.merge(fragment.bindings). Downstream tiers then
+    could not resolve inputs and fell back to type defaults (e.g., 0).
+    """
+
+    def test_all_passthrough_tier_bindings_propagate(self):
+        """When a parallel tier has only passthrough ops (0 statements),
+        their bindings must still reach downstream tiers."""
+        # Set up: A→B, A→C where B and C are passthroughs, D depends on both
+        a_out = _make_terminal("a_out", "output")
+        b_in = _make_terminal("b_in", "input")
+        b_out = _make_terminal("b_out", "output")
+        c_in = _make_terminal("c_in", "input")
+        c_out = _make_terminal("c_out", "output")
+        d_in1 = _make_terminal("d_in1", "input")
+        d_in2 = _make_terminal("d_in2", "input")
+
+        # Ops exist only to give terminals parent nodes for wiring
+        _make_op("A", terminals=[a_out])
+        _make_op("B", terminals=[b_in, b_out])
+        _make_op("C", terminals=[c_in, c_out])
+        _make_op("D", terminals=[d_in1, d_in2])
+
+        wires = [
+            Wire.from_terminals(from_terminal_id="a_out", to_terminal_id="b_in"),
+            Wire.from_terminals(from_terminal_id="a_out", to_terminal_id="c_in"),
+            Wire.from_terminals(from_terminal_id="b_out", to_terminal_id="d_in1"),
+            Wire.from_terminals(from_terminal_id="c_out", to_terminal_id="d_in2"),
+        ]
+        ctx = CodeGenContext.from_wires(wires)
+        ctx._body_generator = generate_body
+
+        # Bind A's output to simulate it being processed
+        ctx.bind("a_out", "source_val")
+
+        # Bind B and C outputs as if they were passthroughs
+        # (simulating what PrimitiveCodeGen would do for passthrough ops)
+        ctx.bind("b_out", "val_b")
+        ctx.bind("c_out", "val_c")
+
+        # The key check: D's inputs should resolve through B and C
+        resolved_d1 = ctx.resolve("d_in1")
+        resolved_d2 = ctx.resolve("d_in2")
+        assert resolved_d1 == "val_b", f"Expected 'val_b', got {resolved_d1}"
+        assert resolved_d2 == "val_c", f"Expected 'val_c', got {resolved_d2}"

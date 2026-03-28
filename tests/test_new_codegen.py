@@ -118,8 +118,8 @@ class TestErrorCaseUnwrap:
 
     def test_empty_error_frame_emits_no_error_body(self):
         op = _make_case_op("sel_1", _error_cluster_type(), frames=[
-            CaseFrame(selector_value="True", operations=[]),
             CaseFrame(selector_value="False", operations=[]),
+            CaseFrame(selector_value="True", operations=[]),
         ])
         ctx = _make_ctx_with_binding("sel_1", "err")
         codegen = CaseCodeGen()
@@ -133,8 +133,8 @@ class TestErrorCaseUnwrap:
             node_type="iUse", terminals=[],
         )
         op = _make_case_op("sel_1", _error_cluster_type(), frames=[
-            CaseFrame(selector_value="True", operations=[]),
-            CaseFrame(selector_value="False", operations=[inner_op]),
+            CaseFrame(selector_value="False", operations=[]),
+            CaseFrame(selector_value="True", operations=[inner_op]),
         ])
         ctx = _make_ctx_with_binding("sel_1", "err")
         codegen = CaseCodeGen()

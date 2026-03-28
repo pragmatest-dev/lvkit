@@ -45,6 +45,21 @@ class GenerationResult:
 # ---------------------------------------------------------------------------
 
 
+def _write_syntax_error(
+    module_name: str,
+    code: str,
+    error: SyntaxError,
+    output_dir: Path,
+    vi_name: str,
+    generated: list[tuple[str, Path | None, str]],
+) -> None:
+    """Write a .error.py file for a SyntaxError during generation."""
+    error_path = output_dir / f"{module_name}.error.py"
+    error_path.write_text(f"# SYNTAX ERROR: {error}\n\n{code}")
+    print(f"         -> SYNTAX ERROR: {error_path.name}")
+    generated.append((vi_name, error_path, "error"))
+
+
 def _sanitize_lib_name(name: str) -> str:
     """Sanitize a library/class name to a valid Python package name."""
     result = name.lower().replace(" ", "_").replace("-", "_")
@@ -452,13 +467,25 @@ def generate_python(
 
     # Detect input type and load appropriately
     if input_path.suffix.lower() == ".lvclass":
-        graph.load_lvclass(str(input_path), search_paths=search_path_list)
+        graph.load_lvclass(
+            str(input_path), expand_subvis=expand_subvis,
+            search_paths=search_path_list,
+        )
     elif input_path.suffix.lower() == ".lvlib":
-        graph.load_lvlib(str(input_path), search_paths=search_path_list)
+        graph.load_lvlib(
+            str(input_path), expand_subvis=expand_subvis,
+            search_paths=search_path_list,
+        )
     elif input_path.is_dir():
-        graph.load_directory(str(input_path), search_paths=search_path_list)
+        graph.load_directory(
+            str(input_path), expand_subvis=expand_subvis,
+            search_paths=search_path_list,
+        )
     else:
-        graph.load_vi(str(input_path), search_paths=search_path_list)
+        graph.load_vi(
+            str(input_path), expand_subvis=expand_subvis,
+            search_paths=search_path_list,
+        )
 
     order = graph.get_conversion_order()
     print(f"\nConversion order ({len(order)} VIs):")
@@ -581,10 +608,10 @@ def {func_name}(*args, **kwargs) -> Any:
                 )
                 generated.append((vi_name, output_path, "ast"))
             except SyntaxError as e:
-                error_path = output_dir_resolved / f"{module_name}.error.py"
-                error_path.write_text(f"# SYNTAX ERROR: {e}\n\n{code}")
-                print(f"         -> SYNTAX ERROR: {error_path.name}")
-                generated.append((vi_name, error_path, "error"))
+                _write_syntax_error(
+                    module_name, code, e,
+                    output_dir_resolved, vi_name, generated,
+                )
             except Exception as e:
                 print(f"         -> FAILED: {e}")
                 traceback.print_exc()
@@ -616,12 +643,10 @@ def {func_name}(*args, **kwargs) -> Any:
                 generated.append((vi_name, output_path, "ast"))
 
             except SyntaxError as e:
-                error_path = output_dir_resolved / f"{module_name}.error.py"
-                error_path.write_text(
-                    f"# SYNTAX ERROR: {e}\n\n{code}"
+                _write_syntax_error(
+                    module_name, code, e,
+                    output_dir_resolved, vi_name, generated,
                 )
-                print(f"         -> SYNTAX ERROR: {error_path.name}")
-                generated.append((vi_name, error_path, "error"))
 
             except Exception as e:
                 error_path = output_dir_resolved / f"{module_name}.error.py"
@@ -641,6 +666,7 @@ def {func_name}(*args, **kwargs) -> Any:
             vi_paths[wrapper_name] = wrapper_path
         if not wrapper_path.exists():
             try:
+                wrapper_path.parent.mkdir(parents=True, exist_ok=True)
                 code = _generate_polymorphic_module(
                     wrapper_name, variants, graph, vilib_resolver,
                     vi_folder_name, output_dir_resolved, vi_paths,

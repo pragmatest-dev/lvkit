@@ -12,6 +12,7 @@ codegen compatibility until full migration.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
@@ -153,12 +154,29 @@ class Terminal(BaseModel):
 
     @property
     def is_error_cluster(self) -> bool:
-        """Check if this terminal carries a LabVIEW error cluster."""
-        if self.lv_type and _is_error_cluster(self.lv_type):
-            return True
+        """Check if this terminal carries a LabVIEW error cluster.
+
+        Primary check: type-based (_is_error_cluster on lv_type).
+        Fallback: name-based, but ONLY when the type is unknown or is a
+        cluster without field metadata.  If the type is known to be
+        non-cluster (array, primitive, etc.), the name is irrelevant —
+        "error" in a terminal name does not make an Array an error cluster.
+
+        Name matching uses word boundaries: "error in" / "error out" as
+        phrases, not substring "in" inside arbitrary words like "pass*in*g".
+        """
+        if self.lv_type:
+            if _is_error_cluster(self.lv_type):
+                return True
+            # Type is known and is NOT an error cluster — trust the type.
+            # Only fall through to name heuristic when type is missing.
+            return False
+        # No type info — fall back to name heuristic (word-boundary match).
         name = (self.name or "").lower()
-        return "error" in name and (
-            "in" in name or "out" in name or "no error" in name
+        if "no error" in name:
+            return True
+        return bool(
+            re.search(r"\berror\s+(in|out)\b", name)
         )
 
 

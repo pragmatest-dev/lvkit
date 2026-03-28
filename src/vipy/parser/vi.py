@@ -211,7 +211,7 @@ def _parse_block_diagram(
         srn_to_structure=srn_to_structure,
     )
     loops = extract_loops(root)
-    case_structures = extract_case_structures(root)
+    case_structures = extract_case_structures(root, terminal_info)
     flat_sequences = extract_flat_sequences(root)
 
     return BlockDiagram(

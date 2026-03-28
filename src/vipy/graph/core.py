@@ -234,6 +234,12 @@ class InMemoryVIGraph(
                 t.var_name = var_name
                 return
 
+    def get_graph_node(self, node_id: str) -> AnyGraphNode | None:
+        """Get the typed graph node for a node_id."""
+        if not self._graph.has_node(node_id):
+            return None
+        return self._graph.nodes[node_id].get("node")
+
     def get_var_name(self, terminal_id: str) -> str | None:
         """Get the Python variable name from a terminal."""
         node_id = self._term_to_node.get(terminal_id)
