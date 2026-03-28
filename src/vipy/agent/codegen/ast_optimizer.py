@@ -290,7 +290,7 @@ class UnusedImportRemover(ast.NodeTransformer):
         """Collect all names used in Load context (excluding imports)."""
         for child in ast.walk(node):
             # Skip imports themselves
-            if isinstance(child, (ast.Import, ast.ImportFrom)):
+            if isinstance(child, ast.Import | ast.ImportFrom):
                 continue
 
             # Track name references
