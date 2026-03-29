@@ -263,10 +263,12 @@ class LoopCodeGen(NodeCodeGen):
 
         # Add initialization for while loop stop condition
         # (condition is computed inside loop, so we init to False before)
-        # Skip if the variable is already a function parameter
+        # Skip if the variable is already a function parameter or if the
+        # resolved value is an expression (not a valid assignment target)
         if stop_condition_var:
             param_names = {to_var_name(inp.name or "") for inp in ctx.vi_inputs}
-            if stop_condition_var not in param_names:
+            is_identifier = stop_condition_var.isidentifier()
+            if is_identifier and stop_condition_var not in param_names:
                 pre_loop_stmts.append(
                     build_assign(stop_condition_var, ast.Constant(value=False))
                 )
