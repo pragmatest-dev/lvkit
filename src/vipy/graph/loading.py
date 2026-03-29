@@ -163,7 +163,13 @@ class LoadingMixin:
         for member in lib.members:
             if member.member_type == "VI":
                 vi_path = lvlib_path.parent / member.url
-                if vi_path.exists():
+                if not vi_path.exists():
+                    # Relative path doesn't resolve — search by filename
+                    vi_name = Path(member.url).name
+                    vi_path = self._find_subvi(
+                        vi_name, search_paths, lvlib_path.parent,
+                    )
+                if vi_path and vi_path.exists():
                     self.load_vi(vi_path, expand_subvis, search_paths)
                     # Ownership edge
                     vi_qname = lib_qname + ":" + Path(member.url).name
@@ -171,6 +177,13 @@ class LoadingMixin:
                         self._dep_graph.add_edge(lib_qname, vi_qname, rel="owns")
             elif member.member_type == "Class":
                 class_path = lvlib_path.parent / member.url
+                if not class_path.exists():
+                    class_name = Path(member.url).name
+                    found = self._find_file(
+                        class_name, search_paths, lvlib_path.parent,
+                    )
+                    if found:
+                        class_path = found
                 if class_path.exists():
                     self.load_lvclass(
                         class_path, expand_subvis, search_paths,
@@ -178,6 +191,13 @@ class LoadingMixin:
                     )
             elif member.member_type == "Library":
                 nested_path = lvlib_path.parent / member.url
+                if not nested_path.exists():
+                    lib_name_file = Path(member.url).name
+                    found = self._find_file(
+                        lib_name_file, search_paths, lvlib_path.parent,
+                    )
+                    if found:
+                        nested_path = found
                 if nested_path.exists():
                     self.load_lvlib(
                         nested_path, expand_subvis, search_paths,
