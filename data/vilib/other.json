@@ -87749,6 +87749,34 @@
       "python_hint": null,
       "status": "needs_review",
       "terminals": []
+    },
+    {
+      "name": "LV70DateRecToTimeStamp",
+      "page": null,
+      "category": "Other",
+      "description": "Converts a LabVIEW 7.0 DateRec cluster to a timestamp. Internal vilib utility.",
+      "vi_path": "LV70DateRecToTimeStamp.vi",
+      "is_polymorphic": false,
+      "python_hint": "datetime.datetime(**date_record_fields)",
+      "python_code": "import datetime; datetime.datetime(in_1.get(\"year\", 1904), in_1.get(\"month\", 1), in_1.get(\"day\", 1), in_1.get(\"hour\", 0), in_1.get(\"minute\", 0), in_1.get(\"second\", 0))",
+      "inline": false,
+      "status": "resolved",
+      "terminals": [
+        {
+          "name": "timestamp",
+          "index": 0,
+          "direction": "output",
+          "type": "MeasureData",
+          "python_param": "timestamp"
+        },
+        {
+          "name": "date record",
+          "index": 1,
+          "direction": "input",
+          "type": "Cluster",
+          "python_param": "date_record"
+        }
+      ]
     }
   ]
 }

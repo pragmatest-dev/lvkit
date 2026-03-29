@@ -122,8 +122,8 @@
       "description": "Removes all ASCII white space (spaces, tabs, carriage returns, and linefeeds) from the beginning, end, or both ends of string. The Trim Whitespace VI does not remove double byte characters. The default is to remove white space from both ends of string.",
       "vi_path": null,
       "is_polymorphic": false,
-      "python_hint": null,
-      "status": "needs_terminals",
+      "python_hint": "in_0.strip()",
+      "status": "resolved",
       "terminals": [
         {
           "name": "location (both)",
@@ -139,23 +139,34 @@
               "End of string"
             ]
           ],
-          "python_param": "location_both"
+          "python_param": "location_both",
+          "index": 1,
+          "direction": "input",
+          "type": "NumUInt16"
         },
         {
           "name": "string",
           "description": "string is the input string.",
           "default_value": null,
           "enum_values": null,
-          "python_param": "string"
+          "python_param": "string",
+          "index": 0,
+          "direction": "input",
+          "type": "String"
         },
         {
           "name": "trimmed string",
           "description": "trimmed string contains the string with the white space removed.",
           "default_value": null,
           "enum_values": null,
-          "python_param": "trimmed_string"
+          "python_param": "trimmed_string",
+          "index": 2,
+          "direction": "output",
+          "type": "String"
         }
-      ]
+      ],
+      "python_code": "in_0.strip()",
+      "inline": true
     },
     {
       "name": "Normalize End Of Line",
