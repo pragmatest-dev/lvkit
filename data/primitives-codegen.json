@@ -128,6 +128,17 @@
       "verified": true,
       "pdf_page": 517
     },
+    "1141": {
+      "name": "To Word Integer",
+      "terminals": [
+        {"index": 0, "direction": "out", "name": "int16_value", "type": "NumInt16"},
+        {"index": 1, "direction": "in", "name": "number", "type": "polymorphic"}
+      ],
+      "python_code": {"int16_value": "int(in_1) & 0xFFFF"},
+      "inline": true,
+      "verified": true,
+      "pdf_page": 529
+    },
     "1142": {
       "name": "Type Conversion",
       "terminals": [
@@ -379,6 +390,17 @@
       "inline": true,
       "verified": true,
       "pdf_page": 759
+    },
+    "1144": {
+      "name": "To Unsigned Word Integer",
+      "terminals": [
+        {"index": 0, "direction": "out", "name": "uint16_value", "type": "NumUInt16"},
+        {"index": 1, "direction": "in", "name": "number", "type": "polymorphic"}
+      ],
+      "python_code": {"uint16_value": "int(in_1) & 0xFFFF"},
+      "inline": true,
+      "verified": true,
+      "pdf_page": 532
     },
     "1145": {
       "name": "Coerce To Type",
@@ -725,6 +747,17 @@
       "verified": true,
       "pdf_page": 544
     },
+    "1069": {
+      "name": "Negate",
+      "terminals": [
+        {"index": 0, "direction": "out", "name": "neg_x", "type": "polymorphic"},
+        {"index": 1, "direction": "in", "name": "x", "type": "polymorphic"}
+      ],
+      "python_code": {"neg_x": "-in_1"},
+      "inline": true,
+      "verified": true,
+      "pdf_page": 584
+    },
     "1070": {
       "name": "Random Number (0-1)",
       "terminals": [
@@ -764,6 +797,31 @@
       "inline": true,
       "verified": true,
       "pdf_page": 666
+    },
+    "1110": {
+      "name": "Not Equal?",
+      "terminals": [
+        {"index": 0, "direction": "out", "name": "x_ne_y", "type": "Boolean"},
+        {"index": 1, "direction": "in", "name": "x", "type": "polymorphic"},
+        {"index": 2, "direction": "in", "name": "y", "type": "polymorphic"}
+      ],
+      "python_code": {"x_ne_y": "in_1 != in_2"},
+      "inline": true,
+      "verified": true,
+      "pdf_page": 747
+    },
+    "1108": {
+      "name": "Quotient & Remainder",
+      "terminals": [
+        {"index": 0, "direction": "out", "name": "remainder", "type": "polymorphic"},
+        {"index": 1, "direction": "out", "name": "quotient", "type": "polymorphic"},
+        {"index": 2, "direction": "in", "name": "x", "type": "polymorphic"},
+        {"index": 3, "direction": "in", "name": "y", "type": "polymorphic"}
+      ],
+      "python_code": {"remainder": "in_2 % in_3", "quotient": "in_2 // in_3"},
+      "inline": true,
+      "verified": true,
+      "pdf_page": 521
     },
     "1105": {
       "name": "Less?",
@@ -1390,6 +1448,39 @@
       "verified": true,
       "pdf_page": 653
     },
+    "1904": {
+      "name": "Array Size",
+      "terminals": [
+        {"index": 0, "direction": "out", "name": "size", "type": "NumInt32"},
+        {"index": 1, "direction": "in", "name": "array", "type": "Array"}
+      ],
+      "python_code": {"size": "len(in_1)"},
+      "inline": true,
+      "verified": true,
+      "pdf_page": 391
+    },
+    "1910": {
+      "name": "Or Array Elements",
+      "terminals": [
+        {"index": 0, "direction": "out", "name": "logical_or", "type": "Boolean"},
+        {"index": 1, "direction": "in", "name": "boolean_array", "type": "Array"}
+      ],
+      "python_code": {"logical_or": "any(in_1)"},
+      "inline": true,
+      "verified": true,
+      "pdf_page": 642
+    },
+    "1911": {
+      "name": "And Array Elements",
+      "terminals": [
+        {"index": 0, "direction": "out", "name": "logical_and", "type": "Boolean"},
+        {"index": 1, "direction": "in", "name": "boolean_array", "type": "Array"}
+      ],
+      "python_code": {"logical_and": "all(in_1)"},
+      "inline": true,
+      "verified": true,
+      "pdf_page": 641
+    },
     "1903": {
       "name": "Array Size",
       "terminals": [
@@ -2003,6 +2094,19 @@
       "verified": true,
       "pdf_page": 478,
       "note": "primResID 8003 is file I/O range but this instance has variant terminals. Variant To Data confirmed by terminal signature and PDF."
+    },
+    "8100": {
+      "name": "Format Date/Time String",
+      "terminals": [
+        {"index": 0, "direction": "out", "name": "datetime_string", "type": "String"},
+        {"index": 1, "direction": "in", "name": "utc_format", "type": "Boolean"},
+        {"index": 2, "direction": "in", "name": "timestamp", "type": "MeasureData"},
+        {"index": 3, "direction": "in", "name": "time_format_string", "type": "String"}
+      ],
+      "python_code": {"datetime_string": "in_2.strftime(in_3) if in_3 else str(in_2)"},
+      "inline": true,
+      "verified": true,
+      "pdf_page": 675
     },
     "8201": {
       "name": "To Variant",
