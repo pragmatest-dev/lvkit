@@ -157,6 +157,44 @@ def main() -> int:
         help="Don't expand SubVIs",
     )
 
+    # LLM generate command - idiomatic Python via LLM
+    llm_parser = subparsers.add_parser(
+        "llm-generate",
+        help="Generate idiomatic Python using an LLM",
+    )
+    llm_parser.add_argument(
+        "input_path",
+        help="Path to .vi, .lvlib, .lvclass, or directory",
+    )
+    llm_parser.add_argument(
+        "-o", "--output",
+        default="outputs",
+        help="Output directory",
+    )
+    llm_parser.add_argument(
+        "--search-path",
+        action="append",
+        dest="search_paths",
+        default=[],
+        help="Search paths for SubVI resolution (can be repeated)",
+    )
+    llm_parser.add_argument(
+        "--provider",
+        default="anthropic",
+        choices=["anthropic", "ollama"],
+        help="LLM provider (default: anthropic)",
+    )
+    llm_parser.add_argument(
+        "--model",
+        default=None,
+        help="Model name (default: provider-specific)",
+    )
+    llm_parser.add_argument(
+        "--no-reference",
+        action="store_true",
+        help="Don't include AST reference in prompt",
+    )
+
     args = parser.parse_args()
 
     if args.command == "convert":
@@ -186,6 +224,8 @@ def main() -> int:
         return cmd_generate(args)
     elif args.command == "docs":
         return cmd_docs(args)
+    elif args.command == "llm-generate":
+        return cmd_llm_generate(args)
     else:
         parser.print_help()
         return 0
@@ -516,6 +556,56 @@ def cmd_docs(args: argparse.Namespace) -> int:
         )
         print("\n" + result)
         return 0
+
+    except Exception as e:
+        print(f"Error: {e}", file=sys.stderr)
+        traceback.print_exc()
+        return 1
+
+
+def cmd_llm_generate(args: argparse.Namespace) -> int:
+    """Handle the llm-generate command — idiomatic Python via LLM."""
+    from .llm_pipeline import run_pipeline
+    from .llm_provider import LLMConfig
+
+    input_path = Path(args.input_path)
+
+    if not input_path.exists():
+        print(f"Error: Path not found: {input_path}", file=sys.stderr)
+        return 1
+
+    output_dir = Path(args.output)
+
+    # Build config
+    config = LLMConfig(provider=args.provider)
+    if args.model:
+        config.model = args.model
+    elif args.provider == "ollama":
+        config.model = "qwen2.5-coder:14b"
+
+    search_paths = [Path(p) for p in args.search_paths] if args.search_paths else None
+
+    print(f"Loading: {input_path}")
+    print(f"Provider: {config.provider} ({config.model})")
+    print()
+
+    try:
+        result = run_pipeline(
+            input_path=input_path,
+            output_dir=output_dir,
+            search_paths=search_paths,
+            config=config,
+            include_reference=not args.no_reference,
+        )
+
+        print("\nResults:")
+        print(f"  Total VIs: {result.total}")
+        print(f"  LLM generated: {result.llm_generated}")
+        print(f"  AST fallback: {result.ast_fallback}")
+        print(f"  Errors: {result.errors}")
+        print(f"\nOutput: {output_dir}")
+
+        return 0 if result.errors == 0 else 1
 
     except Exception as e:
         print(f"Error: {e}", file=sys.stderr)
