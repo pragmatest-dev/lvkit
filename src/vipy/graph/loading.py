@@ -423,6 +423,10 @@ class LoadingMixin:
                             )
                             if loaded_name:
                                 self._dep_graph.add_edge(vi_name, loaded_name)
+                                # Register alias if caller uses a different name
+                                # (e.g., JKI "VI__LibName.vi" convention)
+                                if subvi_qname != loaded_name:
+                                    self._qualified_aliases[subvi_qname] = loaded_name
                         except (RuntimeError, OSError):
                             self._stubs.add(subvi_qname)
                             self._dep_graph.add_node(subvi_qname)
