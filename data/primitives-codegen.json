@@ -37,13 +37,15 @@
           "index": 1,
           "direction": "in",
           "name": "x",
-          "type": "polymorphic"
+          "type": "polymorphic",
+          "default_value": "0"
         },
         {
           "index": 2,
           "direction": "in",
           "name": "y",
-          "type": "polymorphic"
+          "type": "polymorphic",
+          "default_value": "0"
         }
       ],
       "python_code": {
@@ -123,7 +125,9 @@
           "type": "numeric"
         }
       ],
-      "python_code": {"difference": "in_1 - in_2"},
+      "python_code": {
+        "difference": "in_1 - in_2"
+      },
       "inline": true,
       "verified": true,
       "pdf_page": 517
@@ -131,10 +135,22 @@
     "1141": {
       "name": "To Word Integer",
       "terminals": [
-        {"index": 0, "direction": "out", "name": "int16_value", "type": "NumInt16"},
-        {"index": 1, "direction": "in", "name": "number", "type": "polymorphic"}
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "int16_value",
+          "type": "NumInt16"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "number",
+          "type": "polymorphic"
+        }
       ],
-      "python_code": {"int16_value": "int(in_1) & 0xFFFF"},
+      "python_code": {
+        "int16_value": "int(in_1) & 0xFFFF"
+      },
       "inline": true,
       "verified": true,
       "pdf_page": 529
@@ -352,13 +368,15 @@
           "index": 1,
           "direction": "in",
           "name": "x",
-          "type": "polymorphic"
+          "type": "polymorphic",
+          "default_value": "0"
         },
         {
           "index": 2,
           "direction": "in",
           "name": "y",
-          "type": "polymorphic"
+          "type": "polymorphic",
+          "default_value": "0"
         }
       ],
       "python_code": {
@@ -394,10 +412,22 @@
     "1144": {
       "name": "To Unsigned Word Integer",
       "terminals": [
-        {"index": 0, "direction": "out", "name": "uint16_value", "type": "NumUInt16"},
-        {"index": 1, "direction": "in", "name": "number", "type": "polymorphic"}
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "uint16_value",
+          "type": "NumUInt16"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "number",
+          "type": "polymorphic"
+        }
       ],
-      "python_code": {"uint16_value": "int(in_1) & 0xFFFF"},
+      "python_code": {
+        "uint16_value": "int(in_1) & 0xFFFF"
+      },
       "inline": true,
       "verified": true,
       "pdf_page": 532
@@ -529,9 +559,24 @@
       "name": "Unknown Event/Notification Primitive 2076",
       "placeholder": true,
       "terminals": [
-        {"index": 0, "direction": "in", "name": "refnum_in", "type": "Refnum"},
-        {"index": 3, "direction": "in", "name": "error_in", "type": "Cluster"},
-        {"index": 7, "direction": "out", "name": "error_out", "type": "Cluster"}
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "refnum_in",
+          "type": "Refnum"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "error_in",
+          "type": "Cluster"
+        },
+        {
+          "index": 7,
+          "direction": "out",
+          "name": "error_out",
+          "type": "Cluster"
+        }
       ],
       "python_code": "pass"
     },
@@ -539,12 +584,42 @@
       "name": "Unknown Event/Notification Primitive",
       "placeholder": true,
       "terminals": [
-        {"index": 0, "direction": "in", "name": "refnum_in", "type": "Refnum"},
-        {"index": 1, "direction": "in", "name": "data_in", "type": "Cluster"},
-        {"index": 3, "direction": "in", "name": "error_in", "type": "Cluster"},
-        {"index": 4, "direction": "in", "name": "timeout_ms", "type": "NumUInt32"},
-        {"index": 8, "direction": "out", "name": "refnum_out", "type": "Refnum"},
-        {"index": 11, "direction": "out", "name": "error_out", "type": "Cluster"}
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "refnum_in",
+          "type": "Refnum"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "data_in",
+          "type": "Cluster"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "error_in",
+          "type": "Cluster"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "timeout_ms",
+          "type": "NumUInt32"
+        },
+        {
+          "index": 8,
+          "direction": "out",
+          "name": "refnum_out",
+          "type": "Refnum"
+        },
+        {
+          "index": 11,
+          "direction": "out",
+          "name": "error_out",
+          "type": "Cluster"
+        }
       ],
       "python_code": "pass"
     },
@@ -750,10 +825,22 @@
     "1069": {
       "name": "Negate",
       "terminals": [
-        {"index": 0, "direction": "out", "name": "neg_x", "type": "polymorphic"},
-        {"index": 1, "direction": "in", "name": "x", "type": "polymorphic"}
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "neg_x",
+          "type": "polymorphic"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "x",
+          "type": "polymorphic"
+        }
       ],
-      "python_code": {"neg_x": "-in_1"},
+      "python_code": {
+        "neg_x": "-in_1"
+      },
       "inline": true,
       "verified": true,
       "pdf_page": 584
@@ -801,11 +888,30 @@
     "1110": {
       "name": "Not Equal?",
       "terminals": [
-        {"index": 0, "direction": "out", "name": "x_ne_y", "type": "Boolean"},
-        {"index": 1, "direction": "in", "name": "x", "type": "polymorphic"},
-        {"index": 2, "direction": "in", "name": "y", "type": "polymorphic"}
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "x_ne_y",
+          "type": "Boolean"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "x",
+          "type": "polymorphic",
+          "default_value": "0"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "y",
+          "type": "polymorphic",
+          "default_value": "0"
+        }
       ],
-      "python_code": {"x_ne_y": "in_1 != in_2"},
+      "python_code": {
+        "x_ne_y": "in_1 != in_2"
+      },
       "inline": true,
       "verified": true,
       "pdf_page": 747
@@ -813,12 +919,35 @@
     "1108": {
       "name": "Quotient & Remainder",
       "terminals": [
-        {"index": 0, "direction": "out", "name": "remainder", "type": "polymorphic"},
-        {"index": 1, "direction": "out", "name": "quotient", "type": "polymorphic"},
-        {"index": 2, "direction": "in", "name": "x", "type": "polymorphic"},
-        {"index": 3, "direction": "in", "name": "y", "type": "polymorphic"}
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "remainder",
+          "type": "polymorphic"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "quotient",
+          "type": "polymorphic"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "x",
+          "type": "polymorphic"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "y",
+          "type": "polymorphic"
+        }
       ],
-      "python_code": {"remainder": "in_2 % in_3", "quotient": "in_2 // in_3"},
+      "python_code": {
+        "remainder": "in_2 % in_3",
+        "quotient": "in_2 // in_3"
+      },
       "inline": true,
       "verified": true,
       "pdf_page": 521
@@ -836,13 +965,15 @@
           "index": 1,
           "direction": "in",
           "name": "x",
-          "type": "polymorphic"
+          "type": "polymorphic",
+          "default_value": "0"
         },
         {
           "index": 2,
           "direction": "in",
           "name": "y",
-          "type": "polymorphic"
+          "type": "polymorphic",
+          "default_value": "0"
         }
       ],
       "python_code": {
@@ -871,7 +1002,8 @@
           "index": 2,
           "direction": "in",
           "name": "y",
-          "type": "polymorphic"
+          "type": "polymorphic",
+          "default_value": "0"
         }
       ],
       "python_code": {
@@ -884,10 +1016,22 @@
     "1115": {
       "name": "Equal To 0?",
       "terminals": [
-        {"index": 0, "direction": "out", "name": "x_equals_zero", "type": "Boolean"},
-        {"index": 1, "direction": "in", "name": "x", "type": "polymorphic"}
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "x_equals_zero",
+          "type": "Boolean"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "x",
+          "type": "polymorphic"
+        }
       ],
-      "python_code": {"x_equals_zero": "in_1 == 0"},
+      "python_code": {
+        "x_equals_zero": "in_1 == 0"
+      },
       "inline": true,
       "verified": true,
       "pdf_page": 751
@@ -1261,16 +1405,58 @@
     "1537": {
       "name": "Search and Replace String",
       "terminals": [
-        {"index": 0, "direction": "out", "name": "result_string", "type": "String"},
-        {"index": 1, "direction": "in", "name": "input_string", "type": "String"},
-        {"index": 2, "direction": "in", "name": "search_string", "type": "String"},
-        {"index": 3, "direction": "in", "name": "replace_string", "type": "String"},
-        {"index": 4, "direction": "in", "name": "replace_all", "type": "Boolean"},
-        {"index": 5, "direction": "in", "name": "offset", "type": "NumInt32"},
-        {"index": 6, "direction": "out", "name": "number_of_replacements", "type": "NumInt32"},
-        {"index": 7, "direction": "out", "name": "offset_past_replacement", "type": "NumInt32"}
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "result_string",
+          "type": "String"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "input_string",
+          "type": "String"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "search_string",
+          "type": "String"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "replace_string",
+          "type": "String"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "replace_all",
+          "type": "Boolean"
+        },
+        {
+          "index": 5,
+          "direction": "in",
+          "name": "offset",
+          "type": "NumInt32"
+        },
+        {
+          "index": 6,
+          "direction": "out",
+          "name": "number_of_replacements",
+          "type": "NumInt32"
+        },
+        {
+          "index": 7,
+          "direction": "out",
+          "name": "offset_past_replacement",
+          "type": "NumInt32"
+        }
       ],
-      "python_code": {"result_string": "in_1.replace(in_2, in_3) if in_4 else in_1.replace(in_2, in_3, 1)"},
+      "python_code": {
+        "result_string": "in_1.replace(in_2, in_3) if in_4 else in_1.replace(in_2, in_3, 1)"
+      },
       "inline": true,
       "verified": true,
       "pdf_page": 654
@@ -1336,13 +1522,15 @@
           "index": 1,
           "direction": "in",
           "name": "x",
-          "type": "polymorphic"
+          "type": "polymorphic",
+          "default_value": "0"
         },
         {
           "index": 2,
           "direction": "in",
           "name": "y",
-          "type": "polymorphic"
+          "type": "polymorphic",
+          "default_value": "0"
         }
       ],
       "python_code": {
@@ -1451,10 +1639,22 @@
     "1904": {
       "name": "Array Size",
       "terminals": [
-        {"index": 0, "direction": "out", "name": "size", "type": "NumInt32"},
-        {"index": 1, "direction": "in", "name": "array", "type": "Array"}
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "size",
+          "type": "NumInt32"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "array",
+          "type": "Array"
+        }
       ],
-      "python_code": {"size": "len(in_1)"},
+      "python_code": {
+        "size": "len(in_1)"
+      },
       "inline": true,
       "verified": true,
       "pdf_page": 391
@@ -1462,10 +1662,22 @@
     "1910": {
       "name": "Or Array Elements",
       "terminals": [
-        {"index": 0, "direction": "out", "name": "logical_or", "type": "Boolean"},
-        {"index": 1, "direction": "in", "name": "boolean_array", "type": "Array"}
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "logical_or",
+          "type": "Boolean"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "boolean_array",
+          "type": "Array"
+        }
       ],
-      "python_code": {"logical_or": "any(in_1)"},
+      "python_code": {
+        "logical_or": "any(in_1)"
+      },
       "inline": true,
       "verified": true,
       "pdf_page": 642
@@ -1473,10 +1685,22 @@
     "1911": {
       "name": "And Array Elements",
       "terminals": [
-        {"index": 0, "direction": "out", "name": "logical_and", "type": "Boolean"},
-        {"index": 1, "direction": "in", "name": "boolean_array", "type": "Array"}
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "logical_and",
+          "type": "Boolean"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "boolean_array",
+          "type": "Array"
+        }
       ],
-      "python_code": {"logical_and": "all(in_1)"},
+      "python_code": {
+        "logical_and": "all(in_1)"
+      },
       "inline": true,
       "verified": true,
       "pdf_page": 641
@@ -1484,10 +1708,22 @@
     "1903": {
       "name": "Array Size",
       "terminals": [
-        {"index": 0, "direction": "out", "name": "size", "type": "NumInt32"},
-        {"index": 1, "direction": "in", "name": "array", "type": "Array"}
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "size",
+          "type": "NumInt32"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "array",
+          "type": "Array"
+        }
       ],
-      "python_code": {"size": "len(in_1)"},
+      "python_code": {
+        "size": "len(in_1)"
+      },
       "inline": true,
       "verified": true,
       "pdf_page": 391
@@ -1495,10 +1731,22 @@
     "1900": {
       "name": "Sort 1D Array",
       "terminals": [
-        {"index": 0, "direction": "out", "name": "sorted_array", "type": "Array"},
-        {"index": 1, "direction": "in", "name": "array", "type": "Array"}
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "sorted_array",
+          "type": "Array"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "array",
+          "type": "Array"
+        }
       ],
-      "python_code": {"sorted_array": "sorted(in_1)"},
+      "python_code": {
+        "sorted_array": "sorted(in_1)"
+      },
       "inline": true,
       "verified": true,
       "pdf_page": 406
@@ -1788,12 +2036,42 @@
       "name": "Unknown VI Server Primitive 9111",
       "placeholder": true,
       "terminals": [
-        {"index": 0, "direction": "in", "name": "refnum_in", "type": "Refnum"},
-        {"index": 1, "direction": "in", "name": "data_in", "type": "Cluster"},
-        {"index": 2, "direction": "in", "name": "index", "type": "NumInt32"},
-        {"index": 3, "direction": "in", "name": "error_in", "type": "Cluster"},
-        {"index": 8, "direction": "out", "name": "refnum_out", "type": "Refnum"},
-        {"index": 10, "direction": "out", "name": "found", "type": "Boolean"}
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "refnum_in",
+          "type": "Refnum"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "data_in",
+          "type": "Cluster"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "index",
+          "type": "NumInt32"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "error_in",
+          "type": "Cluster"
+        },
+        {
+          "index": 8,
+          "direction": "out",
+          "name": "refnum_out",
+          "type": "Refnum"
+        },
+        {
+          "index": 10,
+          "direction": "out",
+          "name": "found",
+          "type": "Boolean"
+        }
       ],
       "python_code": "pass"
     },
@@ -1801,14 +2079,54 @@
       "name": "Unknown VI Server Primitive (Open Variant)",
       "placeholder": true,
       "terminals": [
-        {"index": 0, "direction": "in", "name": "vi_path", "type": "String"},
-        {"index": 1, "direction": "in", "name": "type_specifier", "type": "String"},
-        {"index": 2, "direction": "in", "name": "prepare_for_call", "type": "Boolean"},
-        {"index": 3, "direction": "in", "name": "error_in", "type": "Cluster"},
-        {"index": 4, "direction": "in", "name": "options", "type": "NumInt32"},
-        {"index": 8, "direction": "out", "name": "vi_refnum", "type": "Refnum"},
-        {"index": 10, "direction": "out", "name": "found", "type": "Boolean"},
-        {"index": 11, "direction": "out", "name": "error_out", "type": "Cluster"}
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "vi_path",
+          "type": "String"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "type_specifier",
+          "type": "String"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "prepare_for_call",
+          "type": "Boolean"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "error_in",
+          "type": "Cluster"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "options",
+          "type": "NumInt32"
+        },
+        {
+          "index": 8,
+          "direction": "out",
+          "name": "vi_refnum",
+          "type": "Refnum"
+        },
+        {
+          "index": 10,
+          "direction": "out",
+          "name": "found",
+          "type": "Boolean"
+        },
+        {
+          "index": 11,
+          "direction": "out",
+          "name": "error_out",
+          "type": "Cluster"
+        }
       ],
       "python_code": "pass"
     },
@@ -1816,12 +2134,42 @@
       "name": "Unknown VI Server Primitive (Call Variant)",
       "placeholder": true,
       "terminals": [
-        {"index": 0, "direction": "in", "name": "vi_refnum", "type": "Refnum"},
-        {"index": 2, "direction": "in", "name": "auto_dispose", "type": "Boolean"},
-        {"index": 3, "direction": "in", "name": "error_in", "type": "Cluster"},
-        {"index": 8, "direction": "out", "name": "result_string", "type": "String"},
-        {"index": 9, "direction": "out", "name": "result_array", "type": "Array"},
-        {"index": 11, "direction": "out", "name": "error_out", "type": "Cluster"}
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "vi_refnum",
+          "type": "Refnum"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "auto_dispose",
+          "type": "Boolean"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "error_in",
+          "type": "Cluster"
+        },
+        {
+          "index": 8,
+          "direction": "out",
+          "name": "result_string",
+          "type": "String"
+        },
+        {
+          "index": 9,
+          "direction": "out",
+          "name": "result_array",
+          "type": "Array"
+        },
+        {
+          "index": 11,
+          "direction": "out",
+          "name": "error_out",
+          "type": "Cluster"
+        }
       ],
       "python_code": "pass"
     },
@@ -2044,11 +2392,28 @@
     "8017": {
       "name": "Preserve Run-Time Class",
       "terminals": [
-        {"index": 0, "direction": "in", "name": "target_object", "type": "Refnum"},
-        {"index": 1, "direction": "in", "name": "object_in", "type": "Refnum"},
-        {"index": 2, "direction": "out", "name": "object_out", "type": "Refnum"}
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "target_object",
+          "type": "Refnum"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "object_in",
+          "type": "Refnum"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "object_out",
+          "type": "Refnum"
+        }
       ],
-      "python_code": {"object_out": "in_1"},
+      "python_code": {
+        "object_out": "in_1"
+      },
       "inline": true,
       "verified": true,
       "pdf_page": 470
@@ -2098,12 +2463,34 @@
     "8100": {
       "name": "Format Date/Time String",
       "terminals": [
-        {"index": 0, "direction": "out", "name": "datetime_string", "type": "String"},
-        {"index": 1, "direction": "in", "name": "utc_format", "type": "Boolean"},
-        {"index": 2, "direction": "in", "name": "timestamp", "type": "MeasureData"},
-        {"index": 3, "direction": "in", "name": "time_format_string", "type": "String"}
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "datetime_string",
+          "type": "String"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "utc_format",
+          "type": "Boolean"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "timestamp",
+          "type": "MeasureData"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "time_format_string",
+          "type": "String"
+        }
       ],
-      "python_code": {"datetime_string": "in_2.strftime(in_3) if in_3 else str(in_2)"},
+      "python_code": {
+        "datetime_string": "in_2.strftime(in_3) if in_3 else str(in_2)"
+      },
       "inline": true,
       "verified": true,
       "pdf_page": 675
@@ -2253,14 +2640,47 @@
     "8204": {
       "name": "Delete Variant Attribute",
       "terminals": [
-        {"index": 0, "direction": "out", "name": "error_out", "type": "Cluster"},
-        {"index": 2, "direction": "out", "name": "found", "type": "Boolean"},
-        {"index": 3, "direction": "out", "name": "variant_out", "type": "LVVariant"},
-        {"index": 4, "direction": "in", "name": "error_in", "type": "Cluster"},
-        {"index": 5, "direction": "in", "name": "variant", "type": "LVVariant"},
-        {"index": 6, "direction": "in", "name": "name", "type": "String"}
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error_out",
+          "type": "Cluster"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "found",
+          "type": "Boolean"
+        },
+        {
+          "index": 3,
+          "direction": "out",
+          "name": "variant_out",
+          "type": "LVVariant"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "error_in",
+          "type": "Cluster"
+        },
+        {
+          "index": 5,
+          "direction": "in",
+          "name": "variant",
+          "type": "LVVariant"
+        },
+        {
+          "index": 6,
+          "direction": "in",
+          "name": "name",
+          "type": "String"
+        }
       ],
-      "python_code": {"variant_out": "in_5", "found": "hasattr(in_5, in_6)"},
+      "python_code": {
+        "variant_out": "in_5",
+        "found": "hasattr(in_5, in_6)"
+      },
       "inline": false,
       "verified": true,
       "pdf_page": 484
@@ -2268,13 +2688,40 @@
     "8202": {
       "name": "Set Variant Attribute",
       "terminals": [
-        {"index": 0, "direction": "out", "name": "error_out", "type": "Cluster"},
-        {"index": 3, "direction": "out", "name": "variant_out", "type": "LVVariant"},
-        {"index": 4, "direction": "in", "name": "error_in", "type": "Cluster"},
-        {"index": 6, "direction": "in", "name": "name", "type": "String"},
-        {"index": 7, "direction": "in", "name": "variant", "type": "polymorphic"}
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error_out",
+          "type": "Cluster"
+        },
+        {
+          "index": 3,
+          "direction": "out",
+          "name": "variant_out",
+          "type": "LVVariant"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "error_in",
+          "type": "Cluster"
+        },
+        {
+          "index": 6,
+          "direction": "in",
+          "name": "name",
+          "type": "String"
+        },
+        {
+          "index": 7,
+          "direction": "in",
+          "name": "variant",
+          "type": "polymorphic"
+        }
       ],
-      "python_code": {"variant_out": "setattr(in_7, in_6, None) or in_7"},
+      "python_code": {
+        "variant_out": "setattr(in_7, in_6, None) or in_7"
+      },
       "inline": false,
       "verified": true,
       "pdf_page": 483
