@@ -134,7 +134,7 @@ The MCP server (`vipy mcp`) provides tools for interactive exploration:
 - `/idiomatic` — Rewrite mechanical Python to idiomatic code
 - `/judge-output` — Evaluate generated code quality
 - `/trace-bug` — Debug codegen issues from output to root cause
-- `/explore-vi` — Interactive VI exploration
+- `/describe-vi` also supports drilling into dataflow, structures, and constants
 
 ## Troubleshooting
 

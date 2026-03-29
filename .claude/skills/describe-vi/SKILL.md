@@ -1,6 +1,6 @@
 ---
 name: describe-vi
-description: Describe what a LabVIEW VI does by loading its graph and presenting human-readable operations, inputs/outputs, and control flow. Works via CLI — no MCP needed.
+description: Describe what a LabVIEW VI does — signature, operations, dataflow, structures, constants. Works via CLI or MCP.
 allowed-tools: Bash, Read, Grep
 ---
 
@@ -14,9 +14,7 @@ Understand what a LabVIEW VI does without converting it.
 /describe-vi path/to/file.vi
 ```
 
-## How It Works
-
-Load the VI into the graph and print its description:
+## Overview
 
 ```bash
 python3 -c "
@@ -26,23 +24,49 @@ from vipy.graph.describe import describe_vi, describe_operations, describe_const
 
 g = InMemoryVIGraph()
 g.load_vi('VI_PATH', search_paths=[Path('SEARCH_PATH')])
-vi_name = list(g.list_vis())[0]  # Use first loaded VI
-print(describe_vi(g, vi_name))
+vi = list(g.list_vis())[0]
+print(describe_vi(g, vi))
 print()
-print(describe_operations(g, vi_name))
+print(describe_operations(g, vi))
 print()
-print(describe_constants(g, vi_name))
+print(describe_constants(g, vi))
 "
 ```
 
-Replace `VI_PATH` with the user's VI path. Add search paths as needed for dependencies.
+## Drill Down
 
-For classes:
+### Dataflow for a specific operation
 ```bash
 python3 -c "
 from pathlib import Path
 from vipy.graph.core import InMemoryVIGraph
-from vipy.graph.describe import describe_vi, describe_operations
+from vipy.graph.describe import describe_dataflow
+
+g = InMemoryVIGraph()
+g.load_vi('VI_PATH', search_paths=[Path('SEARCH_PATH')])
+print(describe_dataflow(g, 'VI_NAME', 'OPERATION_ID'))
+"
+```
+
+### Structure details (case/loop/sequence)
+```bash
+python3 -c "
+from pathlib import Path
+from vipy.graph.core import InMemoryVIGraph
+from vipy.graph.describe import describe_structure
+
+g = InMemoryVIGraph()
+g.load_vi('VI_PATH', search_paths=[Path('SEARCH_PATH')])
+print(describe_structure(g, 'VI_NAME', 'OPERATION_ID'))
+"
+```
+
+### Classes — list all methods
+```bash
+python3 -c "
+from pathlib import Path
+from vipy.graph.core import InMemoryVIGraph
+from vipy.graph.describe import describe_vi
 
 g = InMemoryVIGraph()
 g.load_lvclass('LVCLASS_PATH', search_paths=[Path('SEARCH_PATH')])
@@ -55,19 +79,5 @@ for vi in sorted(g.list_vis()):
 
 ## MCP Alternative
 
-If MCP is available, use the tools directly:
-1. `load_vi` — load the VI
-2. `describe_vi` — get the overview
-3. `get_operations` — see execution flow
-4. `get_constants` — see constant values
-5. `get_dataflow` — trace wire connections
-6. `get_structure` — inspect case/loop/sequence details
-
-## Output
-
-The description shows:
-- Function signature with types
-- Inputs/outputs (error clusters marked as exception-handled)
-- SubVI calls with descriptions from vilib
-- Control flow structures (case, loop, sequence)
-- Operation count, constant count, parallel branch detection
+If MCP tools are available, use them directly:
+- `load_vi` → `describe_vi` → `get_operations` → `get_dataflow` → `get_structure` → `get_constants`
