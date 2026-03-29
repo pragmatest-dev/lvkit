@@ -19,6 +19,21 @@ from mcp.types import TextContent, Tool
 from pydantic import BaseModel
 
 from ..agent.codegen import build_module
+from ..graph.describe import (
+    describe_constants as describe_constants_text,
+)
+from ..graph.describe import (
+    describe_dataflow as describe_dataflow_text,
+)
+from ..graph.describe import (
+    describe_operations as describe_operations_text,
+)
+from ..graph.describe import (
+    describe_structure as describe_structure_text,
+)
+from ..graph.describe import (
+    describe_vi as describe_vi_text,
+)
 from ..memory_graph import InMemoryVIGraph
 from .tools import analyze_vi, generate_documents, generate_python
 
@@ -273,6 +288,120 @@ async def list_tools() -> list[Tool]:
                 "required": ["vi_name"],
             },
         ),
+        # ===== Graph Exploration Tools (LLM-readable) =====
+        Tool(
+            name="describe_vi",
+            description=(
+                "Describe a loaded VI's purpose, signature, and structure "
+                "in human-readable text.\n\n"
+                "Shows: function signature, inputs/outputs with types, "
+                "SubVI calls with descriptions, control flow structures, "
+                "and key statistics.\n\n"
+                "Use this first to understand what a VI does before diving "
+                "into operations or dataflow."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "vi_name": {
+                        "type": "string",
+                        "description": "Name of the VI",
+                    },
+                },
+                "required": ["vi_name"],
+            },
+        ),
+        Tool(
+            name="get_operations",
+            description=(
+                "Get the operations (execution steps) of a loaded VI "
+                "in human-readable format.\n\n"
+                "Shows operations in execution order with nested structures "
+                "(case frames, loop bodies). Each operation shows what it "
+                "does, its inputs/outputs, and primitive ID if applicable.\n\n"
+                "Use after describe_vi to understand the detailed logic."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "vi_name": {
+                        "type": "string",
+                        "description": "Name of the VI",
+                    },
+                },
+                "required": ["vi_name"],
+            },
+        ),
+        Tool(
+            name="get_dataflow",
+            description=(
+                "Show data flow (wire connections) for a loaded VI.\n\n"
+                "Shows which operations feed data to which other operations. "
+                "Optionally filter to show only connections for a specific "
+                "operation.\n\n"
+                "Use to trace how values flow through the VI."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "vi_name": {
+                        "type": "string",
+                        "description": "Name of the VI",
+                    },
+                    "operation_id": {
+                        "type": "string",
+                        "description": (
+                            "Optional: filter to show only wires connected "
+                            "to this operation"
+                        ),
+                    },
+                },
+                "required": ["vi_name"],
+            },
+        ),
+        Tool(
+            name="get_structure",
+            description=(
+                "Get detailed information about a structure node "
+                "(case, loop, or sequence).\n\n"
+                "Shows: selector type and values for cases, "
+                "tunnel connections for loops, frame contents, "
+                "and inner operations.\n\n"
+                "Use when you need to understand a specific "
+                "control flow structure."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "vi_name": {
+                        "type": "string",
+                        "description": "Name of the VI",
+                    },
+                    "operation_id": {
+                        "type": "string",
+                        "description": "ID of the structure operation",
+                    },
+                },
+                "required": ["vi_name", "operation_id"],
+            },
+        ),
+        Tool(
+            name="get_constants",
+            description=(
+                "List all constant values used in a loaded VI.\n\n"
+                "Shows each constant's name, type, and value."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "vi_name": {
+                        "type": "string",
+                        "description": "Name of the VI",
+                    },
+                },
+                "required": ["vi_name"],
+            },
+        ),
     ]
 
 
@@ -414,6 +543,57 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
             return [TextContent(type="text", text=code)]
         except Exception as e:
             return [TextContent(type="text", text=f"AST generation failed: {e}")]
+
+    # ===== Graph Exploration Tools =====
+
+    elif name == "describe_vi":
+        vi_name = arguments.get("vi_name")
+        if not vi_name:
+            raise ValueError("vi_name is required")
+
+        graph = _get_graph()
+        text = describe_vi_text(graph, vi_name)
+        return [TextContent(type="text", text=text)]
+
+    elif name == "get_operations":
+        vi_name = arguments.get("vi_name")
+        if not vi_name:
+            raise ValueError("vi_name is required")
+
+        graph = _get_graph()
+        text = describe_operations_text(graph, vi_name)
+        return [TextContent(type="text", text=text)]
+
+    elif name == "get_dataflow":
+        vi_name = arguments.get("vi_name")
+        operation_id = arguments.get("operation_id")
+        if not vi_name:
+            raise ValueError("vi_name is required")
+
+        graph = _get_graph()
+        text = describe_dataflow_text(graph, vi_name, operation_id)
+        return [TextContent(type="text", text=text)]
+
+    elif name == "get_structure":
+        vi_name = arguments.get("vi_name")
+        operation_id = arguments.get("operation_id")
+        if not vi_name:
+            raise ValueError("vi_name is required")
+        if not operation_id:
+            raise ValueError("operation_id is required")
+
+        graph = _get_graph()
+        text = describe_structure_text(graph, vi_name, operation_id)
+        return [TextContent(type="text", text=text)]
+
+    elif name == "get_constants":
+        vi_name = arguments.get("vi_name")
+        if not vi_name:
+            raise ValueError("vi_name is required")
+
+        graph = _get_graph()
+        text = describe_constants_text(graph, vi_name)
+        return [TextContent(type="text", text=text)]
 
     else:
         raise ValueError(f"Unknown tool: {name}")
