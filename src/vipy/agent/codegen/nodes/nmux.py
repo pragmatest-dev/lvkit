@@ -199,6 +199,33 @@ class NMuxCodeGen(NodeCodeGen):
         )
 
     @staticmethod
+    def _flatten_fields(
+        fields: list[ClusterField],
+    ) -> list[tuple[list[str], ClusterField]]:
+        """Flatten cluster fields depth-first with path.
+
+        LabVIEW nMux <i> tags use flattened indices across the entire
+        cluster hierarchy, not just the top level.  For example:
+
+            [0] test (Refnum)
+            [1] error (Cluster)
+                [2] status (Boolean)
+                [3] code (NumInt32)
+                [4] source (String)
+
+        Returns list of (path, field) where path is the chain of names.
+        """
+        result: list[tuple[list[str], ClusterField]] = []
+        for f in fields:
+            result.append(([f.name], f))
+            if f.type and f.type.fields:
+                for sub_path, sub_field in NMuxCodeGen._flatten_fields(
+                    f.type.fields,
+                ):
+                    result.append(([f.name] + sub_path, sub_field))
+        return result
+
+    @staticmethod
     def _field_name(
         term: Terminal, class_fields: list[ClusterField] | None,
     ) -> str | None:
@@ -206,9 +233,16 @@ class NMuxCodeGen(NodeCodeGen):
 
         Returns None if field index is missing or out of range.
         """
-        if term.nmux_field_index is not None and class_fields:
-            if term.nmux_field_index < len(class_fields):
-                return to_var_name(class_fields[term.nmux_field_index].name)
+        if term.nmux_field_index is None or not class_fields:
+            return None
+        # Try direct index first (non-nested cluster)
+        if term.nmux_field_index < len(class_fields):
+            return to_var_name(class_fields[term.nmux_field_index].name)
+        # Flattened index for nested clusters
+        flat = NMuxCodeGen._flatten_fields(class_fields)
+        if term.nmux_field_index < len(flat):
+            path, _field = flat[term.nmux_field_index]
+            return to_var_name(path[-1])
         return None
 
     @staticmethod
@@ -218,13 +252,22 @@ class NMuxCodeGen(NodeCodeGen):
     ) -> str:
         """Resolve field expression for a LIST output terminal (unbundle).
 
-        Uses nmux_field_index → dep_graph fields[i].name.
-        Returns bare agg_var with warning if field cannot be resolved.
+        Uses nmux_field_index with flattened depth-first indexing
+        to build dotted attribute paths for nested clusters.
         """
         if term.nmux_field_index is not None and class_fields:
+            # Try direct index first (non-nested cluster)
             if term.nmux_field_index < len(class_fields):
-                field_name = to_var_name(class_fields[term.nmux_field_index].name)
+                field_name = to_var_name(
+                    class_fields[term.nmux_field_index].name,
+                )
                 return f"{agg_var}.{field_name}"
+            # Flattened index for nested clusters
+            flat = NMuxCodeGen._flatten_fields(class_fields)
+            if term.nmux_field_index < len(flat):
+                path, _field = flat[term.nmux_field_index]
+                dotted = ".".join(to_var_name(p) for p in path)
+                return f"{agg_var}.{dotted}"
 
         raise TypeResolutionNeeded(
             type_name=f"field[{term.nmux_field_index}]",

@@ -32,6 +32,31 @@ from ..structure import (
 )
 
 
+def _get_fp_root_type_id(fp_xml: Path | None) -> int | None:
+    """Read the root TypeID from a .ctl's FPHb (Front Panel Heap).
+
+    The first fPDCO element's typeDesc identifies the control's
+    top-level type.  This is TypeID(1) for cluster controls and
+    TypeID(2) for enum controls — verified across 83 .ctl files.
+    """
+    if fp_xml is None or not fp_xml.exists():
+        return None
+    import re
+    import xml.etree.ElementTree as ET
+
+    tree = ET.parse(fp_xml)
+    fpdco = tree.find(".//*[@class='fPDCO']")
+    if fpdco is None:
+        return None
+    td = fpdco.find("typeDesc")
+    if td is None or not td.text:
+        return None
+    m = re.search(r"TypeID\((\d+)\)", td.text)
+    if m:
+        return int(m.group(1))
+    return None
+
+
 class LoadingMixin:
     """Mixin providing VI loading methods."""
 
@@ -505,15 +530,20 @@ class LoadingMixin:
 
         if ctl_path:
             try:
-                _, _, main_xml = extract_vi_xml(ctl_path)
+                _, fp_xml, main_xml = extract_vi_xml(ctl_path)
                 if main_xml and main_xml.exists():
                     type_map = parse_type_map_rich(main_xml)
-                    # Find the primary type (first with fields)
+                    # The root type of a .ctl is at the FPHb's fPDCO
+                    # typeDesc, which is TypeID(1) for cluster controls
+                    # and TypeID(2) for enum controls.  Use the FPHb
+                    # to determine the correct root TypeID.
+                    root_type_id = _get_fp_root_type_id(fp_xml)
+                    if root_type_id is None:
+                        root_type_id = 1  # cluster default
                     fields = None
-                    for lv_type in type_map.values():
-                        if lv_type.fields:
-                            fields = lv_type.fields
-                            break
+                    if root_type_id in type_map:
+                        root_type = type_map[root_type_id]
+                        fields = root_type.fields
                     self._dep_graph.add_node(
                         typedef_name,
                         node_type="typedef",

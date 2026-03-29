@@ -6,13 +6,15 @@ allowed-tools: Bash, Read, Write, Edit, Glob, Grep
 
 # Resolve Unknown Primitive
 
-When `TerminalResolutionNeeded` fires for a primitive during `vipy generate`, this skill resolves it by identifying the function from documentation and graph context. Follow ALL steps IN ORDER. Do NOT skip. Do NOT guess.
+When `PrimitiveResolutionNeeded` fires for an unknown primitive during `vipy generate`, this skill resolves it by identifying the function from documentation and graph context. Follow ALL steps IN ORDER. Do NOT skip. Do NOT guess.
+
+(`TerminalResolutionNeeded` is a separate exception for known primitives where a specific terminal index doesn't match — that's a different problem.)
 
 ## Input
 
-The `TerminalResolutionNeeded` exception provides:
+The `PrimitiveResolutionNeeded` exception provides:
 - `prim_id` (primResID)
-- Terminal indices, directions, and types
+- All wired terminals with indices, directions, and types (from the graph)
 - VI name where it was encountered
 
 ## Step 1: Record the diagnostic
@@ -55,7 +57,8 @@ print(f'Total: {count}')
 
 ## Step 3: Examine graph context
 
-For each instance, check what operations feed into and consume from this primitive:
+For each instance, check what operations feed into and consume from this primitive. **Trace beyond immediate neighbors** — follow wires through structure boundaries (tunnels, shift registers), nMux nodes, and into/out of SubVI calls. The name of the VI that CALLS the primitive, and the names of VIs/primitives that consume its outputs, are often the strongest identification signal.
+
 ```bash
 python3 -c "
 import sys; sys.path.insert(0, 'src')
@@ -84,6 +87,11 @@ for vi_path in Path('samples').rglob('VI_NAME'):
     break
 " 2>/dev/null
 ```
+
+If immediate neighbors are generic (nMux, structure boundaries, constants), trace further:
+- What VI contains this primitive? The VI's name and purpose give context.
+- What do the connected SubVIs do? Check their names.
+- What primitives feed into or consume from this one? Check their primResIDs against known entries.
 
 The connected operations, their names, and the data types flowing through reveal what this primitive does.
 
@@ -125,7 +133,7 @@ grep -n "CANDIDATE FUNCTION NAME" docs/labview_ref_manual.txt | head -5
 
 Then read the relevant section to get the complete terminal layout.
 
-## Step 6: Add the JSON entry
+## Step 6: Add the JSON entry (or placeholder as LAST RESORT)
 
 Only after completing steps 1-5. Add to `data/primitives-codegen.json` under `primitives`:
 
@@ -162,6 +170,29 @@ vipy generate "path/to/vi" -o outputs --search-path samples/OpenG/extracted
 If the same primitive fails again, the terminal matching is wrong — go back to Step 1.
 If a NEW primitive fails, start this process again for that one.
 
+## Placeholder entries (`"placeholder": true`) — LAST RESORT ONLY
+
+If after completing ALL steps 1-5 you **cannot identify the primitive from documentation**, you may add a placeholder entry. This is the LAST RESORT — only after:
+1. You ran Step 2 and checked all instances across samples
+2. You ran Step 3 and traced context beyond immediate neighbors
+3. You checked the primResID range and searched documentation thoroughly
+4. You asked the user if they recognize the terminal signature
+
+A placeholder allows generation to proceed with a warning instead of crashing:
+
+```json
+"PRIM_ID": {
+    "name": "Unknown Category Primitive PRIM_ID",
+    "placeholder": true,
+    "terminals": [...all terminals from the graph...],
+    "python_code": "pass"
+}
+```
+
+Placeholder entries emit a `warnings.warn()` and generate `pass` + a TODO comment. They NEVER silently succeed — they always leave a visible marker in the output.
+
+**You MUST run this skill for EVERY unknown primitive.** No exceptions. No skipping steps. No adding placeholders without completing the full investigation first.
+
 ## NEVER do these things
 
 - NEVER guess a function name from terminal types alone
@@ -172,3 +203,5 @@ If a NEW primitive fails, start this process again for that one.
 - NEVER assume a primResID maps to a different function based on terminal types — primitive polymorphism must be observed in data or confirmed by the user
 - NEVER skip the context check (Step 3) — it reveals what the function actually does
 - NEVER batch-fill entries — one at a time, fully verified
+- NEVER add a placeholder without completing ALL steps 1-5 first
+- NEVER skip running this skill — it is MANDATORY for every unknown primitive

@@ -364,6 +364,30 @@ Calls a method on an object reference. The `method` field names the method, `met
 
 Bundle/unbundle operations at structure boundaries. Used for cluster field access. The DCO elements contain `dco_agg_uid` (aggregate/cluster terminal) and `dco_list_uids` (individual field terminals), with `dco_field_index` mapping DCO UIDs to field positions.
 
+#### nMux Field Indexing (`<i>` tag)
+
+Each list DCO has an `<i>` element that specifies the field index. **These indices use flattened depth-first ordering** across the entire cluster hierarchy, not just the top-level fields.
+
+For example, given a cluster typedef with nested fields:
+
+```
+resultStatusChanged--Cluster.ctl:
+  [0] test          (Refnum)
+  [1] field_1       (Enum)
+  [2] TestResult    (Refnum)
+  [3] test error    (Cluster)
+      [4] status    (Boolean)
+      [5] code      (NumInt32)
+      [6] source    (String)
+  [7] execution time (sec)  (NumFloat64)
+```
+
+The `<i>` values 0-2 and 7 refer to top-level fields. Values 3-6 refer to the nested error cluster and its children. An `<i>7</i>` on an nMux DCO means "execution time (sec)" — not the 8th top-level field, but the 8th entry in the depth-first flattening.
+
+#### `.ctl` Root Type Identification
+
+A `.ctl` file (typedef control) contains multiple TypeIDs in its type map. The **root type** is identified by the first `fPDCO` element's `typeDesc` in the FPHb XML. This is TypeID(1) for cluster controls and TypeID(2) for enum controls. The CONP (Connector Pane) TypeID is a wrapper type and does NOT reliably point to the data type.
+
 ### 4.12 Structure Root Node (`sRN`)
 
 ```xml
