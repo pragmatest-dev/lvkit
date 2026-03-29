@@ -126,6 +126,39 @@ The MCP server (`vipy mcp`) provides tools for interactive exploration:
 - `generate_documents` — Create HTML documentation
 - `analyze_vi` — Parse and return VI structure
 
+## Alternative: Graph-Based Conversion (skip AST)
+
+Instead of generating mechanical Python and cleaning it up, you can
+write idiomatic Python directly from the graph description:
+
+1. Load the VI and describe it:
+```bash
+python3 -c "
+from pathlib import Path
+from vipy.graph.core import InMemoryVIGraph
+from vipy.graph.describe import describe_vi, describe_operations, describe_constants
+g = InMemoryVIGraph()
+g.load_vi('VI_PATH', search_paths=[Path('SEARCH')])
+vi = list(g.list_vis())[0]
+print(describe_vi(g, vi))
+print()
+print(describe_operations(g, vi))
+print()
+print(describe_constants(g, vi))
+"
+```
+
+2. Read the description — understand what the VI does semantically
+3. Write Python directly from that understanding
+4. Use `/judge-output` to verify correctness against the graph
+
+This skips the AST codegen entirely. The graph description gives you
+the inputs, outputs, operations, control flow, and data types. You
+write Python that does the same thing but in whatever style is natural.
+
+Use the MCP tools (`describe_vi`, `get_operations`, `get_dataflow`,
+`get_structure`) if available for interactive exploration.
+
 ## Related Skills
 
 - `/resolve-primitive` — Resolve unknown LabVIEW primitives
@@ -135,7 +168,6 @@ The MCP server (`vipy mcp`) provides tools for interactive exploration:
 - `/judge-output` — Evaluate generated code quality
 - `/trace-bug` — Debug codegen issues from output to root cause
 - `/explore-vi` — Interactive VI exploration
-- `/full-convert` — Complete autonomous conversion pipeline
 
 ## Troubleshooting
 
