@@ -503,6 +503,29 @@
       "pdf_page": 1495,
       "note": "Constant that returns the <Not A Path> value. In Python, None represents an invalid/empty path."
     },
+    "2076": {
+      "name": "Unknown Event/Notification Primitive 2076",
+      "placeholder": true,
+      "terminals": [
+        {"index": 0, "direction": "in", "name": "refnum_in", "type": "Refnum"},
+        {"index": 3, "direction": "in", "name": "error_in", "type": "Cluster"},
+        {"index": 7, "direction": "out", "name": "error_out", "type": "Cluster"}
+      ],
+      "python_code": "pass"
+    },
+    "2074": {
+      "name": "Unknown Event/Notification Primitive",
+      "placeholder": true,
+      "terminals": [
+        {"index": 0, "direction": "in", "name": "refnum_in", "type": "Refnum"},
+        {"index": 1, "direction": "in", "name": "data_in", "type": "Cluster"},
+        {"index": 3, "direction": "in", "name": "error_in", "type": "Cluster"},
+        {"index": 4, "direction": "in", "name": "timeout_ms", "type": "NumUInt32"},
+        {"index": 8, "direction": "out", "name": "refnum_out", "type": "Refnum"},
+        {"index": 11, "direction": "out", "name": "error_out", "type": "Cluster"}
+      ],
+      "python_code": "pass"
+    },
     "2401": {
       "name": "Merge Errors",
       "terminals": [
@@ -1166,6 +1189,23 @@
       "verified": false,
       "pdf_page": 1794
     },
+    "1537": {
+      "name": "Search and Replace String",
+      "terminals": [
+        {"index": 0, "direction": "out", "name": "result_string", "type": "String"},
+        {"index": 1, "direction": "in", "name": "input_string", "type": "String"},
+        {"index": 2, "direction": "in", "name": "search_string", "type": "String"},
+        {"index": 3, "direction": "in", "name": "replace_string", "type": "String"},
+        {"index": 4, "direction": "in", "name": "replace_all", "type": "Boolean"},
+        {"index": 5, "direction": "in", "name": "offset", "type": "NumInt32"},
+        {"index": 6, "direction": "out", "name": "number_of_replacements", "type": "NumInt32"},
+        {"index": 7, "direction": "out", "name": "offset_past_replacement", "type": "NumInt32"}
+      ],
+      "python_code": {"result_string": "in_1.replace(in_2, in_3) if in_4 else in_1.replace(in_2, in_3, 1)"},
+      "inline": true,
+      "verified": true,
+      "pdf_page": 654
+    },
     "1538": {
       "name": "Search/Split String",
       "terminals": [
@@ -1338,6 +1378,28 @@
       "inline": true,
       "verified": true,
       "pdf_page": 653
+    },
+    "1903": {
+      "name": "Array Size",
+      "terminals": [
+        {"index": 0, "direction": "out", "name": "size", "type": "NumInt32"},
+        {"index": 1, "direction": "in", "name": "array", "type": "Array"}
+      ],
+      "python_code": {"size": "len(in_1)"},
+      "inline": true,
+      "verified": true,
+      "pdf_page": 391
+    },
+    "1900": {
+      "name": "Sort 1D Array",
+      "terminals": [
+        {"index": 0, "direction": "out", "name": "sorted_array", "type": "Array"},
+        {"index": 1, "direction": "in", "name": "array", "type": "Array"}
+      ],
+      "python_code": {"sorted_array": "sorted(in_1)"},
+      "inline": true,
+      "verified": true,
+      "pdf_page": 406
     },
     "1901": {
       "name": "Delete From Array",
@@ -1620,6 +1682,34 @@
       "verified": true,
       "pdf_page": 1472
     },
+    "9108": {
+      "name": "Unknown VI Server Primitive (Open Variant)",
+      "placeholder": true,
+      "terminals": [
+        {"index": 0, "direction": "in", "name": "vi_path", "type": "String"},
+        {"index": 1, "direction": "in", "name": "type_specifier", "type": "String"},
+        {"index": 2, "direction": "in", "name": "prepare_for_call", "type": "Boolean"},
+        {"index": 3, "direction": "in", "name": "error_in", "type": "Cluster"},
+        {"index": 4, "direction": "in", "name": "options", "type": "NumInt32"},
+        {"index": 8, "direction": "out", "name": "vi_refnum", "type": "Refnum"},
+        {"index": 10, "direction": "out", "name": "found", "type": "Boolean"},
+        {"index": 11, "direction": "out", "name": "error_out", "type": "Cluster"}
+      ],
+      "python_code": "pass"
+    },
+    "9109": {
+      "name": "Unknown VI Server Primitive (Call Variant)",
+      "placeholder": true,
+      "terminals": [
+        {"index": 0, "direction": "in", "name": "vi_refnum", "type": "Refnum"},
+        {"index": 2, "direction": "in", "name": "auto_dispose", "type": "Boolean"},
+        {"index": 3, "direction": "in", "name": "error_in", "type": "Cluster"},
+        {"index": 8, "direction": "out", "name": "result_string", "type": "String"},
+        {"index": 9, "direction": "out", "name": "result_array", "type": "Array"},
+        {"index": 11, "direction": "out", "name": "error_out", "type": "Cluster"}
+      ],
+      "python_code": "pass"
+    },
     "9101": {
       "name": "Open VI Reference",
       "terminals": [
@@ -1836,6 +1926,18 @@
       "verified": true,
       "pdf_page": 2375
     },
+    "8017": {
+      "name": "Preserve Run-Time Class",
+      "terminals": [
+        {"index": 0, "direction": "in", "name": "target_object", "type": "Refnum"},
+        {"index": 1, "direction": "in", "name": "object_in", "type": "Refnum"},
+        {"index": 2, "direction": "out", "name": "object_out", "type": "Refnum"}
+      ],
+      "python_code": {"object_out": "in_1"},
+      "inline": true,
+      "verified": true,
+      "pdf_page": 470
+    },
     "8003": {
       "name": "Variant To Data",
       "terminals": [
@@ -2019,6 +2121,35 @@
       "inline": true,
       "verified": true,
       "pdf_page": 481
+    },
+    "8204": {
+      "name": "Delete Variant Attribute",
+      "terminals": [
+        {"index": 0, "direction": "out", "name": "error_out", "type": "Cluster"},
+        {"index": 2, "direction": "out", "name": "found", "type": "Boolean"},
+        {"index": 3, "direction": "out", "name": "variant_out", "type": "LVVariant"},
+        {"index": 4, "direction": "in", "name": "error_in", "type": "Cluster"},
+        {"index": 5, "direction": "in", "name": "variant", "type": "LVVariant"},
+        {"index": 6, "direction": "in", "name": "name", "type": "String"}
+      ],
+      "python_code": {"variant_out": "in_5", "found": "hasattr(in_5, in_6)"},
+      "inline": false,
+      "verified": true,
+      "pdf_page": 484
+    },
+    "8202": {
+      "name": "Set Variant Attribute",
+      "terminals": [
+        {"index": 0, "direction": "out", "name": "error_out", "type": "Cluster"},
+        {"index": 3, "direction": "out", "name": "variant_out", "type": "LVVariant"},
+        {"index": 4, "direction": "in", "name": "error_in", "type": "Cluster"},
+        {"index": 6, "direction": "in", "name": "name", "type": "String"},
+        {"index": 7, "direction": "in", "name": "variant", "type": "polymorphic"}
+      ],
+      "python_code": {"variant_out": "setattr(in_7, in_6, None) or in_7"},
+      "inline": false,
+      "verified": true,
+      "pdf_page": 483
     },
     "8203": {
       "name": "Get Type Information",

@@ -7,6 +7,7 @@ import re
 
 from vipy.graph_types import Operation, Terminal
 from vipy.primitive_resolver import (
+    PrimitiveResolutionNeeded,
     ResolvedPrimitive,
     TerminalResolutionNeeded,
     get_resolver,
@@ -62,6 +63,10 @@ class PrimitiveCodeGen(NodeCodeGen):
             if prim_id is None:
                 return CodeFragment.empty()
             return self._emit_unknown(node, prim_id, ctx)
+
+        # Placeholder: emit warning comment + pass, don't raise
+        if resolved.confidence == "placeholder":
+            return self._emit_placeholder(node, resolved, ctx)
 
         # Check if primitive is truly unknown (no code, unknown confidence, or comment)
         code = resolved.python_code if resolved else None
@@ -171,22 +176,8 @@ class PrimitiveCodeGen(NodeCodeGen):
             if value:
                 # Wired terminal with -1 index: resolution failure
                 if term_index == -1:
-                    avail = [
-                        {"index": rt.index, "name": rt.name, "type": rt.type}
-                        for rt in (resolved.terminals if resolved else [])
-                        if rt.direction == "in" and rt.index not in {
-                            t.index for t in node.terminals if t.index >= 0
-                        }
-                    ]
-                    raise TerminalResolutionNeeded(
-                        prim_id=node.primResID or 0,
-                        prim_name=node.name or "unknown",
-                        terminal_direction="input",
-                        terminal_type=(
-                            term.lv_type.underlying_type if term.lv_type else None
-                        ),
-                        available=avail,
-                        vi_name=ctx.vi_name,
+                    self._raise_terminal_resolution(
+                        node, term, resolved, ctx,
                     )
                 resolved_value = value
             elif default_value is not None:
@@ -406,22 +397,8 @@ class PrimitiveCodeGen(NodeCodeGen):
 
             # Output with -1 index and no name: resolution failure
             if term_index == -1 and not term_name:
-                avail = [
-                    {"index": rt.index, "name": rt.name, "type": rt.type}
-                    for rt in (resolved.terminals if resolved else [])
-                    if rt.direction == "out" and rt.index not in {
-                        t.index for t in node.terminals if t.index >= 0
-                    }
-                ]
-                raise TerminalResolutionNeeded(
-                    prim_id=node.primResID or 0,
-                    prim_name=node.name or "unknown",
-                    terminal_direction="output",
-                    terminal_type=(
-                        term.lv_type.underlying_type if term.lv_type else None
-                    ),
-                    available=avail,
-                    vi_name=ctx.vi_name if ctx else None,
+                self._raise_terminal_resolution(
+                    node, term, resolved, ctx,
                 )
 
             var_name = (
@@ -605,30 +582,84 @@ class PrimitiveCodeGen(NodeCodeGen):
                 return "[]"
         return "None"
 
+    def _emit_placeholder(
+        self,
+        node: Operation,
+        resolved: ResolvedPrimitive,
+        ctx: CodeGenContext,
+    ) -> CodeFragment:
+        """Emit a pass + warning for placeholder primitives.
+
+        Allows generation to proceed while flagging unresolved primitives.
+        """
+        import warnings
+
+        prim_id = resolved.prim_id or "?"
+        name = resolved.name or "unknown"
+        msg = f"Placeholder primitive {prim_id} ({name})"
+        warnings.warn(msg, stacklevel=2)
+
+        # String literal acts as inline documentation in generated code
+        marker = ast.Expr(value=ast.Constant(
+            value=f"TODO: unresolved primitive {prim_id} ({name})"
+        ))
+        return CodeFragment(statements=[marker, ast.Pass()])
+
     def _emit_unknown(
         self, node: Operation, prim_id: int, ctx: CodeGenContext
     ) -> CodeFragment:
-        """Raise TerminalResolutionNeeded for unknown primitives.
+        """Raise PrimitiveResolutionNeeded for unknown primitives.
 
         Unknown primitives MUST be resolved before generation can proceed.
         Silent placeholders hide failures — the conversion loop depends on
         errors being raised so they can be resolved one at a time.
         """
-        # Collect available terminal info for the diagnostic
-        available = []
+        terminals = []
         for term in node.terminals:
-            available.append({
+            terminals.append({
                 "index": term.index,
+                "direction": term.direction,
                 "name": term.name,
                 "type": term.lv_type.underlying_type if term.lv_type else None,
-                "direction": term.direction,
             })
 
-        raise TerminalResolutionNeeded(
+        raise PrimitiveResolutionNeeded(
             prim_id=prim_id,
             prim_name=node.name or "unknown",
-            terminal_direction="unknown",
-            terminal_type=None,
-            available=available,
+            terminals=terminals,
+            vi_name=ctx.vi_name,
+        )
+
+    def _raise_terminal_resolution(
+        self,
+        node: Operation,
+        term: Terminal,
+        resolved: ResolvedPrimitive | None,
+        ctx: CodeGenContext,
+    ) -> None:
+        """Raise TerminalResolutionNeeded for a specific unresolved terminal.
+
+        The primitive definition exists but this terminal's index is -1.
+        Direction and type come from the terminal itself — never fabricated.
+        """
+        # Filter available resolver terminals to same direction, unassigned
+        direction = "in" if term.direction == "input" else "out"
+        assigned_indices = {
+            t.index for t in node.terminals if t.index >= 0
+        }
+        avail = [
+            {"index": rt.index, "name": rt.name, "type": rt.type}
+            for rt in (resolved.terminals if resolved else [])
+            if rt.direction == direction
+            and rt.index not in assigned_indices
+        ]
+        raise TerminalResolutionNeeded(
+            prim_id=node.primResID or 0,
+            prim_name=node.name or "unknown",
+            terminal_direction=term.direction,
+            terminal_type=(
+                term.lv_type.underlying_type if term.lv_type else None
+            ),
+            available=avail,
             vi_name=ctx.vi_name,
         )
