@@ -571,6 +571,14 @@ class LoadingMixin:
                     if candidate.exists():
                         return candidate
 
+        # Also try without __LibName suffix (JKI convention:
+        # "VIName__LibraryName.vi" → actual file is "VIName.vi")
+        alt_name = None
+        if "__" in vi_name:
+            base, _lib = vi_name.rsplit("__", 1)
+            if _lib.endswith(".vi"):
+                alt_name = base + ".vi"
+
         for search_path in search_paths:
             if len(path_parts) > 1:
                 candidate = search_path / vi_path
@@ -581,6 +589,15 @@ class LoadingMixin:
             if candidate.exists():
                 return candidate
 
+            if alt_name:
+                candidate = search_path / alt_name
+                if candidate.exists():
+                    return candidate
+
             for found in search_path.rglob(vi_name):
                 return found
+
+            if alt_name:
+                for found in search_path.rglob(alt_name):
+                    return found
         return None

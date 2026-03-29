@@ -487,9 +487,9 @@ def test_build_module_real_vi():
 
 
 def test_unknown_primitive_raises_at_runtime():
-    """Test that unknown primitives raise TerminalResolutionNeeded."""
+    """Test that unknown primitives raise PrimitiveResolutionNeeded."""
     from vipy.agent.codegen import build_module
-    from vipy.primitive_resolver import TerminalResolutionNeeded
+    from vipy.primitive_resolver import PrimitiveResolutionNeeded
 
     vi_context = VIContext(
         name="Unknown Prim.vi",
@@ -503,7 +503,7 @@ def test_unknown_primitive_raises_at_runtime():
         ],
     )
 
-    with pytest.raises(TerminalResolutionNeeded) as exc_info:
+    with pytest.raises(PrimitiveResolutionNeeded) as exc_info:
         build_module(vi_context, "Unknown Prim.vi")
 
     assert "99999" in str(exc_info.value)

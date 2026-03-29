@@ -15,11 +15,56 @@ from pathlib import Path
 from pydantic import BaseModel, Field
 
 
-class TerminalResolutionNeeded(Exception):
-    """Raised when a wired terminal cannot be resolved to a known index.
+class PrimitiveResolutionNeeded(Exception):
+    """Raised when a primitive has no definition in primitives-codegen.json.
 
-    Contains structured diagnostic info for filling in the JSON.
-    Same pattern as VILibResolutionNeeded — one system for all resolution.
+    Same pattern as VILibResolutionNeeded — the whole primitive is unknown,
+    here are all its terminals from the graph with directions and types.
+    """
+
+    def __init__(
+        self,
+        prim_id: int | str,
+        prim_name: str,
+        terminals: list[dict[str, str | int | None]],
+        vi_name: str | None = None,
+    ):
+        self.prim_id = str(prim_id)
+        self.prim_name = prim_name
+        self.terminals = terminals
+        self.vi_name = vi_name
+        super().__init__(self._format_message())
+
+    def _format_message(self) -> str:
+        msg = (
+            f"Primitive resolution needed for {self.prim_id}"
+            f" ({self.prim_name}).\n"
+        )
+        if self.vi_name:
+            msg += f"  In VI: {self.vi_name}\n"
+        msg += "  Wired terminals from graph:\n"
+        for t in self.terminals:
+            parts = [
+                f"index={t['index']}",
+                f"direction={t['direction']}",
+                f"type={t['type']}",
+            ]
+            if t.get("name"):
+                parts.append(f"name={t['name']}")
+            msg += f"    - {' '.join(parts)}\n"
+        if not self.terminals:
+            msg += "    (none)\n"
+        msg += (
+            f"\n  Fix: add primitive {self.prim_id} to"
+            f" data/primitives-codegen.json"
+        )
+        return msg
+
+
+class TerminalResolutionNeeded(Exception):
+    """Raised when a specific wired terminal cannot be resolved to a known index.
+
+    The primitive definition exists, but a terminal's index doesn't match.
     """
 
     def __init__(
@@ -52,7 +97,10 @@ class TerminalResolutionNeeded(Exception):
         )
         msg += "  Available resolver terminals (same direction, unassigned):\n"
         for t in self.available:
-            msg += f"    - index={t['index']} name={t['name']} type={t['type']}\n"
+            msg += (
+                f"    - index={t['index']}"
+                f" name={t['name']} type={t['type']}\n"
+            )
         if not self.available:
             msg += "    (none available)\n"
         msg += (
@@ -273,6 +321,11 @@ class PrimitiveResolver:
             prim_id_str = str(prim_id)
             if prim_id_str in self._by_id:
                 prim = self._by_id[prim_id_str]
+                confidence = (
+                    "placeholder"
+                    if prim.get("placeholder")
+                    else "exact_id"
+                )
                 return ResolvedPrimitive(
                     prim_id=prim_id_str,
                     name=prim.get("name", f"primitive_{prim_id}"),
@@ -282,7 +335,7 @@ class PrimitiveResolver:
                         PrimitiveTerminal.model_validate(t)
                         for t in prim.get("terminals", [])
                     ],
-                    confidence="exact_id",
+                    confidence=confidence,
                     description=prim.get("guess_reason", ""),
                     imports=_collect_imports(prim),
                 )
