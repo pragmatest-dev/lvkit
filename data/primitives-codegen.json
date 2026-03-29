@@ -1682,6 +1682,19 @@
       "verified": true,
       "pdf_page": 1472
     },
+    "9111": {
+      "name": "Unknown VI Server Primitive 9111",
+      "placeholder": true,
+      "terminals": [
+        {"index": 0, "direction": "in", "name": "refnum_in", "type": "Refnum"},
+        {"index": 1, "direction": "in", "name": "data_in", "type": "Cluster"},
+        {"index": 2, "direction": "in", "name": "index", "type": "NumInt32"},
+        {"index": 3, "direction": "in", "name": "error_in", "type": "Cluster"},
+        {"index": 8, "direction": "out", "name": "refnum_out", "type": "Refnum"},
+        {"index": 10, "direction": "out", "name": "found", "type": "Boolean"}
+      ],
+      "python_code": "pass"
+    },
     "9108": {
       "name": "Unknown VI Server Primitive (Open Variant)",
       "placeholder": true,
