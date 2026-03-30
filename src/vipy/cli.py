@@ -108,6 +108,27 @@ def main() -> int:
         help="Run MCP server for VI analysis",
     )
 
+    # Describe command - human-readable VI description
+    desc_parser = subparsers.add_parser(
+        "describe",
+        help="Describe a VI's purpose, signature, and structure",
+    )
+    desc_parser.add_argument(
+        "input_path",
+        help="Path to .vi file",
+    )
+    desc_parser.add_argument(
+        "--search-path",
+        action="append",
+        dest="search_paths",
+        default=[],
+        help="Search paths for SubVI resolution (can be repeated)",
+    )
+    desc_parser.add_argument(
+        "--ops", action="store_true",
+        help="Show detailed operations list",
+    )
+
     # Generate command - AST-based Python generation (replaces convert)
     gen_parser = subparsers.add_parser(
         "generate",
@@ -263,6 +284,8 @@ def main() -> int:
         return cmd_explore(args)
     elif args.command == "mcp":
         return cmd_mcp(args)
+    elif args.command == "describe":
+        return cmd_describe(args)
     elif args.command == "generate":
         return cmd_generate(args)
     elif args.command == "docs":
@@ -554,6 +577,29 @@ def cmd_mcp(args: argparse.Namespace) -> int:
     except Exception as e:
         print(f"Error: {e}", file=sys.stderr)
         return 1
+
+
+def cmd_describe(args: argparse.Namespace) -> int:
+    """Handle the describe command - human-readable VI description."""
+    from .graph.describe import describe_operations, describe_vi
+
+    input_path = Path(args.input_path)
+    if not input_path.exists():
+        print(f"Error: {input_path} not found", file=sys.stderr)
+        return 1
+
+    graph = InMemoryVIGraph()
+    search_paths = [Path(p) for p in args.search_paths]
+    graph.load_vi(str(input_path), search_paths=search_paths)
+
+    vi_name = graph.resolve_vi_name(input_path.name)
+
+    if args.ops:
+        print(describe_operations(graph, vi_name))
+    else:
+        print(describe_vi(graph, vi_name))
+
+    return 0
 
 
 def cmd_generate(args: argparse.Namespace) -> int:
