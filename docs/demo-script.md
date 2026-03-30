@@ -49,7 +49,37 @@ vipy generate samples/DAQmx-Digital-IO/ -o outputs/demo --search-path samples/Op
 
 Both VIs converted, 0 errors.
 
-## 5. Scale up — convert a class (5 min)
+## 5. Real-world example — dependency chain (5 min)
+
+```bash
+# Convert a VI from the Graphical Test Runner
+vipy generate "samples/JKI-VI-Tester/source/User Interfaces/Graphical Test Runner/Graphical Test Runner Support/Get Settings Path.vi" \
+  -o outputs/demo --search-path samples/OpenG/extracted
+```
+
+**Expected:** 13 VIs loaded, 3 AST + 1 vilib generated, 0 errors.
+
+Open `outputs/demo/get_settings_path/graphicaltestrunnerlvlib/get_settings_path.py`:
+
+```python
+def get_settings_path() -> GetSettingsPathResult:
+    result = get_system_directory(directory_type=SystemDirectoryType.PUBLIC_APP_DATA)
+    appended_path = Path(result.system_directory_path) / Path("JKI/VI Tester/Settings.ini")
+    stripped_path = Path(appended_path).parent
+    Path(stripped_path).mkdir(parents=True, exist_ok=True)
+    return GetSettingsPathResult(config_path=appended_path)
+```
+
+Walk through what vipy did:
+- Resolved `Get System Directory.vi` from vilib (LabVIEW standard library)
+- Resolved `Build Path` and `Strip Path` as OpenG polymorphic VIs — inlined at call sites
+- Resolved `Create Dir if Non-Existant` — inlined as `mkdir(parents=True, exist_ok=True)`
+- Generated enum `SystemDirectoryType` from LabVIEW `.ctl` typedef
+- Produced a clean Python package with proper imports
+
+**Talking point:** No manual mapping. The tool traced the full dependency chain and resolved everything.
+
+## 6. Scale up — convert a whole class (5 min)
 
 ```bash
 # Convert an entire LabVIEW class with all dependencies
@@ -94,7 +124,47 @@ Show the tool list. Explain:
 /vipy operations In.vi
 ```
 
-## 8. Q&A (remaining time)
+## 8. AI integration — MCP + Skills (5 min)
+
+vipy exposes the graph as MCP tools for any AI editor:
+
+```bash
+# Start the MCP server (Claude Code, Copilot, etc.)
+vipy mcp
+```
+
+12 tools available: `load_vi`, `describe_vi`, `get_operations`, `get_dataflow`, `get_structure`, `get_constants`, `generate_ast_code`, `analyze_vi`, `generate_documents`, `generate_python`, `list_loaded_vis`, `get_vi_context`.
+
+**If Claude Code is available**, demonstrate live:
+```
+# Use the MCP tools directly
+> load samples/DAQmx-Digital-IO/In.vi
+> describe In.vi
+> get operations for In.vi
+```
+
+**Skills for Claude Code** (7 skills in `.claude/skills/`):
+- `/convert` — full conversion pipeline with resolution loop
+- `/describe-vi` — human-readable VI description
+- `/resolve-primitive` — resolve unknown LabVIEW primitives from docs
+- `/resolve-vilib` — resolve unknown vilib VIs from docs
+- `/trace-bug` — trace a codegen bug to its root cause
+- `/judge-output` — evaluate generated Python quality
+- `/idiomatic` — improve generated code style
+
+**Talking point:** The AI doesn't guess — it queries the actual dataflow graph. Every wire, every type, every terminal index comes from the binary.
+
+## 9. LLM-enhanced generation (optional, 3 min)
+
+```bash
+# Generate with LLM cleanup (requires Anthropic API key)
+vipy llm-generate samples/DAQmx-Digital-IO/In.vi -o outputs/demo_llm \
+  --search-path samples/OpenG/extracted
+```
+
+The LLM gets the AST output as reference, plus the graph description. It produces idiomatic Python while preserving correctness.
+
+## 10. Q&A (remaining time)
 
 **Common questions and answers:**
 
