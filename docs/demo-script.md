@@ -6,14 +6,23 @@ LabVIEW-to-Python converter. No LabVIEW license needed. Reads .vi binary files d
 
 Three modes: deterministic AST generation, interactive visualization, AI-assisted cleanup.
 
-## 2. Start simple — analyze a VI (3 min)
+## 2. Start simple — describe a VI (3 min)
 
 ```bash
-# What's in this directory?
-vipy structure samples/DAQmx-Digital-IO/ --json
+# What does this VI do?
+vipy describe samples/DAQmx-Digital-IO/In.vi
+
+# With detailed operations
+vipy describe samples/DAQmx-Digital-IO/In.vi --ops
 ```
 
-Shows VIs, libraries, classes found. All extracted from binaries, no LabVIEW needed.
+Shows signature, inputs/outputs, SubVI calls, control flow, operation count. All extracted from the binary, no LabVIEW needed.
+
+```bash
+# A more interesting example with dependencies
+vipy describe "samples/JKI-VI-Tester/source/User Interfaces/Graphical Test Runner/Graphical Test Runner Support/Get Settings Path.vi" \
+  --search-path samples/OpenG/extracted
+```
 
 ## 3. Visualize the dataflow (5 min)
 
