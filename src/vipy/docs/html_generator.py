@@ -7,6 +7,13 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from vipy.graph_types import (
+    CaseOperation,
+    LoopOperation,
+    PrimitiveOperation,
+    SequenceOperation,
+)
+
 
 @dataclass
 class MermaidRenderer:
@@ -40,73 +47,69 @@ class MermaidRenderer:
         """
         nid = self._next_id()
         self._node_ids[op.id] = nid
-        labels = op.labels
         name = op.name or ""
-        inner_nodes = op.inner_nodes
-        loop_type = op.loop_type
 
-        if "Loop" in labels and inner_nodes:
-            if loop_type == "whileLoop":
-                loop_label = "While Loop"
-            elif loop_type == "forLoop":
-                loop_label = "For Loop"
-            else:
-                loop_label = "Loop"
-            self._lines.append(f'{indent}subgraph {nid}["{loop_label}"]')
-            for inner_op in inner_nodes:
-                self._render_operation(inner_op, indent + "    ")
-            self._lines.append(f'{indent}end')
-            self._node_styles.append((nid, "loopStyle"))
-        elif "FlatSequence" in labels and op.frames:
-            self._lines.append(f'{indent}subgraph {nid}["Flat Sequence"]')
-            for i, frame in enumerate(op.frames):
-                frame_id = f"{nid}_f{i}"
-                self._lines.append(f'{indent}    subgraph {frame_id}["Frame {i}"]')
-                for inner_op in frame.operations:
-                    self._render_operation(inner_op, indent + "        ")
-                self._lines.append(f'{indent}    end')
-            self._lines.append(f'{indent}end')
-            self._node_styles.append((nid, "operationStyle"))
-        elif "SubVI" in labels:
-            label = self._escape(name or "SubVI")
-            self._lines.append(f'{indent}{nid}["{label}"]')
-            self._node_styles.append((nid, "subviStyle"))
-            if name:
-                self._subvi_nodes.append((nid, name))
-        elif "Primitive" in labels:
-            label = self._escape(name or f"prim_{op.primResID or '?'}")
-            self._lines.append(f'{indent}{nid}["{label}"]')
-            self._node_styles.append((nid, "primitiveStyle"))
-        elif "Loop" in labels:
-            if loop_type == "whileLoop":
-                loop_label = "While Loop"
-            elif loop_type == "forLoop":
-                loop_label = "For Loop"
-            else:
-                loop_label = "Loop"
-            self._lines.append(f'{indent}{nid}(["{loop_label}"])')
-            self._node_styles.append((nid, "loopStyle"))
-        elif "CaseStructure" in labels:
-            cases = (
-                [str(f.selector_value) for f in op.frames]
-                if op.frames
-                else []
-            )
-            case_label = " | ".join(cases[:4])
-            if len(cases) > 4:
-                case_label += " | ..."
-            label = f"Case [{case_label}]" if case_label else "Case"
-            self._lines.append(f'{indent}{nid}{{{{"{self._escape(label)}"}}}}')
-            self._node_styles.append((nid, "caseStyle"))
-        else:
-            # Include operation type for compound arithmetic
-            operation = op.operation
-            if operation and name:
-                label = self._escape(f"{name} ({operation.upper()})")
-            else:
+        match op:
+            case LoopOperation() if op.inner_nodes:
+                loop_label = (
+                    "While Loop" if op.loop_type == "whileLoop"
+                    else "For Loop" if op.loop_type == "forLoop"
+                    else "Loop"
+                )
+                self._lines.append(f'{indent}subgraph {nid}["{loop_label}"]')
+                for inner_op in op.inner_nodes:
+                    self._render_operation(inner_op, indent + "    ")
+                self._lines.append(f'{indent}end')
+                self._node_styles.append((nid, "loopStyle"))
+
+            case SequenceOperation() if op.frames:
+                self._lines.append(f'{indent}subgraph {nid}["Flat Sequence"]')
+                for i, frame in enumerate(op.frames):
+                    frame_id = f"{nid}_f{i}"
+                    self._lines.append(f'{indent}    subgraph {frame_id}["Frame {i}"]')
+                    for inner_op in frame.operations:
+                        self._render_operation(inner_op, indent + "        ")
+                    self._lines.append(f'{indent}    end')
+                self._lines.append(f'{indent}end')
+                self._node_styles.append((nid, "operationStyle"))
+
+            case CaseOperation() if op.frames:
+                cases = [str(f.selector_value) for f in op.frames]
+                case_label = " | ".join(cases[:4])
+                if len(cases) > 4:
+                    case_label += " | ..."
+                label = f"Case [{case_label}]" if case_label else "Case"
+                self._lines.append(f'{indent}{nid}{{{{"{self._escape(label)}"}}}}')
+                self._node_styles.append((nid, "caseStyle"))
+
+            case _ if "SubVI" in op.labels:
+                label = self._escape(name or "SubVI")
+                self._lines.append(f'{indent}{nid}["{label}"]')
+                self._node_styles.append((nid, "subviStyle"))
+                if name:
+                    self._subvi_nodes.append((nid, name))
+
+            case PrimitiveOperation():
+                if op.operation and name:
+                    label = self._escape(f"{name} ({op.operation.upper()})")
+                else:
+                    label = self._escape(name or f"prim_{op.primResID or '?'}")
+                self._lines.append(f'{indent}{nid}["{label}"]')
+                self._node_styles.append((nid, "primitiveStyle"))
+
+            case LoopOperation():
+                loop_label = (
+                    "While Loop" if op.loop_type == "whileLoop"
+                    else "For Loop" if op.loop_type == "forLoop"
+                    else "Loop"
+                )
+                self._lines.append(f'{indent}{nid}(["{loop_label}"])')
+                self._node_styles.append((nid, "loopStyle"))
+
+            case _:
                 label = self._escape(name or "Operation")
-            self._lines.append(f'{indent}{nid}["{label}"]')
-            self._node_styles.append((nid, "operationStyle"))
+                self._lines.append(f'{indent}{nid}["{label}"]')
+                self._node_styles.append((nid, "operationStyle"))
 
     def render(
         self, graph: dict[str, Any], vi_name_to_filename: Callable[[str], str]

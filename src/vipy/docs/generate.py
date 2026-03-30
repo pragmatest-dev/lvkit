@@ -12,6 +12,7 @@ from pathlib import Path
 
 from vipy.docs.html_generator import HTMLDocGenerator
 from vipy.docs.utils import generate_dependency_description
+from vipy.graph_types import CaseOperation, SequenceOperation
 from vipy.memory_graph import InMemoryVIGraph
 from vipy.structure import parse_lvclass, parse_lvlib
 
@@ -162,8 +163,9 @@ def _prepare_vi_documentation_data(
             if "SubVI" in (op.labels or []) and op.name:
                 names.append(op.name)
             names.extend(_extract_subvi_names(op.inner_nodes))
-            for frame in op.frames or []:
-                names.extend(_extract_subvi_names(frame.operations))
+            if isinstance(op, CaseOperation | SequenceOperation):
+                for frame in op.frames:
+                    names.extend(_extract_subvi_names(frame.operations))
         return names
 
     op_names = set(_extract_subvi_names(operations_dc))
