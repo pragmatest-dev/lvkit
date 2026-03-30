@@ -95,14 +95,9 @@ def describe_vi(graph: InMemoryVIGraph, vi_name: str) -> str:
             lines.append(f"  {s}")
         lines.append("")
 
-    # Dataflow: Mermaid diagram
-    from .flowchart import flowchart
-
-    lines.append("## Dataflow")
-    lines.append("")
-    lines.append("```mermaid")
-    lines.append(flowchart(graph, vi_name))
-    lines.append("```")
+    # Operations
+    lines.append("## Operations")
+    _describe_op_list(ctx.operations, ctx.constants, lines, indent=0)
 
     return "\n".join(lines)
 
