@@ -4,7 +4,7 @@ passthrough elimination, expression inlining, enum sanitization."""
 from __future__ import annotations
 
 import ast
-import warnings
+import logging
 
 from tests.helpers import make_graph_with_edge, make_graph_with_terminals, make_node
 from vipy.agent.codegen.builder import topological_sort_tiered
@@ -128,7 +128,7 @@ class TestErrorCaseUnwrap:
         # No statements for empty frames
         assert fragment.statements == []
 
-    def test_nonempty_error_frame_warns(self):
+    def test_nonempty_error_frame_logs(self, caplog):
         inner_op = Operation(
             id="cleanup", name="cleanup.vi", labels=["SubVI"],
             node_type="iUse", terminals=[],
@@ -138,11 +138,9 @@ class TestErrorCaseUnwrap:
             CaseFrame(selector_value="True", operations=[inner_op]),
         ])
         ctx = _make_ctx_with_binding("sel_1", "err")
-        with warnings.catch_warnings(record=True) as w:
-            warnings.simplefilter("always")
+        with caplog.at_level(logging.INFO):
             case.generate(op, ctx)
-            error_warns = [x for x in w if "error frame omitted" in str(x.message)]
-            assert len(error_warns) == 1
+        assert any("error frame omitted" in r.message for r in caplog.records)
 
 
 # ── Error input not bound ──────────────────────────────────────────

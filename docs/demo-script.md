@@ -9,14 +9,14 @@ Three modes: deterministic AST generation, interactive visualization, AI-assiste
 ## 2. Start simple — describe a VI (3 min)
 
 ```bash
-# What does this VI do?
+# What does this VI do? (shows signature, dependencies, operations)
 vipy describe samples/DAQmx-Digital-IO/In.vi
 
-# With detailed operations
-vipy describe samples/DAQmx-Digital-IO/In.vi --ops
+# With Mermaid dataflow chart
+vipy describe samples/DAQmx-Digital-IO/In.vi --chart
 ```
 
-Shows signature, inputs/outputs, SubVI calls, control flow, operation count. All extracted from the binary, no LabVIEW needed.
+Shows signature, inputs/outputs, SubVI calls, control flow, operations. All extracted from the binary, no LabVIEW needed.
 
 ```bash
 # A more interesting example with dependencies
