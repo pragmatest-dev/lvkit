@@ -12,7 +12,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 
-from ..graph_types import Operation, VIContext, Wire
+from ..graph_types import Operation, PrimitiveOperation, VIContext, Wire
 from ..primitive_resolver import PrimitiveTerminal
 from ..primitive_resolver import get_resolver as get_primitive_resolver
 from ..vilib_resolver import VILibResolver
@@ -237,7 +237,7 @@ class SkeletonGenerator:
         for op in vi_context.operations:
             op_id = op.id
             labels = op.labels
-            prim_id = op.primResID
+            prim_id = op.primResID if isinstance(op, PrimitiveOperation) else None
 
             # Get output terminals sorted by index (only wired ones)
             output_terms = sorted(
@@ -1013,7 +1013,7 @@ class SkeletonGenerator:
                             return self._to_var_name(vt.name)
 
             # Try primitive resolver for primitive terminal names
-            if "Primitive" in labels:
+            if isinstance(dest_op, PrimitiveOperation):
                 prim_id = dest_op.primResID
                 if prim_id:
                     prim_resolver = get_primitive_resolver()

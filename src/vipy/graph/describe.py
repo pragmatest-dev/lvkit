@@ -10,32 +10,31 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from ..graph_types import (
+    CaseOperation,
     Constant,
+    LoopOperation,
     Operation,
+    PrimitiveOperation,
+    SequenceOperation,
     VIContext,
 )
+from ..vilib_resolver import get_resolver as _get_vilib_resolver
 
 if TYPE_CHECKING:
     from .core import InMemoryVIGraph
 
 
 def describe_vi(graph: InMemoryVIGraph, vi_name: str) -> str:
-    """Describe a VI's purpose, signature, and structure.
-
-    Returns a human-readable overview suitable for an LLM to understand
-    what the VI does before diving into operations.
-    """
+    """Describe a VI's purpose, signature, and structure."""
     vi_name = graph.resolve_vi_name(vi_name)
     ctx = graph.get_vi_context(vi_name)
 
     lines: list[str] = []
 
-    # Signature
     sig = _format_signature(ctx)
     lines.append(sig)
     lines.append("")
 
-    # Inputs
     if ctx.inputs:
         lines.append("Inputs:")
         for inp in ctx.inputs:
@@ -52,7 +51,6 @@ def describe_vi(graph: InMemoryVIGraph, vi_name: str) -> str:
             )
         lines.append("")
 
-    # Outputs
     if ctx.outputs:
         lines.append("Outputs:")
         for out in ctx.outputs:
@@ -65,7 +63,6 @@ def describe_vi(graph: InMemoryVIGraph, vi_name: str) -> str:
             lines.append(f"  - {out.name}: {out.python_type()}")
         lines.append("")
 
-    # SubVI calls
     subvi_names = _collect_subvi_names(ctx.operations)
     if subvi_names:
         lines.append("SubVI calls:")
@@ -77,7 +74,6 @@ def describe_vi(graph: InMemoryVIGraph, vi_name: str) -> str:
                 lines.append(f"  - {name}")
         lines.append("")
 
-    # Structure summary
     structures = _collect_structures(ctx.operations)
     if structures:
         lines.append("Control flow:")
@@ -85,7 +81,6 @@ def describe_vi(graph: InMemoryVIGraph, vi_name: str) -> str:
             lines.append(f"  - {s}")
         lines.append("")
 
-    # Stats
     op_count = _count_operations(ctx.operations)
     const_count = len(ctx.constants)
     lines.append(f"Operations: {op_count}")
@@ -99,11 +94,7 @@ def describe_vi(graph: InMemoryVIGraph, vi_name: str) -> str:
 def describe_operations(
     graph: InMemoryVIGraph, vi_name: str,
 ) -> str:
-    """Describe a VI's operations in execution order.
-
-    Shows topological tiers, parallel groups, and nested structures
-    with human-readable operation descriptions.
-    """
+    """Describe a VI's operations in execution order."""
     vi_name = graph.resolve_vi_name(vi_name)
     ctx = graph.get_vi_context(vi_name)
 
@@ -113,7 +104,6 @@ def describe_operations(
 
     _describe_op_list(ctx.operations, ctx.constants, lines, indent=0)
 
-    # Return value
     non_error_outputs = [
         o for o in ctx.outputs if not o.is_error_cluster
     ]
@@ -131,11 +121,7 @@ def describe_dataflow(
     vi_name: str,
     operation_id: str | None = None,
 ) -> str:
-    """Describe data flow — where values come from and go to.
-
-    If operation_id is given, shows only wires connected to that operation.
-    Otherwise shows all wires.
-    """
+    """Describe data flow — where values come from and go to."""
     vi_name = graph.resolve_vi_name(vi_name)
     wires = list(graph.get_wires(vi_name))
 
@@ -180,16 +166,17 @@ def describe_structure(
 
     lines: list[str] = []
 
-    if op.case_frames:
-        _describe_case_structure(op, lines)
-    elif op.loop_type:
-        _describe_loop(op, lines)
-    elif "FlatSequence" in op.labels or "Sequence" in op.labels:
-        _describe_sequence(op, lines)
-    else:
-        lines.append(f"Operation {operation_id}: {op.name}")
-        lines.append(f"  Type: {op.node_type}")
-        lines.append(f"  Labels: {op.labels}")
+    match op:
+        case CaseOperation():
+            _describe_case_structure(op, lines)
+        case LoopOperation():
+            _describe_loop(op, lines)
+        case SequenceOperation():
+            _describe_sequence(op, lines)
+        case _:
+            lines.append(f"Operation {operation_id}: {op.name}")
+            lines.append(f"  Type: {op.node_type}")
+            lines.append(f"  Labels: {op.labels}")
 
     return "\n".join(lines)
 
@@ -255,8 +242,12 @@ def _collect_subvi_names(operations: list[Operation]) -> set[str]:
     for op in operations:
         if "SubVI" in op.labels and op.name:
             names.add(op.name)
-        for frame in op.case_frames:
-            names.update(_collect_subvi_names(frame.operations))
+        match op:
+            case CaseOperation() | SequenceOperation():
+                for frame in op.frames:
+                    names.update(_collect_subvi_names(frame.operations))
+            case _:
+                pass
         names.update(_collect_subvi_names(op.inner_nodes))
     return names
 
@@ -265,12 +256,9 @@ def _get_subvi_description(
     graph: InMemoryVIGraph, vi_name: str,
 ) -> str | None:
     """Get a short description for a SubVI."""
-    from ..vilib_resolver import get_resolver
-
-    resolver = get_resolver()
+    resolver = _get_vilib_resolver()
     entry = resolver.resolve_by_name(vi_name)
     if entry and entry.description:
-        # Truncate long descriptions
         desc = entry.description
         if len(desc) > 100:
             desc = desc[:97] + "..."
@@ -284,29 +272,31 @@ def _collect_structures(
     """Summarize control flow structures."""
     structures: list[str] = []
     for op in operations:
-        if op.case_frames:
-            selector = op.selector_terminal or "unknown"
-            n_frames = len(op.case_frames)
-            structures.append(
-                f"Case structure ({n_frames} frames,"
-                f" selector: {selector})"
-            )
-        elif op.loop_type == "whileLoop":
-            structures.append("While loop")
-        elif op.loop_type == "forLoop":
-            structures.append("For loop")
-        elif "FlatSequence" in op.labels:
-            n_frames = len(op.case_frames) if op.case_frames else 0
-            n_inner = len(op.inner_nodes)
-            structures.append(
-                f"Flat sequence ({n_frames or n_inner} frames)"
-            )
-        # Recurse
-        for frame in op.case_frames:
-            for s in _collect_structures(frame.operations):
-                structures.append(f"  └ {s}")
-        for s in _collect_structures(op.inner_nodes):
-            structures.append(f"  └ {s}")
+        match op:
+            case CaseOperation():
+                selector = op.selector_terminal or "unknown"
+                n_frames = len(op.frames)
+                structures.append(
+                    f"Case structure ({n_frames} frames,"
+                    f" selector: {selector})"
+                )
+                for frame in op.frames:
+                    for s in _collect_structures(frame.operations):
+                        structures.append(f"  └ {s}")
+            case LoopOperation():
+                kind = "While loop" if op.loop_type == "whileLoop" else "For loop"
+                structures.append(kind)
+            case SequenceOperation():
+                n_frames = len(op.frames)
+                structures.append(f"Flat sequence ({n_frames} frames)")
+                for frame in op.frames:
+                    for s in _collect_structures(frame.operations):
+                        structures.append(f"  └ {s}")
+            case _:
+                pass
+        structures.extend(
+            f"  └ {s}" for s in _collect_structures(op.inner_nodes)
+        )
     return structures
 
 
@@ -314,8 +304,12 @@ def _count_operations(operations: list[Operation]) -> int:
     """Count total operations including nested."""
     count = len(operations)
     for op in operations:
-        for frame in op.case_frames:
-            count += _count_operations(frame.operations)
+        match op:
+            case CaseOperation() | SequenceOperation():
+                for frame in op.frames:
+                    count += _count_operations(frame.operations)
+            case _:
+                pass
         count += _count_operations(op.inner_nodes)
     return count
 
@@ -333,27 +327,35 @@ def _describe_op_list(
         op_desc = _describe_single_op(op)
         lines.append(f"{prefix}{op_desc}")
 
-        # Case frames
-        if op.case_frames:
-            for frame in op.case_frames:
-                default = " (default)" if frame.is_default else ""
-                lines.append(
-                    f"{prefix}  Frame"
-                    f" \"{frame.selector_value}\"{default}:"
-                )
-                if frame.operations:
-                    _describe_op_list(
-                        frame.operations, constants, lines,
-                        indent + 2,
+        match op:
+            case CaseOperation():
+                for frame in op.frames:
+                    default = " (default)" if frame.is_default else ""
+                    lines.append(
+                        f'{prefix}  Frame "{frame.selector_value}"{default}:'
                     )
-                else:
-                    lines.append(f"{prefix}    (empty)")
-
-        # Inner nodes (loop body, sequence frames)
-        if op.inner_nodes and not op.case_frames:
-            _describe_op_list(
-                op.inner_nodes, constants, lines, indent + 1,
-            )
+                    if frame.operations:
+                        _describe_op_list(
+                            frame.operations, constants, lines,
+                            indent + 2,
+                        )
+                    else:
+                        lines.append(f"{prefix}    (empty)")
+            case SequenceOperation():
+                for i, frame in enumerate(op.frames):
+                    lines.append(f'{prefix}  Frame {i}:')
+                    if frame.operations:
+                        _describe_op_list(
+                            frame.operations, constants, lines,
+                            indent + 2,
+                        )
+                    else:
+                        lines.append(f"{prefix}    (empty)")
+            case _:
+                if op.inner_nodes:
+                    _describe_op_list(
+                        op.inner_nodes, constants, lines, indent + 1,
+                    )
 
 
 def _describe_single_op(op: Operation) -> str:
@@ -377,25 +379,22 @@ def _describe_single_op(op: Operation) -> str:
         )
         return f"{name}({in_str}) → {out_str}"
 
-    if "Primitive" in op.labels:
-        prim_desc = name
-        if op.primResID:
-            prim_desc = f"{name} [prim {op.primResID}]"
-        return prim_desc
-
-    if op.case_frames:
-        n_frames = len(op.case_frames)
-        return f"Case Structure ({n_frames} frames)"
-
-    if op.loop_type == "whileLoop":
-        return "While Loop"
-    if op.loop_type == "forLoop":
-        return "For Loop"
-
-    if "FlatSequence" in op.labels:
-        return "Flat Sequence"
-
-    return f"{name} [{op.node_type or 'unknown'}]"
+    match op:
+        case PrimitiveOperation():
+            prim_desc = name
+            if op.primResID:
+                prim_desc = f"{name} [prim {op.primResID}]"
+            return prim_desc
+        case CaseOperation():
+            return f"Case Structure ({len(op.frames)} frames)"
+        case LoopOperation():
+            if op.loop_type == "whileLoop":
+                return "While Loop"
+            return "For Loop"
+        case SequenceOperation():
+            return "Flat Sequence"
+        case _:
+            return f"{name} [{op.node_type or 'unknown'}]"
 
 
 def _find_operation(
@@ -405,10 +404,14 @@ def _find_operation(
     for op in operations:
         if op.id == op_id:
             return op
-        for frame in op.case_frames:
-            found = _find_operation(frame.operations, op_id)
-            if found:
-                return found
+        match op:
+            case CaseOperation() | SequenceOperation():
+                for frame in op.frames:
+                    found = _find_operation(frame.operations, op_id)
+                    if found:
+                        return found
+            case _:
+                pass
         found = _find_operation(op.inner_nodes, op_id)
         if found:
             return found
@@ -416,21 +419,20 @@ def _find_operation(
 
 
 def _describe_case_structure(
-    op: Operation, lines: list[str],
+    op: CaseOperation, lines: list[str],
 ) -> None:
     """Describe a case structure in detail."""
     lines.append(f"Case Structure: {op.id}")
     if op.selector_terminal:
         lines.append(f"  Selector terminal: {op.selector_terminal}")
 
-    # Find selector type from terminals
     for t in op.terminals:
         if t.id == op.selector_terminal and t.lv_type:
             lines.append(f"  Selector type: {t.lv_type.to_python()}")
             break
 
-    lines.append(f"  Frames: {len(op.case_frames)}")
-    for frame in op.case_frames:
+    lines.append(f"  Frames: {len(op.frames)}")
+    for frame in op.frames:
         default = " (default)" if frame.is_default else ""
         lines.append(
             f"  Frame \"{frame.selector_value}\"{default}:"
@@ -440,7 +442,7 @@ def _describe_case_structure(
             lines.append(f"    - {_describe_single_op(fop)}")
 
 
-def _describe_loop(op: Operation, lines: list[str]) -> None:
+def _describe_loop(op: LoopOperation, lines: list[str]) -> None:
     """Describe a loop in detail."""
     loop_kind = "While Loop" if op.loop_type == "whileLoop" else "For Loop"
     lines.append(f"{loop_kind}: {op.id}")
@@ -450,7 +452,6 @@ def _describe_loop(op: Operation, lines: list[str]) -> None:
             f"  Stop condition: {op.stop_condition_terminal}"
         )
 
-    # Tunnels
     if op.tunnels:
         lines.append("  Tunnels:")
         for tunnel in op.tunnels:
@@ -460,19 +461,20 @@ def _describe_loop(op: Operation, lines: list[str]) -> None:
                 f" → inner={tunnel.inner_terminal_uid}"
             )
 
-    # Inner operations
     if op.inner_nodes:
         lines.append(f"  Body: {len(op.inner_nodes)} operations")
         for inner in op.inner_nodes:
             lines.append(f"    - {_describe_single_op(inner)}")
 
 
-def _describe_sequence(op: Operation, lines: list[str]) -> None:
+def _describe_sequence(
+    op: SequenceOperation, lines: list[str],
+) -> None:
     """Describe a flat sequence."""
     lines.append(f"Flat Sequence: {op.id}")
-    if op.case_frames:
-        lines.append(f"  Frames: {len(op.case_frames)}")
-        for i, frame in enumerate(op.case_frames):
+    if op.frames:
+        lines.append(f"  Frames: {len(op.frames)}")
+        for i, frame in enumerate(op.frames):
             lines.append(
                 f"  Frame {i}: {len(frame.operations)} operations"
             )

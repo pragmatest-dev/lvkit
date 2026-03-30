@@ -281,34 +281,40 @@ class PrimitiveNode(GraphNode):
     method_code: int | None = None
 
 
-class FrameInfo(BaseModel):
-    """Metadata about a frame in a case structure or flat sequence.
-
-    The actual operations in each frame are graph nodes with
-    parent=structure_uid and frame=selector_value.
-    """
-
-    selector_value: str | int
-    is_default: bool = False
-
-
 class StructureNode(GraphNode):
-    """A loop, case structure, or flat sequence.
+    """Base for structure nodes (case, loop, sequence).
 
     Terminals = tunnel outer/inner terminals. Each tunnel creates two
     Terminal objects (outer + inner) connected by an internal edge.
-    Tunnel metadata (tunnel_type, boundary, paired_id) is on each Terminal.
 
-    Inner operations are NOT listed here — they're graph nodes with
-    parent=this structure's UID. For case/sequence structures, each
-    inner operation also has frame=selector_value.
+    Inner operations are separate graph nodes with parent=this UID.
     """
 
     kind: Literal["structure"] = "structure"
-    loop_type: str | None = None
-    stop_condition_terminal: str | None = None
-    frames: list[FrameInfo] = []  # frame metadata (empty for loops)
+
+
+class CaseStructureNode(StructureNode):
+    """A case/select structure with selector-driven frames."""
+
+    model_config = {"arbitrary_types_allowed": True}
+
     selector_terminal: str | None = None
+    frames: list[CaseFrame] = []
+
+
+class LoopNode(StructureNode):
+    """A while or for loop."""
+
+    loop_type: str | None = None  # "whileLoop" or "forLoop"
+    stop_condition_terminal: str | None = None
+
+
+class SequenceNode(StructureNode):
+    """A flat or stacked sequence with ordered frames."""
+
+    model_config = {"arbitrary_types_allowed": True}
+
+    frames: list[SequenceFrame] = []
 
 
 class ConstantNode(GraphNode):
@@ -434,46 +440,97 @@ class Wire(BaseModel):
 
 
 @dataclass
-class CaseFrame:
-    """A frame in a case structure or sequence — codegen only.
+class Frame:
+    """Base frame — common fields for any structure frame."""
 
-    Built by _build_operation() from graph nodes with matching
-    parent and frame attributes.
-    """
-
-    selector_value: str | int
+    uid: str | None = None
     inner_node_uids: list[str] = field(default_factory=list)
     operations: list[Operation] = field(default_factory=list)
+
+
+@dataclass
+class CaseFrame(Frame):
+    """A frame in a case structure — selected by a selector value."""
+
+    selector_value: str | int = 0
     is_default: bool = False
 
 
 @dataclass
-class Operation:
-    """An operation node for code generation.
+class SequenceFrame(Frame):
+    """A frame in a flat or stacked sequence — executes in order."""
 
-    Built from GraphNode subclasses by InMemoryVIGraph._build_operation().
-    """
+    index: int = 0
+
+
+@dataclass
+class Operation:
+    """Base operation node for code generation."""
 
     id: str
     name: str | None
     labels: list[str]
-    primResID: int | None = None
     terminals: list[Terminal] = field(default_factory=list)
     node_type: str | None = None
-    loop_type: str | None = None
     tunnels: list[Tunnel] = field(default_factory=list)
     inner_nodes: list[Operation] = field(default_factory=list)
-    stop_condition_terminal: str | None = None
     description: str | None = None
-    operation: str | None = None
+    poly_variant_name: str | None = None
+
+
+@dataclass
+class PrimitiveOperation(Operation):
+    """A primitive (Add, Subtract, etc.)."""
+
+    primResID: int | None = None
+    operation: str | None = None  # cpdArith: "add", "or"
+
+
+@dataclass
+class SubVIOperation(Operation):
+    """A SubVI call."""
+
+
+@dataclass
+class PropertyOperation(Operation):
+    """Property node read/write."""
+
     object_name: str | None = None
     object_method_id: str | None = None
     properties: list[PropertyDef] = field(default_factory=list)
+
+
+@dataclass
+class InvokeOperation(Operation):
+    """Invoke node method call."""
+
+    object_name: str | None = None
+    object_method_id: str | None = None
     method_name: str | None = None
     method_code: int | None = None
-    case_frames: list[CaseFrame] = field(default_factory=list)
+
+
+@dataclass
+class CaseOperation(Operation):
+    """Case structure with selector-driven frames."""
+
+    frames: list[CaseFrame] = field(default_factory=list)
     selector_terminal: str | None = None
-    poly_variant_name: str | None = None
+
+
+@dataclass
+class LoopOperation(Operation):
+    """While or for loop."""
+
+    loop_type: str | None = None
+    stop_condition_terminal: str | None = None
+
+
+@dataclass
+class SequenceOperation(Operation):
+    """Flat or stacked sequence."""
+
+    frames: list[SequenceFrame] = field(default_factory=list)
 
 
 @dataclass

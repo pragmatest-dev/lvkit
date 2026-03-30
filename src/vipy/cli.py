@@ -157,6 +157,49 @@ def main() -> int:
         help="Don't expand SubVIs",
     )
 
+    # Visualize command - interactive graph visualization
+    viz_parser = subparsers.add_parser(
+        "visualize",
+        help="Interactive graph visualization in browser",
+    )
+    viz_parser.add_argument(
+        "input_path",
+        help="Path to .vi, .lvlib, .lvclass, or directory",
+    )
+    viz_parser.add_argument(
+        "-o", "--output",
+        default="outputs/graph.html",
+        help="Output HTML file (default: outputs/graph.html)",
+    )
+    viz_parser.add_argument(
+        "--search-path",
+        action="append",
+        dest="search_paths",
+        default=[],
+        help="Search paths for SubVI resolution (can be repeated)",
+    )
+    viz_parser.add_argument(
+        "--no-expand", action="store_true",
+        help="Don't expand SubVIs",
+    )
+    viz_parser.add_argument(
+        "--open", action="store_true",
+        help="Open in browser after generating",
+    )
+    viz_parser.add_argument(
+        "--mode",
+        default="dataflow",
+        choices=["dataflow", "deps"],
+        help="Graph type: dataflow (operations within VI) or deps (VI dependencies)",
+    )
+    viz_parser.add_argument(
+        "--format",
+        default=None,
+        choices=["interactive", "flowchart"],
+        help="Output format: flowchart (Mermaid, default for dataflow) "
+        "or interactive (pyvis, default for deps)",
+    )
+
     # LLM generate command - idiomatic Python via LLM
     llm_parser = subparsers.add_parser(
         "llm-generate",
@@ -224,6 +267,8 @@ def main() -> int:
         return cmd_generate(args)
     elif args.command == "docs":
         return cmd_docs(args)
+    elif args.command == "visualize":
+        return cmd_visualize(args)
     elif args.command == "llm-generate":
         return cmd_llm_generate(args)
     else:
@@ -561,6 +606,372 @@ def cmd_docs(args: argparse.Namespace) -> int:
         print(f"Error: {e}", file=sys.stderr)
         traceback.print_exc()
         return 1
+
+
+def cmd_visualize(args: argparse.Namespace) -> int:
+    """Handle the visualize command — interactive graph in browser."""
+    from .graph.core import InMemoryVIGraph
+
+    input_path = Path(args.input_path)
+    if not input_path.exists():
+        print(f"Error: Path not found: {input_path}", file=sys.stderr)
+        return 1
+
+    try:
+        import pyvis  # type: ignore[import-untyped]  # noqa: F401
+    except ImportError:
+        print(
+            "Error: pyvis not installed. Run: pip install pyvis",
+            file=sys.stderr,
+        )
+        return 1
+
+    graph = InMemoryVIGraph()
+    search_paths = (
+        [Path(p) for p in args.search_paths] if args.search_paths else None
+    )
+    expand = not args.no_expand
+
+    suffix = input_path.suffix.lower()
+    if suffix == ".lvclass":
+        graph.load_lvclass(str(input_path), expand, search_paths)
+    elif suffix == ".lvlib":
+        graph.load_lvlib(str(input_path), expand, search_paths)
+    elif input_path.is_dir():
+        graph.load_directory(str(input_path), expand, search_paths)
+    else:
+        graph.load_vi(str(input_path), expand, search_paths)
+
+    output = Path(args.output)
+
+    # Default format: flowchart for dataflow, interactive for deps
+    fmt = args.format or ("interactive" if args.mode == "deps" else "flowchart")
+
+    if fmt == "flowchart":
+        from .graph.flowchart import flowchart_html
+
+        vis = list(graph.list_vis())
+        primary_vi = vis[0] if vis else ""
+        html = flowchart_html(graph, primary_vi)
+        output.parent.mkdir(parents=True, exist_ok=True)
+        output.write_text(html)
+    elif args.mode == "deps":
+        _visualize_deps(graph, output)
+    else:
+        _visualize_dataflow(graph, output)
+
+    print(f"Graph saved to {args.output}")
+
+    if args.open:
+        import webbrowser
+        webbrowser.open(f"file://{Path(args.output).resolve()}")
+
+    return 0
+
+
+_GRAPH_OPTIONS = """
+{
+  "physics": {
+    "barnesHut": {
+      "gravitationalConstant": -8000,
+      "centralGravity": 0.1,
+      "springLength": 200,
+      "springConstant": 0.04,
+      "damping": 0.3
+    }
+  },
+  "edges": {
+    "arrows": {
+      "to": {"enabled": true, "scaleFactor": 1.0, "type": "arrow"}
+    },
+    "color": {"color": "#555", "highlight": "#000"},
+    "width": 2,
+    "smooth": {"type": "curvedCW", "roundness": 0.15}
+  },
+  "nodes": {
+    "font": {"size": 14, "face": "arial", "bold": {"face": "arial"}},
+    "borderWidth": 2,
+    "shadow": true
+  },
+  "interaction": {
+    "hover": true,
+    "tooltipDelay": 100
+  }
+}
+"""
+
+_PROPERTIES_PANEL = """
+<div id="props" style="position:fixed;top:10px;left:10px;width:320px;
+     background:white;border:1px solid #ccc;padding:12px;
+     border-radius:8px;font-family:monospace;font-size:12px;
+     z-index:1000;box-shadow:0 2px 8px rgba(0,0,0,0.15);
+     max-height:80vh;overflow-y:auto">
+  <b style="font-size:14px">Properties</b>
+  <div id="propContent" style="margin-top:8px;color:#666">
+    Click a node to see details
+  </div>
+</div>
+<script>
+  network.on("click", function(params) {
+    if (params.nodes.length > 0) {
+      var nodeId = params.nodes[0];
+      var node = nodes.get(nodeId);
+      var html = "<b>" + (node.label || nodeId) + "</b><br><br>";
+      if (node.title) {
+        html += node.title.replace(/\\n/g, "<br>");
+      }
+      document.getElementById("propContent").innerHTML = html;
+    } else {
+      document.getElementById("propContent").innerHTML =
+        "Click a node to see details";
+    }
+  });
+</script>
+"""
+
+
+def _build_legend(mode: str) -> str:
+    """Build legend HTML for the graph."""
+    if mode == "deps":
+        return """
+        <div style="position:fixed;top:10px;right:10px;background:white;
+             border:1px solid #ccc;padding:12px;border-radius:8px;
+             font-family:monospace;font-size:13px;z-index:1000;
+             box-shadow:0 2px 8px rgba(0,0,0,0.15)">
+          <b style="font-size:14px">Dependency Graph</b><br><br>
+          <span style="color:#4CAF50">■</span> VI<br>
+          <span style="color:#FF9800">■</span> Library<br>
+          <span style="color:#2196F3">■</span> Class<br>
+          <span style="color:#9C27B0">■</span> Typedef<br>
+          <span style="color:#999">■</span> Stub (missing)<br>
+          <br><span style="color:#888">→ depends on</span>
+        </div>
+        """
+    return """
+    <div style="position:fixed;top:10px;right:10px;background:white;
+         border:1px solid #ccc;padding:12px;border-radius:8px;
+         font-family:monospace;font-size:13px;z-index:1000;
+         box-shadow:0 2px 8px rgba(0,0,0,0.15)">
+      <b style="font-size:14px">Dataflow Graph</b><br><br>
+      <span style="color:#4CAF50">■</span> SubVI call<br>
+      <span style="color:#2196F3">■</span> Primitive operation<br>
+      <span style="color:#FF9800">◆</span> Structure (case/loop)<br>
+      <span style="color:#9C27B0">●</span> Constant<br>
+      <br><span style="color:#888">→ data flow</span>
+    </div>
+    """
+
+
+def _inject_extras(output: Path, mode: str) -> None:
+    """Inject legend and properties panel into generated HTML."""
+    html = output.read_text()
+    extras = _build_legend(mode) + _PROPERTIES_PANEL
+    html = html.replace("</body>", extras + "</body>")
+    output.write_text(html)
+
+
+def _visualize_dataflow(
+    graph: InMemoryVIGraph, output: Path,
+) -> None:
+    """Visualize the dataflow graph for a single VI."""
+    from pyvis.network import Network  # type: ignore[import-untyped]
+
+    vis = list(graph.list_vis())
+    if not vis:
+        print("Error: No VIs loaded", file=sys.stderr)
+        return
+    primary_vi = vis[0]
+
+    net = Network(
+        height="800px", width="100%", directed=True, notebook=False,
+    )
+    net.set_options(_GRAPH_OPTIONS)
+
+    node_styles = {
+        "vi": {"color": "#4CAF50", "shape": "box"},
+        "primitive": {"color": "#2196F3", "shape": "box"},
+        "structure": {"color": "#FF9800", "shape": "diamond"},
+        "constant": {"color": "#9C27B0", "shape": "ellipse"},
+    }
+
+    for nid in graph._vi_nodes.get(primary_vi, set()):
+        gnode = graph._graph.nodes[nid].get("node")
+        if not gnode or nid == primary_vi:
+            continue
+
+        kind = getattr(gnode, "kind", "unknown")
+        style = node_styles.get(kind, {"color": "#666", "shape": "box"})
+        label = _dataflow_label(gnode, kind)
+        tooltip = _dataflow_tooltip(gnode, kind, nid)
+
+        # Group by parent structure + frame for visual clustering
+        group = None
+        if gnode.parent and gnode.frame is not None:
+            group = f"{gnode.parent}::{gnode.frame}"
+        elif gnode.parent:
+            group = gnode.parent
+
+        net.add_node(
+            nid, label=label,
+            color=style["color"],
+            shape=style.get("shape", "box"),
+            title=tooltip,
+            group=group,
+        )
+
+    added = {n["id"] for n in net.nodes}
+    for nid in added:
+        for _, dest, _, data in graph._graph.out_edges(
+            nid, data=True, keys=True,
+        ):
+            if dest not in added:
+                continue
+            src_end = data.get("source")
+            dst_end = data.get("dest")
+            title = ""
+            if src_end and dst_end:
+                sn = src_end.name or ""
+                dn = dst_end.name or ""
+                if sn or dn:
+                    title = f"{sn} → {dn}"
+            net.add_edge(nid, dest, title=title)
+
+    output.parent.mkdir(parents=True, exist_ok=True)
+    net.save_graph(str(output))
+    _inject_extras(output, "dataflow")
+
+
+def _visualize_deps(
+    graph: InMemoryVIGraph, output: Path,
+) -> None:
+    """Visualize the dependency graph across VIs."""
+    from pyvis.network import Network  # type: ignore[import-untyped]
+
+    net = Network(
+        height="800px", width="100%", directed=True, notebook=False,
+    )
+    net.set_options(_GRAPH_OPTIONS)
+
+    dep = graph._dep_graph
+    stubs = graph._stubs
+
+    for node_id in dep.nodes:
+        attrs = dep.nodes[node_id]
+        node_type = attrs.get("node_type", "vi")
+        is_stub = node_id in stubs
+
+        colors = {
+            "vi": "#4CAF50",
+            "library": "#FF9800",
+            "class": "#2196F3",
+            "typedef": "#9C27B0",
+        }
+        color = "#999" if is_stub else colors.get(node_type, "#666")
+
+        label = node_id.split(":")[-1] if ":" in node_id else node_id
+        tooltip = f"{node_type}: {node_id}"
+        if is_stub:
+            tooltip += "\n(missing/stub)"
+        fields = attrs.get("fields")
+        if fields:
+            tooltip += f"\nFields: {len(fields)}"
+            for i, f in enumerate(fields):
+                tooltip += f"\n  [{i}] {f.name}"
+
+        net.add_node(
+            node_id, label=label, color=color,
+            shape="box",
+            title=tooltip,
+            borderWidth=1 if is_stub else 2,
+            font={"color": "#999"} if is_stub else {},
+        )
+
+    for src, dest in dep.edges:
+        net.add_edge(src, dest)
+
+    output.parent.mkdir(parents=True, exist_ok=True)
+    net.save_graph(str(output))
+    _inject_extras(output, "deps")
+
+
+def _dataflow_label(gnode, kind: str) -> str:
+    """Build readable label for a dataflow node."""
+    name = gnode.name or ""
+    if kind == "constant":
+        val = getattr(gnode, "value", "")
+        return f"{val}" if val is not None else "const"
+    if kind == "structure":
+        lt = getattr(gnode, "loop_type", None)
+        frames = getattr(gnode, "frames", [])
+        if lt:
+            return "While Loop" if lt == "whileLoop" else "For Loop"
+        if frames:
+            return f"Case [{len(frames)} frames]"
+        return name or "Structure"
+    return name.replace(".vi", "") or "?"
+
+
+def _dataflow_tooltip(gnode, kind: str, nid: str) -> str:
+    """Build detailed tooltip for a dataflow node."""
+    name = gnode.name or nid.split("::")[-1]
+    lines = [f"<b>{kind}: {name}</b>", f"ID: {nid}"]
+
+    prim_id = getattr(gnode, "prim_id", None)
+    if prim_id:
+        lines.append(f"primResID: {prim_id}")
+
+    node_type = getattr(gnode, "node_type", None)
+    if node_type:
+        lines.append(f"XML class: {node_type}")
+
+    terminals = getattr(gnode, "terminals", [])
+    inputs = [
+        t for t in terminals
+        if t.direction == "input" and not t.is_error_cluster
+    ]
+    outputs = [
+        t for t in terminals
+        if t.direction == "output" and not t.is_error_cluster
+    ]
+
+    if inputs:
+        lines.append("")
+        lines.append("<b>Inputs:</b>")
+        for t in inputs:
+            tname = t.name or f"idx{t.index}"
+            ttype = t.python_type()
+            lines.append(f"  [{t.index}] {tname}: {ttype}")
+
+    if outputs:
+        lines.append("")
+        lines.append("<b>Outputs:</b>")
+        for t in outputs:
+            tname = t.name or f"idx{t.index}"
+            ttype = t.python_type()
+            lines.append(f"  [{t.index}] {tname}: {ttype}")
+
+    if kind == "constant":
+        val = getattr(gnode, "value", None)
+        raw = getattr(gnode, "raw_value", None)
+        lv_type = getattr(gnode, "lv_type", None)
+        lines.append(f"\\nValue: {val!r}")
+        if raw:
+            lines.append(f"Raw: {raw}")
+        if lv_type:
+            lines.append(f"Type: {lv_type.to_python()}")
+
+    if kind == "structure":
+        frames = getattr(gnode, "frames", [])
+        if frames:
+            lines.append("")
+            lines.append("<b>Frames:</b>")
+            for f in frames:
+                default = " (default)" if f.is_default else ""
+                lines.append(
+                    f"  {f.selector_value}{default}"
+                )
+
+    return "\\n".join(lines)
 
 
 def cmd_llm_generate(args: argparse.Namespace) -> int:

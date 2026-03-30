@@ -11,7 +11,12 @@ from vipy.agent.codegen.condition_builder import (
     build_condition_expr,
 )
 from vipy.agent.codegen.context import CodeGenContext
-from vipy.graph_types import Operation, PrimitiveNode, Terminal, WireEnd
+from vipy.graph_types import (
+    PrimitiveNode,
+    PrimitiveOperation,
+    Terminal,
+    WireEnd,
+)
 from vipy.memory_graph import InMemoryVIGraph
 
 
@@ -68,7 +73,7 @@ class TestComparisonPrimitives:
         )
 
         # Equal? primitive (1102)
-        cmp_op = Operation(
+        cmp_op = PrimitiveOperation(
             id="cmp1",
             name="Equal?",
             labels=["Primitive"],
@@ -97,7 +102,7 @@ class TestComparisonPrimitives:
         )
 
         # Greater Or Equal? primitive (1103)
-        cmp_op = Operation(
+        cmp_op = PrimitiveOperation(
             id="cmp1",
             name="Greater Or Equal?",
             labels=["Primitive"],
@@ -123,7 +128,7 @@ class TestComparisonPrimitives:
         )
 
         # Less? primitive (1107)
-        cmp_op = Operation(
+        cmp_op = PrimitiveOperation(
             id="cmp1",
             name="Less?",
             labels=["Primitive"],
@@ -153,7 +158,7 @@ class TestBooleanPrimitives:
         )
 
         # And primitive (1100)
-        and_op = Operation(
+        and_op = PrimitiveOperation(
             id="and1",
             name="And",
             labels=["Primitive"],
@@ -179,7 +184,7 @@ class TestBooleanPrimitives:
         )
 
         # Or primitive (1101)
-        or_op = Operation(
+        or_op = PrimitiveOperation(
             id="or1",
             name="Or",
             labels=["Primitive"],
@@ -209,7 +214,7 @@ class TestNotPrimitive:
         )
 
         # Not primitive (1109)
-        not_op = Operation(
+        not_op = PrimitiveOperation(
             id="not1",
             name="Not",
             labels=["Primitive"],
@@ -249,7 +254,7 @@ class TestNestedExpressions:
         )
 
         # Greater Or Equal? (1103)
-        cmp1 = Operation(
+        cmp1 = PrimitiveOperation(
             id="cmp1",
             name="Greater Or Equal?",
             labels=["Primitive"],
@@ -262,7 +267,7 @@ class TestNestedExpressions:
         )
 
         # Equal? (1102)
-        cmp2 = Operation(
+        cmp2 = PrimitiveOperation(
             id="cmp2",
             name="Equal?",
             labels=["Primitive"],
@@ -275,7 +280,7 @@ class TestNestedExpressions:
         )
 
         # Or (1101)
-        or_op = Operation(
+        or_op = PrimitiveOperation(
             id="or1",
             name="Or",
             labels=["Primitive"],
@@ -308,7 +313,7 @@ class TestNestedExpressions:
         )
 
         # Less? (1107)
-        cmp_op = Operation(
+        cmp_op = PrimitiveOperation(
             id="cmp1",
             name="Less?",
             labels=["Primitive"],
@@ -321,7 +326,7 @@ class TestNestedExpressions:
         )
 
         # Not (1109)
-        not_op = Operation(
+        not_op = PrimitiveOperation(
             id="not1",
             name="Not",
             labels=["Primitive"],
@@ -352,7 +357,7 @@ class TestCpdArithConditions:
         )
 
         # cpdArith with OR operation (no primResID)
-        cpd_op = Operation(
+        cpd_op = PrimitiveOperation(
             id="cpd1",
             name="Compound Or",
             labels=["Compound"],
@@ -378,7 +383,7 @@ class TestCpdArithConditions:
             {"src_a": "condition_1", "src_b": "condition_2"},
         )
 
-        cpd_op = Operation(
+        cpd_op = PrimitiveOperation(
             id="cpd1",
             name="Compound And",
             labels=["Compound"],
@@ -425,7 +430,7 @@ class TestEdgeCases:
         )
 
         # Unknown primitive ID
-        unknown_op = Operation(
+        unknown_op = PrimitiveOperation(
             id="unk1",
             name="Unknown",
             labels=["Primitive"],
@@ -447,7 +452,7 @@ class TestEdgeCases:
         )
 
         # Equal? primitive needs 2 inputs
-        cmp_op = Operation(
+        cmp_op = PrimitiveOperation(
             id="cmp1",
             name="Equal?",
             labels=["Primitive"],

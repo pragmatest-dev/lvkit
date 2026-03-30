@@ -7,7 +7,11 @@ with a proper graph (required since bind/resolve store var_names on the graph).
 from __future__ import annotations
 
 from vipy.agent.codegen.context import CodeGenContext
-from vipy.graph_types import PrimitiveNode, Terminal, WireEnd
+from vipy.graph_types import (
+    PrimitiveNode,
+    Terminal,
+    WireEnd,
+)
 from vipy.memory_graph import InMemoryVIGraph
 
 
@@ -62,3 +66,5 @@ def make_ctx(*terminal_ids: str) -> CodeGenContext:
     """Create a CodeGenContext with a graph that has the given terminals."""
     graph = make_graph_with_terminals(*terminal_ids)
     return CodeGenContext(graph=graph)
+
+

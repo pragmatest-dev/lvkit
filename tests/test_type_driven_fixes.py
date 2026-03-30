@@ -8,8 +8,7 @@ from __future__ import annotations
 
 from tests.helpers import make_node
 from vipy.agent.codegen.context import CodeGenContext, _format_constant
-from vipy.agent.codegen.nodes.loop import LoopCodeGen
-from vipy.agent.codegen.nodes.primitive import PrimitiveCodeGen
+from vipy.agent.codegen.nodes import loop, primitive
 from vipy.graph_types import (
     ClusterField,
     Constant,
@@ -112,7 +111,7 @@ class TestTypeDrivenTerminalDefaults:
             lv_type=LVType(kind="primitive", underlying_type="NumInt32"),
         )
         ctx = CodeGenContext()
-        result = PrimitiveCodeGen._default_for_type(term, ctx)
+        result = primitive._default_for_type(term, ctx)
         assert result == "0"
 
     def test_string_terminal_gets_empty_string(self):
@@ -125,7 +124,7 @@ class TestTypeDrivenTerminalDefaults:
             lv_type=LVType(kind="primitive", underlying_type="String"),
         )
         ctx = CodeGenContext()
-        result = PrimitiveCodeGen._default_for_type(term, ctx)
+        result = primitive._default_for_type(term, ctx)
         assert result == "''"
 
     def test_boolean_terminal_gets_false(self):
@@ -138,7 +137,7 @@ class TestTypeDrivenTerminalDefaults:
             lv_type=LVType(kind="primitive", underlying_type="Boolean"),
         )
         ctx = CodeGenContext()
-        result = PrimitiveCodeGen._default_for_type(term, ctx)
+        result = primitive._default_for_type(term, ctx)
         assert result == "False"
 
     def test_path_terminal_gets_path_default(self):
@@ -151,7 +150,7 @@ class TestTypeDrivenTerminalDefaults:
             lv_type=LVType(kind="primitive", underlying_type="Path"),
         )
         ctx = CodeGenContext()
-        result = PrimitiveCodeGen._default_for_type(term, ctx)
+        result = primitive._default_for_type(term, ctx)
         assert result == "Path('.')"
         assert "from pathlib import Path" in ctx.imports
 
@@ -165,7 +164,7 @@ class TestTypeDrivenTerminalDefaults:
             lv_type=LVType(kind="array", underlying_type=None),
         )
         ctx = CodeGenContext()
-        result = PrimitiveCodeGen._default_for_type(term, ctx)
+        result = primitive._default_for_type(term, ctx)
         assert result == "[]"
 
     def test_no_type_gets_none(self):
@@ -178,7 +177,7 @@ class TestTypeDrivenTerminalDefaults:
             lv_type=None,
         )
         ctx = CodeGenContext()
-        result = PrimitiveCodeGen._default_for_type(term, ctx)
+        result = primitive._default_for_type(term, ctx)
         assert result == "None"
 
     def test_refnum_terminal_uses_type_not_name(self):
@@ -193,7 +192,7 @@ class TestTypeDrivenTerminalDefaults:
         )
         ctx = CodeGenContext()
         # With no primResID match for file I/O, should fall through to default
-        result = PrimitiveCodeGen._default_for_type(term, ctx)
+        result = primitive._default_for_type(term, ctx)
         assert result == "None"
 
 
@@ -254,9 +253,8 @@ class TestStructuralEdgeFiltering:
             dest=WireEnd(terminal_id="inner_t", node_id="loop1"),
         )
         ctx = CodeGenContext(graph=graph)
-        loop_gen = LoopCodeGen()
         # inner_t only has a self-edge — should NOT count as incoming
-        assert loop_gen._has_incoming_flow("inner_t", ctx) is False
+        assert loop._has_incoming_flow("inner_t", ctx) is False
 
     def test_real_incoming_edge_is_counted(self):
         """Real data flow from a different node should be counted."""
@@ -274,8 +272,7 @@ class TestStructuralEdgeFiltering:
             dest=WireEnd(terminal_id="inner_t", node_id="loop1"),
         )
         ctx = CodeGenContext(graph=graph)
-        loop_gen = LoopCodeGen()
-        assert loop_gen._has_incoming_flow("inner_t", ctx) is True
+        assert loop._has_incoming_flow("inner_t", ctx) is True
 
     def test_mixed_self_and_real_edges(self):
         """When both structural and real edges exist, should return True."""
@@ -300,8 +297,7 @@ class TestStructuralEdgeFiltering:
             dest=WireEnd(terminal_id="inner_t", node_id="loop1"),
         )
         ctx = CodeGenContext(graph=graph)
-        loop_gen = LoopCodeGen()
-        assert loop_gen._has_incoming_flow("inner_t", ctx) is True
+        assert loop._has_incoming_flow("inner_t", ctx) is True
 
 
 # ── Fix F: Error cluster detection by type, not name ────────────────

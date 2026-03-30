@@ -162,7 +162,7 @@ def _prepare_vi_documentation_data(
             if "SubVI" in (op.labels or []) and op.name:
                 names.append(op.name)
             names.extend(_extract_subvi_names(op.inner_nodes))
-            for frame in op.case_frames or []:
+            for frame in op.frames or []:
                 names.extend(_extract_subvi_names(frame.operations))
         return names
 

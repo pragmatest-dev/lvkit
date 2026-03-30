@@ -12,11 +12,15 @@ import networkx as nx
 from ..blockdiagram import decode_constant
 from ..graph_types import (
     AnyGraphNode,
+    CaseFrame,
+    CaseStructureNode,
     ConstantNode,
     FPTerminal,
-    FrameInfo,
+    LoopNode,
     LVType,
     PropertyDef,
+    SequenceFrame,
+    SequenceNode,
     StructureNode,
     Terminal,
     TunnelTerminal,
@@ -252,12 +256,12 @@ class ConstructionMixin:
 
         # === 2. Add Constants ===
         for const in bd.constants:
-            val_type, decoded_value = decode_constant(const)
-
             lv_type = None
             term_info = bd.terminal_info.get(const.uid)
             if term_info and term_info.parsed_type:
                 lv_type = self._enrich_type(term_info.parsed_type)
+
+            val_type, decoded_value = decode_constant(const, lv_type=lv_type)
 
             q_const_uid = self._qid(vi_name, const.uid)
             # Single output terminal
@@ -411,7 +415,7 @@ class ConstructionMixin:
                     bd, parser_tunnels, q_node_uid, term_lookup, vi_name,
                 )
 
-                graph_node = StructureNode(
+                graph_node = LoopNode(
                     id=q_node_uid,
                     vi=vi_name,
                     name=node_name,
@@ -423,7 +427,7 @@ class ConstructionMixin:
             elif node.node_type in ("caseStruct", "select"):
                 # Case structure
                 case_struct = case_by_uid.get(node.uid)
-                frame_infos: list[FrameInfo] = []
+                case_frames: list[CaseFrame] = []
                 selector_term: str | None = None
 
                 parser_tunnels = []
@@ -433,13 +437,7 @@ class ConstructionMixin:
                         selector_term = self._qid(
                             vi_name, case_struct.selector_terminal_uid
                         )
-                    frame_infos = [
-                        FrameInfo(
-                            selector_value=pf.selector_value,
-                            is_default=pf.is_default,
-                        )
-                        for pf in case_struct.frames
-                    ]
+                    case_frames = list(case_struct.frames)
 
                 # Build terminals from tunnels + sRN terminals
                 structure_terminals = self._build_structure_terminals(
@@ -481,42 +479,37 @@ class ConstructionMixin:
                             name="selector",
                         )
 
-                graph_node = StructureNode(
+                graph_node = CaseStructureNode(
                     id=q_node_uid,
                     vi=vi_name,
                     name=node_name,
                     node_type=node.node_type,
                     terminals=structure_terminals,
-                    frames=frame_infos,
+                    frames=case_frames,
                     selector_terminal=selector_term,
                 )
             elif node.node_type in ("flatSequence", "seq"):
                 # Flat sequence
                 flat_seq = flatseq_by_uid.get(node.uid)
-                seq_frame_infos: list[FrameInfo] = []
+                seq_frames: list[SequenceFrame] = []
 
                 parser_tunnels = []
                 if flat_seq:
                     parser_tunnels = flat_seq.tunnels
-                    seq_frame_infos = [
-                        FrameInfo(
-                            selector_value=str(idx),
-                        )
-                        for idx in range(len(flat_seq.frames))
-                    ]
+                    seq_frames = list(flat_seq.frames)
 
                 # Build terminals from tunnels + sRN terminals
                 structure_terminals = self._build_structure_terminals(
                     bd, parser_tunnels, q_node_uid, term_lookup, vi_name,
                 )
 
-                graph_node = StructureNode(
+                graph_node = SequenceNode(
                     id=q_node_uid,
                     vi=vi_name,
                     name=node_name,
                     node_type=node.node_type,
                     terminals=structure_terminals,
-                    frames=seq_frame_infos,
+                    frames=seq_frames,
                 )
             elif isinstance(node, ParserPrimitiveNode):
                 # Primitive node

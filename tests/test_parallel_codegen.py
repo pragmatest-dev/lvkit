@@ -16,7 +16,13 @@ from vipy.agent.codegen.builder import (
     topological_sort_tiered,
 )
 from vipy.agent.codegen.context import CodeGenContext
-from vipy.graph_types import CaseFrame, Operation, Terminal, Wire
+from vipy.graph_types import (
+    Operation,
+    SequenceFrame,
+    SequenceOperation,
+    Terminal,
+    Wire,
+)
 
 
 def _make_op(
@@ -230,17 +236,17 @@ class TestSequenceParallelIntegration:
 
     def test_frame_with_single_op_no_executor(self):
         """Frame with one op: no executor."""
-        from vipy.agent.codegen.nodes.sequence import FlatSequenceCodeGen
+        from vipy.agent.codegen.nodes import sequence
 
         inner = _make_op("write1")
-        op = Operation(
+        op = SequenceOperation(
             id="seq1",
             name="Flat Sequence",
             labels=["FlatSequence"],
             node_type="flatSequence",
-            case_frames=[
-                CaseFrame(
-                    selector_value="0",
+            frames=[
+                SequenceFrame(
+                    index=0,
                     inner_node_uids=["write1"],
                     operations=[inner],
                 ),
@@ -248,24 +254,24 @@ class TestSequenceParallelIntegration:
             tunnels=[],
         )
         ctx = CodeGenContext()
-        fragment = FlatSequenceCodeGen().generate(op, ctx)
+        fragment = sequence.generate(op, ctx)
         code = ast.unparse(ast.Module(body=fragment.statements, type_ignores=[]))
         assert "ThreadPoolExecutor" not in code
 
     def test_frame_with_two_independent_ops_uses_executor(self):
         """Frame with two independent ops: executor used."""
-        from vipy.agent.codegen.nodes.sequence import FlatSequenceCodeGen
+        from vipy.agent.codegen.nodes import sequence
 
         op_a = _make_op("a")
         op_b = _make_op("b")
-        op = Operation(
+        op = SequenceOperation(
             id="seq1",
             name="Flat Sequence",
             labels=["FlatSequence"],
             node_type="flatSequence",
-            case_frames=[
-                CaseFrame(
-                    selector_value="0",
+            frames=[
+                SequenceFrame(
+                    index=0,
                     inner_node_uids=["a", "b"],
                     operations=[op_a, op_b],
                 ),
@@ -273,29 +279,29 @@ class TestSequenceParallelIntegration:
             tunnels=[],
         )
         ctx = CodeGenContext(_body_generator=generate_body)
-        fragment = FlatSequenceCodeGen().generate(op, ctx)
+        fragment = sequence.generate(op, ctx)
         code = ast.unparse(ast.Module(body=fragment.statements, type_ignores=[]))
         assert "ThreadPoolExecutor" in code
 
     def test_multiple_frames_sequential(self):
         """Multiple frames execute sequentially (each may have parallelism)."""
-        from vipy.agent.codegen.nodes.sequence import FlatSequenceCodeGen
+        from vipy.agent.codegen.nodes import sequence
 
         op_a = _make_op("a")
         op_b = _make_op("b")
-        op = Operation(
+        op = SequenceOperation(
             id="seq1",
             name="Flat Sequence",
             labels=["FlatSequence"],
             node_type="flatSequence",
-            case_frames=[
-                CaseFrame(
-                    selector_value="0",
+            frames=[
+                SequenceFrame(
+                    index=0,
                     inner_node_uids=["a"],
                     operations=[op_a],
                 ),
-                CaseFrame(
-                    selector_value="1",
+                SequenceFrame(
+                    index=1,
                     inner_node_uids=["b"],
                     operations=[op_b],
                 ),
@@ -303,7 +309,7 @@ class TestSequenceParallelIntegration:
             tunnels=[],
         )
         ctx = CodeGenContext()
-        fragment = FlatSequenceCodeGen().generate(op, ctx)
+        fragment = sequence.generate(op, ctx)
         # Both frames generate something
         assert len(fragment.statements) > 0
 

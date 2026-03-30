@@ -8,111 +8,99 @@ from __future__ import annotations
 
 import ast
 
-from vipy.graph_types import Operation
+from vipy.graph_types import PropertyOperation
 
 from ..ast_utils import build_assign, parse_expr, to_var_name
 from ..context import CodeGenContext
 from ..fragment import CodeFragment
-from .base import NodeCodeGen
+from .base import resolve_ref_input
 
 
-class PropertyNodeCodeGen(NodeCodeGen):
-    """Generate code for property node reads/writes.
+def generate(node: PropertyOperation, ctx: CodeGenContext) -> CodeFragment:
+    """Generate code for a property node.
 
     Produces attribute access:
       Read:  value = ref.property_name
       Write: ref.property_name = value
     """
+    properties = node.properties or []
+    ref_var = resolve_ref_input(node, ctx)
 
-    def generate(self, node: Operation, ctx: CodeGenContext) -> CodeFragment:
-        """Generate code for a property node."""
-        properties = node.properties or []
+    statements: list[ast.stmt] = []
+    bindings: dict[str, str] = {}
 
-        # Resolve the reference input (first input terminal is typically the object ref)
-        ref_var = self._resolve_ref_input(node, ctx)
+    input_terms = [t for t in node.terminals if t.direction == "input"]
+    output_terms = [t for t in node.terminals if t.direction == "output"]
 
-        statements: list[ast.stmt] = []
-        bindings: dict[str, str] = {}
+    input_by_index = {t.index: t for t in input_terms}
+    output_by_index = {t.index: t for t in output_terms}
 
-        # Track which properties are reads vs writes based on terminal wiring
-        input_terms = [t for t in node.terminals if t.direction == "input"]
-        output_terms = [t for t in node.terminals if t.direction == "output"]
+    seen_outputs: set[str] = set()
+    seen_inputs: set[str] = set()
 
-        # Build index → terminal mappings
-        input_by_index = {t.index: t for t in input_terms}
-        output_by_index = {t.index: t for t in output_terms}
+    for prop in properties:
+        prop_name = prop.name
+        attr_name = to_var_name(prop_name) if prop_name else "unknown_prop"
 
-        # Each property maps to one output terminal (read) or one input
-        # terminal (write). Pair properties with terminals by position,
-        # skipping the ref terminal at index 0.
-        seen_outputs: set[str] = set()
-        seen_inputs: set[str] = set()
+        # Generate reads
+        for idx, term in output_by_index.items():
+            if term.id in seen_outputs:
+                continue
+            if not ctx.is_wired(term.id):
+                continue
+            seen_outputs.add(term.id)
+            var_name = to_var_name(f"{ref_var}_{attr_name}")
+            ref_expr = parse_expr(ref_var)
+            stmt = ast.Assign(
+                targets=[ast.Name(id=var_name, ctx=ast.Store())],
+                value=ast.Attribute(
+                    value=ref_expr,
+                    attr=attr_name,
+                    ctx=ast.Load(),
+                ),
+            )
+            statements.append(stmt)
+            bindings[term.id] = var_name
+            break
 
-        for prop in properties:
-            prop_name = prop.name
-            attr_name = to_var_name(prop_name) if prop_name else "unknown_prop"
-
-            # Generate reads: find next unprocessed wired output
-            for idx, term in output_by_index.items():
-                if term.id in seen_outputs:
-                    continue
-                if not ctx.is_wired(term.id):
-                    continue
-                seen_outputs.add(term.id)
-                var_name = to_var_name(f"{ref_var}_{attr_name}")
-                ref_expr = parse_expr(ref_var)
-                stmt = ast.Assign(
-                    targets=[ast.Name(id=var_name, ctx=ast.Store())],
-                    value=ast.Attribute(
+        # Generate writes
+        for idx, term in input_by_index.items():
+            if idx == 0:
+                continue
+            if term.id in seen_inputs:
+                continue
+            if not ctx.is_wired(term.id):
+                continue
+            seen_inputs.add(term.id)
+            value = ctx.resolve(term.id)
+            if value is None:
+                continue
+            ref_expr = parse_expr(ref_var)
+            stmt = ast.Assign(
+                targets=[
+                    ast.Attribute(
                         value=ref_expr,
                         attr=attr_name,
-                        ctx=ast.Load(),
-                    ),
-                )
-                statements.append(stmt)
-                bindings[term.id] = var_name
-                break  # One output per property
-
-            # Generate writes: find next unprocessed wired input
-            for idx, term in input_by_index.items():
-                if idx == 0:
-                    continue  # Skip ref input
-                if term.id in seen_inputs:
-                    continue
-                if not ctx.is_wired(term.id):
-                    continue
-                seen_inputs.add(term.id)
-                value = ctx.resolve(term.id)
-                if value is None:
-                    continue
-                ref_expr = parse_expr(ref_var)
-                stmt = ast.Assign(
-                    targets=[
-                        ast.Attribute(
-                            value=ref_expr,
-                            attr=attr_name,
-                            ctx=ast.Store(),
-                        )
-                    ],
-                    value=parse_expr(value),
-                )
-                statements.append(stmt)
-                break  # One input per property
-
-        # Bind any remaining wired output terminals that weren't handled above
-        # (e.g., reference passthrough, error out, or nodes with empty properties list)
-        for term in output_terms:
-            if term.id not in bindings and ctx.is_wired(term.id):
-                var_name = to_var_name(term.name or f"{ref_var}_prop_{term.index}")
-                statements.append(build_assign(var_name, parse_expr(ref_var)))
-                bindings[term.id] = var_name
-
-        # If no statements generated, emit a comment
-        if not statements:
-            comment = (
-                f"# Property Node: {node.object_name or 'unknown'}"
-                f" - {', '.join(p.name for p in properties)}"
+                        ctx=ast.Store(),
+                    )
+                ],
+                value=parse_expr(value),
             )
-            statements.append(ast.Expr(value=ast.Constant(value=comment)))
+            statements.append(stmt)
+            break
 
-        return CodeFragment(statements=statements, bindings=bindings)
+    # Bind remaining wired outputs
+    for term in output_terms:
+        if term.id not in bindings and ctx.is_wired(term.id):
+            var_name = to_var_name(term.name or f"{ref_var}_prop_{term.index}")
+            statements.append(build_assign(var_name, parse_expr(ref_var)))
+            bindings[term.id] = var_name
+
+    if not statements:
+        comment = (
+            f"# Property Node: {node.object_name or 'unknown'}"
+            f" - {', '.join(p.name for p in properties)}"
+        )
+        statements.append(ast.Expr(value=ast.Constant(value=comment)))
+
+    return CodeFragment(statements=statements, bindings=bindings)

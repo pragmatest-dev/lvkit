@@ -6,11 +6,14 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 
 from .constants import SYSTEM_DIR_TYPES
+from .graph_types import LVType
 from .parser import (
     Constant,
     parse_vi,
 )
 from .parser.node_types import PrimitiveNode
+from .parser.vi import _decode_element
+from .type_defaults import get_default_for_type
 
 # === Primitive Tracking ===
 # Tracks primitives encountered during parsing (for analysis)
@@ -101,54 +104,42 @@ def decode_labview_string(hex_value: str) -> str | None:
 
 
 def decode_constant(
-    const: Constant, context_hint: str | None = None
+    const: Constant,
+    context_hint: str | None = None,
+    lv_type: LVType | None = None,
 ) -> tuple[str, str]:
     """Decode a constant value to (type, human-readable value).
 
     Args:
         const: The constant to decode
         context_hint: Optional hint about what this constant connects to
+        lv_type: LVType from the graph (authoritative type info)
 
     Returns:
         Tuple of (type_name, human_readable_value)
     """
     value = const.value
 
-    # Check for path constant
-    if value.startswith('50544830'):  # 'PTH0' in hex
-        return ("path", decode_labview_path(value))
+    # Type-aware decoding. LabVIEW is typed — we always have the type.
+    if lv_type is not None:
+        raw_bytes = bytes.fromhex(value)
 
-    # Check for boolean (single byte)
-    if len(value) == 2:
-        try:
-            int_val = int(value, 16)
-            return ("bool", "True" if int_val else "False")
-        except ValueError:
-            pass
+        # Standalone boolean constants can be 2 bytes (1 byte in arrays).
+        # Any nonzero byte means True.
+        underlying = getattr(lv_type, "underlying_type", "")
+        if underlying == "Boolean" and len(raw_bytes) > 1:
+            return (lv_type.to_python(), "True" if any(raw_bytes) else "False")
 
-    # Check for small integer (4 bytes = 8 hex chars)
-    if len(value) == 8:
-        try:
-            int_val = int(value, 16)
-            # Check if it's a system directory type based on context or label
-            label_lower = (const.label or "").lower()
-            context_lower = (context_hint or "").lower()
-            if ("system directory" in label_lower or
-                "system directory" in context_lower or
-                "get system directory" in context_lower):
-                dir_name = SYSTEM_DIR_TYPES.get(int_val, "unknown")
-                return ("system_dir_type", f"{dir_name} ({int_val})")
-            return ("int", str(int_val))
-        except ValueError:
-            pass
+        decoded, _ = _decode_element(raw_bytes, lv_type)
+        py_type = lv_type.to_python()
 
-    # Try to decode as LabVIEW string (4-byte length prefix + data)
-    decoded_str = decode_labview_string(value)
-    if decoded_str is not None:
-        # Escape for safe storage
-        escaped = decoded_str.replace('\\', '\\\\').replace('"', '\\"')
-        return ("string", f'"{escaped}"')
+        if decoded is not None:
+            return (py_type, decoded)
 
+        # Couldn't parse bytes — use the type's default value.
+        return (py_type, get_default_for_type(lv_type))
+
+    # No type = parser bug. Return raw.
     return ("raw", value)
 
 

@@ -795,13 +795,9 @@ def _decode_default_data(
 ) -> str | None:
     """Decode DefaultData from FPHb XML to a Python literal.
 
-    Args:
-        raw_data: Raw XML-encoded default data string
-        control_type: Control class like "stdString", "indArr", etc.
-        lv_type: Optional LVType with element/field info for arrays/clusters
-
-    Returns:
-        Python literal string or None if can't decode
+    Uses _decode_element (the single type-aware decoder) when lv_type
+    is available. Falls back to control_type dispatch only when no
+    type info exists.
     """
     if not raw_data:
         return None
@@ -811,29 +807,21 @@ def _decode_default_data(
     except (ValueError, UnicodeError):
         return None
 
-    # Path: starts with PTH0
+    # Use the type-aware decoder when we have type info
+    if lv_type is not None:
+        decoded, _ = _decode_element(raw_bytes, lv_type)
+        if decoded is not None:
+            return decoded
+
+    # Fallback: dispatch by control_type string (no type info)
     if raw_bytes.startswith(b'PTH0'):
         return _decode_path_default(raw_bytes)
-
-    # String: has length prefix
     if control_type == "stdString" and len(raw_bytes) >= 4:
         return _decode_string_default(raw_bytes)
-
-    # Numeric: typically 4 or 8 bytes
     if control_type in ("stdNumeric", "stdNum"):
         return _decode_numeric_default(raw_bytes)
-
-    # Boolean: single byte
     if control_type == "stdBool" and len(raw_bytes) == 1:
         return "True" if raw_bytes[0] else "False"
-
-    # Array: decode using element type
-    if control_type in ("indArr", "stdArray") and lv_type:
-        return _decode_array_default(raw_bytes, lv_type)
-
-    # Cluster: decode using field types
-    if control_type == "stdClust" and lv_type:
-        return _decode_cluster_default(raw_bytes, lv_type)
 
     return None
 
@@ -965,6 +953,9 @@ def _decode_cluster_default(data: bytes, lv_type: LVType) -> str | None:
 def _decode_element(data: bytes, elem_type: LVType | None) -> tuple[str | None, int]:
     """Decode a single element and return (value, bytes_consumed).
 
+    Handles all LabVIEW types recursively: primitives, enums,
+    arrays (with element_type), and clusters (with fields).
+
     Args:
         data: Bytes starting at this element
         elem_type: Type of the element
@@ -976,9 +967,10 @@ def _decode_element(data: bytes, elem_type: LVType | None) -> tuple[str | None, 
         return None, 0
 
     underlying = elem_type.underlying_type or ""
+    kind = elem_type.kind
 
-    # String: 4-byte length prefix + string data
-    if underlying == "String":
+    # String (and Tag, which is string-encoded): 4-byte length prefix + data
+    if underlying in ("String", "Tag"):
         if len(data) < 4:
             return None, 0
         str_len = int.from_bytes(data[:4], 'big')
@@ -988,13 +980,20 @@ def _decode_element(data: bytes, elem_type: LVType | None) -> tuple[str | None, 
         escaped = string_val.replace('\\', '\\\\').replace("'", "\\'")
         return f"'{escaped}'", 4 + str_len
 
-    # Boolean: 1 byte
+    # Boolean: 1 byte in binary data
     if underlying == "Boolean":
         return ("True" if data[0] else "False"), 1
 
-    # Numeric types
+    # Enum: decode as its underlying integer type
+    if kind == "enum":
+        size = _get_numeric_size(underlying)
+        if len(data) < size:
+            return None, 0
+        val = int.from_bytes(data[:size], 'big')
+        return str(val), size
+
+    # Numeric integer types
     if underlying.startswith("NumInt") or underlying.startswith("NumUInt"):
-        # Determine size from type name
         size = _get_numeric_size(underlying)
         if len(data) < size:
             return None, 0
@@ -1002,6 +1001,7 @@ def _decode_element(data: bytes, elem_type: LVType | None) -> tuple[str | None, 
         val = int.from_bytes(data[:size], 'big', signed=signed)
         return str(val), size
 
+    # Float and complex types
     if underlying.startswith("NumFloat") or underlying.startswith("NumComplex"):
         if underlying in ("NumFloat32", "NumComplex64"):
             if len(data) < 4:
@@ -1018,24 +1018,69 @@ def _decode_element(data: bytes, elem_type: LVType | None) -> tuple[str | None, 
     if underlying == "Path":
         if data.startswith(b'PTH0'):
             path_val = _decode_path_default(data)
-            # Estimate bytes consumed - find end of path data
-            # Path format: PTH0 + 8 bytes header + length-prefixed segments
             idx = 12
             while idx < len(data):
-                if idx >= len(data):
-                    break
                 seg_len = data[idx]
                 if seg_len == 0:
                     idx += 1
                     break
                 idx += 1 + seg_len
-            return path_val, idx
-        return None, 0
+            return path_val or 'Path("")', idx
+        return 'Path("")', 0
 
-    # Nested array/cluster: can't track bytes consumed without full parsing
-    # Fall back to None for now - these are rare in practice
-    if elem_type.kind in ("array", "cluster"):
-        return None, 0
+    # Array: 4-byte length + elements
+    if kind == "array" and elem_type.element_type:
+        if len(data) < 4:
+            return None, 0
+        array_len = int.from_bytes(data[:4], 'big')
+        idx = 4
+        elements = []
+        for _ in range(array_len):
+            if idx >= len(data):
+                break
+            elem_val, consumed = _decode_element(
+                data[idx:], elem_type.element_type,
+            )
+            if elem_val is None:
+                break
+            elements.append(elem_val)
+            idx += consumed
+        return "[" + ", ".join(elements) + "]", idx
+
+    # Cluster: sequential fields
+    if kind == "cluster" and elem_type.fields:
+        idx = 0
+        field_values = {}
+        for field in elem_type.fields:
+            if idx >= len(data):
+                break
+            field_val, consumed = _decode_element(
+                data[idx:], field.type,
+            )
+            if field_val is None:
+                field_values[field.name] = "None"
+            else:
+                field_values[field.name] = field_val
+            idx += consumed
+        items = [f"'{k}': {v}" for k, v in field_values.items()]
+        return "{" + ", ".join(items) + "}", idx
+
+    # Refnum: 4 bytes (opaque handle)
+    if underlying == "Refnum":
+        size = min(4, len(data))
+        val = int.from_bytes(data[:size], 'big')
+        return f"Refnum({val})" if val else "None", size
+
+    # LVVariant: opaque — just report the byte count
+    if underlying in ("LVVariant", "Variant"):
+        return "Variant()", len(data)
+
+    # MeasureData (timestamp): 16 bytes (8 int + 8 frac)
+    if underlying == "MeasureData":
+        if len(data) >= 16:
+            secs = int.from_bytes(data[:8], 'big', signed=True)
+            return f"Timestamp({secs})", 16
+        return "Timestamp(0)", len(data)
 
     return None, 0
 

@@ -10,7 +10,7 @@ import re
 from dataclasses import asdict, is_dataclass
 from typing import Any
 
-from ..graph_types import VIContext
+from ..graph_types import PrimitiveOperation, VIContext
 from .codegen.ast_utils import to_function_name
 from .context import VISignature
 from .context_templates import FUNCTION_TEMPLATE, METHOD_TEMPLATE, UI_WRAPPER_TEMPLATE
@@ -172,7 +172,7 @@ class ContextBuilder:
                     op_info["python_function"] = sig.function_name
                     op_info["python_signature"] = sig.signature
 
-            if "Primitive" in op.labels and op.primResID:
+            if isinstance(op, PrimitiveOperation) and op.primResID:
                 prim_id = op.primResID
                 if prim_id in primitive_context:
                     pctx = primitive_context[prim_id]

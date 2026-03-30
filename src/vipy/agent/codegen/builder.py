@@ -24,7 +24,7 @@ from .error_handler import (
     find_error_path_ops,
     needs_error_handling,
 )
-from .nodes import get_codegen
+from .nodes import generate as generate_node
 
 
 def build_module(
@@ -134,8 +134,7 @@ def generate_body(
         if remaining:
             if len(remaining) == 1:
                 node = remaining[0]
-                codegen = get_codegen(node)
-                fragment = codegen.generate(node, ctx)
+                fragment = generate_node(node, ctx)
                 for s in fragment.statements:
                     tagged.append(({node.id}, s))
                 ctx.merge(fragment.bindings)
@@ -218,8 +217,7 @@ def _generate_parallel_tier(
     # Generate fragments for each op
     fragments = []
     for node in tier:
-        codegen = get_codegen(node)
-        fragment = codegen.generate(node, ctx)
+        fragment = generate_node(node, ctx)
         fragments.append(fragment)
         ctx.imports.update(fragment.imports)
 

@@ -10,7 +10,7 @@ import ast
 import xml.etree.ElementTree as ET
 
 from tests.helpers import make_ctx
-from vipy.agent.codegen.nodes.subvi import SubVICodeGen
+from vipy.agent.codegen.nodes import subvi
 from vipy.graph_types import LVType, Operation, Terminal
 from vipy.parser.vi import _extract_subvi_info, _resolve_qualified_name
 
@@ -163,8 +163,8 @@ class TestDynamicDispatchCodegen:
         ctx = _make_ctx_with_bindings(
             {"t_in_0": "test_result", "t_in_1": "test_name"}, ["t_out_0"]
         )
-        gen = SubVICodeGen()
-        frag = gen.generate(node, ctx)
+        
+        frag = subvi.generate(node, ctx)
 
         assert len(frag.statements) >= 1
         code = _unparse(frag.statements[0])
@@ -183,8 +183,8 @@ class TestDynamicDispatchCodegen:
             ],
         )
         ctx = _make_ctx_with_bindings({"t_str": "my_string", "t_obj": "my_object"})
-        gen = SubVICodeGen()
-        frag = gen.generate(node, ctx)
+        
+        frag = subvi.generate(node, ctx)
 
         code = _unparse(frag.statements[0])
         # Object should be receiver, string should be arg
@@ -201,8 +201,8 @@ class TestDynamicDispatchCodegen:
             ],
         )
         ctx = _make_ctx_with_bindings({"t_0": "first_input", "t_1": "second_input"})
-        gen = SubVICodeGen()
-        frag = gen.generate(node, ctx)
+        
+        frag = subvi.generate(node, ctx)
 
         code = _unparse(frag.statements[0])
         assert "first_input.dowork" in code
@@ -224,8 +224,8 @@ class TestDynamicDispatchCodegen:
             ],
         )
         ctx = _make_ctx_with_bindings({"t_in": "test_result"}, ["t_out", "t_out2"])
-        gen = SubVICodeGen()
-        frag = gen.generate(node, ctx)
+        
+        frag = subvi.generate(node, ctx)
 
         # Class output should pass through to receiver
         assert frag.bindings["t_out"] == "test_result"
@@ -244,9 +244,9 @@ class TestDynamicDispatchCodegen:
             ],
         )
         ctx = _make_ctx_with_bindings({"t_in": "obj"}, ["t_out"])
-        gen = SubVICodeGen()
+        
         # Should NOT raise VILibResolutionNeeded
-        frag = gen.generate(node, ctx)
+        frag = subvi.generate(node, ctx)
         assert frag.statements
 
     def test_no_inputs_static_fallback(self):
@@ -258,8 +258,8 @@ class TestDynamicDispatchCodegen:
             ],
         )
         ctx = _make_ctx_with_bindings({}, ["t_out"])
-        gen = SubVICodeGen()
-        frag = gen.generate(node, ctx)
+        
+        frag = subvi.generate(node, ctx)
 
         code = _unparse(frag.statements[0])
         # Should be static call, not method call
@@ -267,7 +267,7 @@ class TestDynamicDispatchCodegen:
 
     def test_is_class_terminal(self):
         """_is_class_terminal correctly identifies UDClassInst."""
-        gen = SubVICodeGen()
+        
         class_term = Terminal(
             id="t1", index=0, direction="input",
             lv_type=LVType(kind="primitive", ref_type="UDClassInst"),
@@ -278,6 +278,6 @@ class TestDynamicDispatchCodegen:
         )
         no_type_term = Terminal(id="t3", index=2, direction="input")
 
-        assert gen._is_class_terminal(class_term) is True
-        assert gen._is_class_terminal(non_class_term) is False
-        assert gen._is_class_terminal(no_type_term) is False
+        assert subvi._is_class_terminal(class_term) is True
+        assert subvi._is_class_terminal(non_class_term) is False
+        assert subvi._is_class_terminal(no_type_term) is False

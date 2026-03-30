@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import ast
 
-from vipy.graph_types import Operation
+from vipy.graph_types import Operation, PrimitiveOperation
 
 from .ast_utils import parse_expr
 from .context import CodeGenContext
@@ -107,10 +107,14 @@ def _build_expr_from_op(
     """
     # Check for compound arithmetic (cpdArith) first - these have no primResID
     # but we can still build expressions from them
-    if op.node_type == "cpdArith" and op.operation:
+    if (
+        isinstance(op, PrimitiveOperation)
+        and op.node_type == "cpdArith"
+        and op.operation
+    ):
         return _build_cpd_arith(op, ctx, output_to_op)
 
-    prim_id = op.primResID
+    prim_id = op.primResID if isinstance(op, PrimitiveOperation) else None
     if prim_id is None:
         return None
 
@@ -256,7 +260,7 @@ def _build_not(
 
 
 def _build_cpd_arith(
-    op: Operation,
+    op: PrimitiveOperation,
     ctx: CodeGenContext,
     output_to_op: dict[str, Operation],
 ) -> ast.expr | None:

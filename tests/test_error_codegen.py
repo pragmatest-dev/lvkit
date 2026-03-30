@@ -15,17 +15,20 @@ from __future__ import annotations
 import ast
 
 from vipy.agent.codegen.builder import build_module, generate_body
-from vipy.agent.codegen.context import CodeGenContext, SourceInfo
+from vipy.agent.codegen.context import CodeGenContext
 from vipy.agent.codegen.error_handler import (
     ErrorHandlingPattern,
     classify_error_node,
     needs_error_handling,
 )
-from vipy.agent.codegen.nodes.primitive import PrimitiveCodeGen
+from vipy.agent.codegen.nodes import primitive
 from vipy.graph_types import (
     CaseFrame,
+    CaseOperation,
     LVType,
     Operation,
+    PrimitiveOperation,
+    SourceInfo,
     Terminal,
     VIContext,
 )
@@ -38,22 +41,30 @@ def _make_op(
     node_type: str = "iUse",
     prim_res_id: int | None = None,
     terminals: list[Terminal] | None = None,
-    case_frames: list[CaseFrame] | None = None,
+    frames: list[CaseFrame] | None = None,
     inner_nodes: list[Operation] | None = None,
     selector_terminal: str | None = None,
 ) -> Operation:
-    """Helper to create an Operation for testing."""
-    return Operation(
-        id=op_id,
-        name=name,
-        labels=labels or ["SubVI"],
-        node_type=node_type,
-        terminals=terminals or [],
-        primResID=prim_res_id,
-        case_frames=case_frames or [],
-        inner_nodes=inner_nodes or [],
-        selector_terminal=selector_terminal,
-    )
+    """Helper to create the right Operation subtype for testing."""
+    common = {
+        "id": op_id,
+        "name": name,
+        "labels": labels or ["SubVI"],
+        "node_type": node_type,
+        "terminals": terminals or [],
+        "inner_nodes": inner_nodes or [],
+    }
+    if frames is not None or selector_terminal is not None:
+        return CaseOperation(
+            **common,
+            frames=frames or [],
+            selector_terminal=selector_terminal,
+        )
+    if prim_res_id is not None:
+        return PrimitiveOperation(
+            **common, primResID=prim_res_id,
+        )
+    return Operation(**common)
 
 
 def _make_terminal(
@@ -138,9 +149,10 @@ class TestNeedsErrorHandling:
         inner_op = _make_op("m", prim_res_id=2401, labels=["Primitive"])
         frame = CaseFrame(
             selector_value="default",
+            is_default=True,
             operations=[inner_op],
         )
-        outer = _make_op("cs", case_frames=[frame])
+        outer = _make_op("cs", frames=[frame])
         assert needs_error_handling([outer]) is True
 
     def test_merge_errors_in_inner_nodes(self):
@@ -167,8 +179,7 @@ class TestMergeErrorsNoOp:
             node_type="prim",
         )
         ctx = CodeGenContext()
-        codegen = PrimitiveCodeGen()
-        fragment = codegen.generate(merge_op, ctx)
+        fragment = primitive.generate(merge_op, ctx)
         assert fragment.statements == []
         assert fragment.bindings == {}
 
@@ -420,7 +431,7 @@ class TestErrorBundleRaise:
 
     def test_bundle_error_cluster_raises(self):
         """Bundling status=True into error cluster generates raise."""
-        from vipy.agent.codegen.nodes.nmux import NMuxCodeGen
+        from vipy.agent.codegen.nodes import nmux
         from vipy.graph_types import ClusterField
 
         error_type = LVType(
@@ -483,8 +494,7 @@ class TestErrorBundleRaise:
                 ]
         ctx.graph = FakeGraph()
 
-        codegen = NMuxCodeGen()
-        fragment = codegen.generate(op, ctx)
+        fragment = nmux.generate(op, ctx)
 
         code = _stmts_to_code(fragment.statements)
         assert "raise LabVIEWError" in code
@@ -494,7 +504,7 @@ class TestErrorBundleRaise:
 
     def test_bundle_error_no_status_is_noop(self):
         """Bundling error cluster without status field is a no-op."""
-        from vipy.agent.codegen.nodes.nmux import NMuxCodeGen
+        from vipy.agent.codegen.nodes import nmux
         from vipy.graph_types import ClusterField
 
         error_type = LVType(
@@ -533,8 +543,7 @@ class TestErrorBundleRaise:
                 ]
         ctx.graph = FakeGraph()
 
-        codegen = NMuxCodeGen()
-        fragment = codegen.generate(op, ctx)
+        fragment = nmux.generate(op, ctx)
         assert fragment.statements == []
 
 

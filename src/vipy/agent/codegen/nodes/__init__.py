@@ -1,103 +1,102 @@
 """Node-specific code generators.
 
-The get_codegen() factory lives here (not in base.py) to avoid a circular
-dependency: base.py defines NodeCodeGen which all node files subclass,
-so base.py cannot import them at module level. This __init__.py is the
-package entry point — nothing inside the package imports from it.
+generate(node, ctx) is the single entry point. Match narrows the
+Operation subtype, dispatches to the appropriate module function.
+No classes — each module exposes generate(node, ctx) + helpers.
 """
 
-from vipy.graph_types import Operation
+from __future__ import annotations
 
-from .base import (
-    CodeGenError,
-    MissingDependencyError,
-    NodeCodeGen,
-    UnknownNodeCodeGen,
-    UnknownNodeError,
+import ast
+
+from vipy.graph_types import (
+    CaseOperation,
+    InvokeOperation,
+    LoopOperation,
+    Operation,
+    PrimitiveOperation,
+    PropertyOperation,
+    SequenceOperation,
+    SubVIOperation,
 )
-from .case import CaseCodeGen
-from .compound import ArrayBuildCodeGen, CompoundArithCodeGen
-from .constant import ConstantCodeGen
-from .invoke_node import InvokeNodeCodeGen
-from .loop import LoopCodeGen
-from .nmux import NMuxCodeGen
-from .primitive import PrimitiveCodeGen
-from .printf import PrintfCodeGen
-from .property_node import PropertyNodeCodeGen
-from .sequence import FlatSequenceCodeGen
-from .subvi import SubVICodeGen
+
+from ..context import CodeGenContext
+from ..fragment import CodeFragment
+
+# Import modules (not classes) for dispatch
+from . import (
+    case,
+    compound,
+    constant,
+    invoke_node,
+    loop,
+    nmux,
+    primitive,
+    printf,
+    property_node,
+    sequence,
+    subvi,
+)
+from .base import CodeGenError, MissingDependencyError, UnknownNodeError
 
 
-def get_codegen(node: Operation, strict: bool = False) -> NodeCodeGen:
-    """Factory: return appropriate CodeGen for a node.
+def generate(node: Operation, ctx: CodeGenContext) -> CodeFragment:
+    """Generate code for an operation node.
 
-    Args:
-        node: Operation dataclass with 'labels' indicating type
-        strict: If True, raise UnknownNodeError for unsupported nodes
-
-    Returns:
-        Appropriate NodeCodeGen instance
-
-    Raises:
-        UnknownNodeError: If strict=True and node type is not recognized
+    Match-based dispatch: narrows the type, calls the right module.
     """
-    labels = node.labels
-    node_type = node.node_type or ""
+    match node:
+        case CaseOperation():
+            return case.generate(node, ctx)
+        case LoopOperation():
+            return loop.generate(node, ctx)
+        case SequenceOperation():
+            return sequence.generate(node, ctx)
+        case PropertyOperation():
+            return property_node.generate(node, ctx)
+        case InvokeOperation():
+            return invoke_node.generate(node, ctx)
+        case SubVIOperation():
+            return subvi.generate(node, ctx)
+        case PrimitiveOperation():
+            return _generate_primitive(node, ctx)
+        case _ if "Constant" in node.labels:
+            return constant.generate(node, ctx)
+        case _:
+            return _generate_unknown(node)
 
-    # --- Specific node_type checks first (override generic labels) ---
 
-    # Structural containers
-    if node.loop_type in ("whileLoop", "forLoop"):
-        return LoopCodeGen()
-    if node_type in ("flatSequence", "seq"):
-        return FlatSequenceCodeGen()
-    if node_type in ("caseStruct", "select"):
-        return CaseCodeGen()
+def _generate_primitive(
+    node: PrimitiveOperation, ctx: CodeGenContext,
+) -> CodeFragment:
+    """Secondary dispatch for PrimitiveOperation by node_type."""
+    match node.node_type:
+        case "cpdArith":
+            return compound.generate_compound_arith(node, ctx)
+        case "aBuild":
+            return compound.generate_array_build(node, ctx)
+        case "nMux":
+            return nmux.generate(node, ctx)
+        case "printf":
+            return printf.generate(node, ctx)
+        case _:
+            return primitive.generate(node, ctx)
 
-    # Specialized node types (may carry generic labels like "Primitive")
-    if node_type == "printf":
-        return PrintfCodeGen()
-    if node_type == "nMux":
-        return NMuxCodeGen()
-    if node_type == "propNode":
-        return PropertyNodeCodeGen()
-    if node_type == "invokeNode":
-        return InvokeNodeCodeGen()
-    if node_type == "cpdArith":
-        return CompoundArithCodeGen()
-    if node_type == "aBuild":
-        return ArrayBuildCodeGen()
 
-    # --- Generic label checks (fallback) ---
-
-    if "SubVI" in labels:
-        return SubVICodeGen()
-    if "Primitive" in labels:
-        return PrimitiveCodeGen()
-    if "Constant" in labels:
-        return ConstantCodeGen()
-    if "FlatSequence" in labels:
-        return FlatSequenceCodeGen()
-    if "CaseStructure" in labels:
-        return CaseCodeGen()
-
-    # Unknown node type
-    if strict:
-        node_id = node.id
-        node_name = node.name or "unknown"
-        raise UnknownNodeError(
-            f"Unknown node type: {labels} (id={node_id}, name={node_name})",
-            node=node,
-        )
-
-    # Default: placeholder generator that emits a warning comment
-    return UnknownNodeCodeGen()
+def _generate_unknown(node: Operation) -> CodeFragment:
+    """Emit a warning comment for unsupported node types."""
+    node_name = node.name or "unknown"
+    warning = (
+        f"# WARNING: Unknown node type {node.labels}"
+        f" (id={node.id}, name={node_name})"
+    )
+    stmt = ast.Expr(value=ast.Constant(value=warning))
+    return CodeFragment(statements=[stmt])
 
 
 __all__ = [
     "CodeGenError",
     "MissingDependencyError",
-    "NodeCodeGen",
     "UnknownNodeError",
-    "get_codegen",
+    "generate",
 ]

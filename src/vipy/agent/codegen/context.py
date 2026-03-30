@@ -65,19 +65,18 @@ class CodeGenContext:
 
         If no body generator was registered (e.g. unit tests calling a
         node codegen directly), falls back to sequential dispatch via
-        get_codegen. This import is safe at runtime because node files
+        generate(). This import is safe at runtime because node files
         only reference CodeGenContext inside TYPE_CHECKING guards.
         """
         if self._body_generator is not None:
             return self._body_generator(operations, self)
 
         # Fallback: sequential dispatch (no parallel tiers)
-        from .nodes import get_codegen
+        from .nodes import generate as generate_node
 
         stmts: list[ast.stmt] = []
         for node in operations:
-            codegen = get_codegen(node)
-            fragment = codegen.generate(node, self)
+            fragment = generate_node(node, self)
             stmts.extend(fragment.statements)
             self.merge(fragment.bindings)
             self.imports.update(fragment.imports)
