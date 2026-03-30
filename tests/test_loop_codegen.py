@@ -4,23 +4,23 @@ from __future__ import annotations
 
 import ast
 
-import pytest
-
 from tests.conftest import make_ctx
 from vipy.agent.codegen.context import CodeGenContext
-from vipy.agent.codegen.nodes.loop import LoopCodeGen, _negate_condition
-from vipy.graph_types import Operation, Tunnel, Wire
+from vipy.agent.codegen.nodes import loop
+from vipy.agent.codegen.nodes.loop import (
+    _get_dest_terminal_name,
+    _get_source_terminal_name,
+    _make_var_name,
+    _negate_condition,
+    _singularize,
+)
+from vipy.graph_types import LoopOperation, Tunnel, Wire
 
 
 class TestMakeVarName:
-    """Tests for LoopCodeGen._make_var_name()."""
+    """Tests for loop._make_var_name()."""
 
-    @pytest.fixture
-    def loop_codegen(self) -> LoopCodeGen:
-        """Create a LoopCodeGen instance."""
-        return LoopCodeGen()
-
-    def test_make_var_name_from_source_terminal(self, loop_codegen: LoopCodeGen):
+    def test_make_var_name_from_source_terminal(self):
         """Test deriving var name from source terminal name."""
         data_flow = [
             Wire.from_terminals(
@@ -37,10 +37,10 @@ class TestMakeVarName:
             tunnel_type="lSR",
         )
 
-        var_name = loop_codegen._make_var_name(tunnel, ctx)
+        var_name = _make_var_name(tunnel, ctx)
         assert var_name == "input_path"
 
-    def test_make_var_name_from_dest_terminal(self, loop_codegen: LoopCodeGen):
+    def test_make_var_name_from_dest_terminal(self):
         """Test deriving var name from destination terminal name when source unnamed."""
         # Source has no name, but destination is an indicator
         data_flow = [
@@ -59,12 +59,11 @@ class TestMakeVarName:
             tunnel_type="lSR",
         )
 
-        var_name = loop_codegen._make_var_name(tunnel, ctx)
+        var_name = _make_var_name(tunnel, ctx)
         assert var_name == "final_count"
 
     def test_make_var_name_fallback_for_lsr_shift_register(
-        self, loop_codegen: LoopCodeGen
-    ):
+        self    ):
         """Test fallback naming for shift register tunnels."""
         ctx = CodeGenContext()
 
@@ -74,13 +73,12 @@ class TestMakeVarName:
             tunnel_type="lSR",
         )
 
-        var_name = loop_codegen._make_var_name(tunnel, ctx)
+        var_name = _make_var_name(tunnel, ctx)
         # Should use generic shift register name
         assert var_name == "state"
 
     def test_make_var_name_fallback_for_lmax_accumulator(
-        self, loop_codegen: LoopCodeGen
-    ):
+        self    ):
         """Test fallback naming for lMax accumulator tunnels."""
         ctx = CodeGenContext()
 
@@ -90,10 +88,10 @@ class TestMakeVarName:
             tunnel_type="lMax",
         )
 
-        var_name = loop_codegen._make_var_name(tunnel, ctx)
+        var_name = _make_var_name(tunnel, ctx)
         assert var_name == "results"
 
-    def test_make_var_name_generic_fallback(self, loop_codegen: LoopCodeGen):
+    def test_make_var_name_generic_fallback(self):
         """Test generic fallback for unknown tunnel types."""
         ctx = CodeGenContext()
 
@@ -103,80 +101,71 @@ class TestMakeVarName:
             tunnel_type="lpTun",  # Loop tunnel, not lSR or lMax
         )
 
-        var_name = loop_codegen._make_var_name(tunnel, ctx)
+        var_name = _make_var_name(tunnel, ctx)
         assert var_name == "value"
 
 
 class TestSingularize:
-    """Tests for LoopCodeGen._singularize()."""
+    """Tests for loop._singularize()."""
 
-    @pytest.fixture
-    def loop_codegen(self) -> LoopCodeGen:
-        """Create a LoopCodeGen instance."""
-        return LoopCodeGen()
-
-    def test_singularize_basic_plural(self, loop_codegen: LoopCodeGen):
+    def test_singularize_basic_plural(self):
         """Test singularizing basic plural forms ending in 's'."""
         ctx = CodeGenContext()
-        assert loop_codegen._singularize("methods", ctx) == "method"
-        assert loop_codegen._singularize("items", ctx) == "item"
-        assert loop_codegen._singularize("values", ctx) == "value"
-        assert loop_codegen._singularize("paths", ctx) == "path"
+        assert _singularize("methods", ctx) == "method"
+        assert _singularize("items", ctx) == "item"
+        assert _singularize("values", ctx) == "value"
+        assert _singularize("paths", ctx) == "path"
 
-    def test_singularize_ies_ending(self, loop_codegen: LoopCodeGen):
+    def test_singularize_ies_ending(self):
         """Test singularizing words ending in 'ies'."""
         ctx = CodeGenContext()
-        assert loop_codegen._singularize("entries", ctx) == "entry"
-        assert loop_codegen._singularize("properties", ctx) == "property"
+        assert _singularize("entries", ctx) == "entry"
+        assert _singularize("properties", ctx) == "property"
 
-    def test_singularize_ses_xes_ches_endings(self, loop_codegen: LoopCodeGen):
+    def test_singularize_ses_xes_ches_endings(self):
         """Test singularizing words ending in 'ses', 'xes', 'ches'."""
         ctx = CodeGenContext()
-        assert loop_codegen._singularize("boxes", ctx) == "box"
-        assert loop_codegen._singularize("matches", ctx) == "match"
+        assert _singularize("boxes", ctx) == "box"
+        assert _singularize("matches", ctx) == "match"
 
-    def test_singularize_data(self, loop_codegen: LoopCodeGen):
+    def test_singularize_data(self):
         """Test singularizing 'data' to 'datum'."""
         ctx = CodeGenContext()
-        assert loop_codegen._singularize("data", ctx) == "datum"
+        assert _singularize("data", ctx) == "datum"
 
-    def test_singularize_array(self, loop_codegen: LoopCodeGen):
+    def test_singularize_array(self):
         """Test singularizing 'array' to 'element'."""
         ctx = CodeGenContext()
-        assert loop_codegen._singularize("array", ctx) == "element"
+        assert _singularize("array", ctx) == "element"
 
-    def test_singularize_non_plural(self, loop_codegen: LoopCodeGen):
+    def test_singularize_non_plural(self):
         """Test singularizing non-plural words adds '_item'."""
         ctx = CodeGenContext()
-        assert loop_codegen._singularize("config", ctx) == "config_item"
+        assert _singularize("config", ctx) == "config_item"
 
-    def test_singularize_conflict_resolution(self, loop_codegen: LoopCodeGen):
+    def test_singularize_conflict_resolution(self):
         """Test that conflicts with existing bindings are resolved."""
         ctx = make_ctx("t1")
         ctx.bind("t1", "method")  # 'method' is already used
 
         # Should add suffix to avoid conflict
-        result = loop_codegen._singularize("methods", ctx)
+        result = _singularize("methods", ctx)
         assert result == "method_2"
 
-    def test_singularize_multiple_conflicts(self, loop_codegen: LoopCodeGen):
+    def test_singularize_multiple_conflicts(self):
         """Test resolving multiple conflicts."""
         ctx = make_ctx("t1", "t2")
         ctx.bind("t1", "item")
         ctx.bind("t2", "item_2")
 
-        result = loop_codegen._singularize("items", ctx)
+        result = _singularize("items", ctx)
         assert result == "item_3"
 
 
 class TestGetSourceTerminalName:
-    """Tests for LoopCodeGen._get_source_terminal_name()."""
+    """Tests for loop._get_source_terminal_name()."""
 
-    @pytest.fixture
-    def loop_codegen(self) -> LoopCodeGen:
-        return LoopCodeGen()
-
-    def test_get_source_terminal_name_direct(self, loop_codegen: LoopCodeGen):
+    def test_get_source_terminal_name_direct(self):
         """Test getting name from direct source parent."""
         data_flow = [
             Wire.from_terminals(
@@ -187,10 +176,10 @@ class TestGetSourceTerminalName:
         ]
         ctx = CodeGenContext.from_wires(data_flow)
 
-        name = loop_codegen._get_source_terminal_name("dest1", ctx)
+        name = _get_source_terminal_name("dest1", ctx)
         assert name == "My Input"
 
-    def test_get_source_terminal_name_recursive(self, loop_codegen: LoopCodeGen):
+    def test_get_source_terminal_name_recursive(self):
         """Test tracing back through multiple wires."""
         data_flow = [
             Wire.from_terminals(
@@ -202,25 +191,21 @@ class TestGetSourceTerminalName:
         ]
         ctx = CodeGenContext.from_wires(data_flow)
 
-        name = loop_codegen._get_source_terminal_name("dest1", ctx)
+        name = _get_source_terminal_name("dest1", ctx)
         assert name == "Original Source"
 
-    def test_get_source_terminal_name_not_found(self, loop_codegen: LoopCodeGen):
+    def test_get_source_terminal_name_not_found(self):
         """Test returns None when no name found."""
         ctx = CodeGenContext()
 
-        name = loop_codegen._get_source_terminal_name("unknown", ctx)
+        name = _get_source_terminal_name("unknown", ctx)
         assert name is None
 
 
 class TestGetDestTerminalName:
-    """Tests for LoopCodeGen._get_dest_terminal_name()."""
+    """Tests for loop._get_dest_terminal_name()."""
 
-    @pytest.fixture
-    def loop_codegen(self) -> LoopCodeGen:
-        return LoopCodeGen()
-
-    def test_get_dest_terminal_name_indicator(self, loop_codegen: LoopCodeGen):
+    def test_get_dest_terminal_name_indicator(self):
         """Test getting name from indicator destination."""
         data_flow = [
             Wire.from_terminals(
@@ -232,10 +217,10 @@ class TestGetDestTerminalName:
         ]
         ctx = CodeGenContext.from_wires(data_flow)
 
-        name = loop_codegen._get_dest_terminal_name("src1", ctx)
+        name = _get_dest_terminal_name("src1", ctx)
         assert name == "Output Result"
 
-    def test_get_dest_terminal_name_subvi_param(self, loop_codegen: LoopCodeGen):
+    def test_get_dest_terminal_name_subvi_param(self):
         """Test getting name from SubVI destination.
 
         When a value flows to a SubVI input, the SubVI name is used
@@ -253,14 +238,14 @@ class TestGetDestTerminalName:
         ]
         ctx = CodeGenContext.from_wires(data_flow)
 
-        name = loop_codegen._get_dest_terminal_name("src1", ctx)
+        name = _get_dest_terminal_name("src1", ctx)
         assert name == "Helper.vi"
 
-    def test_get_dest_terminal_name_not_found(self, loop_codegen: LoopCodeGen):
+    def test_get_dest_terminal_name_not_found(self):
         """Test returns None when no name found."""
         ctx = CodeGenContext()
 
-        name = loop_codegen._get_dest_terminal_name("unknown", ctx)
+        name = _get_dest_terminal_name("unknown", ctx)
         assert name is None
 
 
@@ -336,15 +321,10 @@ class TestNegateCondition:
 
 
 class TestLoopCodeGenGenerate:
-    """Integration tests for LoopCodeGen.generate()."""
-
-    @pytest.fixture
-    def loop_codegen(self) -> LoopCodeGen:
-        return LoopCodeGen()
+    """Integration tests for loop.generate()."""
 
     def test_generate_for_loop_with_single_array_uses_enumerate(
-        self, loop_codegen: LoopCodeGen
-    ):
+        self    ):
         """Test for loop with single array input uses enumerate pattern."""
         data_flow = [
             Wire.from_terminals(
@@ -354,7 +334,7 @@ class TestLoopCodeGenGenerate:
         ctx = CodeGenContext.from_wires(data_flow)
         ctx.bind("input_arr", "items")
 
-        loop_op = Operation(
+        loop_op = LoopOperation(
             id="loop1",
             name="For Loop",
             labels=["Loop"],
@@ -369,7 +349,7 @@ class TestLoopCodeGenGenerate:
             inner_nodes=[],
         )
 
-        fragment = loop_codegen.generate(loop_op, ctx)
+        fragment = loop.generate(loop_op, ctx)
 
         # Find the For loop
         for_loop = None
@@ -390,8 +370,7 @@ class TestLoopCodeGenGenerate:
         assert for_loop.iter.args[0].id == "items"
 
     def test_generate_for_loop_with_n_terminal_uses_range(
-        self, loop_codegen: LoopCodeGen
-    ):
+        self    ):
         """Test for loop with N terminal (count) uses range pattern."""
         data_flow = [
             Wire.from_terminals(
@@ -401,7 +380,7 @@ class TestLoopCodeGenGenerate:
         ctx = CodeGenContext.from_wires(data_flow)
         ctx.bind("count_src", "10")
 
-        loop_op = Operation(
+        loop_op = LoopOperation(
             id="loop1",
             name="For Loop",
             labels=["Loop"],
@@ -417,7 +396,7 @@ class TestLoopCodeGenGenerate:
             inner_nodes=[],
         )
 
-        fragment = loop_codegen.generate(loop_op, ctx)
+        fragment = loop.generate(loop_op, ctx)
 
         for_loop = None
         for stmt in fragment.statements:
@@ -434,8 +413,7 @@ class TestLoopCodeGenGenerate:
         assert for_loop.iter.func.id == "range"
 
     def test_generate_while_loop_initializes_shift_register(
-        self, loop_codegen: LoopCodeGen
-    ):
+        self    ):
         """Test while loop with shift register initializes variable correctly."""
         data_flow = [
             Wire.from_terminals(
@@ -447,7 +425,7 @@ class TestLoopCodeGenGenerate:
         ctx = CodeGenContext.from_wires(data_flow)
         ctx.bind("init_val", "0")
 
-        loop_op = Operation(
+        loop_op = LoopOperation(
             id="loop1",
             name="While Loop",
             labels=["Loop"],
@@ -462,7 +440,7 @@ class TestLoopCodeGenGenerate:
             inner_nodes=[],
         )
 
-        fragment = loop_codegen.generate(loop_op, ctx)
+        fragment = loop.generate(loop_op, ctx)
 
         # Find initialization assignment (before the while loop)
         init_assign = None
@@ -482,8 +460,7 @@ class TestLoopCodeGenGenerate:
         assert "= 0" in init_code, f"Should initialize to 0, got: {init_code}"
 
     def test_generate_while_loop_accumulator_appends_values(
-        self, loop_codegen: LoopCodeGen
-    ):
+        self    ):
         """Test while loop with lMax accumulator generates append calls."""
         # lMax with incoming flow = accumulator (builds list)
         data_flow = [
@@ -494,7 +471,7 @@ class TestLoopCodeGenGenerate:
         ctx = CodeGenContext.from_wires(data_flow)
         ctx.bind("inner_result", "computed_value")
 
-        loop_op = Operation(
+        loop_op = LoopOperation(
             id="loop1",
             name="While Loop",
             labels=["Loop"],
@@ -509,7 +486,7 @@ class TestLoopCodeGenGenerate:
             inner_nodes=[],
         )
 
-        fragment = loop_codegen.generate(loop_op, ctx)
+        fragment = loop.generate(loop_op, ctx)
 
         # Find list initialization and while loop
         init_assign = None
@@ -538,13 +515,12 @@ class TestLoopCodeGenGenerate:
         assert "lmax_outer" in fragment.bindings
 
     def test_generate_nested_loop_uses_different_index_vars(
-        self, loop_codegen: LoopCodeGen
-    ):
+        self    ):
         """Test that nested loops use i, j, k for index variables."""
         # Outer loop at depth 0
         ctx_outer = CodeGenContext(loop_depth=0)
 
-        outer_loop = Operation(
+        outer_loop = LoopOperation(
             id="outer",
             name="Outer For",
             labels=["Loop"],
@@ -553,12 +529,12 @@ class TestLoopCodeGenGenerate:
             inner_nodes=[],
         )
 
-        outer_fragment = loop_codegen.generate(outer_loop, ctx_outer)
+        outer_fragment = loop.generate(outer_loop, ctx_outer)
 
         # Inner loop at depth 1
         ctx_inner = CodeGenContext(loop_depth=1)
 
-        inner_loop = Operation(
+        inner_loop = LoopOperation(
             id="inner",
             name="Inner For",
             labels=["Loop"],
@@ -567,7 +543,7 @@ class TestLoopCodeGenGenerate:
             inner_nodes=[],
         )
 
-        inner_fragment = loop_codegen.generate(inner_loop, ctx_inner)
+        inner_fragment = loop.generate(inner_loop, ctx_inner)
 
         # Find both for loops
         def find_for_loop(stmts):
@@ -601,10 +577,6 @@ class TestLoopCodeGenGenerate:
 class TestLoopCodeGenExecutable:
     """Tests that verify generated loop code actually executes correctly."""
 
-    @pytest.fixture
-    def loop_codegen(self) -> LoopCodeGen:
-        return LoopCodeGen()
-
     def _compile_and_run(self, statements: list[ast.stmt], local_vars: dict) -> dict:
         """Compile statements and execute, returning resulting locals."""
         module = ast.Module(body=statements, type_ignores=[])
@@ -613,7 +585,7 @@ class TestLoopCodeGenExecutable:
         exec(code, {}, local_vars)
         return local_vars
 
-    def test_for_loop_with_enumerate_executes(self, loop_codegen: LoopCodeGen):
+    def test_for_loop_with_enumerate_executes(self):
         """Test that generated for loop with enumerate actually runs."""
         data_flow = [
             Wire.from_terminals(from_terminal_id="arr_src", to_terminal_id="tun_outer"),
@@ -621,7 +593,7 @@ class TestLoopCodeGenExecutable:
         ctx = CodeGenContext.from_wires(data_flow)
         ctx.bind("arr_src", "test_items")
 
-        loop_op = Operation(
+        loop_op = LoopOperation(
             id="loop1",
             name="For Loop",
             labels=["Loop"],
@@ -636,7 +608,7 @@ class TestLoopCodeGenExecutable:
             inner_nodes=[],
         )
 
-        fragment = loop_codegen.generate(loop_op, ctx)
+        fragment = loop.generate(loop_op, ctx)
 
         # Execute with test data
         local_vars = {"test_items": ["a", "b", "c"]}
@@ -647,8 +619,7 @@ class TestLoopCodeGenExecutable:
         assert result["i"] == 2  # Last index
 
     def test_while_loop_accumulator_initializes_empty_list(
-        self, loop_codegen: LoopCodeGen
-    ):
+        self    ):
         """Test that accumulator generates an empty list initialization.
 
         Verifying actual accumulator behavior requires a full VI context with
@@ -664,7 +635,7 @@ class TestLoopCodeGenExecutable:
         ctx = CodeGenContext.from_wires(data_flow)
         ctx.bind("val_src", "iteration")
 
-        loop_op = Operation(
+        loop_op = LoopOperation(
             id="loop1",
             name="While Loop",
             labels=["Loop"],
@@ -680,7 +651,7 @@ class TestLoopCodeGenExecutable:
             stop_condition_terminal="stop_term",
         )
 
-        fragment = loop_codegen.generate(loop_op, ctx)
+        fragment = loop.generate(loop_op, ctx)
 
         # Find list initialization
         init_assigns = [s for s in fragment.statements if isinstance(s, ast.Assign)]

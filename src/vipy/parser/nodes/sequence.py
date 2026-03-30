@@ -5,9 +5,9 @@ from __future__ import annotations
 import xml.etree.ElementTree as ET
 
 from vipy.constants import TERMINAL_CLASS, TUNNEL_DCO_CLASSES
-from vipy.graph_types import Tunnel
+from vipy.graph_types import SequenceFrame, Tunnel
 
-from ..models import FlatSequenceStructure, SequenceFrame
+from ..models import FlatSequenceStructure
 from .base import extract_tunnel_mapping
 
 # Both flat and stacked sequences enforce sequential execution.
@@ -71,9 +71,9 @@ def _extract_one_sequence(
     # Also extract tunnels from the sequence's own termList
     _extract_tunnels_from_termlist(seq_elem, all_tunnels)
 
-    for frame_elem in frame_container.findall(
+    for i, frame_elem in enumerate(frame_container.findall(
         f"SL__arrayElement[@class='{frame_class}']"
-    ):
+    )):
         frame_uid = frame_elem.get("uid")
         if not frame_uid:
             continue
@@ -85,6 +85,7 @@ def _extract_one_sequence(
         inner_node_uids = _extract_inner_node_uids(frame_elem)
 
         frames.append(SequenceFrame(
+            index=i,
             uid=frame_uid,
             inner_node_uids=inner_node_uids,
         ))

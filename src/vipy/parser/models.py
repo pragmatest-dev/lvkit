@@ -113,46 +113,24 @@ class LoopStructure:
     stop_condition_terminal_uid: str | None = None  # While loop stop (lTst)
 
 
-@dataclass
-class CaseFrame:
-    """A single case frame in a case structure.
-
-    Each frame contains:
-    - selector_value: Trigger value ("True", "False", "0", "Default")
-    - inner_node_uids: UIDs of nodes inside this frame
-    - is_default: Whether this is the default case
-    """
-    selector_value: str
-    inner_node_uids: list[str] = field(default_factory=list)
-    is_default: bool = False
+from ..graph_types import CaseFrame, SequenceFrame  # noqa: E402
 
 
 @dataclass
 class CaseStructure:
-    """A case structure on the block diagram.
+    """A case structure on the block diagram."""
 
-    Contains:
-    - Selector terminal that receives the selector value
-    - Multiple frames (cases) with their operations
-    - Input/output tunnels connecting outer<->inner terminals
-    """
     uid: str
-    selector_terminal_uid: str | None = None  # Terminal receiving selector value
-    selector_type: str | None = None  # "boolean", "integer", "enum", "string"
+    selector_terminal_uid: str | None = None
+    selector_type: str | None = None
     frames: list[CaseFrame] = field(default_factory=list)
-    tunnels: list[Tunnel] = field(default_factory=list)  # Input/output tunnels
-
-
-@dataclass
-class SequenceFrame:
-    """A single frame in a flat sequence structure."""
-    uid: str
-    inner_node_uids: list[str] = field(default_factory=list)
+    tunnels: list[Tunnel] = field(default_factory=list)
 
 
 @dataclass
 class FlatSequenceStructure:
     """A flat sequence structure on the block diagram."""
+
     uid: str
     tunnels: list[Tunnel] = field(default_factory=list)
     frames: list[SequenceFrame] = field(default_factory=list)

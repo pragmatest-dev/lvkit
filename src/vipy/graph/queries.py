@@ -530,7 +530,7 @@ class QueryMixin:
 
         Returns operations in dataflow execution order.
         Only returns top-level operations -- inner operations (parent != None)
-        are nested inside their structure's inner_nodes/case_frames lists.
+        are nested inside their structure's inner_nodes/frames lists.
         """
         node_uids = self._vi_nodes.get(vi_name)
         if node_uids is None:

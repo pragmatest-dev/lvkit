@@ -48,7 +48,14 @@ import ast
 from enum import Enum, auto
 from typing import TYPE_CHECKING
 
-from vipy.graph_types import Operation, VIContext, _is_error_cluster
+from vipy.graph_types import (
+    CaseOperation,
+    Operation,
+    PrimitiveOperation,
+    SequenceOperation,
+    VIContext,
+    _is_error_cluster,
+)
 
 if TYPE_CHECKING:
     from vipy.agent.codegen.context import CodeGenContext
@@ -70,7 +77,7 @@ def classify_error_node(op: Operation) -> ErrorHandlingPattern:
     This is a structural check based on node identity.
     """
     # Merge Errors primitive (prim 2401)
-    if op.primResID == 2401:
+    if isinstance(op, PrimitiveOperation) and op.primResID == 2401:
         return ErrorHandlingPattern.MERGE
 
     # Clear Errors VI
@@ -78,7 +85,7 @@ def classify_error_node(op: Operation) -> ErrorHandlingPattern:
         return ErrorHandlingPattern.CLEAR
 
     # Error case structure: selector terminal carries error cluster type
-    if op.node_type == "structure" and op.selector_terminal:
+    if isinstance(op, CaseOperation) and op.selector_terminal:
         for term in op.terminals:
             if term.id == op.selector_terminal and term.lv_type:
                 if _is_error_cluster(term.lv_type):
@@ -100,10 +107,11 @@ def needs_error_handling(
     for op in operations:
         if classify_error_node(op) == ErrorHandlingPattern.MERGE:
             return True
-        # Recurse into structures (case frames, inner nodes)
-        for frame in op.case_frames:
-            if needs_error_handling(frame.operations):
-                return True
+        # Recurse into structures (case frames, sequence frames)
+        if isinstance(op, CaseOperation | SequenceOperation):
+            for frame in op.frames:
+                if needs_error_handling(frame.operations):
+                    return True
         if needs_error_handling(op.inner_nodes):
             return True
     return False

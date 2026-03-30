@@ -9,8 +9,11 @@ import pytest
 from vipy.graph_types import (
     Constant,
     FPTerminal,
+    LoopOperation,
     LVType,
     Operation,
+    PrimitiveOperation,
+    SubVIOperation,
     Terminal,
     Tunnel,
     VIContext,
@@ -146,7 +149,7 @@ def test_build_module_with_primitive():
             ),
         ],
         operations=[
-            Operation(
+            PrimitiveOperation(
                 id="op:1",
                 name="Add",
                 labels=["Primitive"],
@@ -216,7 +219,7 @@ def test_build_module_with_subvi():
             ),
         ],
         operations=[
-            Operation(
+            SubVIOperation(
                 id="op:1",
                 name="Helper VI.vi",
                 labels=["SubVI"],
@@ -381,7 +384,7 @@ def test_build_module_with_while_loop():
             ),
         ],
         operations=[
-            Operation(
+            LoopOperation(
                 id="loop:1",
                 name="While Loop",
                 labels=["Loop"],
@@ -432,7 +435,7 @@ def test_build_module_with_for_loop():
     vi_context = VIContext(
         name="Iterate Array.vi",
         operations=[
-            Operation(
+            LoopOperation(
                 id="loop:1",
                 name="For Loop",
                 labels=["Loop"],
@@ -494,7 +497,7 @@ def test_unknown_primitive_raises_at_runtime():
     vi_context = VIContext(
         name="Unknown Prim.vi",
         operations=[
-            Operation(
+            PrimitiveOperation(
                 id="op:1",
                 name="Mystery Primitive",
                 labels=["Primitive"],
@@ -1083,13 +1086,13 @@ def test_build_module_with_nested_loops():
     vi_context = VIContext(
         name="Nested Loops.vi",
         operations=[
-            Operation(
+            LoopOperation(
                 id="outer:1",
                 name="Outer For",
                 labels=["Loop"],
                 loop_type="forLoop",
                 inner_nodes=[
-                    Operation(
+                    LoopOperation(
                         id="inner:1",
                         name="Inner While",
                         labels=["Loop"],

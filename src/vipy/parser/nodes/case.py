@@ -5,9 +5,9 @@ from __future__ import annotations
 import xml.etree.ElementTree as ET
 
 from vipy.constants import STRUCTURE_NODE_CLASSES, TERMINAL_CLASS
-from vipy.graph_types import Tunnel
+from vipy.graph_types import CaseFrame, Tunnel
 
-from ..models import CaseFrame, CaseStructure, TerminalInfo
+from ..models import CaseStructure, TerminalInfo
 from .base import extract_tunnel_mapping
 
 # Tunnel DCO classes used in case structures
@@ -306,7 +306,7 @@ def _extract_frame(
         is_default: Whether this frame is the default case
 
     Returns:
-        CaseFrame or None if invalid
+        Frame or None if invalid
     """
     # Use pre-resolved selector value when available
     if not selector_value:

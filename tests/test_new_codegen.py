@@ -9,16 +9,18 @@ import warnings
 from tests.helpers import make_graph_with_edge, make_graph_with_terminals, make_node
 from vipy.agent.codegen.builder import topological_sort_tiered
 from vipy.agent.codegen.context import CodeGenContext
-from vipy.agent.codegen.nodes.case import CaseCodeGen
-from vipy.agent.codegen.nodes.nmux import NMuxCodeGen
-from vipy.agent.codegen.nodes.property_node import PropertyNodeCodeGen
+from vipy.agent.codegen.nodes import case, invoke_node, nmux, property_node
 from vipy.graph_types import (
     CaseFrame,
+    CaseOperation,
     ClusterField,
+    InvokeOperation,
     LVType,
     Operation,
     PrimitiveNode,
+    PrimitiveOperation,
     PropertyDef,
+    PropertyOperation,
     StructureNode,
     Terminal,
     WireEnd,
@@ -56,14 +58,14 @@ def _make_case_op(
             lv_type=selector_type,
         ),
     ]
-    return Operation(
+    return CaseOperation(
         id="case_1",
         name="Case Structure",
         labels=["CaseStructure"],
         node_type="caseStruct",
         terminals=terminals,
         selector_terminal=selector_id,
-        case_frames=frames or [
+        frames=frames or [
             CaseFrame(selector_value="True", operations=[]),
             CaseFrame(selector_value="False", operations=[]),
         ],
@@ -86,18 +88,18 @@ class TestErrorSelectorByType:
     def test_detects_error_cluster(self):
         op = _make_case_op("sel_1", _error_cluster_type())
         ctx = _make_ctx_with_binding("sel_1", "err")
-        assert CaseCodeGen._is_error_selector_by_type(op, ctx) is True
+        assert case._is_error_selector_by_type(op, ctx) is True
 
     def test_rejects_boolean(self):
         bool_type = LVType(kind="primitive", underlying_type="Boolean")
         op = _make_case_op("sel_1", bool_type)
         ctx = _make_ctx_with_binding("sel_1", "flag")
-        assert CaseCodeGen._is_error_selector_by_type(op, ctx) is False
+        assert case._is_error_selector_by_type(op, ctx) is False
 
     def test_rejects_no_type(self):
         op = _make_case_op("sel_1", None)
         ctx = _make_ctx_with_binding("sel_1", "x")
-        assert CaseCodeGen._is_error_selector_by_type(op, ctx) is False
+        assert case._is_error_selector_by_type(op, ctx) is False
 
     def test_rejects_cluster_without_error_fields(self):
         cluster_type = LVType(
@@ -107,7 +109,7 @@ class TestErrorSelectorByType:
         )
         op = _make_case_op("sel_1", cluster_type)
         ctx = _make_ctx_with_binding("sel_1", "point")
-        assert CaseCodeGen._is_error_selector_by_type(op, ctx) is False
+        assert case._is_error_selector_by_type(op, ctx) is False
 
 
 # ── Error case unwrap ───────────────────────────────────────────────
@@ -122,8 +124,7 @@ class TestErrorCaseUnwrap:
             CaseFrame(selector_value="True", operations=[]),
         ])
         ctx = _make_ctx_with_binding("sel_1", "err")
-        codegen = CaseCodeGen()
-        fragment = codegen.generate(op, ctx)
+        fragment = case.generate(op, ctx)
         # No statements for empty frames
         assert fragment.statements == []
 
@@ -137,10 +138,9 @@ class TestErrorCaseUnwrap:
             CaseFrame(selector_value="True", operations=[inner_op]),
         ])
         ctx = _make_ctx_with_binding("sel_1", "err")
-        codegen = CaseCodeGen()
         with warnings.catch_warnings(record=True) as w:
             warnings.simplefilter("always")
-            codegen.generate(op, ctx)
+            case.generate(op, ctx)
             error_warns = [x for x in w if "error frame omitted" in str(x.message)]
             assert len(error_warns) == 1
 
@@ -204,8 +204,7 @@ class TestNMuxRoles:
             ),
             dest=WireEnd(terminal_id="agg_out", node_id="nmux_node"),
         )
-        codegen = NMuxCodeGen()
-        fragment = codegen.generate(op, ctx)
+        fragment = nmux.generate(op, ctx)
         assert fragment.statements == []  # Pure binding
         assert fragment.bindings.get("agg_out") == "my_cluster"
 
@@ -220,8 +219,7 @@ class TestNMuxRoles:
         ctx = CodeGenContext(graph=graph)
         ctx.bind("agg_in", "cluster")
         ctx.bind("list_in", "field_val")
-        codegen = NMuxCodeGen()
-        fragment = codegen.generate(op, ctx)
+        fragment = nmux.generate(op, ctx)
         assert fragment.bindings.get("list_out") == "field_val"
 
     def test_no_roles_produces_no_bindings(self):
@@ -231,8 +229,7 @@ class TestNMuxRoles:
             Terminal(id="out_0", index=1, direction="output"),
         ])
         ctx = _make_ctx_with_binding("in_0", "value")
-        codegen = NMuxCodeGen()
-        fragment = codegen.generate(op, ctx)
+        fragment = nmux.generate(op, ctx)
         assert fragment.bindings == {}
 
 
@@ -257,7 +254,7 @@ class TestPropertyDedup:
             dest=WireEnd(terminal_id="out_1", node_id=nid_out),
         )
 
-        op = Operation(
+        op = PropertyOperation(
             id="prop_1", name="Property Node",
             labels=["PropertyNode"], node_type="propNode",
             terminals=[
@@ -270,8 +267,7 @@ class TestPropertyDedup:
                 PropertyDef(name="value"),
             ],
         )
-        codegen = PropertyNodeCodeGen()
-        fragment = codegen.generate(op, ctx)
+        fragment = property_node.generate(op, ctx)
         # Should only have 1 assignment, not 3
         assigns = [s for s in fragment.statements if isinstance(s, ast.Assign)]
         assert len(assigns) == 1
@@ -284,7 +280,7 @@ class TestPassthroughElimination:
     """Primitive passthroughs (in_N → out) create bindings, not assignments."""
 
     def test_passthrough_detected(self):
-        from vipy.agent.codegen.nodes.primitive import PrimitiveCodeGen
+        from vipy.agent.codegen.nodes import primitive
 
         # Primitive with python_code: {"output": "in_0"} — pure passthrough
         graph = make_graph_with_edge("src_t", "in_t")
@@ -301,11 +297,10 @@ class TestPassthroughElimination:
         ctx = CodeGenContext(graph=graph)
         ctx.bind("src_t", "my_input")
 
-        codegen = PrimitiveCodeGen()
         hint = {"output": "in_0"}
         input_map = {"in_0": "my_input"}
 
-        op = Operation(
+        op = PrimitiveOperation(
             id="prim_1", name="Passthrough",
             labels=["Primitive"], node_type="prim",
             primResID=9999,
@@ -315,7 +310,7 @@ class TestPassthroughElimination:
             ],
         )
 
-        bindings, skip_ids = codegen._detect_passthroughs(
+        bindings, skip_ids = primitive._detect_passthroughs(
             op, hint, input_map, ctx, None,
         )
         assert "out_t" in bindings
@@ -392,7 +387,7 @@ class TestSelectorTopoSort:
         )
 
         # Build operations
-        producer_op = Operation(
+        producer_op = PrimitiveOperation(
             id="equal_1", name="Equal?", labels=["Primitive"],
             node_type="prim", primResID=1091,
             terminals=[
@@ -400,14 +395,14 @@ class TestSelectorTopoSort:
                 Terminal(id="eq_out", index=0, direction="output"),
             ],
         )
-        case_op = Operation(
+        case_op = CaseOperation(
             id="case_1", name="Case", labels=["CaseStructure"],
             node_type="caseStruct",
             terminals=[
                 Terminal(id="sel_in", index=0, direction="input", name="selector"),
             ],
             selector_terminal="sel_in",
-            case_frames=[
+            frames=[
                 CaseFrame(selector_value="True", operations=[]),
                 CaseFrame(selector_value="False", operations=[]),
             ],
@@ -435,7 +430,7 @@ class TestInvokeErrorSkip:
     """Invoke node codegen skips error cluster terminal arguments."""
 
     def test_error_arg_not_in_call(self):
-        from vipy.agent.codegen.nodes.invoke_node import InvokeNodeCodeGen
+        
 
         graph = InMemoryVIGraph()
         # Create source nodes that wire into the invoke terminals
@@ -446,8 +441,8 @@ class TestInvokeErrorSkip:
             graph._graph.add_node(nid, node=node)
             graph._term_to_node[tid] = nid
         # Create the invoke node with its terminals
-        invoke_node = make_node("invoke_1", ["ref_t_in", "err_t_in", "data_t_in"])
-        graph._graph.add_node("invoke_1", node=invoke_node)
+        invoke_gnode = make_node("invoke_1", ["ref_t_in", "err_t_in", "data_t_in"])
+        graph._graph.add_node("invoke_1", node=invoke_gnode)
         for tid in ("ref_t_in", "err_t_in", "data_t_in"):
             graph._term_to_node[tid] = "invoke_1"
         # Wire sources into invoke terminals
@@ -467,7 +462,7 @@ class TestInvokeErrorSkip:
         ctx.bind("err_t", "error_in")
         ctx.bind("data_t", "my_data")
 
-        op = Operation(
+        op = InvokeOperation(
             id="invoke_1", name="Invoke",
             labels=["InvokeNode"], node_type="invokeNode",
             terminals=[
@@ -484,8 +479,7 @@ class TestInvokeErrorSkip:
             method_name="Ctrl Val.Set",
         )
 
-        codegen = InvokeNodeCodeGen()
-        fragment = codegen.generate(op, ctx)
+        fragment = invoke_node.generate(op, ctx)
 
         # Unparse the generated call
         code = ast.unparse(ast.fix_missing_locations(

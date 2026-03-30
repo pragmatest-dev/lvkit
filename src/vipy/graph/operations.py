@@ -2,7 +2,7 @@
 
 Methods: _build_operation, _tunnels_from_terminals, _enrich_subvi_terminals_typed,
 _get_slot_to_name, resolve_name, _sort_inner_uids, _build_inner_nodes,
-_get_children_of, _build_case_frames_from_parent, _build_sequence_frames_from_parent.
+_get_children_of, _build_frames_from_parent, _build_sequence_frames_from_parent.
 """
 
 from __future__ import annotations
@@ -13,12 +13,21 @@ import networkx as nx
 
 from ..graph_types import (
     CaseFrame,
+    CaseOperation,
+    CaseStructureNode,
     FPTerminal,
-    FrameInfo,
+    InvokeOperation,
+    LoopNode,
+    LoopOperation,
     Operation,
     PolyInfo,
-    PropertyDef,
+    PrimitiveOperation,
+    PropertyOperation,
+    SequenceFrame,
+    SequenceNode,
+    SequenceOperation,
     StructureNode,
+    SubVIOperation,
     Terminal,
     Tunnel,
     TunnelTerminal,
@@ -76,6 +85,7 @@ class OperationsMixin:
         loop_type: str | None = None
         stop_cond: str | None = None
         case_frames: list[CaseFrame] = []
+        seq_frames: list[SequenceFrame] = []
         selector_terminal: str | None = None
         node_type = gnode.node_type or ""
 
@@ -86,25 +96,25 @@ class OperationsMixin:
             # Query inner nodes by parent
             child_uids = self._get_children_of(uid, vi_name)
 
-            if node_type in ("whileLoop", "forLoop"):
+            if isinstance(gnode, LoopNode):
                 labels = ["Loop"]
-                loop_type = node_type
+                loop_type = gnode.loop_type
                 inner_nodes = self._build_inner_nodes(
-                    child_uids, vi_name
+                    child_uids, vi_name,
                 )
                 stop_cond = gnode.stop_condition_terminal
 
-            elif node_type in ("caseStruct", "select"):
+            elif isinstance(gnode, CaseStructureNode):
                 labels = ["CaseStructure"]
                 selector_terminal = gnode.selector_terminal
-                case_frames = self._build_case_frames_from_parent(
-                    uid, gnode.frames, vi_name, child_uids
+                case_frames = self._populate_frame_operations(  # type: ignore[assignment]
+                    gnode.frames, vi_name, child_uids,
                 )
 
-            elif node_type in ("flatSequence", "seq"):
+            elif isinstance(gnode, SequenceNode):
                 labels = ["FlatSequence"]
-                case_frames = self._build_sequence_frames_from_parent(
-                    uid, gnode.frames, vi_name, child_uids
+                seq_frames = self._populate_frame_operations(  # type: ignore[assignment]
+                    gnode.frames, vi_name, child_uids,
                 )
 
         # Name fallback for unnamed structures
@@ -112,50 +122,65 @@ class OperationsMixin:
         if not node_name and node_type:
             node_name = _NODE_TYPE_NAMES.get(node_type)
 
-        # Extract primitive-specific fields
-        prim_id: int | None = None
-        operation: str | None = None
-        object_name: str | None = None
-        object_method_id: str | None = None
-        properties: list[PropertyDef] = []
-        method_name: str | None = None
-        method_code: int | None = None
-        poly_variant_name: str | None = None
+        # Common kwargs for all operation types
+        common = {
+            "id": uid,
+            "name": node_name,
+            "labels": labels,
+            "terminals": terminals,
+            "node_type": node_type or None,
+            "tunnels": tunnels,
+            "inner_nodes": inner_nodes,
+            "description": gnode.description,
+        }
 
-        if isinstance(gnode, GraphPrimitiveNode):
-            prim_id = gnode.prim_id
-            operation = gnode.operation
-            object_name = gnode.object_name
-            object_method_id = gnode.object_method_id
-            properties = list(gnode.properties)
-            method_name = gnode.method_name
-            method_code = gnode.method_code
-
+        # Build the right operation subtype
+        if isinstance(gnode, CaseStructureNode):
+            return CaseOperation(
+                **common,
+                frames=case_frames,
+                selector_terminal=selector_terminal,
+            )
+        if isinstance(gnode, SequenceNode):
+            return SequenceOperation(
+                **common,
+                frames=seq_frames,
+            )
+        if isinstance(gnode, LoopNode):
+            return LoopOperation(
+                **common,
+                loop_type=loop_type,
+                stop_condition_terminal=stop_cond,
+            )
         if isinstance(gnode, VINode):
-            poly_variant_name = gnode.poly_variant_name
+            return SubVIOperation(
+                **common,
+                poly_variant_name=gnode.poly_variant_name,
+            )
+        if isinstance(gnode, GraphPrimitiveNode):
+            if gnode.properties:
+                return PropertyOperation(
+                    **common,
+                    object_name=gnode.object_name,
+                    object_method_id=gnode.object_method_id,
+                    properties=list(gnode.properties),
+                )
+            if gnode.method_name:
+                return InvokeOperation(
+                    **common,
+                    object_name=gnode.object_name,
+                    object_method_id=gnode.object_method_id,
+                    method_name=gnode.method_name,
+                    method_code=gnode.method_code,
+                )
+            return PrimitiveOperation(
+                **common,
+                primResID=gnode.prim_id,
+                operation=gnode.operation,
+            )
 
-        return Operation(
-            id=uid,
-            name=node_name,
-            labels=labels,
-            primResID=prim_id,
-            terminals=terminals,
-            node_type=node_type or None,
-            loop_type=loop_type,
-            tunnels=tunnels,
-            inner_nodes=inner_nodes,
-            stop_condition_terminal=stop_cond,
-            description=gnode.description,
-            operation=operation,
-            object_name=object_name,
-            object_method_id=object_method_id,
-            properties=properties,
-            method_name=method_name,
-            method_code=method_code,
-            case_frames=case_frames,
-            selector_terminal=selector_terminal,
-            poly_variant_name=poly_variant_name,
-        )
+        # Fallback: base Operation
+        return Operation(**common)
 
     @staticmethod
     def _tunnels_from_terminals(terminals: list[Terminal]) -> list[Tunnel]:
@@ -379,15 +404,33 @@ class OperationsMixin:
                 children.append(uid)
         return children
 
-    def _build_case_frames_from_parent(
+    def _populate_frame_operations(
         self,
-        structure_uid: str,
-        frame_infos: list[FrameInfo],
+        frames: list[CaseFrame] | list[SequenceFrame],
         vi_name: str,
         child_uids: list[str],
-    ) -> list[CaseFrame]:
-        """Build CaseFrame dataclasses by grouping children by frame."""
-        # Group child UIDs by their frame value
+    ) -> list[CaseFrame] | list[SequenceFrame]:  # type: ignore[return]
+        """Populate operations on existing frames from graph children."""
+        frame_to_uids = self._group_children_by_frame(child_uids)
+
+        for frame in frames:
+            # Match by selector_value (cases) or index (sequences)
+            if isinstance(frame, CaseFrame):
+                key = frame.selector_value
+            elif isinstance(frame, SequenceFrame):
+                key = str(frame.index)
+            else:
+                continue
+            uids = frame_to_uids.get(key, [])
+            frame.inner_node_uids = uids
+            frame.operations = self._build_inner_nodes(uids, vi_name)
+
+        return frames
+
+    def _group_children_by_frame(
+        self, child_uids: list[str],
+    ) -> dict[str | int | None, list[str]]:
+        """Group child UIDs by their frame attribute."""
         frame_to_uids: dict[str | int | None, list[str]] = {}
         for uid in child_uids:
             gnode = self._graph.nodes[uid].get("node")
@@ -397,47 +440,4 @@ class OperationsMixin:
             if fv not in frame_to_uids:
                 frame_to_uids[fv] = []
             frame_to_uids[fv].append(uid)
-
-        result_frames: list[CaseFrame] = []
-        for fi in frame_infos:
-            uids = frame_to_uids.get(fi.selector_value, [])
-            frame_ops = self._build_inner_nodes(uids, vi_name)
-            result_frames.append(CaseFrame(
-                selector_value=fi.selector_value,
-                inner_node_uids=uids,
-                operations=frame_ops,
-                is_default=fi.is_default,
-            ))
-
-        return result_frames
-
-    def _build_sequence_frames_from_parent(
-        self,
-        structure_uid: str,
-        frame_infos: list[FrameInfo],
-        vi_name: str,
-        child_uids: list[str],
-    ) -> list[CaseFrame]:
-        """Build CaseFrame dataclasses from sequence frames by parent query."""
-        # Group child UIDs by their frame value
-        frame_to_uids: dict[str | int | None, list[str]] = {}
-        for uid in child_uids:
-            gnode = self._graph.nodes[uid].get("node")
-            if gnode is None:
-                continue
-            fv = gnode.frame
-            if fv not in frame_to_uids:
-                frame_to_uids[fv] = []
-            frame_to_uids[fv].append(uid)
-
-        result_frames: list[CaseFrame] = []
-        for fi in frame_infos:
-            uids = frame_to_uids.get(fi.selector_value, [])
-            frame_ops = self._build_inner_nodes(uids, vi_name)
-            result_frames.append(CaseFrame(
-                selector_value=fi.selector_value,
-                inner_node_uids=uids,
-                operations=frame_ops,
-            ))
-
-        return result_frames
+        return frame_to_uids

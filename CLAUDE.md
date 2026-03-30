@@ -202,6 +202,26 @@ python script.py
 
 This ensures permission patterns match correctly.
 
+## Plan Execution Rules
+
+**After a plan is approved, it is a contract.** If ANY aspect of execution differs from the approved plan — different approach, different file structure, different abstraction — you MUST:
+1. STOP writing code immediately
+2. Re-enter plan mode
+3. Explain what you found that changes the approach
+4. Get a new approval before continuing
+
+NEVER silently change an approved plan. NEVER say "actually this is simpler" and keep going. The user approved a specific design. Changing it without discussion wastes hours.
+
+## Planning Quality Rules
+
+**During planning, READ the actual code before proposing changes.** Do not describe what you think the code looks like — read it. Specifically:
+- If the plan says "convert class to function" — read the class first. Is it 10 lines or 400 lines with 15 methods?
+- If the plan says "rename X to Y" — grep for X first. Is it in 5 files or 50?
+- If the plan says "add field Z" — check if Z already exists elsewhere under a different name
+- If the plan creates new types — check for existing types that do the same thing
+
+**Run /design-review on proposed changes during planning.** Catch god objects, duplicate types, wrong naming, and code smells BEFORE the plan is approved, not after execution begins.
+
 ## Commit Rules
 
 **NEVER commit broken, regressed, or non-working code.** Verify generation output is equal or better than the last working state before committing. If changes regress, fix the regression first. "Commit and fix later" is never acceptable.

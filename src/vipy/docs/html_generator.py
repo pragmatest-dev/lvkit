@@ -57,9 +57,9 @@ class MermaidRenderer:
                 self._render_operation(inner_op, indent + "    ")
             self._lines.append(f'{indent}end')
             self._node_styles.append((nid, "loopStyle"))
-        elif "FlatSequence" in labels and op.case_frames:
+        elif "FlatSequence" in labels and op.frames:
             self._lines.append(f'{indent}subgraph {nid}["Flat Sequence"]')
-            for i, frame in enumerate(op.case_frames):
+            for i, frame in enumerate(op.frames):
                 frame_id = f"{nid}_f{i}"
                 self._lines.append(f'{indent}    subgraph {frame_id}["Frame {i}"]')
                 for inner_op in frame.operations:
@@ -88,8 +88,8 @@ class MermaidRenderer:
             self._node_styles.append((nid, "loopStyle"))
         elif "CaseStructure" in labels:
             cases = (
-                [str(f.selector_value) for f in op.case_frames]
-                if op.case_frames
+                [str(f.selector_value) for f in op.frames]
+                if op.frames
                 else []
             )
             case_label = " | ".join(cases[:4])

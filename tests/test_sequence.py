@@ -7,12 +7,12 @@ import xml.etree.ElementTree as ET
 import pytest
 
 from vipy.agent.codegen.context import CodeGenContext
-from vipy.agent.codegen.nodes.sequence import FlatSequenceCodeGen
+from vipy.agent.codegen.nodes import sequence
 from vipy.graph_types import (
-    CaseFrame,
-    FrameInfo,
     Operation,
-    StructureNode,
+    SequenceFrame,
+    SequenceNode,
+    SequenceOperation,
     Terminal,
     Tunnel,
     TunnelTerminal,
@@ -23,7 +23,6 @@ from vipy.memory_graph import InMemoryVIGraph
 from vipy.parser.models import (
     BlockDiagram,
     FlatSequenceStructure,
-    SequenceFrame,
 )
 from vipy.parser.nodes.sequence import extract_flat_sequences
 
@@ -34,13 +33,19 @@ class TestSequenceFrameModel:
     """Tests for the SequenceFrame and FlatSequenceStructure dataclasses."""
 
     def test_sequence_frame_creation(self):
-        frame = SequenceFrame(uid="f1", inner_node_uids=["n1", "n2"])
+        frame = SequenceFrame(
+            index=0, uid="f1", inner_node_uids=["n1", "n2"],
+        )
         assert frame.uid == "f1"
+        assert frame.index == 0
         assert frame.inner_node_uids == ["n1", "n2"]
+        assert frame.operations == []
 
     def test_sequence_frame_defaults(self):
-        frame = SequenceFrame(uid="f1")
+        frame = SequenceFrame(index=0)
         assert frame.inner_node_uids == []
+        assert frame.operations == []
+        assert frame.uid is None
 
     def test_flat_sequence_structure(self):
         t = Tunnel(
@@ -52,8 +57,12 @@ class TestSequenceFrameModel:
             uid="seq1",
             tunnels=[t],
             frames=[
-                SequenceFrame(uid="f0", inner_node_uids=["a"]),
-                SequenceFrame(uid="f1", inner_node_uids=["b"]),
+                SequenceFrame(
+                    index=0, uid="f0", inner_node_uids=["a"],
+                ),
+                SequenceFrame(
+                    index=1, uid="f1", inner_node_uids=["b"],
+                ),
             ],
         )
         assert fs.uid == "seq1"
@@ -274,13 +283,13 @@ class TestSequenceInMemoryGraph:
 
         # Flat sequence structure node — tunnels, frames, inner_node_uids
         # all stored ON the StructureNode
-        seq_node = StructureNode(
+        seq_node = SequenceNode(
             id="seq1", vi=vi_name,
             name="Flat Sequence",
             node_type="flatSequence",
             frames=[
-                FrameInfo(selector_value="0"),
-                FrameInfo(selector_value="1"),
+                SequenceFrame(index=0),
+                SequenceFrame(index=1),
             ],
             terminals=[
                 TunnelTerminal(
@@ -376,17 +385,17 @@ class TestSequenceInMemoryGraph:
         assert len(seq_op.tunnels) == 1
         assert seq_op.tunnels[0].tunnel_type == "seqTun"
 
-    def test_sequence_has_case_frames(
+    def test_sequence_has_frames(
         self, graph_with_sequence: InMemoryVIGraph,
     ):
-        """Sequence frames are stored as case_frames."""
+        """Sequence frames are stored as frames."""
         ops = graph_with_sequence.get_operations("Seq.vi")
         seq_op = [
             op for op in ops if op.node_type == "flatSequence"
         ][0]
-        assert len(seq_op.case_frames) == 2
-        assert seq_op.case_frames[0].selector_value == "0"
-        assert seq_op.case_frames[1].selector_value == "1"
+        assert len(seq_op.frames) == 2
+        assert seq_op.frames[0].index == 0
+        assert seq_op.frames[1].index == 1
 
     def test_sequence_after_upstream_dependency(
         self, graph_with_sequence: InMemoryVIGraph,
@@ -405,24 +414,20 @@ class TestSequenceInMemoryGraph:
 class TestFlatSequenceCodeGen:
     """Tests for FlatSequenceCodeGen."""
 
-    @pytest.fixture
-    def codegen(self) -> FlatSequenceCodeGen:
-        return FlatSequenceCodeGen()
-
-    def test_empty_frames(self, codegen: FlatSequenceCodeGen):
+    def test_empty_frames(self):
         """No frames produces empty fragment."""
-        op = Operation(
+        op = SequenceOperation(
             id="seq1",
             name="Flat Sequence",
             labels=["FlatSequence"],
-            case_frames=[],
+            frames=[],
         )
         ctx = CodeGenContext()
-        fragment = codegen.generate(op, ctx)
+        fragment = sequence.generate(op, ctx)
         assert fragment.statements == []
 
     def test_sequential_frame_execution(
-        self, codegen: FlatSequenceCodeGen,
+        self,
     ):
         """Frames generate sequential code."""
         # Inner operation that generates a simple assignment
@@ -434,14 +439,14 @@ class TestFlatSequenceCodeGen:
             terminals=[],
         )
 
-        op = Operation(
+        op = SequenceOperation(
             id="seq1",
             name="Flat Sequence",
             labels=["FlatSequence"],
             node_type="flatSequence",
-            case_frames=[
-                CaseFrame(
-                    selector_value="0",
+            frames=[
+                SequenceFrame(
+                    index=0,
                     inner_node_uids=["prim1"],
                     operations=[inner_op],
                 ),
@@ -449,14 +454,14 @@ class TestFlatSequenceCodeGen:
             tunnels=[],
         )
         ctx = CodeGenContext()
-        fragment = codegen.generate(op, ctx)
+        fragment = sequence.generate(op, ctx)
 
         # Should produce some statements (even if just a comment
         # for unknown primitives)
         assert len(fragment.statements) > 0
 
     def test_tunnel_input_binding(
-        self, codegen: FlatSequenceCodeGen,
+        self,
     ):
         """Input tunnels bind outer variable to inner context."""
         from tests.helpers import make_graph_with_edge, make_node
@@ -470,14 +475,14 @@ class TestFlatSequenceCodeGen:
         ctx = CodeGenContext(graph=graph)
         ctx.bind("src", "task_ref")
 
-        op = Operation(
+        op = SequenceOperation(
             id="seq1",
             name="Flat Sequence",
             labels=["FlatSequence"],
             node_type="flatSequence",
-            case_frames=[
-                CaseFrame(
-                    selector_value="0",
+            frames=[
+                SequenceFrame(
+                    index=0,
                     operations=[],
                 ),
             ],
@@ -490,13 +495,13 @@ class TestFlatSequenceCodeGen:
             ],
         )
 
-        codegen.generate(op, ctx)
+        sequence.generate(op, ctx)
 
         # Inner terminal should resolve to the outer value
         assert ctx.resolve("tun_inner") == "task_ref"
 
     def test_tunnel_output_binding(
-        self, codegen: FlatSequenceCodeGen,
+        self,
     ):
         """Output tunnels propagate inner values outward."""
         from tests.helpers import make_ctx
@@ -505,14 +510,14 @@ class TestFlatSequenceCodeGen:
         # Pre-bind what an inner operation would produce
         ctx.bind("tun_inner", "result_val")
 
-        op = Operation(
+        op = SequenceOperation(
             id="seq1",
             name="Flat Sequence",
             labels=["FlatSequence"],
             node_type="flatSequence",
-            case_frames=[
-                CaseFrame(
-                    selector_value="0",
+            frames=[
+                SequenceFrame(
+                    index=0,
                     operations=[],
                 ),
             ],
@@ -525,7 +530,7 @@ class TestFlatSequenceCodeGen:
             ],
         )
 
-        fragment = codegen.generate(op, ctx)
+        fragment = sequence.generate(op, ctx)
 
         assert fragment.bindings.get("tun_outer") == "result_val"
 
@@ -534,26 +539,31 @@ class TestFlatSequenceCodeGen:
 
 
 class TestCodeGenRegistry:
-    """Test that sequence codegens are properly registered."""
+    """Test that sequence operations dispatch through the factory."""
 
-    def test_flat_sequence_returns_correct_codegen(self):
-        from vipy.agent.codegen.nodes import get_codegen
+    def test_flat_sequence_dispatches_to_sequence_module(self):
+        from vipy.agent.codegen.nodes import generate as generate_node
 
-        op = Operation(
+        op = SequenceOperation(
             id="1", name="Flat Sequence",
             labels=["FlatSequence"],
             node_type="flatSequence",
         )
-        cg = get_codegen(op)
-        assert isinstance(cg, FlatSequenceCodeGen)
+        ctx = CodeGenContext()
+        result = generate_node(op, ctx)
+        # No frames → empty fragment
+        assert result.statements == []
+        assert result.bindings == {}
 
-    def test_stacked_sequence_returns_correct_codegen(self):
-        from vipy.agent.codegen.nodes import get_codegen
+    def test_stacked_sequence_dispatches_to_sequence_module(self):
+        from vipy.agent.codegen.nodes import generate as generate_node
 
-        op = Operation(
+        op = SequenceOperation(
             id="1", name="Stacked Sequence",
             labels=["FlatSequence"],
             node_type="seq",
         )
-        cg = get_codegen(op)
-        assert isinstance(cg, FlatSequenceCodeGen)
+        ctx = CodeGenContext()
+        result = generate_node(op, ctx)
+        assert result.statements == []
+        assert result.bindings == {}
