@@ -124,10 +124,6 @@ def main() -> int:
         default=[],
         help="Search paths for SubVI resolution (can be repeated)",
     )
-    desc_parser.add_argument(
-        "--ops", action="store_true",
-        help="Show detailed operations list",
-    )
 
     # Generate command - AST-based Python generation (replaces convert)
     gen_parser = subparsers.add_parser(
@@ -581,7 +577,7 @@ def cmd_mcp(args: argparse.Namespace) -> int:
 
 def cmd_describe(args: argparse.Namespace) -> int:
     """Handle the describe command - human-readable VI description."""
-    from .graph.describe import describe_operations, describe_vi
+    from .graph.describe import describe_vi
 
     input_path = Path(args.input_path)
     if not input_path.exists():
@@ -594,10 +590,7 @@ def cmd_describe(args: argparse.Namespace) -> int:
 
     vi_name = graph.resolve_vi_name(input_path.name)
 
-    if args.ops:
-        print(describe_operations(graph, vi_name))
-    else:
-        print(describe_vi(graph, vi_name))
+    print(describe_vi(graph, vi_name))
 
     return 0
 
