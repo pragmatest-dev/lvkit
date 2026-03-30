@@ -3,13 +3,15 @@
 from __future__ import annotations
 
 import ast
-import warnings
+import logging
 
 from vipy.graph_types import CaseFrame, CaseOperation, _is_error_cluster
 
 from ..ast_utils import build_assign, parse_expr, to_var_name
 from ..context import CodeGenContext
 from ..fragment import CodeFragment
+
+logger = logging.getLogger(__name__)
 
 
 def generate(node: CaseOperation, ctx: CodeGenContext) -> CodeFragment:
@@ -255,10 +257,7 @@ def _generate_error_case(
             op.name or op.node_type or "?"
             for op in error_frame.operations
         )
-        warnings.warn(
-            f"LV error frame omitted in {node.id}: {op_names}",
-            stacklevel=2,
-        )
+        logger.info("LV error frame omitted in %s: %s", node.id, op_names)
 
     no_error_fragment = _generate_frame_body(no_error_frame, ctx)
     statements.extend(no_error_fragment.statements or [])
