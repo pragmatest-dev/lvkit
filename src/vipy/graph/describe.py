@@ -25,68 +25,84 @@ if TYPE_CHECKING:
 
 
 def describe_vi(graph: InMemoryVIGraph, vi_name: str) -> str:
-    """Describe a VI's purpose, signature, and structure."""
+    """Describe a VI as a documentation page.
+
+    Uses the graph's resolved types, names, constants, and dataflow
+    to produce a complete reference for what this VI does.
+    """
     vi_name = graph.resolve_vi_name(vi_name)
     ctx = graph.get_vi_context(vi_name)
 
     lines: list[str] = []
 
-    sig = _format_signature(ctx)
-    lines.append(sig)
+    # Title and signature
+    lines.append(f"# {vi_name}")
+    lines.append("")
+    lines.append(f"  {_format_signature(ctx)}")
     lines.append("")
 
-    if ctx.inputs:
-        lines.append("Inputs:")
-        for inp in ctx.inputs:
-            if inp.is_error_cluster:
-                lines.append(
-                    f"  - {inp.name}: ErrorCluster"
-                    f" [handled via exceptions]"
-                )
-                continue
+    # Interface: Inputs
+    non_error_inputs = [i for i in ctx.inputs if not i.is_error_cluster]
+    if non_error_inputs:
+        lines.append("## Inputs")
+        for inp in non_error_inputs:
             wiring = _wiring_label(inp.wiring_rule)
-            lines.append(
-                f"  - {inp.name}: {inp.python_type()}"
-                f" ({wiring})"
-            )
+            lines.append(f"  {inp.name}: {inp.python_type()} ({wiring})")
+        lines.append("")
+    else:
+        lines.append("## Inputs")
+        lines.append("  (none)")
         lines.append("")
 
-    if ctx.outputs:
-        lines.append("Outputs:")
-        for out in ctx.outputs:
-            if out.is_error_cluster:
-                lines.append(
-                    f"  - {out.name}: ErrorCluster"
-                    f" [handled via exceptions]"
-                )
-                continue
-            lines.append(f"  - {out.name}: {out.python_type()}")
+    # Interface: Outputs
+    non_error_outputs = [o for o in ctx.outputs if not o.is_error_cluster]
+    if non_error_outputs:
+        lines.append("## Outputs")
+        for out in non_error_outputs:
+            lines.append(f"  {out.name}: {out.python_type()}")
+        lines.append("")
+    else:
+        lines.append("## Outputs")
+        lines.append("  (none)")
         lines.append("")
 
+    # Constants: show actual values
+    if ctx.constants:
+        lines.append("## Constants")
+        for c in ctx.constants:
+            type_str = c.lv_type.to_python() if c.lv_type else "unknown"
+            name = c.name or "(unnamed)"
+            lines.append(f"  {name}: {type_str} = {c.value!r}")
+        lines.append("")
+
+    # Dependencies: SubVI calls with descriptions
     subvi_names = _collect_subvi_names(ctx.operations)
     if subvi_names:
-        lines.append("SubVI calls:")
+        lines.append("## Dependencies")
         for name in sorted(subvi_names):
             desc = _get_subvi_description(graph, name)
             if desc:
-                lines.append(f"  - {name} — {desc}")
+                lines.append(f"  {name} — {desc}")
             else:
-                lines.append(f"  - {name}")
+                lines.append(f"  {name}")
         lines.append("")
 
+    # Control flow
     structures = _collect_structures(ctx.operations)
     if structures:
-        lines.append("Control flow:")
+        lines.append("## Control Flow")
         for s in structures:
-            lines.append(f"  - {s}")
+            lines.append(f"  {s}")
         lines.append("")
 
-    op_count = _count_operations(ctx.operations)
-    const_count = len(ctx.constants)
-    lines.append(f"Operations: {op_count}")
-    lines.append(f"Constants: {const_count}")
-    if ctx.has_parallel_branches:
-        lines.append("Parallel branches: yes")
+    # Dataflow: Mermaid diagram
+    from .flowchart import flowchart
+
+    lines.append("## Dataflow")
+    lines.append("")
+    lines.append("```mermaid")
+    lines.append(flowchart(graph, vi_name))
+    lines.append("```")
 
     return "\n".join(lines)
 
@@ -363,21 +379,19 @@ def _describe_single_op(op: Operation) -> str:
     name = op.name or "unnamed"
 
     if "SubVI" in op.labels:
-        inputs = [
-            t for t in op.terminals
-            if t.direction == "input" and not t.is_error_cluster
+        named_inputs = [
+            t.name for t in op.terminals
+            if t.direction == "input" and not t.is_error_cluster and t.name
         ]
-        outputs = [
-            t for t in op.terminals
-            if t.direction == "output" and not t.is_error_cluster
+        named_outputs = [
+            t.name for t in op.terminals
+            if t.direction == "output" and not t.is_error_cluster and t.name
         ]
-        in_str = ", ".join(
-            t.name or f"idx{t.index}" for t in inputs
-        )
-        out_str = ", ".join(
-            t.name or f"idx{t.index}" for t in outputs
-        )
-        return f"{name}({in_str}) → {out_str}"
+        if named_inputs or named_outputs:
+            in_str = ", ".join(named_inputs)
+            out_str = ", ".join(named_outputs)
+            return f"{name}({in_str}) → {out_str}"
+        return name
 
     match op:
         case PrimitiveOperation():
