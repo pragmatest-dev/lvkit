@@ -124,6 +124,10 @@ def main() -> int:
         default=[],
         help="Search paths for SubVI resolution (can be repeated)",
     )
+    desc_parser.add_argument(
+        "--chart", action="store_true",
+        help="Include Mermaid flowchart diagram",
+    )
 
     # Generate command - AST-based Python generation (replaces convert)
     gen_parser = subparsers.add_parser(
@@ -591,6 +595,16 @@ def cmd_describe(args: argparse.Namespace) -> int:
     vi_name = graph.resolve_vi_name(input_path.name)
 
     print(describe_vi(graph, vi_name))
+
+    if args.chart:
+        from .graph.flowchart import flowchart
+
+        print()
+        print("## Dataflow Chart")
+        print()
+        print("```mermaid")
+        print(flowchart(graph, vi_name))
+        print("```")
 
     return 0
 
