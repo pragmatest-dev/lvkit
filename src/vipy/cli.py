@@ -222,6 +222,31 @@ def main() -> int:
     )
 
     # LLM generate command - idiomatic Python via LLM
+    # Diff command - compare two VIs
+    diff_parser = subparsers.add_parser(
+        "diff",
+        help="Compare two versions of a VI",
+    )
+    diff_parser.add_argument(
+        "vi_a",
+        help="Path to first .vi file",
+    )
+    diff_parser.add_argument(
+        "vi_b",
+        help="Path to second .vi file",
+    )
+    diff_parser.add_argument(
+        "--long", action="store_true",
+        help="Show structured change report instead of unified diff",
+    )
+    diff_parser.add_argument(
+        "--search-path",
+        action="append",
+        dest="search_paths",
+        default=[],
+        help="Search paths for SubVI resolution (can be repeated)",
+    )
+
     llm_parser = subparsers.add_parser(
         "llm-generate",
         help="Generate idiomatic Python using an LLM",
@@ -294,6 +319,8 @@ def main() -> int:
         return cmd_visualize(args)
     elif args.command == "llm-generate":
         return cmd_llm_generate(args)
+    elif args.command == "diff":
+        return cmd_diff(args)
     else:
         parser.print_help()
         return 0
@@ -585,28 +612,77 @@ def cmd_describe(args: argparse.Namespace) -> int:
 
     input_path = Path(args.input_path)
     if not input_path.exists():
-        print(f"Error: {input_path} not found", file=sys.stderr)
+        print(f"Error: Path not found: {input_path}", file=sys.stderr)
         return 1
 
-    graph = InMemoryVIGraph()
+    try:
+        graph = InMemoryVIGraph()
+        search_paths = [Path(p) for p in args.search_paths]
+        graph.load_vi(str(input_path), search_paths=search_paths)
+
+        vi_name = graph.resolve_vi_name(input_path.name)
+
+        print(describe_vi(graph, vi_name))
+
+        if args.chart:
+            from .graph.flowchart import flowchart
+
+            print()
+            print("## Dataflow Chart")
+            print()
+            print("```mermaid")
+            print(flowchart(graph, vi_name))
+            print("```")
+
+        return 0
+    except (ValueError, FileNotFoundError, KeyError) as e:
+        print(f"Error: {e}", file=sys.stderr)
+        return 1
+
+
+def cmd_diff(args: argparse.Namespace) -> int:
+    """Handle the diff command — compare two VI versions."""
+    from .graph.diff import diff_structured, diff_text
+
+    path_a = Path(args.vi_a)
+    path_b = Path(args.vi_b)
+
+    for p in (path_a, path_b):
+        if not p.exists():
+            print(f"Error: Path not found: {p}", file=sys.stderr)
+            return 1
+
     search_paths = [Path(p) for p in args.search_paths]
-    graph.load_vi(str(input_path), search_paths=search_paths)
 
-    vi_name = graph.resolve_vi_name(input_path.name)
+    try:
+        graph_a = InMemoryVIGraph()
+        graph_a.load_vi(str(path_a), search_paths=search_paths)
+        vi_name_a = graph_a.resolve_vi_name(path_a.name)
 
-    print(describe_vi(graph, vi_name))
+        graph_b = InMemoryVIGraph()
+        graph_b.load_vi(str(path_b), search_paths=search_paths)
+        vi_name_b = graph_b.resolve_vi_name(path_b.name)
 
-    if args.chart:
-        from .graph.flowchart import flowchart
+        if args.long:
+            report = diff_structured(graph_a, graph_b, vi_name_a, vi_name_b)
+            if report.is_empty():
+                print("No changes detected.")
+            else:
+                print(report.format())
+        else:
+            result = diff_text(
+                graph_a, graph_b, vi_name_a, vi_name_b,
+                label_a=str(path_a), label_b=str(path_b),
+            )
+            if result:
+                print(result)
+            else:
+                print("No changes detected.")
 
-        print()
-        print("## Dataflow Chart")
-        print()
-        print("```mermaid")
-        print(flowchart(graph, vi_name))
-        print("```")
-
-    return 0
+        return 0
+    except (ValueError, FileNotFoundError, KeyError) as e:
+        print(f"Error: {e}", file=sys.stderr)
+        return 1
 
 
 def cmd_generate(args: argparse.Namespace) -> int:
@@ -629,7 +705,7 @@ def cmd_generate(args: argparse.Namespace) -> int:
         )
         return 1 if result["error"] > 0 else 0
 
-    except Exception as e:
+    except (ValueError, FileNotFoundError, KeyError, NotImplementedError) as e:
         print(f"Error: {e}", file=sys.stderr)
         traceback.print_exc()
         return 1
@@ -663,8 +739,6 @@ def cmd_docs(args: argparse.Namespace) -> int:
 
 def cmd_visualize(args: argparse.Namespace) -> int:
     """Handle the visualize command — interactive graph in browser."""
-    from .graph.core import InMemoryVIGraph
-
     input_path = Path(args.input_path)
     if not input_path.exists():
         print(f"Error: Path not found: {input_path}", file=sys.stderr)
