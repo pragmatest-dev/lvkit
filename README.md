@@ -1,8 +1,14 @@
 # vipy
 
-Convert LabVIEW VIs to Python code without a LabVIEW license.
+Understand and convert LabVIEW VIs without a LabVIEW license.
 
-Uses [pylabview](https://github.com/mefistotelis/pylabview) to parse VI binary files into XML, then translates the dataflow graph to Python.
+vipy parses VI binary files into a queryable dataflow graph, then uses that graph to generate Python code, HTML documentation, human-readable descriptions, and visual flowcharts. It uses [pylabview](https://github.com/mefistotelis/pylabview) for binary parsing and builds a NetworkX graph that can be explored via CLI, MCP server, or Python API.
+
+### Cleanroom approach
+
+vipy is a cleanroom conversion tool — it has no access to LabVIEW source code or runtime. LabVIEW's standard library (vi.lib), built-in primitives, and third-party libraries like OpenG are **semantically replaced**: each operation is mapped to an equivalent Python implementation defined in JSON data files (`data/vilib/`, `data/primitives-codegen.json`, `data/openg/`). These mappings are built from documentation and observed behavior, not from LabVIEW internals.
+
+This means coverage is incremental. When the generator encounters an unmapped primitive or vi.lib VI, it raises an error with diagnostic context so the mapping can be added. The data files grow over time as more VIs are converted.
 
 ## Quick Start
 
@@ -10,90 +16,131 @@ Uses [pylabview](https://github.com/mefistotelis/pylabview) to parse VI binary f
 # Install
 pip install -e ".[dev]"
 
-# Check dependencies (pylabview, ollama)
+# Check dependencies (pylabview)
 vipy check
 
-# Convert a VI with all dependencies
-vipy agent "path/to/Main.vi" -o outputs --search-path path/to/libraries
+# Generate Python from a VI
+vipy generate "path/to/file.vi" -o outputs --search-path path/to/libraries
 
 # Generate HTML documentation
-vipy mcp  # Start MCP server, then use analyze_vi or generate_documents tools
+vipy docs "path/to/MyLib.lvlib" outputs/docs --search-path path/to/libraries
+
+# Describe what a VI does
+vipy describe "path/to/file.vi" --search-path path/to/libraries
+
+# Start MCP server for IDE integration
+vipy mcp
 ```
 
 ## Architecture Overview
 
 ```
-VI Binary (.vi)
-     │
-     ▼ pylabview (subprocess)
+VI Binary (.vi / .lvlib / .lvclass)
+     |
+     v  pylabview (subprocess)
 XML Files (_BDHb.xml, _FPHb.xml, .xml)
-     │
-     ▼ parser.py + extractor.py
+     |
+     v  parser/ (nodes, wires, constants, types)
 ParsedVI (BlockDiagram, FrontPanel, Metadata)
-     │
-     ▼ memory_graph.py
-InMemoryVIGraph (NetworkX graphs)
-     │
-     ├─▶ agent/codegen/ (AST-based, deterministic)
-     │        │
-     │        ▼
-     │   Python Code (may have stubs)
-     │
-     └─▶ agent/claude_agent.py (LLM refinement)
-              │
-              ▼
-         Refined Python Code
+     |
+     v  graph/ (NetworkX multi-digraph)
+InMemoryVIGraph (operations, terminals, wires, types)
+     |
+     +-> agent/codegen/ (deterministic AST-based)
+     |        |
+     |        v
+     |   Python Code
+     |
+     +-> graph/describe.py (human-readable descriptions)
+     |
+     +-> docs/ (HTML documentation)
 ```
 
 ## Key Modules
 
-### Parsing Layer (`src/vipy/`)
+### Parser Layer (`src/vipy/parser/`)
 
 | File | Purpose |
 |------|---------|
-| `extractor.py` | Calls pylabview to extract VI → XML, caches results |
-| `parser.py` | Parses XML into `ParsedVI` dataclass (BlockDiagram, FrontPanel, etc.) |
-| `parser/models.py` | Core dataclasses: `ParsedNode`, `ParsedWire`, `ParsedConstant` |
-| `parser/node_types.py` | Specific node types: `PrimitiveNode`, `SubVINode`, `StructureNode` |
-| `blockdiagram.py` | Decode constants from hex, parse connector pane |
+| `vi.py` | Top-level VI parsing orchestration |
+| `models.py` | Core dataclasses: `ParsedNode`, `ParsedWire`, `ParsedConstant` |
+| `node_types.py` | Specific node types: `PrimitiveNode`, `SubVINode`, `StructureNode` |
+| `nodes/` | Node-specific parsers: `base`, `loop`, `constant`, `sequence`, `case` |
+| `type_resolution.py` | Resolve LabVIEW types from XML |
+| `type_mapping.py` | Map LabVIEW types to Python types |
+| `front_panel.py` | Front panel (controls/indicators) parsing |
+| `metadata.py` | VI metadata extraction |
 
-### Graph Layer (`src/vipy/`)
+### Graph Layer (`src/vipy/graph/`)
 
 | File | Purpose |
 |------|---------|
-| `memory_graph.py` | `InMemoryVIGraph` - NetworkX-based VI graph with dependency tracking |
-| `graph_types.py` | Typed dataclasses: `Operation`, `Wire`, `Terminal`, `Constant`, `LVType` |
-| `primitive_resolver.py` | Maps primResID → Python implementation from `data/primitives/*.json` |
-| `vilib_resolver.py` | Maps vi.lib VIs → Python implementations from `data/vilib/*.json` |
+| `core.py` | `VIGraph` - NetworkX multi-digraph with node/edge operations |
+| `construction.py` | Build graph from parsed VI data |
+| `loading.py` | Load VIs and resolve dependencies |
+| `operations.py` | Convert graph nodes to `Operation` objects for codegen |
+| `queries.py` | Query operations, wires, constants from graph |
+| `analysis.py` | Graph analysis (parallel branches, topological sort) |
+| `describe.py` | Human-readable VI descriptions |
+| `flowchart.py` | Mermaid flowchart generation |
+| `diff.py` | Compare two VI versions |
+
+### Other Core Modules (`src/vipy/`)
+
+| File | Purpose |
+|------|---------|
+| `memory_graph.py` | `InMemoryVIGraph` - high-level graph with dependency tracking |
+| `graph_types.py` | Pydantic models: `Operation`, `Terminal`, `Wire`, `Constant`, `VIContext` |
+| `extractor.py` | Calls pylabview to extract VI to XML, caches results |
+| `primitive_resolver.py` | Maps primResID to Python implementation from JSON data |
+| `vilib_resolver.py` | Maps vi.lib VIs to Python implementations from JSON data |
+| `enum_resolver.py` | Resolve LabVIEW enum typedefs |
+| `type_defaults.py` | Default values for LabVIEW types |
+| `structure.py` | Parse .lvlib, .lvclass, and project structure |
+| `naming.py` | Python name sanitization and conventions |
+| `labview_error.py` | LabVIEW error cluster handling |
 
 ### Agent Layer (`src/vipy/agent/`)
 
 | File | Purpose |
 |------|---------|
-| `loop.py` | Main conversion loop - iterates VIs in dependency order |
+| `loop_agent.py` | Main conversion loop - iterates VIs in dependency order |
 | `codegen/` | AST-based Python code generator (deterministic, no LLM) |
 | `codegen/builder.py` | `build_module()` - entry point for AST generation |
 | `codegen/context.py` | Tracks imports, bindings, dataflow during generation |
-| `codegen/nodes/` | Node-specific generators (primitives, subvis, structures) |
-| `claude_agent.py` | Anthropic API client with tool-use for refinement |
-| `skeleton.py` | Generate skeleton code for LLM to complete |
+| `codegen/nodes/` | Node-specific generators (primitives, subvis, structures, loops, cases) |
+| `codegen/error_handler.py` | Held-error model for parallel branches |
+| `codegen/ast_optimizer.py` | Post-generation AST optimization |
+| `skeleton.py` | Generate skeleton code for LLM completion |
+| `context_builder.py` | Build context for LLM prompts |
 | `validator.py` | Validate generated code (syntax, imports, completeness) |
-| `strategies/` | Different conversion strategies (baseline=AST, skeleton=LLM, etc.) |
+
+### Documentation (`src/vipy/docs/`)
+
+| File | Purpose |
+|------|---------|
+| `generate.py` | Orchestrate HTML doc generation for VIs/libraries |
+| `html_generator.py` | Render VI context to HTML pages |
+| `utils.py` | Doc generation utilities |
 
 ### MCP Server (`src/vipy/mcp/`)
 
 | File | Purpose |
 |------|---------|
 | `server.py` | MCP server exposing tools to Claude Code |
-| `tools.py` | Tool implementations (analyze_vi, generate_python, etc.) |
-| `schemas.py` | Shared tool definitions, Pydantic models for results |
+| `tools.py` | Stateless tool implementations (analyze, generate, docs) |
+| `schemas.py` | Pydantic models for tool results |
 
 ### Data Files (`data/`)
 
-| Directory | Purpose |
-|-----------|---------|
-| `primitives/` | JSON mappings: primResID → name, python_code, terminals |
-| `vilib/` | JSON mappings: vi.lib VI names → terminals, python_code |
+| Path | Purpose |
+|------|---------|
+| `primitives-codegen.json` | Primitive mappings: primResID to name, python_code, terminals |
+| `vilib/` | vi.lib VI mappings: terminals, python_code per category |
+| `drivers/` | NI driver mappings (DAQmx, VISA, NI-DCPower, etc.) |
+| `openg/` | OpenG library mappings |
+| `labview-enums.json` | LabVIEW enum definitions |
+| `labview_error_codes.json` | LabVIEW error code descriptions |
 
 ## Data Flow: VI to Python
 
@@ -107,12 +154,10 @@ graph.load_vi(Path("Main.vi"), search_paths=[Path("libs/")])
 
 ### 2. Get VI Context
 ```python
-# Returns dict with dataclass instances (NOT dicts!)
 context = graph.get_vi_context("Main.vi")
 
-# Access with attributes, not .get()
-for op in context["operations"]:
-    print(op.name, op.labels, op.primResID)
+for op in context.operations:
+    print(op.name, op.labels, op.node_type)
 ```
 
 ### 3. Generate Code
@@ -122,92 +167,92 @@ from vipy.agent.codegen import build_module
 code = build_module(context, "Main.vi")
 ```
 
-## Key Dataclasses
+## Key Types
 
-All in `graph_types.py` - use attribute access, not `.get()`:
+All in `graph_types.py` - Pydantic models, use attribute access:
 
 ```python
-@dataclass
-class Operation:
+class Operation(BaseModel):
     id: str
     name: str | None
     labels: list[str]      # ["SubVI"], ["Primitive"], ["Structure", "WhileLoop"]
     terminals: list[Terminal]
-    primResID: int | None  # For primitives
+    node_type: str | None   # For primitives
 
-@dataclass
-class Terminal:
+class Terminal(BaseModel):
     id: str
-    index: int | None
-    direction: str         # "input" or "output"
+    index: int
+    direction: str          # "input" or "output"
     name: str | None
-    type: str | None
     lv_type: LVType | None
 
-@dataclass
-class Wire:
-    id: str
-    from_terminal_id: str
-    to_terminal_id: str
-    from_parent_id: str | None
-    to_parent_id: str | None
+class Wire(BaseModel):
+    source: WireEnd
+    dest: WireEnd
 
-@dataclass
 class LVType:
-    base: str              # "I32", "DBL", "String", "Cluster", "Array"
+    kind: str               # "primitive", "enum", "cluster", "array", "ring", "typedef_ref"
+    underlying_type: str | None
     element_type: LVType | None
-    fields: list[tuple[str, LVType]] | None  # For clusters
+    fields: list[ClusterField] | None  # For clusters
 ```
 
-## Primitive Resolution
+## CLI Commands
 
-Primitives are LabVIEW's built-in operations (Add, Subtract, BuildPath, etc.).
-
-```python
-from vipy.primitive_resolver import get_resolver
-
-resolver = get_resolver()
-prim = resolver.resolve(1419)  # Build Path primitive
-print(prim.name)        # "Build Path"
-print(prim.python_code) # "Path(base) / name"
+```bash
+vipy check                          # Check dependencies
+vipy generate <vi> -o dir           # Deterministic AST code generation
+vipy describe <vi>                  # Human-readable VI description
+vipy docs <vi> <output_dir>         # Generate HTML documentation
+vipy diff <vi_a> <vi_b>             # Compare two VI versions
+vipy visualize <vi> -o graph.html   # Interactive graph visualization
+vipy agent <vi> -o dir              # Full conversion with LLM validation loop
+vipy explore [dir]                  # NiceGUI project explorer
+vipy structure <path>               # Analyze .lvlib/.lvclass structure
+vipy mcp                            # Start MCP server for IDE integration
+vipy llm-generate <vi> -o dir       # Generate idiomatic Python via LLM
 ```
 
-Data lives in `data/primitives/*.json`:
-```json
-{
-  "1419": {
-    "name": "Build Path",
-    "python_code": "Path({base_path}) / {name}",
-    "inputs": [
-      {"index": 0, "name": "base_path", "type": "Path"},
-      {"index": 1, "name": "name", "type": "String"}
-    ],
-    "outputs": [
-      {"index": 2, "name": "built_path", "type": "Path"}
-    ]
-  }
-}
-```
+## MCP Tools
 
-## VILib Resolution
+When running `vipy mcp`, these tools are available:
 
-vi.lib VIs are LabVIEW's standard library.
+**Stateless** (subprocess-based, no shared state):
 
-```python
-from vipy.vilib_resolver import get_resolver
+| Tool | Description |
+|------|-------------|
+| `analyze_vi` | Parse and describe VI structure |
+| `generate_documents` | Create HTML docs for VIs/libraries |
+| `generate_python` | AST code generation |
 
-resolver = get_resolver()
-vi = resolver.resolve("Error Cluster From Error Code.vi")
-print(vi.python_code)  # Template or None
-for term in vi.terminals:
-    print(term.name, term.index, term.direction)
+**Stateful** (graph persists across calls):
+
+| Tool | Description |
+|------|-------------|
+| `load_vi` | Load VI into in-memory graph |
+| `list_loaded_vis` | List loaded VIs |
+| `get_vi_context` | Get full VI context (inputs, outputs, operations, wires) |
+| `generate_ast_code` | Generate code from loaded VI |
+| `describe_vi` | Human-readable VI description |
+| `get_operations` | List operations in a VI |
+| `get_dataflow` | Show wire connections |
+| `get_structure` | Inspect a structure node (loop, case, sequence) |
+| `get_constants` | List constant values |
+
+## Testing
+
+```bash
+pytest                            # All tests
+pytest tests/test_ast_builder.py  # AST generator tests
+pytest tests/test_e2e_codegen.py  # End-to-end codegen tests
+pytest -k "not real_vi"           # Skip tests needing real VIs
 ```
 
 ## Adding New Primitives
 
 1. Run conversion, note the missing primResID in error
 2. Look up primitive in LabVIEW documentation
-3. Add to appropriate `data/primitives/*.json`:
+3. Add to `data/primitives-codegen.json`:
 
 ```json
 {
@@ -216,8 +261,7 @@ for term in vi.terminals:
     "category": "numeric",
     "python_code": "{a} + {b}",
     "inputs": [
-      {"index": 0, "name": "a", "type": "DBL"},
-      {"index": 1, "name": "b", "type": "DBL"}
+      {"index": 0, "name": "a", "type": "DBL"}
     ],
     "outputs": [
       {"index": 2, "name": "result", "type": "DBL"}
@@ -232,106 +276,33 @@ When `VILibResolutionNeeded` is raised:
 
 1. Check the exception output for terminal names and wire indices
 2. The wire indices from the caller show actual terminal positions
-3. Add to appropriate `data/vilib/*.json`:
-
-```json
-{
-  "Some VI.vi": {
-    "category": "error",
-    "terminals": [
-      {"index": 0, "name": "error in", "direction": "input", "type": "ErrorCluster"},
-      {"index": 1, "name": "error out", "direction": "output", "type": "ErrorCluster"}
-    ],
-    "python_code": "error_out = error_in"
-  }
-}
-```
-
-## Strategies
-
-Different approaches to code generation (`agent/strategies/`):
-
-| Strategy | Description |
-|----------|-------------|
-| `baseline` | AST-based deterministic (default) - always valid syntax |
-| `skeleton` | Generate skeleton, LLM fills in logic |
-| `tool_calling` | LLM can call tools to gather info |
-| `rich_feedback` | Include SubVI code when errors reference them |
-| `two_phase` | Phase 1: describe dataflow, Phase 2: write code |
-
-## CLI Commands
-
-```bash
-vipy check              # Check dependencies
-vipy agent <vi> -o dir  # Full conversion with agent loop
-vipy summarize <xml>    # Debug: show VI summary
-vipy explore            # NiceGUI explorer for outputs
-vipy mcp                # Start MCP server for IDE integration
-```
-
-## MCP Tools
-
-When running `vipy mcp`, these tools are available:
-
-| Tool | Description |
-|------|-------------|
-| `analyze_vi` | Parse VI structure (stateless) |
-| `generate_documents` | Create HTML docs (stateless) |
-| `generate_python` | AST code generation (stateless) |
-| `load_vi` | Load VI into graph (stateful) |
-| `list_loaded_vis` | List loaded VIs (stateful) |
-| `get_vi_context` | Get VI context (stateful) |
-| `generate_ast_code` | Generate code from loaded VI (stateful) |
-
-## Testing
-
-```bash
-pytest                           # All tests
-pytest tests/test_ast_builder.py # AST generator tests
-pytest -k "not real_vi"          # Skip tests needing real VIs
-```
-
-## Common Issues
-
-### "Operation object has no attribute 'get'"
-You're using dict access on a dataclass. Use `op.name` not `op.get("name")`.
-
-### Missing SubVI
-Add `--search-path` pointing to the library directory.
-
-### Unknown primitive
-Check `data/primitives/` for the primResID. Add it if missing.
-
-### VILib resolution needed
-Check exception output for terminal indices from caller's dataflow. Add to `data/vilib/`.
-
-### Ollama timeout
-The LLM-based strategies need Ollama running. Use `baseline` strategy for no LLM.
+3. Add to appropriate `data/vilib/<category>.json`
 
 ## File Organization
 
 ```
 vipy/
-├── src/vipy/
-│   ├── parser.py           # VI XML parsing
-│   ├── memory_graph.py     # In-memory graph
-│   ├── graph_types.py      # Core dataclasses
-│   ├── primitive_resolver.py
-│   ├── vilib_resolver.py
-│   ├── agent/
-│   │   ├── loop.py         # Main conversion loop
-│   │   ├── codegen/        # AST code generator
-│   │   ├── claude_agent.py # Anthropic API
-│   │   └── strategies/     # Conversion strategies
-│   └── mcp/
-│       ├── server.py       # MCP server
-│       └── tools.py        # Tool implementations
-├── data/
-│   ├── primitives/         # Primitive mappings
-│   └── vilib/              # VILib mappings
-├── scripts/                # Standalone scripts
-├── tests/                  # Test suite
-└── samples/                # Sample VIs for testing
+  src/vipy/
+    parser/             # VI XML parsing (nodes, wires, types)
+      nodes/            # Node-specific parsers
+    graph/              # NetworkX graph layer
+    agent/
+      codegen/          # AST code generator
+        nodes/          # Node-specific generators
+    docs/               # HTML documentation generation
+    mcp/                # MCP server
+    memory_graph.py     # High-level graph + dependency tracking
+    graph_types.py      # Pydantic models (Operation, Terminal, Wire, etc.)
+    primitive_resolver.py
+    vilib_resolver.py
+  data/
+    primitives-codegen.json
+    vilib/              # VILib mappings by category
+    drivers/            # NI driver mappings
+    openg/              # OpenG library mappings
+  scripts/              # Standalone scripts
+  tests/                # Test suite
+  samples/              # Sample VIs for testing
 ```
 
 ## Development
