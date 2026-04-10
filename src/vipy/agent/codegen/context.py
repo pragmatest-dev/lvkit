@@ -37,9 +37,20 @@ class CodeGenContext:
 
     graph: InMemoryVIGraph | None = field(default=None, repr=False)
     vi_name: str | None = None
+    # Fully qualified name of the VI being generated (library + class +
+    # name). Used in resolution diagnostics so an LLM can find the source.
+    qualified_vi_name: str | None = None
     imports: set[str] = field(default_factory=set)
     loop_depth: int = 0
     use_held_error_model: bool = False
+    # When True, unknown primitives / vi.lib VIs do NOT raise — instead
+    # the codegen emits a `raise PrimitiveResolutionNeeded(...)` /
+    # `raise VILibResolutionNeeded(...)` statement inline in the generated
+    # Python. The same exception class, same fields, just deferred to
+    # runtime. Lets a downstream LLM see the diagnostic with full context
+    # and either write a mapping into .vipy/ or replace the raise with a
+    # contextual fix.
+    soft_unresolved: bool = False
     # Lives on context (not builder) because child() must share it
     # across the same generation pass.
     _branch_counter: int = field(default=0, repr=False)

@@ -224,6 +224,19 @@ async def list_tools() -> list[Tool]:
                         ),
                         "default": [],
                     },
+                    "soft_unresolved": {
+                        "type": "boolean",
+                        "description": (
+                            "If true, unknown primitives / vi.lib VIs are "
+                            "emitted as inline `raise PrimitiveResolutionNeeded(...)` "
+                            "/ `raise VILibResolutionNeeded(...)` statements "
+                            "instead of failing the build. Lets a downstream "
+                            "LLM see the diagnostic in context and either "
+                            "write a mapping into .vipy/ or replace the "
+                            "raise with a contextual fix."
+                        ),
+                        "default": False,
+                    },
                 },
                 "required": ["vi_path", "output_dir"],
             },
@@ -470,6 +483,7 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
         vi_path = arguments.get("vi_path")
         output_dir = arguments.get("output_dir")
         search_paths = arguments.get("search_paths", [])
+        soft_unresolved = arguments.get("soft_unresolved", False)
 
         if not vi_path:
             raise ValueError("vi_path is required")
@@ -480,7 +494,8 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
 
         # Run code generation (synchronous function in async context)
         result = await asyncio.to_thread(
-            generate_python, vi_path, output_dir, search_paths
+            generate_python, vi_path, output_dir, search_paths,
+            include_code=False, soft_unresolved=soft_unresolved,
         )
 
         # Return JSON for structured parsing by agent

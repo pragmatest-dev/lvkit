@@ -20,6 +20,13 @@ class ResolutionContext:
     poly_selector: str | None = None
     wire_types: list[str] = field(default_factory=list)
     terminal_names: list[str] = field(default_factory=list)
+    # Fully qualified on-disk path of the unknown SubVI, e.g.
+    # "<vilib>/Utility/error.llb/Error Cluster From Error Code.vi".
+    # Lets an LLM with access to a real LabVIEW install find the source.
+    qualified_path: str | None = None
+    # Fully qualified name of the caller VI (library + class + name),
+    # complementing caller_vi which may just be the bare name.
+    caller_qualified_name: str | None = None
 
 
 def derive_python_name(typedef_name: str) -> str:
@@ -93,12 +100,22 @@ class VILibResolutionNeeded(Exception):
     def _format_message(self) -> str:
         msg = f"VILib resolution needed for '{self.vi_name}'.\n"
 
+        if self.context.qualified_path:
+            msg += f"\nQualified path: {self.context.qualified_path}"
+            msg += (
+                "\n  (Open this file in a LabVIEW install to read the real"
+                " terminal layout)"
+            )
+
         if self.context.poly_selector:
             msg += f"\nPolymorphic selector: {self.context.poly_selector}"
             msg += "\n  (Add this to poly_selector_names in the variant's JSON entry)"
 
-        if self.context.caller_vi:
-            msg += f"\nCaller VI: {self.context.caller_vi}"
+        caller_label = (
+            self.context.caller_qualified_name or self.context.caller_vi
+        )
+        if caller_label:
+            msg += f"\nCaller VI: {caller_label}"
 
         if self.context.terminal_names:
             msg += "\n\nTerminal names from XML:\n"
@@ -110,7 +127,11 @@ class VILibResolutionNeeded(Exception):
             for wt in self.context.wire_types:
                 msg += f"  - {wt}\n"
 
-        msg += "\nPlease add terminal info to data/vilib/<category>.json"
+        msg += (
+            "\nFix: add terminal info to .vipy/vilib/<category>.json"
+            " (project-local) or data/vilib/<category>.json"
+            " (cleanroom upstream)"
+        )
         return msg
 
 

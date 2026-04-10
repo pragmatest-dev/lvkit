@@ -595,26 +595,93 @@ def _emit_placeholder(
 def _emit_unknown(
     node: PrimitiveOperation, prim_id: int, ctx: CodeGenContext
 ) -> CodeFragment:
-    """Raise PrimitiveResolutionNeeded for unknown primitives.
+    """Handle an unknown primitive.
 
-    Unknown primitives MUST be resolved before generation can proceed.
-    Silent placeholders hide failures — the conversion loop depends on
-    errors being raised so they can be resolved one at a time.
+    Default mode: raise PrimitiveResolutionNeeded immediately so the
+    conversion loop catches it and the user can resolve it before
+    proceeding.
+
+    Soft mode (ctx.soft_unresolved=True): emit an inline `raise
+    PrimitiveResolutionNeeded(...)` AST statement with the same kwargs.
+    The generated Python is syntactically valid; running it raises the
+    exact same exception that hard mode would have raised at codegen
+    time. This lets a downstream LLM see the diagnostic in context and
+    either write a mapping into .vipy/ or replace the raise with a
+    contextual fix.
     """
-    terminals = []
-    for term in node.terminals:
-        terminals.append({
+    terminals = [
+        {
             "index": term.index,
             "direction": term.direction,
             "name": term.name,
             "type": term.lv_type.underlying_type if term.lv_type else None,
-        })
+        }
+        for term in node.terminals
+    ]
 
-    raise PrimitiveResolutionNeeded(
-        prim_id=prim_id,
-        prim_name=node.name or "unknown",
-        terminals=terminals,
-        vi_name=ctx.vi_name,
+    kwargs: dict[str, object] = {
+        "prim_id": prim_id,
+        "prim_name": node.name or "unknown",
+        "terminals": terminals,
+        "vi_name": ctx.vi_name,
+        "qualified_vi_name": ctx.qualified_vi_name,
+    }
+
+    if not ctx.soft_unresolved:
+        raise PrimitiveResolutionNeeded(**kwargs)  # type: ignore[arg-type]
+
+    return _build_unresolved_fragment(
+        node=node,
+        ctx=ctx,
+        exception_module="vipy.primitive_resolver",
+        exception_class="PrimitiveResolutionNeeded",
+        kwargs=kwargs,
+    )
+
+
+def _build_unresolved_fragment(
+    node: PrimitiveOperation,
+    ctx: CodeGenContext,
+    exception_module: str,
+    exception_class: str,
+    kwargs: dict[str, object],
+) -> CodeFragment:
+    """Build a CodeFragment that pre-binds outputs and raises inline.
+
+    Used by soft-mode codegen for unknown primitives and unknown vi.lib
+    VIs. Pre-binds each wired output terminal to None so downstream
+    dataflow has something to read; then raises the same exception that
+    hard mode would raise at codegen time.
+
+    The raise statement is constructed by formatting the kwargs as Python
+    source and parsing it — all values are simple JSON-shaped literals
+    so repr() round-trips correctly.
+    """
+    statements: list[ast.stmt] = []
+
+    # Pre-bind outputs to None so downstream codegen sees a value.
+    # Using build_assign keeps naming consistent with the normal path.
+    for term in node.terminals:
+        if term.direction != "output":
+            continue
+        var_name = ctx.make_output_var(
+            to_var_name(term.name or f"out_{term.index}"),
+            node.id,
+            terminal_id=term.id,
+        )
+        ctx.bind(term.id, var_name)
+        statements.append(build_assign(var_name, ast.Constant(value=None)))
+
+    # Build `raise <Exception>(k1=v1, k2=v2, ...)` from a Python source
+    # string. All kwargs are JSON-shaped literals so repr() is faithful.
+    kwarg_src = ", ".join(f"{k}={v!r}" for k, v in kwargs.items())
+    raise_src = f"raise {exception_class}({kwarg_src})"
+    raise_stmt = ast.parse(raise_src).body[0]
+    statements.append(raise_stmt)
+
+    return CodeFragment(
+        statements=statements,
+        imports={f"from {exception_module} import {exception_class}"},
     )
 
 def _raise_terminal_resolution(

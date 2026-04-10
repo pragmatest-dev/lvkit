@@ -199,6 +199,16 @@ def main() -> int:
         "--no-expand", action="store_true",
         help="Don't expand SubVIs",
     )
+    gen_parser.add_argument(
+        "--placeholder-on-unresolved",
+        action="store_true",
+        help=(
+            "Don't fail on unknown primitives or vi.lib VIs. Instead emit "
+            "an inline `raise PrimitiveResolutionNeeded(...)` / `raise "
+            "VILibResolutionNeeded(...)` in the generated Python so a "
+            "downstream LLM can fix it contextually."
+        ),
+    )
     _add_project_root_arg(gen_parser)
 
     # Docs command - generate HTML documentation
@@ -798,6 +808,7 @@ def cmd_generate(args: argparse.Namespace) -> int:
             args.output,
             search_paths=sp,
             expand_subvis=not args.no_expand,
+            soft_unresolved=args.placeholder_on_unresolved,
         )
         return 1 if result["error"] > 0 else 0
 

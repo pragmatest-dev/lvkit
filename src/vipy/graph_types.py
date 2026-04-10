@@ -264,6 +264,10 @@ class VINode(GraphNode):
     library: str | None = None
     qualified_name: str | None = None
     poly_variant_name: str | None = None
+    # Fully qualified on-disk path components joined with /, e.g.
+    # "<vilib>/Utility/error.llb/Error Cluster From Error Code.vi".
+    # Set on SubVI call nodes when the parser captured a path ref.
+    qualified_path: str | None = None
 
 
 class PrimitiveNode(GraphNode):
@@ -475,6 +479,11 @@ class Operation(BaseModel):
     inner_nodes: list[Operation] = []
     description: str | None = None
     poly_variant_name: str | None = None
+    # Fully qualified on-disk path joined with /, e.g.
+    # "<vilib>/Utility/error.llb/Error Cluster From Error Code.vi".
+    # Set on SubVI call operations from the parser path_tokens. Used by
+    # resolution diagnostics to point an LLM at the real source file.
+    qualified_path: str | None = None
 
 
 class PrimitiveOperation(Operation):
