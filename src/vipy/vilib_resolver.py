@@ -200,7 +200,7 @@ class VILibResolver:
                 via the existing "first wins" semantics in _load_vilib_data.
         """
         if data_dir is None:
-            data_dir = Path(__file__).parent.parent.parent / "data"
+            data_dir = Path(__file__).parent / "data"
 
         self.data_dir = data_dir
         self._vis: dict[str, VIEntry] = {}

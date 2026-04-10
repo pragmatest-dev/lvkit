@@ -1,7 +1,7 @@
 ---
 name: resolve-vilib
 description: Resolve a single unknown vilib VI by looking up its terminal layout in the LabVIEW documentation. Called when VILibResolutionNeeded fires during vipy generate.
-allowed-tools: Bash, Read, Write, Edit, Glob, Grep
+allowed-tools: Bash, Read, Write, Edit, Glob, Grep, WebSearch, WebFetch
 ---
 
 # Resolve Unknown vilib VI
@@ -10,19 +10,18 @@ When `VILibResolutionNeeded` fires during `vipy generate`, this skill resolves i
 
 ## Step 0: Detect mode
 
-This skill runs in two contexts. The destination directory and the lookup workflow differ. Decide which one applies BEFORE you do anything else.
+This skill runs in two contexts. The destination directory and the source-of-truth differ. Decide which one applies BEFORE you do anything else.
 
 Read `pyproject.toml` from the current directory (walk up if needed). If it contains `name = "vipy"`, you are working **inside vipy itself**:
 
 - Destination: `data/vilib/<category>.json` (vipy's shipped, cleanroom data)
-- Lookup source: vipy's shipped `docs/labview_ref_manual.txt`
+- Source of truth: NI's online documentation (via WebSearch/WebFetch)
 - The mapping must be cleanroom — derived from public documentation, NOT from the actual vi.lib block diagram
 
 Otherwise, you are working **inside a downstream user's project**:
 
 - Destination: `.vipy/vilib/<category>.json` (project-local store; run `vipy init` first if `.vipy/` doesn't exist)
-- Lookup source: open the actual file at the **qualified path** the diagnostic provides (e.g. `<vilib>/Utility/error.llb/Error Cluster From Error Code.vi`). The user's own LabVIEW install resolves `<vilib>` to the on-disk `vi.lib` directory. Read the real connector pane and terminals.
-- Do NOT use vipy's `docs/labview_ref_manual.txt` — rely on the user's own LabVIEW install
+- Source of truth: the actual file at the **qualified path** the diagnostic provides (e.g. `<vilib>/Utility/error.llb/Error Cluster From Error Code.vi`). The user's own LabVIEW install resolves `<vilib>` to the on-disk `vi.lib` directory. Read the real connector pane and terminals. Web search NI's docs as a backup if you can't open the file.
 - The mapping you write may be derived from the actual vi.lib source; that's the user's call. vipy itself never reads `.vipy/`.
 
 ## Step 1: Record the diagnostic
@@ -35,17 +34,17 @@ Write down the EXACT diagnostic output:
 
 ## Step 2: Look up the function
 
-This step is mode-dependent.
+The VI name IS the function name. Pick the lookup path that matches your detected mode.
 
-### vipy mode: search the shipped LabVIEW reference
+### vipy mode: web search NI's documentation
 
-The VI name IS the function name. Search vipy's reference text:
+Use the WebSearch tool. Good queries:
 
-```bash
-grep -n "EXACT VI NAME" docs/labview_ref_manual.txt | head -10
-```
+- `LabVIEW <EXACT VI NAME>` — broad lookup
+- `site:ni.com/docs <EXACT VI NAME>` — restrict to NI docs
 
-Read the full Inputs/Outputs section at the relevant page. The documentation gives:
+When you find a candidate page, use WebFetch to read the full Inputs/Outputs section. NI's docs give:
+
 - Every terminal name and its purpose
 - Direction (input/output)
 - Data type
@@ -61,7 +60,7 @@ If `vipy describe` works on the file (it doesn't require resolution), use it for
 vipy describe "<full-vilib-path>"
 ```
 
-Otherwise, ask the user to open the VI in LabVIEW and read off the connector pane terminal positions. The connector pane index is what vipy needs.
+If the file isn't accessible, fall back to web search (same as vipy mode above) or ask the user to open the VI in LabVIEW and read off the connector pane terminal positions. The connector pane index is what vipy needs.
 
 ## Step 3: Match documentation/source terminals to wire types
 

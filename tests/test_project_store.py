@@ -234,6 +234,173 @@ def test_cli_init_creates_project_store(tmp_path: Path) -> None:
 
 
 # ============================================================
+# Skill installation
+# ============================================================
+
+
+def test_install_claude_skills_creates_all_user_facing(tmp_path: Path) -> None:
+    """install_claude_skills writes every packaged template to .claude/skills/."""
+    from vipy.project_store import install_claude_skills
+
+    written = install_claude_skills(tmp_path)
+    assert len(written) == 5
+    for skill in (
+        "resolve-primitive",
+        "resolve-vilib",
+        "describe-vi",
+        "convert",
+        "idiomatic",
+    ):
+        path = tmp_path / ".claude" / "skills" / skill / "SKILL.md"
+        assert path.is_file(), f"missing {path}"
+        # Frontmatter present
+        text = path.read_text()
+        assert text.startswith("---\n")
+        assert f"name: {skill}" in text
+
+
+def test_install_claude_skills_idempotent(tmp_path: Path) -> None:
+    """Re-running with no changes is a no-op (returns empty list)."""
+    from vipy.project_store import install_claude_skills
+
+    install_claude_skills(tmp_path)
+    second = install_claude_skills(tmp_path)
+    assert second == []
+
+
+def test_install_claude_skills_refuses_local_edits(tmp_path: Path) -> None:
+    """Re-running over a locally edited file fails without --force."""
+    from vipy.project_store import install_claude_skills
+
+    install_claude_skills(tmp_path)
+    edited = tmp_path / ".claude" / "skills" / "convert" / "SKILL.md"
+    edited.write_text("LOCAL EDIT\n")
+
+    with pytest.raises(FileExistsError, match="local edits"):
+        install_claude_skills(tmp_path)
+
+
+def test_install_claude_skills_force_overwrites(tmp_path: Path) -> None:
+    """--force overwrites local edits."""
+    from vipy.project_store import install_claude_skills
+
+    install_claude_skills(tmp_path)
+    edited = tmp_path / ".claude" / "skills" / "convert" / "SKILL.md"
+    edited.write_text("LOCAL EDIT\n")
+
+    install_claude_skills(tmp_path, force=True)
+    assert "LOCAL EDIT" not in edited.read_text()
+    assert "name: convert" in edited.read_text()
+
+
+def test_install_copilot_instructions_creates_file(tmp_path: Path) -> None:
+    """install_copilot_instructions writes .github/copilot-instructions.md."""
+    from vipy.project_store import install_copilot_instructions
+
+    path = install_copilot_instructions(tmp_path)
+    assert path == tmp_path / ".github" / "copilot-instructions.md"
+    assert path.is_file()
+    text = path.read_text()
+    # Marker comments wrap the vipy section
+    assert "<!-- vipy:resolve start -->" in text
+    assert "<!-- vipy:resolve end -->" in text
+    # All 5 workflows are concatenated
+    for skill in (
+        "resolve-primitive",
+        "resolve-vilib",
+        "describe-vi",
+        "convert",
+        "idiomatic",
+    ):
+        assert f"## Workflow: {skill}" in text
+
+
+def test_install_copilot_preserves_existing_content(tmp_path: Path) -> None:
+    """Existing copilot-instructions.md content outside vipy markers is preserved."""
+    from vipy.project_store import install_copilot_instructions
+
+    existing = tmp_path / ".github" / "copilot-instructions.md"
+    existing.parent.mkdir(parents=True)
+    existing.write_text("# My project\n\nUse tabs not spaces.\n")
+
+    install_copilot_instructions(tmp_path)
+    text = existing.read_text()
+    assert "Use tabs not spaces" in text
+    assert "<!-- vipy:resolve start -->" in text
+
+
+def test_install_copilot_replaces_only_vipy_section(tmp_path: Path) -> None:
+    """Re-running replaces just the vipy section, not surrounding content."""
+    from vipy.project_store import install_copilot_instructions
+
+    install_copilot_instructions(tmp_path)
+    path = tmp_path / ".github" / "copilot-instructions.md"
+    # Append unrelated content after the vipy section
+    text = path.read_text()
+    path.write_text(text + "\n# After vipy\nMore stuff here.\n")
+
+    install_copilot_instructions(tmp_path)
+    final = path.read_text()
+    assert "More stuff here" in final
+    assert final.count("<!-- vipy:resolve start -->") == 1
+    assert final.count("<!-- vipy:resolve end -->") == 1
+
+
+def test_install_copilot_strips_frontmatter(tmp_path: Path) -> None:
+    """The Copilot section omits the YAML frontmatter from each skill."""
+    from vipy.project_store import install_copilot_instructions
+
+    install_copilot_instructions(tmp_path)
+    text = (tmp_path / ".github" / "copilot-instructions.md").read_text()
+    # Frontmatter starts with `---\nname:` — should NOT appear inline
+    # in the copilot section.
+    assert "---\nname: convert" not in text
+    assert "---\nname: resolve-primitive" not in text
+
+
+def test_cli_init_skills_claude(tmp_path: Path) -> None:
+    """`vipy init --skills claude` installs Claude Code skills."""
+    import subprocess
+    import sys
+
+    result = subprocess.run(
+        [
+            sys.executable, "-m", "vipy.cli", "init",
+            str(tmp_path), "--skills", "claude",
+        ],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    assert "Installed 5 Claude Code skill(s)" in result.stdout
+    assert (
+        tmp_path / ".claude" / "skills" / "convert" / "SKILL.md"
+    ).is_file()
+
+
+def test_cli_init_skills_all(tmp_path: Path) -> None:
+    """`vipy init --skills all` installs both Claude and Copilot."""
+    import subprocess
+    import sys
+
+    result = subprocess.run(
+        [
+            sys.executable, "-m", "vipy.cli", "init",
+            str(tmp_path), "--skills", "all",
+        ],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    assert "Installed 5 Claude Code skill(s)" in result.stdout
+    assert "Wrote Copilot instructions" in result.stdout
+    assert (
+        tmp_path / ".claude" / "skills" / "resolve-primitive" / "SKILL.md"
+    ).is_file()
+    assert (tmp_path / ".github" / "copilot-instructions.md").is_file()
+
+
+# ============================================================
 # CLI: --project-root accepts both forms
 # ============================================================
 

@@ -1,27 +1,33 @@
 """Project-local resolution store discovery and initialization.
 
-vipy ships as cleanroom — its `data/` directory contains only mappings derived
-from public documentation. A project-local `.vipy/` directory lets users with
-LabVIEW licenses contribute their own mappings (potentially derived from
-licensed sources) without contaminating vipy's shipment.
+vipy ships as cleanroom — its bundled data directory contains only
+mappings derived from public documentation. A project-local `.vipy/`
+directory lets users with LabVIEW licenses contribute their own mappings
+(potentially derived from licensed sources) without contaminating vipy's
+shipment.
 
-The store is a parallel layout to `data/`:
+The store is a parallel layout to vipy's bundled data:
 
     .vipy/
       README.md                 # license-boundary explainer
-      primitives.json   # primitive overrides
+      primitives.json           # primitive overrides
       vilib/
         _index.json
         <category>.json
       openg/
       drivers/
 
-Resolvers load `.vipy/` first, then fall back to shipped `data/`.
+Resolvers load `.vipy/` first, then fall back to vipy's bundled data.
+
+This module also installs Claude Code skills and Copilot instructions
+from the packaged templates so downstream users can run vipy's resolve
+workflows in their own LLM-enabled editor.
 """
 
 from __future__ import annotations
 
 import json
+from importlib.resources import files
 from pathlib import Path
 
 PROJECT_STORE_DIR = ".vipy"
@@ -130,3 +136,161 @@ def init_project_store(root: Path) -> Path:
             index.write_text(json.dumps({"categories": {}}, indent=2) + "\n")
 
     return store
+
+
+# ============================================================
+# Skill installation
+# ============================================================
+#
+# vipy ships Claude Code skill templates as package data under
+# `src/vipy/skill_templates/claude/<name>/SKILL.md`. The two functions
+# below copy them into a downstream user's project so the user's LLM
+# editor (Claude Code, Copilot, Cursor) can run vipy's workflows.
+
+# Marker comments wrap the vipy section in copilot-instructions.md so
+# we can replace just our part on subsequent installs without touching
+# the user's other instructions.
+_COPILOT_MARKER_START = "<!-- vipy:resolve start -->"
+_COPILOT_MARKER_END = "<!-- vipy:resolve end -->"
+
+
+def install_claude_skills(target_dir: Path, force: bool = False) -> list[Path]:
+    """Install vipy's Claude Code skills into a project.
+
+    Copies every packaged template under
+    `src/vipy/skill_templates/claude/<name>/SKILL.md` into
+    `<target_dir>/.claude/skills/<name>/SKILL.md`.
+
+    Args:
+        target_dir: Project root. The `.claude/skills/` tree is created
+            under this directory.
+        force: Overwrite existing files even if they have local edits.
+            By default, an existing file is left alone unless it's
+            byte-identical to a previously installed version (which
+            means we know it's safe to overwrite).
+
+    Returns:
+        List of paths that were written or overwritten.
+    """
+    template_root = files("vipy.skill_templates").joinpath("claude")
+    skills_dir = target_dir / ".claude" / "skills"
+    skills_dir.mkdir(parents=True, exist_ok=True)
+
+    written: list[Path] = []
+
+    for skill_dir in template_root.iterdir():
+        if not skill_dir.is_dir():
+            continue
+        template_file = skill_dir.joinpath("SKILL.md")
+        if not template_file.is_file():
+            continue
+
+        skill_name = skill_dir.name
+        dest = skills_dir / skill_name / "SKILL.md"
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        new_content = template_file.read_text()
+
+        if dest.exists() and not force:
+            existing = dest.read_text()
+            if existing == new_content:
+                # Already up to date.
+                continue
+            raise FileExistsError(
+                f"{dest} already exists with local edits. "
+                "Re-run with --force to overwrite."
+            )
+
+        dest.write_text(new_content)
+        written.append(dest)
+
+    return written
+
+
+def install_copilot_instructions(
+    target_dir: Path, force: bool = False
+) -> Path:
+    """Install vipy's resolve workflows into copilot-instructions.md.
+
+    Builds a single Markdown section by concatenating every packaged
+    Claude skill template (frontmatter stripped, body wrapped in
+    section headers), then writes or updates
+    `<target_dir>/.github/copilot-instructions.md`. The vipy section
+    is wrapped in marker comments so re-installing replaces just our
+    section and leaves any other Copilot instructions intact.
+
+    Args:
+        target_dir: Project root. `.github/copilot-instructions.md` is
+            created under this directory.
+        force: Replace the vipy section even if local edits exist
+            inside the marker block. (Edits outside the marker block
+            are always preserved.)
+
+    Returns:
+        Path to the written or updated copilot-instructions.md file.
+    """
+    section = _build_copilot_section()
+    dest = target_dir / ".github" / "copilot-instructions.md"
+    dest.parent.mkdir(parents=True, exist_ok=True)
+
+    if dest.exists():
+        existing = dest.read_text()
+        if _COPILOT_MARKER_START in existing and _COPILOT_MARKER_END in existing:
+            before, _, rest = existing.partition(_COPILOT_MARKER_START)
+            _, _, after = rest.partition(_COPILOT_MARKER_END)
+            new_content = before + section + after
+            if new_content == existing and not force:
+                return dest
+        else:
+            # First-time install into a file with other Copilot content.
+            sep = "" if existing.endswith("\n") else "\n"
+            new_content = existing + sep + "\n" + section
+    else:
+        new_content = section
+
+    dest.write_text(new_content)
+    return dest
+
+
+def _build_copilot_section() -> str:
+    """Concatenate all Claude skill templates into a Copilot section.
+
+    Strips YAML frontmatter, wraps the result in marker comments and a
+    top-level header so Copilot/Cursor can pick it up alongside the
+    user's other instructions.
+    """
+    template_root = files("vipy.skill_templates").joinpath("claude")
+    parts: list[str] = [
+        _COPILOT_MARKER_START,
+        "# vipy: LabVIEW VI to Python workflows",
+        "",
+        "The following workflows come from vipy's Claude Code skills.",
+        "They describe how to convert, describe, and resolve unknown",
+        "primitives in LabVIEW VIs. The same instructions work for any",
+        "LLM-aware editor.",
+        "",
+    ]
+
+    for skill_dir in sorted(template_root.iterdir(), key=lambda p: p.name):
+        if not skill_dir.is_dir():
+            continue
+        template_file = skill_dir.joinpath("SKILL.md")
+        if not template_file.is_file():
+            continue
+        body = _strip_frontmatter(template_file.read_text())
+        parts.append(f"## Workflow: {skill_dir.name}")
+        parts.append("")
+        parts.append(body.strip())
+        parts.append("")
+
+    parts.append(_COPILOT_MARKER_END)
+    return "\n".join(parts) + "\n"
+
+
+def _strip_frontmatter(text: str) -> str:
+    """Remove a leading `---\\n...\\n---\\n` YAML frontmatter block."""
+    if not text.startswith("---\n"):
+        return text
+    end = text.find("\n---\n", 4)
+    if end == -1:
+        return text
+    return text[end + len("\n---\n"):]

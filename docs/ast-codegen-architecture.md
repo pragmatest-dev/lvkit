@@ -159,7 +159,7 @@ def generate(node, ctx) -> list[ast.stmt]:
     # 5. Update shift register variables at end of body
 ```
 
-### Primitive Resolution: `data/primitives.json`
+### Primitive Resolution: `src/vipy/data/primitives.json`
 
 Maps primResID to Python code hints:
 
