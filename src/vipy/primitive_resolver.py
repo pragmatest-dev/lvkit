@@ -168,12 +168,15 @@ class PrimitiveResolver:
         self,
         codegen_path: Path | str | None = None,
         pdf_path: Path | str | None = None,
+        project_data_dir: Path | None = None,
     ):
         """Load primitive database.
 
         Args:
-            codegen_path: Path to primitives-codegen.json
-            pdf_path: Path to primitives-from-pdf.json
+            codegen_path: Path to primitives-codegen.json (shipped data)
+            pdf_path: Path to primitives-from-pdf.json (shipped data)
+            project_data_dir: Optional project-local .vipy/ directory.
+                Loaded BEFORE shipped data so project entries take priority.
         """
         data_dir = Path(__file__).parent.parent.parent / "data"
         if codegen_path is None:
@@ -218,6 +221,11 @@ class PrimitiveResolver:
             ("SGL", "DBL"),
         }
 
+        # Project data wins: load project file first, shipped file second.
+        # _load_codegen / _load_pdf both skip entries already present, so the
+        # first loader's entries take priority.
+        if project_data_dir is not None:
+            self._load_codegen(project_data_dir / "primitives-codegen.json")
         self._load_codegen(Path(codegen_path))
         self._load_pdf(Path(pdf_path))
 
@@ -231,7 +239,11 @@ class PrimitiveResolver:
         return n.replace(" ", "_").replace("-", "_")
 
     def _load_codegen(self, path: Path) -> None:
-        """Load primitives from codegen file (with known IDs)."""
+        """Load primitives from codegen file (with known IDs).
+
+        Skips entries whose prim_id is already loaded — this lets a
+        project-local file (loaded first) override shipped entries.
+        """
         if not path.exists():
             return
 
@@ -241,6 +253,10 @@ class PrimitiveResolver:
         primitives = data.get("primitives", {})
 
         for prim_id, prim_data in primitives.items():
+            # First-loaded wins: skip if already present.
+            if prim_id in self._by_id:
+                continue
+
             # Index by ID
             self._by_id[prim_id] = prim_data
 
@@ -248,7 +264,8 @@ class PrimitiveResolver:
             name = prim_data.get("name", "")
             if name:
                 norm_name = self._normalize_name(name)
-                self._by_name[norm_name] = {"id": prim_id, **prim_data}
+                if norm_name not in self._by_name:
+                    self._by_name[norm_name] = {"id": prim_id, **prim_data}
 
             # Index by type signature if we have terminal info
             terminals = prim_data.get("terminals", [])
@@ -267,9 +284,11 @@ class PrimitiveResolver:
                 self._by_signature[sig].append({"id": prim_id, **prim_data})
 
         # Load node_types section (aBuild, cpdArith, etc.)
+        # Same first-loaded-wins semantics.
         node_types = data.get("node_types", {})
         for node_type, info in node_types.items():
-            self._by_node_type[node_type] = info
+            if node_type not in self._by_node_type:
+                self._by_node_type[node_type] = info
 
     def _load_pdf(self, path: Path) -> None:
         """Load primitives from PDF extraction (no IDs, for name-based lookup)."""
@@ -554,6 +573,17 @@ def get_resolver() -> PrimitiveResolver:
     if _resolver is None:
         _resolver = PrimitiveResolver()
     return _resolver
+
+
+def reset_resolver(project_data_dir: Path | None = None) -> None:
+    """Replace the cached global resolver, optionally with a project store.
+
+    Call this at CLI/MCP entry points after discovering a project's .vipy/
+    directory. Subsequent get_resolver() calls return a resolver that loads
+    project data first and falls back to shipped data.
+    """
+    global _resolver
+    _resolver = PrimitiveResolver(project_data_dir=project_data_dir)
 
 
 def resolve_primitive(

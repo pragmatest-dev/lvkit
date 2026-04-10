@@ -164,11 +164,19 @@ class VILibResolver:
     2. data/vilib/*.json - PDF-extracted VIs with terminal info (fallback)
     """
 
-    def __init__(self, data_dir: Path | None = None):
+    def __init__(
+        self,
+        data_dir: Path | None = None,
+        project_data_dir: Path | None = None,
+    ):
         """Initialize resolver with vilib VI mappings.
 
         Args:
-            data_dir: Path to data directory. If None, uses default location.
+            data_dir: Path to shipped data directory. If None, uses default
+                location relative to this package.
+            project_data_dir: Optional project-local .vipy/ directory.
+                Loaded BEFORE shipped data so project entries take priority
+                via the existing "first wins" semantics in _load_vilib_data.
         """
         if data_dir is None:
             data_dir = Path(__file__).parent.parent.parent / "data"
@@ -182,17 +190,26 @@ class VILibResolver:
         self._variants: dict[str, list[VIEntry]] = {}  # VI name → variants
         self._by_poly_selector: dict[tuple[str, str], VIEntry] = {}  # (base, sel)
 
-        # Load vilib data from category files
+        # Project data wins: load project subdirs first. _load_vilib_data
+        # has "only add if not present" semantics, so first-loaded entries
+        # take priority over shipped equivalents.
+        if project_data_dir is not None:
+            for subdir in ("vilib", "openg", "drivers"):
+                project_sub = project_data_dir / subdir
+                if project_sub.exists():
+                    self._load_vilib_data(project_sub)
+
+        # Load shipped vilib data from category files
         vilib_dir = data_dir / "vilib"
         if vilib_dir.exists():
             self._load_vilib_data(vilib_dir)
 
-        # Load OpenG data (same format as vilib)
+        # Load shipped OpenG data (same format as vilib)
         openg_dir = data_dir / "openg"
         if openg_dir.exists():
             self._load_vilib_data(openg_dir)
 
-        # Load driver data (same VIEntry schema)
+        # Load shipped driver data (same VIEntry schema)
         drivers_dir = data_dir / "drivers"
         if drivers_dir.exists():
             self._load_vilib_data(drivers_dir)
@@ -1069,7 +1086,19 @@ def get_resolver() -> VILibResolver:
     return _resolver
 
 
-def reset_resolver() -> None:
-    """Reset resolver (for testing)."""
+def reset_resolver(project_data_dir: Path | None = None) -> None:
+    """Replace the cached global resolver, optionally with a project store.
+
+    Call this at CLI/MCP entry points after discovering a project's .vipy/
+    directory. Subsequent get_resolver() calls return a resolver that loads
+    project data first and falls back to shipped data.
+
+    Args:
+        project_data_dir: Path to project's .vipy/ directory, or None to
+            reset to shipped-data-only.
+    """
     global _resolver
-    _resolver = None
+    if project_data_dir is None:
+        _resolver = None
+    else:
+        _resolver = VILibResolver(project_data_dir=project_data_dir)
