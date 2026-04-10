@@ -135,7 +135,7 @@ Then read the relevant section to get the complete terminal layout.
 
 ## Step 6: Add the JSON entry (or placeholder as LAST RESORT)
 
-Only after completing steps 1-5. Add to `data/primitives-codegen.json` under `primitives`:
+Only after completing steps 1-5. Add to `data/primitives.json` under `primitives`:
 
 ```json
 "PRIM_ID": {

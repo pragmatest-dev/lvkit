@@ -6,7 +6,7 @@ vipy parses VI binary files into a queryable dataflow graph, then uses that grap
 
 ### Cleanroom approach
 
-vipy is a cleanroom conversion tool — it has no access to LabVIEW source code or runtime. LabVIEW's standard library (vi.lib), built-in primitives, and third-party libraries like OpenG are **semantically replaced**: each operation is mapped to an equivalent Python implementation defined in JSON data files (`data/vilib/`, `data/primitives-codegen.json`, `data/openg/`). These mappings are built from documentation and observed behavior, not from LabVIEW internals.
+vipy is a cleanroom conversion tool — it has no access to LabVIEW source code or runtime. LabVIEW's standard library (vi.lib), built-in primitives, and third-party libraries like OpenG are **semantically replaced**: each operation is mapped to an equivalent Python implementation defined in JSON data files (`data/vilib/`, `data/primitives.json`, `data/openg/`). These mappings are built from documentation and observed behavior, not from LabVIEW internals.
 
 This means coverage is incremental. When the generator encounters an unmapped primitive or vi.lib VI, it raises an error with diagnostic context so the mapping can be added. The data files grow over time as more VIs are converted.
 
@@ -135,7 +135,7 @@ InMemoryVIGraph (operations, terminals, wires, types)
 
 | Path | Purpose |
 |------|---------|
-| `primitives-codegen.json` | Primitive mappings: primResID to name, python_code, terminals |
+| `primitives.json` | Primitive mappings: primResID to name, python_code, terminals |
 | `vilib/` | vi.lib VI mappings: terminals, python_code per category |
 | `drivers/` | NI driver mappings (DAQmx, VISA, NI-DCPower, etc.) |
 | `openg/` | OpenG library mappings |
@@ -252,7 +252,7 @@ pytest -k "not real_vi"           # Skip tests needing real VIs
 
 1. Run conversion, note the missing primResID in error
 2. Look up primitive in LabVIEW documentation
-3. Add to `data/primitives-codegen.json`:
+3. Add to `data/primitives.json`:
 
 ```json
 {
@@ -296,7 +296,7 @@ vipy/
     primitive_resolver.py
     vilib_resolver.py
   data/
-    primitives-codegen.json
+    primitives.json
     vilib/              # VILib mappings by category
     drivers/            # NI driver mappings
     openg/              # OpenG library mappings

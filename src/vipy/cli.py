@@ -40,12 +40,21 @@ def _configure_resolvers(args: argparse.Namespace) -> Path | None:
     Must be called BEFORE any load_vi() so graph construction sees the
     project mappings (used for terminal-index disambiguation).
 
+    Accepts --project-root in either form: the parent of .vipy/ (the
+    project root), or the .vipy/ directory itself.
+
     Returns the project store directory if one was found, else None.
     """
     project_root = getattr(args, "project_root", None)
+    store: Path | None
     if project_root:
-        store = Path(project_root) / ".vipy"
-        if not store.is_dir():
+        candidate = Path(project_root)
+        # Accept both "project root" and ".vipy/" itself
+        if candidate.name == ".vipy" and candidate.is_dir():
+            store = candidate
+        elif (candidate / ".vipy").is_dir():
+            store = candidate / ".vipy"
+        else:
             store = None
     else:
         store = find_project_store()
@@ -712,8 +721,14 @@ def cmd_init(args: argparse.Namespace) -> int:
     print(f"  README: {store / 'README.md'}")
     print()
     print("Next steps:")
-    print("  - Add primitive overrides to .vipy/primitives-codegen.json")
-    print("  - Add vi.lib mappings to .vipy/vilib/<category>.json")
+    print(
+        "  - Create .vipy/primitives.json to override primitive mappings"
+        " (use vipy's shipped data/primitives.json as a reference)"
+    )
+    print(
+        "  - Add vi.lib mappings to .vipy/vilib/<category>.json and register them"
+        " in .vipy/vilib/_index.json"
+    )
     print("  - vipy will check .vipy/ before its shipped data when resolving.")
     return 0
 

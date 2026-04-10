@@ -39,12 +39,18 @@ from .tools import analyze_vi, generate_documents, generate_python
 
 
 def _configure_resolvers_for_vi(vi_path: str | Path) -> None:
-    """Discover .vipy/ from a VI's parent directory and reset resolvers.
+    """Discover .vipy/ from a VI path and reset resolvers.
 
     MCP may serve multiple projects in one session, so we re-resolve the
     project store on every tool call that knows a target VI path.
+
+    The path may be a file (a .vi), a directory (an .lvlib, .lvclass, or a
+    folder of VIs), or a path that doesn't exist yet. We start the search
+    from the path itself when it's a directory and from its parent when
+    it's a file, then walk up looking for .vipy/.
     """
-    start = Path(vi_path).resolve().parent
+    p = Path(vi_path).resolve()
+    start = p if p.is_dir() else p.parent
     store = find_project_store(start=start)
     primitive_resolver.reset_resolver(project_data_dir=store)
     vilib_resolver.reset_resolver(project_data_dir=store)

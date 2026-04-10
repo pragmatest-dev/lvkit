@@ -72,7 +72,7 @@ Each handler takes an `Operation` and `CodeGenContext`, returns a `CodeFragment`
 | Handler | Node Types | What It Generates |
 |---------|-----------|-------------------|
 | `subvi.py` | SubVI calls (`iUse`, `polyIUse`, `dynIUse`) | Function calls, inline vilib templates, dynamic dispatch (`obj.method()`) |
-| `primitive.py` | LabVIEW primitives (Add, Compare, etc.) | Template substitution from `primitives-codegen.json` |
+| `primitive.py` | LabVIEW primitives (Add, Compare, etc.) | Template substitution from `primitives.json` |
 | `loop.py` | While/For loops | `while`/`for` with shift registers, auto-indexing, accumulators |
 | `case.py` | Case structures | `if/elif/else` chains from case frames |
 | `sequence.py` | Flat/stacked sequences | Sequential code blocks, one per frame |

@@ -6,7 +6,7 @@ codegen:
   held-error-model:
     description: Parallel branch error handling that preserves LabVIEW semantics
   primitive-hints:
-    description: primitives-codegen.json format for mapping LabVIEW primitives to Python
+    description: primitives.json format for mapping LabVIEW primitives to Python
   terminal-name-resolution:
     description: How SubVI terminal names are resolved (vilib vs project SubVIs)
 
