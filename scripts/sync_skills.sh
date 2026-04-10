@@ -2,18 +2,24 @@
 # Verify the in-repo .claude/skills/<name>/SKILL.md files match their
 # packaged templates in src/vipy/skill_templates/claude/<name>/SKILL.md.
 #
-# vipy ships 5 user-facing skills (resolve-primitive, resolve-vilib,
-# describe-vi, convert, idiomatic) via PyPI. The source of truth is the
-# packaged template; the in-repo .claude/skills/ copy is a byte-identical
-# mirror so vipy maintainers using Claude Code in this repo get the same
-# skills downstream users receive.
+# vipy ships user-facing skills via PyPI through the package data at
+# src/vipy/skill_templates/. The source of truth is the packaged template;
+# the in-repo .claude/skills/ copy is a byte-identical mirror so vipy
+# maintainers using Claude Code in this repo get the same skills downstream
+# users receive.
 #
-# This hook fails if the two diverge. Fix by copying the template:
+# Skills that exist only in .claude/skills/ (not under skill_templates/)
+# are intentionally maintainer-only — they're not checked by this script.
+# That includes judge-output and trace-bug, which test/debug vipy itself
+# and have no value to downstream users.
+#
+# Discovery is automatic: every directory under src/vipy/skill_templates/
+# claude/ must have a corresponding .claude/skills/ entry. Adding a new
+# template requires no script change.
+#
+# This hook fails if any pair diverges. Fix by copying the template:
 #   cp src/vipy/skill_templates/claude/<skill>/SKILL.md \
 #      .claude/skills/<skill>/SKILL.md
-#
-# The two maintainer-only skills (judge-output, trace-bug) are NOT
-# packaged and NOT checked here.
 
 set -euo pipefail
 
@@ -21,27 +27,30 @@ REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 TEMPLATE_DIR="$REPO_ROOT/src/vipy/skill_templates/claude"
 INREPO_DIR="$REPO_ROOT/.claude/skills"
 
-SKILLS=(
-    resolve-primitive
-    resolve-vilib
-    describe-vi
-    convert
-    idiomatic
-)
+if [[ ! -d "$TEMPLATE_DIR" ]]; then
+    echo "ERROR: template directory missing: $TEMPLATE_DIR" >&2
+    exit 1
+fi
 
 failed=0
+checked=0
 
-for skill in "${SKILLS[@]}"; do
-    template="$TEMPLATE_DIR/$skill/SKILL.md"
-    inrepo="$INREPO_DIR/$skill/SKILL.md"
-
+for template in "$TEMPLATE_DIR"/*/SKILL.md; do
     if [[ ! -f "$template" ]]; then
-        echo "ERROR: missing template: $template" >&2
-        failed=1
-        continue
+        # No skill template directories — nothing to check.
+        echo "No skill templates found under $TEMPLATE_DIR" >&2
+        exit 0
     fi
+
+    skill="$(basename "$(dirname "$template")")"
+    inrepo="$INREPO_DIR/$skill/SKILL.md"
+    checked=$((checked + 1))
+
     if [[ ! -f "$inrepo" ]]; then
-        echo "ERROR: missing in-repo copy: $inrepo" >&2
+        echo "ERROR: missing in-repo copy for skill template '$skill'" >&2
+        echo "  template: $template" >&2
+        echo "  expected: $inrepo" >&2
+        echo "  fix:      mkdir -p \"$(dirname "$inrepo")\" && cp \"$template\" \"$inrepo\"" >&2
         failed=1
         continue
     fi
@@ -56,7 +65,7 @@ for skill in "${SKILLS[@]}"; do
 done
 
 if [[ $failed -eq 0 ]]; then
-    echo "All 5 user-facing skills match their templates."
+    echo "All $checked user-facing skill(s) match their templates."
 fi
 
 exit $failed
