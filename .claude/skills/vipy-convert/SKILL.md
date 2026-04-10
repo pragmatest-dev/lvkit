@@ -1,5 +1,5 @@
 ---
-name: convert
+name: vipy-convert
 description: Convert LabVIEW VI files to Python using vipy. Generates mechanical translation, resolves all errors, then cleans up to idiomatic Python. Also handles documentation generation and MCP server.
 allowed-tools: Bash, Read, Write, Edit, Glob, Grep
 ---

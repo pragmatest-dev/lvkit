@@ -1,5 +1,5 @@
 ---
-name: idiomatic
+name: vipy-idiomatic
 description: Rewrite AST-generated Python into idiomatic, human-readable code while preserving LabVIEW semantics. The LLM in the editor does the rewrite — no API key needed.
 allowed-tools: Bash, Read, Write, Edit, Grep
 ---

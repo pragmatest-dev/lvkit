@@ -29,6 +29,7 @@ from __future__ import annotations
 import json
 from importlib.resources import files
 from pathlib import Path
+from typing import Any
 
 PROJECT_STORE_DIR = ".vipy"
 
@@ -142,33 +143,58 @@ def init_project_store(root: Path) -> Path:
 # Skill installation
 # ============================================================
 #
-# vipy ships Claude Code skill templates as package data under
-# `src/vipy/skill_templates/claude/<name>/SKILL.md`. The two functions
-# below copy them into a downstream user's project so the user's LLM
+# vipy ships user-facing skill templates as package data under
+# `src/vipy/skill_templates/vipy-<name>/SKILL.md`. The functions below
+# install them into a downstream user's project so the user's LLM
 # editor (Claude Code, Copilot, Cursor) can run vipy's workflows.
+#
+# Two install targets:
+#
+# - install_claude_skills(): copies SKILL.md files to .claude/skills/
+#   one-for-one. Claude Code reads them as auto-launchable skills.
+#
+# - install_copilot_skills(): writes per-workflow .github/prompts/<name>.
+#   prompt.md files for explicit /<name> invocation, plus a single
+#   .github/instructions/vipy.instructions.md router that auto-loads
+#   into every chat with a short list of available prompts. This dual
+#   pattern matches Claude Code's auto + explicit skill semantics.
 
-# Marker comments wrap the vipy section in copilot-instructions.md so
-# we can replace just our part on subsequent installs without touching
-# the user's other instructions. The "managed by" hint warns users not
-# to edit inside the block — anything between the markers is replaced
-# on `vipy init --skills`.
-_COPILOT_MARKER_START = (
-    "<!-- vipy:resolve start "
-    "— managed by `vipy init --skills`, edits inside this block "
-    "will be replaced on re-install -->"
+# Marker comment vipy embeds in every generated Copilot file so users
+# (and re-installs) can recognize a vipy-managed file.
+_COPILOT_MANAGED_MARKER = (
+    "<!-- vipy: managed by `vipy init --skills`, "
+    "re-running will overwrite this file -->"
 )
-_COPILOT_MARKER_END = "<!-- vipy:resolve end -->"
 
-# Logical workflow order for the Copilot file: understand → convert →
-# resolve unknowns → refactor. Alphabetical order would bury describe-vi
-# at position 2 and put convert first.
+# Logical workflow order. Used in the router instruction so the prompts
+# appear in execution order rather than alphabetical.
 _SKILL_ORDER = [
-    "describe-vi",
-    "convert",
-    "resolve-primitive",
-    "resolve-vilib",
-    "idiomatic",
+    "vipy-describe",
+    "vipy-convert",
+    "vipy-resolve-primitive",
+    "vipy-resolve-vilib",
+    "vipy-idiomatic",
 ]
+
+
+def _iter_skill_templates() -> list[Any]:
+    """Yield the skill template directories as Traversable objects.
+
+    Hides the package-data plumbing (importlib.resources, filtering of
+    package-internal directories like __pycache__) from callers.
+    """
+    template_root = files("vipy.skill_templates")
+    return sorted(
+        (
+            d for d in template_root.iterdir()
+            if d.is_dir() and not d.name.startswith(("_", "."))
+        ),
+        key=lambda d: (
+            _SKILL_ORDER.index(d.name) if d.name in _SKILL_ORDER
+            else len(_SKILL_ORDER),
+            d.name,
+        ),
+    )
 
 
 def install_claude_skills(target_dir: Path, force: bool = False) -> list[Path]:
@@ -247,92 +273,46 @@ def install_claude_skills(target_dir: Path, force: bool = False) -> list[Path]:
     return written
 
 
-def install_copilot_instructions(
+def install_copilot_skills(
     target_dir: Path, force: bool = False
-) -> Path:
-    """Install vipy's resolve workflows into copilot-instructions.md.
+) -> list[Path]:
+    """Install vipy's workflows for GitHub Copilot.
 
-    Builds a single Markdown section by concatenating every packaged
-    Claude skill template (frontmatter stripped, body wrapped in
-    section headers), then writes or updates
-    `<target_dir>/.github/copilot-instructions.md`. The vipy section
-    is wrapped in marker comments so re-installing replaces just our
-    section and leaves any other Copilot instructions intact.
+    Writes two file types under `<target_dir>/.github/`:
 
-    Anything inside the marker block is fully replaced on each install
-    — the marker comments themselves warn the user not to edit there.
-    Content outside the marker block is always preserved verbatim.
+    - `prompts/<name>.prompt.md` — one per workflow. User-invocable via
+      `/<name>` slash command in Copilot Chat. Body is the SKILL.md body
+      (frontmatter stripped); frontmatter is rewritten to Copilot's
+      prompt schema (`mode`, `description`).
+    - `instructions/vipy.instructions.md` — single router file. Auto-
+      loaded into every Copilot chat (`applyTo: "**"`). Lists the five
+      prompts and when to suggest each. Stays small so it doesn't
+      bloat every chat.
+
+    Why both: Claude Code skills are dual-mode (auto-loaded by
+    description match AND explicit `/<name>` invocation). The Copilot
+    equivalent is a router instruction (auto half) plus per-workflow
+    prompts (explicit half). Together they give Copilot users the same
+    dual-mode UX as Claude Code skills.
+
+    Atomic with respect to local-edit detection: pre-validates every
+    destination, collects conflicts, raises once before writing.
 
     Args:
-        target_dir: Project root. `.github/copilot-instructions.md` is
-            created under this directory.
-        force: Skip the no-op short circuit. Without `force`, a
-            re-install with no template changes early-returns without
-            touching the file's mtime.
+        target_dir: Project root. `.github/prompts/` and
+            `.github/instructions/` are created under this directory.
+        force: Overwrite existing files even if they have local edits.
 
     Returns:
-        A single Path to copilot-instructions.md (singular: all skills
-        are merged into one file, unlike install_claude_skills which
-        writes one file per skill and returns a list).
+        List of paths that were written or overwritten. Empty when all
+        files are already byte-identical to the templates.
     """
-    section = _build_copilot_section()
-    dest = target_dir / ".github" / "copilot-instructions.md"
-    dest.parent.mkdir(parents=True, exist_ok=True)
+    plan: list[tuple[Path, str]] = []
+    conflicts: list[Path] = []
 
-    if dest.exists():
-        existing = dest.read_text()
-        if _COPILOT_MARKER_START in existing and _COPILOT_MARKER_END in existing:
-            before, _, rest = existing.partition(_COPILOT_MARKER_START)
-            _, _, after = rest.partition(_COPILOT_MARKER_END)
-            new_content = before + section + after
-            if new_content == existing and not force:
-                return dest
-        else:
-            # First-time install into a file with other Copilot content.
-            sep = "" if existing.endswith("\n") else "\n"
-            new_content = existing + sep + "\n" + section
-    else:
-        new_content = section
-
-    dest.write_text(new_content)
-    return dest
-
-
-def _build_copilot_section() -> str:
-    """Concatenate all Claude skill templates into a Copilot section.
-
-    Strips YAML frontmatter, wraps the result in marker comments and a
-    top-level header so Copilot/Cursor can pick it up alongside the
-    user's other instructions.
-
-    Skills are emitted in logical workflow order (`_SKILL_ORDER`):
-    understand → convert → resolve unknowns → refactor. Skills not in
-    that list are appended in alphabetical order so adding a new
-    template doesn't silently drop it.
-    """
-    template_root = files("vipy.skill_templates")
-
-    skill_dirs = [
-        d for d in template_root.iterdir()
-        if d.is_dir() and not d.name.startswith(("_", "."))
-    ]
-    skill_dirs.sort(
-        key=lambda d: (
-            _SKILL_ORDER.index(d.name) if d.name in _SKILL_ORDER else len(_SKILL_ORDER),
-            d.name,
-        )
-    )
-
-    parts: list[str] = [
-        _COPILOT_MARKER_START,
-        "# vipy: LabVIEW VI to Python workflows",
-        "",
-        "The following workflows come from vipy's Claude Code skills.",
-        "They describe how to understand, convert, and resolve unknown",
-        "primitives in LabVIEW VIs. The same instructions work for any",
-        "LLM-aware editor.",
-        "",
-    ]
+    # Phase 1: build per-prompt content + router content, validate
+    # all destinations, collect conflicts.
+    skill_dirs = _iter_skill_templates()
 
     for skill_dir in skill_dirs:
         template_file = skill_dir.joinpath("SKILL.md")
@@ -341,21 +321,134 @@ def _build_copilot_section() -> str:
                 f"Skill template directory {skill_dir.name!r} is missing"
                 " its SKILL.md — packaging or sync error."
             )
-        body = _strip_frontmatter(template_file.read_text())
-        parts.append(f"## Workflow: {skill_dir.name}")
-        parts.append("")
-        parts.append(body.strip())
-        parts.append("")
+        prompt_content = _build_copilot_prompt(template_file.read_text())
+        dest = target_dir / ".github" / "prompts" / f"{skill_dir.name}.prompt.md"
+        _stage_write(dest, prompt_content, force, plan, conflicts)
 
-    parts.append(_COPILOT_MARKER_END)
-    return "\n".join(parts) + "\n"
+    router_content = _build_copilot_router(skill_dirs)
+    router_dest = target_dir / ".github" / "instructions" / "vipy.instructions.md"
+    _stage_write(router_dest, router_content, force, plan, conflicts)
+
+    if conflicts:
+        names = "\n  ".join(str(p) for p in conflicts)
+        raise FileExistsError(
+            f"{len(conflicts)} Copilot file(s) have local edits and would"
+            f" be overwritten:\n  {names}\n"
+            "Re-run with force=True to overwrite."
+        )
+
+    # Phase 2: commit all writes.
+    written: list[Path] = []
+    for dest, new_content in plan:
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        dest.write_text(new_content)
+        written.append(dest)
+    return written
 
 
-def _strip_frontmatter(text: str) -> str:
-    """Remove a leading `---\\n...\\n---\\n` YAML frontmatter block."""
+def _stage_write(
+    dest: Path,
+    new_content: str,
+    force: bool,
+    plan: list[tuple[Path, str]],
+    conflicts: list[Path],
+) -> None:
+    """Add (dest, content) to plan, or to conflicts if local-edited.
+
+    Used by install_copilot_skills's atomic phase split: collects all
+    writes and conflicts in phase 1 so phase 2 can either commit
+    everything or raise a single error listing every conflict.
+    """
+    if dest.exists():
+        existing = dest.read_text()
+        if existing == new_content:
+            return  # already up to date
+        if not force:
+            conflicts.append(dest)
+            return
+    plan.append((dest, new_content))
+
+
+def _build_copilot_prompt(skill_md: str) -> str:
+    """Build a Copilot prompt file from a Claude SKILL.md.
+
+    Rewrites the frontmatter from Claude's schema (``name``,
+    ``description``, ``allowed-tools``) to Copilot's prompt schema
+    (``mode``, ``description``). Body is preserved unchanged.
+    """
+    fm, body = _split_frontmatter(skill_md)
+    description = _yaml_get(fm, "description") or ""
+    return (
+        "---\n"
+        "mode: agent\n"
+        f"description: {description}\n"
+        "---\n"
+        f"{_COPILOT_MANAGED_MARKER}\n"
+        "\n"
+        f"{body.lstrip()}"
+    )
+
+
+def _build_copilot_router(skill_dirs: list[Any]) -> str:
+    """Build the .github/instructions/vipy.instructions.md router.
+
+    Lists every packaged skill in workflow order with its
+    description, so Copilot can auto-suggest the right slash command
+    when context matches. Stays small (under 30 lines + the warning
+    marker) so it doesn't bloat every Copilot chat.
+    """
+    lines = [
+        "---",
+        'applyTo: "**"',
+        "---",
+        _COPILOT_MANAGED_MARKER,
+        "",
+        "# vipy: LabVIEW VI to Python workflows",
+        "",
+        "This project uses vipy for LabVIEW VI to Python conversion.",
+        "Five workflows are available as prompts. Suggest the appropriate",
+        "slash command when context matches; the user can also invoke",
+        "them directly:",
+        "",
+    ]
+    for skill_dir in skill_dirs:
+        skill_md = skill_dir.joinpath("SKILL.md").read_text()
+        fm, _ = _split_frontmatter(skill_md)
+        description = _yaml_get(fm, "description") or skill_dir.name
+        lines.append(f"- `/{skill_dir.name}` — {description}")
+    lines.extend(
+        [
+            "",
+            "Run `vipy init --skills copilot` to refresh these prompts and",
+            "this router file.",
+            "",
+        ]
+    )
+    return "\n".join(lines)
+
+
+def _split_frontmatter(text: str) -> tuple[str, str]:
+    """Split a Markdown file into (frontmatter, body).
+
+    Returns ('', text) if there is no leading ``---\\n...\\n---\\n``
+    block. The frontmatter is returned WITHOUT the wrapping delimiters.
+    """
     if not text.startswith("---\n"):
-        return text
+        return "", text
     end = text.find("\n---\n", 4)
     if end == -1:
-        return text
-    return text[end + len("\n---\n"):]
+        return "", text
+    return text[4:end], text[end + len("\n---\n"):]
+
+
+def _yaml_get(frontmatter: str, key: str) -> str | None:
+    """Read a single top-level scalar value from a YAML frontmatter block.
+
+    Intentionally minimal — vipy's SKILL.md frontmatter only uses flat
+    string fields, so this avoids dragging in PyYAML for one lookup.
+    """
+    prefix = f"{key}:"
+    for line in frontmatter.splitlines():
+        if line.startswith(prefix):
+            return line[len(prefix):].strip()
+    return None

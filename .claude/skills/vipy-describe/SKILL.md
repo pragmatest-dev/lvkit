@@ -1,5 +1,5 @@
 ---
-name: describe-vi
+name: vipy-describe
 description: Describe what a LabVIEW VI does — signature, operations, dataflow, structures, constants. Works via CLI or MCP.
 allowed-tools: Bash, Read, Grep
 ---
