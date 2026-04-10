@@ -3,18 +3,18 @@
 Two layers:
 - Graph node types (Pydantic): VINode, PrimitiveNode, StructureNode, ConstantNode
   Stored on the unified nx.MultiDiGraph as node["node"] = SomeNode(...)
-- Codegen types (dataclasses): Operation, Terminal, Constant
+- Codegen types (Pydantic): Operation, Terminal, Constant, Frame, Tunnel, VIContext
   Consumed by the code generation pipeline (converted from graph nodes)
 
-Uses Pydantic BaseModel for graph types. Existing dataclasses kept for
-codegen compatibility until full migration.
+Shared types (LVType, EnumValue, ClusterField) remain as dataclasses until
+full type-system migration.
 """
 
 from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
-from typing import Any, Literal
+from typing import Literal
 
 from pydantic import BaseModel
 
@@ -201,8 +201,7 @@ class TunnelTerminal(Terminal):
     paired_id: str | None = None  # matching terminal on other side
 
 
-@dataclass
-class Tunnel:
+class Tunnel(BaseModel):
     """A tunnel connecting structure outer/inner terminals."""
 
     outer_terminal_uid: str
@@ -434,21 +433,21 @@ class Wire(BaseModel):
 
 
 # ============================================================
-# Codegen types (dataclasses) — consumed by code generation
+# Codegen types (Pydantic) — consumed by code generation
 # Converted from graph nodes by memory_graph.get_operations()
 # ============================================================
 
 
-@dataclass
-class Frame:
+class Frame(BaseModel):
     """Base frame — common fields for any structure frame."""
 
+    model_config = {"arbitrary_types_allowed": True}
+
     uid: str | None = None
-    inner_node_uids: list[str] = field(default_factory=list)
-    operations: list[Operation] = field(default_factory=list)
+    inner_node_uids: list[str] = []
+    operations: list[Operation] = []
 
 
-@dataclass
 class CaseFrame(Frame):
     """A frame in a case structure — selected by a selector value."""
 
@@ -456,29 +455,28 @@ class CaseFrame(Frame):
     is_default: bool = False
 
 
-@dataclass
 class SequenceFrame(Frame):
     """A frame in a flat or stacked sequence — executes in order."""
 
     index: int = 0
 
 
-@dataclass
-class Operation:
+class Operation(BaseModel):
     """Base operation node for code generation."""
+
+    model_config = {"arbitrary_types_allowed": True}
 
     id: str
     name: str | None
     labels: list[str]
-    terminals: list[Terminal] = field(default_factory=list)
+    terminals: list[Terminal] = []
     node_type: str | None = None
-    tunnels: list[Tunnel] = field(default_factory=list)
-    inner_nodes: list[Operation] = field(default_factory=list)
+    tunnels: list[Tunnel] = []
+    inner_nodes: list[Operation] = []
     description: str | None = None
     poly_variant_name: str | None = None
 
 
-@dataclass
 class PrimitiveOperation(Operation):
     """A primitive (Add, Subtract, etc.)."""
 
@@ -486,21 +484,18 @@ class PrimitiveOperation(Operation):
     operation: str | None = None  # cpdArith: "add", "or"
 
 
-@dataclass
 class SubVIOperation(Operation):
     """A SubVI call."""
 
 
-@dataclass
 class PropertyOperation(Operation):
     """Property node read/write."""
 
     object_name: str | None = None
     object_method_id: str | None = None
-    properties: list[PropertyDef] = field(default_factory=list)
+    properties: list[PropertyDef] = []
 
 
-@dataclass
 class InvokeOperation(Operation):
     """Invoke node method call."""
 
@@ -510,15 +505,13 @@ class InvokeOperation(Operation):
     method_code: int | None = None
 
 
-@dataclass
 class CaseOperation(Operation):
     """Case structure with selector-driven frames."""
 
-    frames: list[CaseFrame] = field(default_factory=list)
+    frames: list[CaseFrame] = []
     selector_terminal: str | None = None
 
 
-@dataclass
 class LoopOperation(Operation):
     """While or for loop."""
 
@@ -526,16 +519,21 @@ class LoopOperation(Operation):
     stop_condition_terminal: str | None = None
 
 
-@dataclass
 class SequenceOperation(Operation):
     """Flat or stacked sequence."""
 
-    frames: list[SequenceFrame] = field(default_factory=list)
+    frames: list[SequenceFrame] = []
 
 
-@dataclass
-class Constant:
+# Resolve forward references for self-referential types
+Operation.model_rebuild()
+Frame.model_rebuild()
+
+
+class Constant(BaseModel):
     """A constant value for code generation."""
+
+    model_config = {"arbitrary_types_allowed": True}
 
     id: str
     value: ScalarValue
@@ -544,23 +542,41 @@ class Constant:
     name: str | None = None
 
 
-@dataclass
-class VIContext:
+class SubVICall(BaseModel):
+    """A SubVI call reference in VIContext."""
+
+    call_name: str | None = None
+    vi_name: str | None = None
+
+
+class TerminalRef(BaseModel):
+    """A terminal reference in VIContext (legacy skeleton generator support)."""
+
+    id: str
+    parent_id: str
+    index: int
+    type: str
+    name: str | None = None
+    direction: str
+
+
+class VIContext(BaseModel):
     """Complete VI context for code generation."""
+
+    model_config = {"arbitrary_types_allowed": True}
 
     name: str
     library: str | None = None
     qualified_name: str | None = None
-    inputs: list[Terminal] = field(default_factory=list)
-    outputs: list[Terminal] = field(default_factory=list)
-    constants: list[Constant] = field(default_factory=list)
-    operations: list[Operation] = field(default_factory=list)
+    inputs: list[Terminal] = []
+    outputs: list[Terminal] = []
+    constants: list[Constant] = []
+    operations: list[Operation] = []
     has_parallel_branches: bool = False
-    # Legacy fields (LLM agent pipeline)
-    terminals: list[dict[str, Any]] = field(default_factory=list)
-    data_flow: list[Wire] = field(default_factory=list)
-    subvi_calls: list[dict[str, Any]] = field(default_factory=list)
-    poly_variants: list[str] = field(default_factory=list)
+    terminals: list[TerminalRef] = []
+    data_flow: list[Wire] = []
+    subvi_calls: list[SubVICall] = []
+    poly_variants: list[str] = []
 
 
 @dataclass

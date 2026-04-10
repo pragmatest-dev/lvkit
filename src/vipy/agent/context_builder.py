@@ -186,8 +186,9 @@ class ContextBuilder:
             if op_info:
                 enrichment[op.id] = op_info
 
-        # Return context as-is (dataclasses), with enrichment alongside
-        # TypeInfoEncoder will serialize dataclasses at json.dumps
+        # Return context fields with enrichment alongside.
+        # TypeInfoEncoder still needed for LVType (dataclass) nested in
+        # Pydantic models — will be removed when LVType migrates.
         return {
             "inputs": ctx.inputs,
             "outputs": ctx.outputs,

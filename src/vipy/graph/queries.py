@@ -30,7 +30,9 @@ from ..graph_types import (
     StructureNode,
     StubTerminalInfo,
     StubVIInfo,
+    SubVICall,
     Terminal,
+    TerminalRef,
     VIContext,
     VIMetadata,
     VINode,
@@ -726,7 +728,7 @@ class QueryMixin:
             return VIContext(name=vi_name)
 
         # Build subvi_calls list
-        subvi_calls = []
+        subvi_calls: list[SubVICall] = []
         for uid in self._vi_nodes[vi_name]:
             if uid == vi_name:
                 continue
@@ -734,13 +736,13 @@ class QueryMixin:
                 continue
             gnode = self._graph.nodes[uid].get("node")
             if isinstance(gnode, VINode) and gnode.id != gnode.vi:
-                subvi_calls.append({
-                    "call_name": gnode.name,
-                    "vi_name": gnode.name,
-                })
+                subvi_calls.append(SubVICall(
+                    call_name=gnode.name,
+                    vi_name=gnode.name,
+                ))
 
-        # Build terminals list for skeleton generator (legacy)
-        terminals = []
+        # Build terminals list for skeleton generator
+        terminals: list[TerminalRef] = []
         for uid in self._vi_nodes[vi_name]:
             if uid not in self._graph:
                 continue
@@ -748,14 +750,14 @@ class QueryMixin:
             if gnode is None:
                 continue
             for t in gnode.terminals:
-                terminals.append({
-                    "id": t.id,
-                    "parent_id": gnode.id,
-                    "index": t.index,
-                    "type": t.python_type(),
-                    "name": t.name,
-                    "direction": t.direction,
-                })
+                terminals.append(TerminalRef(
+                    id=t.id,
+                    parent_id=gnode.id,
+                    index=t.index,
+                    type=t.python_type(),
+                    name=t.name,
+                    direction=t.direction,
+                ))
 
         inputs = list(self.get_inputs(vi_name))
         outputs = list(self.get_outputs(vi_name))
@@ -780,7 +782,7 @@ class QueryMixin:
             has_parallel_branches=self.has_parallel_branches(vi_name),
         )
 
-    def get_subvi_calls(self, vi_name: str) -> list[dict]:
+    def get_subvi_calls(self, vi_name: str) -> list[SubVICall]:
         """Get SubVIs called by a VI."""
         ctx = self.get_vi_context(vi_name)
         return ctx.subvi_calls

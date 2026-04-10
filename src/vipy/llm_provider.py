@@ -67,13 +67,15 @@ def _generate_anthropic(
 
     client = anthropic.Anthropic()
 
-    message = client.messages.create(
-        model=config.model,
-        max_tokens=config.max_tokens,
-        temperature=config.temperature,
-        system=system if system else anthropic.NOT_GIVEN,
-        messages=[{"role": "user", "content": prompt}],
-    )
+    create_kwargs: dict[str, object] = {
+        "model": config.model,
+        "max_tokens": config.max_tokens,
+        "temperature": config.temperature,
+        "messages": [{"role": "user", "content": prompt}],
+    }
+    if system:
+        create_kwargs["system"] = system
+    message = client.messages.create(**create_kwargs)  # type: ignore[arg-type]
 
     text = ""
     for block in message.content:

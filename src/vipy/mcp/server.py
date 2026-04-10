@@ -9,14 +9,12 @@ from __future__ import annotations
 
 import asyncio
 import json
-from dataclasses import fields, is_dataclass
 from pathlib import Path
 from typing import Any
 
 from mcp.server import Server
 from mcp.server.stdio import stdio_server
 from mcp.types import TextContent, Tool
-from pydantic import BaseModel
 
 from ..agent.codegen import build_module
 from ..graph.describe import (
@@ -505,22 +503,10 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
         if not context.inputs and not context.outputs and not context.operations:
             return [TextContent(type="text", text=f"VI not found: {vi_name}")]
 
-        # Serialize with dataclass and Pydantic support
-        def _serialize(obj):
-            if isinstance(obj, BaseModel):
-                return obj.model_dump()
-            elif is_dataclass(obj) and not isinstance(obj, type):
-                return {
-                    f.name: _serialize(getattr(obj, f.name))
-                    for f in fields(obj)
-                }
-            elif isinstance(obj, list):
-                return [_serialize(x) for x in obj]
-            elif isinstance(obj, dict):
-                return {k: _serialize(v) for k, v in obj.items()}
-            return obj
-
-        serialized = _serialize(context)
+        # VIContext is Pydantic — model_dump() handles nested Pydantic types.
+        # LVType (dataclass) instances are serialized via default=str fallback
+        # until LVType migrates to Pydantic.
+        serialized = context.model_dump()
         return [
             TextContent(type="text", text=json.dumps(serialized, indent=2, default=str))
         ]
