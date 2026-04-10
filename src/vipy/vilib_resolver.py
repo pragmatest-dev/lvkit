@@ -9,6 +9,7 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
+from vipy._data import data_dir as _bundled_data_dir
 from vipy.graph_types import ClusterField, EnumValue, LVType
 
 
@@ -200,7 +201,7 @@ class VILibResolver:
                 via the existing "first wins" semantics in _load_vilib_data.
         """
         if data_dir is None:
-            data_dir = Path(__file__).parent / "data"
+            data_dir = _bundled_data_dir()
 
         self.data_dir = data_dir
         self._vis: dict[str, VIEntry] = {}

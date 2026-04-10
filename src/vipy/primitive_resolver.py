@@ -14,6 +14,8 @@ from pathlib import Path
 
 from pydantic import BaseModel, Field
 
+from ._data import data_dir as _bundled_data_dir
+
 
 class PrimitiveResolutionNeeded(Exception):
     """Raised when a primitive has no definition in primitives.json.
@@ -187,11 +189,11 @@ class PrimitiveResolver:
             project_data_dir: Optional project-local .vipy/ directory.
                 Loaded BEFORE shipped data so project entries take priority.
         """
-        data_dir = Path(__file__).parent / "data"
+        bundled = _bundled_data_dir()
         if primitives_path is None:
-            primitives_path = data_dir / "primitives.json"
+            primitives_path = bundled / "primitives.json"
         if pdf_path is None:
-            pdf_path = data_dir / "primitives-from-pdf.json"
+            pdf_path = bundled / "primitives-from-pdf.json"
 
         self._by_id: dict[str, dict] = {}
         self._by_name: dict[str, dict] = {}  # Normalized name -> primitive

@@ -66,8 +66,8 @@ def _load_node_dco_maps() -> dict[str, dict[str, int]]:
 
     Returns: {node_class: {dco_ref_tag: terminal_index}}
     """
-    data_dir = Path(__file__).parent.parent / "data"
-    primitives_path = data_dir / "primitives.json"
+    from .._data import data_dir as _bundled_data_dir
+    primitives_path = _bundled_data_dir() / "primitives.json"
     if not primitives_path.exists():
         return {}
     with open(primitives_path) as f:

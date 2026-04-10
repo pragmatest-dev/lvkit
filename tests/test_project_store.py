@@ -293,6 +293,36 @@ def test_install_claude_skills_force_overwrites(tmp_path: Path) -> None:
     assert "name: convert" in edited.read_text()
 
 
+def test_install_claude_skills_atomic_on_conflict(tmp_path: Path) -> None:
+    """A conflict aborts the whole install — no skills are written.
+
+    Regression test for the pre-validate-then-write phase split. The
+    bare-minimum guarantee: if any skill conflicts and force is False,
+    no other skills should be written either.
+    """
+    from vipy.project_store import install_claude_skills
+
+    # Create a conflicting file for ONE skill before the install runs.
+    # The other 4 skills don't exist yet — without the atomic phase
+    # split, they'd get written before the install hit the conflict.
+    skills_dir = tmp_path / ".claude" / "skills"
+    (skills_dir / "convert").mkdir(parents=True)
+    (skills_dir / "convert" / "SKILL.md").write_text("LOCAL EDIT\n")
+
+    with pytest.raises(FileExistsError, match="local edits"):
+        install_claude_skills(tmp_path)
+
+    # Critical: the OTHER 4 skills must NOT have been written. The
+    # install must be all-or-nothing for the conflict-validation phase.
+    for skill in ("resolve-primitive", "resolve-vilib", "describe-vi", "idiomatic"):
+        path = skills_dir / skill / "SKILL.md"
+        assert not path.exists(), (
+            f"{skill} was written despite a conflict in another skill"
+        )
+    # The conflicting file is preserved.
+    assert (skills_dir / "convert" / "SKILL.md").read_text() == "LOCAL EDIT\n"
+
+
 def test_install_copilot_instructions_creates_file(tmp_path: Path) -> None:
     """install_copilot_instructions writes .github/copilot-instructions.md."""
     from vipy.project_store import install_copilot_instructions
@@ -301,8 +331,10 @@ def test_install_copilot_instructions_creates_file(tmp_path: Path) -> None:
     assert path == tmp_path / ".github" / "copilot-instructions.md"
     assert path.is_file()
     text = path.read_text()
-    # Marker comments wrap the vipy section
-    assert "<!-- vipy:resolve start -->" in text
+    # Marker comments wrap the vipy section. The "managed by" hint
+    # warns users not to edit inside the block.
+    assert "<!-- vipy:resolve start" in text
+    assert "managed by `vipy init --skills`" in text
     assert "<!-- vipy:resolve end -->" in text
     # All 5 workflows are concatenated
     for skill in (
@@ -313,6 +345,28 @@ def test_install_copilot_instructions_creates_file(tmp_path: Path) -> None:
         "idiomatic",
     ):
         assert f"## Workflow: {skill}" in text
+
+
+def test_install_copilot_instructions_workflow_order(tmp_path: Path) -> None:
+    """Skills are emitted in logical workflow order, not alphabetical."""
+    from vipy.project_store import install_copilot_instructions
+
+    install_copilot_instructions(tmp_path)
+    text = (tmp_path / ".github" / "copilot-instructions.md").read_text()
+
+    # Logical order: understand → convert → resolve unknowns → refactor
+    expected_order = [
+        "## Workflow: describe-vi",
+        "## Workflow: convert",
+        "## Workflow: resolve-primitive",
+        "## Workflow: resolve-vilib",
+        "## Workflow: idiomatic",
+    ]
+    positions = [text.find(h) for h in expected_order]
+    assert all(p >= 0 for p in positions), "missing workflow header(s)"
+    assert positions == sorted(positions), (
+        f"workflows out of order: {positions}"
+    )
 
 
 def test_install_copilot_preserves_existing_content(tmp_path: Path) -> None:
@@ -326,7 +380,7 @@ def test_install_copilot_preserves_existing_content(tmp_path: Path) -> None:
     install_copilot_instructions(tmp_path)
     text = existing.read_text()
     assert "Use tabs not spaces" in text
-    assert "<!-- vipy:resolve start -->" in text
+    assert "<!-- vipy:resolve start" in text
 
 
 def test_install_copilot_replaces_only_vipy_section(tmp_path: Path) -> None:
@@ -342,7 +396,7 @@ def test_install_copilot_replaces_only_vipy_section(tmp_path: Path) -> None:
     install_copilot_instructions(tmp_path)
     final = path.read_text()
     assert "More stuff here" in final
-    assert final.count("<!-- vipy:resolve start -->") == 1
+    assert final.count("<!-- vipy:resolve start") == 1
     assert final.count("<!-- vipy:resolve end -->") == 1
 
 
@@ -352,10 +406,23 @@ def test_install_copilot_strips_frontmatter(tmp_path: Path) -> None:
 
     install_copilot_instructions(tmp_path)
     text = (tmp_path / ".github" / "copilot-instructions.md").read_text()
-    # Frontmatter starts with `---\nname:` — should NOT appear inline
+    # Frontmatter opening marker `---\nname:` — should NOT appear inline
     # in the copilot section.
     assert "---\nname: convert" not in text
     assert "---\nname: resolve-primitive" not in text
+    # Frontmatter `allowed-tools:` line — appears in every skill's
+    # frontmatter, never in the body.
+    assert "allowed-tools:" not in text
+    # Each workflow body should start with the first content line, not
+    # a leftover `---` closing marker.
+    for skill in ("convert", "describe-vi", "idiomatic"):
+        marker = f"## Workflow: {skill}\n\n"
+        idx = text.find(marker)
+        assert idx >= 0, f"missing workflow header for {skill}"
+        body_start = text[idx + len(marker):]
+        assert not body_start.lstrip().startswith("---"), (
+            f"{skill} body starts with stray frontmatter delimiter"
+        )
 
 
 def test_cli_init_skills_claude(tmp_path: Path) -> None:

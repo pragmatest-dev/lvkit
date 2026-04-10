@@ -12,6 +12,8 @@ from dataclasses import dataclass
 from enum import IntEnum
 from pathlib import Path
 
+from ._data import data_dir as _bundled_data_dir
+
 
 @dataclass
 class EnumValue:
@@ -87,7 +89,7 @@ class EnumResolver:
         """
         if enums_path is None:
             enums_path = (
-                Path(__file__).parent / "data" / "labview-enums.json"
+                _bundled_data_dir() / "labview-enums.json"
             )
 
         self._by_full_path: dict[str, ResolvedEnum] = {}  # vilib_path:control_file

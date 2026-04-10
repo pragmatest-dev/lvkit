@@ -149,9 +149,26 @@ def init_project_store(root: Path) -> Path:
 
 # Marker comments wrap the vipy section in copilot-instructions.md so
 # we can replace just our part on subsequent installs without touching
-# the user's other instructions.
-_COPILOT_MARKER_START = "<!-- vipy:resolve start -->"
+# the user's other instructions. The "managed by" hint warns users not
+# to edit inside the block — anything between the markers is replaced
+# on `vipy init --skills`.
+_COPILOT_MARKER_START = (
+    "<!-- vipy:resolve start "
+    "— managed by `vipy init --skills`, edits inside this block "
+    "will be replaced on re-install -->"
+)
 _COPILOT_MARKER_END = "<!-- vipy:resolve end -->"
+
+# Logical workflow order for the Copilot file: understand → convert →
+# resolve unknowns → refactor. Alphabetical order would bury describe-vi
+# at position 2 and put convert first.
+_SKILL_ORDER = [
+    "describe-vi",
+    "convert",
+    "resolve-primitive",
+    "resolve-vilib",
+    "idiomatic",
+]
 
 
 def install_claude_skills(target_dir: Path, force: bool = False) -> list[Path]:
@@ -161,45 +178,68 @@ def install_claude_skills(target_dir: Path, force: bool = False) -> list[Path]:
     `src/vipy/skill_templates/claude/<name>/SKILL.md` into
     `<target_dir>/.claude/skills/<name>/SKILL.md`.
 
+    Atomic with respect to local-edit detection: pre-validates every
+    destination before writing any of them, so a conflict on the third
+    skill won't leave the first two already overwritten.
+
     Args:
         target_dir: Project root. The `.claude/skills/` tree is created
             under this directory.
         force: Overwrite existing files even if they have local edits.
-            By default, an existing file is left alone unless it's
-            byte-identical to a previously installed version (which
-            means we know it's safe to overwrite).
+            By default, conflicts raise FileExistsError listing every
+            file that would be overwritten.
 
     Returns:
-        List of paths that were written or overwritten.
+        List of paths that were written or overwritten. Empty when all
+        templates are already byte-identical to the in-repo copies (a
+        no-op re-install).
     """
     template_root = files("vipy.skill_templates").joinpath("claude")
     skills_dir = target_dir / ".claude" / "skills"
     skills_dir.mkdir(parents=True, exist_ok=True)
 
-    written: list[Path] = []
+    # Phase 1: discover and validate. Build the full work list and
+    # collect any conflicts before touching disk.
+    plan: list[tuple[Path, str]] = []  # (dest, new_content)
+    conflicts: list[Path] = []
 
     for skill_dir in template_root.iterdir():
         if not skill_dir.is_dir():
             continue
         template_file = skill_dir.joinpath("SKILL.md")
         if not template_file.is_file():
-            continue
+            raise ValueError(
+                f"Skill template directory {skill_dir.name!r} is missing"
+                " its SKILL.md — packaging or sync error."
+            )
 
         skill_name = skill_dir.name
         dest = skills_dir / skill_name / "SKILL.md"
-        dest.parent.mkdir(parents=True, exist_ok=True)
         new_content = template_file.read_text()
 
-        if dest.exists() and not force:
+        if dest.exists():
             existing = dest.read_text()
             if existing == new_content:
-                # Already up to date.
+                # Already up to date — skip silently.
                 continue
-            raise FileExistsError(
-                f"{dest} already exists with local edits. "
-                "Re-run with --force to overwrite."
-            )
+            if not force:
+                conflicts.append(dest)
+                continue
 
+        plan.append((dest, new_content))
+
+    if conflicts:
+        names = "\n  ".join(str(p) for p in conflicts)
+        raise FileExistsError(
+            f"{len(conflicts)} skill file(s) have local edits and would"
+            f" be overwritten:\n  {names}\n"
+            "Re-run with force=True to overwrite."
+        )
+
+    # Phase 2: write everything. No conflicts means we can commit.
+    written: list[Path] = []
+    for dest, new_content in plan:
+        dest.parent.mkdir(parents=True, exist_ok=True)
         dest.write_text(new_content)
         written.append(dest)
 
@@ -218,15 +258,21 @@ def install_copilot_instructions(
     is wrapped in marker comments so re-installing replaces just our
     section and leaves any other Copilot instructions intact.
 
+    Anything inside the marker block is fully replaced on each install
+    — the marker comments themselves warn the user not to edit there.
+    Content outside the marker block is always preserved verbatim.
+
     Args:
         target_dir: Project root. `.github/copilot-instructions.md` is
             created under this directory.
-        force: Replace the vipy section even if local edits exist
-            inside the marker block. (Edits outside the marker block
-            are always preserved.)
+        force: Skip the no-op short circuit. Without `force`, a
+            re-install with no template changes early-returns without
+            touching the file's mtime.
 
     Returns:
-        Path to the written or updated copilot-instructions.md file.
+        A single Path to copilot-instructions.md (singular: all skills
+        are merged into one file, unlike install_claude_skills which
+        writes one file per skill and returns a list).
     """
     section = _build_copilot_section()
     dest = target_dir / ".github" / "copilot-instructions.md"
@@ -257,25 +303,40 @@ def _build_copilot_section() -> str:
     Strips YAML frontmatter, wraps the result in marker comments and a
     top-level header so Copilot/Cursor can pick it up alongside the
     user's other instructions.
+
+    Skills are emitted in logical workflow order (`_SKILL_ORDER`):
+    understand → convert → resolve unknowns → refactor. Skills not in
+    that list are appended in alphabetical order so adding a new
+    template doesn't silently drop it.
     """
     template_root = files("vipy.skill_templates").joinpath("claude")
+
+    skill_dirs = [d for d in template_root.iterdir() if d.is_dir()]
+    skill_dirs.sort(
+        key=lambda d: (
+            _SKILL_ORDER.index(d.name) if d.name in _SKILL_ORDER else len(_SKILL_ORDER),
+            d.name,
+        )
+    )
+
     parts: list[str] = [
         _COPILOT_MARKER_START,
         "# vipy: LabVIEW VI to Python workflows",
         "",
         "The following workflows come from vipy's Claude Code skills.",
-        "They describe how to convert, describe, and resolve unknown",
+        "They describe how to understand, convert, and resolve unknown",
         "primitives in LabVIEW VIs. The same instructions work for any",
         "LLM-aware editor.",
         "",
     ]
 
-    for skill_dir in sorted(template_root.iterdir(), key=lambda p: p.name):
-        if not skill_dir.is_dir():
-            continue
+    for skill_dir in skill_dirs:
         template_file = skill_dir.joinpath("SKILL.md")
         if not template_file.is_file():
-            continue
+            raise ValueError(
+                f"Skill template directory {skill_dir.name!r} is missing"
+                " its SKILL.md — packaging or sync error."
+            )
         body = _strip_frontmatter(template_file.read_text())
         parts.append(f"## Workflow: {skill_dir.name}")
         parts.append("")

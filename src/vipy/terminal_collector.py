@@ -17,6 +17,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+from vipy._data import data_dir as _bundled_data_dir
 from vipy.graph_types import LVType
 
 
@@ -96,7 +97,7 @@ class TerminalCollector:
 
     def __init__(self, data_dir: Path | None = None):
         if data_dir is None:
-            data_dir = Path(__file__).parent / "data"
+            data_dir = _bundled_data_dir()
         self.pending_file = data_dir / "vilib" / "_pending_terminals.json"
         self.data: dict[str, Any] = {"observations": {}}
         self._load()
