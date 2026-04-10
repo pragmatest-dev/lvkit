@@ -9,7 +9,7 @@ The store is a parallel layout to `data/`:
 
     .vipy/
       README.md                 # license-boundary explainer
-      primitives-codegen.json   # primitive overrides
+      primitives.json   # primitive overrides
       vilib/
         _index.json
         <category>.json
@@ -52,7 +52,7 @@ get committed to a public repository.
 ## Layout
 
     .vipy/
-      primitives-codegen.json   # primitive ID → name, terminals, python_code
+      primitives.json   # primitive ID → name, terminals, python_code
       vilib/
         _index.json             # category → filename
         <category>.json         # vi.lib VI mappings

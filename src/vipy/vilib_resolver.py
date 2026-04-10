@@ -214,7 +214,12 @@ class VILibResolver:
         if drivers_dir.exists():
             self._load_vilib_data(drivers_dir)
 
-        # Load type definitions (indexed by typedef path)
+        # Load type definitions (indexed by typedef path).
+        # Project types win — load project _types.json before shipped.
+        if project_data_dir is not None:
+            project_types = project_data_dir / "vilib" / "_types.json"
+            if project_types.exists():
+                self._load_types(project_types)
         types_path = vilib_dir / "_types.json"
         if types_path.exists():
             self._load_types(types_path)
@@ -278,11 +283,18 @@ class VILibResolver:
                         self._by_poly_selector[(entry.base_vi, ps_name)] = entry
 
     def _load_types(self, types_path: Path) -> None:
-        """Load type definitions from _types.json into LVType dataclasses."""
+        """Load type definitions from _types.json into LVType dataclasses.
+
+        First-loaded wins: if a type with this qualified name is already
+        loaded (e.g., from a project _types.json loaded first), the new
+        definition is skipped. This keeps project overrides authoritative.
+        """
         with open(types_path) as f:
             raw_types = json.load(f)
 
         for typedef_path, type_data in raw_types.items():
+            if typedef_path in self._types:
+                continue
             # Parse enum values if present
             values: dict[str, EnumValue] | None = None
             if "values" in type_data:

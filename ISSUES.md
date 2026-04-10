@@ -12,7 +12,7 @@ This file tracks known issues and deferred work that needs to be addressed.
 
 ### Problem
 
-Primitives in `data/primitives-codegen.json` that use external modules (like `pickle`, `struct`, `json`) cannot inject their required imports into the generated module.
+Primitives in `data/primitives.json` that use external modules (like `pickle`, `struct`, `json`) cannot inject their required imports into the generated module.
 
 ### Example
 
@@ -37,7 +37,7 @@ But this is never populated from primitive definitions.
 
 ### Proposed Fix
 
-1. Add `"imports"` field to primitive schema in `primitives-codegen.json`:
+1. Add `"imports"` field to primitive schema in `primitives.json`:
    ```json
    "1165": {
      "name": "Flatten To String",
@@ -53,7 +53,7 @@ But this is never populated from primitive definitions.
 
 ### Files to Modify
 
-- `data/primitives-codegen.json` - Add imports field to primitives that need it
+- `data/primitives.json` - Add imports field to primitives that need it
 - `src/vipy/agent/codegen/nodes/primitive.py` - Extract and propagate imports
 - `src/vipy/primitives.py` - Update schema/model if needed
 
@@ -163,7 +163,7 @@ Note: This won't be binary-compatible with LabVIEW's flatten format, but it will
 
 ### Files to Modify
 
-- `data/primitives-codegen.json` - Fix primitive 1165
+- `data/primitives.json` - Fix primitive 1165
 
 ---
 
