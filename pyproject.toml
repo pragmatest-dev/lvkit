@@ -5,12 +5,38 @@ build-backend = "hatchling.build"
 [project]
 name = "vipy"
 version = "0.1.0"
-description = "Convert LabVIEW VIs to Python code without a LabVIEW license"
+description = "Understand and convert LabVIEW VIs to Python without a LabVIEW license"
 readme = "README.md"
 requires-python = ">=3.10"
 license = "MIT"
 authors = [
-    { name = "Ryan Fried" }
+    { name = "Ryan Friedman" }
+]
+keywords = [
+    "labview",
+    "vi",
+    "code-generation",
+    "static-analysis",
+    "ast",
+    "mcp",
+    "ni",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Code Generators",
+    "Topic :: Software Development :: Compilers",
+    "Topic :: Software Development :: Disassemblers",
+    "Topic :: Scientific/Engineering",
 ]
 dependencies = [
     "pylabview",
@@ -28,6 +54,7 @@ dev = [
     "pytest",
     "ruff",
     "mypy",
+    "pyright",
     "pre-commit",
 ]
 neo4j = [
@@ -35,7 +62,30 @@ neo4j = [
 ]
 
 [tool.hatch.build.targets.wheel]
+# Bundled JSON data and skill templates live INSIDE the package at
+# src/vipy/data/ and src/vipy/skill_templates/ so they ride along with
+# the wheel automatically. The resolvers and `vipy init --skills` load
+# them via paths relative to the package or via importlib.resources.
 packages = ["src/vipy"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "src/vipy",
+    "tests",
+    "scripts",
+    "README.md",
+    "LICENSE",
+    "pyproject.toml",
+    ".pre-commit-config.yaml",
+]
+exclude = [
+    "samples",
+    "outputs",
+    "docs/labview_ref_manual.txt",
+    "docs/*.pdf",
+    ".vipy",
+    ".tmp",
+]
 
 [tool.ruff]
 line-length = 88

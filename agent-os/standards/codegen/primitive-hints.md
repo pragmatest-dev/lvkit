@@ -1,6 +1,6 @@
 # Primitive Code Hints
 
-Primitive mappings live in `data/primitives.json`. Two formats exist.
+Primitive mappings live in `src/vipy/data/primitives.json`. Two formats exist.
 
 ## String Format (simple cases)
 

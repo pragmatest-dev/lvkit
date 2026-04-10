@@ -1,7 +1,7 @@
 ---
 name: resolve-primitive
 description: Resolve a single unknown LabVIEW primitive by following a strict verification process against documentation and graph context. Called when PrimitiveResolutionNeeded fires during vipy generate.
-allowed-tools: Bash, Read, Write, Edit, Glob, Grep
+allowed-tools: Bash, Read, Write, Edit, Glob, Grep, WebSearch, WebFetch
 ---
 
 # Resolve Unknown Primitive
@@ -12,22 +12,23 @@ When `PrimitiveResolutionNeeded` fires for an unknown primitive during `vipy gen
 
 ## Step 0: Detect mode
 
-This skill runs in two contexts. The destination directory and the research workflow differ. Decide which one applies BEFORE you do anything else.
+This skill runs in two contexts. The destination directory and the cross-reference corpus differ. Decide which one applies BEFORE you do anything else.
 
 Read `pyproject.toml` from the current directory (walk up if needed). If it contains `name = "vipy"`, you are working **inside vipy itself**:
 
 - Destination: `data/primitives.json` (vipy's shipped, cleanroom data)
-- Research source: cross-reference vipy's `samples/` corpus AND the shipped `docs/labview_ref_manual.txt`
+- Cross-reference corpus: vipy's `samples/` directory of real VIs
 - Mark `"verified": true` only after multi-instance cross-check
 - The mapping must be cleanroom — derived from public documentation, NOT from licensed LabVIEW source
 
 Otherwise, you are working **inside a downstream user's project**:
 
 - Destination: `.vipy/primitives.json` (project-local store; run `vipy init` first if `.vipy/` doesn't exist)
-- Research source: open the actual LabVIEW source files the user has access to. The diagnostic includes the **qualified VI name** of the caller — use it to find the calling VI on disk. The user's own LabVIEW install (or vipy's `vipy describe` on the calling VI) gives you ground truth for the terminal layout.
+- Cross-reference corpus: the user's own VI tree. The diagnostic includes the **qualified VI name** of the caller — use it to find the calling VI on disk.
 - Do NOT cross-reference vipy's `samples/` — the user's project doesn't have them
-- Do NOT use vipy's `docs/labview_ref_manual.txt` — rely on the user's own LabVIEW documentation
 - The mapping you write may be derived from licensed sources; that's the user's call. vipy itself never reads `.vipy/`.
+
+In **both** modes, the function-identification step (Step 5) uses live web search against NI's online documentation. vipy does not bundle the LabVIEW reference manual.
 
 ## Step 1: Record the diagnostic
 
@@ -169,27 +170,27 @@ Related LabVIEW primitives share primResID ranges:
 
 Does the terminal signature (types, count, directions) fit the range?
 
-## Step 5: Identify the function
+## Step 5: Identify the function via web search
 
-This step is mode-dependent.
+vipy does not bundle NI's reference manual. Use the WebSearch tool to look up candidate functions on NI's documentation site.
 
-### vipy mode: search shipped LabVIEW reference
+Search queries that work well:
 
-The full text is at `docs/labview_ref_manual.txt`. Search for candidate functions matching:
-- The terminal TYPES (matching the actual types from Step 1)
-- The CATEGORY (matching the range from Step 4)
-- The CONTEXT (matching the connected operations from Step 3)
-- The observed terminals must be a SUBSET of the documented terminals
+- `LabVIEW <CANDIDATE FUNCTION NAME> function terminals` — broad lookup
+- `site:ni.com/docs <CANDIDATE FUNCTION NAME>` — restrict to NI docs
+- `LabVIEW <CATEGORY from Step 4> primitives` — when you only know the category
 
-```bash
-grep -n "CANDIDATE FUNCTION NAME" docs/labview_ref_manual.txt | head -5
-```
+When you find a candidate page, use WebFetch to read the full Inputs/Outputs section. Confirm:
 
-Read the FULL Inputs/Outputs section. Confirm EVERY terminal name, direction, and type matches the actual data.
+- The terminal TYPES match the actual types from Step 1
+- The terminal NAMES and DIRECTIONS match the documentation
+- The observed terminals are a SUBSET of the documented terminals (primitives only show wired terminals, not all possible ones)
+- The CONTEXT (Step 3) makes sense for what the function does
 
-### User-project mode: open the calling VI's source
+If WebSearch is unavailable or returns nothing useful:
 
-You don't need vipy's PDF — you have the user's actual LabVIEW install. Use the qualified VI name from the diagnostic to find the calling VI on disk and inspect the primitive's surrounding context. If the user has LabVIEW open, ask them to identify the function by primResID or by the connector pane image. Their own LabVIEW documentation (NI's online help, locally installed manuals) is the source of truth.
+- **vipy mode**: cross-reference the `samples/` corpus more aggressively (Step 2), and ask the user
+- **user-project mode**: ask the user to open the calling VI in LabVIEW and read the primitive's context menu / quick help. The qualified VI path from the diagnostic tells you which file to point them at.
 
 ## Step 6: Add the JSON entry
 

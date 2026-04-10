@@ -169,7 +169,7 @@ def load_enum_reference() -> dict:
     Returns:
         Dict with typedef definitions, or empty dict if not found
     """
-    data_dir = Path(__file__).parent.parent.parent.parent / "data"
+    data_dir = Path(__file__).parent.parent / "data"
     enums_path = data_dir / "labview-enums.json"
 
     if not enums_path.exists():

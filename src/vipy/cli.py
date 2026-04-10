@@ -12,7 +12,12 @@ from pathlib import Path
 from . import __version__, primitive_resolver, vilib_resolver
 from .llm import LLMConfig, check_ollama_available, list_models
 from .memory_graph import InMemoryVIGraph
-from .project_store import find_project_store, init_project_store
+from .project_store import (
+    find_project_store,
+    init_project_store,
+    install_claude_skills,
+    install_copilot_instructions,
+)
 from .structure import (
     discover_project_structure,
     generate_python_structure_plan,
@@ -358,6 +363,22 @@ def main() -> int:
         nargs="?",
         default=".",
         help="Directory in which to create .vipy/ (default: current directory)",
+    )
+    init_parser.add_argument(
+        "--skills",
+        choices=["claude", "copilot", "all"],
+        default=None,
+        help=(
+            "Also install vipy's resolve workflows into your LLM editor: "
+            "claude installs Claude Code skills under .claude/skills/; "
+            "copilot writes a section to .github/copilot-instructions.md; "
+            "all does both."
+        ),
+    )
+    init_parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Overwrite existing skill files even if they have local edits",
     )
 
     args = parser.parse_args()
@@ -732,17 +753,42 @@ def cmd_init(args: argparse.Namespace) -> int:
     store = init_project_store(root)
     print(f"Initialized project store at {store}")
     print(f"  README: {store / 'README.md'}")
+
+    # Optional: install LLM editor skills
+    skills = getattr(args, "skills", None)
+    force = getattr(args, "force", False)
+    if skills in ("claude", "all"):
+        try:
+            written = install_claude_skills(root, force=force)
+        except FileExistsError as e:
+            print(f"Error: {e}", file=sys.stderr)
+            return 1
+        if written:
+            print(f"Installed {len(written)} Claude Code skill(s):")
+            for p in written:
+                print(f"  {p}")
+        else:
+            print("Claude Code skills already up to date.")
+    if skills in ("copilot", "all"):
+        copilot_path = install_copilot_instructions(root, force=force)
+        print(f"Wrote Copilot instructions: {copilot_path}")
+
     print()
     print("Next steps:")
     print(
         "  - Create .vipy/primitives.json to override primitive mappings"
-        " (use vipy's shipped data/primitives.json as a reference)"
+        " (use vipy's bundled primitives.json as a reference)"
     )
     print(
         "  - Add vi.lib mappings to .vipy/vilib/<category>.json and register them"
         " in .vipy/vilib/_index.json"
     )
-    print("  - vipy will check .vipy/ before its shipped data when resolving.")
+    print("  - vipy will check .vipy/ before its bundled data when resolving.")
+    if not skills:
+        print(
+            "  - Run `vipy init --skills all` to install resolve workflows"
+            " into Claude Code and/or Copilot."
+        )
     return 0
 
 

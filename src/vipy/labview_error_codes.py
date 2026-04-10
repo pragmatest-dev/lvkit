@@ -20,9 +20,7 @@ def _load_codes() -> dict[str, str]:
     global _ERROR_CODES
     if _ERROR_CODES is None:
         data_path = (
-            Path(__file__).parent.parent.parent
-            / "data"
-            / "labview_error_codes.json"
+            Path(__file__).parent / "data" / "labview_error_codes.json"
         )
         if data_path.exists():
             _ERROR_CODES = json.loads(data_path.read_text())

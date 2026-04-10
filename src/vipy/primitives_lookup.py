@@ -31,8 +31,7 @@ class PrimitiveLookup:
         if api_data_path is None:
             # Default to data/ directory relative to this file
             api_data_path = (
-                Path(__file__).parent.parent.parent
-                / "data" / "labview-api-scraped.json"
+                Path(__file__).parent / "data" / "labview-api-scraped.json"
             )
 
         self.primitives: list[PrimitiveInfo] = []

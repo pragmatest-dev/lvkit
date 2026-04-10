@@ -1,0 +1,776 @@
+{
+  "category": "Cluster",
+  "count": 20,
+  "entries": [
+    {
+      "name": "Build Cluster Array",
+      "page": 462,
+      "category": "Cluster",
+      "description": "Bundles each element input into a cluster and assembles all element clusters into an array of clusters. The connector pane displays the default data types for this polymorphic function.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "element",
+          "description": "element 0..n-1 inputs must be of the same type as the value wired to the topmost element terminal.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "element"
+        },
+        {
+          "name": "array of clusters",
+          "description": "array of clusters is the resulting array. Each cluster contains a single element.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "array_of_clusters"
+        }
+      ]
+    },
+    {
+      "name": "Index & Bundle Cluster Array",
+      "page": 463,
+      "category": "Cluster",
+      "description": "Indexes a set of arrays and creates a cluster array in which the ith element contains the ith element of each input array. The connector pane displays the default data types for this polymorphic function.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "array",
+          "description": "Functions \u00a9 National Instruments 463 array of x..z can be a 1D array of any type. Array inputs do not all have to be the same type.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "array"
+        },
+        {
+          "name": "array of clusters",
+          "description": "array of cluster is a cluster array containing one element from each input array. The number of elements in the output array equals the number of elements in the shortest input array.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "array_of_clusters"
+        }
+      ]
+    },
+    {
+      "name": "Cluster To Array Function",
+      "page": 464,
+      "category": "Cluster",
+      "description": "Converts a cluster of elements of the same data type to a 1D array of elements of the same data type. Functions 464 ni.com",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "cluster",
+          "description": "The cluster components cannot be arrays.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "cluster"
+        },
+        {
+          "name": "array",
+          "description": "The elements in array are of the same type as the elements in cluster. The order of the elements in array is the same as the cluster order of the elements. Examples Refer to the following example files included with LabVIEW.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "array"
+        },
+        {
+          "name": "labview\\examples\\Arrays\\Array to Cluster.vi",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "labview_examples_arrays_array_to_cluster_vi"
+        }
+      ]
+    },
+    {
+      "name": "Array To Cluster Function",
+      "page": 465,
+      "category": "Cluster",
+      "description": "Converts a 1D array to a cluster of elements of the same type as the array elements. Double-click the function to open the Cluster Size dialog box and set the number of elements in the cluster. The default is nine. The maximum cluster size for this function is 256. Use this function when you want to display elements of the same type in a front panel cluster indicator but want to manipulate the elements on the block diagram by their index values. Functions \u00a9 National Instruments 465",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "array",
+          "description": "array is a one-dimensional array of any type.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "array"
+        },
+        {
+          "name": "cluster",
+          "description": "Each element in cluster is the same as the corresponding element in array. The cluster order matches the order of the elements in the array.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "cluster"
+        },
+        {
+          "name": "labview\\examples\\Arrays\\Array to Cluster.vi",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "labview_examples_arrays_array_to_cluster_vi"
+        }
+      ]
+    },
+    {
+      "name": "Call Parent Class Method",
+      "page": 466,
+      "category": "Cluster",
+      "description": "Calls the nearest ancestor implementation of a class method. You can use the Call Parent Class Method node only on the block diagram of a member VI that belongs to a Functions 466 ni.com class that inherits member VIs from an ancestor class. The child member VI must be a dynamic dispatching member VI and have the same name as the ancestor member VI. You cannot use this node to invoke methods from ancestor interfaces. The parameters, or input and output terminals, of this node depend on the ances",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_review",
+      "terminals": []
+    },
+    {
+      "name": "To More Specific Class Function",
+      "page": 467,
+      "category": "Cluster",
+      "description": "Typecasts a reference, such as a control or a type definition, to a more specific class or interface in the inheritance hierarchy. For example, if Class A inherits from Class B, a variable of type B can hold a value of type A. You can use the function to downcast from type B to type A. If the typecast is invalid, this function returns an error at run time. You can use the To More Specific Class function for casting any class hierarchy in LabVIEW, including VI Server refnums, .NET/ActiveX refnums",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "target class",
+          "description": "target class is the class or interface to which you want to downcast reference. You can wire a class specifier constant or any wire of the target type to this input.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "target_class"
+        },
+        {
+          "name": "reference",
+          "description": "reference is the refnum or LabVIEW class or interface to downcast.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "reference"
+        },
+        {
+          "name": "error in",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in"
+        },
+        {
+          "name": "specific class reference",
+          "description": "specific class reference is the downcast reference. If the target class is incompatible with the reference, the function returns an error and specific class reference is Not A Refnum.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "specific_class_reference"
+        },
+        {
+          "name": "error out",
+          "description": "error out contains error information. This output provides standard error out functionality. You can use the To More Specific Class function to manipulate the properties or methods from a more specific class or interface than that of the reference. For example, if you build an array of references to boolean, numeric, and string controls, LabVIEW casts these references to the more generic Control class because an array can contain only one data type, and each of these controls is a member of the ",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        },
+        {
+          "name": "labview\\examples\\Application Control\\VI Server\\To More",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "labview_examples_application_control_vi_server_to_more"
+        }
+      ]
+    },
+    {
+      "name": "To More Generic Class Function",
+      "page": 469,
+      "category": "Cluster",
+      "description": "Typecasts a reference, such as a control or a type definition, to a more generic class or interface in the inheritance hierarchy. For example, if Class A inherits from Class B, the function upcasts a variable of type A to a variable of type B. You can use the To More Generic Class function for casting any class hierarchy in LabVIEW, including VI Server refnums, .NET/ActiveX refnums, and LabVIEW classes or interfaces.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "target class",
+          "description": "target class is the class or interface to which you want to upcast reference. You can wire a class specifier constant or any wire of the target type to this input. Functions \u00a9 National Instruments 469",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "target_class"
+        },
+        {
+          "name": "reference",
+          "description": "reference is the refnum or LabVIEW class or interface to upcast.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "reference"
+        },
+        {
+          "name": "generic class reference",
+          "description": "generic class reference is the upcasted reference. If an error occurs, generic class reference is Not A Refnum. This function does not have error in and error out parameters because LabVIEW can determine at edit time whether you have wired the reference to a compatible target class. If you wire the reference to an incompatible target class, the wire breaks and you receive a Class conflict error. You can use the To More Generic Class function to manipulate the properties or methods from a more ge",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "generic_class_reference"
+        }
+      ]
+    },
+    {
+      "name": "Preserve Run-Time Class Function",
+      "page": 470,
+      "category": "Cluster",
+      "description": "Checks at run time whether object in is of the same class as, or is a child class of, target object. Use this function on the block diagram of a subVI when you want to guarantee that LabVIEW downcasts a LabVIEW class output of the subVI node to the same class type as a LabVIEW class input when the subVI receives a child class of the expected input type. Functions 470 ni.com",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "target object",
+          "description": "target object\u2014is the object whose class you want to compare to the class of object in.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "target_object"
+        },
+        {
+          "name": "object in",
+          "description": "object in\u2014is the object you want LabVIEW to downcast automatically.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "object_in"
+        },
+        {
+          "name": "error in",
+          "description": "error in describes error conditions that occur before this node runs. With the following exception, this input provides standard error in functionality. This node runs normally even if an error occurred before this node runs.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in"
+        },
+        {
+          "name": "object out",
+          "description": "object out\u2014is the same as object in. If the target object is incompatible with object in, the function returns an error and the data value of object out is of the same wire type as target object.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "object_out"
+        },
+        {
+          "name": "error out",
+          "description": "error out contains error information. This output provides standard error out functionality. Use this function in VIs that meet the following criteria:",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        },
+        {
+          "name": "The VI accepts a LabVIEW class as an input and returns the same LabVIEW class as",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "the_vi_accepts_a_labview_class_as_an_input_and_returns_the_same_labview_class_as"
+        },
+        {
+          "name": "You want to call the VI as a subVI.",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "you_want_to_call_the_vi_as_a_subvi"
+        },
+        {
+          "name": "You want to guarantee that the output class type of the resulting subVI node",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "you_want_to_guarantee_that_the_output_class_type_of_the_resulting_subvi_node"
+        }
+      ]
+    },
+    {
+      "name": "Get LV Class Default Value",
+      "page": 473,
+      "category": "Cluster",
+      "description": "Returns the class data for the class whose path you wire to the class path input. If the class is not in memory, LabVIEW attempts to load it from disk. If any dependencies are missing, LabVIEW searches for the missing dependencies. If LabVIEW cannot find the dependency, LabVIEW assumes the dependency is missing and does not prompt the user to browse to the needed file. Use this VI to dynamically create class objects, including class objects that are unknown at edit time. Related Information Crea",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "class path",
+          "description": "class path specifies the path to the LabVIEW class.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "class_path"
+        },
+        {
+          "name": "options",
+          "description": "options is a bit set that specifies the behavior of LabVIEW when loading the class into memory. The default is 0x0, which means that when loading the class, LabVIEW searches for missing dependencies but does not prompt the user to browse to missing dependencies. options can be a combination of the following values. 0x01 This option has no effect when loading LabVIEW classes. For VIs, this is the Record Modifications value. When dynamically loading classes, modifications are always recorded and m",
+          "default_value": "0x0, which means that when loading the class, LabVIEW searches for missing dependencies but does not prompt the user to browse to missing dependencies",
+          "enum_values": null,
+          "python_param": "options"
+        }
+      ]
+    },
+    {
+      "name": "Get LV Class Path",
+      "page": 474,
+      "category": "Cluster",
+      "description": "Returns the path to the class of the object.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "complete",
+      "python_code": "{class_path} = Path(type({object}).__module__.replace('.', '/') + '.lvclass')",
+      "inline": true,
+      "imports": ["from pathlib import Path"],
+      "ref_terminals": {
+        "error_out": "passthrough_from:error_in_no_error"
+      },
+      "terminals": [
+        {
+          "name": "object",
+          "index": 11,
+          "direction": "in",
+          "description": "object specifies the object for which you want to retrieve the path to the owning class.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "object"
+        },
+        {
+          "name": "error in (no error)",
+          "index": 8,
+          "direction": "in",
+          "description": "error in describes error conditions that occur before this node runs.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in_no_error"
+        },
+        {
+          "name": "class path",
+          "index": 3,
+          "direction": "out",
+          "description": "class path specifies the absolute path to the .lvclass file on disk.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "class_path"
+        },
+        {
+          "name": "error out",
+          "index": 0,
+          "direction": "out",
+          "description": "error out contains error information.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        }
+      ]
+    },
+    {
+      "name": "Get LV Class Default Value By Name",
+      "page": 475,
+      "category": "Cluster",
+      "description": "Returns the class data for the class whose name you wire to the class name input. If the class is not in memory or is broken, LabVIEW returns an error.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "class name",
+          "description": "class name specifies the name of the class whose data you want to retrieve.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "class_name"
+        },
+        {
+          "name": "error in (no error)",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in_no_error"
+        },
+        {
+          "name": "object",
+          "description": "object returns the data of the class you wire to the class name input.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "object"
+        },
+        {
+          "name": "error out",
+          "description": "error out contains error information. This output provides standard error out functionality. Functions \u00a9 National Instruments 475",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        }
+      ]
+    },
+    {
+      "name": "Get LV Class Name",
+      "page": 476,
+      "category": "Cluster",
+      "description": "Returns the name of the class of the object.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "object",
+          "description": "object specifies the object for which you want to retrieve the name of the owning class.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "object"
+        },
+        {
+          "name": "error in (no error)",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in_no_error"
+        },
+        {
+          "name": "class name",
+          "description": "class name returns the class name of object.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "class_name"
+        },
+        {
+          "name": "error out",
+          "description": "error out contains error information. This output provides standard error out functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        }
+      ]
+    },
+    {
+      "name": "To Variant Function",
+      "page": 477,
+      "category": "Cluster",
+      "description": "Converts any LabVIEW data to variant data. You also can use this function to convert ActiveX data to variant data.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "anything",
+          "description": "Functions \u00a9 National Instruments 477 anything is any LabVIEW data you want to convert. This parameter is polymorphic.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "anything"
+        },
+        {
+          "name": "variant",
+          "description": "variant is the resulting variant data. If you use the To Variant and Variant to Data functions with LabVIEW classes consider the following caveat. Variants do not recognize inheritance hierarchies. For example, if you have child data traveling on a parent class wire and you then wire the parent wire to a To Variant function, the variant recognizes only the parent data type. If you wire a child data type to the Variant to Data function to extract the child data, LabVIEW returns an error. You must",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "variant"
+        }
+      ]
+    },
+    {
+      "name": "Variant To Data Function",
+      "page": 478,
+      "category": "Cluster",
+      "description": "Converts variant data to a LabVIEW data type so LabVIEW can display or process the data. You also can use this function to convert variant data to ActiveX data.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "type",
+          "description": "type specifies the LabVIEW data type of the data stored in variant. If the data is an integer, you can coerce the data to another numeric representation, such as an extended-precision, floating-point number.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "type"
+        },
+        {
+          "name": "variant",
+          "description": "variant is the variant data you want to convert to the LabVIEW data type specified in type.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "variant"
+        },
+        {
+          "name": "error in",
+          "description": "Functions 478 ni.com error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in"
+        },
+        {
+          "name": "data",
+          "description": "data is the variant changed to the data type specified by type. If variant could not be converted to the data type specified, this data returns the default value for the data type.",
+          "default_value": "value for the data type",
+          "enum_values": null,
+          "python_param": "data"
+        },
+        {
+          "name": "error out",
+          "description": "error out contains error information. This output provides standard error out functionality. Using Variant to Data with ActiveX References This function also serves the same purpose as the QueryInterface method of ActiveX. To use the Variant to Data function to switch between interfaces of an ActiveX object, first convert the automation refnum for the ActiveX object to a variant by using the To Variant function. Wire the variant version of the refnum to the variant input of the Variant to Data f",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        }
+      ]
+    },
+    {
+      "name": "Flattened String To Variant Function",
+      "page": 480,
+      "category": "Cluster",
+      "description": "Converts flattened data into variant data. Use the Flatten to String function to produce data string and type string.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "type string",
+          "description": "type string is an array of numeric integers that identifies the data type of the flattened string if the data type existed in LabVIEW 7.x or earlier.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "type_string"
+        },
+        {
+          "name": "data string",
+          "description": "data string is the flattened data you want to convert to variant data.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "data_string"
+        },
+        {
+          "name": "error in",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in"
+        },
+        {
+          "name": "variant",
+          "description": "variant is the resulting variant data.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "variant"
+        },
+        {
+          "name": "error out",
+          "description": "error out contains error information. This output provides standard error out functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        }
+      ]
+    },
+    {
+      "name": "Variant To Flattened String Function",
+      "page": 480,
+      "category": "Cluster",
+      "description": "Converts variant data into a flattened string and an array of integers that represent the Functions 480 ni.com data type. You cannot flatten ActiveX variant data.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "variant",
+          "description": "variant is the variant data you want converted to a string of flattened data.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "variant"
+        },
+        {
+          "name": "type string",
+          "description": "type string is an array of numeric integers that identifies the data type of the flattened string.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "type_string"
+        },
+        {
+          "name": "data string",
+          "description": "data string is the resulting flattened data you converted from variant data. If you use this function to flatten variant data, LabVIEW flattens only the variant and discards all its contents, including attributes. However, if you use the Flatten To String function, LabVIEW flattens the variant and all of its attributes.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "data_string"
+        }
+      ]
+    },
+    {
+      "name": "Get Variant Attribute Function",
+      "page": 481,
+      "category": "Cluster",
+      "description": "Retrieves the names and values of all attributes or the value of a single attribute, depending on whether you wire the name parameter. The connector pane displays the default data types for this polymorphic function.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "variant",
+          "description": "Functions \u00a9 National Instruments 481 variant is the variant data for which you want to retrieve an attribute(s) and value(s).",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "variant"
+        },
+        {
+          "name": "name",
+          "description": "name is the name of the attribute whose value you want to retrieve. Do not wire this parameter if you want to retrieve all the attributes associated with the specified variant. If you wire name, the names output changes to a Boolean output found, the array output values changes to an output called value of the same type as default value, and the function searches for only the specified attribute.",
+          "default_value": "value, and the function searches for only the specified attribute",
+          "enum_values": null,
+          "python_param": "name"
+        },
+        {
+          "name": "default value (empty variant)",
+          "description": "default value is a value and data type that you specify. If the function does not find the attribute specified in name, it returns the default value. If you wire default value, you must wire name.",
+          "default_value": "value is a value and data type that you specify",
+          "enum_values": null,
+          "python_param": "default_value_empty_variant"
+        },
+        {
+          "name": "error in",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in"
+        },
+        {
+          "name": "duplicate variant",
+          "description": "duplicate variant is the variant data you input in variant.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "duplicate_variant"
+        },
+        {
+          "name": "names",
+          "description": "names returns a 1D array containing the names of all attributes associated with the variant. LabVIEW sorts this array and arranges the array elements in ascending order using the same algorithm as the Sort 1D Array function. If you wire the name parameter, this output changes to a Boolean value found. found returns TRUE if the function finds the attribute that you specify in name.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "names"
+        },
+        {
+          "name": "values",
+          "description": "values returns a 1D array containing the values associated with each attribute of the specified variant in variant format. The values in this array appear in the same order as their corresponding names appear in the names output. You must unflatten each attribute value to an appropriate data type. If you wire name, this output changes to a single variant value. If the function does not find the attribute that you specify in name, it returns the value passed to default value.",
+          "default_value": "value",
+          "enum_values": null,
+          "python_param": "values"
+        },
+        {
+          "name": "error out",
+          "description": "Functions 482 ni.com error out contains error information. This output provides standard error out functionality. This function has two modes of behavior depending on whether you wire the name parameter. By default, the function returns the names of all attributes and their corresponding values in 1D arrays. If you wire name, the names output changes to a Boolean output found, the values output changes to a variant output value, and the function searches for only the specified attribute. If the ",
+          "default_value": "value, found is FALSE, and value displays the contents of default value",
+          "enum_values": null,
+          "python_param": "error_out"
+        }
+      ]
+    },
+    {
+      "name": "Set Variant Attribute Function",
+      "page": 483,
+      "category": "Cluster",
+      "description": "Allows you to change or create an attribute and value for variant data.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "variant",
+          "description": "variant is the variant data you want to create an attribute and value for or replace a value for.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "variant"
+        },
+        {
+          "name": "name",
+          "description": "name is the name of the attribute you want to edit or create. If name matches an attribute, this function replaces the attribute with the value specified. If name does not match an attribute, this function creates a new attribute. If name is an empty string, this function returns error code 1 because an empty string triggers a special behavior in the Delete Variant Attribute function.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "name"
+        },
+        {
+          "name": "value",
+          "description": "value is the value of the attribute. This input is polymorphic, so you can wire any data to it.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "value"
+        },
+        {
+          "name": "error in",
+          "description": "error in describes error conditions that occur before this node runs. This input provides Functions",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in"
+        }
+      ]
+    },
+    {
+      "name": "Delete Variant Attribute Function",
+      "page": 484,
+      "category": "Cluster",
+      "description": "Deletes an attribute(s) and value(s) in variant data.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "variant",
+          "description": "variant is the variant data you want to delete an attribute(s) and value(s) in.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "variant"
+        },
+        {
+          "name": "name (all attributes)",
+          "description": "name is the name of the attribute you want to delete. If name matches an attribute, this function deletes the attribute and its value. If name is an empty string, this function deletes all the attributes and associated values in the variant data. The default is an empty string.",
+          "default_value": "an empty string",
+          "enum_values": null,
+          "python_param": "name_all_attributes"
+        },
+        {
+          "name": "error in",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in"
+        },
+        {
+          "name": "variant out",
+          "description": "Functions 484 ni.com variant out is the variant data with the deleted attribute(s).",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "variant_out"
+        },
+        {
+          "name": "found",
+          "description": "found is TRUE if the function found the attribute specified in name. If name is unwired, found is TRUE if the function located and deleted attributes and FALSE otherwise.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "found"
+        },
+        {
+          "name": "error out",
+          "description": "error out contains error information. This output provides standard error out functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        }
+      ]
+    },
+    {
+      "name": "Data Type Parsing",
+      "page": 485,
+      "category": "Cluster",
+      "description": "Use the Data Type Parsing VIs to retrieve and compare the data type stored in a variant to other data types. Palette Object Description Get Type Information Retrieves data type information from the data type stored in variant. Get Array Information Retrieves array information from the data type stored in variant. This VI returns an error if variant does not contain an array. Get Cluster Information Retrieves cluster information from the data type stored in variant. This VI returns an error if va",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_review",
+      "terminals": []
+    }
+  ]
+}

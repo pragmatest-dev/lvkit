@@ -1,0 +1,33 @@
+{
+  "category": "openg/variant",
+  "source_path": "user.lib/_OpenG.lib/lvdata/lvdata.llb",
+  "count": 1,
+  "entries": [
+    {
+      "name": "Get TDEnum from Data__ogtk",
+      "vi_path": "user.lib/_OpenG.lib/Get TDEnum from Data__ogtk.vi",
+      "category": "openg",
+      "description": "Gets the type enumeration enum of the input variant data",
+      "terminals": [
+        {
+          "name": "Type Descriptor Enumeration",
+          "index": 1,
+          "direction": "out",
+          "type": "UnitUInt8",
+          "python_param": "type_descriptor_enumeration"
+        },
+        {
+          "name": "Data",
+          "index": 4,
+          "direction": "in",
+          "type": "LVVariant",
+          "python_param": "data"
+        }
+      ],
+      "status": "complete",
+      "python_code": "{type_descriptor_enumeration} = type({data}).__name__",
+      "inline": true,
+      "imports": []
+    }
+  ]
+}

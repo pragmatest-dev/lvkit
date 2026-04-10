@@ -87,7 +87,7 @@ class EnumResolver:
         """
         if enums_path is None:
             enums_path = (
-                Path(__file__).parent.parent.parent / "data" / "labview-enums.json"
+                Path(__file__).parent / "data" / "labview-enums.json"
             )
 
         self._by_full_path: dict[str, ResolvedEnum] = {}  # vilib_path:control_file

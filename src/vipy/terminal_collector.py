@@ -96,7 +96,7 @@ class TerminalCollector:
 
     def __init__(self, data_dir: Path | None = None):
         if data_dir is None:
-            data_dir = Path(__file__).parent.parent.parent / "data"
+            data_dir = Path(__file__).parent / "data"
         self.pending_file = data_dir / "vilib" / "_pending_terminals.json"
         self.data: dict[str, Any] = {"observations": {}}
         self._load()

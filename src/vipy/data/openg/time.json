@@ -1,0 +1,98 @@
+{
+  "category": "openg/time",
+  "source_path": "user.lib/_OpenG.lib/time/time.llb",
+  "count": 2,
+  "entries": [
+    {
+      "name": "Tick Count (ms)__ogtk",
+      "vi_path": "user.lib/_OpenG.lib/Tick Count (ms)__ogtk.vi",
+      "category": "openg",
+      "description": "Get millisecond tick count",
+      "terminals": [
+        {
+          "name": "error in (no error)",
+          "index": 8,
+          "direction": "in",
+          "type": "stdClust",
+          "python_param": "error_in_no_error"
+        },
+        {
+          "name": "error out",
+          "index": 0,
+          "direction": "out",
+          "type": "stdClust",
+          "python_param": "error_out"
+        },
+        {
+          "name": "millisecond timer value",
+          "index": 3,
+          "direction": "out",
+          "type": "stdNum",
+          "python_param": "millisecond_timer_value"
+        }
+      ],
+      "status": "complete",
+      "python_code": "{millisecond_timer_value} = int(time.time() * 1000)",
+      "inline": true,
+      "imports": [
+        "import time"
+      ]
+    },
+    {
+      "name": "Wait (ms)__ogtk",
+      "vi_path": "user.lib/_OpenG.lib/Wait (ms)__ogtk.vi",
+      "category": "openg",
+      "description": "Wait for specified milliseconds",
+      "terminals": [
+        {
+          "name": "error in (no error)",
+          "index": 8,
+          "direction": "in",
+          "type": "stdClust",
+          "python_param": "error_in_no_error"
+        },
+        {
+          "name": "milliseconds to wait",
+          "index": 11,
+          "direction": "in",
+          "type": "stdNum",
+          "python_param": "milliseconds_to_wait"
+        },
+        {
+          "name": "Wait on Error (FALSE)",
+          "index": 10,
+          "direction": "in",
+          "type": "stdBool",
+          "python_param": "wait_on_error_false"
+        },
+        {
+          "name": "Abort wait on occurence",
+          "index": 9,
+          "direction": "in",
+          "type": "stdRefNum",
+          "python_param": "abort_wait_on_occurence"
+        },
+        {
+          "name": "error out",
+          "index": 0,
+          "direction": "out",
+          "type": "stdClust",
+          "python_param": "error_out"
+        },
+        {
+          "name": "millisecond timer value",
+          "index": 3,
+          "direction": "out",
+          "type": "stdNum",
+          "python_param": "millisecond_timer_value"
+        }
+      ],
+      "status": "complete",
+      "python_code": "time.sleep({milliseconds_to_wait} / 1000)",
+      "inline": true,
+      "imports": [
+        "import time"
+      ]
+    }
+  ]
+}

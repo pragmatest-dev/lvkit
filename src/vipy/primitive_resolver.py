@@ -187,7 +187,7 @@ class PrimitiveResolver:
             project_data_dir: Optional project-local .vipy/ directory.
                 Loaded BEFORE shipped data so project entries take priority.
         """
-        data_dir = Path(__file__).parent.parent.parent / "data"
+        data_dir = Path(__file__).parent / "data"
         if primitives_path is None:
             primitives_path = data_dir / "primitives.json"
         if pdf_path is None:
