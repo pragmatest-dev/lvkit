@@ -21,6 +21,7 @@ from ..ast_utils import (
 )
 from ..context import CodeGenContext
 from ..fragment import CodeFragment
+from ..unresolved import emit_soft_unresolved
 
 
 def generate(node: PrimitiveOperation, ctx: CodeGenContext) -> CodeFragment:
@@ -630,58 +631,12 @@ def _emit_unknown(
     if not ctx.soft_unresolved:
         raise PrimitiveResolutionNeeded(**kwargs)  # type: ignore[arg-type]
 
-    return _build_unresolved_fragment(
+    return emit_soft_unresolved(
         node=node,
         ctx=ctx,
         exception_module="vipy.primitive_resolver",
         exception_class="PrimitiveResolutionNeeded",
-        kwargs=kwargs,
-    )
-
-
-def _build_unresolved_fragment(
-    node: PrimitiveOperation,
-    ctx: CodeGenContext,
-    exception_module: str,
-    exception_class: str,
-    kwargs: dict[str, object],
-) -> CodeFragment:
-    """Build a CodeFragment that pre-binds outputs and raises inline.
-
-    Used by soft-mode codegen for unknown primitives and unknown vi.lib
-    VIs. Pre-binds each wired output terminal to None so downstream
-    dataflow has something to read; then raises the same exception that
-    hard mode would raise at codegen time.
-
-    The raise statement is constructed by formatting the kwargs as Python
-    source and parsing it — all values are simple JSON-shaped literals
-    so repr() round-trips correctly.
-    """
-    statements: list[ast.stmt] = []
-
-    # Pre-bind outputs to None so downstream codegen sees a value.
-    # Using build_assign keeps naming consistent with the normal path.
-    for term in node.terminals:
-        if term.direction != "output":
-            continue
-        var_name = ctx.make_output_var(
-            to_var_name(term.name or f"out_{term.index}"),
-            node.id,
-            terminal_id=term.id,
-        )
-        ctx.bind(term.id, var_name)
-        statements.append(build_assign(var_name, ast.Constant(value=None)))
-
-    # Build `raise <Exception>(k1=v1, k2=v2, ...)` from a Python source
-    # string. All kwargs are JSON-shaped literals so repr() is faithful.
-    kwarg_src = ", ".join(f"{k}={v!r}" for k, v in kwargs.items())
-    raise_src = f"raise {exception_class}({kwarg_src})"
-    raise_stmt = ast.parse(raise_src).body[0]
-    statements.append(raise_stmt)
-
-    return CodeFragment(
-        statements=statements,
-        imports={f"from {exception_module} import {exception_class}"},
+        literal_kwargs=kwargs,
     )
 
 def _raise_terminal_resolution(

@@ -199,6 +199,9 @@ def main() -> int:
         "--no-expand", action="store_true",
         help="Don't expand SubVIs",
     )
+    # User-facing name is --placeholder-on-unresolved (descriptive of the
+    # output the user sees in their generated Python). Internally this
+    # flows to CodeGenContext.soft_unresolved (the codegen-time mode).
     gen_parser.add_argument(
         "--placeholder-on-unresolved",
         action="store_true",

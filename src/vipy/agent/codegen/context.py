@@ -285,9 +285,11 @@ class CodeGenContext:
         return CodeGenContext(
             graph=self.graph,
             vi_name=self.vi_name,
+            qualified_vi_name=self.qualified_vi_name,
             imports=self.imports,
             loop_depth=self.loop_depth + (1 if increment_loop_depth else 0),
             use_held_error_model=self.use_held_error_model,
+            soft_unresolved=self.soft_unresolved,
             _allocated_vars=self._allocated_vars,  # Shared — same scope
             vi_inputs=self.vi_inputs,
             import_resolver=self.import_resolver,
