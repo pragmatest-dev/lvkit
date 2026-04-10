@@ -370,9 +370,10 @@ def main() -> int:
         default=None,
         help=(
             "Also install vipy's resolve workflows into your LLM editor: "
-            "claude installs Claude Code skills under .claude/skills/; "
-            "copilot writes a section to .github/copilot-instructions.md; "
-            "all does both."
+            "claude installs vipy-prefixed Claude Code skills under "
+            ".claude/skills/; copilot installs per-workflow prompts under "
+            ".github/prompts/ plus a router at "
+            ".github/instructions/vipy.instructions.md; all does both."
         ),
     )
     init_parser.add_argument(

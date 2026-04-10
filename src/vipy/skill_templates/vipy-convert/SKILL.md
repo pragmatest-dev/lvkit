@@ -40,9 +40,9 @@ Check the summary at the end: `error: N`. If N > 0, proceed to Step 2.
 
 If the error summary shows errors, resolve them ONE AT A TIME:
 
-- `PrimitiveResolutionNeeded` → invoke `/resolve-primitive` skill with the primResID
-- `TerminalResolutionNeeded` → invoke `/resolve-primitive` skill (terminal mismatch on known primitive)
-- `VILibResolutionNeeded` → invoke `/resolve-vilib` skill with the VI name
+- `PrimitiveResolutionNeeded` → invoke `/vipy-resolve-primitive` skill with the primResID
+- `TerminalResolutionNeeded` → invoke `/vipy-resolve-primitive` skill (terminal mismatch on known primitive)
+- `VILibResolutionNeeded` → invoke `/vipy-resolve-vilib` skill with the VI name
 - `TypeResolutionNeeded` → investigate nMux field indexing (flattened depth-first index vs typedef fields)
 
 After resolving each unknown, re-run `vipy generate`. Repeat until `error: 0`.
@@ -53,7 +53,7 @@ After resolving each unknown, re-run `vipy generate`. Repeat until `error: 0`.
 
 ### Step 3: Clean up to idiomatic Python
 
-After 0 errors, the generated code is correct but mechanical. For each generated `.py` file, invoke `/idiomatic` to rewrite it.
+After 0 errors, the generated code is correct but mechanical. For each generated `.py` file, invoke `/vipy-idiomatic` to rewrite it.
 
 If you want context first:
 
@@ -128,10 +128,10 @@ The MCP server (`vipy mcp`) provides tools for interactive exploration:
 
 ## Related Skills
 
-- `/resolve-primitive` — Resolve unknown LabVIEW primitives
-- `/resolve-vilib` — Resolve unknown vilib VIs
-- `/describe-vi` — Describe a VI's graph (CLI-based, no MCP)
-- `/idiomatic` — Rewrite mechanical Python to idiomatic code
+- `/vipy-resolve-primitive` — Resolve unknown LabVIEW primitives
+- `/vipy-resolve-vilib` — Resolve unknown vilib VIs
+- `/vipy-describe` — Describe a VI's graph (CLI-based, no MCP)
+- `/vipy-idiomatic` — Rewrite mechanical Python to idiomatic code
 
 ## Troubleshooting
 
