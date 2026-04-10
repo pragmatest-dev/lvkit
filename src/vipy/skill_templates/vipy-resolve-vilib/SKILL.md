@@ -1,5 +1,5 @@
 ---
-name: resolve-vilib
+name: vipy-resolve-vilib
 description: Resolve a single unknown vilib VI by looking up its terminal layout in the LabVIEW documentation. Called when VILibResolutionNeeded fires during vipy generate.
 allowed-tools: Bash, Read, Write, Edit, Glob, Grep, WebSearch, WebFetch
 ---

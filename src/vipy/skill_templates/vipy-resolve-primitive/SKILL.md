@@ -1,5 +1,5 @@
 ---
-name: resolve-primitive
+name: vipy-resolve-primitive
 description: Resolve a single unknown LabVIEW primitive by following a strict verification process against documentation and graph context. Called when PrimitiveResolutionNeeded fires during vipy generate.
 allowed-tools: Bash, Read, Write, Edit, Glob, Grep, WebSearch, WebFetch
 ---

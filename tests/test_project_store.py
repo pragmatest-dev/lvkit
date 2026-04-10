@@ -245,11 +245,11 @@ def test_install_claude_skills_creates_all_user_facing(tmp_path: Path) -> None:
     written = install_claude_skills(tmp_path)
     assert len(written) == 5
     for skill in (
-        "resolve-primitive",
-        "resolve-vilib",
-        "describe-vi",
-        "convert",
-        "idiomatic",
+        "vipy-resolve-primitive",
+        "vipy-resolve-vilib",
+        "vipy-describe",
+        "vipy-convert",
+        "vipy-idiomatic",
     ):
         path = tmp_path / ".claude" / "skills" / skill / "SKILL.md"
         assert path.is_file(), f"missing {path}"
@@ -273,7 +273,7 @@ def test_install_claude_skills_refuses_local_edits(tmp_path: Path) -> None:
     from vipy.project_store import install_claude_skills
 
     install_claude_skills(tmp_path)
-    edited = tmp_path / ".claude" / "skills" / "convert" / "SKILL.md"
+    edited = tmp_path / ".claude" / "skills" / "vipy-convert" / "SKILL.md"
     edited.write_text("LOCAL EDIT\n")
 
     with pytest.raises(FileExistsError, match="local edits"):
@@ -285,12 +285,12 @@ def test_install_claude_skills_force_overwrites(tmp_path: Path) -> None:
     from vipy.project_store import install_claude_skills
 
     install_claude_skills(tmp_path)
-    edited = tmp_path / ".claude" / "skills" / "convert" / "SKILL.md"
+    edited = tmp_path / ".claude" / "skills" / "vipy-convert" / "SKILL.md"
     edited.write_text("LOCAL EDIT\n")
 
     install_claude_skills(tmp_path, force=True)
     assert "LOCAL EDIT" not in edited.read_text()
-    assert "name: convert" in edited.read_text()
+    assert "name: vipy-convert" in edited.read_text()
 
 
 def test_install_claude_skills_atomic_on_conflict(tmp_path: Path) -> None:
@@ -306,123 +306,141 @@ def test_install_claude_skills_atomic_on_conflict(tmp_path: Path) -> None:
     # The other 4 skills don't exist yet — without the atomic phase
     # split, they'd get written before the install hit the conflict.
     skills_dir = tmp_path / ".claude" / "skills"
-    (skills_dir / "convert").mkdir(parents=True)
-    (skills_dir / "convert" / "SKILL.md").write_text("LOCAL EDIT\n")
+    (skills_dir / "vipy-convert").mkdir(parents=True)
+    (skills_dir / "vipy-convert" / "SKILL.md").write_text("LOCAL EDIT\n")
 
     with pytest.raises(FileExistsError, match="local edits"):
         install_claude_skills(tmp_path)
 
     # Critical: the OTHER 4 skills must NOT have been written. The
     # install must be all-or-nothing for the conflict-validation phase.
-    for skill in ("resolve-primitive", "resolve-vilib", "describe-vi", "idiomatic"):
+    for skill in (
+        "vipy-resolve-primitive",
+        "vipy-resolve-vilib",
+        "vipy-describe",
+        "vipy-idiomatic",
+    ):
         path = skills_dir / skill / "SKILL.md"
         assert not path.exists(), (
             f"{skill} was written despite a conflict in another skill"
         )
     # The conflicting file is preserved.
-    assert (skills_dir / "convert" / "SKILL.md").read_text() == "LOCAL EDIT\n"
+    assert (skills_dir / "vipy-convert" / "SKILL.md").read_text() == "LOCAL EDIT\n"
 
 
-def test_install_copilot_instructions_creates_file(tmp_path: Path) -> None:
-    """install_copilot_instructions writes .github/copilot-instructions.md."""
-    from vipy.project_store import install_copilot_instructions
-
-    path = install_copilot_instructions(tmp_path)
-    assert path == tmp_path / ".github" / "copilot-instructions.md"
-    assert path.is_file()
-    text = path.read_text()
-    # Marker comments wrap the vipy section. The "managed by" hint
-    # warns users not to edit inside the block.
-    assert "<!-- vipy:resolve start" in text
-    assert "managed by `vipy init --skills`" in text
-    assert "<!-- vipy:resolve end -->" in text
-    # All 5 workflows are concatenated
-    for skill in (
-        "resolve-primitive",
-        "resolve-vilib",
-        "describe-vi",
-        "convert",
-        "idiomatic",
-    ):
-        assert f"## Workflow: {skill}" in text
+# ============================================================
+# Copilot install: 5 prompts + 1 router instruction
+# ============================================================
 
 
-def test_install_copilot_instructions_workflow_order(tmp_path: Path) -> None:
-    """Skills are emitted in logical workflow order, not alphabetical."""
-    from vipy.project_store import install_copilot_instructions
+_VIPY_SKILLS = (
+    "vipy-describe",
+    "vipy-convert",
+    "vipy-resolve-primitive",
+    "vipy-resolve-vilib",
+    "vipy-idiomatic",
+)
 
-    install_copilot_instructions(tmp_path)
-    text = (tmp_path / ".github" / "copilot-instructions.md").read_text()
 
-    # Logical order: understand → convert → resolve unknowns → refactor
+def test_install_copilot_skills_writes_prompts_and_router(tmp_path: Path) -> None:
+    """install_copilot_skills writes 5 prompts + 1 router file."""
+    from vipy.project_store import install_copilot_skills
+
+    written = install_copilot_skills(tmp_path)
+    assert len(written) == 6  # 5 prompts + router
+
+    # Each user-facing skill has its own prompt file
+    prompts_dir = tmp_path / ".github" / "prompts"
+    for skill in _VIPY_SKILLS:
+        path = prompts_dir / f"{skill}.prompt.md"
+        assert path.is_file(), f"missing {path}"
+        text = path.read_text()
+        # Copilot prompt frontmatter shape
+        assert text.startswith("---\n")
+        assert "mode: agent" in text
+        assert "description:" in text
+        # Body is from the original SKILL.md (frontmatter rewritten)
+        assert "allowed-tools:" not in text  # Claude-only field, stripped
+        assert f"name: {skill}" not in text  # Claude-only field, stripped
+
+    # Single router instruction
+    router = tmp_path / ".github" / "instructions" / "vipy.instructions.md"
+    assert router.is_file()
+    router_text = router.read_text()
+    assert router_text.startswith("---\n")
+    assert 'applyTo: "**"' in router_text
+    # Router lists every prompt
+    for skill in _VIPY_SKILLS:
+        assert f"`/{skill}`" in router_text
+
+
+def test_install_copilot_skills_router_uses_workflow_order(tmp_path: Path) -> None:
+    """Router lists prompts in logical workflow order, not alphabetical."""
+    from vipy.project_store import install_copilot_skills
+
+    install_copilot_skills(tmp_path)
+    router_text = (
+        tmp_path / ".github" / "instructions" / "vipy.instructions.md"
+    ).read_text()
+
     expected_order = [
-        "## Workflow: describe-vi",
-        "## Workflow: convert",
-        "## Workflow: resolve-primitive",
-        "## Workflow: resolve-vilib",
-        "## Workflow: idiomatic",
+        "/vipy-describe",
+        "/vipy-convert",
+        "/vipy-resolve-primitive",
+        "/vipy-resolve-vilib",
+        "/vipy-idiomatic",
     ]
-    positions = [text.find(h) for h in expected_order]
-    assert all(p >= 0 for p in positions), "missing workflow header(s)"
+    positions = [router_text.find(name) for name in expected_order]
+    assert all(p >= 0 for p in positions), "missing prompt reference(s)"
     assert positions == sorted(positions), (
-        f"workflows out of order: {positions}"
+        f"prompts out of order in router: {positions}"
     )
 
 
-def test_install_copilot_preserves_existing_content(tmp_path: Path) -> None:
-    """Existing copilot-instructions.md content outside vipy markers is preserved."""
-    from vipy.project_store import install_copilot_instructions
+def test_install_copilot_skills_idempotent(tmp_path: Path) -> None:
+    """Re-running with no template changes returns empty list."""
+    from vipy.project_store import install_copilot_skills
 
-    existing = tmp_path / ".github" / "copilot-instructions.md"
-    existing.parent.mkdir(parents=True)
-    existing.write_text("# My project\n\nUse tabs not spaces.\n")
-
-    install_copilot_instructions(tmp_path)
-    text = existing.read_text()
-    assert "Use tabs not spaces" in text
-    assert "<!-- vipy:resolve start" in text
+    install_copilot_skills(tmp_path)
+    second = install_copilot_skills(tmp_path)
+    assert second == []
 
 
-def test_install_copilot_replaces_only_vipy_section(tmp_path: Path) -> None:
-    """Re-running replaces just the vipy section, not surrounding content."""
-    from vipy.project_store import install_copilot_instructions
+def test_install_copilot_skills_atomic_on_conflict(tmp_path: Path) -> None:
+    """A locally-edited prompt aborts the whole install."""
+    from vipy.project_store import install_copilot_skills
 
-    install_copilot_instructions(tmp_path)
-    path = tmp_path / ".github" / "copilot-instructions.md"
-    # Append unrelated content after the vipy section
-    text = path.read_text()
-    path.write_text(text + "\n# After vipy\nMore stuff here.\n")
+    # Pre-create a conflicting prompt file before the install.
+    prompts_dir = tmp_path / ".github" / "prompts"
+    prompts_dir.mkdir(parents=True)
+    (prompts_dir / "vipy-convert.prompt.md").write_text("LOCAL EDIT\n")
 
-    install_copilot_instructions(tmp_path)
-    final = path.read_text()
-    assert "More stuff here" in final
-    assert final.count("<!-- vipy:resolve start") == 1
-    assert final.count("<!-- vipy:resolve end -->") == 1
+    with pytest.raises(FileExistsError, match="local edits"):
+        install_copilot_skills(tmp_path)
 
-
-def test_install_copilot_strips_frontmatter(tmp_path: Path) -> None:
-    """The Copilot section omits the YAML frontmatter from each skill."""
-    from vipy.project_store import install_copilot_instructions
-
-    install_copilot_instructions(tmp_path)
-    text = (tmp_path / ".github" / "copilot-instructions.md").read_text()
-    # Frontmatter opening marker `---\nname:` — should NOT appear inline
-    # in the copilot section.
-    assert "---\nname: convert" not in text
-    assert "---\nname: resolve-primitive" not in text
-    # Frontmatter `allowed-tools:` line — appears in every skill's
-    # frontmatter, never in the body.
-    assert "allowed-tools:" not in text
-    # Each workflow body should start with the first content line, not
-    # a leftover `---` closing marker.
-    for skill in ("convert", "describe-vi", "idiomatic"):
-        marker = f"## Workflow: {skill}\n\n"
-        idx = text.find(marker)
-        assert idx >= 0, f"missing workflow header for {skill}"
-        body_start = text[idx + len(marker):]
-        assert not body_start.lstrip().startswith("---"), (
-            f"{skill} body starts with stray frontmatter delimiter"
+    # Other prompts and the router must not have been written.
+    for skill in _VIPY_SKILLS:
+        if skill == "vipy-convert":
+            continue
+        path = prompts_dir / f"{skill}.prompt.md"
+        assert not path.exists(), (
+            f"{skill} prompt was written despite the conflict"
         )
+    router = tmp_path / ".github" / "instructions" / "vipy.instructions.md"
+    assert not router.exists()
+
+
+def test_install_copilot_skills_force_overwrites(tmp_path: Path) -> None:
+    """--force overwrites locally edited prompts."""
+    from vipy.project_store import install_copilot_skills
+
+    install_copilot_skills(tmp_path)
+    edited = tmp_path / ".github" / "prompts" / "vipy-convert.prompt.md"
+    edited.write_text("LOCAL EDIT\n")
+
+    install_copilot_skills(tmp_path, force=True)
+    assert "LOCAL EDIT" not in edited.read_text()
+    assert "mode: agent" in edited.read_text()
 
 
 def test_cli_init_skills_claude(tmp_path: Path) -> None:
@@ -441,7 +459,7 @@ def test_cli_init_skills_claude(tmp_path: Path) -> None:
     )
     assert "Installed 5 Claude Code skill(s)" in result.stdout
     assert (
-        tmp_path / ".claude" / "skills" / "convert" / "SKILL.md"
+        tmp_path / ".claude" / "skills" / "vipy-convert" / "SKILL.md"
     ).is_file()
 
 
@@ -460,11 +478,16 @@ def test_cli_init_skills_all(tmp_path: Path) -> None:
         check=True,
     )
     assert "Installed 5 Claude Code skill(s)" in result.stdout
-    assert "Wrote Copilot instructions" in result.stdout
+    assert "Installed 6 Copilot file(s)" in result.stdout  # 5 prompts + router
     assert (
-        tmp_path / ".claude" / "skills" / "resolve-primitive" / "SKILL.md"
+        tmp_path / ".claude" / "skills" / "vipy-resolve-primitive" / "SKILL.md"
     ).is_file()
-    assert (tmp_path / ".github" / "copilot-instructions.md").is_file()
+    assert (
+        tmp_path / ".github" / "prompts" / "vipy-convert.prompt.md"
+    ).is_file()
+    assert (
+        tmp_path / ".github" / "instructions" / "vipy.instructions.md"
+    ).is_file()
 
 
 # ============================================================

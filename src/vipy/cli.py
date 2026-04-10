@@ -16,7 +16,7 @@ from .project_store import (
     find_project_store,
     init_project_store,
     install_claude_skills,
-    install_copilot_instructions,
+    install_copilot_skills,
 )
 from .structure import (
     discover_project_structure,
@@ -770,8 +770,17 @@ def cmd_init(args: argparse.Namespace) -> int:
         else:
             print("Claude Code skills already up to date.")
     if skills in ("copilot", "all"):
-        copilot_path = install_copilot_instructions(root, force=force)
-        print(f"Wrote Copilot instructions: {copilot_path}")
+        try:
+            copilot_written = install_copilot_skills(root, force=force)
+        except FileExistsError as e:
+            print(f"Error: {e}", file=sys.stderr)
+            return 1
+        if copilot_written:
+            print(f"Installed {len(copilot_written)} Copilot file(s):")
+            for p in copilot_written:
+                print(f"  {p}")
+        else:
+            print("Copilot files already up to date.")
 
     print()
     print("Next steps:")
