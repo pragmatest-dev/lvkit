@@ -4,17 +4,17 @@ from __future__ import annotations
 
 import ast
 
-from tests.conftest import make_ctx
-from vipy.agent.codegen.context import CodeGenContext
-from vipy.agent.codegen.nodes import loop
-from vipy.agent.codegen.nodes.loop import (
+from lvpy.agent.codegen.context import CodeGenContext
+from lvpy.agent.codegen.nodes import loop
+from lvpy.agent.codegen.nodes.loop import (
     _get_dest_terminal_name,
     _get_source_terminal_name,
     _make_var_name,
     _negate_condition,
     _singularize,
 )
-from vipy.graph_types import LoopOperation, Tunnel, Wire
+from lvpy.graph_types import LoopOperation, Tunnel, Wire
+from tests.conftest import make_ctx
 
 
 class TestMakeVarName:

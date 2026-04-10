@@ -6,9 +6,9 @@ import xml.etree.ElementTree as ET
 
 import pytest
 
-from vipy.agent.codegen.context import CodeGenContext
-from vipy.agent.codegen.nodes import sequence
-from vipy.graph_types import (
+from lvpy.agent.codegen.context import CodeGenContext
+from lvpy.agent.codegen.nodes import sequence
+from lvpy.graph_types import (
     Operation,
     SequenceFrame,
     SequenceNode,
@@ -19,12 +19,12 @@ from vipy.graph_types import (
     VINode,
     WireEnd,
 )
-from vipy.memory_graph import InMemoryVIGraph
-from vipy.parser.models import (
+from lvpy.memory_graph import InMemoryVIGraph
+from lvpy.parser.models import (
     BlockDiagram,
     FlatSequenceStructure,
 )
-from vipy.parser.nodes.sequence import extract_flat_sequences
+from lvpy.parser.nodes.sequence import extract_flat_sequences
 
 # === Parser Tests ===
 
@@ -542,7 +542,7 @@ class TestCodeGenRegistry:
     """Test that sequence operations dispatch through the factory."""
 
     def test_flat_sequence_dispatches_to_sequence_module(self):
-        from vipy.agent.codegen.nodes import generate as generate_node
+        from lvpy.agent.codegen.nodes import generate as generate_node
 
         op = SequenceOperation(
             id="1", name="Flat Sequence",
@@ -556,7 +556,7 @@ class TestCodeGenRegistry:
         assert result.bindings == {}
 
     def test_stacked_sequence_dispatches_to_sequence_module(self):
-        from vipy.agent.codegen.nodes import generate as generate_node
+        from lvpy.agent.codegen.nodes import generate as generate_node
 
         op = SequenceOperation(
             id="1", name="Stacked Sequence",

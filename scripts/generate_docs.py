@@ -13,10 +13,10 @@ from pathlib import Path
 if __name__ == "__main__":
     sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from vipy.docs.html_generator import HTMLDocGenerator
-from vipy.docs.utils import generate_dependency_description
-from vipy.memory_graph import InMemoryVIGraph
-from vipy.structure import parse_lvclass, parse_lvlib
+from lvpy.docs.html_generator import HTMLDocGenerator
+from lvpy.docs.utils import generate_dependency_description
+from lvpy.memory_graph import InMemoryVIGraph
+from lvpy.structure import parse_lvclass, parse_lvlib
 
 
 def collect_library_vis(library_path: Path) -> list[Path]:

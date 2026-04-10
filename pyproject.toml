@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "vipy"
+name = "lvpy"
 version = "0.1.0"
 description = "Understand and convert LabVIEW VIs to Python without a LabVIEW license"
 readme = "README.md"
@@ -46,8 +46,8 @@ dependencies = [
 ]
 
 [project.scripts]
-vipy = "vipy.cli:main"
-vipy-mcp = "vipy.mcp.server:main"
+lvpy = "lvpy.cli:main"
+lvpy-mcp = "lvpy.mcp.server:main"
 
 [project.optional-dependencies]
 dev = [
@@ -63,14 +63,14 @@ neo4j = [
 
 [tool.hatch.build.targets.wheel]
 # Bundled JSON data and skill templates live INSIDE the package at
-# src/vipy/data/ and src/vipy/skill_templates/ so they ride along with
-# the wheel automatically. The resolvers and `vipy init --skills` load
+# src/lvpy/data/ and src/lvpy/skill_templates/ so they ride along with
+# the wheel automatically. The resolvers and `lvpy init --skills` load
 # them via paths relative to the package or via importlib.resources.
-packages = ["src/vipy"]
+packages = ["src/lvpy"]
 
 [tool.hatch.build.targets.sdist]
 include = [
-    "src/vipy",
+    "src/lvpy",
     "tests",
     "scripts",
     "README.md",
@@ -83,7 +83,7 @@ exclude = [
     "outputs",
     "docs/labview_ref_manual.txt",
     "docs/*.pdf",
-    ".vipy",
+    ".lvpy",
     ".tmp",
 ]
 

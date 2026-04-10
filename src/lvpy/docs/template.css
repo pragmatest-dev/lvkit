@@ -1,0 +1,398 @@
+/* lvpy documentation stylesheet */
+
+:root {
+    --primary-color: #2c3e50;
+    --secondary-color: #3498db;
+    --bg-color: #ecf0f1;
+    --text-color: #2c3e50;
+    --border-color: #bdc3c7;
+    --code-bg: #f8f9fa;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, sans-serif;
+    line-height: 1.6;
+    color: var(--text-color);
+    background: var(--bg-color);
+    padding: 20px;
+}
+
+.breadcrumb {
+    background: white;
+    padding: 10px 20px;
+    margin-bottom: 20px;
+    border-radius: 5px;
+    font-size: 14px;
+}
+
+.breadcrumb a {
+    color: var(--secondary-color);
+    text-decoration: none;
+}
+
+.breadcrumb a:hover {
+    text-decoration: underline;
+}
+
+header {
+    background: white;
+    padding: 30px;
+    border-radius: 5px;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+h1 {
+    color: var(--primary-color);
+    margin-bottom: 10px;
+}
+
+h2 {
+    color: var(--primary-color);
+    margin-top: 20px;
+    margin-bottom: 10px;
+    border-bottom: 2px solid var(--border-color);
+    padding-bottom: 5px;
+}
+
+main {
+    background: white;
+    padding: 30px;
+    border-radius: 5px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+section {
+    margin-bottom: 30px;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 15px 0;
+}
+
+table th,
+table td {
+    text-align: left;
+    padding: 12px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+table th {
+    background: var(--code-bg);
+    font-weight: 600;
+}
+
+code {
+    background: var(--code-bg);
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-family: "SF Mono", Monaco, "Courier New", monospace;
+    font-size: 0.9em;
+}
+
+pre {
+    background: var(--code-bg);
+    padding: 15px;
+    border-radius: 5px;
+    overflow-x: auto;
+    font-family: "SF Mono", Monaco, "Courier New", monospace;
+}
+
+ul, ol {
+    margin-left: 30px;
+    margin-top: 10px;
+}
+
+li {
+    margin-bottom: 8px;
+}
+
+a {
+    color: var(--secondary-color);
+    text-decoration: none;
+}
+
+a:hover {
+    text-decoration: underline;
+}
+
+.vi-type {
+    color: #7f8c8d;
+    font-size: 14px;
+}
+
+.subtitle {
+    color: #7f8c8d;
+    font-size: 18px;
+}
+
+footer {
+    text-align: center;
+    margin-top: 40px;
+    color: #7f8c8d;
+    font-size: 14px;
+}
+
+.dataflow {
+    font-family: monospace;
+    line-height: 1.4;
+}
+
+.dependency-list,
+.caller-list,
+.vi-list {
+    list-style: none;
+    margin-left: 0;
+}
+
+.dependency-list li,
+.caller-list li,
+.vi-list li {
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.dependency-list li:last-child,
+.caller-list li:last-child,
+.vi-list li:last-child {
+    border-bottom: none;
+}
+
+/* Polymorphic VI styles */
+.poly-section {
+    background: linear-gradient(135deg, #f6f8fa 0%, #e8f4f8 100%);
+    padding: 20px;
+    border-radius: 8px;
+    border-left: 4px solid #3498db;
+    margin-bottom: 30px;
+}
+
+.poly-section h2 {
+    color: #2c3e50;
+    border-bottom: none;
+    margin-top: 0;
+}
+
+.poly-section h3 {
+    color: #34495e;
+    margin-top: 20px;
+    margin-bottom: 10px;
+}
+
+.variant-list {
+    list-style: none;
+    margin-left: 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 10px;
+    margin-top: 15px;
+    margin-bottom: 20px;
+}
+
+.variant-list li {
+    background: white;
+    padding: 10px 15px;
+    border-radius: 5px;
+    border: 1px solid var(--border-color);
+    border-bottom: 1px solid var(--border-color);
+}
+
+.variant-list li:hover {
+    background: #f8f9fa;
+    border-color: var(--secondary-color);
+}
+
+.param-comparison {
+    background: white;
+    border-radius: 5px;
+    overflow: hidden;
+}
+
+.param-comparison th {
+    background: var(--primary-color);
+    color: white;
+    font-weight: 600;
+    text-align: center;
+}
+
+.param-comparison th:first-child,
+.param-comparison td:first-child {
+    text-align: left;
+}
+
+.param-comparison td {
+    text-align: center;
+}
+
+.param-common,
+.param-some {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 12px;
+    font-size: 0.85em;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.param-common {
+    background: #d4edda;
+    color: #155724;
+    border: 1px solid #c3e6cb;
+}
+
+.param-some {
+    background: #fff3cd;
+    color: #856404;
+    border: 1px solid #ffeaa7;
+}
+
+/* Library grouping styles */
+.library-group {
+    margin-bottom: 30px;
+    padding: 15px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    border-left: 3px solid var(--secondary-color);
+}
+
+.library-group h3 {
+    color: var(--primary-color);
+    margin-top: 0;
+    margin-bottom: 15px;
+    font-size: 1.2em;
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 8px;
+}
+
+.library-group .vi-list {
+    background: white;
+    padding: 15px;
+    border-radius: 5px;
+}
+
+.library-group .vi-list li {
+    border-bottom-color: #e9ecef;
+}
+
+.library-group .vi-list li:last-child {
+    border-bottom: none;
+}
+
+/* Accordion styles for library groups */
+.library-accordion {
+    margin-bottom: 15px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    border-left: 3px solid var(--secondary-color);
+    overflow: hidden;
+}
+
+.library-accordion[open] {
+    border-left-color: var(--primary-color);
+}
+
+.library-header {
+    display: block;
+    padding: 15px 20px;
+    cursor: pointer;
+    user-select: none;
+    background: #f8f9fa;
+    transition: background 0.2s ease;
+}
+
+.library-header-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.library-header:hover {
+    background: #e9ecef;
+}
+
+.library-accordion[open] .library-header {
+    background: var(--primary-color);
+    color: white;
+}
+
+.library-name {
+    font-weight: 600;
+    font-size: 1.1em;
+}
+
+.library-count {
+    font-size: 0.85em;
+    color: #6c757d;
+    background: white;
+    padding: 3px 10px;
+    border-radius: 12px;
+}
+
+.library-accordion[open] .library-count {
+    color: var(--primary-color);
+}
+
+.library-accordion > .vi-list {
+    background: white;
+    padding: 15px 20px;
+    margin: 0;
+}
+
+.library-accordion .vi-list li {
+    border-bottom-color: #e9ecef;
+}
+
+.library-accordion .vi-list li:last-child {
+    border-bottom: none;
+}
+
+/* Hide default marker */
+.library-header::marker,
+.library-header::-webkit-details-marker {
+    display: none;
+}
+
+/* VI Icon styles */
+.vi-header {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+}
+
+.vi-header-text {
+    flex: 1;
+}
+
+.vi-icon {
+    width: 64px;
+    height: 64px;
+    image-rendering: pixelated;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    background: white;
+    padding: 4px;
+}
+
+.vi-icon-small {
+    width: 24px;
+    height: 24px;
+    image-rendering: pixelated;
+    vertical-align: middle;
+    margin-right: 8px;
+    border: 1px solid var(--border-color);
+    border-radius: 2px;
+    background: white;
+}
+
+.vi-list li {
+    display: flex;
+    align-items: center;
+}

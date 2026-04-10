@@ -32,9 +32,9 @@ This guide outlines how to fine-tune a small language model (1.5B-3B parameters)
    python -m pylabview --export-xml input.vi -o output_dir/
    ```
 
-3. **Generate summaries using vipy:**
+3. **Generate summaries using lvpy:**
    ```bash
-   vipy summarize output_dir/*_BDHb.xml > summaries/
+   lvpy summarize output_dir/*_BDHb.xml > summaries/
    ```
 
 4. **Generate correct Python using Claude API:**
@@ -203,7 +203,7 @@ from trl import SFTTrainer
 
 # Configuration
 MODEL_NAME = "Qwen/Qwen2.5-Coder-1.5B-Instruct"
-OUTPUT_DIR = "./vipy-lora"
+OUTPUT_DIR = "./lvpy-lora"
 DATA_PATH = "./training_data.jsonl"
 
 # Load tokenizer and model
@@ -299,10 +299,10 @@ git clone https://github.com/ggerganov/llama.cpp
 cd llama.cpp
 
 # Convert LoRA-merged model to GGUF
-python convert_hf_to_gguf.py ../vipy-lora --outfile vipy-coder.gguf
+python convert_hf_to_gguf.py ../lvpy-lora --outfile lvpy-coder.gguf
 
 # Quantize (optional, for smaller size)
-./llama-quantize vipy-coder.gguf vipy-coder-q4_k_m.gguf Q4_K_M
+./llama-quantize lvpy-coder.gguf lvpy-coder-q4_k_m.gguf Q4_K_M
 ```
 
 ### Create Ollama Model
@@ -310,7 +310,7 @@ python convert_hf_to_gguf.py ../vipy-lora --outfile vipy-coder.gguf
 ```bash
 # Create Modelfile
 cat > Modelfile << 'EOF'
-FROM ./vipy-coder-q4_k_m.gguf
+FROM ./lvpy-coder-q4_k_m.gguf
 
 PARAMETER temperature 0.1
 PARAMETER num_ctx 4096
@@ -319,23 +319,23 @@ SYSTEM """You convert LabVIEW VI summaries to Python code. Output only Python co
 EOF
 
 # Import to Ollama
-ollama create vipy-coder -f Modelfile
+ollama create lvpy-coder -f Modelfile
 
 # Test
-ollama run vipy-coder "LabVIEW VI: \"Test\"..."
+ollama run lvpy-coder "LabVIEW VI: \"Test\"..."
 ```
 
 ---
 
-## Phase 6: Integration with vipy
+## Phase 6: Integration with lvpy
 
 ### Update LLM Config
 
 ```python
-# In src/vipy/llm.py
+# In src/lvpy/llm.py
 
 # Add fine-tuned model as default
-DEFAULT_MODEL = "vipy-coder"  # Your fine-tuned model
+DEFAULT_MODEL = "lvpy-coder"  # Your fine-tuned model
 
 class LLMConfig:
     def __init__(
@@ -353,8 +353,8 @@ class LLMConfig:
 """Benchmark fine-tuned model against base models."""
 
 import time
-from vipy import convert_xml
-from vipy.llm import LLMConfig
+from lvpy import convert_xml
+from lvpy.llm import LLMConfig
 
 TEST_VIS = [
     "samples/Get Settings Path_BDHb.xml",
@@ -363,7 +363,7 @@ TEST_VIS = [
 ]
 
 MODELS = [
-    "vipy-coder",        # Fine-tuned
+    "lvpy-coder",        # Fine-tuned
     "qwen2.5-coder:7b",  # Base 7B
     "qwen2.5-coder:14b", # Base 14B
 ]
@@ -424,7 +424,7 @@ for model in MODELS:
 ## Quick Start Checklist
 
 1. [ ] Collect 100+ VI XML files
-2. [ ] Generate summaries with `vipy summarize`
+2. [ ] Generate summaries with `lvpy summarize`
 3. [ ] Generate correct Python with Claude API
 4. [ ] Format as JSONL training data
 5. [ ] Run LoRA fine-tuning script

@@ -416,15 +416,15 @@ def main():
     """Main entry point.
 
     Maintainer-only script. Reads NI's LabVIEW API reference PDF and
-    populates vipy's vilib JSON. The PDF is NOT shipped with vipy
+    populates lvpy's vilib JSON. The PDF is NOT shipped with lvpy
     (gitignored — not redistributable), so this script expects the
     maintainer to drop it at the path below before running.
     """
     # Paths
     script_dir = Path(__file__).parent
     project_root = script_dir.parent
-    pdf_path = project_root / "src" / "vipy" / "data" / "labview-api-ref.pdf"
-    output_dir = project_root / "src" / "vipy" / "data" / "vilib"
+    pdf_path = project_root / "src" / "lvpy" / "data" / "labview-api-ref.pdf"
+    output_dir = project_root / "src" / "lvpy" / "data" / "vilib"
 
     if not pdf_path.exists():
         raise SystemExit(

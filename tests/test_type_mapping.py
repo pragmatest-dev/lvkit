@@ -11,7 +11,7 @@ from pathlib import Path
 
 import pytest
 
-from vipy.parser.type_mapping import parse_type_map_rich, parse_vctp_types
+from lvpy.parser.type_mapping import parse_type_map_rich, parse_vctp_types
 
 SAMPLES = Path(__file__).resolve().parent.parent / "samples"
 TESTRESULT_DIR = SAMPLES / "JKI-VI-Tester" / "source" / "Classes" / "TestResult"
@@ -22,7 +22,7 @@ RUN_VI = TESTCASE_DIR / "run.vi"
 
 def _get_main_xml(vi_path: Path) -> Path:
     """Extract VI and return path to main XML."""
-    from vipy.extractor import extract_vi_xml
+    from lvpy.extractor import extract_vi_xml
 
     _, _, main_xml = extract_vi_xml(vi_path)
     assert main_xml is not None and main_xml.exists()

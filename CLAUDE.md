@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-vipy converts LabVIEW VI files to Python code without requiring a LabVIEW license. It uses [pylabview](https://github.com/mefistotelis/pylabview) as the core parser for reading VI file formats.
+lvpy converts LabVIEW VI files to Python code without requiring a LabVIEW license. It uses [pylabview](https://github.com/mefistotelis/pylabview) as the core parser for reading VI file formats.
 
 ## Commands
 
@@ -16,7 +16,7 @@ pip install -e ".[dev]"
 pytest
 
 # Run a single test
-pytest tests/test_vipy.py::test_version
+pytest tests/test_lvpy.py::test_version
 
 # Lint
 ruff check .
@@ -34,20 +34,20 @@ The conversion pipeline has two stages:
 
 ### Modules
 
-- `src/vipy/parser.py` - Parse pylabview XML output into structured `BlockDiagram` (nodes, wires, constants)
-- `src/vipy/summarizer.py` - Generate human-readable VI summaries for LLM input
-- `src/vipy/llm.py` - Ollama integration for code generation
-- `src/vipy/converter.py` - Main conversion orchestration
-- `src/vipy/cli.py` - Command-line interface
+- `src/lvpy/parser.py` - Parse pylabview XML output into structured `BlockDiagram` (nodes, wires, constants)
+- `src/lvpy/summarizer.py` - Generate human-readable VI summaries for LLM input
+- `src/lvpy/llm.py` - Ollama integration for code generation
+- `src/lvpy/converter.py` - Main conversion orchestration
+- `src/lvpy/cli.py` - Command-line interface
 
 ### CLI Usage
 
 ```bash
 # Check dependencies
-vipy check
+lvpy check
 
 # Show VI summary (for debugging)
-vipy summarize path/to/vi_BDHb.xml --main-xml path/to/vi.xml
+lvpy summarize path/to/vi_BDHb.xml --main-xml path/to/vi.xml
 ```
 
 ## Current Development Focus: generate_python.py
@@ -113,7 +113,7 @@ This preserves LabVIEW's semantics where:
 - First error is preserved and raised at merge point
 - All branches get a chance to clean up
 
-Implementation: `src/vipy/agent/codegen/error_handler.py`
+Implementation: `src/lvpy/agent/codegen/error_handler.py`
 
 ### Key Data Structures
 

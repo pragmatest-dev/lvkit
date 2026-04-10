@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import ast
 
+from lvpy.agent.codegen.context import CodeGenContext
+from lvpy.agent.codegen.nodes import compound
+from lvpy.graph_types import Operation, PrimitiveOperation, Terminal
 from tests.helpers import make_ctx
-from vipy.agent.codegen.context import CodeGenContext
-from vipy.agent.codegen.nodes import compound
-from vipy.graph_types import Operation, PrimitiveOperation, Terminal
 
 
 class TestCompoundArithMakeVarName:
@@ -204,7 +204,7 @@ class TestCompoundArithResolvesThroughDataflow:
 
     def test_or_resolves_through_wires(self):
         """Test that OR resolves inputs through wire connections."""
-        from vipy.graph_types import Wire
+        from lvpy.graph_types import Wire
 
         # Set up dataflow: src1 -> term1, src2 -> term2
         data_flow = [

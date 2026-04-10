@@ -13,8 +13,8 @@ from pathlib import Path
 
 import pytest
 
-from vipy.agent.codegen.builder import build_module
-from vipy.memory_graph import InMemoryVIGraph
+from lvpy.agent.codegen.builder import build_module
+from lvpy.memory_graph import InMemoryVIGraph
 
 SEARCH_PATHS = [Path("samples/OpenG/extracted")]
 

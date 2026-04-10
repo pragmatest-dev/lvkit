@@ -2,7 +2,7 @@
 
 import ast
 
-from vipy.agent.codegen.ast_optimizer import (
+from lvpy.agent.codegen.ast_optimizer import (
     DeadCodeEliminator,
     eliminate_dead_code,
     remove_unused_imports,

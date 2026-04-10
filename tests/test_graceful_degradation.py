@@ -1,6 +1,6 @@
 """Regression tests: understanding tools never require resolution.
 
-vipy is both a converter (Python codegen) AND an understanding tool
+lvpy is both a converter (Python codegen) AND an understanding tool
 (describe, docs, diff, visualize). The understanding tools must work
 even when the resolver has NO mappings for any primitive or vi.lib VI.
 This file locks that guarantee in with regression tests.
@@ -20,17 +20,17 @@ from pathlib import Path
 
 import pytest
 
-from vipy import primitive_resolver, vilib_resolver
-from vipy.docs.generate import generate_documents
-from vipy.graph.core import InMemoryVIGraph
-from vipy.graph.describe import (
+from lvpy import primitive_resolver, vilib_resolver
+from lvpy.docs.generate import generate_documents
+from lvpy.graph.core import InMemoryVIGraph
+from lvpy.graph.describe import (
     describe_constants,
     describe_dataflow,
     describe_operations,
     describe_vi,
 )
-from vipy.graph.diff import diff_structured, diff_text
-from vipy.graph.flowchart import flowchart, flowchart_html
+from lvpy.graph.diff import diff_structured, diff_text
+from lvpy.graph.flowchart import flowchart, flowchart_html
 
 SAMPLE_VI = Path("samples/DAQmx-Digital-IO/In.vi")
 
@@ -154,7 +154,7 @@ def test_flowchart_with_no_resolutions(loaded_graph) -> None:
 def test_flowchart_html_with_no_resolutions(loaded_graph) -> None:
     """flowchart_html() renders the visualize HTML page with empty resolvers.
 
-    `vipy visualize --format flowchart` calls this — it's a separate
+    `lvpy visualize --format flowchart` calls this — it's a separate
     code path from plain flowchart() that wraps the Mermaid output in
     an HTML scaffold.
     """
@@ -174,7 +174,7 @@ def test_generate_documents_with_no_resolutions(
 ) -> None:
     """generate_documents produces HTML output with empty resolvers.
 
-    Exercises the full vipy docs pipeline: load → graph → HTML render.
+    Exercises the full lvpy docs pipeline: load → graph → HTML render.
     """
     output_dir = tmp_path / "html"
     summary = generate_documents(

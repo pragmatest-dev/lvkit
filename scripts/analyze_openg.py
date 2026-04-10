@@ -17,9 +17,9 @@ from pathlib import Path
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from vipy.extractor import extract_vi_xml
-from vipy.frontpanel import parse_front_panel
-from vipy.parser import parse_block_diagram
+from lvpy.extractor import extract_vi_xml
+from lvpy.frontpanel import parse_front_panel
+from lvpy.parser import parse_block_diagram
 
 
 @dataclass

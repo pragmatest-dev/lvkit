@@ -88,14 +88,14 @@ models/
 outputs/
 .tmp/
 
-# Project-local resolution store. vipy ships cleanroom — anything in .vipy/
+# Project-local resolution store. lvpy ships cleanroom — anything in .lvpy/
 # may be derived from licensed LabVIEW sources and must NEVER be committed
-# to vipy's own repo. (Downstream users decide their own .vipy/ gitignore
+# to lvpy's own repo. (Downstream users decide their own .lvpy/ gitignore
 # policy in their own projects.)
-.vipy/
+.lvpy/
 
 # Large binary docs and proprietary references.
-# vipy is cleanroom — NI's reference manual is not redistributable
+# lvpy is cleanroom — NI's reference manual is not redistributable
 # from this repo. Resolution skills look up function info via web
 # search against ni.com/docs instead.
 docs/*.pdf

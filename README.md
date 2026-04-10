@@ -1,12 +1,12 @@
-# vipy
+# lvpy
 
 Understand and convert LabVIEW VIs without a LabVIEW license.
 
-vipy parses VI binary files into a queryable dataflow graph, then uses that graph to generate Python code, HTML documentation, human-readable descriptions, and visual flowcharts. It uses [pylabview](https://github.com/mefistotelis/pylabview) for binary parsing and builds a NetworkX graph that can be explored via CLI, MCP server, or Python API.
+lvpy parses VI binary files into a queryable dataflow graph, then uses that graph to generate Python code, HTML documentation, human-readable descriptions, and visual flowcharts. It uses [pylabview](https://github.com/mefistotelis/pylabview) for binary parsing and builds a NetworkX graph that can be explored via CLI, MCP server, or Python API.
 
 ### Cleanroom approach
 
-vipy is a cleanroom conversion tool — it has no access to LabVIEW source code or runtime. LabVIEW's standard library (vi.lib), built-in primitives, and third-party libraries like OpenG are **semantically replaced**: each operation is mapped to an equivalent Python implementation defined in JSON data files (`src/vipy/data/vilib/`, `src/vipy/data/primitives.json`, `src/vipy/data/openg/`). These mappings are built from documentation and observed behavior, not from LabVIEW internals.
+lvpy is a cleanroom conversion tool — it has no access to LabVIEW source code or runtime. LabVIEW's standard library (vi.lib), built-in primitives, and third-party libraries like OpenG are **semantically replaced**: each operation is mapped to an equivalent Python implementation defined in JSON data files (`src/lvpy/data/vilib/`, `src/lvpy/data/primitives.json`, `src/lvpy/data/openg/`). These mappings are built from documentation and observed behavior, not from LabVIEW internals.
 
 This means coverage is incremental. When the generator encounters an unmapped primitive or vi.lib VI, it raises an error with diagnostic context so the mapping can be added. The data files grow over time as more VIs are converted.
 
@@ -17,64 +17,64 @@ This means coverage is incremental. When the generator encounters an unmapped pr
 pip install -e ".[dev]"
 
 # Or, once published to PyPI:
-#   pip install vipy
-#   uvx vipy --help          # one-shot via uv
+#   pip install lvpy
+#   uvx lvpy --help          # one-shot via uv
 
 # Check dependencies (pylabview)
-vipy check
+lvpy check
 
 # Generate Python from a VI
-vipy generate "path/to/file.vi" -o outputs --search-path path/to/libraries
+lvpy generate "path/to/file.vi" -o outputs --search-path path/to/libraries
 
 # Generate HTML documentation
-vipy docs "path/to/MyLib.lvlib" outputs/docs --search-path path/to/libraries
+lvpy docs "path/to/MyLib.lvlib" outputs/docs --search-path path/to/libraries
 
 # Describe what a VI does
-vipy describe "path/to/file.vi" --search-path path/to/libraries
+lvpy describe "path/to/file.vi" --search-path path/to/libraries
 
 # Initialize a project-local resolution store + install LLM editor skills
-vipy init --skills all
+lvpy init --skills all
 
 # Start MCP server for IDE integration
-vipy mcp
+lvpy mcp
 ```
 
-## Project-local resolution store (`.vipy/`)
+## Project-local resolution store (`.lvpy/`)
 
-vipy ships cleanroom — its bundled data only contains mappings derived from public documentation. If you have a LabVIEW license, you can populate a project-local `.vipy/` directory with mappings derived from the real vi.lib, your own LabVIEW sources, or third-party libraries you have rights to use. vipy reads `.vipy/` **first** and falls back to its bundled data.
+lvpy ships cleanroom — its bundled data only contains mappings derived from public documentation. If you have a LabVIEW license, you can populate a project-local `.lvpy/` directory with mappings derived from the real vi.lib, your own LabVIEW sources, or third-party libraries you have rights to use. lvpy reads `.lvpy/` **first** and falls back to its bundled data.
 
 Get started:
 
 ```bash
 cd your-labview-project
-vipy init                          # Create .vipy/ + template README
-vipy init --skills claude          # Also install Claude Code skills (.claude/skills/vipy-*)
-vipy init --skills copilot         # Also install Copilot prompts + router instruction
-vipy init --skills all             # Both
+lvpy init                          # Create .lvpy/ + template README
+lvpy init --skills claude          # Also install Claude Code skills (.claude/skills/lvpy-*)
+lvpy init --skills copilot         # Also install Copilot prompts + router instruction
+lvpy init --skills all             # Both
 ```
 
-Each install creates `vipy-` prefixed entries (e.g., `/vipy-convert`, `/vipy-resolve-primitive`) so the workflows don't collide with anything else in your editor's skill/prompt namespace. Five workflows ship: `vipy-describe`, `vipy-convert`, `vipy-resolve-primitive`, `vipy-resolve-vilib`, `vipy-idiomatic`.
+Each install creates `lvpy-` prefixed entries (e.g., `/lvpy-convert`, `/lvpy-resolve-primitive`) so the workflows don't collide with anything else in your editor's skill/prompt namespace. Five workflows ship: `lvpy-describe`, `lvpy-convert`, `lvpy-resolve-primitive`, `lvpy-resolve-vilib`, `lvpy-idiomatic`.
 
 Copilot install lays out:
 
 ```
 .github/
   prompts/
-    vipy-describe.prompt.md           # /vipy-describe
-    vipy-convert.prompt.md            # /vipy-convert
-    vipy-resolve-primitive.prompt.md  # /vipy-resolve-primitive
-    vipy-resolve-vilib.prompt.md      # /vipy-resolve-vilib
-    vipy-idiomatic.prompt.md          # /vipy-idiomatic
+    lvpy-describe.prompt.md           # /lvpy-describe
+    lvpy-convert.prompt.md            # /lvpy-convert
+    lvpy-resolve-primitive.prompt.md  # /lvpy-resolve-primitive
+    lvpy-resolve-vilib.prompt.md      # /lvpy-resolve-vilib
+    lvpy-idiomatic.prompt.md          # /lvpy-idiomatic
   instructions/
-    vipy.instructions.md              # auto-loaded router; lists the 5 prompts
+    lvpy.instructions.md              # auto-loaded router; lists the 5 prompts
 ```
 
-The router lives in `instructions/` so Copilot loads it into every chat (small file, just a registry). The actual workflow content lives in the per-prompt files and only loads when invoked. This mirrors Claude Code skill semantics: contextual auto-launch via the router, explicit `/vipy-<name>` invocation via the prompts.
+The router lives in `instructions/` so Copilot loads it into every chat (small file, just a registry). The actual workflow content lives in the per-prompt files and only loads when invoked. This mirrors Claude Code skill semantics: contextual auto-launch via the router, explicit `/lvpy-<name>` invocation via the prompts.
 
-The `.vipy/` directory mirrors vipy's bundled `data/` layout:
+The `.lvpy/` directory mirrors lvpy's bundled `data/` layout:
 
 ```
-.vipy/
+.lvpy/
   README.md                 # license-boundary explainer
   primitives.json           # primitive overrides
   vilib/_index.json
@@ -83,29 +83,29 @@ The `.vipy/` directory mirrors vipy's bundled `data/` layout:
   drivers/
 ```
 
-vipy itself **never reads `.vipy/`** into its bundled data. Anything you put there stays in your project. Consider gitignoring files derived from licensed material before committing.
+lvpy itself **never reads `.lvpy/`** into its bundled data. Anything you put there stays in your project. Consider gitignoring files derived from licensed material before committing.
 
-When `vipy generate` hits an unknown primitive or vi.lib VI, you have two options:
+When `lvpy generate` hits an unknown primitive or vi.lib VI, you have two options:
 
-1. **Resolve up front** — install the resolve skills (`vipy init --skills claude`) and let your LLM editor write the mapping into `.vipy/`. The skill detects context (vipy maintainer vs downstream user) and writes to the right destination.
-2. **Defer to runtime** — pass `--placeholder-on-unresolved`. vipy emits an inline `raise PrimitiveResolutionNeeded(...)` / `raise VILibResolutionNeeded(...)` in the generated Python with full diagnostic context. The build succeeds; runtime fails at the unresolved call. Useful when you'd rather fix the gap contextually in the Python.
+1. **Resolve up front** — install the resolve skills (`lvpy init --skills claude`) and let your LLM editor write the mapping into `.lvpy/`. The skill detects context (lvpy maintainer vs downstream user) and writes to the right destination.
+2. **Defer to runtime** — pass `--placeholder-on-unresolved`. lvpy emits an inline `raise PrimitiveResolutionNeeded(...)` / `raise VILibResolutionNeeded(...)` in the generated Python with full diagnostic context. The build succeeds; runtime fails at the unresolved call. Useful when you'd rather fix the gap contextually in the Python.
 
 ## MCP server
 
-vipy exposes an MCP server (`vipy mcp` or the `vipy-mcp` console script). Once published to PyPI, you can run it via `uvx` without installing it permanently:
+lvpy exposes an MCP server (`lvpy mcp` or the `lvpy-mcp` console script). Once published to PyPI, you can run it via `uvx` without installing it permanently:
 
 ```json
 {
   "mcpServers": {
-    "vipy": {
+    "lvpy": {
       "command": "uvx",
-      "args": ["--from", "vipy", "vipy-mcp"]
+      "args": ["--from", "lvpy", "lvpy-mcp"]
     }
   }
 }
 ```
 
-The `--from vipy` tells `uvx` which package to install; `vipy-mcp` is the console-script entry point inside that package. Paste this into your MCP client config (Claude Code's `claude_code_config.json`, Cursor's `~/.cursor/mcp.json`, or equivalent), restart the client, and the vipy tools become available — load_vi, describe_vi, get_operations, get_dataflow, get_structure, get_constants, generate_python, generate_documents, and analyze_vi.
+The `--from lvpy` tells `uvx` which package to install; `lvpy-mcp` is the console-script entry point inside that package. Paste this into your MCP client config (Claude Code's `claude_code_config.json`, Cursor's `~/.cursor/mcp.json`, or equivalent), restart the client, and the lvpy tools become available — load_vi, describe_vi, get_operations, get_dataflow, get_structure, get_constants, generate_python, generate_documents, and analyze_vi.
 
 ## Architecture Overview
 
@@ -133,7 +133,7 @@ InMemoryVIGraph (operations, terminals, wires, types)
 
 ## Key Modules
 
-### Parser Layer (`src/vipy/parser/`)
+### Parser Layer (`src/lvpy/parser/`)
 
 | File | Purpose |
 |------|---------|
@@ -146,7 +146,7 @@ InMemoryVIGraph (operations, terminals, wires, types)
 | `front_panel.py` | Front panel (controls/indicators) parsing |
 | `metadata.py` | VI metadata extraction |
 
-### Graph Layer (`src/vipy/graph/`)
+### Graph Layer (`src/lvpy/graph/`)
 
 | File | Purpose |
 |------|---------|
@@ -160,7 +160,7 @@ InMemoryVIGraph (operations, terminals, wires, types)
 | `flowchart.py` | Mermaid flowchart generation |
 | `diff.py` | Compare two VI versions |
 
-### Other Core Modules (`src/vipy/`)
+### Other Core Modules (`src/lvpy/`)
 
 | File | Purpose |
 |------|---------|
@@ -175,7 +175,7 @@ InMemoryVIGraph (operations, terminals, wires, types)
 | `naming.py` | Python name sanitization and conventions |
 | `labview_error.py` | LabVIEW error cluster handling |
 
-### Agent Layer (`src/vipy/agent/`)
+### Agent Layer (`src/lvpy/agent/`)
 
 | File | Purpose |
 |------|---------|
@@ -190,7 +190,7 @@ InMemoryVIGraph (operations, terminals, wires, types)
 | `context_builder.py` | Build context for LLM prompts |
 | `validator.py` | Validate generated code (syntax, imports, completeness) |
 
-### Documentation (`src/vipy/docs/`)
+### Documentation (`src/lvpy/docs/`)
 
 | File | Purpose |
 |------|---------|
@@ -198,7 +198,7 @@ InMemoryVIGraph (operations, terminals, wires, types)
 | `html_generator.py` | Render VI context to HTML pages |
 | `utils.py` | Doc generation utilities |
 
-### MCP Server (`src/vipy/mcp/`)
+### MCP Server (`src/lvpy/mcp/`)
 
 | File | Purpose |
 |------|---------|
@@ -206,7 +206,7 @@ InMemoryVIGraph (operations, terminals, wires, types)
 | `tools.py` | Stateless tool implementations (analyze, generate, docs) |
 | `schemas.py` | Pydantic models for tool results |
 
-### Bundled data (`src/vipy/data/`)
+### Bundled data (`src/lvpy/data/`)
 
 | Path | Purpose |
 |------|---------|
@@ -221,7 +221,7 @@ InMemoryVIGraph (operations, terminals, wires, types)
 
 ### 1. Load VI
 ```python
-from vipy.memory_graph import InMemoryVIGraph
+from lvpy.memory_graph import InMemoryVIGraph
 
 graph = InMemoryVIGraph()
 graph.load_vi(Path("Main.vi"), search_paths=[Path("libs/")])
@@ -237,7 +237,7 @@ for op in context.operations:
 
 ### 3. Generate Code
 ```python
-from vipy.agent.codegen import build_module
+from lvpy.agent.codegen import build_module
 
 code = build_module(context, "Main.vi")
 ```
@@ -275,22 +275,22 @@ class LVType:
 ## CLI Commands
 
 ```bash
-vipy check                          # Check dependencies
-vipy generate <vi> -o dir           # Deterministic AST code generation
-vipy describe <vi>                  # Human-readable VI description
-vipy docs <vi> <output_dir>         # Generate HTML documentation
-vipy diff <vi_a> <vi_b>             # Compare two VI versions
-vipy visualize <vi> -o graph.html   # Interactive graph visualization
-vipy agent <vi> -o dir              # Full conversion with LLM validation loop
-vipy explore [dir]                  # NiceGUI project explorer
-vipy structure <path>               # Analyze .lvlib/.lvclass structure
-vipy mcp                            # Start MCP server for IDE integration
-vipy llm-generate <vi> -o dir       # Generate idiomatic Python via LLM
+lvpy check                          # Check dependencies
+lvpy generate <vi> -o dir           # Deterministic AST code generation
+lvpy describe <vi>                  # Human-readable VI description
+lvpy docs <vi> <output_dir>         # Generate HTML documentation
+lvpy diff <vi_a> <vi_b>             # Compare two VI versions
+lvpy visualize <vi> -o graph.html   # Interactive graph visualization
+lvpy agent <vi> -o dir              # Full conversion with LLM validation loop
+lvpy explore [dir]                  # NiceGUI project explorer
+lvpy structure <path>               # Analyze .lvlib/.lvclass structure
+lvpy mcp                            # Start MCP server for IDE integration
+lvpy llm-generate <vi> -o dir       # Generate idiomatic Python via LLM
 ```
 
 ## MCP Tools
 
-When running `vipy mcp`, these tools are available:
+When running `lvpy mcp`, these tools are available:
 
 **Stateless** (subprocess-based, no shared state):
 
@@ -327,7 +327,7 @@ pytest -k "not real_vi"           # Skip tests needing real VIs
 
 1. Run conversion, note the missing primResID in error
 2. Look up primitive in LabVIEW documentation
-3. Add to `src/vipy/data/primitives.json`:
+3. Add to `src/lvpy/data/primitives.json`:
 
 ```json
 {
@@ -351,13 +351,13 @@ When `VILibResolutionNeeded` is raised:
 
 1. Check the exception output for terminal names and wire indices
 2. The wire indices from the caller show actual terminal positions
-3. Add to appropriate `src/vipy/data/vilib/<category>.json`
+3. Add to appropriate `src/lvpy/data/vilib/<category>.json`
 
 ## File Organization
 
 ```
-vipy/
-  src/vipy/
+lvpy/
+  src/lvpy/
     parser/             # VI XML parsing (nodes, wires, types)
       nodes/            # Node-specific parsers
     graph/              # NetworkX graph layer

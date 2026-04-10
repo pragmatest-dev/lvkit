@@ -29,5 +29,5 @@ op["name"]  # IDE has no idea what type this is
 
 ## Canonical Types
 
-- `src/vipy/graph_types.py` - Graph layer (Operation, Wire, LVType, etc.)
-- `src/vipy/parser/models.py` - Parser layer (ParsedType, BlockDiagram, etc.)
+- `src/lvpy/graph_types.py` - Graph layer (Operation, Wire, LVType, etc.)
+- `src/lvpy/parser/models.py` - Parser layer (ParsedType, BlockDiagram, etc.)

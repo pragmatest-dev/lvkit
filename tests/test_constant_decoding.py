@@ -7,9 +7,9 @@ The decoded_value is a human-readable string representation.
 
 from __future__ import annotations
 
-from vipy.blockdiagram import decode_constant
-from vipy.graph_types import ClusterField, LVType
-from vipy.parser.models import Constant
+from lvpy.blockdiagram import decode_constant
+from lvpy.graph_types import ClusterField, LVType
+from lvpy.parser.models import Constant
 
 
 def _make_const(hex_val: str, label: str | None = None) -> Constant:

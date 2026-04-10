@@ -3,12 +3,12 @@ version: '3.8'
 services:
   neo4j:
     image: neo4j:5-community
-    container_name: vipy-neo4j
+    container_name: lvpy-neo4j
     ports:
       - "7474:7474"  # HTTP (browser UI)
       - "7687:7687"  # Bolt (driver connection)
     environment:
-      - NEO4J_AUTH=neo4j/vipy-password
+      - NEO4J_AUTH=neo4j/lvpy-password
       - NEO4J_PLUGINS=["apoc"]
     volumes:
       - neo4j_data:/data
