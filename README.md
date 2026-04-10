@@ -48,10 +48,28 @@ Get started:
 ```bash
 cd your-labview-project
 vipy init                          # Create .vipy/ + template README
-vipy init --skills claude          # Also install Claude Code skills
-vipy init --skills copilot         # Also install Copilot instructions
+vipy init --skills claude          # Also install Claude Code skills (.claude/skills/vipy-*)
+vipy init --skills copilot         # Also install Copilot prompts + router instruction
 vipy init --skills all             # Both
 ```
+
+Each install creates `vipy-` prefixed entries (e.g., `/vipy-convert`, `/vipy-resolve-primitive`) so the workflows don't collide with anything else in your editor's skill/prompt namespace. Five workflows ship: `vipy-describe`, `vipy-convert`, `vipy-resolve-primitive`, `vipy-resolve-vilib`, `vipy-idiomatic`.
+
+Copilot install lays out:
+
+```
+.github/
+  prompts/
+    vipy-describe.prompt.md           # /vipy-describe
+    vipy-convert.prompt.md            # /vipy-convert
+    vipy-resolve-primitive.prompt.md  # /vipy-resolve-primitive
+    vipy-resolve-vilib.prompt.md      # /vipy-resolve-vilib
+    vipy-idiomatic.prompt.md          # /vipy-idiomatic
+  instructions/
+    vipy.instructions.md              # auto-loaded router; lists the 5 prompts
+```
+
+The router lives in `instructions/` so Copilot loads it into every chat (small file, just a registry). The actual workflow content lives in the per-prompt files and only loads when invoked. This mirrors Claude Code skill semantics: contextual auto-launch via the router, explicit `/vipy-<name>` invocation via the prompts.
 
 The `.vipy/` directory mirrors vipy's bundled `data/` layout:
 

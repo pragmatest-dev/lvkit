@@ -178,7 +178,7 @@ The deterministic pipeline is the foundation. On top of it, vipy offers:
 
 - **MCP server** (`vipy mcp`): 14 tools for Claude Code, Copilot, or any MCP-compatible editor. Load a VI, explore the graph, generate code — all through tool calls.
 - **LLM cleanup** (`vipy llm-generate`): Takes the AST output as a reference and asks an LLM to produce idiomatic Python. Falls back to AST if the LLM produces invalid syntax.
-- **7 Claude Code skills**: `/convert` (full pipeline with resolution loop), `/describe-vi`, `/resolve-primitive`, `/resolve-vilib`, `/trace-bug`, `/judge-output`, `/idiomatic`.
+- **5 user-facing Claude Code skills**, all installable into a downstream project via `vipy init --skills claude` (or `--skills copilot` for the equivalent Copilot prompts + router): `/vipy-convert` (full pipeline with resolution loop), `/vipy-describe`, `/vipy-resolve-primitive`, `/vipy-resolve-vilib`, `/vipy-idiomatic`. Two more skills (`/judge-output`, `/trace-bug`) are vipy-internal maintainer tooling and are not packaged.
 
 The AI never sees raw bytes. It queries the *typed dataflow graph* through MCP tools. Every wire, every type, every terminal index comes from the binary — the LLM just makes the output prettier.
 

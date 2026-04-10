@@ -347,7 +347,13 @@ def test_install_copilot_skills_writes_prompts_and_router(tmp_path: Path) -> Non
     from vipy.project_store import install_copilot_skills
 
     written = install_copilot_skills(tmp_path)
-    assert len(written) == 6  # 5 prompts + router
+    # 5 prompts + 1 router. Asserted as a composition rather than a
+    # bare integer so a future 6th skill is a clear test failure with
+    # an explanatory message instead of an opaque "expected 6, got 7".
+    assert len(written) == len(_VIPY_SKILLS) + 1, (
+        f"expected {len(_VIPY_SKILLS)} prompts + 1 router = "
+        f"{len(_VIPY_SKILLS) + 1}, got {len(written)} files"
+    )
 
     # Each user-facing skill has its own prompt file
     prompts_dir = tmp_path / ".github" / "prompts"
@@ -372,6 +378,50 @@ def test_install_copilot_skills_writes_prompts_and_router(tmp_path: Path) -> Non
     # Router lists every prompt
     for skill in _VIPY_SKILLS:
         assert f"`/{skill}`" in router_text
+
+
+def test_install_copilot_skills_prompt_bodies_use_vipy_prefix(
+    tmp_path: Path,
+) -> None:
+    """Prompt bodies must reference other skills with vipy- prefix.
+
+    Regression test for the rename: a maintainer who edits a SKILL.md
+    body and forgets to update a slash command (e.g. leaves
+    `/resolve-primitive` instead of `/vipy-resolve-primitive`) would
+    ship a prompt that tells Copilot to invoke a skill that doesn't
+    exist. Catch this at test time.
+    """
+    import re
+
+    from vipy.project_store import install_copilot_skills
+
+    install_copilot_skills(tmp_path)
+    prompts_dir = tmp_path / ".github" / "prompts"
+
+    # Bare names that would be wrong if found inline.
+    bare_skill_names = {
+        "convert",
+        "describe",
+        "describe-vi",
+        "idiomatic",
+        "resolve-primitive",
+        "resolve-vilib",
+    }
+
+    for skill in _VIPY_SKILLS:
+        body = (prompts_dir / f"{skill}.prompt.md").read_text()
+        # Find every /<token> that looks like a skill ref. Allow
+        # vipy-prefixed names AND CLI subcommands like /describe used
+        # as bash command flags (those should be `vipy describe` —
+        # we look for the leading slash specifically).
+        for match in re.finditer(r"(?<![\w/])/([a-z][a-z-]+)\b", body):
+            referenced = match.group(1)
+            if referenced in bare_skill_names:
+                raise AssertionError(
+                    f"{skill}.prompt.md references bare skill name "
+                    f"/{referenced} (line: {body[match.start():match.end()+40]!r})"
+                    f" — should be /vipy-{referenced.removeprefix('vipy-')}"
+                )
 
 
 def test_install_copilot_skills_router_uses_workflow_order(tmp_path: Path) -> None:

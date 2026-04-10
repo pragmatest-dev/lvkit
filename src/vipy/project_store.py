@@ -166,8 +166,15 @@ _COPILOT_MANAGED_MARKER = (
     "re-running will overwrite this file -->"
 )
 
-# Logical workflow order. Used in the router instruction so the prompts
-# appear in execution order rather than alphabetical.
+# Logical workflow order. The Copilot router lists prompts in this
+# order so they appear as understand → convert → resolve → refactor
+# instead of alphabetical (which would put "convert" first).
+#
+# Order is also applied (incidentally) to the Claude install via
+# _iter_skill_templates, but Claude doesn't care because each skill is
+# its own file. New skills not in this list are appended in alphabetical
+# order — they install fine, they just sort to the end of the router.
+# To put a new skill in a specific position, add it to this list.
 _SKILL_ORDER = [
     "vipy-describe",
     "vipy-convert",
@@ -201,7 +208,7 @@ def install_claude_skills(target_dir: Path, force: bool = False) -> list[Path]:
     """Install vipy's Claude Code skills into a project.
 
     Copies every packaged template under
-    `src/vipy/skill_templates/claude/<name>/SKILL.md` into
+    `src/vipy/skill_templates/<name>/SKILL.md` into
     `<target_dir>/.claude/skills/<name>/SKILL.md`.
 
     Atomic with respect to local-edit detection: pre-validates every
@@ -220,40 +227,24 @@ def install_claude_skills(target_dir: Path, force: bool = False) -> list[Path]:
         templates are already byte-identical to the in-repo copies (a
         no-op re-install).
     """
-    template_root = files("vipy.skill_templates")
     skills_dir = target_dir / ".claude" / "skills"
     skills_dir.mkdir(parents=True, exist_ok=True)
 
-    # Phase 1: discover and validate. Build the full work list and
-    # collect any conflicts before touching disk.
-    plan: list[tuple[Path, str]] = []  # (dest, new_content)
+    # Phase 1: discover and stage. Build the full work list and collect
+    # any conflicts before touching disk. Shares the staging helper with
+    # install_copilot_skills so the atomic semantics stay consistent.
+    plan: list[tuple[Path, str]] = []
     conflicts: list[Path] = []
 
-    for skill_dir in template_root.iterdir():
-        if not skill_dir.is_dir() or skill_dir.name.startswith(("_", ".")):
-            # Skip __pycache__, __init__-style dirs, hidden dirs.
-            continue
+    for skill_dir in _iter_skill_templates():
         template_file = skill_dir.joinpath("SKILL.md")
         if not template_file.is_file():
             raise ValueError(
                 f"Skill template directory {skill_dir.name!r} is missing"
                 " its SKILL.md — packaging or sync error."
             )
-
-        skill_name = skill_dir.name
-        dest = skills_dir / skill_name / "SKILL.md"
-        new_content = template_file.read_text()
-
-        if dest.exists():
-            existing = dest.read_text()
-            if existing == new_content:
-                # Already up to date — skip silently.
-                continue
-            if not force:
-                conflicts.append(dest)
-                continue
-
-        plan.append((dest, new_content))
+        dest = skills_dir / skill_dir.name / "SKILL.md"
+        _stage_write(dest, template_file.read_text(), force, plan, conflicts)
 
     if conflicts:
         names = "\n  ".join(str(p) for p in conflicts)
@@ -263,7 +254,7 @@ def install_claude_skills(target_dir: Path, force: bool = False) -> list[Path]:
             "Re-run with force=True to overwrite."
         )
 
-    # Phase 2: write everything. No conflicts means we can commit.
+    # Phase 2: commit all writes. No conflicts means we can commit.
     written: list[Path] = []
     for dest, new_content in plan:
         dest.parent.mkdir(parents=True, exist_ok=True)
@@ -355,9 +346,12 @@ def _stage_write(
 ) -> None:
     """Add (dest, content) to plan, or to conflicts if local-edited.
 
-    Used by install_copilot_skills's atomic phase split: collects all
-    writes and conflicts in phase 1 so phase 2 can either commit
-    everything or raise a single error listing every conflict.
+    Shared by ``install_claude_skills`` and ``install_copilot_skills``
+    for their atomic phase splits: phase 1 calls this for every
+    destination so phase 2 can either commit everything in one pass or
+    raise a single error listing every conflict. Files that already
+    match the new content are silently skipped (not added to plan,
+    not flagged as conflicts).
     """
     if dest.exists():
         existing = dest.read_text()
@@ -375,18 +369,30 @@ def _build_copilot_prompt(skill_md: str) -> str:
     Rewrites the frontmatter from Claude's schema (``name``,
     ``description``, ``allowed-tools``) to Copilot's prompt schema
     (``mode``, ``description``). Body is preserved unchanged.
+
+    The description is double-quoted in the output frontmatter so
+    YAML special characters (``:``, ``#``, ``[``, ``{``, etc.) in the
+    SKILL.md description don't break the prompt's frontmatter parser.
     """
     fm, body = _split_frontmatter(skill_md)
     description = _yaml_get(fm, "description") or ""
     return (
         "---\n"
         "mode: agent\n"
-        f"description: {description}\n"
+        f"description: {_yaml_quote(description)}\n"
         "---\n"
         f"{_COPILOT_MANAGED_MARKER}\n"
         "\n"
         f"{body.lstrip()}"
     )
+
+
+def _yaml_quote(value: str) -> str:
+    """Wrap a string in YAML double quotes, escaping inner quotes/backslashes.
+
+    Minimal — handles the only YAML escapes vipy needs (`"` and `\\`).
+    """
+    return '"' + value.replace("\\", "\\\\").replace('"', '\\"') + '"'
 
 
 def _build_copilot_router(skill_dirs: list[Any]) -> str:
@@ -430,14 +436,23 @@ def _build_copilot_router(skill_dirs: list[Any]) -> str:
 def _split_frontmatter(text: str) -> tuple[str, str]:
     """Split a Markdown file into (frontmatter, body).
 
-    Returns ('', text) if there is no leading ``---\\n...\\n---\\n``
-    block. The frontmatter is returned WITHOUT the wrapping delimiters.
+    Returns ``("", text)`` if there is no leading ``---\\n`` line at all.
+    Raises ``ValueError`` if the file *opens* a frontmatter block but
+    never closes it — that's a malformed SKILL.md a maintainer should
+    fix, not silent fall-through that propagates the broken content
+    into the generated prompt.
+
+    The returned frontmatter is the inner content WITHOUT the wrapping
+    ``---`` delimiters.
     """
     if not text.startswith("---\n"):
         return "", text
     end = text.find("\n---\n", 4)
     if end == -1:
-        return "", text
+        raise ValueError(
+            "Malformed SKILL.md: opens with `---` frontmatter but has"
+            " no closing `---` delimiter."
+        )
     return text[4:end], text[end + len("\n---\n"):]
 
 
@@ -446,9 +461,20 @@ def _yaml_get(frontmatter: str, key: str) -> str | None:
 
     Intentionally minimal — vipy's SKILL.md frontmatter only uses flat
     string fields, so this avoids dragging in PyYAML for one lookup.
+    Strips surrounding double quotes if present so the helper round-trips
+    with ``_yaml_quote``.
     """
     prefix = f"{key}:"
     for line in frontmatter.splitlines():
         if line.startswith(prefix):
-            return line[len(prefix):].strip()
+            value = line[len(prefix):].strip()
+            if (
+                len(value) >= 2
+                and value.startswith('"')
+                and value.endswith('"')
+            ):
+                # Strip the wrapping quotes and unescape the same minimal
+                # set _yaml_quote escapes.
+                value = value[1:-1].replace('\\"', '"').replace("\\\\", "\\")
+            return value
     return None
