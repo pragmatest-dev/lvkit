@@ -16,6 +16,7 @@ from mcp.server import Server
 from mcp.server.stdio import stdio_server
 from mcp.types import TextContent, Tool
 
+from .. import primitive_resolver, vilib_resolver
 from ..agent.codegen import build_module
 from ..graph.describe import (
     describe_constants as describe_constants_text,
@@ -33,7 +34,20 @@ from ..graph.describe import (
     describe_vi as describe_vi_text,
 )
 from ..memory_graph import InMemoryVIGraph
+from ..project_store import find_project_store
 from .tools import analyze_vi, generate_documents, generate_python
+
+
+def _configure_resolvers_for_vi(vi_path: str | Path) -> None:
+    """Discover .vipy/ from a VI's parent directory and reset resolvers.
+
+    MCP may serve multiple projects in one session, so we re-resolve the
+    project store on every tool call that knows a target VI path.
+    """
+    start = Path(vi_path).resolve().parent
+    store = find_project_store(start=start)
+    primitive_resolver.reset_resolver(project_data_dir=store)
+    vilib_resolver.reset_resolver(project_data_dir=store)
 
 # Create MCP server instance
 app = Server("vipy-mcp")
@@ -414,6 +428,8 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
         if not vi_path:
             raise ValueError("vi_path is required")
 
+        _configure_resolvers_for_vi(vi_path)
+
         # Run analysis (synchronous function in async context)
         result = await asyncio.to_thread(
             analyze_vi, vi_path, search_paths, expand_subvis
@@ -435,6 +451,8 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
         if not output_dir:
             raise ValueError("output_dir is required")
 
+        _configure_resolvers_for_vi(library_path)
+
         # Run documentation generation (synchronous function in async context)
         result = await asyncio.to_thread(
             generate_documents, library_path, output_dir, search_paths, expand_subvis
@@ -451,6 +469,8 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
             raise ValueError("vi_path is required")
         if not output_dir:
             raise ValueError("output_dir is required")
+
+        _configure_resolvers_for_vi(vi_path)
 
         # Run code generation (synchronous function in async context)
         result = await asyncio.to_thread(
@@ -470,6 +490,8 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
 
         if not vi_path:
             raise ValueError("vi_path is required")
+
+        _configure_resolvers_for_vi(vi_path)
 
         def _load():
             graph = _get_graph()

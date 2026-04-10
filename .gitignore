@@ -88,5 +88,11 @@ models/
 outputs/
 .tmp/
 
+# Project-local resolution store. vipy ships cleanroom — anything in .vipy/
+# may be derived from licensed LabVIEW sources and must NEVER be committed
+# to vipy's own repo. (Downstream users decide their own .vipy/ gitignore
+# policy in their own projects.)
+.vipy/
+
 # Large binary docs
 docs/*.pdf
