@@ -14,8 +14,10 @@
 # and have no value to downstream users.
 #
 # Discovery is automatic: every directory under src/vipy/skill_templates/
-# claude/ must have a corresponding .claude/skills/ entry. Adding a new
-# template requires no script change.
+# must have a corresponding .claude/skills/ entry. Adding a new template
+# requires no script change. The templates are also the source for the
+# Copilot install path (built dynamically by install_copilot_instructions
+# in project_store.py) — that's why the directory is not named "claude/".
 #
 # This hook fails if any pair diverges. Fix by copying the template:
 #   cp src/vipy/skill_templates/claude/<skill>/SKILL.md \
@@ -24,7 +26,7 @@
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-TEMPLATE_DIR="$REPO_ROOT/src/vipy/skill_templates/claude"
+TEMPLATE_DIR="$REPO_ROOT/src/vipy/skill_templates"
 INREPO_DIR="$REPO_ROOT/.claude/skills"
 
 if [[ ! -d "$TEMPLATE_DIR" ]]; then
@@ -43,6 +45,10 @@ for template in "$TEMPLATE_DIR"/*/SKILL.md; do
     fi
 
     skill="$(basename "$(dirname "$template")")"
+    # Skip Python package internals like __pycache__ that the glob picks up.
+    case "$skill" in
+        _*|.*) continue ;;
+    esac
     inrepo="$INREPO_DIR/$skill/SKILL.md"
     checked=$((checked + 1))
 
