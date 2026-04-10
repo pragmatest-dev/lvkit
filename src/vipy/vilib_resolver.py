@@ -245,6 +245,28 @@ class VILibResolver:
         if types_path.exists():
             self._load_types(types_path)
 
+    def clear(self) -> None:
+        """Empty the data-bearing lookup tables.
+
+        Used by tests to simulate a resolver with no mappings. Clears
+        the seven caches populated from data/vilib, data/openg, and
+        data/drivers JSON files: ``_vis``, ``_by_name``, ``_pdf_entries``,
+        ``_types``, ``_category_files``, ``_variants``,
+        ``_by_poly_selector``.
+
+        ``data_dir`` is intentionally preserved — it's a configured
+        path, not a cache.
+
+        If a new data cache is added later, clear it here too.
+        """
+        self._vis.clear()
+        self._by_name.clear()
+        self._pdf_entries.clear()
+        self._types.clear()
+        self._category_files.clear()
+        self._variants.clear()
+        self._by_poly_selector.clear()
+
     def _load_vilib_data(self, vilib_dir: Path) -> None:
         """Load VI mappings from category files in data/vilib/."""
         index_path = vilib_dir / "_index.json"

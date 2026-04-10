@@ -238,6 +238,25 @@ class PrimitiveResolver:
         self._load_codegen(Path(primitives_path))
         self._load_pdf(Path(pdf_path))
 
+    def clear(self) -> None:
+        """Empty the data-bearing lookup tables.
+
+        Used by tests to simulate a resolver with no mappings. Clears
+        the four indices populated from primitives.json:
+        ``_by_id``, ``_by_name``, ``_by_signature``, ``_by_node_type``.
+
+        Static configuration (``_type_aliases``, ``_compatible_types``)
+        is intentionally preserved — it's hardcoded in __init__ and
+        never mutated, so clearing it would break normalization for the
+        rest of the test session.
+
+        If a new data cache is added later, clear it here too.
+        """
+        self._by_id.clear()
+        self._by_name.clear()
+        self._by_signature.clear()
+        self._by_node_type.clear()
+
     def _normalize_name(self, name: str) -> str:
         """Normalize primitive name for lookup."""
         # Remove common suffixes, lowercase, replace spaces/underscores
