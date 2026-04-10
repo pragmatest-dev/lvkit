@@ -737,8 +737,7 @@ def {func_name}({params_str}) -> {return_type}:
 
         # Check subvi_calls (SubVIs with CALLS relationship to VI nodes)
         for subvi in vi_context.subvi_calls:
-            # subvi_calls uses "vi_name" key (the target VI name)
-            subvi_name = subvi.get("vi_name", "")
+            subvi_name = subvi.vi_name or ""
             if subvi_name and self.state.is_converted(subvi_name):
                 module = self.state.get_module(subvi_name)
                 if module:

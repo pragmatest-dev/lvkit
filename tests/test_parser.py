@@ -226,8 +226,14 @@ class TestLoopStructure:
             uid="loop2",
             loop_type="forLoop",
             tunnels=[
-                TunnelMapping("o1", "i1", "lpTun"),
-                TunnelMapping("o2", "i2", "lMax"),
+                TunnelMapping(
+                    outer_terminal_uid="o1", inner_terminal_uid="i1",
+                    tunnel_type="lpTun",
+                ),
+                TunnelMapping(
+                    outer_terminal_uid="o2", inner_terminal_uid="i2",
+                    tunnel_type="lMax",
+                ),
             ],
         )
         assert loop.loop_type == "forLoop"
