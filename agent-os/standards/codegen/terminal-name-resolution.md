@@ -4,7 +4,7 @@ Terminal names resolve differently for vilib VIs vs project SubVIs.
 
 ## vilib VIs (LabVIEW standard library)
 
-Call sites to vilib VIs lack terminal names (clean-room parsing). Names come from `src/vipy/data/vilib/*.json` which contains NI documentation.
+Call sites to vilib VIs lack terminal names (clean-room parsing). Names come from `src/lvpy/data/vilib/*.json` which contains NI documentation.
 
 ```python
 # vilib lookup by terminal index

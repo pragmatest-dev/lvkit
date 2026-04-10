@@ -14,9 +14,9 @@ from __future__ import annotations
 
 import ast
 
-from vipy.agent.codegen.ast_optimizer import eliminate_dead_code
-from vipy.agent.codegen.context import _format_constant
-from vipy.graph_types import Constant, LVType
+from lvpy.agent.codegen.ast_optimizer import eliminate_dead_code
+from lvpy.agent.codegen.context import _format_constant
+from lvpy.graph_types import Constant, LVType
 
 # =============================================================
 # Boolean constant formatting
@@ -156,7 +156,7 @@ class TestWaitMsPrimitive:
     """primResID 1302 should resolve to Wait (ms), not Bundle."""
 
     def test_1302_resolves_to_wait_ms(self):
-        from vipy.primitive_resolver import get_resolver
+        from lvpy.primitive_resolver import get_resolver
         resolver = get_resolver()
         resolved = resolver.resolve(prim_id=1302)
 
@@ -170,7 +170,7 @@ class TestWaitMsPrimitive:
         assert "import time" in resolved.imports
 
     def test_1302_has_correct_terminals(self):
-        from vipy.primitive_resolver import get_resolver
+        from lvpy.primitive_resolver import get_resolver
         resolver = get_resolver()
         resolved = resolver.resolve(prim_id=1302)
 
@@ -193,7 +193,7 @@ class TestPolyVariantExtraction:
 
     def test_poly_variant_parsed_from_vi(self):
         """In.vi's Create Virtual Channel should resolve to 'Digital Output'."""
-        from vipy.memory_graph import connect
+        from lvpy.memory_graph import connect
         mg = connect()
         mg.load_vi("samples/DAQmx-Digital-IO/In.vi")
 
@@ -205,7 +205,7 @@ class TestPolyVariantExtraction:
 
     def test_write_variant_parsed(self):
         """In.vi's Write should have a Digital Bool variant name."""
-        from vipy.memory_graph import connect
+        from lvpy.memory_graph import connect
         mg = connect()
         mg.load_vi("samples/DAQmx-Digital-IO/In.vi")
 
@@ -218,7 +218,7 @@ class TestPolyVariantExtraction:
 
     def test_non_poly_nodes_have_no_variant(self):
         """Non-polymorphic nodes should have poly_variant_name=None."""
-        from vipy.memory_graph import connect
+        from lvpy.memory_graph import connect
         mg = connect()
         mg.load_vi("samples/DAQmx-Digital-IO/In.vi")
 
@@ -238,7 +238,7 @@ class TestPolyResolverLookup:
     """Resolver should find variant entries by polySelector name."""
 
     def test_digital_output_resolves_to_do_line(self):
-        from vipy.vilib_resolver import get_resolver
+        from lvpy.vilib_resolver import get_resolver
         resolver = get_resolver()
         entry = resolver.resolve_poly_variant(
             "DAQmx Create Virtual Channel.vi", "Digital Output"
@@ -247,7 +247,7 @@ class TestPolyResolverLookup:
         assert "do_channels.add_do_chan" in entry.python_code
 
     def test_digital_input_resolves_to_di_line(self):
-        from vipy.vilib_resolver import get_resolver
+        from lvpy.vilib_resolver import get_resolver
         resolver = get_resolver()
         entry = resolver.resolve_poly_variant(
             "DAQmx Create Virtual Channel.vi", "Digital Input"
@@ -256,7 +256,7 @@ class TestPolyResolverLookup:
         assert "di_channels.add_di_chan" in entry.python_code
 
     def test_ai_voltage_resolves(self):
-        from vipy.vilib_resolver import get_resolver
+        from lvpy.vilib_resolver import get_resolver
         resolver = get_resolver()
         entry = resolver.resolve_poly_variant(
             "DAQmx Create Virtual Channel.vi", "AI Voltage"
@@ -265,7 +265,7 @@ class TestPolyResolverLookup:
         assert "ai_channels.add_ai_voltage_chan" in entry.python_code
 
     def test_unknown_selector_returns_none(self):
-        from vipy.vilib_resolver import get_resolver
+        from lvpy.vilib_resolver import get_resolver
         resolver = get_resolver()
         entry = resolver.resolve_poly_variant(
             "DAQmx Create Virtual Channel.vi", "Nonexistent Variant"
@@ -282,8 +282,8 @@ class TestInViEndToEnd:
     """End-to-end test that In.vi generates correct Python."""
 
     def _build_in_vi(self):
-        from vipy.agent.codegen.builder import build_module
-        from vipy.memory_graph import connect
+        from lvpy.agent.codegen.builder import build_module
+        from lvpy.memory_graph import connect
 
         mg = connect()
         mg.load_vi("samples/DAQmx-Digital-IO/In.vi")

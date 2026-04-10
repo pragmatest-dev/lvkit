@@ -15,7 +15,7 @@ class ParsedType:
     typedef_name: str | None  # Qualified name
 ```
 
-Location: `src/vipy/parser/models.py`
+Location: `src/lvpy/parser/models.py`
 
 ## LVType (graph layer)
 
@@ -31,7 +31,7 @@ class LVType:
     element_type: LVType | None          # array element
 ```
 
-Location: `src/vipy/graph_types.py`
+Location: `src/lvpy/graph_types.py`
 
 ## Conversion
 

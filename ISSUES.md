@@ -54,8 +54,8 @@ But this is never populated from primitive definitions.
 ### Files to Modify
 
 - `data/primitives.json` - Add imports field to primitives that need it
-- `src/vipy/agent/codegen/nodes/primitive.py` - Extract and propagate imports
-- `src/vipy/primitives.py` - Update schema/model if needed
+- `src/lvpy/agent/codegen/nodes/primitive.py` - Extract and propagate imports
+- `src/lvpy/primitives.py` - Update schema/model if needed
 
 ---
 
@@ -109,7 +109,7 @@ Or better: check by **type** first since the `lv_type` should indicate it's a cl
 
 ### Files to Modify
 
-- `src/vipy/agent/codegen/class_builder.py` - Fix `_is_self_input()` detection
+- `src/lvpy/agent/codegen/class_builder.py` - Fix `_is_self_input()` detection
 
 ---
 

@@ -6,8 +6,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from vipy.agent.codegen.context import CodeGenContext
-from vipy.memory_graph import InMemoryVIGraph
+from lvpy.agent.codegen.context import CodeGenContext
+from lvpy.memory_graph import InMemoryVIGraph
 
 # Load a VI with loops
 vi_path = Path(

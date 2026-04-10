@@ -14,7 +14,7 @@ data:
   types-json-schema:
     description: _types.json format for typedef/enum definitions used by vilib VIs
   vilib-json-schema:
-    description: src/vipy/data/vilib/*.json format for LabVIEW standard library VI entries
+    description: src/lvpy/data/vilib/*.json format for LabVIEW standard library VI entries
   vilib-status-workflow:
     description: Status field progression (needs_terminals -> needs_review -> complete)
 

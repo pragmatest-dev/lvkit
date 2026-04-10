@@ -2,7 +2,7 @@
 """Generate code using AST builder without LLM.
 
 Uses the new AST-based code generation (builder.py), not skeleton.
-This script is a thin wrapper around vipy.pipeline.generate_python().
+This script is a thin wrapper around lvpy.pipeline.generate_python().
 """
 
 from __future__ import annotations
@@ -14,7 +14,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from vipy.pipeline import generate_python, to_library_name
+from lvpy.pipeline import generate_python, to_library_name
 
 
 def main():
@@ -70,14 +70,14 @@ def main():
 
 def _generate_ui_wrappers(args, result: dict) -> None:
     """Generate NiceGUI wrappers from generation result (CLI-only feature)."""
-    from vipy.agent.codegen.ast_utils import to_function_name, to_module_name
+    from lvpy.agent.codegen.ast_utils import to_function_name, to_module_name
 
     graph = result["graph"]
     vilib_resolver = result["vilib_resolver"]
     output_dir = result["output_dir"]
     generated = result["generated"]
 
-    from vipy.agent.context import ContextBuilder
+    from lvpy.agent.context import ContextBuilder
 
     print("\nGenerating UI wrappers...")
     ui_count = 0
@@ -173,7 +173,7 @@ def _generate_ui_wrappers(args, result: dict) -> None:
 
     # Copy app.py template
     app_template = (
-        Path(__file__).parent.parent / "src" / "vipy" / "explorer.py"
+        Path(__file__).parent.parent / "src" / "lvpy" / "explorer.py"
     )
     if app_template.exists():
         shutil.copy(app_template, output_dir / "app.py")

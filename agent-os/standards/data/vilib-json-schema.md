@@ -1,6 +1,6 @@
 # vilib JSON Schema
 
-Files in `src/vipy/data/vilib/*.json` define LabVIEW standard library VIs.
+Files in `src/lvpy/data/vilib/*.json` define LabVIEW standard library VIs.
 
 ## File Structure
 

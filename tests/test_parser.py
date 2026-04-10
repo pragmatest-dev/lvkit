@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from vipy.parser import (
+from lvpy.parser import (
     BlockDiagram,
     ConnectorPane,
     ConnectorPaneSlot,
@@ -799,7 +799,7 @@ class TestRealVIParsing:
         if sample_vi_path is None:
             pytest.skip("Sample VI not available")
 
-        from vipy.extractor import extract_vi_xml
+        from lvpy.extractor import extract_vi_xml
 
         bd_xml, fp_xml, main_xml = extract_vi_xml(sample_vi_path)
 

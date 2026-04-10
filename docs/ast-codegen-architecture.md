@@ -16,7 +16,7 @@ pylabview extracts two XML files from each VI:
 - `vi.xml` - Front panel (controls, indicators, types)
 - `vi_BDHb.xml` - Block diagram (nodes, wires, structures)
 
-### Parser: `src/vipy/parser/`
+### Parser: `src/lvpy/parser/`
 
 The parser package extracts structured data from XML into dataclasses:
 
@@ -63,7 +63,7 @@ whileLoop uid=502
 
 ## 2. Memory Graph Construction
 
-### InMemoryVIGraph: `src/vipy/memory_graph.py`
+### InMemoryVIGraph: `src/lvpy/memory_graph.py`
 
 Builds a NetworkX DiGraph representing data flow:
 
@@ -104,7 +104,7 @@ For each loop, the parser:
 
 ## 3. Code Generation
 
-### CodeGenContext: `src/vipy/agent/codegen/context.py`
+### CodeGenContext: `src/lvpy/agent/codegen/context.py`
 
 Manages variable bindings and data flow resolution:
 
@@ -128,7 +128,7 @@ class CodeGenContext:
 3. Recursively resolve source terminal
 4. Handle tunnel traversal automatically
 
-### Node Code Generators: `src/vipy/agent/codegen/nodes/`
+### Node Code Generators: `src/lvpy/agent/codegen/nodes/`
 
 Each node type has a specialized generator:
 
@@ -159,7 +159,7 @@ def generate(node, ctx) -> list[ast.stmt]:
     # 5. Update shift register variables at end of body
 ```
 
-### Primitive Resolution: `src/vipy/data/primitives.json`
+### Primitive Resolution: `src/lvpy/data/primitives.json`
 
 Maps primResID to Python code hints:
 
@@ -236,7 +236,7 @@ Shift registers correctly share variables across iterations. The bindings:
 ## 6. File Locations
 
 ```
-src/vipy/
+src/lvpy/
 ├── parser/           # XML → dataclasses
 ├── memory_graph.py   # Graph construction
 └── agent/

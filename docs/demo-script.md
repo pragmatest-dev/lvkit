@@ -1,6 +1,6 @@
-# vipy Demo Script (30 min including questions)
+# lvpy Demo Script (30 min including questions)
 
-## 1. What is vipy? (2 min)
+## 1. What is lvpy? (2 min)
 
 LabVIEW-to-Python converter. No LabVIEW license needed. Reads .vi binary files directly.
 
@@ -10,17 +10,17 @@ Three modes: deterministic AST generation, interactive visualization, AI-assiste
 
 ```bash
 # What does this VI do? (shows signature, dependencies, operations)
-vipy describe samples/DAQmx-Digital-IO/In.vi
+lvpy describe samples/DAQmx-Digital-IO/In.vi
 
 # With Mermaid dataflow chart
-vipy describe samples/DAQmx-Digital-IO/In.vi --chart
+lvpy describe samples/DAQmx-Digital-IO/In.vi --chart
 ```
 
 Shows signature, inputs/outputs, SubVI calls, control flow, operations. All extracted from the binary, no LabVIEW needed.
 
 ```bash
 # A more interesting example with dependencies
-vipy describe "samples/JKI-VI-Tester/source/User Interfaces/Graphical Test Runner/Graphical Test Runner Support/Get Settings Path.vi" \
+lvpy describe "samples/JKI-VI-Tester/source/User Interfaces/Graphical Test Runner/Graphical Test Runner Support/Get Settings Path.vi" \
   --search-path samples/OpenG/extracted
 ```
 
@@ -28,10 +28,10 @@ vipy describe "samples/JKI-VI-Tester/source/User Interfaces/Graphical Test Runne
 
 ```bash
 # Interactive dependency graph — what calls what
-vipy visualize samples/DAQmx-Digital-IO/In.vi --mode deps -o outputs/demo_deps.html --open
+lvpy visualize samples/DAQmx-Digital-IO/In.vi --mode deps -o outputs/demo_deps.html --open
 
 # Dataflow diagram — how data moves through the block diagram
-vipy visualize samples/DAQmx-Digital-IO/In.vi --mode dataflow -o outputs/demo_flow.html --open
+lvpy visualize samples/DAQmx-Digital-IO/In.vi --mode dataflow -o outputs/demo_flow.html --open
 ```
 
 Click nodes. Show the topology. Point out parallel branches, structure nesting.
@@ -42,7 +42,7 @@ Click nodes. Show the topology. Point out parallel branches, structure nesting.
 
 ```bash
 # Convert a single VI
-vipy generate samples/DAQmx-Digital-IO/In.vi -o outputs/demo --search-path samples/OpenG/extracted
+lvpy generate samples/DAQmx-Digital-IO/In.vi -o outputs/demo --search-path samples/OpenG/extracted
 ```
 
 Open `outputs/demo/in/in.py` and walk through:
@@ -53,7 +53,7 @@ Open `outputs/demo/in/in.py` and walk through:
 
 ```bash
 # Convert the whole directory
-vipy generate samples/DAQmx-Digital-IO/ -o outputs/demo --search-path samples/OpenG/extracted
+lvpy generate samples/DAQmx-Digital-IO/ -o outputs/demo --search-path samples/OpenG/extracted
 ```
 
 Both VIs converted, 0 errors.
@@ -62,7 +62,7 @@ Both VIs converted, 0 errors.
 
 ```bash
 # Convert a VI from the Graphical Test Runner
-vipy generate "samples/JKI-VI-Tester/source/User Interfaces/Graphical Test Runner/Graphical Test Runner Support/Get Settings Path.vi" \
+lvpy generate "samples/JKI-VI-Tester/source/User Interfaces/Graphical Test Runner/Graphical Test Runner Support/Get Settings Path.vi" \
   -o outputs/demo --search-path samples/OpenG/extracted
 ```
 
@@ -79,7 +79,7 @@ def get_settings_path() -> GetSettingsPathResult:
     return GetSettingsPathResult(config_path=appended_path)
 ```
 
-Walk through what vipy did:
+Walk through what lvpy did:
 - Resolved `Get System Directory.vi` from vilib (LabVIEW standard library)
 - Resolved `Build Path` and `Strip Path` as OpenG polymorphic VIs — inlined at call sites
 - Resolved `Create Dir if Non-Existant` — inlined as `mkdir(parents=True, exist_ok=True)`
@@ -92,7 +92,7 @@ Walk through what vipy did:
 
 ```bash
 # Convert an entire LabVIEW class with all dependencies
-vipy generate samples/JKI-VI-Tester/source/Classes/TestCase/TestCase.lvclass \
+lvpy generate samples/JKI-VI-Tester/source/Classes/TestCase/TestCase.lvclass \
   -o outputs/demo --search-path samples/OpenG/extracted
 ```
 
@@ -105,7 +105,7 @@ Show the generated class wrapper. Show a few method implementations.
 ## 6. Generate documentation (3 min)
 
 ```bash
-vipy docs samples/DAQmx-Digital-IO/ outputs/demo_docs
+lvpy docs samples/DAQmx-Digital-IO/ outputs/demo_docs
 ```
 
 Open `outputs/demo_docs/index.html`. Show:
@@ -118,7 +118,7 @@ Open `outputs/demo_docs/index.html`. Show:
 
 ```bash
 # The same analysis is available as MCP tools for Claude Code / Copilot
-vipy mcp
+lvpy mcp
 ```
 
 Show the tool list. Explain:
@@ -128,18 +128,18 @@ Show the tool list. Explain:
 
 **If Claude Code is available**, demonstrate live:
 ```
-/vipy load samples/DAQmx-Digital-IO/In.vi
-/vipy describe In.vi
-/vipy operations In.vi
+/lvpy load samples/DAQmx-Digital-IO/In.vi
+/lvpy describe In.vi
+/lvpy operations In.vi
 ```
 
 ## 8. AI integration — MCP + Skills (5 min)
 
-vipy exposes the graph as MCP tools for any AI editor:
+lvpy exposes the graph as MCP tools for any AI editor:
 
 ```bash
 # Start the MCP server (Claude Code, Copilot, etc.)
-vipy mcp
+lvpy mcp
 ```
 
 12 tools available: `load_vi`, `describe_vi`, `get_operations`, `get_dataflow`, `get_structure`, `get_constants`, `generate_ast_code`, `analyze_vi`, `generate_documents`, `generate_python`, `list_loaded_vis`, `get_vi_context`.
@@ -152,12 +152,12 @@ vipy mcp
 > get operations for In.vi
 ```
 
-**Skills for Claude Code** (5 user-facing skills, installable into a downstream project via `vipy init --skills claude`; 2 more `/judge-output` and `/trace-bug` stay vipy-maintainer-only):
-- `/vipy-convert` — full conversion pipeline with resolution loop
-- `/vipy-describe` — human-readable VI description
-- `/vipy-resolve-primitive` — resolve unknown LabVIEW primitives via web search
-- `/vipy-resolve-vilib` — resolve unknown vilib VIs via web search or the user's vi.lib install
-- `/vipy-idiomatic` — improve generated code style
+**Skills for Claude Code** (5 user-facing skills, installable into a downstream project via `lvpy init --skills claude`; 2 more `/judge-output` and `/trace-bug` stay lvpy-maintainer-only):
+- `/lvpy-convert` — full conversion pipeline with resolution loop
+- `/lvpy-describe` — human-readable VI description
+- `/lvpy-resolve-primitive` — resolve unknown LabVIEW primitives via web search
+- `/lvpy-resolve-vilib` — resolve unknown vilib VIs via web search or the user's vi.lib install
+- `/lvpy-idiomatic` — improve generated code style
 
 **Talking point:** The AI doesn't guess — it queries the actual dataflow graph. Every wire, every type, every terminal index comes from the binary.
 
@@ -165,7 +165,7 @@ vipy mcp
 
 ```bash
 # Generate with LLM cleanup (requires Anthropic API key)
-vipy llm-generate samples/DAQmx-Digital-IO/In.vi -o outputs/demo_llm \
+lvpy llm-generate samples/DAQmx-Digital-IO/In.vi -o outputs/demo_llm \
   --search-path samples/OpenG/extracted
 ```
 
@@ -185,7 +185,7 @@ Event structures, XControls, ActiveX/.NET interop, some VI Server operations. Th
 LabVIEW error clusters become Python exceptions. Error wires become try/except. Merge Errors becomes ThreadPoolExecutor future.result() wrapping.
 
 *"Is the generated code production-ready?"*
-It's syntactically valid and structurally correct. An AI cleanup pass (vipy llm-generate) can improve naming and idioms. The goal is 80% automated, 20% human review.
+It's syntactically valid and structurally correct. An AI cleanup pass (lvpy llm-generate) can improve naming and idioms. The goal is 80% automated, 20% human review.
 
 *"How fast is it?"*
 The AST pipeline is deterministic — no LLM calls. Single VI: <1 second. 94-file class: ~10 seconds.

@@ -6,14 +6,14 @@ from pathlib import Path
 
 import pytest
 
-from vipy.graph_types import (
+from lvpy.graph_types import (
     ConstantNode,
     PrimitiveNode,
     Terminal,
     VINode,
     WireEnd,
 )
-from vipy.memory_graph import InMemoryVIGraph, connect
+from lvpy.memory_graph import InMemoryVIGraph, connect
 
 
 class TestInMemoryVIGraphCreation:

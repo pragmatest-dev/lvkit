@@ -17,7 +17,7 @@ from pathlib import Path
 if __name__ == "__main__":
     sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from vipy.analysis import analyze_vi as core_analyze_vi
+from lvpy.analysis import analyze_vi as core_analyze_vi
 
 
 def main():

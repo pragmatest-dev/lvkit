@@ -1,10 +1,10 @@
-# vipy Architecture
+# lvpy Architecture
 
-This document describes the technical architecture, conventions, and design decisions in the vipy project.
+This document describes the technical architecture, conventions, and design decisions in the lvpy project.
 
 ## Overview
 
-vipy converts LabVIEW VI files to Python code without requiring a LabVIEW license. The system uses a two-stage pipeline: structural parsing (Python) followed by semantic translation (AST-based code generation or LLM-assisted).
+lvpy converts LabVIEW VI files to Python code without requiring a LabVIEW license. The system uses a two-stage pipeline: structural parsing (Python) followed by semantic translation (AST-based code generation or LLM-assisted).
 
 ## Technology Stack
 
@@ -56,13 +56,13 @@ vipy converts LabVIEW VI files to Python code without requiring a LabVIEW licens
 
 ## Key Modules
 
-### Core Parsing (`src/vipy/parser.py`)
+### Core Parsing (`src/lvpy/parser.py`)
 - Parses pylabview XML output into structured `BlockDiagram`
 - Extracts nodes (SubVIs, primitives), wires, constants
 - Identifies terminal connections and data flow
 - Returns typed dataclasses (not dicts)
 
-### Memory Graph (`src/vipy/memory_graph.py`)
+### Memory Graph (`src/lvpy/memory_graph.py`)
 - Central data structure: `InMemoryVIGraph`
 - Loads VI and all SubVI dependencies recursively
 - Provides graph queries: inputs, outputs, operations, wires, constants
@@ -82,31 +82,31 @@ def get_vi_context(vi_name: str) -> dict[str, Any]:
     }
 ```
 
-### AST Code Generation (`src/vipy/agent/codegen/`)
+### AST Code Generation (`src/lvpy/agent/codegen/`)
 - **`ast_builder.py`**: Builds Python AST from VI graph
 - **`context.py`**: Context tracking for code generation
 - Expects dataclass inputs from `get_vi_context()`
 - Deterministic, type-safe code generation
 - Handles SubVI calls, primitives, data flow
 
-### Documentation Generator (`src/vipy/docs/`)
+### Documentation Generator (`src/lvpy/docs/`)
 - **`html_generator.py`**: Generates static HTML documentation
 - **`template.css`**: Extracted CSS stylesheet (287 lines)
 - Supports polymorphic VI documentation with variant comparison
 - Generates cross-referenced documentation with Mermaid diagrams
 - Organizes output by library (OpenG/, vi.lib/, etc.)
 
-### Summarizer (`src/vipy/summarizer.py`)
+### Summarizer (`src/lvpy/summarizer.py`)
 - Legacy LLM-based generation support
 - Creates human-readable VI summaries
 - Primitive mapping table (primResID → function name)
 - Used for debugging and LLM input
 
-### CLI Interface (`src/vipy/cli.py`)
+### CLI Interface (`src/lvpy/cli.py`)
 - Command-line interface
 - Commands: check, summarize, convert, agent, analyze
 
-### Explorer (`src/vipy/explorer.py`)
+### Explorer (`src/lvpy/explorer.py`)
 - NiceGUI-based interactive UI for generated Python
 - Tree navigation of VIs organized by library
 - Tabbed interface for executing VIs
@@ -115,7 +115,7 @@ def get_vi_context(vi_name: str) -> dict[str, Any]:
 
 ## Data Structures
 
-All data structures are **typed dataclasses** from `src/vipy/parser/models.py`:
+All data structures are **typed dataclasses** from `src/lvpy/parser/models.py`:
 
 ### Core Graph Types
 
@@ -181,7 +181,7 @@ dest_id = wire.get("to_terminal_id")
 ### Standard Test Command
 
 ```bash
-vipy agent "path/to/file.vi" \
+lvpy agent "path/to/file.vi" \
     -o outputs \
     --search-path samples/OpenG/extracted \
     --generate-ui
@@ -215,7 +215,7 @@ outputs/
 │   ├── openg/                    # OpenG (__ogtk suffix)
 │   │   ├── build_path.py
 │   │   └── build_path_ui.py
-│   ├── app.py                    # Explorer (copy of src/vipy/explorer.py)
+│   ├── app.py                    # Explorer (copy of src/lvpy/explorer.py)
 │   └── __init__.py
 ```
 
@@ -363,8 +363,8 @@ from typing import Any
 from nicegui import ui
 
 # Local
-from vipy.parser.models import Operation, Wire
-from vipy.memory_graph import InMemoryVIGraph
+from lvpy.parser.models import Operation, Wire
+from lvpy.memory_graph import InMemoryVIGraph
 ```
 
 ### Naming Conventions
@@ -398,7 +398,7 @@ python app.py
 ### Test Structure
 ```
 tests/
-├── test_vipy.py              # Basic functionality
+├── test_lvpy.py              # Basic functionality
 ├── test_ast_builder.py       # AST generation
 └── samples/                  # Test data
     ├── OpenG/
@@ -448,7 +448,7 @@ When code generator encounters vilib VI with missing terminal indices:
 
 ```bash
 # Standard test command
-vipy agent "samples/JKI-VI-Tester/source/User Interfaces/Graphical Test Runner/Graphical Test Runner Support/Get Settings Path.vi" \
+lvpy agent "samples/JKI-VI-Tester/source/User Interfaces/Graphical Test Runner/Graphical Test Runner Support/Get Settings Path.vi" \
     -o outputs \
     --search-path samples/OpenG/extracted \
     --generate-ui
@@ -626,7 +626,7 @@ Located in `summarizer.py`. Expand as more VIs are converted.
 
 ## Summary
 
-vipy follows these core principles:
+lvpy follows these core principles:
 
 1. **Type Safety**: Dataclasses everywhere, mypy strict mode
 2. **Deterministic**: AST-based generation over LLM when possible

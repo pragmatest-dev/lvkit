@@ -1,4 +1,4 @@
-"""Shared test helpers for vipy tests.
+"""Shared test helpers for lvpy tests.
 
 Provides graph and context construction for tests that need CodeGenContext
 with a proper graph (required since bind/resolve store var_names on the graph).
@@ -6,13 +6,13 @@ with a proper graph (required since bind/resolve store var_names on the graph).
 
 from __future__ import annotations
 
-from vipy.agent.codegen.context import CodeGenContext
-from vipy.graph_types import (
+from lvpy.agent.codegen.context import CodeGenContext
+from lvpy.graph_types import (
     PrimitiveNode,
     Terminal,
     WireEnd,
 )
-from vipy.memory_graph import InMemoryVIGraph
+from lvpy.memory_graph import InMemoryVIGraph
 
 
 def make_node(node_id: str, terminal_ids: list[str]) -> PrimitiveNode:
