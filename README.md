@@ -81,13 +81,13 @@ vipy exposes an MCP server (`vipy mcp` or the `vipy-mcp` console script). Once p
   "mcpServers": {
     "vipy": {
       "command": "uvx",
-      "args": ["vipy-mcp"]
+      "args": ["--from", "vipy", "vipy-mcp"]
     }
   }
 }
 ```
 
-Paste that into your MCP client config (Claude Code's `claude_code_config.json`, Cursor's `~/.cursor/mcp.json`, or equivalent). Restart the client and the vipy tools become available — load_vi, describe_vi, get_operations, get_dataflow, get_structure, get_constants, generate_python, generate_documents, and analyze_vi.
+The `--from vipy` tells `uvx` which package to install; `vipy-mcp` is the console-script entry point inside that package. Paste this into your MCP client config (Claude Code's `claude_code_config.json`, Cursor's `~/.cursor/mcp.json`, or equivalent), restart the client, and the vipy tools become available — load_vi, describe_vi, get_operations, get_dataflow, get_structure, get_constants, generate_python, generate_documents, and analyze_vi.
 
 ## Architecture Overview
 
