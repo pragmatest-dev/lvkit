@@ -278,3 +278,139 @@ def test_build_module_accepts_soft_unresolved() -> None:
     # Just confirm we got valid Python back
     ast.parse(code)
     assert "def" in code  # Generated a function
+
+
+# ============================================================
+# Defensive: emit_soft_unresolved guards against non-literal kwargs
+# ============================================================
+
+
+def test_emit_soft_unresolved_rejects_non_literal_kwarg() -> None:
+    """emit_soft_unresolved raises TypeError if a literal_kwarg isn't JSON-shaped.
+
+    Repr-then-parse only works for builtin literal types. A custom object
+    sneaking into kwargs would produce invalid Python source. The guard
+    catches this at codegen time instead of at SyntaxError time.
+    """
+    from vipy.agent.codegen.unresolved import emit_soft_unresolved
+
+    class NotALiteral:
+        pass
+
+    node = PrimitiveOperation(
+        id="prim_guard",
+        name="X",
+        labels=["Primitive"],
+        terminals=[],
+        primResID=1,
+    )
+    ctx = CodeGenContext(soft_unresolved=True, vi_name="Foo.vi")
+
+    with pytest.raises(TypeError, match="unsupported type"):
+        emit_soft_unresolved(
+            node=node,
+            ctx=ctx,
+            exception_module="x",
+            exception_class="X",
+            literal_kwargs={"bad": NotALiteral()},  # type: ignore[dict-item]
+        )
+
+
+def test_emit_soft_unresolved_rejects_non_literal_positional_arg() -> None:
+    """The same guard applies to positional_args."""
+    from vipy.agent.codegen.unresolved import emit_soft_unresolved
+
+    class NotALiteral:
+        pass
+
+    node = PrimitiveOperation(
+        id="prim_guard_pos",
+        name="X",
+        labels=["Primitive"],
+        terminals=[],
+        primResID=1,
+    )
+    ctx = CodeGenContext(soft_unresolved=True, vi_name="Foo.vi")
+
+    with pytest.raises(TypeError, match="unsupported type"):
+        emit_soft_unresolved(
+            node=node,
+            ctx=ctx,
+            exception_module="x",
+            exception_class="X",
+            positional_args=[NotALiteral()],
+        )
+
+
+def test_codegen_context_child_propagates_soft_mode() -> None:
+    """child() must propagate soft_unresolved and qualified_vi_name.
+
+    Otherwise, an unknown primitive inside a loop or case structure
+    would silently fall back to hard mode (raising at codegen time)
+    even when the parent context requested soft mode.
+    """
+    parent = CodeGenContext(
+        vi_name="Caller.vi",
+        qualified_vi_name="MyLib.lvlib:Caller.vi",
+        soft_unresolved=True,
+    )
+    child = parent.child()
+    assert child.soft_unresolved is True
+    assert child.qualified_vi_name == "MyLib.lvlib:Caller.vi"
+    # Loop-depth child also preserves these
+    loop_child = parent.child(increment_loop_depth=True)
+    assert loop_child.soft_unresolved is True
+    assert loop_child.qualified_vi_name == "MyLib.lvlib:Caller.vi"
+    assert loop_child.loop_depth == 1
+
+
+def test_emit_soft_unresolved_source_kwargs_unchecked() -> None:
+    """source_kwargs accept raw Python source — not JSON-safety-checked.
+
+    They exist for non-literal values like dataclass constructors. The
+    helper inserts them verbatim into the generated raise expression.
+    """
+    from vipy.agent.codegen.unresolved import emit_soft_unresolved
+
+    node = PrimitiveOperation(
+        id="prim_src_kw",
+        name="X",
+        labels=["Primitive"],
+        terminals=[],
+        primResID=1,
+    )
+    ctx = CodeGenContext(soft_unresolved=True, vi_name="Foo.vi")
+
+    # Pass a raw source expression — would fail JSON-safety if checked.
+    fragment = emit_soft_unresolved(
+        node=node,
+        ctx=ctx,
+        exception_module="vipy.vilib_resolver",
+        exception_class="VILibResolutionNeeded",
+        positional_args=["VI Name.vi"],
+        source_kwargs={"context": "ResolutionContext(caller_vi='Foo.vi')"},
+    )
+
+    # Verify the raw source landed in the generated raise statement.
+    module = ast.Module(body=fragment.statements, type_ignores=[])
+    ast.fix_missing_locations(module)
+    src = ast.unparse(module)
+    assert "ResolutionContext(caller_vi='Foo.vi')" in src
+    assert "raise VILibResolutionNeeded" in src
+
+
+def test_primitive_operation_has_no_qualified_path() -> None:
+    """Primitives don't have file paths — qualified_path stays None.
+
+    They're identified by primResID, not by an on-disk source file.
+    The qualified_path field exists on the base Operation class because
+    SubVI operations DO have it, but primitives never set it.
+    """
+    op = PrimitiveOperation(
+        id="prim_no_path",
+        name="Add",
+        labels=["Primitive"],
+        terminals=[],
+        primResID=1419,
+    )
+    assert op.qualified_path is None

@@ -18,6 +18,7 @@ from vipy.vilib_resolver import (
 from ..ast_utils import to_function_name, to_module_name, to_var_name
 from ..context import CodeGenContext
 from ..fragment import CodeFragment
+from ..unresolved import emit_soft_unresolved
 
 
 def generate(node: SubVIOperation, ctx: CodeGenContext) -> CodeFragment:
@@ -703,29 +704,13 @@ def _emit_vilib_resolution(
     if not ctx.soft_unresolved:
         raise VILibResolutionNeeded(vi_name, context=context)
 
-    statements: list[ast.stmt] = []
-
-    # Pre-bind outputs to None so downstream codegen sees a value.
-    for term in node.terminals:
-        if term.direction != "output":
-            continue
-        var_name = ctx.make_output_var(
-            to_var_name(term.name or f"out_{term.index}"),
-            node.id,
-            terminal_id=term.id,
-        )
-        ctx.bind(term.id, var_name)
-        statements.append(
-            ast.Assign(
-                targets=[ast.Name(id=var_name, ctx=ast.Store())],
-                value=ast.Constant(value=None),
-            )
-        )
-
-    # Build:
+    # Soft mode: emit
     #   raise VILibResolutionNeeded(<vi_name>,
-    #       context=ResolutionContext(caller_vi=..., ...))
-    ctx_kwargs = ", ".join(
+    #       context=ResolutionContext(...))
+    # vi_name is a literal positional. The ResolutionContext is a
+    # dataclass call — not a literal — so it goes through source_kwargs
+    # as a pre-formatted Python expression.
+    ctx_kwarg_src = ", ".join(
         f"{k}={v!r}" for k, v in {
             "caller_vi": context.caller_vi,
             "caller_qualified_name": context.caller_qualified_name,
@@ -735,18 +720,16 @@ def _emit_vilib_resolution(
             "qualified_path": context.qualified_path,
         }.items()
     )
-    raise_src = (
-        f"raise VILibResolutionNeeded({vi_name!r}, "
-        f"context=ResolutionContext({ctx_kwargs}))"
-    )
-    raise_stmt = ast.parse(raise_src).body[0]
-    statements.append(raise_stmt)
 
-    return CodeFragment(
-        statements=statements,
-        imports={
-            "from vipy.vilib_resolver import "
-            "ResolutionContext, VILibResolutionNeeded"
+    return emit_soft_unresolved(
+        node=node,
+        ctx=ctx,
+        exception_module="vipy.vilib_resolver",
+        exception_class="VILibResolutionNeeded",
+        positional_args=[vi_name],
+        source_kwargs={"context": f"ResolutionContext({ctx_kwarg_src})"},
+        extra_imports={
+            "from vipy.vilib_resolver import ResolutionContext"
         },
     )
 
