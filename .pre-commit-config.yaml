@@ -25,5 +25,8 @@ repos:
         name: sync skill templates
         entry: scripts/sync_skills.sh
         language: system
-        files: '^(\.claude/skills/(resolve-primitive|resolve-vilib|describe-vi|convert|idiomatic)/SKILL\.md|src/vipy/skill_templates/claude/.*/SKILL\.md)$'
+        # Trigger on any SKILL.md change under either tree. The script
+        # discovers skills dynamically from src/vipy/skill_templates/ —
+        # adding a new packaged skill requires no hook-config change.
+        files: '^(\.claude/skills/.*/SKILL\.md|src/vipy/skill_templates/claude/.*/SKILL\.md)$'
         pass_filenames: false
