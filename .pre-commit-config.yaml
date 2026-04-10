@@ -20,3 +20,10 @@ repos:
         language: system
         types: [python]
         pass_filenames: false
+
+      - id: sync-skills
+        name: sync skill templates
+        entry: scripts/sync_skills.sh
+        language: system
+        files: '^(\.claude/skills/(resolve-primitive|resolve-vilib|describe-vi|convert|idiomatic)/SKILL\.md|src/vipy/skill_templates/claude/.*/SKILL\.md)$'
+        pass_filenames: false
