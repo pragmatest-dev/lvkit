@@ -194,7 +194,7 @@ def install_claude_skills(target_dir: Path, force: bool = False) -> list[Path]:
         templates are already byte-identical to the in-repo copies (a
         no-op re-install).
     """
-    template_root = files("vipy.skill_templates").joinpath("claude")
+    template_root = files("vipy.skill_templates")
     skills_dir = target_dir / ".claude" / "skills"
     skills_dir.mkdir(parents=True, exist_ok=True)
 
@@ -204,7 +204,8 @@ def install_claude_skills(target_dir: Path, force: bool = False) -> list[Path]:
     conflicts: list[Path] = []
 
     for skill_dir in template_root.iterdir():
-        if not skill_dir.is_dir():
+        if not skill_dir.is_dir() or skill_dir.name.startswith(("_", ".")):
+            # Skip __pycache__, __init__-style dirs, hidden dirs.
             continue
         template_file = skill_dir.joinpath("SKILL.md")
         if not template_file.is_file():
@@ -309,9 +310,12 @@ def _build_copilot_section() -> str:
     that list are appended in alphabetical order so adding a new
     template doesn't silently drop it.
     """
-    template_root = files("vipy.skill_templates").joinpath("claude")
+    template_root = files("vipy.skill_templates")
 
-    skill_dirs = [d for d in template_root.iterdir() if d.is_dir()]
+    skill_dirs = [
+        d for d in template_root.iterdir()
+        if d.is_dir() and not d.name.startswith(("_", "."))
+    ]
     skill_dirs.sort(
         key=lambda d: (
             _SKILL_ORDER.index(d.name) if d.name in _SKILL_ORDER else len(_SKILL_ORDER),
