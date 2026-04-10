@@ -6,6 +6,8 @@ import json
 from dataclasses import dataclass
 from pathlib import Path
 
+from ._data import data_dir as _bundled_data_dir
+
 
 @dataclass
 class PrimitiveInfo:
@@ -29,11 +31,7 @@ class PrimitiveLookup:
                           If None, uses default location.
         """
         if api_data_path is None:
-            # Default to data/ directory relative to this file
-            api_data_path = (
-                Path(__file__).parent.parent.parent
-                / "data" / "labview-api-scraped.json"
-            )
+            api_data_path = _bundled_data_dir() / "labview-api-scraped.json"
 
         self.primitives: list[PrimitiveInfo] = []
         self._by_signature: dict[

@@ -21,6 +21,7 @@ from ..ast_utils import (
 )
 from ..context import CodeGenContext
 from ..fragment import CodeFragment
+from ..unresolved import emit_soft_unresolved
 
 
 def generate(node: PrimitiveOperation, ctx: CodeGenContext) -> CodeFragment:
@@ -595,26 +596,47 @@ def _emit_placeholder(
 def _emit_unknown(
     node: PrimitiveOperation, prim_id: int, ctx: CodeGenContext
 ) -> CodeFragment:
-    """Raise PrimitiveResolutionNeeded for unknown primitives.
+    """Handle an unknown primitive.
 
-    Unknown primitives MUST be resolved before generation can proceed.
-    Silent placeholders hide failures — the conversion loop depends on
-    errors being raised so they can be resolved one at a time.
+    Default mode: raise PrimitiveResolutionNeeded immediately so the
+    conversion loop catches it and the user can resolve it before
+    proceeding.
+
+    Soft mode (ctx.soft_unresolved=True): emit an inline `raise
+    PrimitiveResolutionNeeded(...)` AST statement with the same kwargs.
+    The generated Python is syntactically valid; running it raises the
+    exact same exception that hard mode would have raised at codegen
+    time. This lets a downstream LLM see the diagnostic in context and
+    either write a mapping into .vipy/ or replace the raise with a
+    contextual fix.
     """
-    terminals = []
-    for term in node.terminals:
-        terminals.append({
+    terminals = [
+        {
             "index": term.index,
             "direction": term.direction,
             "name": term.name,
             "type": term.lv_type.underlying_type if term.lv_type else None,
-        })
+        }
+        for term in node.terminals
+    ]
 
-    raise PrimitiveResolutionNeeded(
-        prim_id=prim_id,
-        prim_name=node.name or "unknown",
-        terminals=terminals,
-        vi_name=ctx.vi_name,
+    kwargs: dict[str, object] = {
+        "prim_id": prim_id,
+        "prim_name": node.name or "unknown",
+        "terminals": terminals,
+        "vi_name": ctx.vi_name,
+        "qualified_vi_name": ctx.qualified_vi_name,
+    }
+
+    if not ctx.soft_unresolved:
+        raise PrimitiveResolutionNeeded(**kwargs)  # type: ignore[arg-type]
+
+    return emit_soft_unresolved(
+        node=node,
+        ctx=ctx,
+        exception_module="vipy.primitive_resolver",
+        exception_class="PrimitiveResolutionNeeded",
+        literal_kwargs=kwargs,
     )
 
 def _raise_terminal_resolution(

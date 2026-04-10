@@ -10,20 +10,24 @@ Data extracted from the LabVIEW Programming Reference Manual.
 from __future__ import annotations
 
 import json
-from pathlib import Path
+
+from ._data import data_dir as _bundled_data_dir
 
 _ERROR_CODES: dict[str, str] | None = None
 
 
 def _load_codes() -> dict[str, str]:
-    """Load error codes from JSON data file (lazy, one-time)."""
+    """Load error codes from JSON data file (lazy, one-time).
+
+    Gracefully degrades to an empty dict if the data file is missing
+    (matches the rest of the resolver layer — see also
+    PrimitiveResolver._load_codegen and VILibResolver._load_vilib_data).
+    A missing file means error descriptions are unavailable but the
+    rest of vipy keeps working.
+    """
     global _ERROR_CODES
     if _ERROR_CODES is None:
-        data_path = (
-            Path(__file__).parent.parent.parent
-            / "data"
-            / "labview_error_codes.json"
-        )
+        data_path = _bundled_data_dir() / "labview_error_codes.json"
         if data_path.exists():
             _ERROR_CODES = json.loads(data_path.read_text())
         else:

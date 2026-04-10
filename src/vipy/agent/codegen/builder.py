@@ -33,6 +33,7 @@ def build_module(
     import_resolver: Callable[[str], str] | None = None,
     has_parallel_branches: bool | None = None,
     graph: InMemoryVIGraph | None = None,
+    soft_unresolved: bool = False,
 ) -> str:
     """Build complete Python module from VI context.
 
@@ -43,6 +44,12 @@ def build_module(
         has_parallel_branches: If True, enable held error model for parallel
                               branch error handling. If None, reads from vi_context.
         graph: The nx.MultiDiGraph. resolve() walks this directly.
+        soft_unresolved: When True, unknown primitives / vi.lib VIs are
+            emitted as inline `raise PrimitiveResolutionNeeded(...)` /
+            `raise VILibResolutionNeeded(...)` statements instead of
+            failing the build. Generated Python is syntactically valid;
+            running it raises the same exception that hard mode would
+            raise at codegen time.
 
     Returns:
         Python source code as string
@@ -51,6 +58,8 @@ def build_module(
     ctx = CodeGenContext.from_vi_context(vi_context, graph=graph)  # InMemoryVIGraph
     ctx.import_resolver = import_resolver
     ctx.vi_name = vi_name
+    ctx.qualified_vi_name = vi_context.qualified_name
+    ctx.soft_unresolved = soft_unresolved
 
     # Determine if we need error handling infrastructure (graph-driven).
     # True only if Merge Errors (prim 2401) exists in the VI's operations.

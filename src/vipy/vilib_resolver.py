@@ -9,6 +9,7 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
+from vipy._data import data_dir as _bundled_data_dir
 from vipy.graph_types import ClusterField, EnumValue, LVType
 
 
@@ -20,6 +21,13 @@ class ResolutionContext:
     poly_selector: str | None = None
     wire_types: list[str] = field(default_factory=list)
     terminal_names: list[str] = field(default_factory=list)
+    # Fully qualified on-disk path of the unknown SubVI, e.g.
+    # "<vilib>/Utility/error.llb/Error Cluster From Error Code.vi".
+    # Lets an LLM with access to a real LabVIEW install find the source.
+    qualified_path: str | None = None
+    # Fully qualified name of the caller VI (library + class + name),
+    # complementing caller_vi which may just be the bare name.
+    caller_qualified_name: str | None = None
 
 
 def derive_python_name(typedef_name: str) -> str:
@@ -93,12 +101,22 @@ class VILibResolutionNeeded(Exception):
     def _format_message(self) -> str:
         msg = f"VILib resolution needed for '{self.vi_name}'.\n"
 
+        if self.context.qualified_path:
+            msg += f"\nQualified path: {self.context.qualified_path}"
+            msg += (
+                "\n  (Open this file in a LabVIEW install to read the real"
+                " terminal layout)"
+            )
+
         if self.context.poly_selector:
             msg += f"\nPolymorphic selector: {self.context.poly_selector}"
             msg += "\n  (Add this to poly_selector_names in the variant's JSON entry)"
 
-        if self.context.caller_vi:
-            msg += f"\nCaller VI: {self.context.caller_vi}"
+        caller_label = (
+            self.context.caller_qualified_name or self.context.caller_vi
+        )
+        if caller_label:
+            msg += f"\nCaller VI: {caller_label}"
 
         if self.context.terminal_names:
             msg += "\n\nTerminal names from XML:\n"
@@ -110,7 +128,11 @@ class VILibResolutionNeeded(Exception):
             for wt in self.context.wire_types:
                 msg += f"  - {wt}\n"
 
-        msg += "\nPlease add terminal info to data/vilib/<category>.json"
+        msg += (
+            "\nFix: add terminal info to .vipy/vilib/<category>.json"
+            " (project-local) or data/vilib/<category>.json"
+            " (cleanroom upstream)"
+        )
         return msg
 
 
@@ -164,14 +186,22 @@ class VILibResolver:
     2. data/vilib/*.json - PDF-extracted VIs with terminal info (fallback)
     """
 
-    def __init__(self, data_dir: Path | None = None):
+    def __init__(
+        self,
+        data_dir: Path | None = None,
+        project_data_dir: Path | None = None,
+    ):
         """Initialize resolver with vilib VI mappings.
 
         Args:
-            data_dir: Path to data directory. If None, uses default location.
+            data_dir: Path to shipped data directory. If None, uses default
+                location relative to this package.
+            project_data_dir: Optional project-local .vipy/ directory.
+                Loaded BEFORE shipped data so project entries take priority
+                via the existing "first wins" semantics in _load_vilib_data.
         """
         if data_dir is None:
-            data_dir = Path(__file__).parent.parent.parent / "data"
+            data_dir = _bundled_data_dir()
 
         self.data_dir = data_dir
         self._vis: dict[str, VIEntry] = {}
@@ -182,25 +212,61 @@ class VILibResolver:
         self._variants: dict[str, list[VIEntry]] = {}  # VI name → variants
         self._by_poly_selector: dict[tuple[str, str], VIEntry] = {}  # (base, sel)
 
-        # Load vilib data from category files
+        # Project data wins: load project subdirs first. _load_vilib_data
+        # has "only add if not present" semantics, so first-loaded entries
+        # take priority over shipped equivalents.
+        if project_data_dir is not None:
+            for subdir in ("vilib", "openg", "drivers"):
+                project_sub = project_data_dir / subdir
+                if project_sub.exists():
+                    self._load_vilib_data(project_sub)
+
+        # Load shipped vilib data from category files
         vilib_dir = data_dir / "vilib"
         if vilib_dir.exists():
             self._load_vilib_data(vilib_dir)
 
-        # Load OpenG data (same format as vilib)
+        # Load shipped OpenG data (same format as vilib)
         openg_dir = data_dir / "openg"
         if openg_dir.exists():
             self._load_vilib_data(openg_dir)
 
-        # Load driver data (same VIEntry schema)
+        # Load shipped driver data (same VIEntry schema)
         drivers_dir = data_dir / "drivers"
         if drivers_dir.exists():
             self._load_vilib_data(drivers_dir)
 
-        # Load type definitions (indexed by typedef path)
+        # Load type definitions (indexed by typedef path).
+        # Project types win — load project _types.json before shipped.
+        if project_data_dir is not None:
+            project_types = project_data_dir / "vilib" / "_types.json"
+            if project_types.exists():
+                self._load_types(project_types)
         types_path = vilib_dir / "_types.json"
         if types_path.exists():
             self._load_types(types_path)
+
+    def clear(self) -> None:
+        """Empty the data-bearing lookup tables.
+
+        Used by tests to simulate a resolver with no mappings. Clears
+        the seven caches populated from data/vilib, data/openg, and
+        data/drivers JSON files: ``_vis``, ``_by_name``, ``_pdf_entries``,
+        ``_types``, ``_category_files``, ``_variants``,
+        ``_by_poly_selector``.
+
+        ``data_dir`` is intentionally preserved — it's a configured
+        path, not a cache.
+
+        If a new data cache is added later, clear it here too.
+        """
+        self._vis.clear()
+        self._by_name.clear()
+        self._pdf_entries.clear()
+        self._types.clear()
+        self._category_files.clear()
+        self._variants.clear()
+        self._by_poly_selector.clear()
 
     def _load_vilib_data(self, vilib_dir: Path) -> None:
         """Load VI mappings from category files in data/vilib/."""
@@ -261,11 +327,18 @@ class VILibResolver:
                         self._by_poly_selector[(entry.base_vi, ps_name)] = entry
 
     def _load_types(self, types_path: Path) -> None:
-        """Load type definitions from _types.json into LVType dataclasses."""
+        """Load type definitions from _types.json into LVType dataclasses.
+
+        First-loaded wins: if a type with this qualified name is already
+        loaded (e.g., from a project _types.json loaded first), the new
+        definition is skipped. This keeps project overrides authoritative.
+        """
         with open(types_path) as f:
             raw_types = json.load(f)
 
         for typedef_path, type_data in raw_types.items():
+            if typedef_path in self._types:
+                continue
             # Parse enum values if present
             values: dict[str, EnumValue] | None = None
             if "values" in type_data:
@@ -1069,7 +1142,19 @@ def get_resolver() -> VILibResolver:
     return _resolver
 
 
-def reset_resolver() -> None:
-    """Reset resolver (for testing)."""
+def reset_resolver(project_data_dir: Path | None = None) -> None:
+    """Replace the cached global resolver, optionally with a project store.
+
+    Call this at CLI/MCP entry points after discovering a project's .vipy/
+    directory. Subsequent get_resolver() calls return a resolver that loads
+    project data first and falls back to shipped data.
+
+    Args:
+        project_data_dir: Path to project's .vipy/ directory, or None to
+            reset to shipped-data-only.
+    """
     global _resolver
-    _resolver = None
+    if project_data_dir is None:
+        _resolver = None
+    else:
+        _resolver = VILibResolver(project_data_dir=project_data_dir)

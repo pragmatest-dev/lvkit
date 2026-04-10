@@ -1,8 +1,8 @@
 """Unified primitive resolver with multi-strategy lookup.
 
 Lookup order:
-1. primResID -> exact match from primitives-codegen.json
-2. Name -> exact name match from primitives-codegen.json or primitives-from-pdf.json
+1. primResID -> exact match from primitives.json
+2. Name -> exact name match from primitives.json or primitives-from-pdf.json
 3. Exact type signature match
 4. Compatible type match (polymorphic/adapt-to-type)
 """
@@ -14,9 +14,11 @@ from pathlib import Path
 
 from pydantic import BaseModel, Field
 
+from ._data import data_dir as _bundled_data_dir
+
 
 class PrimitiveResolutionNeeded(Exception):
-    """Raised when a primitive has no definition in primitives-codegen.json.
+    """Raised when a primitive has no definition in primitives.json.
 
     Same pattern as VILibResolutionNeeded — the whole primitive is unknown,
     here are all its terminals from the graph with directions and types.
@@ -28,11 +30,17 @@ class PrimitiveResolutionNeeded(Exception):
         prim_name: str,
         terminals: list[dict[str, str | int | None]],
         vi_name: str | None = None,
+        qualified_vi_name: str | None = None,
     ):
         self.prim_id = str(prim_id)
         self.prim_name = prim_name
         self.terminals = terminals
         self.vi_name = vi_name
+        # Fully qualified name of the VI being converted (library + class +
+        # name, e.g. "MyProject/utils/path_tools.lvlib:Build My Path.vi"),
+        # so an LLM can find the source file. Optional — bare vi_name still
+        # works as before.
+        self.qualified_vi_name = qualified_vi_name
         super().__init__(self._format_message())
 
     def _format_message(self) -> str:
@@ -40,7 +48,9 @@ class PrimitiveResolutionNeeded(Exception):
             f"Primitive resolution needed for {self.prim_id}"
             f" ({self.prim_name}).\n"
         )
-        if self.vi_name:
+        if self.qualified_vi_name:
+            msg += f"  In VI: {self.qualified_vi_name}\n"
+        elif self.vi_name:
             msg += f"  In VI: {self.vi_name}\n"
         msg += "  Wired terminals from graph:\n"
         for t in self.terminals:
@@ -56,7 +66,8 @@ class PrimitiveResolutionNeeded(Exception):
             msg += "    (none)\n"
         msg += (
             f"\n  Fix: add primitive {self.prim_id} to"
-            f" data/primitives-codegen.json"
+            f" .vipy/primitives.json (project-local) or"
+            f" data/primitives.json (cleanroom upstream)"
         )
         return msg
 
@@ -104,7 +115,7 @@ class TerminalResolutionNeeded(Exception):
         if not self.available:
             msg += "    (none available)\n"
         msg += (
-            f"\n  Fix: add/update terminal in data/primitives-codegen.json"
+            f"\n  Fix: add/update terminal in data/primitives.json"
             f" under primitive {self.prim_id}"
         )
         return msg
@@ -166,20 +177,23 @@ class PrimitiveResolver:
 
     def __init__(
         self,
-        codegen_path: Path | str | None = None,
+        primitives_path: Path | str | None = None,
         pdf_path: Path | str | None = None,
+        project_data_dir: Path | None = None,
     ):
         """Load primitive database.
 
         Args:
-            codegen_path: Path to primitives-codegen.json
-            pdf_path: Path to primitives-from-pdf.json
+            primitives_path: Path to primitives.json (shipped data)
+            pdf_path: Path to primitives-from-pdf.json (shipped data)
+            project_data_dir: Optional project-local .vipy/ directory.
+                Loaded BEFORE shipped data so project entries take priority.
         """
-        data_dir = Path(__file__).parent.parent.parent / "data"
-        if codegen_path is None:
-            codegen_path = data_dir / "primitives-codegen.json"
+        bundled = _bundled_data_dir()
+        if primitives_path is None:
+            primitives_path = bundled / "primitives.json"
         if pdf_path is None:
-            pdf_path = data_dir / "primitives-from-pdf.json"
+            pdf_path = bundled / "primitives-from-pdf.json"
 
         self._by_id: dict[str, dict] = {}
         self._by_name: dict[str, dict] = {}  # Normalized name -> primitive
@@ -218,8 +232,32 @@ class PrimitiveResolver:
             ("SGL", "DBL"),
         }
 
-        self._load_codegen(Path(codegen_path))
+        # Project data wins: load project file first, shipped file second.
+        # _load_codegen / _load_pdf both skip entries already present, so the
+        # first loader's entries take priority.
+        if project_data_dir is not None:
+            self._load_codegen(project_data_dir / "primitives.json")
+        self._load_codegen(Path(primitives_path))
         self._load_pdf(Path(pdf_path))
+
+    def clear(self) -> None:
+        """Empty the data-bearing lookup tables.
+
+        Used by tests to simulate a resolver with no mappings. Clears
+        the four indices populated from primitives.json:
+        ``_by_id``, ``_by_name``, ``_by_signature``, ``_by_node_type``.
+
+        Static configuration (``_type_aliases``, ``_compatible_types``)
+        is intentionally preserved — it's hardcoded in __init__ and
+        never mutated, so clearing it would break normalization for the
+        rest of the test session.
+
+        If a new data cache is added later, clear it here too.
+        """
+        self._by_id.clear()
+        self._by_name.clear()
+        self._by_signature.clear()
+        self._by_node_type.clear()
 
     def _normalize_name(self, name: str) -> str:
         """Normalize primitive name for lookup."""
@@ -231,7 +269,11 @@ class PrimitiveResolver:
         return n.replace(" ", "_").replace("-", "_")
 
     def _load_codegen(self, path: Path) -> None:
-        """Load primitives from codegen file (with known IDs)."""
+        """Load primitives from codegen file (with known IDs).
+
+        Skips entries whose prim_id is already loaded — this lets a
+        project-local file (loaded first) override shipped entries.
+        """
         if not path.exists():
             return
 
@@ -241,6 +283,10 @@ class PrimitiveResolver:
         primitives = data.get("primitives", {})
 
         for prim_id, prim_data in primitives.items():
+            # First-loaded wins: skip if already present.
+            if prim_id in self._by_id:
+                continue
+
             # Index by ID
             self._by_id[prim_id] = prim_data
 
@@ -248,7 +294,8 @@ class PrimitiveResolver:
             name = prim_data.get("name", "")
             if name:
                 norm_name = self._normalize_name(name)
-                self._by_name[norm_name] = {"id": prim_id, **prim_data}
+                if norm_name not in self._by_name:
+                    self._by_name[norm_name] = {"id": prim_id, **prim_data}
 
             # Index by type signature if we have terminal info
             terminals = prim_data.get("terminals", [])
@@ -267,9 +314,11 @@ class PrimitiveResolver:
                 self._by_signature[sig].append({"id": prim_id, **prim_data})
 
         # Load node_types section (aBuild, cpdArith, etc.)
+        # Same first-loaded-wins semantics.
         node_types = data.get("node_types", {})
         for node_type, info in node_types.items():
-            self._by_node_type[node_type] = info
+            if node_type not in self._by_node_type:
+                self._by_node_type[node_type] = info
 
     def _load_pdf(self, path: Path) -> None:
         """Load primitives from PDF extraction (no IDs, for name-based lookup)."""
@@ -554,6 +603,24 @@ def get_resolver() -> PrimitiveResolver:
     if _resolver is None:
         _resolver = PrimitiveResolver()
     return _resolver
+
+
+def reset_resolver(project_data_dir: Path | None = None) -> None:
+    """Replace the cached global resolver, optionally with a project store.
+
+    Call this at CLI/MCP entry points after discovering a project's .vipy/
+    directory. Subsequent get_resolver() calls return a resolver that loads
+    project data first and falls back to shipped data.
+
+    Args:
+        project_data_dir: Path to project's .vipy/ directory, or None to
+            reset to shipped-data-only (lazy re-init on next get_resolver).
+    """
+    global _resolver
+    if project_data_dir is None:
+        _resolver = None
+    else:
+        _resolver = PrimitiveResolver(project_data_dir=project_data_dir)
 
 
 def resolve_primitive(

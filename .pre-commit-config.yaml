@@ -20,3 +20,13 @@ repos:
         language: system
         types: [python]
         pass_filenames: false
+
+      - id: sync-skills
+        name: sync skill templates
+        entry: scripts/sync_skills.sh
+        language: system
+        # Trigger on any SKILL.md change under either tree. The script
+        # discovers skills dynamically from src/vipy/skill_templates/ —
+        # adding a new packaged skill requires no hook-config change.
+        files: '^(\.claude/skills/.*/SKILL\.md|src/vipy/skill_templates/claude/.*/SKILL\.md)$'
+        pass_filenames: false

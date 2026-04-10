@@ -15,9 +15,9 @@ vipy reads those binaries directly and generates Python that preserves the origi
 We went out of our way to keep this clean-room. Every piece of semantic knowledge comes from published sources:
 
 - **Binary format parsing** uses [pylabview](https://github.com/mefistotelis/pylabview), an open-source reverse-engineered RSRC reader. No NI runtime, no LabVIEW APIs, no proprietary libraries.
-- **Primitive definitions** (845 identified) are extracted from NI's published PDF documentation, with page references on every entry. See `data/primitives-from-pdf.json` — each has `"source": "NI PDF Documentation"` and a page number.
+- **Primitive definitions** (845 identified) are extracted from NI's published PDF documentation, with page references on every entry. See `src/vipy/data/primitives-from-pdf.json` — each has `"source": "NI PDF Documentation"` and a page number.
 - **Terminal names and types** come from the same published docs. Terminal *indices* — the connector pane layout, which the PDF doesn't give you — are auto-discovered from caller dataflow at generation time. When vipy sees a wire connected to terminal index 3, it learns that index 3 exists. No guessing.
-- **Enum values and typedefs** are transcribed from published documentation into `data/vilib/_types.json`. Clean-room parsing doesn't have access to LabVIEW's enum labels, so we built the mapping by hand from NI's PDFs.
+- **Enum values and typedefs** are transcribed from published documentation into `src/vipy/data/vilib/_types.json`. Clean-room parsing doesn't have access to LabVIEW's enum labels, so we built the mapping by hand from NI's PDFs.
 - **vilib and OpenG mappings** (67 VIs) are all documented with their PDF source pages and verified against observed wiring, not against running LabVIEW.
 
 The result: vipy runs on Linux, Mac, Windows. No NI software. No license. No network calls. Just Python reading bytes.
@@ -126,7 +126,7 @@ This preserves LabVIEW's semantics: all branches get to finish, the first error 
 
 LabVIEW polymorphic VIs bundle N variant implementations behind a single name — but the variants can have completely different terminal layouts, different input/output counts, different types. This isn't Java-style interface polymorphism; each variant is its own VI with its own connector pane. The caller's VI binary records which variant was selected at edit time via the `polySelector` XML attribute.
 
-vipy reads that selector, looks up the specific variant in `data/vilib/*.json`, and emits variant-specific code with the correct terminal mapping for that variant:
+vipy reads that selector, looks up the specific variant in `src/vipy/data/vilib/*.json`, and emits variant-specific code with the correct terminal mapping for that variant:
 
 ```python
 # Array Size(1D) variant — 1 input, 1 output:
@@ -178,7 +178,7 @@ The deterministic pipeline is the foundation. On top of it, vipy offers:
 
 - **MCP server** (`vipy mcp`): 14 tools for Claude Code, Copilot, or any MCP-compatible editor. Load a VI, explore the graph, generate code — all through tool calls.
 - **LLM cleanup** (`vipy llm-generate`): Takes the AST output as a reference and asks an LLM to produce idiomatic Python. Falls back to AST if the LLM produces invalid syntax.
-- **7 Claude Code skills**: `/convert` (full pipeline with resolution loop), `/describe-vi`, `/resolve-primitive`, `/resolve-vilib`, `/trace-bug`, `/judge-output`, `/idiomatic`.
+- **5 user-facing Claude Code skills**, all installable into a downstream project via `vipy init --skills claude` (or `--skills copilot` for the equivalent Copilot prompts + router): `/vipy-convert` (full pipeline with resolution loop), `/vipy-describe`, `/vipy-resolve-primitive`, `/vipy-resolve-vilib`, `/vipy-idiomatic`. Two more skills (`/judge-output`, `/trace-bug`) are vipy-internal maintainer tooling and are not packaged.
 
 The AI never sees raw bytes. It queries the *typed dataflow graph* through MCP tools. Every wire, every type, every terminal index comes from the binary — the LLM just makes the output prettier.
 

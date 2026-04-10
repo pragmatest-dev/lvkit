@@ -42,7 +42,7 @@ print(describe_operations(g, 'VI_NAME'))
 ```bash
 python3 -c "
 import json
-with open('data/primitives-codegen.json') as f:
+with open('data/primitives.json') as f:
     data = json.load(f)
 p = data['primitives'].get('PRIM_ID')
 if p:
@@ -131,7 +131,7 @@ print(describe_dataflow(g, 'VI_NAME', 'OPERATION_ID'))
 ## Step 4: Identify root cause
 
 The bug is in ONE of:
-1. **Primitive definition** (`data/primitives-codegen.json`) — wrong template, wrong indices
+1. **Primitive definition** (`data/primitives.json`) — wrong template, wrong indices
 2. **vilib entry** (`data/vilib/*.json`) — wrong terminal mapping
 3. **Type resolution** (`graph/loading.py`, `graph/construction.py`) — wrong typedef fields
 4. **Codegen logic** (`agent/codegen/nodes/*.py`) — wrong AST generation for this pattern

@@ -152,14 +152,12 @@ vipy mcp
 > get operations for In.vi
 ```
 
-**Skills for Claude Code** (7 skills in `.claude/skills/`):
-- `/convert` — full conversion pipeline with resolution loop
-- `/describe-vi` — human-readable VI description
-- `/resolve-primitive` — resolve unknown LabVIEW primitives from docs
-- `/resolve-vilib` — resolve unknown vilib VIs from docs
-- `/trace-bug` — trace a codegen bug to its root cause
-- `/judge-output` — evaluate generated Python quality
-- `/idiomatic` — improve generated code style
+**Skills for Claude Code** (5 user-facing skills, installable into a downstream project via `vipy init --skills claude`; 2 more `/judge-output` and `/trace-bug` stay vipy-maintainer-only):
+- `/vipy-convert` — full conversion pipeline with resolution loop
+- `/vipy-describe` — human-readable VI description
+- `/vipy-resolve-primitive` — resolve unknown LabVIEW primitives via web search
+- `/vipy-resolve-vilib` — resolve unknown vilib VIs via web search or the user's vi.lib install
+- `/vipy-idiomatic` — improve generated code style
 
 **Talking point:** The AI doesn't guess — it queries the actual dataflow graph. Every wire, every type, every terminal index comes from the binary.
 

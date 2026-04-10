@@ -84,6 +84,7 @@ class LoadingMixin:
             vi_name: str,
             type_map: dict[int, LVType] | None = None,
             iuse_to_qname: dict[str, str] | None = None,
+            iuse_to_qpath: dict[str, str] | None = None,
         ) -> None: ...
 
     def load_vi(
@@ -467,11 +468,27 @@ class LoadingMixin:
                 type_map, search_paths, bd_xml.parent, visited,
             )
 
+        # Build map of iUse uid → fully qualified on-disk path. The parser
+        # gives us uid → qualified_name AND a list of SubVIPathRef indexed
+        # by qualified_name. Compose them so VINode.qualified_path can be
+        # populated for resolution diagnostics.
+        ref_by_qname = {
+            ref.qualified_name: ref
+            for ref in metadata.subvi_path_refs
+            if ref.qualified_name
+        }
+        iuse_to_qpath: dict[str, str] = {}
+        for uid, qname in metadata.iuse_to_qualified_name.items():
+            ref = ref_by_qname.get(qname)
+            if ref and ref.path_tokens:
+                iuse_to_qpath[uid] = "/".join(ref.path_tokens)
+
         # Build the unified graph for this VI AFTER all callees are loaded.
         # Callees are in the graph → cross-VI edges work → types propagate.
         self._add_vi_to_graph(
             bd, fp, conpane, wiring_rules, vi_name, type_map,
             iuse_to_qname=metadata.iuse_to_qualified_name,
+            iuse_to_qpath=iuse_to_qpath,
         )
 
         return vi_name

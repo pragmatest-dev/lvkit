@@ -1,5 +1,5 @@
 ---
-name: idiomatic
+name: vipy-idiomatic
 description: Rewrite AST-generated Python into idiomatic, human-readable code while preserving LabVIEW semantics. The LLM in the editor does the rewrite — no API key needed.
 allowed-tools: Bash, Read, Write, Edit, Grep
 ---
@@ -16,6 +16,16 @@ The user provides either:
 
 ## Step 1: Get the VI description
 
+Substitute `<vi-path>` and `<library-path>` with the user's actual paths.
+
+The simplest path is the CLI:
+
+```bash
+vipy describe "<vi-path>" --search-path "<library-path>"
+```
+
+Or programmatically if you need the operations list separately:
+
 ```bash
 python3 -c "
 from pathlib import Path
@@ -23,7 +33,7 @@ from vipy.graph.core import InMemoryVIGraph
 from vipy.graph.describe import describe_vi, describe_operations
 
 g = InMemoryVIGraph()
-g.load_vi('VI_PATH', search_paths=[Path('SEARCH_PATH')])
+g.load_vi('<vi-path>', search_paths=[Path('<library-path>')])
 vi_name = list(g.list_vis())[0]
 print(describe_vi(g, vi_name))
 print()

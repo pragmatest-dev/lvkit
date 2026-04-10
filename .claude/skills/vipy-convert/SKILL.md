@@ -1,5 +1,5 @@
 ---
-name: convert
+name: vipy-convert
 description: Convert LabVIEW VI files to Python using vipy. Generates mechanical translation, resolves all errors, then cleans up to idiomatic Python. Also handles documentation generation and MCP server.
 allowed-tools: Bash, Read, Write, Edit, Glob, Grep
 ---
@@ -12,20 +12,26 @@ Convert LabVIEW VI files to Python without requiring a LabVIEW license.
 
 The conversion is a **loop**: generate → resolve unknowns → re-generate → clean up. Repeat until 0 errors, then make it idiomatic.
 
+Substitute the placeholders below with the user's actual paths:
+
+- `<vi-path>` — the .vi, .lvclass, .lvlib, or directory you're converting
+- `<output-dir>` — where generated Python should land
+- `<library-path>` — additional search path for SubVIs (repeat the flag for multiple)
+
 ### Step 1: Generate Python (mechanical translation)
 
 ```bash
 # Single VI
-vipy generate "path/to/file.vi" -o outputs --search-path samples/OpenG/extracted
+vipy generate "<vi-path>" -o "<output-dir>" --search-path "<library-path>"
 
 # LabVIEW class
-vipy generate "path/to/MyClass.lvclass" -o outputs --search-path samples/OpenG/extracted
+vipy generate "<vi-path>.lvclass" -o "<output-dir>" --search-path "<library-path>"
 
 # LabVIEW library
-vipy generate "path/to/MyLib.lvlib" -o outputs --search-path samples/OpenG/extracted
+vipy generate "<vi-path>.lvlib" -o "<output-dir>" --search-path "<library-path>"
 
 # Directory of VIs
-vipy generate "path/to/vi_folder/" -o outputs --search-path samples/OpenG/extracted
+vipy generate "<vi-folder>/" -o "<output-dir>" --search-path "<library-path>"
 ```
 
 Check the summary at the end: `error: N`. If N > 0, proceed to Step 2.
@@ -34,36 +40,26 @@ Check the summary at the end: `error: N`. If N > 0, proceed to Step 2.
 
 If the error summary shows errors, resolve them ONE AT A TIME:
 
-- `PrimitiveResolutionNeeded` → invoke `/resolve-primitive` skill with the primResID
-- `TerminalResolutionNeeded` → invoke `/resolve-primitive` skill (terminal mismatch on known primitive)
-- `VILibResolutionNeeded` → invoke `/resolve-vilib` skill with the VI name
+- `PrimitiveResolutionNeeded` → invoke `/vipy-resolve-primitive` skill with the primResID
+- `TerminalResolutionNeeded` → invoke `/vipy-resolve-primitive` skill (terminal mismatch on known primitive)
+- `VILibResolutionNeeded` → invoke `/vipy-resolve-vilib` skill with the VI name
 - `TypeResolutionNeeded` → investigate nMux field indexing (flattened depth-first index vs typedef fields)
 
 After resolving each unknown, re-run `vipy generate`. Repeat until `error: 0`.
 
 **Note:** Resolving one error may uncover NEW errors from VIs that previously couldn't proceed. This is expected — keep looping.
 
+**Alternative — soft mode:** if you'd rather defer all unknowns to runtime instead of fixing them up front, pass `--placeholder-on-unresolved` to `vipy generate`. Each unknown primitive or vi.lib VI becomes an inline `raise PrimitiveResolutionNeeded(...)` / `raise VILibResolutionNeeded(...)` in the generated Python with full diagnostic context. The build succeeds; runtime fails on the unresolved call. Useful if you want to fix the gaps contextually in the Python rather than via JSON mappings.
+
 ### Step 3: Clean up to idiomatic Python
 
-After 0 errors, the generated code is correct but mechanical. For each generated `.py` file:
+After 0 errors, the generated code is correct but mechanical. For each generated `.py` file, invoke `/vipy-idiomatic` to rewrite it.
 
-1. **Get the VI description** for context:
+If you want context first:
+
 ```bash
-python3 -c "
-from pathlib import Path
-from vipy.graph.core import InMemoryVIGraph
-from vipy.graph.describe import describe_vi, describe_operations
-g = InMemoryVIGraph()
-g.load_vi('VI_PATH', search_paths=[Path('SEARCH')])
-print(describe_vi(g, list(g.list_vis())[0]))
-"
+vipy describe "<vi-path>" --search-path "<library-path>"
 ```
-
-2. **Read the generated Python file**
-
-3. **Rewrite idiomatically** following the rules below
-
-4. **Validate**: `ast.parse(code)` succeeds, same function signature
 
 ### Safe to change (cosmetic):
 - **Variable names** — `daqmx_create_task_task_out` → `task`
@@ -86,7 +82,7 @@ print(describe_vi(g, list(g.list_vis())[0]))
 ### Step 4: Generate documentation (optional)
 
 ```bash
-vipy docs "path/to/file.vi" outputs/docs --search-path samples/OpenG/extracted
+vipy docs "<vi-path>" "<output-dir>/docs" --search-path "<library-path>"
 ```
 
 Creates a browsable HTML site with cross-referenced VI documentation.
@@ -97,8 +93,12 @@ Creates a browsable HTML site with cross-referenced VI documentation.
 vipy generate <path> -o dir       # AST-based Python generation (primary)
 vipy llm-generate <path> -o dir   # LLM-based idiomatic generation
 vipy docs <path> <dir>            # HTML documentation
-vipy check                        # Check dependencies
+vipy describe <path>              # Human-readable VI overview
+vipy diff <vi_a> <vi_b>           # Compare two VI versions
+vipy visualize <path>             # Interactive graph visualization
 vipy structure <path>             # Show project structure
+vipy check                        # Check dependencies
+vipy init                         # Create .vipy/ project store
 vipy mcp                          # Start MCP server for IDE integration
 ```
 
@@ -128,13 +128,10 @@ The MCP server (`vipy mcp`) provides tools for interactive exploration:
 
 ## Related Skills
 
-- `/resolve-primitive` — Resolve unknown LabVIEW primitives
-- `/resolve-vilib` — Resolve unknown vilib VIs
-- `/describe-vi` — Describe a VI's graph (CLI-based, no MCP)
-- `/idiomatic` — Rewrite mechanical Python to idiomatic code
-- `/judge-output` — Evaluate generated code quality
-- `/trace-bug` — Debug codegen issues from output to root cause
-- `/describe-vi` also supports drilling into dataflow, structures, and constants
+- `/vipy-resolve-primitive` — Resolve unknown LabVIEW primitives
+- `/vipy-resolve-vilib` — Resolve unknown vilib VIs
+- `/vipy-describe` — Describe a VI's graph (CLI-based, no MCP)
+- `/vipy-idiomatic` — Rewrite mechanical Python to idiomatic code
 
 ## Troubleshooting
 
