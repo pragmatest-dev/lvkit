@@ -28,11 +28,17 @@ class PrimitiveResolutionNeeded(Exception):
         prim_name: str,
         terminals: list[dict[str, str | int | None]],
         vi_name: str | None = None,
+        qualified_vi_name: str | None = None,
     ):
         self.prim_id = str(prim_id)
         self.prim_name = prim_name
         self.terminals = terminals
         self.vi_name = vi_name
+        # Fully qualified name of the VI being converted (library + class +
+        # name, e.g. "MyProject/utils/path_tools.lvlib:Build My Path.vi"),
+        # so an LLM can find the source file. Optional — bare vi_name still
+        # works as before.
+        self.qualified_vi_name = qualified_vi_name
         super().__init__(self._format_message())
 
     def _format_message(self) -> str:
@@ -40,7 +46,9 @@ class PrimitiveResolutionNeeded(Exception):
             f"Primitive resolution needed for {self.prim_id}"
             f" ({self.prim_name}).\n"
         )
-        if self.vi_name:
+        if self.qualified_vi_name:
+            msg += f"  In VI: {self.qualified_vi_name}\n"
+        elif self.vi_name:
             msg += f"  In VI: {self.vi_name}\n"
         msg += "  Wired terminals from graph:\n"
         for t in self.terminals:
@@ -56,7 +64,8 @@ class PrimitiveResolutionNeeded(Exception):
             msg += "    (none)\n"
         msg += (
             f"\n  Fix: add primitive {self.prim_id} to"
-            f" data/primitives.json"
+            f" .vipy/primitives.json (project-local) or"
+            f" data/primitives.json (cleanroom upstream)"
         )
         return msg
 

@@ -130,6 +130,7 @@ def generate_python(
     output_dir: str,
     search_paths: list[str] | None = None,
     include_code: bool = False,
+    soft_unresolved: bool = False,
 ) -> CodeGenResult:
     """Generate Python code from a LabVIEW VI using AST-based translation.
 
@@ -141,6 +142,8 @@ def generate_python(
         output_dir: Output directory for generated Python files
         search_paths: Optional list of search paths for dependencies
         include_code: If True, include generated code in response (default: False)
+        soft_unresolved: If True, unknown primitives / vi.lib VIs are emitted
+            as inline raise statements instead of failing the build.
 
     Returns:
         CodeGenResult with generated files, errors, and review needs.
@@ -159,6 +162,9 @@ def generate_python(
     if search_paths:
         for sp in search_paths:
             cmd.extend(["--search-path", sp])
+
+    if soft_unresolved:
+        cmd.append("--placeholder-on-unresolved")
 
     # Run the deterministic script
     result = subprocess.run(cmd, capture_output=True, text=True)
