@@ -1,0 +1,560 @@
+{
+  "category": "NI-SCOPE",
+  "count": 18,
+  "entries": [
+    {
+      "name": "niScope Initialize.vi",
+      "description": "Opens a niScope session.",
+      "python_code": "{session_out} = niscope.Session({resource_name})",
+      "inline": true,
+      "imports": [
+        "import niscope"
+      ],
+      "status": "mapped",
+      "terminals": [
+        {
+          "name": "resource name",
+          "direction": "input",
+          "python_param": "resource_name"
+        },
+        {
+          "name": "instrument handle out",
+          "direction": "output",
+          "python_param": "session_out"
+        }
+      ]
+    },
+    {
+      "name": "niScope Close.vi",
+      "description": "Closes a niScope session.",
+      "python_code": "{session}.close()",
+      "inline": true,
+      "imports": [
+        "import niscope"
+      ],
+      "status": "mapped",
+      "terminals": [
+        {
+          "name": "instrument handle",
+          "direction": "input",
+          "python_param": "session"
+        }
+      ]
+    },
+    {
+      "name": "niScope Reset.vi",
+      "description": "Resets the niScope instrument.",
+      "python_code": "{session}.reset()",
+      "inline": true,
+      "imports": [
+        "import niscope"
+      ],
+      "status": "mapped",
+      "terminals": [
+        {
+          "name": "instrument handle",
+          "direction": "input",
+          "python_param": "session"
+        },
+        {
+          "name": "instrument handle out",
+          "direction": "output",
+          "python_param": "session_out"
+        }
+      ],
+      "ref_terminals": {
+        "session_out": "passthrough_from:session"
+      }
+    },
+    {
+      "name": "niScope Self-Test.vi",
+      "description": "Runs niScope self-test.",
+      "python_code": "{result} = {session}.self_test()",
+      "inline": true,
+      "imports": [
+        "import niscope"
+      ],
+      "status": "mapped",
+      "terminals": [
+        {
+          "name": "instrument handle",
+          "direction": "input",
+          "python_param": "session"
+        },
+        {
+          "name": "instrument handle out",
+          "direction": "output",
+          "python_param": "session_out"
+        },
+        {
+          "name": "result",
+          "direction": "output",
+          "python_param": "result"
+        }
+      ],
+      "ref_terminals": {
+        "session_out": "passthrough_from:session"
+      }
+    },
+    {
+      "name": "niScope Self-Cal.vi",
+      "description": "Runs niScope self-calibration.",
+      "python_code": "{session}.self_cal()",
+      "inline": true,
+      "imports": [
+        "import niscope"
+      ],
+      "status": "mapped",
+      "terminals": [
+        {
+          "name": "instrument handle",
+          "direction": "input",
+          "python_param": "session"
+        },
+        {
+          "name": "instrument handle out",
+          "direction": "output",
+          "python_param": "session_out"
+        }
+      ],
+      "ref_terminals": {
+        "session_out": "passthrough_from:session"
+      }
+    },
+    {
+      "name": "niScope Initiate.vi",
+      "description": "Initiates niScope acquisition/generation.",
+      "python_code": "{session}.initiate()",
+      "inline": true,
+      "imports": [
+        "import niscope"
+      ],
+      "status": "mapped",
+      "terminals": [
+        {
+          "name": "instrument handle",
+          "direction": "input",
+          "python_param": "session"
+        },
+        {
+          "name": "instrument handle out",
+          "direction": "output",
+          "python_param": "session_out"
+        }
+      ],
+      "ref_terminals": {
+        "session_out": "passthrough_from:session"
+      }
+    },
+    {
+      "name": "niScope Abort.vi",
+      "description": "Aborts niScope acquisition/generation.",
+      "python_code": "{session}.abort()",
+      "inline": true,
+      "imports": [
+        "import niscope"
+      ],
+      "status": "mapped",
+      "terminals": [
+        {
+          "name": "instrument handle",
+          "direction": "input",
+          "python_param": "session"
+        },
+        {
+          "name": "instrument handle out",
+          "direction": "output",
+          "python_param": "session_out"
+        }
+      ],
+      "ref_terminals": {
+        "session_out": "passthrough_from:session"
+      }
+    },
+    {
+      "name": "niScope Commit.vi",
+      "description": "Commits niScope configuration.",
+      "python_code": "{session}.commit()",
+      "inline": true,
+      "imports": [
+        "import niscope"
+      ],
+      "status": "mapped",
+      "terminals": [
+        {
+          "name": "instrument handle",
+          "direction": "input",
+          "python_param": "session"
+        },
+        {
+          "name": "instrument handle out",
+          "direction": "output",
+          "python_param": "session_out"
+        }
+      ],
+      "ref_terminals": {
+        "session_out": "passthrough_from:session"
+      }
+    },
+    {
+      "name": "niScope Disable.vi",
+      "description": "Disables niScope output.",
+      "python_code": "{session}.disable()",
+      "inline": true,
+      "imports": [
+        "import niscope"
+      ],
+      "status": "mapped",
+      "terminals": [
+        {
+          "name": "instrument handle",
+          "direction": "input",
+          "python_param": "session"
+        },
+        {
+          "name": "instrument handle out",
+          "direction": "output",
+          "python_param": "session_out"
+        }
+      ],
+      "ref_terminals": {
+        "session_out": "passthrough_from:session"
+      }
+    },
+    {
+      "name": "niScope Configure Vertical.vi",
+      "description": "Configures vertical settings.",
+      "python_code": "{session}.channels[{channel}].configure_vertical(range={range}, coupling={coupling}, offset={offset})",
+      "inline": true,
+      "imports": [
+        "import niscope"
+      ],
+      "status": "mapped",
+      "terminals": [
+        {
+          "name": "instrument handle",
+          "direction": "input",
+          "python_param": "session"
+        },
+        {
+          "name": "channel",
+          "direction": "input",
+          "python_param": "channel"
+        },
+        {
+          "name": "range",
+          "direction": "input",
+          "python_param": "range"
+        },
+        {
+          "name": "coupling",
+          "direction": "input",
+          "python_param": "coupling"
+        },
+        {
+          "name": "offset",
+          "direction": "input",
+          "python_param": "offset"
+        },
+        {
+          "name": "instrument handle out",
+          "direction": "output",
+          "python_param": "session_out"
+        }
+      ],
+      "ref_terminals": {
+        "session_out": "passthrough_from:session"
+      }
+    },
+    {
+      "name": "niScope Configure Horizontal Timing.vi",
+      "description": "Configures horizontal timing.",
+      "python_code": "{session}.configure_horizontal_timing(min_sample_rate={min_sample_rate}, min_num_pts={min_num_pts}, ref_position={ref_position}, num_records={num_records}, enforce_realtime={enforce_realtime})",
+      "inline": true,
+      "imports": [
+        "import niscope"
+      ],
+      "status": "mapped",
+      "terminals": [
+        {
+          "name": "instrument handle",
+          "direction": "input",
+          "python_param": "session"
+        },
+        {
+          "name": "min sample rate",
+          "direction": "input",
+          "python_param": "min_sample_rate"
+        },
+        {
+          "name": "min record length",
+          "direction": "input",
+          "python_param": "min_num_pts"
+        },
+        {
+          "name": "reference position",
+          "direction": "input",
+          "python_param": "ref_position"
+        },
+        {
+          "name": "number of records",
+          "direction": "input",
+          "python_param": "num_records"
+        },
+        {
+          "name": "enforce realtime",
+          "direction": "input",
+          "python_param": "enforce_realtime"
+        },
+        {
+          "name": "instrument handle out",
+          "direction": "output",
+          "python_param": "session_out"
+        }
+      ],
+      "ref_terminals": {
+        "session_out": "passthrough_from:session"
+      }
+    },
+    {
+      "name": "niScope Configure Trigger Edge.vi",
+      "description": "Configures edge trigger.",
+      "python_code": "{session}.configure_trigger_edge(trigger_source={trigger_source}, level={level}, slope={slope})",
+      "inline": true,
+      "imports": [
+        "import niscope"
+      ],
+      "status": "mapped",
+      "terminals": [
+        {
+          "name": "instrument handle",
+          "direction": "input",
+          "python_param": "session"
+        },
+        {
+          "name": "trigger source",
+          "direction": "input",
+          "python_param": "trigger_source"
+        },
+        {
+          "name": "level",
+          "direction": "input",
+          "python_param": "level"
+        },
+        {
+          "name": "slope",
+          "direction": "input",
+          "python_param": "slope"
+        },
+        {
+          "name": "instrument handle out",
+          "direction": "output",
+          "python_param": "session_out"
+        }
+      ],
+      "ref_terminals": {
+        "session_out": "passthrough_from:session"
+      }
+    },
+    {
+      "name": "niScope Configure Trigger Digital.vi",
+      "description": "Configures digital trigger.",
+      "python_code": "{session}.configure_trigger_digital(trigger_source={trigger_source}, slope={slope})",
+      "inline": true,
+      "imports": [
+        "import niscope"
+      ],
+      "status": "mapped",
+      "terminals": [
+        {
+          "name": "instrument handle",
+          "direction": "input",
+          "python_param": "session"
+        },
+        {
+          "name": "trigger source",
+          "direction": "input",
+          "python_param": "trigger_source"
+        },
+        {
+          "name": "slope",
+          "direction": "input",
+          "python_param": "slope"
+        },
+        {
+          "name": "instrument handle out",
+          "direction": "output",
+          "python_param": "session_out"
+        }
+      ],
+      "ref_terminals": {
+        "session_out": "passthrough_from:session"
+      }
+    },
+    {
+      "name": "niScope Configure Trigger Software.vi",
+      "description": "Configures software trigger.",
+      "python_code": "{session}.configure_trigger_software()",
+      "inline": true,
+      "imports": [
+        "import niscope"
+      ],
+      "status": "mapped",
+      "terminals": [
+        {
+          "name": "instrument handle",
+          "direction": "input",
+          "python_param": "session"
+        },
+        {
+          "name": "instrument handle out",
+          "direction": "output",
+          "python_param": "session_out"
+        }
+      ],
+      "ref_terminals": {
+        "session_out": "passthrough_from:session"
+      }
+    },
+    {
+      "name": "niScope Configure Trigger Immediate.vi",
+      "description": "Configures immediate trigger.",
+      "python_code": "{session}.configure_trigger_immediate()",
+      "inline": true,
+      "imports": [
+        "import niscope"
+      ],
+      "status": "mapped",
+      "terminals": [
+        {
+          "name": "instrument handle",
+          "direction": "input",
+          "python_param": "session"
+        },
+        {
+          "name": "instrument handle out",
+          "direction": "output",
+          "python_param": "session_out"
+        }
+      ],
+      "ref_terminals": {
+        "session_out": "passthrough_from:session"
+      }
+    },
+    {
+      "name": "niScope Fetch.vi",
+      "description": "Fetches acquired waveforms.",
+      "python_code": "{waveforms} = {session}.channels[{channel}].fetch(num_samples={num_samples})",
+      "inline": true,
+      "imports": [
+        "import niscope"
+      ],
+      "status": "mapped",
+      "terminals": [
+        {
+          "name": "instrument handle",
+          "direction": "input",
+          "python_param": "session"
+        },
+        {
+          "name": "channel",
+          "direction": "input",
+          "python_param": "channel"
+        },
+        {
+          "name": "num samples",
+          "direction": "input",
+          "python_param": "num_samples"
+        },
+        {
+          "name": "timeout",
+          "direction": "input",
+          "python_param": "timeout"
+        },
+        {
+          "name": "instrument handle out",
+          "direction": "output",
+          "python_param": "session_out"
+        },
+        {
+          "name": "waveforms",
+          "direction": "output",
+          "python_param": "waveforms"
+        }
+      ],
+      "ref_terminals": {
+        "session_out": "passthrough_from:session"
+      }
+    },
+    {
+      "name": "niScope Read.vi",
+      "description": "Acquires and reads waveforms.",
+      "python_code": "{waveforms} = {session}.channels[{channel}].read(num_samples={num_samples})",
+      "inline": true,
+      "imports": [
+        "import niscope"
+      ],
+      "status": "mapped",
+      "terminals": [
+        {
+          "name": "instrument handle",
+          "direction": "input",
+          "python_param": "session"
+        },
+        {
+          "name": "channel",
+          "direction": "input",
+          "python_param": "channel"
+        },
+        {
+          "name": "num samples",
+          "direction": "input",
+          "python_param": "num_samples"
+        },
+        {
+          "name": "timeout",
+          "direction": "input",
+          "python_param": "timeout"
+        },
+        {
+          "name": "instrument handle out",
+          "direction": "output",
+          "python_param": "session_out"
+        },
+        {
+          "name": "waveforms",
+          "direction": "output",
+          "python_param": "waveforms"
+        }
+      ],
+      "ref_terminals": {
+        "session_out": "passthrough_from:session"
+      }
+    },
+    {
+      "name": "niScope Auto Setup.vi",
+      "description": "Automatically configures the instrument.",
+      "python_code": "{session}.auto_setup()",
+      "inline": true,
+      "imports": [
+        "import niscope"
+      ],
+      "status": "mapped",
+      "terminals": [
+        {
+          "name": "instrument handle",
+          "direction": "input",
+          "python_param": "session"
+        },
+        {
+          "name": "instrument handle out",
+          "direction": "output",
+          "python_param": "session_out"
+        }
+      ],
+      "ref_terminals": {
+        "session_out": "passthrough_from:session"
+      }
+    }
+  ]
+}

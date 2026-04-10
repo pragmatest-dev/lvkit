@@ -9,15 +9,64 @@ import sys
 import traceback
 from pathlib import Path
 
-from . import __version__
+from . import __version__, primitive_resolver, vilib_resolver
 from .llm import LLMConfig, check_ollama_available, list_models
 from .memory_graph import InMemoryVIGraph
+from .project_store import (
+    find_project_store,
+    init_project_store,
+    install_claude_skills,
+    install_copilot_skills,
+)
 from .structure import (
     discover_project_structure,
     generate_python_structure_plan,
     parse_lvclass,
     parse_lvlib,
 )
+
+
+def _add_project_root_arg(parser: argparse.ArgumentParser) -> None:
+    """Add --project-root flag to a subparser."""
+    parser.add_argument(
+        "--project-root",
+        default=None,
+        metavar="DIR",
+        help=(
+            "Project root containing a .vipy/ resolution store. "
+            "Defaults to walking up from CWD looking for .vipy/."
+        ),
+    )
+
+
+def _configure_resolvers(args: argparse.Namespace) -> Path | None:
+    """Discover the project store and reset resolver singletons.
+
+    Must be called BEFORE any load_vi() so graph construction sees the
+    project mappings (used for terminal-index disambiguation).
+
+    Accepts --project-root in either form: the parent of .vipy/ (the
+    project root), or the .vipy/ directory itself.
+
+    Returns the project store directory if one was found, else None.
+    """
+    project_root = getattr(args, "project_root", None)
+    store: Path | None
+    if project_root:
+        candidate = Path(project_root)
+        # Accept both "project root" and ".vipy/" itself
+        if candidate.name == ".vipy" and candidate.is_dir():
+            store = candidate
+        elif (candidate / ".vipy").is_dir():
+            store = candidate / ".vipy"
+        else:
+            store = None
+    else:
+        store = find_project_store()
+
+    primitive_resolver.reset_resolver(project_data_dir=store)
+    vilib_resolver.reset_resolver(project_data_dir=store)
+    return store
 
 
 def main() -> int:
@@ -83,6 +132,7 @@ def main() -> int:
         metavar="DIR",
         help="Additional directories to search for SubVIs (can be repeated)",
     )
+    _add_project_root_arg(agent_parser)
 
     # Explore command - run NiceGUI project explorer
     explore_parser = subparsers.add_parser(
@@ -128,6 +178,7 @@ def main() -> int:
         "--chart", action="store_true",
         help="Include Mermaid flowchart diagram",
     )
+    _add_project_root_arg(desc_parser)
 
     # Generate command - AST-based Python generation (replaces convert)
     gen_parser = subparsers.add_parser(
@@ -153,6 +204,20 @@ def main() -> int:
         "--no-expand", action="store_true",
         help="Don't expand SubVIs",
     )
+    # User-facing name is --placeholder-on-unresolved (descriptive of the
+    # output the user sees in their generated Python). Internally this
+    # flows to CodeGenContext.soft_unresolved (the codegen-time mode).
+    gen_parser.add_argument(
+        "--placeholder-on-unresolved",
+        action="store_true",
+        help=(
+            "Don't fail on unknown primitives or vi.lib VIs. Instead emit "
+            "an inline `raise PrimitiveResolutionNeeded(...)` / `raise "
+            "VILibResolutionNeeded(...)` in the generated Python so a "
+            "downstream LLM can fix it contextually."
+        ),
+    )
+    _add_project_root_arg(gen_parser)
 
     # Docs command - generate HTML documentation
     docs_parser = subparsers.add_parser(
@@ -177,6 +242,7 @@ def main() -> int:
         "--no-expand", action="store_true",
         help="Don't expand SubVIs",
     )
+    _add_project_root_arg(docs_parser)
 
     # Visualize command - interactive graph visualization
     viz_parser = subparsers.add_parser(
@@ -220,6 +286,7 @@ def main() -> int:
         help="Output format: flowchart (Mermaid, default for dataflow) "
         "or interactive (pyvis, default for deps)",
     )
+    _add_project_root_arg(viz_parser)
 
     # LLM generate command - idiomatic Python via LLM
     # Diff command - compare two VIs
@@ -246,6 +313,7 @@ def main() -> int:
         default=[],
         help="Search paths for SubVI resolution (can be repeated)",
     )
+    _add_project_root_arg(diff_parser)
 
     llm_parser = subparsers.add_parser(
         "llm-generate",
@@ -282,6 +350,36 @@ def main() -> int:
         "--no-reference",
         action="store_true",
         help="Don't include AST reference in prompt",
+    )
+    _add_project_root_arg(llm_parser)
+
+    # Init command - create .vipy/ project store
+    init_parser = subparsers.add_parser(
+        "init",
+        help="Initialize a project-local .vipy/ resolution store",
+    )
+    init_parser.add_argument(
+        "directory",
+        nargs="?",
+        default=".",
+        help="Directory in which to create .vipy/ (default: current directory)",
+    )
+    init_parser.add_argument(
+        "--skills",
+        choices=["claude", "copilot", "all"],
+        default=None,
+        help=(
+            "Also install vipy's resolve workflows into your LLM editor: "
+            "claude installs vipy-prefixed Claude Code skills under "
+            ".claude/skills/; copilot installs per-workflow prompts under "
+            ".github/prompts/ plus a router at "
+            ".github/instructions/vipy.instructions.md; all does both."
+        ),
+    )
+    init_parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Overwrite existing skill files even if they have local edits",
     )
 
     args = parser.parse_args()
@@ -321,6 +419,8 @@ def main() -> int:
         return cmd_llm_generate(args)
     elif args.command == "diff":
         return cmd_diff(args)
+    elif args.command == "init":
+        return cmd_init(args)
     else:
         parser.print_help()
         return 0
@@ -495,6 +595,8 @@ def cmd_agent(args: argparse.Namespace) -> int:
         print(f"Error: Path not found: {input_path}", file=sys.stderr)
         return 1
 
+    _configure_resolvers(args)
+
     try:
         # Build search paths
         search_paths: list[Path] = []
@@ -615,6 +717,8 @@ def cmd_describe(args: argparse.Namespace) -> int:
         print(f"Error: Path not found: {input_path}", file=sys.stderr)
         return 1
 
+    _configure_resolvers(args)
+
     try:
         graph = InMemoryVIGraph()
         search_paths = [Path(p) for p in args.search_paths]
@@ -640,6 +744,64 @@ def cmd_describe(args: argparse.Namespace) -> int:
         return 1
 
 
+def cmd_init(args: argparse.Namespace) -> int:
+    """Handle the init command — create a project-local .vipy/ store."""
+    root = Path(args.directory).resolve()
+    if not root.is_dir():
+        print(f"Error: Not a directory: {root}", file=sys.stderr)
+        return 1
+
+    store = init_project_store(root)
+    print(f"Initialized project store at {store}")
+    print(f"  README: {store / 'README.md'}")
+
+    # Optional: install LLM editor skills
+    skills = getattr(args, "skills", None)
+    force = getattr(args, "force", False)
+    if skills in ("claude", "all"):
+        try:
+            written = install_claude_skills(root, force=force)
+        except FileExistsError as e:
+            print(f"Error: {e}", file=sys.stderr)
+            return 1
+        if written:
+            print(f"Installed {len(written)} Claude Code skill(s):")
+            for p in written:
+                print(f"  {p}")
+        else:
+            print("Claude Code skills already up to date.")
+    if skills in ("copilot", "all"):
+        try:
+            copilot_written = install_copilot_skills(root, force=force)
+        except FileExistsError as e:
+            print(f"Error: {e}", file=sys.stderr)
+            return 1
+        if copilot_written:
+            print(f"Installed {len(copilot_written)} Copilot file(s):")
+            for p in copilot_written:
+                print(f"  {p}")
+        else:
+            print("Copilot files already up to date.")
+
+    print()
+    print("Next steps:")
+    print(
+        "  - Create .vipy/primitives.json to override primitive mappings"
+        " (use vipy's bundled primitives.json as a reference)"
+    )
+    print(
+        "  - Add vi.lib mappings to .vipy/vilib/<category>.json and register them"
+        " in .vipy/vilib/_index.json"
+    )
+    print("  - vipy will check .vipy/ before its bundled data when resolving.")
+    if not skills:
+        print(
+            "  - Run `vipy init --skills all` to install resolve workflows"
+            " into Claude Code and/or Copilot."
+        )
+    return 0
+
+
 def cmd_diff(args: argparse.Namespace) -> int:
     """Handle the diff command — compare two VI versions."""
     from .graph.diff import diff_structured, diff_text
@@ -652,6 +814,7 @@ def cmd_diff(args: argparse.Namespace) -> int:
             print(f"Error: Path not found: {p}", file=sys.stderr)
             return 1
 
+    _configure_resolvers(args)
     search_paths = [Path(p) for p in args.search_paths]
 
     try:
@@ -695,6 +858,8 @@ def cmd_generate(args: argparse.Namespace) -> int:
         print(f"Error: Path not found: {input_path}", file=sys.stderr)
         return 1
 
+    _configure_resolvers(args)
+
     try:
         sp = [Path(p) for p in args.search_paths] if args.search_paths else None
         result = generate_python(
@@ -702,6 +867,7 @@ def cmd_generate(args: argparse.Namespace) -> int:
             args.output,
             search_paths=sp,
             expand_subvis=not args.no_expand,
+            soft_unresolved=args.placeholder_on_unresolved,
         )
         return 1 if result["error"] > 0 else 0
 
@@ -720,6 +886,8 @@ def cmd_docs(args: argparse.Namespace) -> int:
     if not input_path.exists():
         print(f"Error: Path not found: {input_path}", file=sys.stderr)
         return 1
+
+    _configure_resolvers(args)
 
     try:
         result = generate_documents(
@@ -743,6 +911,8 @@ def cmd_visualize(args: argparse.Namespace) -> int:
     if not input_path.exists():
         print(f"Error: Path not found: {input_path}", file=sys.stderr)
         return 1
+
+    _configure_resolvers(args)
 
     try:
         import pyvis  # type: ignore[import-untyped]  # noqa: F401
@@ -1112,6 +1282,7 @@ def cmd_llm_generate(args: argparse.Namespace) -> int:
         print(f"Error: Path not found: {input_path}", file=sys.stderr)
         return 1
 
+    _configure_resolvers(args)
     output_dir = Path(args.output)
 
     # Build config

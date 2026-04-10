@@ -59,18 +59,18 @@ from .utils import clean_labview_string, extract_label, safe_int
 
 
 def _load_node_dco_maps() -> dict[str, dict[str, int]]:
-    """Load DCO maps from primitives-codegen.json node_types terminals.
+    """Load DCO maps from primitives.json node_types terminals.
 
     Builds {node_class: {dco_ref_tag: terminal_index}} from terminals
     that have a dco_ref field. Same terminal structure as primitives.
 
     Returns: {node_class: {dco_ref_tag: terminal_index}}
     """
-    data_dir = Path(__file__).parent.parent.parent.parent / "data"
-    codegen_path = data_dir / "primitives-codegen.json"
-    if not codegen_path.exists():
+    from .._data import data_dir as _bundled_data_dir
+    primitives_path = _bundled_data_dir() / "primitives.json"
+    if not primitives_path.exists():
         return {}
-    with open(codegen_path) as f:
+    with open(primitives_path) as f:
         data = json.load(f)
     result = {}
     for node_type, info in data.get("node_types", {}).items():

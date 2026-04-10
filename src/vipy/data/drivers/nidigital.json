@@ -1,0 +1,830 @@
+{
+  "category": "NI-Digital",
+  "count": 27,
+  "entries": [
+    {
+      "name": "niDigital Initialize.vi",
+      "description": "Opens a niDigital session.",
+      "python_code": "{session_out} = nidigital.Session({resource_name})",
+      "inline": true,
+      "imports": [
+        "import nidigital"
+      ],
+      "status": "mapped",
+      "terminals": [
+        {
+          "name": "resource name",
+          "direction": "input",
+          "python_param": "resource_name"
+        },
+        {
+          "name": "instrument handle out",
+          "direction": "output",
+          "python_param": "session_out"
+        }
+      ]
+    },
+    {
+      "name": "niDigital Close.vi",
+      "description": "Closes a niDigital session.",
+      "python_code": "{session}.close()",
+      "inline": true,
+      "imports": [
+        "import nidigital"
+      ],
+      "status": "mapped",
+      "terminals": [
+        {
+          "name": "instrument handle",
+          "direction": "input",
+          "python_param": "session"
+        }
+      ]
+    },
+    {
+      "name": "niDigital Reset.vi",
+      "description": "Resets the niDigital instrument.",
+      "python_code": "{session}.reset()",
+      "inline": true,
+      "imports": [
+        "import nidigital"
+      ],
+      "status": "mapped",
+      "terminals": [
+        {
+          "name": "instrument handle",
+          "direction": "input",
+          "python_param": "session"
+        },
+        {
+          "name": "instrument handle out",
+          "direction": "output",
+          "python_param": "session_out"
+        }
+      ],
+      "ref_terminals": {
+        "session_out": "passthrough_from:session"
+      }
+    },
+    {
+      "name": "niDigital Self-Test.vi",
+      "description": "Runs niDigital self-test.",
+      "python_code": "{result} = {session}.self_test()",
+      "inline": true,
+      "imports": [
+        "import nidigital"
+      ],
+      "status": "mapped",
+      "terminals": [
+        {
+          "name": "instrument handle",
+          "direction": "input",
+          "python_param": "session"
+        },
+        {
+          "name": "instrument handle out",
+          "direction": "output",
+          "python_param": "session_out"
+        },
+        {
+          "name": "result",
+          "direction": "output",
+          "python_param": "result"
+        }
+      ],
+      "ref_terminals": {
+        "session_out": "passthrough_from:session"
+      }
+    },
+    {
+      "name": "niDigital Self-Cal.vi",
+      "description": "Runs niDigital self-calibration.",
+      "python_code": "{session}.self_cal()",
+      "inline": true,
+      "imports": [
+        "import nidigital"
+      ],
+      "status": "mapped",
+      "terminals": [
+        {
+          "name": "instrument handle",
+          "direction": "input",
+          "python_param": "session"
+        },
+        {
+          "name": "instrument handle out",
+          "direction": "output",
+          "python_param": "session_out"
+        }
+      ],
+      "ref_terminals": {
+        "session_out": "passthrough_from:session"
+      }
+    },
+    {
+      "name": "niDigital Initiate.vi",
+      "description": "Initiates niDigital acquisition/generation.",
+      "python_code": "{session}.initiate()",
+      "inline": true,
+      "imports": [
+        "import nidigital"
+      ],
+      "status": "mapped",
+      "terminals": [
+        {
+          "name": "instrument handle",
+          "direction": "input",
+          "python_param": "session"
+        },
+        {
+          "name": "instrument handle out",
+          "direction": "output",
+          "python_param": "session_out"
+        }
+      ],
+      "ref_terminals": {
+        "session_out": "passthrough_from:session"
+      }
+    },
+    {
+      "name": "niDigital Abort.vi",
+      "description": "Aborts niDigital acquisition/generation.",
+      "python_code": "{session}.abort()",
+      "inline": true,
+      "imports": [
+        "import nidigital"
+      ],
+      "status": "mapped",
+      "terminals": [
+        {
+          "name": "instrument handle",
+          "direction": "input",
+          "python_param": "session"
+        },
+        {
+          "name": "instrument handle out",
+          "direction": "output",
+          "python_param": "session_out"
+        }
+      ],
+      "ref_terminals": {
+        "session_out": "passthrough_from:session"
+      }
+    },
+    {
+      "name": "niDigital Commit.vi",
+      "description": "Commits niDigital configuration.",
+      "python_code": "{session}.commit()",
+      "inline": true,
+      "imports": [
+        "import nidigital"
+      ],
+      "status": "mapped",
+      "terminals": [
+        {
+          "name": "instrument handle",
+          "direction": "input",
+          "python_param": "session"
+        },
+        {
+          "name": "instrument handle out",
+          "direction": "output",
+          "python_param": "session_out"
+        }
+      ],
+      "ref_terminals": {
+        "session_out": "passthrough_from:session"
+      }
+    },
+    {
+      "name": "niDigital Disable.vi",
+      "description": "Disables niDigital output.",
+      "python_code": "{session}.disable()",
+      "inline": true,
+      "imports": [
+        "import nidigital"
+      ],
+      "status": "mapped",
+      "terminals": [
+        {
+          "name": "instrument handle",
+          "direction": "input",
+          "python_param": "session"
+        },
+        {
+          "name": "instrument handle out",
+          "direction": "output",
+          "python_param": "session_out"
+        }
+      ],
+      "ref_terminals": {
+        "session_out": "passthrough_from:session"
+      }
+    },
+    {
+      "name": "niDigital Load Pin Map.vi",
+      "description": "Loads a pin map file.",
+      "python_code": "{session}.load_pin_map({file_path})",
+      "inline": true,
+      "imports": [
+        "import nidigital"
+      ],
+      "status": "mapped",
+      "terminals": [
+        {
+          "name": "instrument handle",
+          "direction": "input",
+          "python_param": "session"
+        },
+        {
+          "name": "pin map file path",
+          "direction": "input",
+          "python_param": "file_path"
+        },
+        {
+          "name": "instrument handle out",
+          "direction": "output",
+          "python_param": "session_out"
+        }
+      ],
+      "ref_terminals": {
+        "session_out": "passthrough_from:session"
+      }
+    },
+    {
+      "name": "niDigital Load Pattern.vi",
+      "description": "Loads a digital pattern file.",
+      "python_code": "{session}.load_pattern({file_path})",
+      "inline": true,
+      "imports": [
+        "import nidigital"
+      ],
+      "status": "mapped",
+      "terminals": [
+        {
+          "name": "instrument handle",
+          "direction": "input",
+          "python_param": "session"
+        },
+        {
+          "name": "pattern file path",
+          "direction": "input",
+          "python_param": "file_path"
+        },
+        {
+          "name": "instrument handle out",
+          "direction": "output",
+          "python_param": "session_out"
+        }
+      ],
+      "ref_terminals": {
+        "session_out": "passthrough_from:session"
+      }
+    },
+    {
+      "name": "niDigital Load Specifications.vi",
+      "description": "Loads specs, levels, and timing files.",
+      "python_code": "{session}.load_specifications_levels_and_timing({specifications_file_paths}, {levels_file_paths}, {timing_file_paths})",
+      "inline": true,
+      "imports": [
+        "import nidigital"
+      ],
+      "status": "mapped",
+      "terminals": [
+        {
+          "name": "instrument handle",
+          "direction": "input",
+          "python_param": "session"
+        },
+        {
+          "name": "specifications file paths",
+          "direction": "input",
+          "python_param": "specifications_file_paths"
+        },
+        {
+          "name": "levels file paths",
+          "direction": "input",
+          "python_param": "levels_file_paths"
+        },
+        {
+          "name": "timing file paths",
+          "direction": "input",
+          "python_param": "timing_file_paths"
+        },
+        {
+          "name": "instrument handle out",
+          "direction": "output",
+          "python_param": "session_out"
+        }
+      ],
+      "ref_terminals": {
+        "session_out": "passthrough_from:session"
+      }
+    },
+    {
+      "name": "niDigital Apply Levels And Timing.vi",
+      "description": "Applies levels and timing sheets.",
+      "python_code": "{session}.apply_levels_and_timing(levels_sheet={levels_sheet}, timing_sheet={timing_sheet})",
+      "inline": true,
+      "imports": [
+        "import nidigital"
+      ],
+      "status": "mapped",
+      "terminals": [
+        {
+          "name": "instrument handle",
+          "direction": "input",
+          "python_param": "session"
+        },
+        {
+          "name": "levels sheet",
+          "direction": "input",
+          "python_param": "levels_sheet"
+        },
+        {
+          "name": "timing sheet",
+          "direction": "input",
+          "python_param": "timing_sheet"
+        },
+        {
+          "name": "instrument handle out",
+          "direction": "output",
+          "python_param": "session_out"
+        }
+      ],
+      "ref_terminals": {
+        "session_out": "passthrough_from:session"
+      }
+    },
+    {
+      "name": "niDigital Configure Voltage Levels.vi",
+      "description": "Configures pin voltage levels.",
+      "python_code": "{session}.pins[{pin_list}].configure_voltage_levels(vil={vil}, vih={vih}, vol={vol}, voh={voh}, vterm={vterm})",
+      "inline": true,
+      "imports": [
+        "import nidigital"
+      ],
+      "status": "mapped",
+      "terminals": [
+        {
+          "name": "instrument handle",
+          "direction": "input",
+          "python_param": "session"
+        },
+        {
+          "name": "pin list",
+          "direction": "input",
+          "python_param": "pin_list"
+        },
+        {
+          "name": "VIL",
+          "direction": "input",
+          "python_param": "vil"
+        },
+        {
+          "name": "VIH",
+          "direction": "input",
+          "python_param": "vih"
+        },
+        {
+          "name": "VOL",
+          "direction": "input",
+          "python_param": "vol"
+        },
+        {
+          "name": "VOH",
+          "direction": "input",
+          "python_param": "voh"
+        },
+        {
+          "name": "VTERM",
+          "direction": "input",
+          "python_param": "vterm"
+        },
+        {
+          "name": "instrument handle out",
+          "direction": "output",
+          "python_param": "session_out"
+        }
+      ],
+      "ref_terminals": {
+        "session_out": "passthrough_from:session"
+      }
+    },
+    {
+      "name": "niDigital Burst Pattern.vi",
+      "description": "Bursts a digital pattern.",
+      "python_code": "{site_pass_fail} = {session}.burst_pattern(start_label={start_label})",
+      "inline": true,
+      "imports": [
+        "import nidigital"
+      ],
+      "status": "mapped",
+      "terminals": [
+        {
+          "name": "instrument handle",
+          "direction": "input",
+          "python_param": "session"
+        },
+        {
+          "name": "start label",
+          "direction": "input",
+          "python_param": "start_label"
+        },
+        {
+          "name": "instrument handle out",
+          "direction": "output",
+          "python_param": "session_out"
+        },
+        {
+          "name": "site pass/fail",
+          "direction": "output",
+          "python_param": "site_pass_fail"
+        }
+      ],
+      "ref_terminals": {
+        "session_out": "passthrough_from:session"
+      }
+    },
+    {
+      "name": "niDigital Get Site Pass/Fail.vi",
+      "description": "Gets per-site pass/fail results.",
+      "python_code": "{site_pass_fail} = {session}.get_site_pass_fail()",
+      "inline": true,
+      "imports": [
+        "import nidigital"
+      ],
+      "status": "mapped",
+      "terminals": [
+        {
+          "name": "instrument handle",
+          "direction": "input",
+          "python_param": "session"
+        },
+        {
+          "name": "instrument handle out",
+          "direction": "output",
+          "python_param": "session_out"
+        },
+        {
+          "name": "site pass/fail",
+          "direction": "output",
+          "python_param": "site_pass_fail"
+        }
+      ],
+      "ref_terminals": {
+        "session_out": "passthrough_from:session"
+      }
+    },
+    {
+      "name": "niDigital Get Fail Count.vi",
+      "description": "Gets per-pin fail counts.",
+      "python_code": "{fail_count} = {session}.get_fail_count()",
+      "inline": true,
+      "imports": [
+        "import nidigital"
+      ],
+      "status": "mapped",
+      "terminals": [
+        {
+          "name": "instrument handle",
+          "direction": "input",
+          "python_param": "session"
+        },
+        {
+          "name": "instrument handle out",
+          "direction": "output",
+          "python_param": "session_out"
+        },
+        {
+          "name": "fail count",
+          "direction": "output",
+          "python_param": "fail_count"
+        }
+      ],
+      "ref_terminals": {
+        "session_out": "passthrough_from:session"
+      }
+    },
+    {
+      "name": "niDigital Wait Until Done.vi",
+      "description": "Waits for pattern to complete.",
+      "python_code": "{session}.wait_until_done(timeout={timeout})",
+      "inline": true,
+      "imports": [
+        "import nidigital"
+      ],
+      "status": "mapped",
+      "terminals": [
+        {
+          "name": "instrument handle",
+          "direction": "input",
+          "python_param": "session"
+        },
+        {
+          "name": "timeout",
+          "direction": "input",
+          "python_param": "timeout"
+        },
+        {
+          "name": "instrument handle out",
+          "direction": "output",
+          "python_param": "session_out"
+        }
+      ],
+      "ref_terminals": {
+        "session_out": "passthrough_from:session"
+      }
+    },
+    {
+      "name": "niDigital Is Done.vi",
+      "description": "Checks if pattern burst is done.",
+      "python_code": "{is_done} = {session}.is_done()",
+      "inline": true,
+      "imports": [
+        "import nidigital"
+      ],
+      "status": "mapped",
+      "terminals": [
+        {
+          "name": "instrument handle",
+          "direction": "input",
+          "python_param": "session"
+        },
+        {
+          "name": "instrument handle out",
+          "direction": "output",
+          "python_param": "session_out"
+        },
+        {
+          "name": "done",
+          "direction": "output",
+          "python_param": "is_done"
+        }
+      ],
+      "ref_terminals": {
+        "session_out": "passthrough_from:session"
+      }
+    },
+    {
+      "name": "niDigital PPMU Measure.vi",
+      "description": "Performs PPMU measurement.",
+      "python_code": "{measurements} = {session}.pins[{pin_list}].ppmu_measure({measurement_type})",
+      "inline": true,
+      "imports": [
+        "import nidigital"
+      ],
+      "status": "mapped",
+      "terminals": [
+        {
+          "name": "instrument handle",
+          "direction": "input",
+          "python_param": "session"
+        },
+        {
+          "name": "pin list",
+          "direction": "input",
+          "python_param": "pin_list"
+        },
+        {
+          "name": "measurement type",
+          "direction": "input",
+          "python_param": "measurement_type"
+        },
+        {
+          "name": "instrument handle out",
+          "direction": "output",
+          "python_param": "session_out"
+        },
+        {
+          "name": "measurements",
+          "direction": "output",
+          "python_param": "measurements"
+        }
+      ],
+      "ref_terminals": {
+        "session_out": "passthrough_from:session"
+      }
+    },
+    {
+      "name": "niDigital PPMU Source.vi",
+      "description": "Sources voltage or current via PPMU.",
+      "python_code": "{session}.pins[{pin_list}].ppmu_source({output_function})",
+      "inline": true,
+      "imports": [
+        "import nidigital"
+      ],
+      "status": "mapped",
+      "terminals": [
+        {
+          "name": "instrument handle",
+          "direction": "input",
+          "python_param": "session"
+        },
+        {
+          "name": "pin list",
+          "direction": "input",
+          "python_param": "pin_list"
+        },
+        {
+          "name": "output function",
+          "direction": "input",
+          "python_param": "output_function"
+        },
+        {
+          "name": "instrument handle out",
+          "direction": "output",
+          "python_param": "session_out"
+        }
+      ],
+      "ref_terminals": {
+        "session_out": "passthrough_from:session"
+      }
+    },
+    {
+      "name": "niDigital Fetch Capture Waveform.vi",
+      "description": "Fetches captured waveform data.",
+      "python_code": "{waveform_data} = {session}.fetch_capture_waveform(waveform_name={waveform_name}, samples_to_read={samples_to_read})",
+      "inline": true,
+      "imports": [
+        "import nidigital"
+      ],
+      "status": "mapped",
+      "terminals": [
+        {
+          "name": "instrument handle",
+          "direction": "input",
+          "python_param": "session"
+        },
+        {
+          "name": "waveform name",
+          "direction": "input",
+          "python_param": "waveform_name"
+        },
+        {
+          "name": "samples to read",
+          "direction": "input",
+          "python_param": "samples_to_read"
+        },
+        {
+          "name": "instrument handle out",
+          "direction": "output",
+          "python_param": "session_out"
+        },
+        {
+          "name": "waveform data",
+          "direction": "output",
+          "python_param": "waveform_data"
+        }
+      ],
+      "ref_terminals": {
+        "session_out": "passthrough_from:session"
+      }
+    },
+    {
+      "name": "niDigital Clock Generator Generate Clock.vi",
+      "description": "Generates a clock signal.",
+      "python_code": "{session}.clock_generator_generate_clock(frequency={frequency})",
+      "inline": true,
+      "imports": [
+        "import nidigital"
+      ],
+      "status": "mapped",
+      "terminals": [
+        {
+          "name": "instrument handle",
+          "direction": "input",
+          "python_param": "session"
+        },
+        {
+          "name": "frequency",
+          "direction": "input",
+          "python_param": "frequency"
+        },
+        {
+          "name": "instrument handle out",
+          "direction": "output",
+          "python_param": "session_out"
+        }
+      ],
+      "ref_terminals": {
+        "session_out": "passthrough_from:session"
+      }
+    },
+    {
+      "name": "niDigital Clock Generator Abort.vi",
+      "description": "Aborts clock generation.",
+      "python_code": "{session}.clock_generator_abort()",
+      "inline": true,
+      "imports": [
+        "import nidigital"
+      ],
+      "status": "mapped",
+      "terminals": [
+        {
+          "name": "instrument handle",
+          "direction": "input",
+          "python_param": "session"
+        },
+        {
+          "name": "instrument handle out",
+          "direction": "output",
+          "python_param": "session_out"
+        }
+      ],
+      "ref_terminals": {
+        "session_out": "passthrough_from:session"
+      }
+    },
+    {
+      "name": "niDigital Read Static.vi",
+      "description": "Reads static pin states.",
+      "python_code": "{pin_states} = {session}.read_static()",
+      "inline": true,
+      "imports": [
+        "import nidigital"
+      ],
+      "status": "mapped",
+      "terminals": [
+        {
+          "name": "instrument handle",
+          "direction": "input",
+          "python_param": "session"
+        },
+        {
+          "name": "instrument handle out",
+          "direction": "output",
+          "python_param": "session_out"
+        },
+        {
+          "name": "pin states",
+          "direction": "output",
+          "python_param": "pin_states"
+        }
+      ],
+      "ref_terminals": {
+        "session_out": "passthrough_from:session"
+      }
+    },
+    {
+      "name": "niDigital Write Static.vi",
+      "description": "Writes static pin states.",
+      "python_code": "{session}.write_static({state})",
+      "inline": true,
+      "imports": [
+        "import nidigital"
+      ],
+      "status": "mapped",
+      "terminals": [
+        {
+          "name": "instrument handle",
+          "direction": "input",
+          "python_param": "session"
+        },
+        {
+          "name": "state",
+          "direction": "input",
+          "python_param": "state"
+        },
+        {
+          "name": "instrument handle out",
+          "direction": "output",
+          "python_param": "session_out"
+        }
+      ],
+      "ref_terminals": {
+        "session_out": "passthrough_from:session"
+      }
+    },
+    {
+      "name": "niDigital TDR.vi",
+      "description": "Performs TDR calibration.",
+      "python_code": "{offsets} = {session}.tdr()",
+      "inline": true,
+      "imports": [
+        "import nidigital"
+      ],
+      "status": "mapped",
+      "terminals": [
+        {
+          "name": "instrument handle",
+          "direction": "input",
+          "python_param": "session"
+        },
+        {
+          "name": "instrument handle out",
+          "direction": "output",
+          "python_param": "session_out"
+        },
+        {
+          "name": "offsets",
+          "direction": "output",
+          "python_param": "offsets"
+        }
+      ],
+      "ref_terminals": {
+        "session_out": "passthrough_from:session"
+      }
+    }
+  ]
+}

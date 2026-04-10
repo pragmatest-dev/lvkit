@@ -1,0 +1,146 @@
+{
+  "category": "openg/string",
+  "source_path": "user.lib/_OpenG.lib/string/string.llb",
+  "count": 4,
+  "entries": [
+    {
+      "name": "Trim Whitespace (String)__ogtk",
+      "vi_path": "user.lib/_OpenG.lib/Trim Whitespace (String)__ogtk.vi",
+      "category": "openg",
+      "description": "Remove leading/trailing whitespace",
+      "terminals": [
+        {
+          "name": "String in",
+          "index": 6,
+          "direction": "in",
+          "type": "stdString",
+          "python_param": "string_in"
+        },
+        {
+          "name": "Remove (leading and trailing)",
+          "index": 5,
+          "direction": "in",
+          "type": "stdRing",
+          "python_param": "remove_leading_and_trailing"
+        },
+        {
+          "name": "String out",
+          "index": 1,
+          "direction": "out",
+          "type": "stdString",
+          "python_param": "string_out"
+        }
+      ],
+      "status": "complete",
+      "python_code": "{string_out} = {string_in}.strip() if {remove_leading_and_trailing} == 0 else ({string_in}.lstrip() if {remove_leading_and_trailing} == 1 else {string_in}.rstrip())",
+      "inline": true,
+      "imports": []
+    },
+    {
+      "name": "1D Array to String__ogtk",
+      "vi_path": "user.lib/_OpenG.lib/1D Array to String__ogtk.vi",
+      "category": "openg",
+      "description": "Join array elements with delimiter",
+      "terminals": [
+        {
+          "name": "Array of Strings",
+          "index": 10,
+          "direction": "in",
+          "type": "indArr",
+          "python_param": "array_of_strings"
+        },
+        {
+          "name": "delimiter (Tab)",
+          "index": 7,
+          "direction": "in",
+          "type": "stdString",
+          "python_param": "delimiter_tab"
+        },
+        {
+          "name": "delimited string",
+          "index": 1,
+          "direction": "out",
+          "type": "stdString",
+          "python_param": "delimited_string"
+        }
+      ],
+      "status": "complete",
+      "python_code": "{delimited_string} = str({delimiter_tab} or '\\t').join({array_of_strings})",
+      "inline": true,
+      "imports": []
+    },
+    {
+      "name": "String to 1D Array__ogtk",
+      "vi_path": "user.lib/_OpenG.lib/String to 1D Array__ogtk.vi",
+      "category": "openg",
+      "description": "Split string into array",
+      "terminals": [
+        {
+          "name": "delimiter (Tab)",
+          "index": 7,
+          "direction": "in",
+          "type": "stdString",
+          "python_param": "delimiter_tab"
+        },
+        {
+          "name": "string",
+          "index": 10,
+          "direction": "in",
+          "type": "stdString",
+          "python_param": "string"
+        },
+        {
+          "name": "ignore duplicate delimiters? (F=No)",
+          "index": 5,
+          "direction": "in",
+          "type": "stdBool",
+          "python_param": "ignore_duplicate_delimiters_f=no"
+        },
+        {
+          "name": "Array of Strings",
+          "index": 1,
+          "direction": "out",
+          "type": "indArr",
+          "python_param": "array_of_strings"
+        }
+      ],
+      "status": "complete",
+      "python_code": "{array_of_strings} = {string}.split({delimiter_tab} or '\\t')",
+      "inline": true,
+      "imports": []
+    },
+    {
+      "name": "Convert EOLs (String)__ogtk",
+      "vi_path": "user.lib/_OpenG.lib/Convert EOLs (String)__ogtk.vi",
+      "category": "openg",
+      "description": "Convert line endings",
+      "terminals": [
+        {
+          "name": "String in",
+          "index": 10,
+          "direction": "in",
+          "type": "stdString",
+          "python_param": "string_in"
+        },
+        {
+          "name": "Convert to:",
+          "index": 9,
+          "direction": "in",
+          "type": "stdRing",
+          "python_param": "convert_to"
+        },
+        {
+          "name": "String out",
+          "index": 1,
+          "direction": "out",
+          "type": "stdString",
+          "python_param": "string_out"
+        }
+      ],
+      "status": "complete",
+      "python_code": "{string_out} = {string_in}.replace('\\r\\n', '\\n').replace('\\r', '\\n')",
+      "inline": true,
+      "imports": []
+    }
+  ]
+}

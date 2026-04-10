@@ -6,15 +6,19 @@ vipy parses VI binary files into a queryable dataflow graph, then uses that grap
 
 ### Cleanroom approach
 
-vipy is a cleanroom conversion tool — it has no access to LabVIEW source code or runtime. LabVIEW's standard library (vi.lib), built-in primitives, and third-party libraries like OpenG are **semantically replaced**: each operation is mapped to an equivalent Python implementation defined in JSON data files (`data/vilib/`, `data/primitives-codegen.json`, `data/openg/`). These mappings are built from documentation and observed behavior, not from LabVIEW internals.
+vipy is a cleanroom conversion tool — it has no access to LabVIEW source code or runtime. LabVIEW's standard library (vi.lib), built-in primitives, and third-party libraries like OpenG are **semantically replaced**: each operation is mapped to an equivalent Python implementation defined in JSON data files (`src/vipy/data/vilib/`, `src/vipy/data/primitives.json`, `src/vipy/data/openg/`). These mappings are built from documentation and observed behavior, not from LabVIEW internals.
 
 This means coverage is incremental. When the generator encounters an unmapped primitive or vi.lib VI, it raises an error with diagnostic context so the mapping can be added. The data files grow over time as more VIs are converted.
 
 ## Quick Start
 
 ```bash
-# Install
+# Install (editable, from a checkout)
 pip install -e ".[dev]"
+
+# Or, once published to PyPI:
+#   pip install vipy
+#   uvx vipy --help          # one-shot via uv
 
 # Check dependencies (pylabview)
 vipy check
@@ -28,9 +32,80 @@ vipy docs "path/to/MyLib.lvlib" outputs/docs --search-path path/to/libraries
 # Describe what a VI does
 vipy describe "path/to/file.vi" --search-path path/to/libraries
 
+# Initialize a project-local resolution store + install LLM editor skills
+vipy init --skills all
+
 # Start MCP server for IDE integration
 vipy mcp
 ```
+
+## Project-local resolution store (`.vipy/`)
+
+vipy ships cleanroom — its bundled data only contains mappings derived from public documentation. If you have a LabVIEW license, you can populate a project-local `.vipy/` directory with mappings derived from the real vi.lib, your own LabVIEW sources, or third-party libraries you have rights to use. vipy reads `.vipy/` **first** and falls back to its bundled data.
+
+Get started:
+
+```bash
+cd your-labview-project
+vipy init                          # Create .vipy/ + template README
+vipy init --skills claude          # Also install Claude Code skills (.claude/skills/vipy-*)
+vipy init --skills copilot         # Also install Copilot prompts + router instruction
+vipy init --skills all             # Both
+```
+
+Each install creates `vipy-` prefixed entries (e.g., `/vipy-convert`, `/vipy-resolve-primitive`) so the workflows don't collide with anything else in your editor's skill/prompt namespace. Five workflows ship: `vipy-describe`, `vipy-convert`, `vipy-resolve-primitive`, `vipy-resolve-vilib`, `vipy-idiomatic`.
+
+Copilot install lays out:
+
+```
+.github/
+  prompts/
+    vipy-describe.prompt.md           # /vipy-describe
+    vipy-convert.prompt.md            # /vipy-convert
+    vipy-resolve-primitive.prompt.md  # /vipy-resolve-primitive
+    vipy-resolve-vilib.prompt.md      # /vipy-resolve-vilib
+    vipy-idiomatic.prompt.md          # /vipy-idiomatic
+  instructions/
+    vipy.instructions.md              # auto-loaded router; lists the 5 prompts
+```
+
+The router lives in `instructions/` so Copilot loads it into every chat (small file, just a registry). The actual workflow content lives in the per-prompt files and only loads when invoked. This mirrors Claude Code skill semantics: contextual auto-launch via the router, explicit `/vipy-<name>` invocation via the prompts.
+
+The `.vipy/` directory mirrors vipy's bundled `data/` layout:
+
+```
+.vipy/
+  README.md                 # license-boundary explainer
+  primitives.json           # primitive overrides
+  vilib/_index.json
+  vilib/<category>.json
+  openg/
+  drivers/
+```
+
+vipy itself **never reads `.vipy/`** into its bundled data. Anything you put there stays in your project. Consider gitignoring files derived from licensed material before committing.
+
+When `vipy generate` hits an unknown primitive or vi.lib VI, you have two options:
+
+1. **Resolve up front** — install the resolve skills (`vipy init --skills claude`) and let your LLM editor write the mapping into `.vipy/`. The skill detects context (vipy maintainer vs downstream user) and writes to the right destination.
+2. **Defer to runtime** — pass `--placeholder-on-unresolved`. vipy emits an inline `raise PrimitiveResolutionNeeded(...)` / `raise VILibResolutionNeeded(...)` in the generated Python with full diagnostic context. The build succeeds; runtime fails at the unresolved call. Useful when you'd rather fix the gap contextually in the Python.
+
+## MCP server
+
+vipy exposes an MCP server (`vipy mcp` or the `vipy-mcp` console script). Once published to PyPI, you can run it via `uvx` without installing it permanently:
+
+```json
+{
+  "mcpServers": {
+    "vipy": {
+      "command": "uvx",
+      "args": ["--from", "vipy", "vipy-mcp"]
+    }
+  }
+}
+```
+
+The `--from vipy` tells `uvx` which package to install; `vipy-mcp` is the console-script entry point inside that package. Paste this into your MCP client config (Claude Code's `claude_code_config.json`, Cursor's `~/.cursor/mcp.json`, or equivalent), restart the client, and the vipy tools become available — load_vi, describe_vi, get_operations, get_dataflow, get_structure, get_constants, generate_python, generate_documents, and analyze_vi.
 
 ## Architecture Overview
 
@@ -131,11 +206,11 @@ InMemoryVIGraph (operations, terminals, wires, types)
 | `tools.py` | Stateless tool implementations (analyze, generate, docs) |
 | `schemas.py` | Pydantic models for tool results |
 
-### Data Files (`data/`)
+### Bundled data (`src/vipy/data/`)
 
 | Path | Purpose |
 |------|---------|
-| `primitives-codegen.json` | Primitive mappings: primResID to name, python_code, terminals |
+| `primitives.json` | Primitive mappings: primResID to name, python_code, terminals |
 | `vilib/` | vi.lib VI mappings: terminals, python_code per category |
 | `drivers/` | NI driver mappings (DAQmx, VISA, NI-DCPower, etc.) |
 | `openg/` | OpenG library mappings |
@@ -252,7 +327,7 @@ pytest -k "not real_vi"           # Skip tests needing real VIs
 
 1. Run conversion, note the missing primResID in error
 2. Look up primitive in LabVIEW documentation
-3. Add to `data/primitives-codegen.json`:
+3. Add to `src/vipy/data/primitives.json`:
 
 ```json
 {
@@ -276,7 +351,7 @@ When `VILibResolutionNeeded` is raised:
 
 1. Check the exception output for terminal names and wire indices
 2. The wire indices from the caller show actual terminal positions
-3. Add to appropriate `data/vilib/<category>.json`
+3. Add to appropriate `src/vipy/data/vilib/<category>.json`
 
 ## File Organization
 
@@ -296,7 +371,7 @@ vipy/
     primitive_resolver.py
     vilib_resolver.py
   data/
-    primitives-codegen.json
+    primitives.json
     vilib/              # VILib mappings by category
     drivers/            # NI driver mappings
     openg/              # OpenG library mappings

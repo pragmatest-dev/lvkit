@@ -1,0 +1,1040 @@
+{
+  "category": "Structures",
+  "count": 32,
+  "entries": [
+    {
+      "name": "For Loop",
+      "page": 331,
+      "category": "Structures",
+      "description": "Executes its subdiagram n times, where n is the value wired to the count (N) terminal. The iteration (i) terminal provides the current loop iteration count, which ranges from 0 to n-1. Functions \u00a9 National Instruments 331 Terminal Inputs \u2022 \u2014The count terminal specifies the number of times to execute the code inside the For Loop. If you wire 0 or a negative number to the count terminal, the loop does not execute. This terminal is displayed by default. \u2022 \u2014(Optional) The parallel instances terminal",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_review",
+      "terminals": []
+    },
+    {
+      "name": "While Loop",
+      "page": 334,
+      "category": "Structures",
+      "description": "Repeats the code within its subdiagram until a specific condition occurs. A While Loop always executes at least one time. Components of a While Loop \u2022 \u2014Subdiagram\u2014Contains code that the While Loop executes once per iteration. \u2022 \u2014Iteration Terminal (i)\u2014Provides the current loop iteration count. The loop count always starts at zero for the first iteration. If the iteration count exceeds 2,147,483,647, or 231-1, the iteration terminal remains at 2,147,483,647 for all further iterations. If you need",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_review",
+      "terminals": []
+    },
+    {
+      "name": "Timed Structures",
+      "page": 335,
+      "category": "Structures",
+      "description": "Use the Timed Structures and VIs to control the rate and priority at which a timed structure executes its subdiagram, synchronize the start time of timed structures, create timing sources, and establish a hierarchy of timing sources. The VIs and functions on this palette can return Timed Loop Error Codes. Palette Object Description Timed Loop Executes one or more subdiagrams, or frames, sequentially each iteration of the loop at the period you specify. Use the Timed Loop when you want to develop",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_review",
+      "terminals": []
+    },
+    {
+      "name": "Timed Loop",
+      "page": 337,
+      "category": "Structures",
+      "description": "Executes one or more subdiagrams, or frames, sequentially each iteration of the loop at the period you specify. Use the Timed Loop when you want to develop VIs with multirate timing capabilities, precise timing, feedback on loop execution, timing characteristics that change dynamically, or several levels of execution priority. Right- click the structure border to add, delete, insert, and merge frames. Components of a Timed Loop The iteration (i) terminal provides the current loop iteration count",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_review",
+      "terminals": []
+    },
+    {
+      "name": "Timed Sequence",
+      "page": 345,
+      "category": "Structures",
+      "description": "A Timed Sequence structure consists of one or more subdiagrams, or frames, timed by an internal or external timing source that execute sequentially. A Timed Sequence structure executes each frame only once and, unlike a Timed Loop, does not repeat iterations. Use the Timed Sequence structure when you want to develop VIs that execute only once with precise timing, execution feedback, timing characteristics that change dynamically, or several levels of execution priority. Right-click the Timed Seq",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_review",
+      "terminals": []
+    },
+    {
+      "name": "Create Timing Source",
+      "page": 350,
+      "category": "Structures",
+      "description": "Creates a 1 kHz, 1MHz, or software-triggered timing source you can use to control the execution of a timed structure. Each timing source has its own unit of timing and/or start time and does not start until the first timed structure that uses the timing source starts. You must manually select the polymorphic instance you want to use. \u2022 Create 1kHz Source \u2022 Create 1MHz Source \u2022 Create Software-Triggered Timing Source Create 1kHz Source Create 1kHz Source Creates a 1 kHz, 1MHz, or software-trigger",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "name (in)",
+          "description": "name is the name of the timing source you want to create.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "name_in"
+        },
+        {
+          "name": "error in (no error)",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in_no_error"
+        },
+        {
+          "name": "name (out)",
+          "description": "Functions 350 ni.com name (out) is the name of the timing source the VI created.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "name_out"
+        },
+        {
+          "name": "error out",
+          "description": "error out contains error information. This output provides standard error out functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        }
+      ]
+    },
+    {
+      "name": "Fire Software-Triggered Timing Source",
+      "page": 352,
+      "category": "Structures",
+      "description": "Fires a software-triggered timing source. Use the Create Timing Source VI to create a software-triggered timing source. Functions 352 ni.com",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "trigger ID",
+          "description": "trigger ID is the numeric identifier of the software-triggered timing source. The valid range of trigger ID values is 0-127. Because this parameter is implemented as an integer rather than a string, it is safe to use the Fire Software-Triggered Timing Source VI in time-critical code.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "trigger_id"
+        },
+        {
+          "name": "number of ticks",
+          "description": "number of ticks specifies the number of ticks to increment the internal tick counter of the timing source. The default value is 1 tick.",
+          "default_value": "value is 1 tick",
+          "enum_values": null,
+          "python_param": "number_of_ticks"
+        },
+        {
+          "name": "error in (no error)",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in_no_error"
+        },
+        {
+          "name": "trigger ID out",
+          "description": "trigger ID out returns trigger ID unchanged.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "trigger_id_out"
+        },
+        {
+          "name": "error out",
+          "description": "error out contains error information. This output provides standard error out functionality. When you use a software-triggered timing source to control a Timed Loop, you can use the number of ticks input to trigger multiple successive Timed Loop iterations. When the internal tick counter jumps past one or more Timed Loop periods, the Timed Loop regards those periods as missed periods. If you remove the checkmark from the Discard missed periods checkbox on the Configure Timed Loop dialog box, a s",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        }
+      ]
+    },
+    {
+      "name": "Clear Timing Source",
+      "page": 353,
+      "category": "Structures",
+      "description": "Stops and deletes the timing source you created or specified for use by another resource. The VI clears the timing source when the current iterations of all active timed structures that reference the timing source complete. Functions \u00a9 National Instruments 353 If the timing source is associated with a DAQmx task, the VI also clears the task.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "name",
+          "description": "name is the name of the timing source you want to stop and delete.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "name"
+        },
+        {
+          "name": "error in (no error)",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in_no_error"
+        },
+        {
+          "name": "parent",
+          "description": "parent is the name of the parent of the timing source the VI deleted. If the timing source has no parent, parent is empty.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "parent"
+        },
+        {
+          "name": "error out",
+          "description": "error out contains error information. This output provides standard error out functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        }
+      ]
+    },
+    {
+      "name": "Synchronize Timed Structure Starts",
+      "page": 354,
+      "category": "Structures",
+      "description": "Synchronizes the start of Timed Loops or Timed Sequence structures you enter in timed structure names by adding the names to the synchronization group you specify in synchronization group name. All timed structures in a synchronization group wait until all the structures are ready to execute. Functions 354 ni.com",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "clear (F)",
+          "description": "clear, if TRUE, removes all timed structures from synchronization group name before adding the timed structures in timed structure names to the group. Set clear to TRUE to remove any timed structures that do not correspond to a Timed Loop. The default is FALSE.",
+          "default_value": "FALSE",
+          "enum_values": null,
+          "python_param": "clear_f"
+        },
+        {
+          "name": "replace (T)",
+          "description": "replace replaces the timed structures in synchronization group name with the timed structures you enter in timed structure names. If replace is FALSE and the timing source is a member of another hierarchy, the VI returns an error.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "replace_t"
+        },
+        {
+          "name": "synchronization group name",
+          "description": "synchronization group name is the name for the group of timed structures you want to synchronize.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "synchronization_group_name"
+        },
+        {
+          "name": "timeout ms (10000)",
+          "description": "timeout ms specifies the time, in milliseconds, that a timed structure waits on other members of the synchronization group to arrive at the synchronization point. If any of the timed structures in the group do not arrive in time, the timed structure returns an error. The default is 10,000 ms. A value of \u20131 indicates to wait indefinitely.",
+          "default_value": "10,000 ms",
+          "enum_values": null,
+          "python_param": "timeout_ms_10000"
+        },
+        {
+          "name": "timed structure names",
+          "description": "timed structure names specifies the names of the timed structures you want to synchronize. By default, the VI deletes the timed structure from its current group and adds it to the group you specify in synchronization group name. If you set replace to FALSE and a timed structure you specify in timed structure names is a member of another group, the VI returns an error to indicate that it could not add the timed structure to the synchronization group.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "timed_structure_names"
+        },
+        {
+          "name": "error in (no error)",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality. Functions",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in_no_error"
+        }
+      ]
+    },
+    {
+      "name": "Stop Timed Structure",
+      "page": 356,
+      "category": "Structures",
+      "description": "Aborts the execution of the Timed Loop or Timed Sequence structure you enter in name. If you attempt to abort a running Timed Loop, the Timed Loop immediately executes the current iteration and returns Aborted in the Wakeup Reason output of the Left Data node. Related Information Aborting the Execution of a Timed Structure (Real-Time, Windows)",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "priority",
+          "description": "priority changes the priority of the timed structure you are stopping. Use priority when you want to stop two or more timed structures and want to ensure one stops before the other.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "priority"
+        },
+        {
+          "name": "name",
+          "description": "Functions 356 ni.com name is the name of the timed structure you want to stop.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "name"
+        },
+        {
+          "name": "error in (no error)",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in_no_error"
+        },
+        {
+          "name": "error out",
+          "description": "error out contains error information. This output provides standard error out functionality. Examples Refer to the following example files included with LabVIEW.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        },
+        {
+          "name": "labview\\examples\\Structures\\Timed Loop\\Timed Loop",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "labview_examples_structures_timed_loop_timed_loop"
+        }
+      ]
+    },
+    {
+      "name": "Build Timing Source Hierarchy",
+      "page": 357,
+      "category": "Structures",
+      "description": "Creates a hierarchy of timing sources based on the names you enter in timing source names.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "replace (F)",
+          "description": "replace (F) replaces any timing source you entered in timing source names if a timing source by that name already exists in the hierarchy of timing sources.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "replace_f"
+        },
+        {
+          "name": "hierarchy name",
+          "description": "hierarchy name is the name of the timing source hierarchy you want to create. Functions \u00a9 National Instruments 357",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "hierarchy_name"
+        },
+        {
+          "name": "parent",
+          "description": "parent is the valid timing source you want to start after the all the timing sources in hierarchy name start.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "parent"
+        },
+        {
+          "name": "timing source names",
+          "description": "timing source names is an array of names of the timing sources you want to add to the timing source hierarchy. If replace is TRUE, the new timing source replaces any timing source with the same name that already exists in the timing source hierarchy. These timing sources start before the timing source you enter in parent.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "timing_source_names"
+        },
+        {
+          "name": "error in (no error)",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in_no_error"
+        },
+        {
+          "name": "error out",
+          "description": "error out contains error information. This output provides standard error out functionality. The hierarchy determines the order in which the timing sources start. The parent timing source does not start until after the timing sources in hierarchy name start. Use this VI when you have timing sources that have signal dependencies, such as DAQ counters routed to drive analog input connections. In such a case, the counter timing source acts as the parent.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        }
+      ]
+    },
+    {
+      "name": "Case Structure",
+      "page": 358,
+      "category": "Structures",
+      "description": "Contains one or more subdiagrams, or cases, exactly one of which executes when the structure executes. The value wired to the case selector determines which case to execute. Functions 358 ni.com Components of a Case Structure \u2022 Selector label\u2014Displays the value(s) for which the associated case executes. You can specify a single value or a range of values. You also can use the selector label to specify a default case. \u2022 Subdiagram(case)\u2014Contains the code that executes when the value wired to the ",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_review",
+      "terminals": []
+    },
+    {
+      "name": "Event Structure",
+      "page": 360,
+      "category": "Structures",
+      "description": "Waits until an event occurs, then executes the appropriate case to handle that event. The Event structure has one or more subdiagrams, or event cases, exactly one of which executes when the structure executes to handle an event. This structure can time out while waiting for notification of an event. Wire a value to the Timeout terminal at the top left of the Event structure to specify the number of milliseconds the Event structure waits for an event. The default is -1, which indicates never to t",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_review",
+      "terminals": []
+    },
+    {
+      "name": "In Place Element Structure",
+      "page": 363,
+      "category": "Structures",
+      "description": "Controls how the LabVIEW compiler performs certain operations and, in some cases, increases memory and VI efficiency. Use the In Place Element structure when you operate on a data element within an array, cluster, variant, or waveform without requiring the LabVIEW compiler to copy data values and maintain those values in memory. You also can use this structure to operate on any data type that you want to maintain within the same data space in memory. Right-click the border of the structure and s",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "array",
+          "description": "array specifies an n-dimensional array of any type.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "array"
+        },
+        {
+          "name": "index",
+          "description": "index specifies the element you want to replace in the array. This border node gains an additional index parameter for each additional dimension of the array in the array input.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "index"
+        },
+        {
+          "name": "element",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "element"
+        },
+        {
+          "name": "element",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "element"
+        },
+        {
+          "name": "array",
+          "description": "array returns the array you input with the replaced element(s).",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "array"
+        },
+        {
+          "name": "index",
+          "description": "Functions 364 ni.com index returns the element(s) you replaced in the array. Use this border node to perform operations on an element or elements of an array and return the elements to the same location or locations in the array. Each array element you index with the border node on the left side of the structure must be placed back into the array with the border node on the right side of the structure by wiring the element back into the array. This border node allows the LabVIEW compiler to avoi",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "index"
+        }
+      ]
+    },
+    {
+      "name": "Array Index / Replace Elements",
+      "page": 364,
+      "category": "Structures",
+      "description": "Right-click the border of an In Place Element structure and select the Add Array Index / Replace Elements option from the shortcut menu to place this border node on the In Place Element structure.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "array",
+          "description": "array specifies an n-dimensional array of any type.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "array"
+        },
+        {
+          "name": "index",
+          "description": "index specifies the element you want to replace in the array. This border node gains an additional index parameter for each additional dimension of the array in the array input.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "index"
+        },
+        {
+          "name": "element",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "element"
+        },
+        {
+          "name": "element",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "element"
+        },
+        {
+          "name": "array",
+          "description": "array returns the array you input with the replaced element(s).",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "array"
+        },
+        {
+          "name": "index",
+          "description": "Functions 364 ni.com index returns the element(s) you replaced in the array. Use this border node to perform operations on an element or elements of an array and return the elements to the same location or locations in the array. Each array element you index with the border node on the left side of the structure must be placed back into the array with the border node on the right side of the structure by wiring the element back into the array. This border node allows the LabVIEW compiler to avoi",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "index"
+        }
+      ]
+    },
+    {
+      "name": "Unbundle / Bundle Elements",
+      "page": 365,
+      "category": "Structures",
+      "description": "Right-click the border of an In Place Element structure and select the Add Unbundle / Bundle Elements option from the shortcut menu to place this border node on the In Place Element structure.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "input cluster",
+          "description": "input cluster is the cluster whose elements you want to access.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "input_cluster"
+        },
+        {
+          "name": "element",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "element"
+        },
+        {
+          "name": "element",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "element"
+        },
+        {
+          "name": "output cluster",
+          "description": "output cluster is the resulting cluster. Functions \u00a9 National Instruments 365 Use this border node to perform operations on one or more cluster elements and replace the elements in the same location in the cluster. Each cluster element you unbundle with the border node on the left side of the structure must be bundled back into the cluster with the border node on the right side of the structure. This node allows the LabVIEW compiler to avoid storing a complete value copy of the cluster and clust",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "output_cluster"
+        }
+      ]
+    },
+    {
+      "name": "Variant To / From Element",
+      "page": 366,
+      "category": "Structures",
+      "description": "Right-click the border of an In Place Element structure and select the Add Variant To / From Element option from the shortcut menu to place this border node on the In Place Element structure.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "variant",
+          "description": "variant is the variant data you want to convert to the LabVIEW data type specified in type.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "variant"
+        },
+        {
+          "name": "type",
+          "description": "type is the LabVIEW data type to which you want to convert the variant data. type can be any data type. However, this function returns an error if LabVIEW cannot convert the data wired to variant to the data type you wire to this input. If the data is integers, you can coerce the data to another numeric representation, such as an extended-precision, floating- point number.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "type"
+        },
+        {
+          "name": "data",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "data"
+        },
+        {
+          "name": "error out",
+          "description": "Functions 366 ni.com error out contains error information. This output provides standard error out functionality. This border node has error out terminals on both sides of the structure. The error output on the left returns the actual error and the error output on the right duplicates the error from the left. You need to wire only one of the error out terminals because they have the same error output.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        },
+        {
+          "name": "data",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "data"
+        },
+        {
+          "name": "variant",
+          "description": "variant is the resulting variant data.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "variant"
+        },
+        {
+          "name": "error out",
+          "description": "Use this border node to perform operations on one or more variant data elements and replace the variant data with the new data type in the same location in memory. Each variant data element you retrieve with the border node on the left side of the structure must be converted back to a variant with the border node on the right side of the structure. This border node allows the LabVIEW compiler to avoid storing a complete value copy of the variant and variant data elements in memory. The border no",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        }
+      ]
+    },
+    {
+      "name": "In Place In / Out Element",
+      "page": 367,
+      "category": "Structures",
+      "description": "Right-click the border of an In Place Element structure and select the Add In Place In / Out Element option from the shortcut menu to place this border node on the In Place Element structure.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_review",
+      "terminals": []
+    },
+    {
+      "name": "Waveform Unbundle / Bundle Elements",
+      "page": 368,
+      "category": "Structures",
+      "description": "Right-click the border of an In Place Element structure and select the Add Waveform Unbundle / Bundle Elements option from the shortcut menu to place this border node on the In Place Element structure.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "waveform",
+          "description": "waveform is the waveform from which you want to retrieve components.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "waveform"
+        },
+        {
+          "name": "output waveform",
+          "description": "Functions 368 ni.com output waveform is the resulting waveform. If you did not wire an existing waveform, this is a new waveform. If you wired an existing waveform, this is the edited waveform. Use this border node to perform operations on one or more waveform components and replace the components to the same location in the waveform. Each waveform component you retrieve with the border node on the left side of the structure must be replaced back into the waveform with the border node on the rig",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "output_waveform"
+        }
+      ]
+    },
+    {
+      "name": "Data Value Reference Read / Write Element",
+      "page": 369,
+      "category": "Structures",
+      "description": "Accepts a data value reference or an external data value reference as an input, allows you to operate on the data within the In Place Element structure, and replaces that data in the original memory space. You can enable read-only access to the data value reference by right-clicking the border node on the right of the structure and selecting Allow Parallel Read-only Access. When the border node on the right is unwired, LabVIEW allows multiple, concurrent read-only operations and does not modify ",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "data value reference",
+          "description": "Functions \u00a9 National Instruments 369 data value reference is the reference that points to the data you want to access.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "data_value_reference"
+        },
+        {
+          "name": "data value",
+          "description": "data value is the data the reference points to.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "data_value"
+        },
+        {
+          "name": "error out",
+          "description": "error out contains error information. This output provides standard error out functionality. This border node has error out terminals on both sides of the structure. The error output on the left returns the actual error and the error output on the right duplicates the error from the left. You need to wire only one of the error out terminals because they have the same error output.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        },
+        {
+          "name": "data value",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "data_value"
+        },
+        {
+          "name": "data value reference",
+          "description": "data value reference is the reference that points to the new data.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "data_value_reference"
+        },
+        {
+          "name": "error out",
+          "description": "Use this border node to operate on the data in place. If a data value reference points to a class object, you cannot replace that class object with a different LabVIEW class object inside the In Place Element structure. However, you can replace any other object with an object of the same type. Note LabVIEW cannot resize the data in an external data value reference. This node produces an error if the array in an external data value reference is a different size than the array you wire to the righ",
+          "default_value": "data to the reference array until it is filled",
+          "enum_values": null,
+          "python_param": "error_out"
+        }
+      ]
+    },
+    {
+      "name": "Array Split / Replace Subarrays",
+      "page": 371,
+      "category": "Structures",
+      "description": "Split an array into subarrays along a dimension you specify and operate on the subarrays in place within the structure. Right-click the border of an In Place Element structure and select the Add Array Split / Replace Subarrays option from the shortcut menu to place this border node on the In Place Element structure.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "array",
+          "description": "array can be an n-dimensional array of any type.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "array"
+        },
+        {
+          "name": "split length",
+          "description": "split length specifies the length of the resulting subarray. Each split length results in an additional subarray. You must wire all or none of the split length inputs. If you do not wire any split length inputs, LabVIEW automatically determines the length of the resulting subarray.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "split_length"
+        },
+        {
+          "name": "element",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "element"
+        },
+        {
+          "name": "element",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "element"
+        },
+        {
+          "name": "element",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "element"
+        },
+        {
+          "name": "element",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "element"
+        },
+        {
+          "name": "array",
+          "description": "to access a reference twice at the same time in the same structure, LabVIEW returns a run-time error. If you attempt to access the reference after you obtain access inside the In Place Element structure, the VI might hang. You can enable multiple, concurrent read-only operations that do not modify the data value reference by right-clicking the border node on the right of the structure and selecting Allow Parallel Read-only Access. Functions",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "array"
+        }
+      ]
+    },
+    {
+      "name": "Variant Attribute Get / Replace",
+      "page": 372,
+      "category": "Structures",
+      "description": "Right-click the border of an In Place Element structure and select the Add Variant Attribute Get / Replace option from the shortcut menu to place this border node on the In Place Element structure.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "variant",
+          "description": "variant specifies the variant for which you want to retrieve or change an attribute.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "variant"
+        },
+        {
+          "name": "attribute name",
+          "description": "Functions 372 ni.com attribute name specifies the name of the attribute whose value you want to retrieve or change.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "attribute_name"
+        },
+        {
+          "name": "attribute",
+          "description": "attribute returns the original value of the attribute if found? is TRUE. This parameter returns an empty attribute if found? is FALSE.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "attribute"
+        },
+        {
+          "name": "found?",
+          "description": "found? returns TRUE if the attribute was found with the specified attribute name and the specified attribute name is not a duplicate name of a previously found attribute. The indicator returns FALSE if the specified attribute name was not found, or if the specified attribute name was a duplicate name of a previously found attribute.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "found"
+        },
+        {
+          "name": "attribute",
+          "description": "attribute specifies the retrieved or changed value of the attribute.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "attribute"
+        },
+        {
+          "name": "variant",
+          "description": "variant returns the variant with the retrieved or changed attribute.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "variant"
+        },
+        {
+          "name": "attribute name",
+          "description": "attribute name returns the name of the retrieved or changed attribute.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "attribute_name"
+        },
+        {
+          "name": "found?",
+          "description": "Use this border node to access and modify one or more attributes of a variant without copying the attributes out of the variant. Each attribute value you retrieve with the border node on the left side of the structure must be replaced with an attribute value using the border node on the right side of the structure. The border node on the left side of the structure is similar to the Get Variant Attribute function. The border node on the right side of the structure is similar to the Set Variant At",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "found"
+        }
+      ]
+    },
+    {
+      "name": "Map Get / Replace Value",
+      "page": 374,
+      "category": "Structures",
+      "description": "Use this border node to access and modify a value in a map without copying the value out of the map. Use the border node on the left side of the structure to retrieve a value in a map. Use the border node on the right side of the structure to modify or discard the retrieved value. To place this border node on the In Place Element structure, right-click the border of an In Place Element structure and select the Add Map Get / Replace Value option from the shortcut menu. Alternatively, you can use ",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "map",
+          "description": "map specifies the map in which you want to look for a key. This input accepts a map of any data type. The default data type is a map of 32-bit signed integers.",
+          "default_value": "data type is a map of 32-bit signed integers",
+          "enum_values": null,
+          "python_param": "map"
+        },
+        {
+          "name": "key",
+          "description": "key specifies the key to look for in the map. The key must be of the same data type as the attribute to the variant if the attribute was not found, refer to the example listed in the Example section for an illustration of how to add the syntax to this border node. Functions 374 ni.com existing keys in the map.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "key"
+        },
+        {
+          "name": "default value",
+          "description": "default value specifies the value to return in value if the specified key does not exist in the map. This input must be of the same data type as the existing values in the map.",
+          "default_value": "value specifies the value to return in value if the specified key does not exist in the map",
+          "enum_values": null,
+          "python_param": "default_value"
+        },
+        {
+          "name": "key not found?",
+          "description": "key not found? returns TRUE if map does not include an entry with the specified key. Otherwise, key not found? returns FALSE . This output exists on both the left and right border nodes. The two key not found? outputs return the same value.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "key_not_found"
+        },
+        {
+          "name": "value",
+          "description": "value returns the value of the entry with the associated key if key not found? is FALSE. If key not found? is TRUE, this output returns the value in default value.",
+          "default_value": "value",
+          "enum_values": null,
+          "python_param": "value"
+        },
+        {
+          "name": "action",
+          "description": "action specifies the operation to perform on the map based on the TRUE or FALSE value of key not found?. This input assumes the value 0 if unwired. 2 Delete Entry\u2014If key not found? is FALSE, this node deletes the entry with the specified key from the map. If key not found? is TRUE, this node does nothing. 0 Modify Entry only if found (default)\u2014If key not found? is FALSE, this node replaces the existing associated value with the new value. If key not found? is TRUE, this node does nothing. 1 Add ",
+          "default_value": null,
+          "enum_values": [
+            [
+              0,
+              "if unwired. 2 Delete Entry"
+            ],
+            [
+              0,
+              "Modify Entry only if found (default)"
+            ],
+            [
+              1,
+              "Add or Modify Entry"
+            ]
+          ],
+          "python_param": "action"
+        },
+        {
+          "name": "value",
+          "description": "value specifies the new value of the entry with the associated key.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "value"
+        },
+        {
+          "name": "map",
+          "description": "map returns the resulting map.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "map"
+        },
+        {
+          "name": "key",
+          "description": "Functions",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "key"
+        }
+      ]
+    },
+    {
+      "name": "Flat Sequence Structure",
+      "page": 376,
+      "category": "Structures",
+      "description": "Consists of one or more subdiagrams, or frames, that execute sequentially. Use the Flat Sequence structure to ensure that a subdiagram executes before or after another subdiagram. Data flow for the Flat Sequence structure differs from data flow for other structures. Frames in a Flat Sequence structure execute from left to right and when all data values wired to a frame are available. The data leaves each frame as the frame finishes executing. This means the input of one frame can depend on the o",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_review",
+      "terminals": []
+    },
+    {
+      "name": "Formula Node",
+      "page": 378,
+      "category": "Structures",
+      "description": "Evaluates mathematical formulas and expressions similar to C on the block diagram. The following built-in functions are allowed in formulas: abs, acos, acosh, asin, asinh, atan, atan2, atanh, ceil, cos, cosh, cot, csc, exp, expm1, floor, getexp, getman, int, intrz, ln, lnp1, log, log2, max, min, mod, pow, rand, rem, sec, sign, sin, sinc, sinh, sizeOfDim, sqrt, tan, tanh. There are some differences between the parser in the Mathematics VIs and the Formula Node. Refer to Creating Formula Nodes and",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_review",
+      "terminals": []
+    },
+    {
+      "name": "Diagram Disable Structure",
+      "page": 378,
+      "category": "Structures",
+      "description": "Has one or more subdiagrams, or cases, of which only the Enabled subdiagram executes. Use the Diagram Disable structure to disable a section of the block diagram. Place a Diagram Disable structure around the code you want to disable. In the Enabled Functions 378 ni.com subdiagram, include any code that you want to enable in place of the code in the Disabled subdiagram. After you create a Diagram Disable structure, you can add, duplicate, rearrange, or delete the subdiagrams. To scroll through th",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_review",
+      "terminals": []
+    },
+    {
+      "name": "Conditional Disable Structure",
+      "page": 379,
+      "category": "Structures",
+      "description": "Has one or more subdiagrams, exactly one of which LabVIEW uses for the duration of execution, depending on the configuration of the conditions of the subdiagram. Use this structure when you want to disable specific sections of code on the block diagram based on some user-defined condition. Right-click the structure border to add or delete a subdiagram. When you add a subdiagram or right-click the structure border and select Edit Condition For This Subdiagram from the shortcut menu, you can Funct",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_review",
+      "terminals": []
+    },
+    {
+      "name": "Type Specialization Structure",
+      "page": 380,
+      "category": "Structures",
+      "description": "Has one or more subdiagrams, exactly one of which LabVIEW compiles and executes, depending on the order and the compilation result of the subdiagram. LabVIEW Functions 380 ni.com declines subdiagrams in order if they have syntax errors. LabVIEW accepts the first subdiagram that does not have syntax errors and ignores the remaining subdiagrams. If all subdiagrams have syntax errors, this structure accepts the last subdiagram. Syntax errors are errors within the structure, such as broken wires, no",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "ms timeout (0)",
+          "description": "ms timeout specifies a timeout period in milliseconds for a Shared Variable node configured to read data. The shared variable waits the specified amount of time for updated data, and the timed out? indicator returns whether the shared variable received updated data in the specified time period or timed out. Updated data can represent a new value or an existing value that simply confirms a valid connection with the shared variable in the active project. To add a ms timeout input to the Shared Var",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "ms_timeout_0"
+        },
+        {
+          "name": "error in (no error)",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality. Note The behavior of the Shared Variable node differs when it is bound to a physical I/O channel. Refer to the Using I/O Variables topic for information about I/O variables. Functions 382 ni.com",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in_no_error"
+        }
+      ]
+    },
+    {
+      "name": "Shared Variable",
+      "page": 382,
+      "category": "Structures",
+      "description": "Represents a shared variable on the block diagram. To bind a Shared Variable node to a shared variable from the active project, add a Shared Variable node to the block diagram and double-click or right-click the node and select Select Variable>>Browse from the shortcut menu to display the Browse for Variable dialog box. You also can drag a shared variable from the Project Explorer window onto the block diagram of a VI in the same project to create a Shared Variable node.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "ms timeout (0)",
+          "description": "ms timeout specifies a timeout period in milliseconds for a Shared Variable node configured to read data. The shared variable waits the specified amount of time for updated data, and the timed out? indicator returns whether the shared variable received updated data in the specified time period or timed out. Updated data can represent a new value or an existing value that simply confirms a valid connection with the shared variable in the active project. To add a ms timeout input to the Shared Var",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "ms_timeout_0"
+        },
+        {
+          "name": "error in (no error)",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality. Note The behavior of the Shared Variable node differs when it is bound to a physical I/O channel. Refer to the Using I/O Variables topic for information about I/O variables. Functions 382 ni.com",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in_no_error"
+        },
+        {
+          "name": "timed out?",
+          "description": "timed out? displays whether a Shared Variable node read new data within the specified timeout period or timed out. To add a timed out? output to the Shared Variable node, right-click the Shared Variable node and select Show Timeout from the shortcut menu. You only can enable a timeout period for Shared Variable nodes configured to read data. You cannot enable a timeout period for nodes that access I/O variables locally. If the timeout expires, the Shared Variable node returns the last value writ",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "timed_out"
+        },
+        {
+          "name": "timestamp",
+          "description": "timestamp displays the timestamp data for the shared variable. To add a timestamp output to the Shared Variable node for a single-process shared variable or an I/O variable, you must first place a checkmark in the Enable timestamp checkbox on the Variable page of the Shared Variable Properties dialog box, and then right-click the Shared Variable node and select Show Timestamp from the shortcut menu. You can use this output only with shared variable nodes that are configured to read data.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "timestamp"
+        },
+        {
+          "name": "error out",
+          "description": "error out contains error information. This output provides standard error out functionality. When you drag a shared variable from the Project Explorer window to the block diagram or place a Shared Variable node on the block diagram, LabVIEW configures the Shared Variable node to read data. To configure the Shared Variable node to write data, right-click the Shared Variable node and select Change to Write from the shortcut menu. Note You can create, configure, and host shared variables only on Wi",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        }
+      ]
+    },
+    {
+      "name": "Local Variable",
+      "page": 385,
+      "category": "Structures",
+      "description": "Use local variables to read or write to one of the controls or indicators on the front panel of a VI. When you create a local variable, a local variable icon for the object appears on the block diagram. Writing to a local variable is similar to passing data to any other terminal. However, you can write to a local variable even if it is a control or read from a local variable even if it is an indicator. In effect, with a local variable, you can access a front panel object as both an input and an ",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_review",
+      "terminals": []
+    },
+    {
+      "name": "Global Variable",
+      "page": 385,
+      "category": "Structures",
+      "description": "Use global variables to access and pass data among several VIs. When you create a global variable, LabVIEW automatically creates a special global VI, which has a front panel but no block diagram. Note You can right-click a Shared Variable node and select Replace with Programmatic Access from the shortcut menu to switch to programmatic access. By using programmatic shared variable access, you can create clean, scalable block diagrams. Functions \u00a9 National Instruments 385",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_review",
+      "terminals": []
+    },
+    {
+      "name": "Feedback Node",
+      "page": 386,
+      "category": "Structures",
+      "description": "Stores data from one VI execution or loop iteration to the next. A Feedback Node is analogous to a z-1 block in feedback control theory and digital signal processing. You can change the appearance of the Feedback Node to look like that of a z-1 block by right-clicking the Feedback Node and selecting Z-Transform View from the shortcut menu. Changing the appearance to z-transform view, shown as follows, changes only the cosmetic appearance of the Feedback Node. The Feedback Node uses the value you",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "labview\\examples\\Structures\\Feedback Node\\Feedback Node -",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "labview_examples_structures_feedback_node_feedback_node"
+        }
+      ]
+    }
+  ]
+}

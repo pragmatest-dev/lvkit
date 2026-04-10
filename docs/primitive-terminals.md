@@ -20,7 +20,7 @@ Steps to Get Correct Primitive Terminal Indices
     - Look at the hint variables (e.g., path, error_in)
     - Match input indices to hint input variables
     - Match output indices to hint output variables
-  4. Update primitives-codegen.json
+  4. Update primitives.json
   "8055": {
     "terminals": [
       {"index": 0, "direction": "out", "name": "new path"},

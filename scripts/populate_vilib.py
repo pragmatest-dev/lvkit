@@ -413,12 +413,25 @@ def entry_to_dict(entry: VIEntry) -> dict:
 
 
 def main():
-    """Main entry point."""
+    """Main entry point.
+
+    Maintainer-only script. Reads NI's LabVIEW API reference PDF and
+    populates vipy's vilib JSON. The PDF is NOT shipped with vipy
+    (gitignored — not redistributable), so this script expects the
+    maintainer to drop it at the path below before running.
+    """
     # Paths
     script_dir = Path(__file__).parent
     project_root = script_dir.parent
-    pdf_path = project_root / "data" / "labview-api-ref.pdf"
-    output_dir = project_root / "data" / "vilib"
+    pdf_path = project_root / "src" / "vipy" / "data" / "labview-api-ref.pdf"
+    output_dir = project_root / "src" / "vipy" / "data" / "vilib"
+
+    if not pdf_path.exists():
+        raise SystemExit(
+            f"PDF not found at {pdf_path}.\n"
+            "This is a maintainer-only tool that needs NI's LabVIEW API "
+            "reference manual. Drop the PDF at the path above and re-run."
+        )
 
     # Create output directory
     output_dir.mkdir(exist_ok=True)

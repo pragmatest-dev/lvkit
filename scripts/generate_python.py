@@ -45,6 +45,14 @@ def main():
         "--auto-update", action="store_true",
         help="Auto-update vilib registry with terminal info",
     )
+    parser.add_argument(
+        "--placeholder-on-unresolved", action="store_true",
+        help=(
+            "Don't fail on unknown primitives or vi.lib VIs. Instead emit "
+            "an inline `raise PrimitiveResolutionNeeded(...)` / `raise "
+            "VILibResolutionNeeded(...)` in the generated Python."
+        ),
+    )
     args = parser.parse_args()
 
     result = generate_python(
@@ -52,6 +60,7 @@ def main():
         args.output,
         search_paths=[Path(p) for p in args.search_paths],
         expand_subvis=True,
+        soft_unresolved=args.placeholder_on_unresolved,
     )
 
     # Generate UI wrappers if requested

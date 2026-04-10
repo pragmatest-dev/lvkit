@@ -16,6 +16,7 @@ from mcp.server import Server
 from mcp.server.stdio import stdio_server
 from mcp.types import TextContent, Tool
 
+from .. import primitive_resolver, vilib_resolver
 from ..agent.codegen import build_module
 from ..graph.describe import (
     describe_constants as describe_constants_text,
@@ -33,7 +34,26 @@ from ..graph.describe import (
     describe_vi as describe_vi_text,
 )
 from ..memory_graph import InMemoryVIGraph
+from ..project_store import find_project_store
 from .tools import analyze_vi, generate_documents, generate_python
+
+
+def _configure_resolvers_for_vi(vi_path: str | Path) -> None:
+    """Discover .vipy/ from a VI path and reset resolvers.
+
+    MCP may serve multiple projects in one session, so we re-resolve the
+    project store on every tool call that knows a target VI path.
+
+    The path may be a file (a .vi), a directory (an .lvlib, .lvclass, or a
+    folder of VIs), or a path that doesn't exist yet. We start the search
+    from the path itself when it's a directory and from its parent when
+    it's a file, then walk up looking for .vipy/.
+    """
+    p = Path(vi_path).resolve()
+    start = p if p.is_dir() else p.parent
+    store = find_project_store(start=start)
+    primitive_resolver.reset_resolver(project_data_dir=store)
+    vilib_resolver.reset_resolver(project_data_dir=store)
 
 # Create MCP server instance
 app = Server("vipy-mcp")
@@ -203,6 +223,19 @@ async def list_tools() -> list[Tool]:
                             "Search paths for VI dependencies (e.g., OpenG libraries)"
                         ),
                         "default": [],
+                    },
+                    "soft_unresolved": {
+                        "type": "boolean",
+                        "description": (
+                            "If true, unknown primitives / vi.lib VIs are "
+                            "emitted as inline `raise PrimitiveResolutionNeeded(...)` "
+                            "/ `raise VILibResolutionNeeded(...)` statements "
+                            "instead of failing the build. Lets a downstream "
+                            "LLM see the diagnostic in context and either "
+                            "write a mapping into .vipy/ or replace the "
+                            "raise with a contextual fix."
+                        ),
+                        "default": False,
                     },
                 },
                 "required": ["vi_path", "output_dir"],
@@ -414,6 +447,8 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
         if not vi_path:
             raise ValueError("vi_path is required")
 
+        _configure_resolvers_for_vi(vi_path)
+
         # Run analysis (synchronous function in async context)
         result = await asyncio.to_thread(
             analyze_vi, vi_path, search_paths, expand_subvis
@@ -435,6 +470,8 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
         if not output_dir:
             raise ValueError("output_dir is required")
 
+        _configure_resolvers_for_vi(library_path)
+
         # Run documentation generation (synchronous function in async context)
         result = await asyncio.to_thread(
             generate_documents, library_path, output_dir, search_paths, expand_subvis
@@ -446,15 +483,19 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
         vi_path = arguments.get("vi_path")
         output_dir = arguments.get("output_dir")
         search_paths = arguments.get("search_paths", [])
+        soft_unresolved = arguments.get("soft_unresolved", False)
 
         if not vi_path:
             raise ValueError("vi_path is required")
         if not output_dir:
             raise ValueError("output_dir is required")
 
+        _configure_resolvers_for_vi(vi_path)
+
         # Run code generation (synchronous function in async context)
         result = await asyncio.to_thread(
-            generate_python, vi_path, output_dir, search_paths
+            generate_python, vi_path, output_dir, search_paths,
+            include_code=False, soft_unresolved=soft_unresolved,
         )
 
         # Return JSON for structured parsing by agent
@@ -470,6 +511,8 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
 
         if not vi_path:
             raise ValueError("vi_path is required")
+
+        _configure_resolvers_for_vi(vi_path)
 
         def _load():
             graph = _get_graph()

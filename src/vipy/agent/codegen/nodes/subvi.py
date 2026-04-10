@@ -18,6 +18,7 @@ from vipy.vilib_resolver import (
 from ..ast_utils import to_function_name, to_module_name, to_var_name
 from ..context import CodeGenContext
 from ..fragment import CodeFragment
+from ..unresolved import emit_soft_unresolved
 
 
 def generate(node: SubVIOperation, ctx: CodeGenContext) -> CodeFragment:
@@ -35,11 +36,8 @@ def generate(node: SubVIOperation, ctx: CodeGenContext) -> CodeFragment:
     if node.poly_variant_name:
         vilib_vi = _resolve_poly_variant(subvi_name, node, ctx)
         if not vilib_vi:
-            # Variant not in JSON — raise with context to fill it in
-            raise VILibResolutionNeeded(
-                subvi_name,
-                context=_build_resolution_context(node, ctx, None),
-            )
+            # Variant not in JSON — fail or emit inline raise
+            return _emit_vilib_resolution(node, ctx, vilib_vi=None)
 
     if not vilib_vi:
         vilib_vi = _get_vilib_vi(subvi_name, node, ctx)
@@ -160,10 +158,7 @@ def _generate_inline(
         if m not in set(vilib_outputs.values())
     }
     if unresolved_inputs:
-        raise VILibResolutionNeeded(
-            node.name or "",
-            context=_build_resolution_context(node, ctx, vilib_vi),
-        )
+        return _emit_vilib_resolution(node, ctx, vilib_vi=vilib_vi)
 
     # Build ref_terminals passthrough map: output_param -> input variable
     ref_passthrough: dict[str, str] = {}
@@ -688,6 +683,57 @@ def _is_class_terminal(term: Terminal) -> bool:
         return term.lv_type.ref_type == "UDClassInst"
     return False
 
+def _emit_vilib_resolution(
+    node: Operation,
+    ctx: CodeGenContext,
+    vilib_vi: VIEntry | None,
+) -> CodeFragment:
+    """Handle an unknown / unresolvable vi.lib SubVI call.
+
+    Default mode: raise VILibResolutionNeeded immediately so the
+    conversion loop catches it.
+
+    Soft mode (ctx.soft_unresolved=True): emit an inline `raise
+    VILibResolutionNeeded(...)` AST statement with the same context.
+    Pre-binds output terminals to None so downstream codegen still has
+    a value to read.
+    """
+    context = _build_resolution_context(node, ctx, vilib_vi)
+    vi_name = node.name or ""
+
+    if not ctx.soft_unresolved:
+        raise VILibResolutionNeeded(vi_name, context=context)
+
+    # Soft mode: emit
+    #   raise VILibResolutionNeeded(<vi_name>,
+    #       context=ResolutionContext(...))
+    # vi_name is a literal positional. The ResolutionContext is a
+    # dataclass call — not a literal — so it goes through source_kwargs
+    # as a pre-formatted Python expression.
+    ctx_kwarg_src = ", ".join(
+        f"{k}={v!r}" for k, v in {
+            "caller_vi": context.caller_vi,
+            "caller_qualified_name": context.caller_qualified_name,
+            "poly_selector": context.poly_selector,
+            "wire_types": context.wire_types,
+            "terminal_names": context.terminal_names,
+            "qualified_path": context.qualified_path,
+        }.items()
+    )
+
+    return emit_soft_unresolved(
+        node=node,
+        ctx=ctx,
+        exception_module="vipy.vilib_resolver",
+        exception_class="VILibResolutionNeeded",
+        positional_args=[vi_name],
+        source_kwargs={"context": f"ResolutionContext({ctx_kwarg_src})"},
+        extra_imports={
+            "from vipy.vilib_resolver import ResolutionContext"
+        },
+    )
+
+
 def _build_resolution_context(
     node: Operation,
     ctx: CodeGenContext,
@@ -735,7 +781,9 @@ def _build_resolution_context(
 
     return ResolutionContext(
         caller_vi=ctx.vi_name,
+        caller_qualified_name=getattr(ctx, "qualified_vi_name", None),
         poly_selector=poly_selector,
         wire_types=wire_types,
         terminal_names=terminal_names,
+        qualified_path=getattr(node, "qualified_path", None),
     )

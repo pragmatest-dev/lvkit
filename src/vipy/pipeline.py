@@ -211,6 +211,7 @@ def _generate_polymorphic_module(
     package_name: str,
     output_dir: Path,
     vi_paths: dict[str, Path],
+    soft_unresolved: bool = False,
 ) -> str:
     """Generate a module containing all variants and wrapper."""
     lines = [
@@ -244,6 +245,7 @@ def _generate_polymorphic_module(
             code = build_module(
                 vi_context, vi_name=variant_name,
                 import_resolver=import_resolver, graph=graph,
+                soft_unresolved=soft_unresolved,
             )
             # Extract just the function and result class (skip imports)
             tree = ast.parse(code)
@@ -433,6 +435,7 @@ def generate_python(
     output_dir: Path | str,
     search_paths: list[Path] | None = None,
     expand_subvis: bool = True,
+    soft_unresolved: bool = False,
 ) -> dict:
     """Generate Python from VI files.
 
@@ -441,6 +444,9 @@ def generate_python(
         output_dir: Output directory for generated Python
         search_paths: Additional paths for SubVI resolution
         expand_subvis: If True, recursively load SubVIs
+        soft_unresolved: When True, unknown primitives / vi.lib VIs are
+            emitted as inline `raise` statements instead of failing the
+            build. See build_module() docstring for details.
 
     Returns:
         Summary dict with keys: vilib, ast, stub, error counts
@@ -599,6 +605,7 @@ def {func_name}(*args, **kwargs) -> Any:
                 code = _generate_polymorphic_module(
                     vi_name, variants, graph, vilib_resolver,
                     vi_folder_name, output_dir_resolved, vi_paths,
+                    soft_unresolved=soft_unresolved,
                 )
                 ast.parse(code)  # Validate syntax
                 output_path.write_text(code)
@@ -634,6 +641,7 @@ def {func_name}(*args, **kwargs) -> Any:
                 code = build_module(
                     vi_context, vi_name,
                     import_resolver=import_resolver, graph=graph,
+                    soft_unresolved=soft_unresolved,
                 )
 
                 # Validate syntax
@@ -670,6 +678,7 @@ def {func_name}(*args, **kwargs) -> Any:
                 code = _generate_polymorphic_module(
                     wrapper_name, variants, graph, vilib_resolver,
                     vi_folder_name, output_dir_resolved, vi_paths,
+                    soft_unresolved=soft_unresolved,
                 )
                 ast.parse(code)
                 wrapper_path.write_text(code)

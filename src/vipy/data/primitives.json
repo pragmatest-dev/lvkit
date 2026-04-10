@@ -1,0 +1,3104 @@
+{
+  "metadata": {
+    "description": "Primitive ID to Python mapping (runtime version)",
+    "source": "OpenG + JKI VI Tester",
+    "total_primitives": 172,
+    "identified": 172,
+    "note": "See primitives-codegen-full.json for count/vis metadata"
+  },
+  "primitives": {
+    "1083": {
+      "name": "Boolean Constant",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "value",
+          "type": "polymorphic"
+        }
+      ],
+      "python_code": {
+        "value": "True"
+      },
+      "inline": true,
+      "verified": false,
+      "note": "0 inputs, 1 Boolean output. Always primIdx 377-381. Constant primitive - actual value (True/False) determined by VI data, not primResID."
+    },
+    "1104": {
+      "name": "Greater?",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "x_greater_than_y",
+          "type": "boolean"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "x",
+          "type": "polymorphic",
+          "default_value": "0"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "y",
+          "type": "polymorphic",
+          "default_value": "0"
+        }
+      ],
+      "python_code": {
+        "x_greater_than_y": "in_1 > in_2"
+      },
+      "inline": true,
+      "verified": true,
+      "pdf_page": 745,
+      "note": "Same as 1102 but for arrays/clusters. Same semantics."
+    },
+    "1054": {
+      "name": "Absolute Value",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "abs_x",
+          "type": "numeric"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "x",
+          "type": "numeric"
+        }
+      ],
+      "python_code": {
+        "abs_x": "abs(in_1)"
+      },
+      "inline": true,
+      "verified": true,
+      "pdf_page": 411
+    },
+    "1062": {
+      "name": "Decimate 1D Array",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "decimated array",
+          "type": "polymorphic",
+          "expandable": true
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "array",
+          "type": "polymorphic"
+        }
+      ],
+      "python_code": {
+        "decimated_array": "in_1[::2]"
+      },
+      "inline": true,
+      "verified": true,
+      "pdf_page": 419
+    },
+    "1051": {
+      "name": "Subtract",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "difference",
+          "type": "numeric"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "x",
+          "type": "numeric"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "y",
+          "type": "numeric"
+        }
+      ],
+      "python_code": {
+        "difference": "in_1 - in_2"
+      },
+      "inline": true,
+      "verified": true,
+      "pdf_page": 517
+    },
+    "1141": {
+      "name": "To Word Integer",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "int16_value",
+          "type": "NumInt16"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "number",
+          "type": "polymorphic"
+        }
+      ],
+      "python_code": {
+        "int16_value": "int(in_1) & 0xFFFF"
+      },
+      "inline": true,
+      "verified": true,
+      "pdf_page": 529
+    },
+    "1142": {
+      "name": "Type Conversion",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "output",
+          "type": "polymorphic"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "input",
+          "type": "polymorphic"
+        }
+      ],
+      "python_code": {
+        "output": "int(in_1)"
+      },
+      "inline": true,
+      "verified": false,
+      "note": "1in/1out float->int conversion. Exact function unconfirmed. Python int() as approximation."
+    },
+    "1540": {
+      "name": "Format Value",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "result string",
+          "type": "polymorphic"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "format string",
+          "type": "polymorphic"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "value",
+          "type": "polymorphic"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "initial string",
+          "type": "polymorphic",
+          "default_value": "''"
+        }
+      ],
+      "python_code": {
+        "result_string": "in_3 + (in_1 % in_2)"
+      },
+      "inline": true,
+      "verified": true,
+      "pdf_page": 689
+    },
+    "1050": {
+      "name": "Build Array",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "appended array",
+          "type": "polymorphic"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "element",
+          "type": "polymorphic",
+          "expandable": true
+        }
+      ],
+      "python_code": "[{expandable_inputs}]",
+      "inline": true,
+      "verified": true,
+      "pdf_page": 400
+    },
+    "1052": {
+      "name": "Subtract",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "difference",
+          "type": "polymorphic"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "x",
+          "type": "polymorphic"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "y",
+          "type": "polymorphic"
+        }
+      ],
+      "python_code": {
+        "difference": "in_1 - in_2"
+      },
+      "inline": true,
+      "verified": true,
+      "pdf_page": 517
+    },
+    "1057": {
+      "name": "Array Size",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "size",
+          "type": "polymorphic"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "array",
+          "type": "array"
+        }
+      ],
+      "python_code": {
+        "size": "len(in_1)"
+      },
+      "inline": true,
+      "verified": true,
+      "pdf_page": 391
+    },
+    "1061": {
+      "name": "Add",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "result",
+          "type": "polymorphic"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "x",
+          "type": "polymorphic"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "y",
+          "type": "polymorphic"
+        }
+      ],
+      "python_code": {
+        "result": "in_1 + in_2"
+      },
+      "inline": true,
+      "verified": true,
+      "pdf_page": 515
+    },
+    "1056": {
+      "name": "Split 1D Array",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "first subarray",
+          "type": "polymorphic"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "second subarray",
+          "type": "polymorphic"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "index",
+          "type": "polymorphic",
+          "default_value": "0"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "array",
+          "type": "polymorphic"
+        }
+      ],
+      "python_code": {
+        "first_subarray": "in_3[:in_2]",
+        "second_subarray": "in_3[in_2:]"
+      },
+      "inline": true,
+      "verified": true,
+      "pdf_page": 412,
+      "note": "Connector pane: idx=2 is index (numeric), idx=3 is array. Confirmed from pco.camera_FloatingMean_Example.vi instances."
+    },
+    "1103": {
+      "name": "Greater Or Equal?",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "greater_or_equal",
+          "type": "polymorphic"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "x",
+          "type": "polymorphic",
+          "default_value": "0"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "y",
+          "type": "polymorphic",
+          "default_value": "0"
+        }
+      ],
+      "python_code": {
+        "greater_or_equal": "in_1 >= in_2"
+      },
+      "inline": true,
+      "verified": true,
+      "pdf_page": 750
+    },
+    "1112": {
+      "name": "Not A Number/Path/Refnum?",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "not_a_path",
+          "type": "polymorphic"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "value",
+          "type": "polymorphic"
+        }
+      ],
+      "python_code": {
+        "not_a_path": "not bool(in_1)"
+      },
+      "inline": true,
+      "verified": true,
+      "pdf_page": 759
+    },
+    "1144": {
+      "name": "To Unsigned Word Integer",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "uint16_value",
+          "type": "NumUInt16"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "number",
+          "type": "polymorphic"
+        }
+      ],
+      "python_code": {
+        "uint16_value": "int(in_1) & 0xFFFF"
+      },
+      "inline": true,
+      "verified": true,
+      "pdf_page": 532
+    },
+    "1145": {
+      "name": "Coerce To Type",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "coerced output",
+          "type": "polymorphic"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "x",
+          "type": "polymorphic"
+        }
+      ],
+      "python_code": {
+        "coerced_output": "in_1"
+      },
+      "inline": true,
+      "verified": false,
+      "note": "1in/1out type conversion. Python is dynamically typed so this is a passthrough."
+    },
+    "1502": {
+      "name": "String Length",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "length",
+          "type": "polymorphic"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "string",
+          "type": "polymorphic"
+        }
+      ],
+      "python_code": {
+        "length": "len(in_1)"
+      },
+      "inline": true,
+      "verified": true,
+      "pdf_page": 649
+    },
+    "1516": {
+      "name": "Select",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "result",
+          "type": "polymorphic"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "f_value",
+          "type": "polymorphic"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "selector",
+          "type": "Boolean"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "t_value",
+          "type": "polymorphic"
+        }
+      ],
+      "python_code": {
+        "result": "in_3 if in_2 else in_1"
+      },
+      "inline": true,
+      "verified": true,
+      "pdf_page": 754,
+      "note": "Select function: result = t_value if selector else f_value. primResID=1516 primIndex=136. All 334 class='prim' instances are Select; real Array Subset uses class='subset' (node_type resolution)."
+    },
+    "1608": {
+      "name": "Flatten To String",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "data string",
+          "type": "polymorphic"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "anything",
+          "type": "polymorphic"
+        }
+      ],
+      "python_code": {
+        "data_string": "str(in_1)"
+      },
+      "inline": true,
+      "verified": false,
+      "note": "Flatten To String serializes data. In Python, str() is a rough equivalent."
+    },
+    "1999": {
+      "name": "Not A Path",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "Not A Path",
+          "type": "polymorphic"
+        }
+      ],
+      "python_code": {
+        "not_a_path": "None"
+      },
+      "inline": true,
+      "verified": true,
+      "pdf_page": 1495,
+      "note": "Constant that returns the <Not A Path> value. In Python, None represents an invalid/empty path."
+    },
+    "2076": {
+      "name": "Unknown Event/Notification Primitive 2076",
+      "placeholder": true,
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "refnum_in",
+          "type": "Refnum"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "error_in",
+          "type": "Cluster"
+        },
+        {
+          "index": 7,
+          "direction": "out",
+          "name": "error_out",
+          "type": "Cluster"
+        }
+      ],
+      "python_code": "pass"
+    },
+    "2074": {
+      "name": "Unknown Event/Notification Primitive",
+      "placeholder": true,
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "refnum_in",
+          "type": "Refnum"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "data_in",
+          "type": "Cluster"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "error_in",
+          "type": "Cluster"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "timeout_ms",
+          "type": "NumUInt32"
+        },
+        {
+          "index": 8,
+          "direction": "out",
+          "name": "refnum_out",
+          "type": "Refnum"
+        },
+        {
+          "index": 11,
+          "direction": "out",
+          "name": "error_out",
+          "type": "Cluster"
+        }
+      ],
+      "python_code": "pass"
+    },
+    "2401": {
+      "name": "Merge Errors",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "cluster"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "error in 1",
+          "type": "cluster"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "error in 2",
+          "type": "cluster"
+        }
+      ],
+      "python_code": {
+        "error_out": "in_1 or in_2"
+      },
+      "inline": true,
+      "verified": true,
+      "pdf_page": 817
+    },
+    "1809": {
+      "name": "Index Array",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "element",
+          "type": "polymorphic",
+          "expandable": true
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "array",
+          "type": "array"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "index",
+          "type": "polymorphic",
+          "default_value": "0"
+        }
+      ],
+      "python_code": "in_1[in_2]",
+      "inline": true,
+      "verified": true,
+      "pdf_page": 392
+    },
+    "1166": {
+      "name": "String Subset",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "string",
+          "type": "polymorphic"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "offset",
+          "type": "polymorphic",
+          "default_value": "0"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "substring",
+          "type": "polymorphic"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "length",
+          "type": "polymorphic",
+          "default_value": "None"
+        }
+      ],
+      "python_code": {
+        "substring": "in_0[in_1:] if in_3 is None else in_0[in_1:in_1 + in_3]"
+      },
+      "inline": true,
+      "verified": true,
+      "pdf_page": 650
+    },
+    "1535": {
+      "name": "Match Pattern",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "string",
+          "type": "polymorphic"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "regular expression",
+          "type": "polymorphic"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "offset",
+          "type": "polymorphic",
+          "default_value": "0"
+        },
+        {
+          "index": 3,
+          "direction": "out",
+          "name": "before substring",
+          "type": "polymorphic"
+        },
+        {
+          "index": 4,
+          "direction": "out",
+          "name": "match substring",
+          "type": "polymorphic"
+        },
+        {
+          "index": 5,
+          "direction": "out",
+          "name": "after substring",
+          "type": "polymorphic"
+        },
+        {
+          "index": 6,
+          "direction": "out",
+          "name": "offset past match",
+          "type": "polymorphic"
+        }
+      ],
+      "python_code": {
+        "_import": "import re",
+        "_body": "_m = re.search(in_1, in_0[in_2:])",
+        "before_substring": "in_0[in_2:][:_m.start()] if _m else in_0[in_2:]",
+        "match_substring": "_m.group() if _m else ''",
+        "after_substring": "in_0[in_2:][_m.end():] if _m else ''",
+        "offset_past_match": "(in_2 + _m.end()) if _m else -1"
+      },
+      "verified": true,
+      "pdf_page": 657
+    },
+    "1077": {
+      "name": "Path To String",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "string",
+          "type": "String"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "path",
+          "type": "Path"
+        }
+      ],
+      "python_code": {
+        "string": "str(in_1)"
+      },
+      "inline": true,
+      "verified": true,
+      "pdf_page": 665
+    },
+    "1058": {
+      "name": "Increment",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "result",
+          "type": "numeric"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "x",
+          "type": "numeric"
+        }
+      ],
+      "python_code": {
+        "result": "in_1 + 1"
+      },
+      "inline": true,
+      "verified": true,
+      "pdf_page": 544
+    },
+    "1069": {
+      "name": "Negate",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "neg_x",
+          "type": "polymorphic"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "x",
+          "type": "polymorphic"
+        }
+      ],
+      "python_code": {
+        "neg_x": "-in_1"
+      },
+      "inline": true,
+      "verified": true,
+      "pdf_page": 584
+    },
+    "1070": {
+      "name": "Random Number (0-1)",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "number",
+          "type": "NumFloat64"
+        }
+      ],
+      "python_code": {
+        "number": "random.random()"
+      },
+      "_import": "import random",
+      "verified": true,
+      "pdf_page": 618
+    },
+    "1078": {
+      "name": "String To Path",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "path",
+          "type": "Path"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "string",
+          "type": "String"
+        }
+      ],
+      "python_code": {
+        "path": "Path(in_1)"
+      },
+      "inline": true,
+      "verified": true,
+      "pdf_page": 666
+    },
+    "1110": {
+      "name": "Not Equal?",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "x_ne_y",
+          "type": "Boolean"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "x",
+          "type": "polymorphic",
+          "default_value": "0"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "y",
+          "type": "polymorphic",
+          "default_value": "0"
+        }
+      ],
+      "python_code": {
+        "x_ne_y": "in_1 != in_2"
+      },
+      "inline": true,
+      "verified": true,
+      "pdf_page": 747
+    },
+    "1108": {
+      "name": "Quotient & Remainder",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "remainder",
+          "type": "polymorphic"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "quotient",
+          "type": "polymorphic"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "x",
+          "type": "polymorphic"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "y",
+          "type": "polymorphic"
+        }
+      ],
+      "python_code": {
+        "remainder": "in_2 % in_3",
+        "quotient": "in_2 // in_3"
+      },
+      "inline": true,
+      "verified": true,
+      "pdf_page": 521
+    },
+    "1105": {
+      "name": "Less?",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "result",
+          "type": "Boolean"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "x",
+          "type": "polymorphic",
+          "default_value": "0"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "y",
+          "type": "polymorphic",
+          "default_value": "0"
+        }
+      ],
+      "python_code": {
+        "result": "in_1 < in_2"
+      },
+      "inline": true,
+      "verified": true,
+      "pdf_page": 749
+    },
+    "1114": {
+      "name": "Greater Or Equal?",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "result",
+          "type": "Boolean"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "x",
+          "type": "polymorphic"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "y",
+          "type": "polymorphic",
+          "default_value": "0"
+        }
+      ],
+      "python_code": {
+        "result": "in_1 >= in_2"
+      },
+      "inline": true,
+      "verified": true,
+      "pdf_page": 750
+    },
+    "1115": {
+      "name": "Equal To 0?",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "x_equals_zero",
+          "type": "Boolean"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "x",
+          "type": "polymorphic"
+        }
+      ],
+      "python_code": {
+        "x_equals_zero": "in_1 == 0"
+      },
+      "inline": true,
+      "verified": true,
+      "pdf_page": 751
+    },
+    "1117": {
+      "name": "Not Equal To 0?",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "result",
+          "type": "Boolean"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "x",
+          "type": "numeric"
+        }
+      ],
+      "python_code": {
+        "result": "in_1 != 0"
+      },
+      "inline": true,
+      "verified": true,
+      "pdf_page": 752
+    },
+    "1143": {
+      "name": "To Unsigned Byte Integer",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "result",
+          "type": "NumUInt8"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "x",
+          "type": "numeric"
+        }
+      ],
+      "python_code": {
+        "result": "int(in_1) & 0xFF"
+      },
+      "inline": true,
+      "verified": true,
+      "pdf_page": 533
+    },
+    "1189": {
+      "name": "Flatten To String",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "data_string",
+          "type": "String"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "anything",
+          "type": "polymorphic"
+        }
+      ],
+      "python_code": {
+        "data_string": "str(in_1)"
+      },
+      "inline": true,
+      "verified": true,
+      "pdf_page": 553
+    },
+    "1422": {
+      "name": "Array Of Strings To Path",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "names",
+          "type": "Array"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "is_relative",
+          "type": "Boolean"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "path",
+          "type": "Path"
+        }
+      ],
+      "python_code": {
+        "path": "Path(*in_0) if not in_1 else Path(*in_0)"
+      },
+      "inline": true,
+      "verified": true,
+      "pdf_page": 665
+    },
+    "1609": {
+      "name": "Unflatten From String",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "value",
+          "type": "String"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "binary_string",
+          "type": "Array"
+        }
+      ],
+      "python_code": {
+        "value": "bytes(in_1).decode('latin-1')"
+      },
+      "inline": true,
+      "verified": false,
+      "pdf_page": 704
+    },
+    "1300": {
+      "name": "Tick Count (ms)",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "millisecond_timer_value",
+          "type": "NumUInt32"
+        }
+      ],
+      "python_code": {
+        "millisecond_timer_value": "int(time.time() * 1000)"
+      },
+      "_import": "import time",
+      "verified": true,
+      "pdf_page": 1834
+    },
+    "1423": {
+      "name": "Path To Array Of Strings",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "path",
+          "type": "Path"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "empty_path",
+          "type": "Boolean"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "names",
+          "type": "Array"
+        }
+      ],
+      "python_code": {
+        "empty_path": "str(in_0) == ''",
+        "names": "list(in_0.parts) if in_0 else []"
+      },
+      "verified": true,
+      "pdf_page": 664
+    },
+    "1164": {
+      "name": "Get Type Information",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error_out",
+          "type": "Cluster"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "names",
+          "type": "Array"
+        },
+        {
+          "index": 3,
+          "direction": "out",
+          "name": "name",
+          "type": "String"
+        },
+        {
+          "index": 8,
+          "direction": "in",
+          "name": "error_in",
+          "type": "Cluster"
+        },
+        {
+          "index": 9,
+          "direction": "in",
+          "name": "type_enum",
+          "type": "UnitUInt16"
+        },
+        {
+          "index": 10,
+          "direction": "in",
+          "name": "include_control",
+          "type": "Boolean"
+        },
+        {
+          "index": 11,
+          "direction": "in",
+          "name": "reference",
+          "type": "Refnum"
+        }
+      ],
+      "python_code": {
+        "names": "[]",
+        "name": "''"
+      },
+      "verified": false,
+      "pdf_page": null
+    },
+    "3914": {
+      "name": "Match Regular Expression",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "string",
+          "type": "String"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "multiline",
+          "type": "Boolean"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "ignore_case",
+          "type": "Boolean"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "dotall",
+          "type": "Boolean"
+        },
+        {
+          "index": 4,
+          "direction": "out",
+          "name": "after_match",
+          "type": "String"
+        },
+        {
+          "index": 5,
+          "direction": "in",
+          "name": "regular_expression",
+          "type": "String"
+        },
+        {
+          "index": 7,
+          "direction": "in",
+          "name": "replacement_string",
+          "type": "String"
+        },
+        {
+          "index": 8,
+          "direction": "out",
+          "name": "offset",
+          "type": "NumInt32"
+        },
+        {
+          "index": 9,
+          "direction": "in",
+          "name": "offset_in",
+          "type": "NumInt32"
+        },
+        {
+          "index": 10,
+          "direction": "out",
+          "name": "replacement_count",
+          "type": "NumInt32"
+        },
+        {
+          "index": 11,
+          "direction": "in",
+          "name": "error_in",
+          "type": "Cluster"
+        },
+        {
+          "index": 15,
+          "direction": "out",
+          "name": "error_out",
+          "type": "Cluster"
+        }
+      ],
+      "python_code": {
+        "_import": "import re",
+        "_body": "_result = re.search(in_5, in_0[in_9:])",
+        "after_match": "in_0[in_9:][_result.end():] if _result else ''",
+        "offset": "(in_9 + _result.start()) if _result else -1"
+      },
+      "verified": false,
+      "pdf_page": 660
+    },
+    "8070": {
+      "name": "List Folder",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error_out",
+          "type": "Cluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "has_contents",
+          "type": "Boolean"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "filenames",
+          "type": "Array"
+        },
+        {
+          "index": 3,
+          "direction": "out",
+          "name": "path_out",
+          "type": "Refnum"
+        },
+        {
+          "index": 7,
+          "direction": "in",
+          "name": "pattern",
+          "type": "String"
+        },
+        {
+          "index": 8,
+          "direction": "in",
+          "name": "error_in",
+          "type": "Cluster"
+        },
+        {
+          "index": 10,
+          "direction": "in",
+          "name": "datalog_type",
+          "type": "NumInt32"
+        },
+        {
+          "index": 11,
+          "direction": "in",
+          "name": "path",
+          "type": "Path"
+        }
+      ],
+      "python_code": {
+        "filenames": "[f.name for f in Path(in_11).iterdir() if f.is_file()]",
+        "has_contents": "any(Path(in_11).iterdir())",
+        "path_out": "in_11"
+      },
+      "_import": "from pathlib import Path",
+      "verified": false,
+      "pdf_page": 1794
+    },
+    "1537": {
+      "name": "Search and Replace String",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "result_string",
+          "type": "String"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "input_string",
+          "type": "String"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "search_string",
+          "type": "String"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "replace_string",
+          "type": "String"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "replace_all",
+          "type": "Boolean"
+        },
+        {
+          "index": 5,
+          "direction": "in",
+          "name": "offset",
+          "type": "NumInt32"
+        },
+        {
+          "index": 6,
+          "direction": "out",
+          "name": "number_of_replacements",
+          "type": "NumInt32"
+        },
+        {
+          "index": 7,
+          "direction": "out",
+          "name": "offset_past_replacement",
+          "type": "NumInt32"
+        }
+      ],
+      "python_code": {
+        "result_string": "in_1.replace(in_2, in_3) if in_4 else in_1.replace(in_2, in_3, 1)"
+      },
+      "inline": true,
+      "verified": true,
+      "pdf_page": 654
+    },
+    "1538": {
+      "name": "Search/Split String",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "offset_of_match",
+          "type": "NumInt32"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "substring_before_match",
+          "type": "String"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "match_rest_of_string",
+          "type": "String"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "offset",
+          "type": "NumInt32"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "string",
+          "type": "String"
+        },
+        {
+          "index": 5,
+          "direction": "in",
+          "name": "search_string_char",
+          "type": "String"
+        }
+      ],
+      "python_code": {
+        "offset_of_match": "in_4.find(in_5, in_3)",
+        "substring_before_match": "in_4[:in_4.find(in_5, in_3)] if in_4.find(in_5, in_3) >= 0 else in_4",
+        "match_rest_of_string": "in_4[in_4.find(in_5, in_3):] if in_4.find(in_5, in_3) >= 0 else ''"
+      },
+      "verified": true,
+      "pdf_page": 719
+    },
+    "1102": {
+      "name": "Equal?",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "equal",
+          "type": "polymorphic"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "x",
+          "type": "polymorphic",
+          "default_value": "0"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "y",
+          "type": "polymorphic",
+          "default_value": "0"
+        }
+      ],
+      "python_code": {
+        "equal": "in_1 == in_2"
+      },
+      "inline": true,
+      "verified": true,
+      "pdf_page": 745
+    },
+    "1116": {
+      "name": "Call Chain",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "output",
+          "type": "polymorphic"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "input",
+          "type": "polymorphic"
+        }
+      ],
+      "python_code": {
+        "output": "in_1"
+      },
+      "inline": true,
+      "verified": false,
+      "note": "1in/1out numeric\u2192boolean. In comparison range but exact function unconfirmed. Passthrough for now."
+    },
+    "1170": {
+      "name": "Split Number",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "input",
+          "type": "polymorphic"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "high",
+          "type": "polymorphic"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "low",
+          "type": "polymorphic"
+        }
+      ],
+      "python_code": {
+        "high": "in_0 >> 16",
+        "low": "in_0 & 0xFFFF"
+      },
+      "inline": true,
+      "verified": false,
+      "note": "1in/2out array\u2192array+array. Could be Split Number or type-specific split. Unconfirmed."
+    },
+    "1503": {
+      "name": "Replace Substring",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "result string",
+          "type": "polymorphic"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "offset",
+          "type": "polymorphic",
+          "default_value": "0"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "length",
+          "type": "polymorphic"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "string",
+          "type": "polymorphic"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "substring",
+          "type": "polymorphic",
+          "default_value": "''"
+        }
+      ],
+      "python_code": {
+        "result_string": "in_3[:in_1] + in_4 + in_3[in_1 + in_2:]"
+      },
+      "inline": true,
+      "verified": true,
+      "pdf_page": 653
+    },
+    "1904": {
+      "name": "Array Size",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "size",
+          "type": "NumInt32"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "array",
+          "type": "Array"
+        }
+      ],
+      "python_code": {
+        "size": "len(in_1)"
+      },
+      "inline": true,
+      "verified": true,
+      "pdf_page": 391
+    },
+    "1910": {
+      "name": "Or Array Elements",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "logical_or",
+          "type": "Boolean"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "boolean_array",
+          "type": "Array"
+        }
+      ],
+      "python_code": {
+        "logical_or": "any(in_1)"
+      },
+      "inline": true,
+      "verified": true,
+      "pdf_page": 642
+    },
+    "1911": {
+      "name": "And Array Elements",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "logical_and",
+          "type": "Boolean"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "boolean_array",
+          "type": "Array"
+        }
+      ],
+      "python_code": {
+        "logical_and": "all(in_1)"
+      },
+      "inline": true,
+      "verified": true,
+      "pdf_page": 641
+    },
+    "1903": {
+      "name": "Array Size",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "size",
+          "type": "NumInt32"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "array",
+          "type": "Array"
+        }
+      ],
+      "python_code": {
+        "size": "len(in_1)"
+      },
+      "inline": true,
+      "verified": true,
+      "pdf_page": 391
+    },
+    "1900": {
+      "name": "Sort 1D Array",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "sorted_array",
+          "type": "Array"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "array",
+          "type": "Array"
+        }
+      ],
+      "python_code": {
+        "sorted_array": "sorted(in_1)"
+      },
+      "inline": true,
+      "verified": true,
+      "pdf_page": 406
+    },
+    "1901": {
+      "name": "Delete From Array",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "deleted portion",
+          "type": "polymorphic"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "array",
+          "type": "array"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "index",
+          "type": "polymorphic",
+          "default_value": "0"
+        },
+        {
+          "index": 3,
+          "direction": "out",
+          "name": "output array",
+          "type": "polymorphic"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "length",
+          "type": "polymorphic",
+          "default_value": "1"
+        }
+      ],
+      "python_code": {
+        "deleted_portion": "in_1[in_2:in_2+in_4]",
+        "output_array": "in_1[:in_2] + in_1[in_2+in_4:]"
+      },
+      "inline": true,
+      "verified": true,
+      "pdf_page": 398
+    },
+    "1128": {
+      "name": "Not A Number/Path/Refnum?",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "not_a_refnum",
+          "type": "Boolean"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "value",
+          "type": "polymorphic"
+        }
+      ],
+      "python_code": {
+        "not_a_refnum": "not bool(in_1)"
+      },
+      "inline": true,
+      "verified": true,
+      "pdf_page": 759,
+      "note": "Polymorphic variant of 1112 for Refnum type."
+    },
+    "1064": {
+      "name": "Not",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "not_x",
+          "type": "Boolean"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "x",
+          "type": "Boolean"
+        }
+      ],
+      "python_code": {
+        "not_x": "not in_1"
+      },
+      "inline": true,
+      "verified": true,
+      "pdf_page": 635
+    },
+    "1419": {
+      "name": "Build Path",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "appended path",
+          "type": "Path"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "name or relative path",
+          "type": "polymorphic"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "base path",
+          "type": "Path",
+          "default_value": "''"
+        }
+      ],
+      "python_code": {
+        "_import": "from pathlib import Path as _Path",
+        "appended_path": "_Path(in_2) / in_1"
+      },
+      "inline": true,
+      "verified": true,
+      "pdf_page": 1490
+    },
+    "1303": {
+      "name": "Get Date/Time In Seconds",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "current_time",
+          "type": "MeasureData"
+        }
+      ],
+      "python_code": {
+        "_import": "import time",
+        "current_time": "time.time()"
+      },
+      "imports": [
+        "import time"
+      ],
+      "inline": true,
+      "verified": true,
+      "pdf_page": 1840
+    },
+    "1420": {
+      "name": "Strip Path",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "path",
+          "type": "Path"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "stripped path",
+          "type": "Path"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "name",
+          "type": "String"
+        }
+      ],
+      "python_code": {
+        "_import": "from pathlib import Path as _Path",
+        "stripped_path": "_Path(in_0).parent",
+        "name": "_Path(in_0).name"
+      },
+      "inline": true,
+      "verified": true,
+      "pdf_page": 1491
+    },
+    "1302": {
+      "name": "Wait (ms)",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "millisecond_timer_value",
+          "type": "NumUInt32"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "milliseconds_to_wait",
+          "type": "NumUInt32"
+        }
+      ],
+      "python_code": {
+        "_import": "import time",
+        "_body": "time.sleep(in_1 / 1000)",
+        "millisecond_timer_value": "0"
+      },
+      "imports": [
+        "import time"
+      ],
+      "inline": false,
+      "verified": true,
+      "pdf_page": 1835
+    },
+    "8010": {
+      "name": "Open/Create/Replace File",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error_out",
+          "type": "Cluster"
+        },
+        {
+          "index": 3,
+          "direction": "out",
+          "name": "refnum_out",
+          "type": "Refnum"
+        },
+        {
+          "index": 6,
+          "direction": "in",
+          "name": "prompt",
+          "type": "String",
+          "default_value": "''"
+        },
+        {
+          "index": 8,
+          "direction": "in",
+          "name": "error_in",
+          "type": "Cluster"
+        },
+        {
+          "index": 9,
+          "direction": "in",
+          "name": "operation",
+          "type": "NumInt32",
+          "default_value": "0"
+        },
+        {
+          "index": 10,
+          "direction": "in",
+          "name": "file_path",
+          "type": "Path"
+        }
+      ],
+      "python_code": {
+        "_import": "from pathlib import Path as _Path",
+        "refnum_out": "open(str(in_10), {0: 'r+', 1: 'w', 2: 'x', 3: 'a', 4: 'w', 5: 'w'}.get(in_9, 'r+'))"
+      },
+      "inline": false,
+      "verified": true,
+      "pdf_page": 1470
+    },
+    "8011": {
+      "name": "Close File",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error_out",
+          "type": "Cluster"
+        },
+        {
+          "index": 8,
+          "direction": "in",
+          "name": "error_in",
+          "type": "Cluster"
+        },
+        {
+          "index": 11,
+          "direction": "in",
+          "name": "refnum",
+          "type": "Refnum"
+        }
+      ],
+      "python_code": {
+        "_body": "in_11.close()"
+      },
+      "inline": false,
+      "verified": true,
+      "pdf_page": 1472
+    },
+    "9111": {
+      "name": "Unknown VI Server Primitive 9111",
+      "placeholder": true,
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "refnum_in",
+          "type": "Refnum"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "data_in",
+          "type": "Cluster"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "index",
+          "type": "NumInt32"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "error_in",
+          "type": "Cluster"
+        },
+        {
+          "index": 8,
+          "direction": "out",
+          "name": "refnum_out",
+          "type": "Refnum"
+        },
+        {
+          "index": 10,
+          "direction": "out",
+          "name": "found",
+          "type": "Boolean"
+        }
+      ],
+      "python_code": "pass"
+    },
+    "9108": {
+      "name": "Unknown VI Server Primitive (Open Variant)",
+      "placeholder": true,
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "vi_path",
+          "type": "String"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "type_specifier",
+          "type": "String"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "prepare_for_call",
+          "type": "Boolean"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "error_in",
+          "type": "Cluster"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "options",
+          "type": "NumInt32"
+        },
+        {
+          "index": 8,
+          "direction": "out",
+          "name": "vi_refnum",
+          "type": "Refnum"
+        },
+        {
+          "index": 10,
+          "direction": "out",
+          "name": "found",
+          "type": "Boolean"
+        },
+        {
+          "index": 11,
+          "direction": "out",
+          "name": "error_out",
+          "type": "Cluster"
+        }
+      ],
+      "python_code": "pass"
+    },
+    "9109": {
+      "name": "Unknown VI Server Primitive (Call Variant)",
+      "placeholder": true,
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "vi_refnum",
+          "type": "Refnum"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "auto_dispose",
+          "type": "Boolean"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "error_in",
+          "type": "Cluster"
+        },
+        {
+          "index": 8,
+          "direction": "out",
+          "name": "result_string",
+          "type": "String"
+        },
+        {
+          "index": 9,
+          "direction": "out",
+          "name": "result_array",
+          "type": "Array"
+        },
+        {
+          "index": 11,
+          "direction": "out",
+          "name": "error_out",
+          "type": "Cluster"
+        }
+      ],
+      "python_code": "pass"
+    },
+    "9101": {
+      "name": "Open VI Reference",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "vi_path",
+          "type": "String"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "prepare_for_reentrant",
+          "type": "Boolean",
+          "default_value": "False"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "options_flag",
+          "type": "Boolean",
+          "default_value": "False"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "error_in",
+          "type": "Cluster"
+        },
+        {
+          "index": 8,
+          "direction": "out",
+          "name": "vi_reference",
+          "type": "Refnum"
+        },
+        {
+          "index": 10,
+          "direction": "out",
+          "name": "was_already_loaded",
+          "type": "Boolean"
+        },
+        {
+          "index": 11,
+          "direction": "out",
+          "name": "error_out",
+          "type": "Cluster"
+        }
+      ],
+      "python_code": {
+        "_import": "import importlib",
+        "vi_reference": "importlib.import_module(in_0)"
+      },
+      "imports": [
+        "import importlib"
+      ],
+      "inline": false,
+      "verified": true,
+      "pdf_page": 2366
+    },
+    "9102": {
+      "name": "Close Reference",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "reference",
+          "type": "Refnum"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "force_close",
+          "type": "Boolean",
+          "default_value": "False"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "error_in",
+          "type": "Cluster"
+        },
+        {
+          "index": 8,
+          "direction": "out",
+          "name": "path",
+          "type": "String"
+        },
+        {
+          "index": 9,
+          "direction": "out",
+          "name": "was_disposed",
+          "type": "Boolean"
+        },
+        {
+          "index": 11,
+          "direction": "out",
+          "name": "error_out",
+          "type": "Cluster"
+        }
+      ],
+      "python_code": {
+        "_body": "del in_0",
+        "path": "''",
+        "was_disposed": "True"
+      },
+      "inline": false,
+      "verified": true,
+      "pdf_page": 2375,
+      "note": "Close Reference variant with path output. Same as 9104 but returns path."
+    },
+    "9105": {
+      "name": "Call By Reference",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "reference",
+          "type": "Refnum"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "auto_dispose",
+          "type": "Boolean",
+          "default_value": "False"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "timeout_ms",
+          "type": "NumInt32",
+          "default_value": "-1"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "error_in",
+          "type": "Cluster"
+        },
+        {
+          "index": 8,
+          "direction": "out",
+          "name": "reference_out",
+          "type": "Refnum"
+        },
+        {
+          "index": 9,
+          "direction": "out",
+          "name": "aborted",
+          "type": "Boolean"
+        },
+        {
+          "index": 10,
+          "direction": "out",
+          "name": "timed_out",
+          "type": "Boolean"
+        },
+        {
+          "index": 11,
+          "direction": "out",
+          "name": "error_out",
+          "type": "Cluster"
+        }
+      ],
+      "python_code": {
+        "_body": "in_0()",
+        "reference_out": "in_0"
+      },
+      "inline": false,
+      "verified": true,
+      "pdf_page": 2382,
+      "note": "Calls a VI by reference. In Python, equivalent to calling the loaded module's function."
+    },
+    "9104": {
+      "name": "Close Reference",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "reference",
+          "type": "Refnum"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "force_close",
+          "type": "Boolean",
+          "default_value": "False"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "error_in",
+          "type": "Cluster"
+        },
+        {
+          "index": 8,
+          "direction": "out",
+          "name": "reference_out",
+          "type": "Refnum"
+        },
+        {
+          "index": 11,
+          "direction": "out",
+          "name": "error_out",
+          "type": "Cluster"
+        }
+      ],
+      "python_code": {
+        "_body": "del in_0",
+        "reference_out": "None"
+      },
+      "inline": false,
+      "verified": true,
+      "pdf_page": 2375
+    },
+    "8017": {
+      "name": "Preserve Run-Time Class",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "target_object",
+          "type": "Refnum"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "object_in",
+          "type": "Refnum"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "object_out",
+          "type": "Refnum"
+        }
+      ],
+      "python_code": {
+        "object_out": "in_1"
+      },
+      "inline": true,
+      "verified": true,
+      "pdf_page": 470
+    },
+    "8003": {
+      "name": "Variant To Data",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "error in",
+          "type": "cluster"
+        },
+        {
+          "index": 3,
+          "direction": "out",
+          "name": "error out",
+          "type": "cluster"
+        },
+        {
+          "index": 8,
+          "direction": "in",
+          "name": "variant",
+          "type": "polymorphic"
+        },
+        {
+          "index": 9,
+          "direction": "in",
+          "name": "type",
+          "type": "polymorphic"
+        },
+        {
+          "index": 11,
+          "direction": "out",
+          "name": "data",
+          "type": "polymorphic"
+        }
+      ],
+      "python_code": {
+        "data": "in_8"
+      },
+      "inline": true,
+      "verified": true,
+      "pdf_page": 478,
+      "note": "primResID 8003 is file I/O range but this instance has variant terminals. Variant To Data confirmed by terminal signature and PDF."
+    },
+    "8100": {
+      "name": "Format Date/Time String",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "datetime_string",
+          "type": "String"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "utc_format",
+          "type": "Boolean"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "timestamp",
+          "type": "MeasureData"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "time_format_string",
+          "type": "String"
+        }
+      ],
+      "python_code": {
+        "datetime_string": "in_2.strftime(in_3) if in_3 else str(in_2)"
+      },
+      "inline": true,
+      "verified": true,
+      "pdf_page": 675
+    },
+    "8201": {
+      "name": "To Variant",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "variant",
+          "type": "polymorphic"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "anything",
+          "type": "polymorphic"
+        }
+      ],
+      "python_code": {
+        "variant": "in_1"
+      },
+      "inline": true,
+      "verified": true,
+      "pdf_page": 477
+    },
+    "1165": {
+      "name": "Flatten To String",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "cluster"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "type string length",
+          "type": "polymorphic"
+        },
+        {
+          "index": 3,
+          "direction": "out",
+          "name": "data string",
+          "type": "polymorphic"
+        },
+        {
+          "index": 7,
+          "direction": "in",
+          "name": "type string length",
+          "type": "polymorphic"
+        },
+        {
+          "index": 8,
+          "direction": "in",
+          "name": "error in",
+          "type": "cluster"
+        },
+        {
+          "index": 9,
+          "direction": "in",
+          "name": "byte order",
+          "type": "polymorphic"
+        },
+        {
+          "index": 10,
+          "direction": "in",
+          "name": "prepend array or string size",
+          "type": "polymorphic"
+        },
+        {
+          "index": 11,
+          "direction": "in",
+          "name": "anything",
+          "type": "polymorphic"
+        }
+      ],
+      "python_code": {
+        "data_string": "str(in_11)"
+      },
+      "inline": true,
+      "verified": true,
+      "pdf_page": 553
+    },
+    "8205": {
+      "name": "Get Variant Attribute",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error_out",
+          "type": "cluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "attribute_value",
+          "type": "polymorphic"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "found",
+          "type": "polymorphic"
+        },
+        {
+          "index": 3,
+          "direction": "out",
+          "name": "duplicate_variant",
+          "type": "polymorphic"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "error_in",
+          "type": "cluster"
+        },
+        {
+          "index": 5,
+          "direction": "in",
+          "name": "default_value",
+          "type": "polymorphic"
+        },
+        {
+          "index": 6,
+          "direction": "in",
+          "name": "attribute_name",
+          "type": "polymorphic"
+        },
+        {
+          "index": 7,
+          "direction": "in",
+          "name": "variant",
+          "type": "polymorphic"
+        }
+      ],
+      "python_code": {
+        "attribute_value": "getattr(in_7, in_6, in_5)",
+        "found": "hasattr(in_7, in_6)"
+      },
+      "inline": true,
+      "verified": true,
+      "pdf_page": 481
+    },
+    "8204": {
+      "name": "Delete Variant Attribute",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error_out",
+          "type": "Cluster"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "found",
+          "type": "Boolean"
+        },
+        {
+          "index": 3,
+          "direction": "out",
+          "name": "variant_out",
+          "type": "LVVariant"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "error_in",
+          "type": "Cluster"
+        },
+        {
+          "index": 5,
+          "direction": "in",
+          "name": "variant",
+          "type": "LVVariant"
+        },
+        {
+          "index": 6,
+          "direction": "in",
+          "name": "name",
+          "type": "String"
+        }
+      ],
+      "python_code": {
+        "variant_out": "in_5",
+        "found": "hasattr(in_5, in_6)"
+      },
+      "inline": false,
+      "verified": true,
+      "pdf_page": 484
+    },
+    "8202": {
+      "name": "Set Variant Attribute",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error_out",
+          "type": "Cluster"
+        },
+        {
+          "index": 3,
+          "direction": "out",
+          "name": "variant_out",
+          "type": "LVVariant"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "error_in",
+          "type": "Cluster"
+        },
+        {
+          "index": 6,
+          "direction": "in",
+          "name": "name",
+          "type": "String"
+        },
+        {
+          "index": 7,
+          "direction": "in",
+          "name": "variant",
+          "type": "polymorphic"
+        }
+      ],
+      "python_code": {
+        "variant_out": "setattr(in_7, in_6, None) or in_7"
+      },
+      "inline": false,
+      "verified": true,
+      "pdf_page": 483
+    },
+    "8203": {
+      "name": "Get Type Information",
+      "terminals": [
+        {
+          "index": -1,
+          "direction": "in",
+          "name": "variant",
+          "type": "polymorphic"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "type",
+          "type": "polymorphic"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "name",
+          "type": "polymorphic"
+        }
+      ],
+      "python_code": {
+        "type": "type(in_-1)",
+        "name": "str(type(in_-1).__name__)"
+      },
+      "inline": true,
+      "verified": true,
+      "pdf_page": 488
+    },
+    "23063": {
+      "name": "Empty Array?",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "empty",
+          "type": "Boolean"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "array",
+          "type": "Array"
+        }
+      ],
+      "python_code": {
+        "empty": "len(in_1) == 0"
+      },
+      "inline": true,
+      "verified": true,
+      "pdf_page": 760
+    },
+    "8016": {
+      "name": "To More Generic Class",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "output_object",
+          "type": "Refnum"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "error_out",
+          "type": "Cluster"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "input_object",
+          "type": "Refnum"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "target_class",
+          "type": "Refnum"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "error_in",
+          "type": "Cluster"
+        }
+      ],
+      "python_code": {
+        "output_object": "in_2"
+      },
+      "inline": true,
+      "verified": true,
+      "pdf_page": 2390
+    }
+  },
+  "node_types": {
+    "aBuild": {
+      "name": "Build Array",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "appended array",
+          "type": "polymorphic",
+          "dco_ref": "dcoAgg"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "element",
+          "type": "polymorphic",
+          "expandable": true
+        }
+      ],
+      "python_code": "[{expandable_inputs}]"
+    },
+    "aDelete": {
+      "name": "Delete From Array",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "deleted portion",
+          "type": "polymorphic",
+          "dco_ref": "delDCO"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "array",
+          "type": "array",
+          "dco_ref": "srcDCO4"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "length",
+          "type": "numeric",
+          "dco_ref": "lenDCO",
+          "default_value": "1"
+        },
+        {
+          "index": 3,
+          "direction": "out",
+          "name": "output array",
+          "type": "polymorphic",
+          "dco_ref": "dcoAgg"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "index",
+          "type": "numeric",
+          "default_value": "-1"
+        }
+      ],
+      "python_code": {
+        "output array": "array[:index] + array[index + length:]",
+        "deleted portion": "array[index:index + length]"
+      }
+    },
+    "aIndx": {
+      "name": "Index Array",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "array",
+          "type": "array",
+          "dco_ref": "srcDCO"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "element",
+          "type": "polymorphic",
+          "dco_ref": "dcoAgg",
+          "expandable": true
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "index",
+          "type": "numeric",
+          "default_value": "0"
+        }
+      ],
+      "python_code": "array[index]"
+    },
+    "aInit": {
+      "name": "Initialize Array",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "element",
+          "type": "polymorphic",
+          "dco_ref": "srcDCO"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "initialized array",
+          "type": "polymorphic",
+          "dco_ref": "dcoAgg"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "dimension size",
+          "type": "numeric"
+        }
+      ],
+      "python_code": "[element] * dimension_size"
+    },
+    "aInsert": {
+      "name": "Insert Into Array",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "array",
+          "type": "array",
+          "dco_ref": "srcDCO3"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "output array",
+          "type": "polymorphic",
+          "dco_ref": "dcoAgg"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "element",
+          "type": "polymorphic"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "index",
+          "type": "numeric",
+          "default_value": "-1"
+        }
+      ],
+      "python_code": "array[:index] + [element] + array[index:]"
+    },
+    "aReplace": {
+      "name": "Replace Array Subset",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "array",
+          "type": "array",
+          "dco_ref": "srcDCO2"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "output array",
+          "type": "polymorphic",
+          "dco_ref": "dcoAgg"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "new element",
+          "type": "polymorphic"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "index",
+          "type": "numeric",
+          "default_value": "0"
+        }
+      ],
+      "python_code": "array[:index] + [new_element] + array[index + 1:]"
+    },
+    "aReshape": {
+      "name": "Reshape Array",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "array",
+          "type": "array",
+          "dco_ref": "srcDCO"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "reshaped array",
+          "type": "polymorphic",
+          "dco_ref": "dcoAgg"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "dimension sizes",
+          "type": "array"
+        }
+      ],
+      "python_code": "array"
+    },
+    "subset": {
+      "name": "Array Subset",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "array",
+          "type": "array",
+          "dco_ref": "inArrDCO"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "subarray",
+          "type": "polymorphic",
+          "dco_ref": "dcoAgg"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "index",
+          "type": "numeric",
+          "default_value": "0",
+          "dco_ref": "dcoList",
+          "expandable": true
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "length",
+          "type": "numeric",
+          "dco_ref": "lengthDCOList",
+          "expandable": true
+        }
+      ],
+      "python_code": "array[index:index + length]"
+    },
+    "cpdArith": {
+      "name": "Compound Arithmetic"
+    },
+    "unbundle": {
+      "name": "Unbundle"
+    },
+    "bundle": {
+      "name": "Bundle"
+    },
+    "arrayIdx": {
+      "name": "Index Array"
+    },
+    "arrayRepl": {
+      "name": "Replace Array Subset"
+    },
+    "strIdx": {
+      "name": "String Index"
+    },
+    "strRepl": {
+      "name": "Replace Substring"
+    },
+    "strLen": {
+      "name": "String Length"
+    },
+    "concat": {
+      "name": "Concatenate"
+    },
+    "split": {
+      "name": "Split"
+    }
+  }
+}

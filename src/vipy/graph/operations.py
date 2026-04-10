@@ -132,6 +132,7 @@ class OperationsMixin:
             "tunnels": tunnels,
             "inner_nodes": inner_nodes,
             "description": gnode.description,
+            "qualified_path": getattr(gnode, "qualified_path", None),
         }
 
         # Build the right operation subtype

@@ -168,6 +168,7 @@ class ConstructionMixin:
         vi_name: str,
         type_map: dict[int, LVType] | None = None,
         iuse_to_qname: dict[str, str] | None = None,
+        iuse_to_qpath: dict[str, str] | None = None,
     ) -> None:
         """Add a VI's nodes and edges to the unified graph.
 
@@ -175,9 +176,16 @@ class ConstructionMixin:
         StructureNode) and typed edges (WireEnd source/dest).
 
         term_lookup is a LOCAL dict used during construction only.
+
+        iuse_to_qpath maps an iUse uid to its fully qualified on-disk path
+        (e.g. "<vilib>/Utility/error.llb/Foo.vi"). Used to populate
+        VINode.qualified_path so resolution diagnostics can point at the
+        real source file.
         """
         if type_map is None:
             type_map = {}
+        if iuse_to_qpath is None:
+            iuse_to_qpath = {}
 
         g = self._graph
         vi_node_uids: set[str] = set()
@@ -396,6 +404,7 @@ class ConstructionMixin:
                     terminals=node_terminals,
                     description=description,
                     poly_variant_name=poly_variant,
+                    qualified_path=iuse_to_qpath.get(node.uid),
                 )
             elif node.node_type in ("whileLoop", "forLoop"):
                 # Loop structure

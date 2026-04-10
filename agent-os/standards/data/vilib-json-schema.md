@@ -1,6 +1,6 @@
 # vilib JSON Schema
 
-Files in `data/vilib/*.json` define LabVIEW standard library VIs.
+Files in `src/vipy/data/vilib/*.json` define LabVIEW standard library VIs.
 
 ## File Structure
 
@@ -42,4 +42,4 @@ PDF extraction provides `name`, `description`, `python_param`.
 
 ## Source
 
-Extracted from `data/labview-api-ref.pdf` via script.
+Extracted from `NI's labview-api-ref.pdf (gitignored — not redistributable)` via script.
