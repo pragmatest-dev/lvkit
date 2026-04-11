@@ -102,7 +102,7 @@ Show the generated class wrapper. Show a few method implementations.
 
 **Talking point:** This is a real test framework. 94 files, zero manual intervention.
 
-## 6. Generate documentation (3 min)
+## 7. Generate documentation (3 min)
 
 ```bash
 lvpy docs samples/DAQmx-Digital-IO/ outputs/demo_docs
@@ -114,7 +114,7 @@ Open `outputs/demo_docs/index.html`. Show:
 - Operation listings
 - Navigation between VIs
 
-## 7. AI integration — MCP tools (5 min)
+## 8. AI integration — MCP tools (5 min)
 
 ```bash
 # The same analysis is available as MCP tools for Claude Code / Copilot
@@ -122,7 +122,7 @@ lvpy mcp
 ```
 
 Show the tool list. Explain:
-- `load_vi` → `describe_vi` → `get_operations` → `generate_ast_code`
+- `load` → `describe` → `get_operations` → `generate_ast_code`
 - An LLM can explore the graph, ask questions, then generate code
 - Stateful session: load once, query many times
 
@@ -133,7 +133,7 @@ Show the tool list. Explain:
 /lvpy operations In.vi
 ```
 
-## 8. AI integration — MCP + Skills (5 min)
+## 9. AI integration — MCP + Skills (5 min)
 
 lvpy exposes the graph as MCP tools for any AI editor:
 
@@ -142,7 +142,7 @@ lvpy exposes the graph as MCP tools for any AI editor:
 lvpy mcp
 ```
 
-12 tools available: `load_vi`, `describe_vi`, `get_operations`, `get_dataflow`, `get_structure`, `get_constants`, `generate_ast_code`, `analyze_vi`, `generate_documents`, `generate_python`, `list_loaded_vis`, `get_vi_context`.
+12 tools available: `load`, `describe`, `get_operations`, `get_dataflow`, `get_structure`, `get_constants`, `generate_ast_code`, `analyze`, `generate_documents`, `generate_python`, `list_loaded`, `get_context`.
 
 **If Claude Code is available**, demonstrate live:
 ```
@@ -161,7 +161,7 @@ lvpy mcp
 
 **Talking point:** The AI doesn't guess — it queries the actual dataflow graph. Every wire, every type, every terminal index comes from the binary.
 
-## 9. LLM-enhanced generation (optional, 3 min)
+## 10. LLM-enhanced generation (optional, 3 min)
 
 ```bash
 # Generate with LLM cleanup (requires Anthropic API key)
@@ -171,7 +171,7 @@ lvpy llm-generate samples/DAQmx-Digital-IO/In.vi -o outputs/demo_llm \
 
 The LLM gets the AST output as reference, plus the graph description. It produces idiomatic Python while preserving correctness.
 
-## 10. Q&A (remaining time)
+## 11. Q&A (remaining time)
 
 **Common questions and answers:**
 

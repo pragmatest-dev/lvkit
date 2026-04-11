@@ -425,8 +425,8 @@ def _extract_parent_from_vi_xml(xml_path: Path, current_class: str) -> str | Non
                     return class_ref
 
     except ET.ParseError:
-        pass
-    except Exception:
+        pass  # Malformed XML in method VI — not a reliable source of parent info
+    except Exception:  # noqa: BLE001 — filesystem / encoding errors; fall back to None
         pass
 
     return None
