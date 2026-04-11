@@ -9,7 +9,6 @@ from typing import TYPE_CHECKING, Any
 
 import networkx as nx
 
-from ..blockdiagram import decode_constant
 from ..graph_types import (
     AnyGraphNode,
     CaseFrame,
@@ -36,6 +35,7 @@ from ..parser import (
     ConnectorPane,
     FrontPanel,
 )
+from ..parser.models import Constant as _Constant
 from ..parser.models import ParsedType
 from ..parser.node_types import (
     CpdArithNode,
@@ -49,7 +49,37 @@ from ..parser.node_types import (
 )
 from ..primitive_resolver import get_resolver as get_prim_resolver
 from ..primitive_resolver import resolve_primitive
+from ..type_defaults import get_default_for_type
 from ..vilib_resolver import get_resolver as get_vilib_resolver
+
+
+def decode_constant(
+    const: _Constant,
+    lv_type: LVType | None = None,
+) -> tuple[str, str]:
+    """Decode a constant value to (python_type, human_readable_value).
+
+    Args:
+        const: The constant to decode
+        lv_type: LVType from the graph (authoritative type info)
+    """
+    from ..parser.vi import _decode_element
+
+    value = const.value
+
+    if lv_type is not None:
+        raw_bytes = bytes.fromhex(value)
+        underlying = getattr(lv_type, "underlying_type", "")
+        if underlying == "Boolean" and len(raw_bytes) > 1:
+            return (lv_type.to_python(), "True" if any(raw_bytes) else "False")
+        decoded, _ = _decode_element(raw_bytes, lv_type)
+        py_type = lv_type.to_python()
+        if decoded is not None:
+            return (py_type, decoded)
+        return (py_type, get_default_for_type(lv_type))
+
+    return ("raw", value)
+
 
 # Type categories for terminal matching
 _TYPE_CATEGORIES = {
@@ -119,11 +149,11 @@ class ConstructionMixin:
     if TYPE_CHECKING:
         # Stubs for methods defined on other mixins / core, resolved via MRO
         @staticmethod
-        def _qid(vi_name: str, uid: str) -> str: ...
+        def _qid(_vi_name: str, _uid: str) -> str: ...
         def _enrich_type(
-            self, parsed_type: ParsedType | None,
+            self, _parsed_type: ParsedType | None,
         ) -> LVType | None: ...
-        def resolve_vi_name(self, vi_name: str) -> str: ...
+        def resolve_vi_name(self, _vi_name: str) -> str: ...
 
     @staticmethod
     def _format_lv_type_for_display(lv_type: LVType) -> str:
@@ -269,7 +299,7 @@ class ConstructionMixin:
             if term_info and term_info.parsed_type:
                 lv_type = self._enrich_type(term_info.parsed_type)
 
-            val_type, decoded_value = decode_constant(const, lv_type=lv_type)
+            _, decoded_value = decode_constant(const, lv_type=lv_type)
 
             q_const_uid = self._qid(vi_name, const.uid)
             # Single output terminal
@@ -795,7 +825,7 @@ class ConstructionMixin:
                     # idx=-1: match by elimination — find unmatched callee
                     # terminal with same direction
                     unmatched = [
-                        t for (idx, d), t in callee_term_map.items()
+                        t for (_, d), t in callee_term_map.items()
                         if d == call_term.direction and t.id not in matched_callee
                     ]
                     if len(unmatched) == 1:

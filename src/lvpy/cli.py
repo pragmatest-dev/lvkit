@@ -325,7 +325,7 @@ def cmd_summarize(args: argparse.Namespace) -> int:
         return 1
 
     try:
-        from .blockdiagram import summarize_vi
+        from .graph.describe import summarize_vi
 
         summary = summarize_vi(input_path, args.main_xml)
         print(summary)
