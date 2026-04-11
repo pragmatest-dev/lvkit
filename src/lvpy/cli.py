@@ -78,13 +78,6 @@ def main() -> int:
 
     subparsers = parser.add_subparsers(dest="command", help="Command to run")
 
-    # Summarize command (for debugging/inspection)
-    summary_parser = subparsers.add_parser(
-        "summarize", help="Show VI summary without converting"
-    )
-    summary_parser.add_argument("input", help="Block diagram XML (*_BDHb.xml)")
-    summary_parser.add_argument("--main-xml", help="Main VI XML file")
-
     # Check command (no additional arguments needed)
     subparsers.add_parser("check", help="Check if dependencies are available")
 
@@ -291,9 +284,7 @@ def main() -> int:
 
     args = parser.parse_args()
 
-    if args.command == "summarize":
-        return cmd_summarize(args)
-    elif args.command == "check":
+    if args.command == "check":
         return cmd_check(args)
     elif args.command == "structure":
         return cmd_structure(args)
@@ -314,25 +305,6 @@ def main() -> int:
     else:
         parser.print_help()
         return 0
-
-
-def cmd_summarize(args: argparse.Namespace) -> int:
-    """Handle the summarize command."""
-    input_path = Path(args.input)
-
-    if not input_path.exists():
-        print(f"Error: File not found: {input_path}", file=sys.stderr)
-        return 1
-
-    try:
-        from .graph.describe import summarize_vi
-
-        summary = summarize_vi(input_path, args.main_xml)
-        print(summary)
-        return 0
-    except Exception as e:
-        print(f"Error: {e}", file=sys.stderr)
-        return 1
 
 
 def cmd_check(args: argparse.Namespace) -> int:
