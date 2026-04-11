@@ -144,7 +144,7 @@ When `lvpy generate` hits an unknown primitive or vi.lib VI, you have two option
 | `lvpy diff` | Compare two VI versions | `lvpy diff old.vi new.vi` |
 | `lvpy visualize` | Mermaid flowchart or dependency graph | `lvpy visualize In.vi -o graph.html` |
 | `lvpy structure` | Analyze .lvlib or .lvclass structure | `lvpy structure MyClass.lvclass` |
-| `lvpy summarize` | Low-level text summary of VI graph (debug) | `lvpy summarize In.vi` |
+| `lvpy summarize` | Low-level text summary of VI graph (debug) | `lvpy summarize In_BDHb.xml` |
 | `lvpy init` | Create `.lvpy/` resolution store; install editor skills | `lvpy init --skills all` |
 | `lvpy mcp` | Start the MCP server for IDE integration | `lvpy mcp` |
 
