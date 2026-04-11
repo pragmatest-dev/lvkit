@@ -30,7 +30,7 @@ class ParsedType:
 
 
 @dataclass
-class Node:
+class ParsedNode:
     """A node in the block diagram (SubVI call, primitive, or terminal).
 
     This is the base class. Subclasses in node_types.py add type-specific fields.
@@ -45,7 +45,7 @@ class Node:
 
 
 @dataclass
-class Constant:
+class ParsedConstant:
     """A constant value on the block diagram."""
     uid: str
     type_desc: str
@@ -54,7 +54,7 @@ class Constant:
 
 
 @dataclass
-class Wire:
+class ParsedWire:
     """A wire connecting terminals."""
     uid: str
     from_term: str
@@ -62,7 +62,7 @@ class Wire:
 
 
 @dataclass
-class FPTerminal:
+class ParsedFPTerminal:
     """A front panel terminal (VI input or output)."""
     uid: str
     fp_dco_uid: str  # Links to front panel control/indicator
@@ -72,7 +72,7 @@ class FPTerminal:
 
 
 @dataclass
-class TerminalInfo:
+class ParsedTerminalInfo:
     """Detailed info about a terminal for graph-native representation."""
     uid: str
     parent_uid: str
@@ -82,7 +82,7 @@ class TerminalInfo:
     name: str | None = None  # Terminal name (from FP, primitive ref, or SubVI)
 
 
-class WiringRule:
+class ParsedWiringRule:
     """Terminal wiring rule - controls required/recommended/optional status."""
     INVALID = 0
     REQUIRED = 1
@@ -95,7 +95,7 @@ class WiringRule:
 
 
 @dataclass
-class LoopStructure:
+class ParsedLoopStructure:
     """A loop structure (while or for) on the block diagram.
 
     Contains:
@@ -117,7 +117,7 @@ from ..graph_types import CaseFrame, SequenceFrame  # noqa: E402
 
 
 @dataclass
-class CaseStructure:
+class ParsedCaseStructure:
     """A case structure on the block diagram."""
 
     uid: str
@@ -128,7 +128,7 @@ class CaseStructure:
 
 
 @dataclass
-class FlatSequenceStructure:
+class ParsedFlatSequenceStructure:
     """A flat sequence structure on the block diagram."""
 
     uid: str
@@ -137,20 +137,20 @@ class FlatSequenceStructure:
 
 
 @dataclass
-class ConnectorPaneSlot:
+class ParsedConnectorPaneSlot:
     """A slot on the connector pane."""
     index: int  # Slot position (0-based)
     fp_dco_uid: str | None = None  # UID of the connected fPDCO
     is_output: bool = False  # True if output terminal
-    wiring_rule: int = 0  # WiringRule value (0-4)
+    wiring_rule: int = 0  # ParsedWiringRule value (0-4)
     type_id: str | None = None  # TypeID reference
 
 
 @dataclass
-class ConnectorPane:
+class ParsedConnectorPane:
     """The VI's connector pane - defines its external interface."""
     pattern_id: int  # conId - identifies the connector pane pattern
-    slots: list[ConnectorPaneSlot] = field(default_factory=list)
+    slots: list[ParsedConnectorPaneSlot] = field(default_factory=list)
 
     def get_connected_uids(self) -> list[str]:
         """Get UIDs of all controls/indicators connected to the pane."""
@@ -158,7 +158,7 @@ class ConnectorPane:
 
 
 @dataclass
-class TypeDefRef:
+class ParsedTypeDefRef:
     """A reference to a vilib TypeDef/custom control."""
     type_id: int
     name: str  # e.g., "System Directory Type.ctl"
@@ -166,7 +166,7 @@ class TypeDefRef:
 
 
 @dataclass
-class ResolvedTypeDefValue:
+class ParsedResolvedTypeDefValue:
     """A resolved typedef enum value with OS paths."""
     name: str
     description: str
@@ -175,7 +175,7 @@ class ResolvedTypeDefValue:
 
 
 @dataclass
-class DefaultValue:
+class ParsedDefaultValue:
     """A default value from the DFDS section."""
     type_id: int
     values: list[Any]  # Parsed values (bool, int, float, str, etc.)
@@ -183,7 +183,7 @@ class DefaultValue:
 
 
 @dataclass
-class SubVIPathRef:
+class ParsedSubVIPathRef:
     """A SubVI reference with path hints from the XML."""
     name: str  # VI name, e.g., "Create Dir if Non-Existant__ogtk.vi"
     path_tokens: list[str]  # Path components
@@ -199,16 +199,16 @@ class SubVIPathRef:
 
 
 @dataclass
-class FPDCOType:
+class ParsedFPDCOType:
     """Type info for a front panel DCO (data container object)."""
     uid: str
     type_desc: str  # e.g., "TypeID(1)"
 
 
 @dataclass
-class FPDCOTypeMap:
+class ParsedFPDCOTypeMap:
     """Collection of FP DCO types from an FP XML file."""
-    types: list[FPDCOType] = field(default_factory=list)
+    types: list[ParsedFPDCOType] = field(default_factory=list)
 
     def get_type(self, dco_uid: str) -> str | None:
         """Get typeDesc for a DCO by UID."""
@@ -219,7 +219,7 @@ class FPDCOTypeMap:
 
 
 @dataclass
-class FPControl:
+class ParsedFPControl:
     """A control or indicator on the front panel.
 
     Used for NiceGUI UI generation and rich control details.
@@ -232,22 +232,22 @@ class FPControl:
     type_desc: str | None = None
     default_value: str | None = None
     enum_values: list[str] = field(default_factory=list)
-    children: list[FPControl] = field(default_factory=list)  # For clusters
+    children: list[ParsedFPControl] = field(default_factory=list)  # For clusters
 
 
 @dataclass
-class FrontPanel:
+class ParsedFrontPanel:
     """Parsed front panel representation.
 
     Contains rich control details for UI generation.
     """
-    controls: list[FPControl]
+    controls: list[ParsedFPControl]
     panel_bounds: tuple[int, int, int, int]
     title: str | None = None
 
 
 @dataclass
-class VIMetadata:
+class ParsedVIMetadata:
     """VI-level metadata extracted from XML.
 
     Contains identity and reference information about the VI.
@@ -260,26 +260,26 @@ class VIMetadata:
     iuse_to_qualified_name: dict[str, str] = field(
         default_factory=dict,
     )  # iUse UID → qualified name
-    subvi_path_refs: list[SubVIPathRef] = field(
+    subvi_path_refs: list[ParsedSubVIPathRef] = field(
         default_factory=list,
     )  # SubVI path hints
 
 
 @dataclass
-class BlockDiagram:
+class ParsedBlockDiagram:
     """Parsed block diagram representation.
 
     Contains only block diagram content - metadata is in VIMetadata.
     """
-    nodes: list[Node]
-    constants: list[Constant]
-    wires: list[Wire]
-    fp_terminals: list[FPTerminal] = field(default_factory=list)
+    nodes: list[ParsedNode]
+    constants: list[ParsedConstant]
+    wires: list[ParsedWire]
+    fp_terminals: list[ParsedFPTerminal] = field(default_factory=list)
     enum_labels: dict[str, list[str]] = field(default_factory=dict)
-    terminal_info: dict[str, TerminalInfo] = field(default_factory=dict)
-    loops: list[LoopStructure] = field(default_factory=list)
-    case_structures: list[CaseStructure] = field(default_factory=list)
-    flat_sequences: list[FlatSequenceStructure] = field(default_factory=list)
+    terminal_info: dict[str, ParsedTerminalInfo] = field(default_factory=dict)
+    loops: list[ParsedLoopStructure] = field(default_factory=list)
+    case_structures: list[ParsedCaseStructure] = field(default_factory=list)
+    flat_sequences: list[ParsedFlatSequenceStructure] = field(default_factory=list)
     # Maps sRN UID → containing structure UID (for scoped terminal collection)
     srn_to_structure: dict[str, str] = field(default_factory=dict)
 
@@ -288,7 +288,7 @@ class BlockDiagram:
         """Map terminal UID to parent node UID, built from terminal_info."""
         return {uid: info.parent_uid for uid, info in self.terminal_info.items()}
 
-    def get_node(self, uid: str) -> Node | None:
+    def get_node(self, uid: str) -> ParsedNode | None:
         """Get a node by UID."""
         for node in self.nodes:
             if node.uid == uid:
@@ -300,7 +300,7 @@ class BlockDiagram:
         info = self.terminal_info.get(terminal_uid)
         return info.parent_uid if info else None
 
-    def get_loop(self, uid: str) -> LoopStructure | None:
+    def get_loop(self, uid: str) -> ParsedLoopStructure | None:
         """Get a loop by UID."""
         for loop in self.loops:
             if loop.uid == uid:
@@ -331,7 +331,7 @@ class BlockDiagram:
                     return tunnel
         return None
 
-    def get_case_structure(self, uid: str) -> CaseStructure | None:
+    def get_case_structure(self, uid: str) -> ParsedCaseStructure | None:
         """Get a case structure by UID."""
         for case_struct in self.case_structures:
             if case_struct.uid == uid:
@@ -345,7 +345,7 @@ class ParsedVI:
 
     Single return type from parse_vi() containing all VI components.
     """
-    metadata: VIMetadata
-    block_diagram: BlockDiagram
-    front_panel: FrontPanel
-    connector_pane: ConnectorPane | None = None
+    metadata: ParsedVIMetadata
+    block_diagram: ParsedBlockDiagram
+    front_panel: ParsedFrontPanel
+    connector_pane: ParsedConnectorPane | None = None

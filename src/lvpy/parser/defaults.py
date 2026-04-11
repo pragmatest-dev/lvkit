@@ -9,22 +9,22 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 from typing import Any
 
-from .models import DefaultValue
+from .models import ParsedDefaultValue
 
 
-def parse_dfds(xml_path: Path | str) -> dict[int, DefaultValue]:
+def parse_dfds(xml_path: Path | str) -> dict[int, ParsedDefaultValue]:
     """Parse the DFDS (Default Fill of Data Space) section for default values.
 
     Args:
         xml_path: Path to the main .xml file (not BDHb/FPHb)
 
     Returns:
-        Dict mapping TypeID to DefaultValue with parsed values
+        Dict mapping TypeID to ParsedDefaultValue with parsed values
     """
     tree = ET.parse(xml_path)
     root = tree.getroot()
 
-    defaults: dict[int, DefaultValue] = {}
+    defaults: dict[int, ParsedDefaultValue] = {}
 
     for data_fill in root.findall(".//DFDS//DataFill"):
         type_id_str = data_fill.get("TypeID")
@@ -34,7 +34,7 @@ def parse_dfds(xml_path: Path | str) -> dict[int, DefaultValue]:
 
         values, structure = _parse_data_fill(data_fill)
         if values is not None:
-            defaults[type_id] = DefaultValue(
+            defaults[type_id] = ParsedDefaultValue(
                 type_id=type_id,
                 values=values,
                 structure=structure,

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import ast
+from typing import cast
 
 import pytest
 
@@ -1043,7 +1044,7 @@ def test_build_module_with_enum_input():
 
     vi_context = VIContext(
         name="Enum Input.vi",
-        inputs=[
+        inputs=cast(list[Terminal], [
             FPTerminal(
                 id="inp:1",
                 index=0,
@@ -1051,10 +1052,9 @@ def test_build_module_with_enum_input():
                 name="Mode",
                 is_indicator=False,
                 is_public=True,
-                type="enum",
                 enum_values=["Read", "Write", "Append"],
             ),
-        ],
+        ]),
     )
 
     result = build_module(vi_context, "Enum Input.vi")
@@ -1411,8 +1411,8 @@ class TestErrorClusterFiltering:
         from lvpy.codegen.builder import build_args
         from lvpy.graph_types import FPTerminal, Terminal
 
-        inputs = [
-            Terminal(
+        inputs = cast(list[Terminal], [
+            FPTerminal(
                 id="1",
                 index=0,
                 direction="input",
@@ -1436,7 +1436,7 @@ class TestErrorClusterFiltering:
                 is_indicator=False,
                 is_public=True,
             ),
-        ]
+        ])
 
         args = build_args(inputs)
 
@@ -1479,7 +1479,7 @@ class TestErrorClusterFiltering:
         field_names = [
             stmt.target.id
             for stmt in result_class.body
-            if hasattr(stmt, "target")
+            if isinstance(stmt, ast.AnnAssign) and isinstance(stmt.target, ast.Name)
         ]
         assert field_names == ["result"]
 

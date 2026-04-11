@@ -31,12 +31,11 @@ from ..graph_types import (
     PrimitiveNode as GraphPrimitiveNode,
 )
 from ..parser import (
-    BlockDiagram,
-    ConnectorPane,
-    FrontPanel,
+    ParsedBlockDiagram,
+    ParsedConnectorPane,
+    ParsedFrontPanel,
 )
-from ..parser.models import Constant as _Constant
-from ..parser.models import ParsedType
+from ..parser.models import ParsedConstant, ParsedType
 from ..parser.node_types import (
     CpdArithNode,
     InvokeNode,
@@ -54,7 +53,7 @@ from ..vilib_resolver import get_resolver as get_vilib_resolver
 
 
 def decode_constant(
-    const: _Constant,
+    const: ParsedConstant,
     lv_type: LVType | None = None,
 ) -> tuple[str, str]:
     """Decode a constant value to (python_type, human_readable_value).
@@ -191,9 +190,9 @@ class ConstructionMixin:
 
     def _add_vi_to_graph(
         self,
-        bd: BlockDiagram,
-        fp: FrontPanel | None,
-        conpane: ConnectorPane | None,
+        bd: ParsedBlockDiagram,
+        fp: ParsedFrontPanel | None,
+        conpane: ParsedConnectorPane | None,
         wiring_rules: dict[int, int],
         vi_name: str,
         type_map: dict[int, LVType] | None = None,
@@ -993,7 +992,7 @@ class ConstructionMixin:
 
     def _build_structure_terminals(
         self,
-        bd: BlockDiagram,
+        bd: ParsedBlockDiagram,
         parser_tunnels: list,
         structure_uid: str,
         term_lookup: dict[str, WireEnd],

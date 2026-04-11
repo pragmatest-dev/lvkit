@@ -21,8 +21,8 @@ from lvpy.graph_types import (
     WireEnd,
 )
 from lvpy.parser.models import (
-    BlockDiagram,
-    FlatSequenceStructure,
+    ParsedBlockDiagram,
+    ParsedFlatSequenceStructure,
 )
 from lvpy.parser.nodes.sequence import extract_flat_sequences
 
@@ -30,7 +30,7 @@ from lvpy.parser.nodes.sequence import extract_flat_sequences
 
 
 class TestSequenceFrameModel:
-    """Tests for the SequenceFrame and FlatSequenceStructure dataclasses."""
+    """Tests for the SequenceFrame and ParsedFlatSequenceStructure dataclasses."""
 
     def test_sequence_frame_creation(self):
         frame = SequenceFrame(
@@ -53,7 +53,7 @@ class TestSequenceFrameModel:
             inner_terminal_uid="i1",
             tunnel_type="seqTun",
         )
-        fs = FlatSequenceStructure(
+        fs = ParsedFlatSequenceStructure(
             uid="seq1",
             tunnels=[t],
             frames=[
@@ -70,10 +70,10 @@ class TestSequenceFrameModel:
         assert len(fs.frames) == 2
 
     def test_block_diagram_flat_sequences_field(self):
-        bd = BlockDiagram(nodes=[], constants=[], wires=[])
+        bd = ParsedBlockDiagram(nodes=[], constants=[], wires=[])
         assert bd.flat_sequences == []
 
-        fs = FlatSequenceStructure(uid="seq1")
+        fs = ParsedFlatSequenceStructure(uid="seq1")
         bd.flat_sequences.append(fs)
         assert len(bd.flat_sequences) == 1
 
@@ -83,8 +83,8 @@ class TestSequenceFrameModel:
             inner_terminal_uid="inner1",
             tunnel_type="seqTun",
         )
-        fs = FlatSequenceStructure(uid="seq1", tunnels=[t])
-        bd = BlockDiagram(
+        fs = ParsedFlatSequenceStructure(uid="seq1", tunnels=[t])
+        bd = ParsedBlockDiagram(
             nodes=[], constants=[], wires=[],
             flat_sequences=[fs],
         )
@@ -393,6 +393,7 @@ class TestSequenceInMemoryGraph:
         seq_op = [
             op for op in ops if op.node_type == "flatSequence"
         ][0]
+        assert isinstance(seq_op, SequenceOperation)
         assert len(seq_op.frames) == 2
         assert seq_op.frames[0].index == 0
         assert seq_op.frames[1].index == 1

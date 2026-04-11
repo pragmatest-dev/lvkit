@@ -1,4 +1,4 @@
-"""Constant value parsing."""
+"""ParsedConstant value parsing."""
 
 from __future__ import annotations
 
@@ -6,18 +6,18 @@ import xml.etree.ElementTree as ET
 
 from lvpy.constants import CONSTANT_DCO_CLASS, TERMINAL_CLASS
 
-from ..models import Constant
+from ..models import ParsedConstant
 from ..utils import clean_labview_string
 
 
-def extract_constants(root: ET.Element) -> list[Constant]:
+def extract_constants(root: ET.Element) -> list[ParsedConstant]:
     """Extract constants from the block diagram.
 
     Args:
         root: XML root element
 
     Returns:
-        List of Constant values
+        List of ParsedConstant values
     """
     constants = []
 
@@ -42,7 +42,7 @@ def extract_constants(root: ET.Element) -> list[Constant]:
                 label = clean_labview_string(label_elem.text)
 
         if const_val is not None:
-            constants.append(Constant(
+            constants.append(ParsedConstant(
                 uid=uid or "",
                 type_desc=(
                     (type_desc.text or "unknown")

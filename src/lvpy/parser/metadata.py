@@ -6,7 +6,7 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 from typing import Any
 
-from .models import SubVIPathRef
+from .models import ParsedSubVIPathRef
 from .type_resolution import parse_typedef_refs
 
 
@@ -157,7 +157,7 @@ def parse_polymorphic_info(root: ET.Element) -> dict[str, Any]:
     return result
 
 
-def parse_subvi_paths(xml_path: Path | str) -> list[SubVIPathRef]:
+def parse_subvi_paths(xml_path: Path | str) -> list[ParsedSubVIPathRef]:
     """Parse SubVI path references from the main VI XML.
 
     The LIvi section contains VIVI elements with LinkSavePathRef that
@@ -167,12 +167,12 @@ def parse_subvi_paths(xml_path: Path | str) -> list[SubVIPathRef]:
         xml_path: Path to the main .xml file (not BDHb)
 
     Returns:
-        List of SubVIPathRef with path hints for each SubVI
+        List of ParsedSubVIPathRef with path hints for each SubVI
     """
     tree = ET.parse(xml_path)
     root = tree.getroot()
 
-    refs: list[SubVIPathRef] = []
+    refs: list[ParsedSubVIPathRef] = []
 
     for vivi in root.findall(".//LIvi//VIVI"):
         # Extract qualified name from all strings in LinkSaveQualName
@@ -206,7 +206,7 @@ def parse_subvi_paths(xml_path: Path | str) -> list[SubVIPathRef]:
         is_vilib = len(path_parts) > 0 and path_parts[0] == "<vilib>"
         is_userlib = len(path_parts) > 0 and path_parts[0] == "<userlib>"
 
-        refs.append(SubVIPathRef(
+        refs.append(ParsedSubVIPathRef(
             name=name,
             path_tokens=path_parts,
             is_vilib=is_vilib,

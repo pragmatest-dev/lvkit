@@ -14,7 +14,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Any
 
-from .models import Node
+from .models import ParsedNode
 from .nodes.base import extract_label, extract_terminal_types
 from .utils import clean_labview_string
 
@@ -24,7 +24,7 @@ from .utils import clean_labview_string
 
 
 @dataclass
-class PrimitiveNode(Node):
+class PrimitiveNode(ParsedNode):
     """A LabVIEW primitive node (class="prim")."""
 
     prim_index: int | None = None
@@ -32,7 +32,7 @@ class PrimitiveNode(Node):
 
 
 @dataclass
-class SubVINode(Node):
+class SubVINode(ParsedNode):
     """A SubVI call node (class="iUse" or "polyIUse")."""
 
     vi_path: str | None = None
@@ -40,7 +40,7 @@ class SubVINode(Node):
 
 
 @dataclass
-class CpdArithNode(Node):
+class CpdArithNode(ParsedNode):
     """Compound Arithmetic node (class="cpdArith").
 
     Combines multiple inputs with a single operation (OR, AND, ADD, etc.).
@@ -50,7 +50,7 @@ class CpdArithNode(Node):
 
 
 @dataclass
-class ArrayBuildNode(Node):
+class ArrayBuildNode(ParsedNode):
     """Build Array node (class="aBuild").
 
     Collects multiple inputs into an array.
@@ -60,14 +60,14 @@ class ArrayBuildNode(Node):
 
 
 @dataclass
-class LoopNode(Node):
+class LoopNode(ParsedNode):
     """Loop structure node (class="whileLoop" or "forLoop")."""
 
     loop_type: str = ""  # "whileLoop" or "forLoop"
 
 
 @dataclass
-class SelectNode(Node):
+class SelectNode(ParsedNode):
     """Select/nMux node (class="select" or "nMux").
 
     nMux is a bundle/unbundle node at structure boundaries.
@@ -101,8 +101,8 @@ class NodeTypeHandler(ABC):
     display_name: str  # e.g., "Compound Arithmetic"
 
     @abstractmethod
-    def parse(self, elem: ET.Element) -> Node:
-        """Parse XML element into typed Node."""
+    def parse(self, elem: ET.Element) -> ParsedNode:
+        """Parse XML element into typed ParsedNode."""
         pass
 
     def _extract_common(self, elem: ET.Element) -> dict[str, Any]:
@@ -317,7 +317,7 @@ class SelectHandler(NodeTypeHandler):
 
 
 @dataclass
-class PropertyNode(Node):
+class PropertyNode(ParsedNode):
     """A property node (class="propNode")."""
 
     object_name: str = ""
@@ -326,7 +326,7 @@ class PropertyNode(Node):
 
 
 @dataclass
-class InvokeNode(Node):
+class InvokeNode(ParsedNode):
     """An invoke node (class="invokeNode")."""
 
     object_name: str = ""
@@ -394,9 +394,9 @@ class FlatSequenceHandler(NodeTypeHandler):
     xml_class = "flatSequence"
     display_name = "Flat Sequence"
 
-    def parse(self, elem: ET.Element) -> Node:
+    def parse(self, elem: ET.Element) -> ParsedNode:
         input_types, output_types = extract_terminal_types(elem)
-        return Node(
+        return ParsedNode(
             uid=elem.get("uid", ""),
             node_type=self.xml_class,
             name=self.display_name,
@@ -411,9 +411,9 @@ class StackedSequenceHandler(NodeTypeHandler):
     xml_class = "seq"
     display_name = "Stacked Sequence"
 
-    def parse(self, elem: ET.Element) -> Node:
+    def parse(self, elem: ET.Element) -> ParsedNode:
         input_types, output_types = extract_terminal_types(elem)
-        return Node(
+        return ParsedNode(
             uid=elem.get("uid", ""),
             node_type=self.xml_class,
             name=self.display_name,
@@ -503,9 +503,9 @@ class GenericHandler(NodeTypeHandler):
         self.xml_class = xml_class
         self.display_name = display_name or xml_class
 
-    def parse(self, elem: ET.Element) -> Node:
+    def parse(self, elem: ET.Element) -> ParsedNode:
         common = self._extract_common(elem)
-        return Node(**common)
+        return ParsedNode(**common)
 
 
 # =============================================================================
@@ -568,14 +568,14 @@ _HANDLERS: list[NodeTypeHandler] = [
 NODE_HANDLERS: dict[str, NodeTypeHandler] = {h.xml_class: h for h in _HANDLERS}
 
 
-def parse_node(elem: ET.Element) -> Node:
-    """Factory function - parse XML element into appropriate Node subclass.
+def parse_node(elem: ET.Element) -> ParsedNode:
+    """Factory function - parse XML element into appropriate ParsedNode subclass.
 
     Args:
         elem: XML element with class attribute
 
     Returns:
-        Appropriate Node subclass instance
+        Appropriate ParsedNode subclass instance
     """
     xml_class = elem.get("class", "")
     handler = NODE_HANDLERS.get(xml_class)

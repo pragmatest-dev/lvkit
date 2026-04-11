@@ -6,7 +6,7 @@ import pytest
 
 from lvpy.extractor import extract_vi_xml
 from lvpy.graph import InMemoryVIGraph
-from lvpy.parser import ParsedVI, VIMetadata, parse_vi
+from lvpy.parser import ParsedVI, ParsedVIMetadata, parse_vi
 from lvpy.parser.metadata import parse_subvi_paths, parse_vi_metadata
 from lvpy.parser.type_mapping import parse_type_map_rich
 
@@ -37,7 +37,7 @@ def parsed_bd(parsed_vi):
 
 
 @pytest.fixture(scope="module")
-def parsed_metadata(parsed_vi) -> VIMetadata:
+def parsed_metadata(parsed_vi) -> ParsedVIMetadata:
     """Get metadata from parsed VI."""
     return parsed_vi.metadata
 

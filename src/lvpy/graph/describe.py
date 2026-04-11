@@ -24,10 +24,10 @@ from ..graph_types import (
     SequenceOperation,
     VIContext,
 )
+from ..parser.models import ParsedConstant
 from ..vilib_resolver import get_resolver as _get_vilib_resolver
 
 if TYPE_CHECKING:
-    from ..parser.models import Constant as ParsedConstant
     from .core import InMemoryVIGraph
 
 

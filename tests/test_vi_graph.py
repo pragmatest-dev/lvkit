@@ -9,6 +9,7 @@ import pytest
 from lvpy.graph import InMemoryVIGraph, connect
 from lvpy.graph_types import (
     ConstantNode,
+    FPTerminal,
     PrimitiveNode,
     Terminal,
     VINode,
@@ -110,10 +111,10 @@ class TestTypedGraphNodes:
             vi=vi_name,
             name="Test.vi",
             terminals=[
-                Terminal(id="fp_in", index=0, direction="input", name="X",
-                         wiring_rule=1, is_public=True),
-                Terminal(id="fp_out", index=1, direction="output", name="Sum",
-                         wiring_rule=0, is_indicator=True, is_public=True),
+                FPTerminal(id="fp_in", index=0, direction="input", name="X",
+                           wiring_rule=1, is_public=True),
+                FPTerminal(id="fp_out", index=1, direction="output", name="Sum",
+                           wiring_rule=0, is_indicator=True, is_public=True),
             ],
         )
         graph._graph.add_node(vi_name, node=vi_node)

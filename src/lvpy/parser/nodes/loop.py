@@ -7,11 +7,11 @@ import xml.etree.ElementTree as ET
 from lvpy.constants import LOOP_NODE_CLASSES, TERMINAL_CLASS, TUNNEL_DCO_CLASSES
 from lvpy.graph_types import Tunnel
 
-from ..models import LoopStructure
+from ..models import ParsedLoopStructure
 from .base import extract_tunnel_mapping
 
 
-def extract_loops(root: ET.Element) -> list[LoopStructure]:
+def extract_loops(root: ET.Element) -> list[ParsedLoopStructure]:
     """Extract loop structures (while, for) with tunnel mappings.
 
     Loops in LabVIEW have:
@@ -30,9 +30,9 @@ def extract_loops(root: ET.Element) -> list[LoopStructure]:
         root: XML root element
 
     Returns:
-        List of LoopStructure with tunnel mappings
+        List of ParsedLoopStructure with tunnel mappings
     """
-    loops: list[LoopStructure] = []
+    loops: list[ParsedLoopStructure] = []
 
     for loop_class in LOOP_NODE_CLASSES:
         for loop_elem in root.findall(f".//*[@class='{loop_class}']"):
@@ -97,7 +97,7 @@ def extract_loops(root: ET.Element) -> list[LoopStructure]:
                     if first_term is not None:
                         stop_condition_uid = first_term.get("uid")
 
-            loops.append(LoopStructure(
+            loops.append(ParsedLoopStructure(
                 uid=loop_uid,
                 loop_type=loop_class,
                 boundary_terminal_uids=boundary_terminals,

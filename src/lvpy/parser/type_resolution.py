@@ -11,7 +11,7 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 
 from ..graph_types import LVType
-from .models import ResolvedTypeDefValue, TypeDefRef
+from .models import ParsedResolvedTypeDefValue, ParsedTypeDefRef
 from .type_mapping import parse_type_map_rich
 
 
@@ -180,9 +180,9 @@ def load_enum_reference() -> dict:
 
 
 def resolve_typedef_value(
-    typedef_ref: TypeDefRef,
+    typedef_ref: ParsedTypeDefRef,
     value: int
-) -> ResolvedTypeDefValue | None:
+) -> ParsedResolvedTypeDefValue | None:
     """Resolve a typedef enum value to its description and OS paths.
 
     Args:
@@ -190,7 +190,7 @@ def resolve_typedef_value(
         value: The integer enum value
 
     Returns:
-        ResolvedTypeDefValue with name, description, and OS paths, or None
+        ParsedResolvedTypeDefValue with name, description, and OS paths, or None
     """
     enums = load_enum_reference()
     typedefs = enums.get("typedefs", {})
@@ -204,7 +204,7 @@ def resolve_typedef_value(
     values = typedef_info.get("values", {})
     value_info = values.get(str(value)) or values.get(value)
     if value_info:
-        return ResolvedTypeDefValue(
+        return ParsedResolvedTypeDefValue(
             name=value_info.get("name", ""),
             description=value_info.get("description", ""),
             windows_path=value_info.get("windows"),
@@ -214,14 +214,14 @@ def resolve_typedef_value(
     return None
 
 
-def parse_typedef_refs(root: ET.Element) -> list[TypeDefRef]:
+def parse_typedef_refs(root: ET.Element) -> list[ParsedTypeDefRef]:
     """Parse VICC elements to find typedef references.
 
     Args:
         root: Root element of the main VI XML
 
     Returns:
-        List of TypeDefRef with vilib path and control name
+        List of ParsedTypeDefRef with vilib path and control name
     """
     refs = []
 
@@ -249,6 +249,6 @@ def parse_typedef_refs(root: ET.Element) -> list[TypeDefRef]:
 
         vilib_path = "/".join(path_parts[1:-1])
 
-        refs.append(TypeDefRef(type_id=type_id, name=name, vilib_path=vilib_path))
+        refs.append(ParsedTypeDefRef(type_id=type_id, name=name, vilib_path=vilib_path))
 
     return refs

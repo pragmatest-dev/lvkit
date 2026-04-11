@@ -166,6 +166,7 @@ class TestWaitMsPrimitive:
         if isinstance(resolved.python_code, dict):
             assert any("time.sleep" in v for v in resolved.python_code.values())
         else:
+            assert resolved.python_code is not None
             assert "time.sleep" in resolved.python_code
         assert "import time" in resolved.imports
 
@@ -173,6 +174,7 @@ class TestWaitMsPrimitive:
         from lvpy.primitive_resolver import get_resolver
         resolver = get_resolver()
         resolved = resolver.resolve(prim_id=1302)
+        assert resolved is not None
 
         inputs = [t for t in resolved.terminals if t.direction == "in"]
         outputs = [t for t in resolved.terminals if t.direction == "out"]
@@ -244,6 +246,7 @@ class TestPolyResolverLookup:
             "DAQmx Create Virtual Channel.vi", "Digital Output"
         )
         assert entry is not None
+        assert entry.python_code is not None
         assert "do_channels.add_do_chan" in entry.python_code
 
     def test_digital_input_resolves_to_di_line(self):
@@ -253,6 +256,7 @@ class TestPolyResolverLookup:
             "DAQmx Create Virtual Channel.vi", "Digital Input"
         )
         assert entry is not None
+        assert entry.python_code is not None
         assert "di_channels.add_di_chan" in entry.python_code
 
     def test_ai_voltage_resolves(self):
@@ -262,6 +266,7 @@ class TestPolyResolverLookup:
             "DAQmx Create Virtual Channel.vi", "AI Voltage"
         )
         assert entry is not None
+        assert entry.python_code is not None
         assert "ai_channels.add_ai_voltage_chan" in entry.python_code
 
     def test_unknown_selector_returns_none(self):

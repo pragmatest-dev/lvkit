@@ -14,9 +14,9 @@ import networkx as nx
 from ..extractor import extract_vi_xml
 from ..graph_types import ClusterField, LVType, PolyInfo, VIMetadata
 from ..parser import (
-    BlockDiagram,
-    ConnectorPane,
-    FrontPanel,
+    ParsedBlockDiagram,
+    ParsedConnectorPane,
+    ParsedFrontPanel,
     parse_connector_pane_types,
     parse_vi,
     parse_vi_metadata,
@@ -77,9 +77,9 @@ class LoadingMixin:
         def clear(self) -> None: ...
         def _add_vi_to_graph(
             self,
-            bd: BlockDiagram,
-            fp: FrontPanel | None,
-            conpane: ConnectorPane | None,
+            bd: ParsedBlockDiagram,
+            fp: ParsedFrontPanel | None,
+            conpane: ParsedConnectorPane | None,
             wiring_rules: dict[int, int],
             vi_name: str,
             type_map: dict[int, LVType] | None = None,

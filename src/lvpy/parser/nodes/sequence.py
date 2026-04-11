@@ -7,7 +7,7 @@ import xml.etree.ElementTree as ET
 from lvpy.constants import TERMINAL_CLASS, TUNNEL_DCO_CLASSES
 from lvpy.graph_types import SequenceFrame, Tunnel
 
-from ..models import FlatSequenceStructure
+from ..models import ParsedFlatSequenceStructure
 from .base import extract_tunnel_mapping
 
 # Both flat and stacked sequences enforce sequential execution.
@@ -18,7 +18,7 @@ _SEQ_CLASSES = ("flatSequence", "seq")
 
 def extract_flat_sequences(
     root: ET.Element,
-) -> list[FlatSequenceStructure]:
+) -> list[ParsedFlatSequenceStructure]:
     """Extract sequence structures (flat and stacked).
 
     Both types enforce execution order:
@@ -30,9 +30,9 @@ def extract_flat_sequences(
         root: XML root element
 
     Returns:
-        List of FlatSequenceStructure with frame and tunnel info
+        List of ParsedFlatSequenceStructure with frame and tunnel info
     """
-    result: list[FlatSequenceStructure] = []
+    result: list[ParsedFlatSequenceStructure] = []
 
     for seq_class in _SEQ_CLASSES:
         for seq_elem in root.findall(f".//*[@class='{seq_class}']"):
@@ -46,7 +46,7 @@ def extract_flat_sequences(
 def _extract_one_sequence(
     seq_elem: ET.Element,
     seq_class: str,
-) -> FlatSequenceStructure | None:
+) -> ParsedFlatSequenceStructure | None:
     """Extract a single sequence structure."""
     seq_uid = seq_elem.get("uid")
     if not seq_uid:
@@ -90,7 +90,7 @@ def _extract_one_sequence(
             inner_node_uids=inner_node_uids,
         ))
 
-    return FlatSequenceStructure(
+    return ParsedFlatSequenceStructure(
         uid=seq_uid,
         tunnels=all_tunnels,
         frames=frames,
