@@ -168,19 +168,28 @@ class LoadingMixin:
 
         for member in lib.members:
             if member.member_type == "VI":
-                vi_path = lvlib_path.parent / member.url
-                if not vi_path.exists():
-                    # Relative path doesn't resolve — search by filename
-                    vi_name = Path(member.url).name
-                    vi_path = self._find_subvi(
-                        vi_name, search_paths, lvlib_path.parent,
+                member_name = Path(member.url).name
+                if member_name.lower().endswith(".ctl"):
+                    # .ctl members are type definitions, not loadable VIs
+                    typedef_qname = lib_qname + ":" + member_name
+                    self._ensure_typedef_loaded(
+                        typedef_qname, search_paths, lvlib_path.parent
                     )
-                if vi_path and vi_path.exists():
-                    self.load_vi(vi_path, expand_subvis, search_paths)
-                    # Ownership edge
-                    vi_qname = lib_qname + ":" + Path(member.url).name
-                    if vi_qname in self._dep_graph:
-                        self._dep_graph.add_edge(lib_qname, vi_qname, rel="owns")
+                    if self._dep_graph.has_node(typedef_qname):
+                        self._dep_graph.add_edge(lib_qname, typedef_qname, rel="owns")
+                else:
+                    vi_path = lvlib_path.parent / member.url
+                    if not vi_path.exists():
+                        # Relative path doesn't resolve — search by filename
+                        vi_path = self._find_subvi(
+                            member_name, search_paths, lvlib_path.parent,
+                        )
+                    if vi_path and vi_path.exists():
+                        self.load_vi(vi_path, expand_subvis, search_paths)
+                        # Ownership edge
+                        vi_qname = lib_qname + ":" + member_name
+                        if vi_qname in self._dep_graph:
+                            self._dep_graph.add_edge(lib_qname, vi_qname, rel="owns")
             elif member.member_type == "Class":
                 class_path = lvlib_path.parent / member.url
                 if not class_path.exists():
