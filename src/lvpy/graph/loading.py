@@ -1,8 +1,8 @@
 """Loading mixin for InMemoryVIGraph.
 
-Methods: load_vi, load_lvclass, load_lvlib, load_lvproj, load_directory,
-_load_vi_recursive, _load_type_dependencies, _load_class_dep, _load_typedef_dep,
-_find_subvi, _resolve_class_vi_path.
+Methods: load_vi, load_lvclass, load_lvlib, load_lvproj, load_typedef,
+load_directory, _load_vi_recursive, _load_dependency, _find_subvi,
+_resolve_class_vi_path.
 """
 
 from __future__ import annotations
@@ -18,6 +18,7 @@ from ..models import ClusterField, LVType
 from ..parser import (
     ParsedBlockDiagram,
     ParsedConnectorPane,
+    ParsedDependencyRef,
     ParsedFrontPanel,
     parse_connector_pane_types,
     parse_vi,
@@ -176,9 +177,21 @@ class LoadingMixin:
                 if member_name.lower().endswith(".ctl"):
                     # .ctl members are type definitions, not loadable VIs
                     typedef_qname = lib_qname + ":" + member_name
-                    self._load_typedef_dep(
-                        typedef_qname, search_paths, lvlib_path.parent
-                    )
+                    ctl_path = lvlib_path.parent / member.url
+                    if not ctl_path.exists():
+                        found = self._find_file(
+                            member_name, search_paths, lvlib_path.parent
+                        )
+                        if found:
+                            ctl_path = found
+                    if ctl_path.exists():
+                        self.load_typedef(
+                            ctl_path, typedef_qname=typedef_qname,
+                            search_paths=search_paths,
+                        )
+                    elif not self._dep_graph.has_node(typedef_qname):
+                        self._dep_graph.add_node(typedef_qname, node_type="typedef")
+                        self._stubs.add(typedef_qname)
                     if self._dep_graph.has_node(typedef_qname):
                         self._dep_graph.add_edge(lib_qname, typedef_qname, rel="owns")
                 else:
@@ -417,102 +430,46 @@ class LoadingMixin:
         # Mark as loaded
         self._loaded_vis.add(vi_name)
 
-        # Process SubVIs
-        if main_xml and main_xml.exists():
-            subvi_ref_map = {
+        # Load all dependencies through the single generic walker.
+        if expand_subvis and main_xml and main_xml.exists():
+            dep_ref_map = {
                 ref.qualified_name: ref
-                for ref in metadata.subvi_path_refs
+                for ref in metadata.dependency_refs
                 if ref.qualified_name
             }
 
-            caller_dir = source_dir if source_dir is not None else bd_xml.parent
-
-            for subvi_qname in metadata.subvi_qualified_names:
-                if not subvi_qname:
-                    continue
-
-                if subvi_qname == vi_name:
-                    continue
-
-                if subvi_qname in visited:
-                    continue
-
-                # Class/library type references appear in the VIVI list alongside
-                # actual VI names. Route them through the proper loaders rather than
-                # trying to extract_vi_xml a non-VI file.
-                leaf = subvi_qname.rsplit(":", 1)[-1]
-                if leaf.endswith(".lvclass"):
-                    if expand_subvis:
-                        self._load_class_dep(subvi_qname, search_paths, caller_dir)
-                    continue
-                if leaf.endswith(".lvlib"):
-                    # Library names appear in VIVI as type-context references, not
-                    # as callable VIs. The individual member VIs are listed separately
-                    # as qualified names (e.g. "MyLib.lvlib:VI.vi") and loaded through
-                    # the normal path. load_lvlib() would need a file path we don't
-                    # have here, so we skip.
-                    continue
-
-                ref = subvi_ref_map.get(subvi_qname)
-                if ref and ref.path_tokens:
-                    lookup_path = ref.get_relative_path()
-                    is_vilib = ref.is_vilib
-                    is_userlib = ref.is_userlib
-                else:
-                    if ":" in subvi_qname:
-                        lookup_path = subvi_qname.split(":")[-1]
-                    else:
-                        lookup_path = subvi_qname
-                    is_vilib = False
-                    is_userlib = False
-
-                if expand_subvis:
-                    subvi_path = self._find_subvi(
-                        lookup_path, search_paths, caller_dir, is_vilib, is_userlib
-                    )
-                    if subvi_path:
-                        try:
-                            subvi_bd_xml, subvi_fp_xml, subvi_main_xml = extract_vi_xml(
-                                subvi_path
-                            )
-                            loaded_name = self._load_vi_recursive(
-                                subvi_bd_xml,
-                                subvi_fp_xml,
-                                subvi_main_xml,
-                                expand_subvis=True,
-                                search_paths=search_paths,
-                                visited=visited,
-                                source_dir=subvi_path.parent,
-                            )
-                            if loaded_name:
-                                self._dep_graph.add_edge(vi_name, loaded_name)
-                                # Register alias if caller uses a different name
-                                # (e.g., JKI "VI__LibName.vi" convention)
-                                if subvi_qname != loaded_name:
-                                    self._qualified_aliases[subvi_qname] = loaded_name
-                        except (RuntimeError, OSError):
-                            self._stub_subvi(subvi_qname, vi_name)
-                    else:
-                        self._stub_subvi(subvi_qname, vi_name)
-                else:
-                    self._stub_subvi(subvi_qname, vi_name)
-
-        # Load type dependencies: classes referenced in type_map
-        # that aren't in the dep_graph yet.
-        if type_map and expand_subvis:
-            self._load_type_dependencies(
-                type_map, search_paths,
-                source_dir if source_dir is not None else bd_xml.parent,
-                visited,
+            # caller_file is the VI file itself (not its directory): each
+            # leading empty in a LinkSavePathRef pops one level from it.
+            caller_file = (
+                source_dir / unqualified_name
+                if source_dir is not None
+                else bd_xml.parent / unqualified_name
             )
 
-        # Build map of iUse uid → fully qualified on-disk path. The parser
-        # gives us uid → qualified_name AND a list of SubVIPathRef indexed
-        # by qualified_name. Compose them so VINode.qualified_path can be
-        # populated for resolution diagnostics.
+            # Collect all dependency qnames: SubVI/class refs + type_map deps.
+            all_dep_qnames: set[str] = set()
+            for qname in metadata.subvi_qualified_names:
+                if qname and qname != vi_name:
+                    all_dep_qnames.add(qname)
+            for lv_type in type_map.values():
+                if lv_type.classname and lv_type.classname != "LabVIEW Object":
+                    all_dep_qnames.add(lv_type.classname)
+                if lv_type.typedef_name:
+                    all_dep_qnames.add(lv_type.typedef_name)
+
+            for qname in all_dep_qnames:
+                self._load_dependency(
+                    qname,
+                    dep_ref_map.get(qname),
+                    caller_file,
+                    search_paths,
+                    caller_qname=vi_name,
+                )
+
+        # Build map of iUse uid → fully qualified on-disk path for diagnostics.
         ref_by_qname = {
             ref.qualified_name: ref
-            for ref in metadata.subvi_path_refs
+            for ref in metadata.dependency_refs
             if ref.qualified_name
         }
         iuse_to_qpath: dict[str, str] = {}
@@ -531,110 +488,139 @@ class LoadingMixin:
 
         return vi_name
 
-    def _load_type_dependencies(
+    def load_typedef(
         self,
-        type_map: dict,
-        search_paths: list[Path],
-        caller_dir: Path,
-        visited: set[str],
+        ctl_path: Path | str,
+        typedef_qname: str | None = None,
+        search_paths: list[Path] | None = None,
     ) -> None:
-        """Load named types referenced in a VI's type_map.
+        """Load a .ctl typedef and add it to the dep_graph with its fields.
 
-        Any class, typedef, or library referenced by a VI is a dependency
-        that must be in the dep_graph. Same as SubVI loading — find it,
-        load it, or stub it.
+        Mirrors load_vi / load_lvclass / load_lvlib for consistency.
         """
-        for lv_type in type_map.values():
-            # Class dependencies
-            if lv_type.classname and lv_type.classname != "LabVIEW Object":
-                self._load_class_dep(
-                    lv_type.classname, search_paths, caller_dir,
-                )
-            # Typedef dependencies
-            if lv_type.typedef_name:
-                self._load_typedef_dep(
-                    lv_type.typedef_name, search_paths, caller_dir,
-                )
+        ctl_path = Path(ctl_path)
+        if search_paths is None:
+            search_paths = [ctl_path.parent]
 
-    def _load_class_dep(
-        self,
-        classname: str,
-        search_paths: list[Path],
-        caller_dir: Path,
-    ) -> None:
-        """Ensure a named type is in the dep_graph.
-
-        If not already loaded, search for the .lvclass file and load it.
-        """
-        if self._dep_graph.has_node(classname):
+        qname = typedef_qname or ctl_path.name
+        if self._dep_graph.has_node(qname):
             return
 
-        # Extract the leaf filename from qualified name
-        # e.g. "Lib.lvlib:TestSuite.lvclass" → "TestSuite.lvclass"
-        leaf = classname.rsplit(":", 1)[-1]
-
-        if leaf.endswith(".lvclass"):
-            cls_path = self._find_file(leaf, search_paths, caller_dir)
-            if cls_path:
-                # Determine owner_chain from qualified name
-                parts = classname.split(":")
-                owner_chain = parts[:-1] if len(parts) > 1 else None
-                self.load_lvclass(
-                    cls_path,
-                    expand_subvis=True,
-                    search_paths=search_paths,
-                    owner_chain=owner_chain,
-                )
-            else:
-                # Stub it — we know the type exists but can't find it
-                self._dep_graph.add_node(classname, node_type="class")
-                self._stubs.add(classname)
-
-    def _load_typedef_dep(
-        self,
-        typedef_name: str,
-        search_paths: list[Path],
-        caller_dir: Path,
-    ) -> None:
-        """Ensure a typedef is in the dep_graph with its fields.
-
-        Same as class/VI loading: find .ctl on disk → extract XML →
-        parse type_map → add fields to dep_graph.
-        """
-        if self._dep_graph.has_node(typedef_name):
-            return
-
-        leaf = typedef_name.rsplit(":", 1)[-1]
-        ctl_path = self._find_file(leaf, search_paths, caller_dir)
-
-        if ctl_path:
-            try:
-                _, fp_xml, main_xml = extract_vi_xml(ctl_path)
-                if main_xml and main_xml.exists():
-                    type_map = parse_type_map_rich(main_xml)
-                    # The root type of a .ctl is at the FPHb's fPDCO
-                    # typeDesc, which is TypeID(1) for cluster controls
-                    # and TypeID(2) for enum controls.  Use the FPHb
-                    # to determine the correct root TypeID.
-                    root_type_id = _get_fp_root_type_id(fp_xml)
-                    if root_type_id is None:
-                        root_type_id = 1  # cluster default
-                    fields = None
-                    if root_type_id in type_map:
-                        root_type = type_map[root_type_id]
-                        fields = root_type.fields
-                    self._dep_graph.add_node(
-                        typedef_name,
-                        node_type="typedef",
-                        fields=fields,
-                    )
-                    return
-            except (RuntimeError, OSError):
-                pass
+        try:
+            _, fp_xml, main_xml = extract_vi_xml(ctl_path)
+            if main_xml and main_xml.exists():
+                type_map = parse_type_map_rich(main_xml)
+                root_type_id = _get_fp_root_type_id(fp_xml)
+                if root_type_id is None:
+                    root_type_id = 1  # cluster control default
+                fields = None
+                if root_type_id in type_map:
+                    root_type = type_map[root_type_id]
+                    fields = root_type.fields
+                self._dep_graph.add_node(qname, node_type="typedef", fields=fields)
+                return
+        except (RuntimeError, OSError):
+            pass
 
         # Stub it
-        self._dep_graph.add_node(typedef_name, node_type="typedef")
-        self._stubs.add(typedef_name)
+        self._dep_graph.add_node(qname, node_type="typedef")
+        self._stubs.add(qname)
+
+    def _load_dependency(
+        self,
+        qualified_name: str,
+        dep_ref: ParsedDependencyRef | None,
+        caller_file: Path,
+        search_paths: list[Path],
+        caller_qname: str | None = None,
+    ) -> None:
+        """Load one dependency by its LabVIEW qualified name and optional path ref.
+
+        Single entry point for all dependency loading: SubVI calls, class refs,
+        typedef refs, and library refs all funnel through here.
+
+        Uses the recorded LinkSavePathRef for resolution (exact path, no scanning).
+        Falls back to name-based search only when no path ref is available or the
+        recorded path doesn't exist on disk (e.g. <userlib> refs without a root).
+
+        LabVIEW's one-qname-per-memory invariant means the dep_graph node check
+        at the top is the definitive dedup — resolution only runs on first visit.
+        """
+        if self._dep_graph.has_node(qualified_name):
+            if caller_qname:
+                self._dep_graph.add_edge(caller_qname, qualified_name)
+            return
+
+        leaf = qualified_name.rsplit(":", 1)[-1]
+
+        # Resolve path: prefer the recorded ref, fall back to name-based search.
+        resolved: Path | None = None
+        if dep_ref is not None:
+            candidate = dep_ref.resolve_against(caller_file)
+            if candidate is not None and candidate.exists():
+                resolved = candidate
+        if resolved is None:
+            if leaf.endswith(".vi"):
+                resolved = self._find_subvi(leaf, search_paths, caller_file.parent)
+            else:
+                resolved = self._find_file(leaf, search_paths, caller_file.parent)
+
+        if resolved is None:
+            node_type = (
+                "class" if leaf.endswith(".lvclass") else
+                "typedef" if leaf.endswith(".ctl") else
+                "library" if leaf.endswith(".lvlib") else
+                "vi"
+            )
+            self._dep_graph.add_node(qualified_name, node_type=node_type)
+            self._stubs.add(qualified_name)
+            if caller_qname:
+                self._dep_graph.add_edge(caller_qname, qualified_name)
+            return
+
+        # Dispatch by extension to the matching public loader.
+        if leaf.endswith(".vi"):
+            try:
+                bd_xml, fp_xml, main_xml = extract_vi_xml(resolved)
+                loaded_name = self._load_vi_recursive(
+                    bd_xml, fp_xml, main_xml,
+                    expand_subvis=True,
+                    search_paths=search_paths,
+                    visited=set(),
+                    source_dir=resolved.parent,
+                )
+                if loaded_name:
+                    if caller_qname:
+                        self._dep_graph.add_edge(caller_qname, loaded_name)
+                    if qualified_name != loaded_name:
+                        self._qualified_aliases[qualified_name] = loaded_name
+            except (RuntimeError, OSError):
+                self._stub_subvi(qualified_name, caller_qname or "")
+        elif leaf.endswith(".lvclass"):
+            parts = qualified_name.split(":")
+            owner_chain = parts[:-1] if len(parts) > 1 else None
+            self.load_lvclass(
+                resolved, expand_subvis=True,
+                search_paths=search_paths, owner_chain=owner_chain,
+            )
+            if caller_qname:
+                self._dep_graph.add_edge(caller_qname, qualified_name)
+        elif leaf.endswith(".lvlib"):
+            self.load_lvlib(resolved, expand_subvis=True, search_paths=search_paths)
+            if caller_qname:
+                self._dep_graph.add_edge(caller_qname, qualified_name)
+        elif leaf.endswith(".ctl"):
+            self.load_typedef(
+                resolved, typedef_qname=qualified_name, search_paths=search_paths,
+            )
+            if caller_qname:
+                self._dep_graph.add_edge(caller_qname, qualified_name)
+        else:
+            # Unknown extension — stub rather than guess.
+            self._dep_graph.add_node(qualified_name, node_type="unknown")
+            self._stubs.add(qualified_name)
+            if caller_qname:
+                self._dep_graph.add_edge(caller_qname, qualified_name)
 
     def _stub_subvi(self, name: str, _parent_vi: str) -> None:
         """Record a SubVI reference that could not be resolved as a stub."""
@@ -678,12 +664,6 @@ class LoadingMixin:
             candidate = caller_dir / vi_name
             if candidate.exists():
                 return candidate
-
-            if len(path_parts) > 1:
-                for parent in [caller_dir] + list(caller_dir.parents)[:3]:
-                    candidate = parent / vi_path
-                    if candidate.exists():
-                        return candidate
 
         # Also try without __LibName suffix (JKI convention:
         # "VIName__LibraryName.vi" → actual file is "VIName.vi")

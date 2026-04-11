@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any
 
 from ..models import ClusterField, LVType, Tunnel
@@ -183,19 +184,71 @@ class ParsedDefaultValue:
 
 
 @dataclass
-class ParsedSubVIPathRef:
-    """A SubVI reference with path hints from the XML."""
-    name: str  # VI name, e.g., "Create Dir if Non-Existant__ogtk.vi"
-    path_tokens: list[str]  # Path components
-    is_vilib: bool = False  # True if from <vilib>
-    is_userlib: bool = False  # True if from <userlib>
-    qualified_name: str | None = None  # e.g., "Library.lvlib:VI.vi"
+class ParsedDependencyRef:
+    """A dependency recorded by LabVIEW in a LinkSavePathRef element.
+
+    Spans every file type LabVIEW tracks: .vi, .lvclass, .ctl, .lvlib.
+    """
+    name: str  # Leaf filename, e.g., "TestCase.lvclass" or "listTestMethods.vi"
+    path_tokens: list[str]  # Raw path tokens from LinkSavePathRef/String
+    is_vilib: bool = False  # True if first token is "<vilib>"
+    is_userlib: bool = False  # True if first token is "<userlib>"
+    qualified_name: str | None = None  # e.g., "TestCase.lvclass:TestCase_Init.vi"
 
     def get_relative_path(self) -> str:
-        """Get the relative path under vilib/userlib."""
+        """Get the relative path under vilib/userlib (display only)."""
         if self.path_tokens and self.path_tokens[0] in ("<vilib>", "<userlib>"):
             return "/".join(self.path_tokens[1:])
         return "/".join(self.path_tokens)
+
+    def resolve_against(
+        self,
+        caller_file: Path,
+        vilib_root: Path | None = None,
+        userlib_root: Path | None = None,
+    ) -> Path | None:
+        """Resolve LabVIEW's LinkSavePathRef tokens to an absolute path.
+
+        Convention: start at the caller file itself, then each leading
+        empty string pops one level (1 empty -> caller's containing
+        directory, 2 empties -> its parent, etc.). Non-empty tokens are
+        appended as path components. If the first token is <vilib> /
+        <userlib>, the corresponding root is used as the base instead.
+        """
+        tokens = self.path_tokens
+        if not tokens:
+            return None
+
+        if tokens[0] == "<vilib>":
+            if vilib_root is None:
+                return None
+            base: Path = vilib_root
+            rest = tokens[1:]
+        elif tokens[0] == "<userlib>":
+            if userlib_root is None:
+                return None
+            base = userlib_root
+            rest = tokens[1:]
+        else:
+            # Each leading empty = one '..' starting from the caller file
+            empties = 0
+            for tok in tokens:
+                if tok == "":
+                    empties += 1
+                else:
+                    break
+            base = caller_file
+            for _ in range(empties):
+                base = base.parent
+            rest = tokens[empties:]
+
+        if not rest:
+            return None
+        return (base / Path(*rest)).resolve()
+
+
+# Backward compatibility alias — all new code uses ParsedDependencyRef
+ParsedSubVIPathRef = ParsedDependencyRef
 
 
 @dataclass
@@ -257,9 +310,9 @@ class ParsedVIMetadata:
     iuse_to_qualified_name: dict[str, str] = field(
         default_factory=dict,
     )  # iUse UID → qualified name
-    subvi_path_refs: list[ParsedSubVIPathRef] = field(
+    dependency_refs: list[ParsedDependencyRef] = field(
         default_factory=list,
-    )  # SubVI path hints
+    )  # Dependency path refs from LIvi LinkSavePathRef (all file types)
 
 
 @dataclass

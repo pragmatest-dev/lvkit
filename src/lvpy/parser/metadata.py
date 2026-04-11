@@ -8,7 +8,7 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 from typing import Any
 
-from .models import ParsedSubVIPathRef
+from .models import ParsedDependencyRef
 from .type_resolution import parse_typedef_refs
 
 
@@ -159,22 +159,23 @@ def parse_polymorphic_info(root: ET.Element) -> dict[str, Any]:
     return result
 
 
-def parse_subvi_paths(xml_path: Path | str) -> list[ParsedSubVIPathRef]:
-    """Parse SubVI path references from the main VI XML.
+def parse_subvi_paths(xml_path: Path | str) -> list[ParsedDependencyRef]:
+    """Parse dependency path references from the main VI XML.
 
-    The LIvi section contains VIVI elements with LinkSavePathRef that
-    specify where to find SubVIs relative to vilib or userlib.
+    The LIvi section contains link elements with LinkSavePathRef that
+    specify where to find dependencies relative to the caller.
 
     Args:
         xml_path: Path to the main .xml file (not BDHb)
 
     Returns:
-        List of ParsedSubVIPathRef with path hints for each SubVI
+        List of ParsedDependencyRef with path hints for each dependency
     """
     tree = ET.parse(xml_path)
     root = tree.getroot()
 
-    refs: list[ParsedSubVIPathRef] = []
+    refs: list[ParsedDependencyRef] = []
+    seen: set[tuple[str, tuple[str, ...]]] = set()
 
     for vivi in root.findall(".//LIvi//VIVI"):
         # Extract qualified name from all strings in LinkSaveQualName
@@ -182,35 +183,35 @@ def parse_subvi_paths(xml_path: Path | str) -> list[ParsedSubVIPathRef]:
         if not qual_name_strings:
             continue
 
-        # Build qualified name (e.g., "Library.lvlib:VI.vi")
         qual_parts = [s.text for s in qual_name_strings if s.text]
         if not qual_parts:
             continue
         qualified_name = ":".join(qual_parts)
-
-        # Find last non-empty string (the actual VI name) for unqualified lookup
-        name = None
-        for s in reversed(qual_name_strings):
-            if s.text and s.text.endswith(".vi"):
-                name = s.text
-                break
-        if not name:
-            continue
+        name = qual_parts[-1]
 
         path_ref = vivi.find("LinkSavePathRef")
         if path_ref is None:
             continue
 
-        path_parts = [s.text for s in path_ref.findall("String") if s.text]
-        if not path_parts:
+        # Preserve empty strings — they are the '..' navigation markers.
+        path_tokens = [
+            s.text if s.text is not None else ""
+            for s in path_ref.findall("String")
+        ]
+        if not path_tokens:
             continue
 
-        is_vilib = len(path_parts) > 0 and path_parts[0] == "<vilib>"
-        is_userlib = len(path_parts) > 0 and path_parts[0] == "<userlib>"
+        key: tuple[str, tuple[str, ...]] = (qualified_name, tuple(path_tokens))
+        if key in seen:
+            continue
+        seen.add(key)
 
-        refs.append(ParsedSubVIPathRef(
+        is_vilib = path_tokens[0] == "<vilib>"
+        is_userlib = path_tokens[0] == "<userlib>"
+
+        refs.append(ParsedDependencyRef(
             name=name,
-            path_tokens=path_parts,
+            path_tokens=path_tokens,
             is_vilib=is_vilib,
             is_userlib=is_userlib,
             qualified_name=qualified_name,

@@ -49,7 +49,7 @@ dependencies = [
 lvpy = "lvpy.cli:main"
 lvpy-mcp = "lvpy.mcp.server:main"
 
-[project.optional-dependencies]
+[dependency-groups]
 dev = [
     "pytest",
     "ruff",

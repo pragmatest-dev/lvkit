@@ -37,11 +37,11 @@ from .metadata import parse_iuse_from_libd
 from .models import (
     ParsedBlockDiagram,
     ParsedConstant,
+    ParsedDependencyRef,
     ParsedFPControl,
     ParsedFPTerminal,
     ParsedFrontPanel,
     ParsedNode,
-    ParsedSubVIPathRef,
     ParsedTerminalInfo,
     ParsedVI,
     ParsedVIMetadata,
@@ -180,7 +180,7 @@ def _parse_metadata(
     (
         subvi_qualified_names,
         iuse_to_qualified_name,
-        subvi_path_refs,
+        dependency_refs,
     ) = _extract_subvi_info(main_root, qualified_name)
 
     # Fallback for older VIs (pre-LV9): pylabview cannot parse their LIbd
@@ -200,7 +200,7 @@ def _parse_metadata(
         type_map=type_map or {},
         subvi_qualified_names=subvi_qualified_names,
         iuse_to_qualified_name=iuse_to_qualified_name,
-        subvi_path_refs=subvi_path_refs,
+        dependency_refs=dependency_refs,
     )
 
 
@@ -618,66 +618,81 @@ def _resolve_qualified_name(
 def _extract_subvi_info(
     main_root: ET.Element,
     caller_qualified_name: str | None,
-) -> tuple[list[str], dict[str, str], list[ParsedSubVIPathRef]]:
-    """Extract SubVI qualified names, iUse→qualified_name mapping, and path refs."""
+) -> tuple[list[str], dict[str, str], list[ParsedDependencyRef]]:
+    """Extract SubVI qualified names, iUse→qname mapping, and dependency path refs."""
     subvi_qualified_names: list[str] = []
     iuse_to_qualified_name: dict[str, str] = {}
-    subvi_path_refs: list[ParsedSubVIPathRef] = []
+    dependency_refs: list[ParsedDependencyRef] = []
 
     # Get caller's library for qualifying same-library references
     caller_library = None
     if caller_qualified_name and ":" in caller_qualified_name:
         caller_library = caller_qualified_name.split(":")[0]
 
-    # Extract SubVI qualified names from VIVI entries
+    # --- Collect dependency path refs from ALL LIvi link element types ---
+    # Every element that carries both LinkSaveQualName + LinkSavePathRef uses
+    # the identical schema. Iterate all of them regardless of file extension
+    # so classes, typedefs, and libraries get the same treatment as SubVIs.
+    _LIVI_LINK_TAGS = (
+        "VIVI", "VIPI", "VIPV", "VILB", "FPPI", "DDPI",
+        "VICC", "DDPC", "FPPC", "IUVI",
+    )
+    seen_deps: set[tuple[str, tuple[str, ...]]] = set()
+    for tag in _LIVI_LINK_TAGS:
+        for elem in main_root.findall(f".//LIvi//{tag}"):
+            qname = _resolve_qualified_name(elem, caller_library)
+            if not qname:
+                continue
+            path_ref = elem.find("LinkSavePathRef")
+            if path_ref is None:
+                continue
+            # Preserve empty strings — they are the '..' navigation markers.
+            # <String /> (self-closing) has .text = None; map to "".
+            path_tokens = [
+                s.text if s.text is not None else ""
+                for s in path_ref.findall("String")
+            ]
+            if not path_tokens:
+                continue
+            key: tuple[str, tuple[str, ...]] = (qname, tuple(path_tokens))
+            if key in seen_deps:
+                continue
+            seen_deps.add(key)
+            name = qname.rsplit(":", 1)[-1]
+            is_vilib = path_tokens[0] == "<vilib>"
+            is_userlib = path_tokens[0] == "<userlib>"
+            dependency_refs.append(ParsedDependencyRef(
+                name=name,
+                path_tokens=path_tokens,
+                is_vilib=is_vilib,
+                is_userlib=is_userlib,
+                qualified_name=qname,
+            ))
+
+    # --- SubVI qualified names (for the dep loading loop in graph/loading.py) ---
+    # Unchanged: VIVI, VIPI, DyOM, VIPV contribute qnames to be loaded.
     for vivi in main_root.findall(".//LIvi//VIVI"):
         qname = _resolve_qualified_name(vivi, caller_library)
         if qname:
             subvi_qualified_names.append(qname)
 
-            # Build path ref for file resolution
-            strings = [
-                s.text for s in vivi.findall("LinkSaveQualName/String")
-                if s.text
-            ]
-            name = strings[-1] if strings and strings[-1].endswith(".vi") else None
-            if name:
-                # Extract path from LinkSavePathRef (multiple String elements)
-                path_parts = [
-                    s.text for s in vivi.findall("LinkSavePathRef/String")
-                    if s.text
-                ]
-                is_vilib = path_parts[0] == "<vilib>" if path_parts else False
-                is_userlib = path_parts[0] == "<userlib>" if path_parts else False
-                subvi_path_refs.append(ParsedSubVIPathRef(
-                    name=name,
-                    path_tokens=path_parts,
-                    is_vilib=is_vilib,
-                    is_userlib=is_userlib,
-                    qualified_name=qname,
-                ))
-
-    # VIPI entries (dynamic dispatch VI calls - class methods)
     for vipi in main_root.findall(".//LIvi//VIPI"):
         qname = _resolve_qualified_name(vipi, caller_library)
         if qname:
             subvi_qualified_names.append(qname)
 
-    # DyOM entries (dynamic dispatch method references)
     for dyom in main_root.findall(".//LIvi//DyOM"):
         qname = _resolve_qualified_name(dyom, caller_library)
         if qname:
             subvi_qualified_names.append(qname)
 
-    # Also include polymorphic VIs (VIPV)
     for vipv in main_root.findall(".//LIvi//VIPV"):
         qname = _resolve_qualified_name(vipv, caller_library)
         if qname:
             subvi_qualified_names.append(qname)
 
-    # Extract iUse UID → qualified name map from BDHP section.
-    # Process PUPV (polymorphic wrapper) first, then IUVI (resolved variant)
-    # overwrites — the variant is the actual VI to connect to.
+    # --- iUse UID → qualified name from BDHP section ---
+    # PUPV first (polymorphic wrapper), IUVI overwrites (resolved variant).
     for pupv in main_root.findall(".//LIbd//BDHP/PUPV"):
         qname = _resolve_qualified_name(pupv, caller_library)
         if qname:
@@ -694,7 +709,7 @@ def _extract_subvi_info(
                     uid = str(int(offset_elem.text, 16))
                     iuse_to_qualified_name[uid] = qname
 
-    return subvi_qualified_names, iuse_to_qualified_name, subvi_path_refs
+    return subvi_qualified_names, iuse_to_qualified_name, dependency_refs
 
 
 # === Front panel parsing helpers ===

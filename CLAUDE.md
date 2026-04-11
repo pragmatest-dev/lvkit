@@ -8,21 +8,26 @@ lvpy converts LabVIEW VI files to Python code without requiring a LabVIEW licens
 
 ## Commands
 
+Always use `uv run` — it automatically activates the project venv without a separate activation step.
+
 ```bash
 # Install with dev dependencies
 uv sync
 
 # Run all tests
-pytest
+uv run pytest
 
 # Run a single test
-pytest tests/test_parser.py::test_parse_vi
+uv run pytest tests/test_parser.py::test_parse_vi
 
 # Lint
-ruff check .
+uv run ruff check .
 
 # Type check
-python -m pyright src/
+uv run python -m pyright src/
+
+# Scripts
+uv run python scripts/generate_python.py "path/to/file.vi" -o outputs
 ```
 
 ## Architecture

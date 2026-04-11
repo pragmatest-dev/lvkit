@@ -361,7 +361,7 @@ dependencies = [
     { name = "pylabview" },
 ]
 
-[package.optional-dependencies]
+[package.dev-dependencies]
 dev = [
     { name = "pre-commit" },
     { name = "pyright" },
@@ -373,14 +373,17 @@ dev = [
 requires-dist = [
     { name = "mcp", specifier = ">=0.9.0" },
     { name = "networkx" },
-    { name = "pre-commit", marker = "extra == 'dev'" },
     { name = "pydantic", specifier = ">=2.0.0" },
     { name = "pylabview" },
-    { name = "pyright", marker = "extra == 'dev'" },
-    { name = "pytest", marker = "extra == 'dev'" },
-    { name = "ruff", marker = "extra == 'dev'" },
 ]
-provides-extras = ["dev"]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "pre-commit" },
+    { name = "pyright" },
+    { name = "pytest" },
+    { name = "ruff" },
+]
 
 [[package]]
 name = "mcp"
