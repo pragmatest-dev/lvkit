@@ -7,6 +7,8 @@ _resolve_class_vi_path.
 
 from __future__ import annotations
 
+import re
+import xml.etree.ElementTree as ET
 from dataclasses import replace as dc_replace
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -46,9 +48,6 @@ def _get_fp_root_type_id(fp_xml: Path | None) -> int | None:
     """
     if fp_xml is None or not fp_xml.exists():
         return None
-    import re
-    import xml.etree.ElementTree as ET
-
     tree = ET.parse(fp_xml)
     fpdco = tree.find(".//*[@class='fPDCO']")
     if fpdco is None:
@@ -430,22 +429,28 @@ class LoadingMixin:
         # Mark as loaded
         self._loaded_vis.add(vi_name)
 
-        # Load all dependencies through the single generic walker.
-        if expand_subvis and main_xml and main_xml.exists():
-            dep_ref_map = {
+        # Build dep_ref_map from recorded LinkSavePathRef data.
+        # Used for both dependency loading and iUse path diagnostics.
+        dep_ref_map: dict[str, ParsedDependencyRef] = (
+            {
                 ref.qualified_name: ref
                 for ref in metadata.dependency_refs
                 if ref.qualified_name
             }
+            if main_xml and main_xml.exists()
+            else {}
+        )
 
-            # caller_file is the VI file itself (not its directory): each
-            # leading empty in a LinkSavePathRef pops one level from it.
-            caller_file = (
-                source_dir / unqualified_name
-                if source_dir is not None
-                else bd_xml.parent / unqualified_name
-            )
+        # caller_file is the VI file itself (not its directory): each
+        # leading empty in a LinkSavePathRef pops one level from it.
+        caller_file = (
+            source_dir / unqualified_name
+            if source_dir is not None
+            else bd_xml.parent / unqualified_name
+        )
 
+        # Load all dependencies through the single generic walker.
+        if expand_subvis and main_xml and main_xml.exists():
             # Collect all dependency qnames: SubVI/class refs + type_map deps.
             all_dep_qnames: set[str] = set()
             for qname in metadata.subvi_qualified_names:
@@ -467,14 +472,9 @@ class LoadingMixin:
                 )
 
         # Build map of iUse uid → fully qualified on-disk path for diagnostics.
-        ref_by_qname = {
-            ref.qualified_name: ref
-            for ref in metadata.dependency_refs
-            if ref.qualified_name
-        }
         iuse_to_qpath: dict[str, str] = {}
         for uid, qname in metadata.iuse_to_qualified_name.items():
-            ref = ref_by_qname.get(qname)
+            ref = dep_ref_map.get(qname)
             if ref and ref.path_tokens:
                 iuse_to_qpath[uid] = "/".join(ref.path_tokens)
 
@@ -506,25 +506,46 @@ class LoadingMixin:
         if self._dep_graph.has_node(qname):
             return
 
+        if not ctl_path.exists():
+            self._dep_graph.add_node(qname, node_type="typedef")
+            self._stubs.add(qname)
+            return
+
         try:
             _, fp_xml, main_xml = extract_vi_xml(ctl_path)
-            if main_xml and main_xml.exists():
-                type_map = parse_type_map_rich(main_xml)
-                root_type_id = _get_fp_root_type_id(fp_xml)
-                if root_type_id is None:
-                    root_type_id = 1  # cluster control default
-                fields = None
-                if root_type_id in type_map:
-                    root_type = type_map[root_type_id]
-                    fields = root_type.fields
-                self._dep_graph.add_node(qname, node_type="typedef", fields=fields)
-                return
         except (RuntimeError, OSError):
-            pass
+            self._dep_graph.add_node(qname, node_type="typedef")
+            self._stubs.add(qname)
+            return
 
-        # Stub it
-        self._dep_graph.add_node(qname, node_type="typedef")
-        self._stubs.add(qname)
+        if main_xml and main_xml.exists():
+            type_map = parse_type_map_rich(main_xml)
+            root_type_id = _get_fp_root_type_id(fp_xml)
+            if root_type_id is None:
+                root_type_id = 1  # cluster control default
+            fields = None
+            if root_type_id in type_map:
+                root_type = type_map[root_type_id]
+                fields = root_type.fields
+            self._dep_graph.add_node(qname, node_type="typedef", fields=fields)
+
+            # Recurse: load any class/typedef deps referenced in this ctl's
+            # type_map (e.g. a cluster field whose type is an lvclass or ctl).
+            for lv_type in type_map.values():
+                if lv_type.classname and lv_type.classname != "LabVIEW Object":
+                    self._load_dependency(
+                        lv_type.classname, None, ctl_path, search_paths,
+                        caller_qname=qname,
+                    )
+                if lv_type.typedef_name:
+                    self._load_dependency(
+                        lv_type.typedef_name, None, ctl_path, search_paths,
+                        caller_qname=qname,
+                    )
+        else:
+            # XML not produced — stub with what we know
+            self._dep_graph.add_node(qname, node_type="typedef")
+            self._stubs.add(qname)
 
     def _load_dependency(
         self,
@@ -653,14 +674,12 @@ class LoadingMixin:
         vi_path: str,
         search_paths: list[Path],
         caller_dir: Path | None = None,
-        is_vilib: bool = False,
-        is_userlib: bool = False,
     ) -> Path | None:
         """Find a SubVI file in search paths."""
         vi_name = Path(vi_path).name
         path_parts = Path(vi_path).parts
 
-        if caller_dir and not is_vilib and not is_userlib:
+        if caller_dir:
             candidate = caller_dir / vi_name
             if candidate.exists():
                 return candidate
