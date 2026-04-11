@@ -2,9 +2,25 @@
 
 from __future__ import annotations
 
+import hashlib
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
+
+_CACHE_ROOT = Path(tempfile.gettempdir()) / "lvpy" / "extract"
+
+
+def _default_cache_dir(vi_path: Path) -> Path:
+    """Return a stable per-VI cache directory under the OS temp dir.
+
+    The directory name is ``<stem>_<hash12>`` where ``<hash12>`` is the
+    first 12 hex chars of SHA-256 over the resolved absolute path. This
+    keeps two VIs with the same stem in different folders from colliding,
+    while staying short enough to skim in ``ls`` output.
+    """
+    digest = hashlib.sha256(str(vi_path).encode("utf-8")).hexdigest()[:12]
+    return _CACHE_ROOT / f"{vi_path.stem}_{digest}"
 
 
 def extract_vi_xml(
@@ -19,21 +35,25 @@ def extract_vi_xml(
     repeated operations on the same VI hierarchy.
 
     Args:
-        vi_path: Path to the .vi file
-        output_dir: Directory for output files (default: same as VI)
-        force: Force re-extraction even if cache is valid
+        vi_path: Path to the .vi file.
+        output_dir: Directory for output files. Defaults to a per-VI
+            subdirectory under the OS temp dir
+            (``<tempdir>/lvpy/extract/<stem>_<hash>/``) so extracted
+            artifacts never land in the user's source tree.
+        force: Force re-extraction even if cache is valid.
 
     Returns:
-        Tuple of (bd_xml_path, fp_xml_path, main_xml_path)
-        fp_xml and main_xml may be None if not generated
+        Tuple of ``(bd_xml_path, fp_xml_path, main_xml_path)``.
+        ``fp_xml`` and ``main_xml`` may be ``None`` if not generated.
 
     Raises:
-        RuntimeError: If extraction fails
+        RuntimeError: If extraction fails.
     """
     vi_path = Path(vi_path).resolve()
 
     if output_dir is None:
-        output_dir = vi_path.parent
+        output_dir = _default_cache_dir(vi_path)
+    output_dir.mkdir(parents=True, exist_ok=True)
 
     vi_stem = vi_path.stem
     bd_xml = output_dir / f"{vi_stem}_BDHb.xml"
