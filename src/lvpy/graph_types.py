@@ -438,7 +438,7 @@ class Wire(BaseModel):
 
 # ============================================================
 # Codegen types (Pydantic) — consumed by code generation
-# Converted from graph nodes by memory_graph.get_operations()
+# Converted from graph nodes by lvpy.graph (InMemoryVIGraph.get_operations())
 # ============================================================
 
 

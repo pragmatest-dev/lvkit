@@ -11,6 +11,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
 
+from lvpy.graph import InMemoryVIGraph
 from lvpy.graph_types import (
     Constant,
     DestinationInfo,
@@ -21,10 +22,20 @@ from lvpy.graph_types import (
     TunnelTerminal,
     VIContext,
 )
-from lvpy.memory_graph import InMemoryVIGraph
 from lvpy.vilib_resolver import derive_python_name
 
 from .ast_utils import to_var_name
+
+
+@dataclass
+class VISignature:
+    """Signature info for a SubVI (for import generation)."""
+
+    name: str
+    module_name: str
+    function_name: str
+    signature: str  # e.g., "def calculate(a: float) -> float"
+    import_statement: str  # e.g., "from .calculate import calculate"
 
 
 @dataclass

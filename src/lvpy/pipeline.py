@@ -17,9 +17,9 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from lvpy.agent.codegen import ClassBuilder, ClassConfig, build_module
-from lvpy.agent.codegen.ast_utils import to_function_name, to_module_name
-from lvpy.memory_graph import InMemoryVIGraph
+from lvpy.codegen import ClassBuilder, ClassConfig, build_module
+from lvpy.codegen.ast_utils import to_function_name, to_module_name
+from lvpy.graph import InMemoryVIGraph
 from lvpy.structure import parse_lvclass
 from lvpy.terminal_collector import get_collector
 from lvpy.vilib_resolver import VILibResolver

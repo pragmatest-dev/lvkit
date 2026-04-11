@@ -11,8 +11,8 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from .docs.utils import generate_dependency_description
+from .graph import InMemoryVIGraph
 from .graph_types import Constant, Operation, Terminal, Wire
-from .memory_graph import InMemoryVIGraph
 
 
 @dataclass

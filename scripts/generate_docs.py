@@ -15,7 +15,7 @@ if __name__ == "__main__":
 
 from lvpy.docs.html_generator import HTMLDocGenerator
 from lvpy.docs.utils import generate_dependency_description
-from lvpy.memory_graph import InMemoryVIGraph
+from lvpy.graph import InMemoryVIGraph
 from lvpy.structure import parse_lvclass, parse_lvlib
 
 

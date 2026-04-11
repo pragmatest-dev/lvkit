@@ -35,4 +35,4 @@ Location: `src/lvpy/graph_types.py`
 
 ## Conversion
 
-Parser produces `ParsedType`. Graph layer (`memory_graph.py`) enriches to `LVType` using `vilib_resolver` for external typedef resolution.
+Parser produces `ParsedType`. Graph layer (`lvpy.graph` / `InMemoryVIGraph`) enriches to `LVType` using `vilib_resolver` for external typedef resolution.

@@ -1,4 +1,4 @@
-"""Tests for the InMemoryVIGraph (memory_graph module)."""
+"""Tests for InMemoryVIGraph."""
 
 from __future__ import annotations
 
@@ -6,6 +6,7 @@ from pathlib import Path
 
 import pytest
 
+from lvpy.graph import InMemoryVIGraph, connect
 from lvpy.graph_types import (
     ConstantNode,
     PrimitiveNode,
@@ -13,7 +14,6 @@ from lvpy.graph_types import (
     VINode,
     WireEnd,
 )
-from lvpy.memory_graph import InMemoryVIGraph, connect
 
 
 class TestInMemoryVIGraphCreation:

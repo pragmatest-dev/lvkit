@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import ast
 
-from lvpy.agent.codegen.context import CodeGenContext
-from lvpy.agent.codegen.nodes import loop
-from lvpy.agent.codegen.nodes.loop import (
+from lvpy.codegen.context import CodeGenContext
+from lvpy.codegen.nodes import loop
+from lvpy.codegen.nodes.loop import (
     _get_dest_terminal_name,
     _get_source_terminal_name,
     _make_var_name,

@@ -11,11 +11,11 @@ from __future__ import annotations
 
 import ast
 
-from lvpy.agent.codegen.builder import (
+from lvpy.codegen.builder import (
     generate_body,
     topological_sort_tiered,
 )
-from lvpy.agent.codegen.context import CodeGenContext
+from lvpy.codegen.context import CodeGenContext
 from lvpy.graph_types import (
     Operation,
     SequenceFrame,
@@ -236,7 +236,7 @@ class TestSequenceParallelIntegration:
 
     def test_frame_with_single_op_no_executor(self):
         """Frame with one op: no executor."""
-        from lvpy.agent.codegen.nodes import sequence
+        from lvpy.codegen.nodes import sequence
 
         inner = _make_op("write1")
         op = SequenceOperation(
@@ -260,7 +260,7 @@ class TestSequenceParallelIntegration:
 
     def test_frame_with_two_independent_ops_uses_executor(self):
         """Frame with two independent ops: executor used."""
-        from lvpy.agent.codegen.nodes import sequence
+        from lvpy.codegen.nodes import sequence
 
         op_a = _make_op("a")
         op_b = _make_op("b")
@@ -285,7 +285,7 @@ class TestSequenceParallelIntegration:
 
     def test_multiple_frames_sequential(self):
         """Multiple frames execute sequentially (each may have parallelism)."""
-        from lvpy.agent.codegen.nodes import sequence
+        from lvpy.codegen.nodes import sequence
 
         op_a = _make_op("a")
         op_b = _make_op("b")
@@ -323,8 +323,8 @@ class TestInViParallelEndToEnd:
     """End-to-end test that In.vi generates ThreadPoolExecutor."""
 
     def _generate_in_vi(self) -> str:
-        from lvpy.agent.codegen.builder import build_module
-        from lvpy.memory_graph import connect
+        from lvpy.codegen.builder import build_module
+        from lvpy.graph import connect
 
         mg = connect()
         mg.load_vi("samples/DAQmx-Digital-IO/In.vi")

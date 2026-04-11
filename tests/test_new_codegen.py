@@ -6,9 +6,10 @@ from __future__ import annotations
 import ast
 import logging
 
-from lvpy.agent.codegen.builder import topological_sort_tiered
-from lvpy.agent.codegen.context import CodeGenContext
-from lvpy.agent.codegen.nodes import case, invoke_node, nmux, property_node
+from lvpy.codegen.builder import topological_sort_tiered
+from lvpy.codegen.context import CodeGenContext
+from lvpy.codegen.nodes import case, invoke_node, nmux, property_node
+from lvpy.graph import InMemoryVIGraph
 from lvpy.graph_types import (
     CaseFrame,
     CaseOperation,
@@ -24,7 +25,6 @@ from lvpy.graph_types import (
     Terminal,
     WireEnd,
 )
-from lvpy.memory_graph import InMemoryVIGraph
 from tests.helpers import make_graph_with_edge, make_graph_with_terminals, make_node
 
 # ── Helpers ─────────────────────────────────────────────────────────
@@ -278,7 +278,7 @@ class TestPassthroughElimination:
     """Primitive passthroughs (in_N → out) create bindings, not assignments."""
 
     def test_passthrough_detected(self):
-        from lvpy.agent.codegen.nodes import primitive
+        from lvpy.codegen.nodes import primitive
 
         # Primitive with python_code: {"output": "in_0"} — pure passthrough
         graph = make_graph_with_edge("src_t", "in_t")

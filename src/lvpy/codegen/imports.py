@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from ..context import VISignature
+from .context import VISignature
 
 
 @dataclass

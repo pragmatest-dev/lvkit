@@ -23,7 +23,7 @@ from lvpy.graph_types import (
 
 def test_build_module_minimal():
     """Test build_module with minimal VI context."""
-    from lvpy.agent.codegen import build_module
+    from lvpy.codegen import build_module
 
     vi_context = VIContext(
         name="Simple Add.vi",
@@ -73,7 +73,7 @@ def test_build_module_minimal():
 
 def test_build_module_with_constant():
     """Test build_module with constants."""
-    from lvpy.agent.codegen import build_module
+    from lvpy.codegen import build_module
 
     vi_context = VIContext(
         name="Constant Test.vi",
@@ -113,7 +113,7 @@ def test_build_module_with_constant():
 
 def test_build_module_with_primitive():
     """Test build_module with a primitive operation."""
-    from lvpy.agent.codegen import build_module
+    from lvpy.codegen import build_module
 
     vi_context = VIContext(
         name="Add Numbers.vi",
@@ -192,7 +192,7 @@ def test_build_module_with_primitive():
 
 def test_build_module_with_subvi():
     """Test build_module with a SubVI call."""
-    from lvpy.agent.codegen import build_module
+    from lvpy.codegen import build_module
 
     vi_context = VIContext(
         name="Call Helper.vi",
@@ -255,7 +255,7 @@ def test_build_module_with_subvi():
 
 def test_code_fragment_creation():
     """Test CodeFragment creation and merging."""
-    from lvpy.agent.codegen import CodeFragment
+    from lvpy.codegen import CodeFragment
 
     _frag1 = CodeFragment(
         statements=[],
@@ -277,9 +277,9 @@ def test_code_fragment_creation():
 
 def test_context_resolution():
     """Test CodeGenContext variable resolution."""
-    from lvpy.agent.codegen import CodeGenContext
+    from lvpy.codegen import CodeGenContext
+    from lvpy.graph import InMemoryVIGraph
     from lvpy.graph_types import PrimitiveNode, Terminal
-    from lvpy.memory_graph import InMemoryVIGraph
 
     # Build a graph with terminals for bind/resolve to work
     graph = InMemoryVIGraph()
@@ -314,7 +314,7 @@ def test_context_resolution():
 
 def test_context_from_vi_context():
     """Test CodeGenContext.from_vi_context initialization."""
-    from lvpy.agent.codegen import CodeGenContext
+    from lvpy.codegen import CodeGenContext
     from tests.helpers import make_graph_with_terminals
 
     graph = make_graph_with_terminals("inp:1", "inp:2", "const:1", "term:1")
@@ -359,7 +359,7 @@ def test_context_from_vi_context():
 
 def test_build_module_with_while_loop():
     """Test build_module with a while loop structure."""
-    from lvpy.agent.codegen import build_module
+    from lvpy.codegen import build_module
 
     vi_context = VIContext(
         name="Loop Counter.vi",
@@ -430,7 +430,7 @@ def test_build_module_with_while_loop():
 
 def test_build_module_with_for_loop():
     """Test build_module with a for loop structure."""
-    from lvpy.agent.codegen import build_module
+    from lvpy.codegen import build_module
 
     vi_context = VIContext(
         name="Iterate Array.vi",
@@ -458,8 +458,8 @@ def test_build_module_real_vi():
     """Integration test with a real VI from samples."""
     from pathlib import Path
 
-    from lvpy.agent.codegen import build_module
-    from lvpy.memory_graph import InMemoryVIGraph
+    from lvpy.codegen import build_module
+    from lvpy.graph import InMemoryVIGraph
 
     vi_path = Path(
         "samples/JKI-VI-Tester/source/User Interfaces/"
@@ -491,7 +491,7 @@ def test_build_module_real_vi():
 
 def test_unknown_primitive_raises_at_runtime():
     """Test that unknown primitives raise PrimitiveResolutionNeeded."""
-    from lvpy.agent.codegen import build_module
+    from lvpy.codegen import build_module
     from lvpy.primitive_resolver import PrimitiveResolutionNeeded
 
     vi_context = VIContext(
@@ -514,7 +514,7 @@ def test_unknown_primitive_raises_at_runtime():
 
 def test_unknown_node_type_emits_warning():
     """Test that unknown node types emit a warning comment."""
-    from lvpy.agent.codegen import build_module
+    from lvpy.codegen import build_module
 
     vi_context = VIContext(
         name="Unknown Node.vi",
@@ -537,7 +537,7 @@ def test_unknown_node_type_emits_warning():
 
 def test_code_fragment_empty():
     """Test creating an empty CodeFragment."""
-    from lvpy.agent.codegen import CodeFragment
+    from lvpy.codegen import CodeFragment
 
     frag = CodeFragment.empty()
     assert len(frag.statements) == 0
@@ -547,7 +547,7 @@ def test_code_fragment_empty():
 
 def test_code_fragment_from_statement():
     """Test creating a CodeFragment from a single statement."""
-    from lvpy.agent.codegen import CodeFragment
+    from lvpy.codegen import CodeFragment
 
     stmt = ast.Assign(
         targets=[ast.Name(id="x", ctx=ast.Store())],
@@ -562,7 +562,7 @@ def test_code_fragment_from_statement():
 
 def test_code_fragment_extend():
     """Test extending a CodeFragment with another."""
-    from lvpy.agent.codegen import CodeFragment
+    from lvpy.codegen import CodeFragment
 
     frag1 = CodeFragment(
         statements=[],
@@ -583,7 +583,7 @@ def test_code_fragment_extend():
 
 def test_code_fragment_add():
     """Test adding two CodeFragments."""
-    from lvpy.agent.codegen import CodeFragment
+    from lvpy.codegen import CodeFragment
 
     frag1 = CodeFragment(bindings={"a": "x"}, imports={"import foo"})
     frag2 = CodeFragment(bindings={"b": "y"}, imports={"import bar"})
@@ -601,7 +601,7 @@ def test_code_fragment_add():
 
 def test_context_add_import():
     """Test adding imports to context."""
-    from lvpy.agent.codegen import CodeGenContext
+    from lvpy.codegen import CodeGenContext
 
     ctx = CodeGenContext()
     ctx.add_import("import os")
@@ -627,7 +627,7 @@ def test_context_merge_bindings():
 
 def test_context_flow_map_tracing():
     """Test that context traces through data flow via graph."""
-    from lvpy.agent.codegen import CodeGenContext
+    from lvpy.codegen import CodeGenContext
     from tests.helpers import make_graph_with_edge
 
     graph = make_graph_with_edge("source", "dest")
@@ -641,9 +641,9 @@ def test_context_flow_map_tracing():
 
 def test_context_cycle_detection():
     """Test that context handles cycles in data flow."""
-    from lvpy.agent.codegen import CodeGenContext
+    from lvpy.codegen import CodeGenContext
+    from lvpy.graph import InMemoryVIGraph
     from lvpy.graph_types import WireEnd
-    from lvpy.memory_graph import InMemoryVIGraph
 
     graph = InMemoryVIGraph()
     graph._graph.add_node("p1", node=None)
@@ -668,7 +668,7 @@ def test_context_callee_lookup_removed():
     Terminal names are now populated directly on Terminal objects
     via callee_param_name, so the context no longer needs these lookups.
     """
-    from lvpy.agent.codegen import CodeGenContext
+    from lvpy.codegen import CodeGenContext
 
     ctx = CodeGenContext()
     assert not hasattr(ctx, "get_callee_param_name")
@@ -681,7 +681,7 @@ def test_context_callee_lookup_removed():
 
 def test_dataflow_tracer_basic():
     """Test basic DataFlowTracer functionality."""
-    from lvpy.agent.codegen import DataFlowTracer
+    from lvpy.codegen import DataFlowTracer
 
     vi_context = {
         "terminals": [
@@ -713,7 +713,7 @@ def test_dataflow_tracer_basic():
 
 def test_dataflow_tracer_variable_registration():
     """Test registering and retrieving variables."""
-    from lvpy.agent.codegen import DataFlowTracer
+    from lvpy.codegen import DataFlowTracer
 
     vi_context = {"terminals": [], "operations": [], "data_flow": []}
     tracer = DataFlowTracer(vi_context)
@@ -725,7 +725,7 @@ def test_dataflow_tracer_variable_registration():
 
 def test_dataflow_tracer_resolve_source():
     """Test resolving source variable for a terminal."""
-    from lvpy.agent.codegen import DataFlowTracer
+    from lvpy.codegen import DataFlowTracer
 
     vi_context = {
         "terminals": [
@@ -750,7 +750,7 @@ def test_dataflow_tracer_resolve_source():
 
 def test_dataflow_tracer_wired_inputs():
     """Test getting wired inputs for an operation."""
-    from lvpy.agent.codegen import DataFlowTracer
+    from lvpy.codegen import DataFlowTracer
 
     vi_context = {
         "terminals": [],
@@ -794,7 +794,7 @@ def test_dataflow_tracer_wired_inputs():
 
 def test_dataflow_tracer_wired_outputs():
     """Test getting wired outputs for an operation."""
-    from lvpy.agent.codegen import DataFlowTracer
+    from lvpy.codegen import DataFlowTracer
 
     vi_context = {
         "terminals": [],
@@ -830,12 +830,12 @@ def test_dataflow_tracer_wired_outputs():
 
 def test_expression_builder_string_hint():
     """Test building expression from string hint."""
-    from lvpy.agent.codegen import DataFlowTracer
+    from lvpy.codegen import DataFlowTracer
 
     vi_context = {"terminals": [], "operations": [], "data_flow": []}
     tracer = DataFlowTracer(vi_context)
 
-    from lvpy.agent.codegen.expressions import ExpressionBuilder
+    from lvpy.codegen.expressions import ExpressionBuilder
 
     builder = ExpressionBuilder(tracer)
 
@@ -852,12 +852,12 @@ def test_expression_builder_string_hint():
 
 def test_expression_builder_dict_hint():
     """Test building expression from dict hint."""
-    from lvpy.agent.codegen import DataFlowTracer
+    from lvpy.codegen import DataFlowTracer
 
     vi_context = {"terminals": [], "operations": [], "data_flow": []}
     tracer = DataFlowTracer(vi_context)
 
-    from lvpy.agent.codegen.expressions import ExpressionBuilder
+    from lvpy.codegen.expressions import ExpressionBuilder
 
     builder = ExpressionBuilder(tracer)
 
@@ -878,12 +878,12 @@ def test_expression_builder_dict_hint():
 
 def test_expression_builder_subvi_call():
     """Test building SubVI call expression."""
-    from lvpy.agent.codegen import DataFlowTracer
+    from lvpy.codegen import DataFlowTracer
 
     vi_context = {"terminals": [], "operations": [], "data_flow": []}
     tracer = DataFlowTracer(vi_context)
 
-    from lvpy.agent.codegen.expressions import ExpressionBuilder
+    from lvpy.codegen.expressions import ExpressionBuilder
 
     builder = ExpressionBuilder(tracer)
 
@@ -899,12 +899,12 @@ def test_expression_builder_subvi_call():
 
 def test_expression_builder_with_assignment():
     """Test that assignments are stripped from hints."""
-    from lvpy.agent.codegen import DataFlowTracer
+    from lvpy.codegen import DataFlowTracer
 
     vi_context = {"terminals": [], "operations": [], "data_flow": []}
     tracer = DataFlowTracer(vi_context)
 
-    from lvpy.agent.codegen.expressions import ExpressionBuilder
+    from lvpy.codegen.expressions import ExpressionBuilder
 
     builder = ExpressionBuilder(tracer)
 
@@ -921,12 +921,12 @@ def test_expression_builder_with_assignment():
 
 def test_expression_builder_with_comment():
     """Test that comments are stripped from hints."""
-    from lvpy.agent.codegen import DataFlowTracer
+    from lvpy.codegen import DataFlowTracer
 
     vi_context = {"terminals": [], "operations": [], "data_flow": []}
     tracer = DataFlowTracer(vi_context)
 
-    from lvpy.agent.codegen.expressions import ExpressionBuilder
+    from lvpy.codegen.expressions import ExpressionBuilder
 
     builder = ExpressionBuilder(tracer)
 
@@ -947,7 +947,7 @@ def test_expression_builder_with_comment():
 
 def test_build_module_with_case_structure():
     """Test build_module with a case structure."""
-    from lvpy.agent.codegen import build_module
+    from lvpy.codegen import build_module
 
     vi_context = VIContext(
         name="Case Test.vi",
@@ -985,7 +985,7 @@ def test_build_module_with_case_structure():
 
 def test_build_module_with_multiple_outputs():
     """Test build_module with multiple outputs."""
-    from lvpy.agent.codegen import build_module
+    from lvpy.codegen import build_module
 
     vi_context = VIContext(
         name="Multi Output.vi",
@@ -1039,7 +1039,7 @@ def test_build_module_with_multiple_outputs():
 
 def test_build_module_with_enum_input():
     """Test build_module with an enum input."""
-    from lvpy.agent.codegen import build_module
+    from lvpy.codegen import build_module
 
     vi_context = VIContext(
         name="Enum Input.vi",
@@ -1066,7 +1066,7 @@ def test_build_module_with_enum_input():
 
 def test_build_module_empty_vi():
     """Test build_module with an empty VI (no inputs, outputs, or operations)."""
-    from lvpy.agent.codegen import build_module
+    from lvpy.codegen import build_module
 
     vi_context = VIContext(
         name="Empty.vi",
@@ -1081,7 +1081,7 @@ def test_build_module_empty_vi():
 
 def test_build_module_with_nested_loops():
     """Test build_module with nested loop structures."""
-    from lvpy.agent.codegen import build_module
+    from lvpy.codegen import build_module
 
     vi_context = VIContext(
         name="Nested Loops.vi",
@@ -1113,7 +1113,7 @@ def test_build_module_with_nested_loops():
 
 def test_build_module_special_characters_in_name():
     """Test build_module handles special characters in VI name."""
-    from lvpy.agent.codegen import build_module
+    from lvpy.codegen import build_module
 
     vi_context = VIContext(
         name="Test-VI (Copy).vi",
@@ -1335,9 +1335,9 @@ class TestWireSlotIndex:
 
     def test_wire_slot_index_in_graph_query(self):
         """Test that slot indices are accessible via graph edge queries."""
-        from lvpy.agent.codegen.context import CodeGenContext
+        from lvpy.codegen.context import CodeGenContext
+        from lvpy.graph import InMemoryVIGraph
         from lvpy.graph_types import WireEnd
-        from lvpy.memory_graph import InMemoryVIGraph
 
         graph = InMemoryVIGraph()
         graph._graph.add_node("p1", node=None)
@@ -1366,19 +1366,19 @@ class TestToVarName:
 
     def test_empty_string(self):
         """Test that empty string becomes 'var'."""
-        from lvpy.agent.codegen.ast_utils import to_var_name
+        from lvpy.codegen.ast_utils import to_var_name
 
         assert to_var_name("") == "var"
 
     def test_none_equivalent(self):
         """Test that None-ish values become 'var'."""
-        from lvpy.agent.codegen.ast_utils import to_var_name
+        from lvpy.codegen.ast_utils import to_var_name
 
         assert to_var_name(None) == "var"  # type: ignore
 
     def test_normal_name(self):
         """Test that normal names are converted correctly."""
-        from lvpy.agent.codegen.ast_utils import to_var_name
+        from lvpy.codegen.ast_utils import to_var_name
 
         assert to_var_name("Input Value") == "input_value"
         assert to_var_name("error in") == "error_in"
@@ -1386,7 +1386,7 @@ class TestToVarName:
 
     def test_keyword_escaping(self):
         """Test that Python keywords get underscore suffix."""
-        from lvpy.agent.codegen.ast_utils import to_var_name
+        from lvpy.codegen.ast_utils import to_var_name
 
         assert to_var_name("pass") == "pass_"
         assert to_var_name("class") == "class_"
@@ -1394,7 +1394,7 @@ class TestToVarName:
 
     def test_numeric_prefix(self):
         """Test that names starting with numbers get 'var_' prefix."""
-        from lvpy.agent.codegen.ast_utils import to_var_name
+        from lvpy.codegen.ast_utils import to_var_name
 
         assert to_var_name("123abc") == "var_123abc"
         assert to_var_name("1st value") == "var_1st_value"
@@ -1408,7 +1408,7 @@ class TestErrorClusterFiltering:
 
     def test_error_cluster_input_filtered_by_name(self):
         """Test that error cluster inputs are filtered by name pattern."""
-        from lvpy.agent.codegen.builder import build_args
+        from lvpy.codegen.builder import build_args
         from lvpy.graph_types import FPTerminal, Terminal
 
         inputs = [
@@ -1446,7 +1446,7 @@ class TestErrorClusterFiltering:
 
     def test_error_cluster_output_filtered_by_name(self):
         """Test that error cluster outputs are filtered by name pattern."""
-        from lvpy.agent.codegen.builder import build_result_class
+        from lvpy.codegen.builder import build_result_class
         from lvpy.graph_types import FPTerminal
 
         vi_context = VIContext(
@@ -1485,7 +1485,7 @@ class TestErrorClusterFiltering:
 
     def test_all_error_outputs_returns_none(self):
         """Test that if all outputs are error clusters, no result class is created."""
-        from lvpy.agent.codegen.builder import build_result_class
+        from lvpy.codegen.builder import build_result_class
         from lvpy.graph_types import FPTerminal
 
         vi_context = VIContext(

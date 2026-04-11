@@ -58,7 +58,7 @@ from lvpy.graph_types import (
 )
 
 if TYPE_CHECKING:
-    from lvpy.agent.codegen.context import CodeGenContext
+    from lvpy.codegen.context import CodeGenContext
 
 
 class ErrorHandlingPattern(Enum):

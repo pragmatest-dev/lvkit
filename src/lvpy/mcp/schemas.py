@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field
 # ===== Tool Definitions (shared by MCP server and Claude agent) =====
 
 TOOL_DEFINITIONS = {
-    "analyze_vi": {
+    "analyze": {
         "description": (
             "Analyze a LabVIEW VI file and return its structure"
             " (inputs, outputs, dataflow graph, dependencies)."
@@ -81,7 +81,7 @@ TOOL_DEFINITIONS = {
             "required": ["vi_path", "output_dir"],
         },
     },
-    "load_vi": {
+    "load": {
         "description": "Load a VI into the in-memory graph. Persists across calls.",
         "input_schema": {
             "type": "object",
@@ -101,11 +101,11 @@ TOOL_DEFINITIONS = {
             "required": ["vi_path"],
         },
     },
-    "list_loaded_vis": {
+    "list_loaded": {
         "description": "List all VIs currently loaded in the graph.",
         "input_schema": {"type": "object", "properties": {}},
     },
-    "get_vi_context": {
+    "get_context": {
         "description": (
             "Get the full context for a loaded VI including"
             " resolved primitives, terminals, and dataflow."

@@ -9,7 +9,7 @@ from __future__ import annotations
 import ast
 import xml.etree.ElementTree as ET
 
-from lvpy.agent.codegen.nodes import subvi
+from lvpy.codegen.nodes import subvi
 from lvpy.graph_types import LVType, Operation, Terminal
 from lvpy.parser.vi import _extract_subvi_info, _resolve_qualified_name
 from tests.helpers import make_ctx

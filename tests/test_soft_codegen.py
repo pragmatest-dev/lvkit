@@ -6,10 +6,10 @@ import ast
 
 import pytest
 
-from lvpy.agent.codegen.builder import build_module
-from lvpy.agent.codegen.context import CodeGenContext
-from lvpy.agent.codegen.nodes.primitive import _emit_unknown
-from lvpy.agent.codegen.nodes.subvi import _emit_vilib_resolution
+from lvpy.codegen.builder import build_module
+from lvpy.codegen.context import CodeGenContext
+from lvpy.codegen.nodes.primitive import _emit_unknown
+from lvpy.codegen.nodes.subvi import _emit_vilib_resolution
 from lvpy.graph_types import (
     Operation,
     PrimitiveOperation,
@@ -292,7 +292,7 @@ def test_emit_soft_unresolved_rejects_non_literal_kwarg() -> None:
     sneaking into kwargs would produce invalid Python source. The guard
     catches this at codegen time instead of at SyntaxError time.
     """
-    from lvpy.agent.codegen.unresolved import emit_soft_unresolved
+    from lvpy.codegen.unresolved import emit_soft_unresolved
 
     class NotALiteral:
         pass
@@ -318,7 +318,7 @@ def test_emit_soft_unresolved_rejects_non_literal_kwarg() -> None:
 
 def test_emit_soft_unresolved_rejects_non_literal_positional_arg() -> None:
     """The same guard applies to positional_args."""
-    from lvpy.agent.codegen.unresolved import emit_soft_unresolved
+    from lvpy.codegen.unresolved import emit_soft_unresolved
 
     class NotALiteral:
         pass
@@ -370,7 +370,7 @@ def test_emit_soft_unresolved_source_kwargs_unchecked() -> None:
     They exist for non-literal values like dataclass constructors. The
     helper inserts them verbatim into the generated raise expression.
     """
-    from lvpy.agent.codegen.unresolved import emit_soft_unresolved
+    from lvpy.codegen.unresolved import emit_soft_unresolved
 
     node = PrimitiveOperation(
         id="prim_src_kw",

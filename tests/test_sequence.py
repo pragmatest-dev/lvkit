@@ -6,8 +6,9 @@ import xml.etree.ElementTree as ET
 
 import pytest
 
-from lvpy.agent.codegen.context import CodeGenContext
-from lvpy.agent.codegen.nodes import sequence
+from lvpy.codegen.context import CodeGenContext
+from lvpy.codegen.nodes import sequence
+from lvpy.graph import InMemoryVIGraph
 from lvpy.graph_types import (
     Operation,
     SequenceFrame,
@@ -19,7 +20,6 @@ from lvpy.graph_types import (
     VINode,
     WireEnd,
 )
-from lvpy.memory_graph import InMemoryVIGraph
 from lvpy.parser.models import (
     BlockDiagram,
     FlatSequenceStructure,
@@ -542,7 +542,7 @@ class TestCodeGenRegistry:
     """Test that sequence operations dispatch through the factory."""
 
     def test_flat_sequence_dispatches_to_sequence_module(self):
-        from lvpy.agent.codegen.nodes import generate as generate_node
+        from lvpy.codegen.nodes import generate as generate_node
 
         op = SequenceOperation(
             id="1", name="Flat Sequence",
@@ -556,7 +556,7 @@ class TestCodeGenRegistry:
         assert result.bindings == {}
 
     def test_stacked_sequence_dispatches_to_sequence_module(self):
-        from lvpy.agent.codegen.nodes import generate as generate_node
+        from lvpy.codegen.nodes import generate as generate_node
 
         op = SequenceOperation(
             id="1", name="Stacked Sequence",

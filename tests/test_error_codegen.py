@@ -14,14 +14,14 @@ from __future__ import annotations
 
 import ast
 
-from lvpy.agent.codegen.builder import build_module, generate_body
-from lvpy.agent.codegen.context import CodeGenContext
-from lvpy.agent.codegen.error_handler import (
+from lvpy.codegen.builder import build_module, generate_body
+from lvpy.codegen.context import CodeGenContext
+from lvpy.codegen.error_handler import (
     ErrorHandlingPattern,
     classify_error_node,
     needs_error_handling,
 )
-from lvpy.agent.codegen.nodes import primitive
+from lvpy.codegen.nodes import primitive
 from lvpy.graph_types import (
     CaseFrame,
     CaseOperation,
@@ -431,7 +431,7 @@ class TestErrorBundleRaise:
 
     def test_bundle_error_cluster_raises(self):
         """Bundling status=True into error cluster generates raise."""
-        from lvpy.agent.codegen.nodes import nmux
+        from lvpy.codegen.nodes import nmux
         from lvpy.graph_types import ClusterField
 
         error_type = LVType(
@@ -504,7 +504,7 @@ class TestErrorBundleRaise:
 
     def test_bundle_error_no_status_is_noop(self):
         """Bundling error cluster without status field is a no-op."""
-        from lvpy.agent.codegen.nodes import nmux
+        from lvpy.codegen.nodes import nmux
         from lvpy.graph_types import ClusterField
 
         error_type = LVType(
