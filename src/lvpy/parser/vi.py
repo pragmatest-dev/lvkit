@@ -34,17 +34,17 @@ from .front_panel import (
     parse_connector_pane,
 )
 from .models import (
-    BlockDiagram,
-    Constant,
-    FPControl,
-    FPTerminal,
-    FrontPanel,
-    Node,
+    ParsedBlockDiagram,
+    ParsedConstant,
+    ParsedFPControl,
+    ParsedFPTerminal,
+    ParsedFrontPanel,
+    ParsedNode,
+    ParsedSubVIPathRef,
+    ParsedTerminalInfo,
     ParsedVI,
-    SubVIPathRef,
-    TerminalInfo,
-    VIMetadata,
-    Wire,
+    ParsedVIMetadata,
+    ParsedWire,
 )
 from .node_types import parse_node
 from .nodes import (
@@ -149,14 +149,14 @@ def parse_vi(
 def _parse_metadata(
     main_xml_path: Path | str | None,
     source_path: str | None,
-) -> VIMetadata:
+) -> ParsedVIMetadata:
     """Parse VI metadata from main XML."""
     if main_xml_path is None:
-        return VIMetadata(source_path=source_path)
+        return ParsedVIMetadata(source_path=source_path)
 
     main_xml = Path(main_xml_path)
     if not main_xml.exists():
-        return VIMetadata(source_path=source_path)
+        return ParsedVIMetadata(source_path=source_path)
 
     main_tree = ET.parse(main_xml)
     main_root = main_tree.getroot()
@@ -181,7 +181,7 @@ def _parse_metadata(
     # Parse type map
     type_map = parse_type_map_rich(main_xml)
 
-    return VIMetadata(
+    return ParsedVIMetadata(
         qualified_name=qualified_name,
         source_path=source_path,
         type_map=type_map or {},
@@ -195,7 +195,7 @@ def _parse_block_diagram(
     bd_xml: Path,
     fp_xml: Path | str | None,
     type_map: dict[int, LVType] | None,
-) -> BlockDiagram:
+) -> ParsedBlockDiagram:
     """Parse block diagram from BD XML."""
     tree = ET.parse(bd_xml)
     root = tree.getroot()
@@ -214,7 +214,7 @@ def _parse_block_diagram(
     case_structures = extract_case_structures(root, terminal_info)
     flat_sequences = extract_flat_sequences(root)
 
-    return BlockDiagram(
+    return ParsedBlockDiagram(
         nodes=nodes,
         constants=constants,
         wires=wires,
@@ -230,16 +230,16 @@ def _parse_block_diagram(
 
 def _parse_front_panel(
     fp_xml: Path | str | None,
-    block_diagram: BlockDiagram,
+    block_diagram: ParsedBlockDiagram,
     type_map: dict[int, LVType] | None = None,
-) -> FrontPanel:
+) -> ParsedFrontPanel:
     """Parse front panel from FP XML."""
     if fp_xml is None:
-        return FrontPanel(controls=[], panel_bounds=(0, 0, 400, 600))
+        return ParsedFrontPanel(controls=[], panel_bounds=(0, 0, 400, 600))
 
     fp_xml_path = Path(fp_xml)
     if not fp_xml_path.exists():
-        return FrontPanel(controls=[], panel_bounds=(0, 0, 400, 600))
+        return ParsedFrontPanel(controls=[], panel_bounds=(0, 0, 400, 600))
 
     tree = ET.parse(fp_xml_path)
     root = tree.getroot()
@@ -294,7 +294,7 @@ def _parse_front_panel(
         if control:
             controls.append(control)
 
-    return FrontPanel(
+    return ParsedFrontPanel(
         controls=controls,
         panel_bounds=panel_bounds,
     )
@@ -303,7 +303,7 @@ def _parse_front_panel(
 # === Helper functions ===
 
 
-def _extract_nodes(root: ET.Element) -> list[Node]:
+def _extract_nodes(root: ET.Element) -> list[ParsedNode]:
     """Extract nodes from the block diagram using node type factory."""
     nodes = []
 
@@ -315,7 +315,7 @@ def _extract_nodes(root: ET.Element) -> list[Node]:
     return nodes
 
 
-def _extract_wires(root: ET.Element) -> list[Wire]:
+def _extract_wires(root: ET.Element) -> list[ParsedWire]:
     """Extract wires (signals) from the block diagram."""
     wires = []
 
@@ -330,7 +330,7 @@ def _extract_wires(root: ET.Element) -> list[Wire]:
         if len(terms) >= 2:
             source = terms[0]
             for i, dest in enumerate(terms[1:]):
-                wires.append(Wire(
+                wires.append(ParsedWire(
                     uid=f"{uid}_{i}" if i > 0 else uid,
                     from_term=source,
                     to_term=dest,
@@ -363,7 +363,7 @@ def _process_element_terminals(
     wire_sources: set[str],
     wire_sinks: set[str],
     type_map: dict[int, LVType] | None,
-    terminal_info: dict[str, TerminalInfo],
+    terminal_info: dict[str, ParsedTerminalInfo],
 ) -> None:
     """Extract terminals from a single TERMINAL_CONTAINER_CLASSES element."""
     elem_uid = elem.get("uid") or ""
@@ -464,7 +464,7 @@ def _process_element_terminals(
         if not term_name:
             term_name = extract_label(term)
 
-        terminal_info[term_uid] = TerminalInfo(
+        terminal_info[term_uid] = ParsedTerminalInfo(
             uid=term_uid,
             parent_uid=elem_uid,
             index=parm_index,
@@ -479,7 +479,7 @@ def _walk_and_extract_terminals(
     wire_sources: set[str],
     wire_sinks: set[str],
     type_map: dict[int, LVType] | None,
-    terminal_info: dict[str, TerminalInfo],
+    terminal_info: dict[str, ParsedTerminalInfo],
     srn_to_structure: dict[str, str],
     current_structure_uid: str | None,
 ) -> None:
@@ -513,19 +513,19 @@ def _walk_and_extract_terminals(
 
 def _extract_terminal_info(
     root: ET.Element,
-    constants: list[Constant],
-    fp_terminals: list[FPTerminal],
-    wires: list[Wire],
+    constants: list[ParsedConstant],
+    fp_terminals: list[ParsedFPTerminal],
+    wires: list[ParsedWire],
     type_map: dict[int, LVType] | None = None,
     srn_to_structure: dict[str, str] | None = None,
-) -> dict[str, TerminalInfo]:
+) -> dict[str, ParsedTerminalInfo]:
     """Extract detailed terminal info for graph-native representation.
 
     Walks the XML tree hierarchically to preserve structure containment.
     Populates srn_to_structure (if provided) mapping sRN UIDs to their
     containing structure UIDs.
     """
-    terminal_info: dict[str, TerminalInfo] = {}
+    terminal_info: dict[str, ParsedTerminalInfo] = {}
     if srn_to_structure is None:
         srn_to_structure = {}
 
@@ -547,7 +547,7 @@ def _extract_terminal_info(
                 lv_type = resolve_type_rich(const.type_desc, type_map)
                 parsed_type = _lvtype_to_parsed(lv_type)
 
-            terminal_info[const.uid] = TerminalInfo(
+            terminal_info[const.uid] = ParsedTerminalInfo(
                 uid=const.uid,
                 parent_uid=const.uid,
                 index=0,
@@ -558,7 +558,7 @@ def _extract_terminal_info(
     # Front panel terminals
     for fp_term in fp_terminals:
         if fp_term.uid not in terminal_info:
-            terminal_info[fp_term.uid] = TerminalInfo(
+            terminal_info[fp_term.uid] = ParsedTerminalInfo(
                 uid=fp_term.uid,
                 parent_uid=fp_term.uid,
                 index=0,
@@ -605,11 +605,11 @@ def _resolve_qualified_name(
 def _extract_subvi_info(
     main_root: ET.Element,
     caller_qualified_name: str | None,
-) -> tuple[list[str], dict[str, str], list[SubVIPathRef]]:
+) -> tuple[list[str], dict[str, str], list[ParsedSubVIPathRef]]:
     """Extract SubVI qualified names, iUse→qualified_name mapping, and path refs."""
     subvi_qualified_names: list[str] = []
     iuse_to_qualified_name: dict[str, str] = {}
-    subvi_path_refs: list[SubVIPathRef] = []
+    subvi_path_refs: list[ParsedSubVIPathRef] = []
 
     # Get caller's library for qualifying same-library references
     caller_library = None
@@ -636,7 +636,7 @@ def _extract_subvi_info(
                 ]
                 is_vilib = path_parts[0] == "<vilib>" if path_parts else False
                 is_userlib = path_parts[0] == "<userlib>" if path_parts else False
-                subvi_path_refs.append(SubVIPathRef(
+                subvi_path_refs.append(ParsedSubVIPathRef(
                     name=name,
                     path_tokens=path_parts,
                     is_vilib=is_vilib,
@@ -704,8 +704,8 @@ def _parse_ddo(
     uid: str,
     indicator_dco_uids: set[str],
     default_data: str | None = None,
-) -> FPControl | None:
-    """Parse a data display object (ddo) into an FPControl."""
+) -> ParsedFPControl | None:
+    """Parse a data display object (ddo) into a ParsedFPControl."""
     control_type = ddo.get("class", "unknown")
 
     # For typeDef, look inside for the actual control
@@ -753,7 +753,7 @@ def _parse_ddo(
                     if child_control:
                         children.append(child_control)
 
-    return FPControl(
+    return ParsedFPControl(
         uid=uid,
         name=name,
         control_type=control_type,

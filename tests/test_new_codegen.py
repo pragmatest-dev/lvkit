@@ -13,6 +13,7 @@ from lvpy.graph import InMemoryVIGraph
 from lvpy.graph_types import (
     CaseFrame,
     CaseOperation,
+    CaseStructureNode,
     ClusterField,
     InvokeOperation,
     LVType,
@@ -21,7 +22,6 @@ from lvpy.graph_types import (
     PrimitiveOperation,
     PropertyDef,
     PropertyOperation,
-    StructureNode,
     Terminal,
     WireEnd,
 )
@@ -47,7 +47,7 @@ def _make_case_op(
     selector_id: str,
     selector_type: LVType | None = None,
     frames: list[CaseFrame] | None = None,
-) -> Operation:
+) -> CaseOperation:
     """Build a case structure Operation with a selector terminal."""
     terminals = [
         Terminal(
@@ -180,8 +180,8 @@ class TestErrorInputNotBound:
 class TestNMuxRoles:
     """nMux codegen uses terminal roles (agg/list) instead of index guessing."""
 
-    def _make_nmux_op(self, terminals: list[Terminal]) -> Operation:
-        return Operation(
+    def _make_nmux_op(self, terminals: list[Terminal]) -> PrimitiveOperation:
+        return PrimitiveOperation(
             id="nmux_1", name="Node Multiplexer",
             labels=["Primitive"], node_type="nMux",
             terminals=terminals,
@@ -195,6 +195,7 @@ class TestNMuxRoles:
         ])
         ctx = _make_ctx_with_binding("agg_in", "my_cluster")
         # Wire agg_in → agg_out
+        assert ctx.graph is not None
         ctx.graph._graph.add_edge(
             ctx.graph._term_to_node["agg_in"], "nmux_node",
             source=WireEnd(
@@ -244,6 +245,7 @@ class TestPropertyDedup:
         ctx.bind("ref_in", "my_ref")
 
         # Wire ref_in → out_1 so out_1 is wired
+        assert ctx.graph is not None
         nid_ref = ctx.graph._term_to_node["ref_in"]
         nid_out = ctx.graph._term_to_node["out_1"]
         ctx.graph._graph.add_edge(
@@ -366,7 +368,7 @@ class TestSelectorTopoSort:
         graph._term_to_node["eq_out"] = "equal_1"
 
         # Consumer: case structure with selector wired from Equal? output
-        case = StructureNode(
+        case = CaseStructureNode(
             id="case_1", vi="test.vi", name="Case",
             node_type="caseStruct",
             terminals=[

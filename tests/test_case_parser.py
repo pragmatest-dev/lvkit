@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import xml.etree.ElementTree as ET
 
-from lvpy.parser.models import ParsedType, TerminalInfo
+from lvpy.parser.models import ParsedTerminalInfo, ParsedType
 from lvpy.parser.nodes.case import extract_case_structures
 
 
@@ -71,9 +71,9 @@ def _build_case_xml(
 
 def _make_terminal_info(
     uid: str, type_name: str,
-) -> dict[str, TerminalInfo]:
+) -> dict[str, ParsedTerminalInfo]:
     return {
-        uid: TerminalInfo(
+        uid: ParsedTerminalInfo(
             uid=uid,
             parent_uid="parent",
             index=0,
@@ -206,6 +206,7 @@ class TestDefaultCase:
         )
         # Manually set FF
         case_elem = root.find(".//*[@class='select']")
+        assert case_elem is not None
         ET.SubElement(case_elem, "SelectDefaultCase").text = "FF"
 
         ti = _make_terminal_info("sel1", "Boolean")

@@ -10,7 +10,7 @@ import ast
 import xml.etree.ElementTree as ET
 
 from lvpy.codegen.nodes import subvi
-from lvpy.graph_types import LVType, Operation, Terminal
+from lvpy.graph_types import LVType, SubVIOperation, Terminal
 from lvpy.parser.vi import _extract_subvi_info, _resolve_qualified_name
 from tests.helpers import make_ctx
 
@@ -131,10 +131,10 @@ def _make_dynIUse_node(
     name: str = "addSuccess.vi",
     inputs: list[Terminal] | None = None,
     outputs: list[Terminal] | None = None,
-) -> Operation:
+) -> SubVIOperation:
     """Create a dynIUse Operation node."""
     terminals = list(inputs or []) + list(outputs or [])
-    return Operation(
+    return SubVIOperation(
         id="node_1",
         name=name,
         labels=["SubVI"],

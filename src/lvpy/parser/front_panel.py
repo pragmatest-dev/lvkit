@@ -10,7 +10,12 @@ from lvpy.graph_types import LVType
 from lvpy.parser.utils import clean_labview_string
 
 from .flags import get_wiring_rule
-from .models import ConnectorPane, ConnectorPaneSlot, FPTerminal, ParsedType
+from .models import (
+    ParsedConnectorPane,
+    ParsedConnectorPaneSlot,
+    ParsedFPTerminal,
+    ParsedType,
+)
 from .type_resolution import resolve_type_rich
 
 
@@ -65,7 +70,7 @@ def extract_fp_terminals(
     root: ET.Element,
     fp_xml_path: Path | str | None = None,
     type_map: dict[int, LVType] | None = None,
-) -> list[FPTerminal]:
+) -> list[ParsedFPTerminal]:
     """Extract front panel terminals (VI inputs and outputs) from block diagram.
 
     In LabVIEW, fPTerm elements on the block diagram represent connections to
@@ -81,7 +86,7 @@ def extract_fp_terminals(
         type_map: Optional type map for resolving TypeID references to LVType
 
     Returns:
-        List of FPTerminal with resolved types
+        List of ParsedFPTerminal with resolved types
     """
     # Get DCO types from FP XML if available
     dco_types: dict[str, str] = {}
@@ -137,7 +142,7 @@ def extract_fp_terminals(
             lv_type = resolve_type_rich(type_desc_str, type_map)
             parsed_type = _lvtype_to_parsed(lv_type)
 
-        terminals.append(FPTerminal(
+        terminals.append(ParsedFPTerminal(
             uid=uid,
             fp_dco_uid=data["fp_dco_uid"],
             name=data["name"],
@@ -148,7 +153,7 @@ def extract_fp_terminals(
     return terminals
 
 
-def parse_connector_pane(fp_xml_path: Path | str) -> ConnectorPane | None:
+def parse_connector_pane(fp_xml_path: Path | str) -> ParsedConnectorPane | None:
     """Parse the connector pane from a front panel XML file.
 
     The connector pane defines which front panel controls/indicators
@@ -158,7 +163,7 @@ def parse_connector_pane(fp_xml_path: Path | str) -> ConnectorPane | None:
         fp_xml_path: Path to the *_FPHb.xml file
 
     Returns:
-        ConnectorPane with slot assignments, or None if not found
+        ParsedConnectorPane with slot assignments, or None if not found
     """
     tree = ET.parse(fp_xml_path)
     root = tree.getroot()
@@ -172,7 +177,7 @@ def parse_connector_pane(fp_xml_path: Path | str) -> ConnectorPane | None:
         int(con_id_elem.text) if con_id_elem is not None and con_id_elem.text else 0
     )
 
-    slots: list[ConnectorPaneSlot] = []
+    slots: list[ParsedConnectorPaneSlot] = []
     cons = con_pane.find("cons")
     if cons is not None:
         current_index = 0
@@ -184,19 +189,19 @@ def parse_connector_pane(fp_xml_path: Path | str) -> ConnectorPane | None:
             conn_dco = elem.find("ConnectionDCO")
             fp_dco_uid = conn_dco.get("uid") if conn_dco is not None else None
 
-            slots.append(ConnectorPaneSlot(
+            slots.append(ParsedConnectorPaneSlot(
                 index=current_index,
                 fp_dco_uid=fp_dco_uid,
             ))
 
             current_index += 1
 
-    return ConnectorPane(pattern_id=pattern_id, slots=slots)
+    return ParsedConnectorPane(pattern_id=pattern_id, slots=slots)
 
 
 def parse_connector_pane_types(
     main_xml_path: Path | str,
-    fp_conpane: ConnectorPane,
+    fp_conpane: ParsedConnectorPane,
 ) -> dict[int, int]:
     """Get wiring rules for connected connector pane terminals.
 
@@ -212,7 +217,7 @@ def parse_connector_pane_types(
 
     Args:
         main_xml_path: Path to the main .xml file (not BDHb/FPHb)
-        fp_conpane: ConnectorPane from FPHb with connected slot indices
+        fp_conpane: ParsedConnectorPane from FPHb with connected slot indices
 
     Returns:
         Dict mapping slot index -> wiring rule (0-4)

@@ -13,6 +13,7 @@ Covers:
 from __future__ import annotations
 
 import ast
+from typing import cast
 
 from lvpy.codegen.builder import build_module, generate_body
 from lvpy.codegen.context import CodeGenContext
@@ -22,6 +23,7 @@ from lvpy.codegen.error_handler import (
     needs_error_handling,
 )
 from lvpy.codegen.nodes import primitive
+from lvpy.graph import InMemoryVIGraph
 from lvpy.graph_types import (
     CaseFrame,
     CaseOperation,
@@ -178,6 +180,7 @@ class TestMergeErrorsNoOp:
             labels=["Primitive"],
             node_type="prim",
         )
+        assert isinstance(merge_op, PrimitiveOperation)
         ctx = CodeGenContext()
         fragment = primitive.generate(merge_op, ctx)
         assert fragment.statements == []
@@ -466,7 +469,7 @@ class TestErrorBundleRaise:
             nmux_field_index=2,
         )
 
-        op = Operation(
+        op = PrimitiveOperation(
             id="nmux_err",
             name="Bundle",
             labels=["nMux"],
@@ -483,7 +486,7 @@ class TestErrorBundleRaise:
             "code_in": "42",
             "source_in": "'MyVI.vi'",
         }
-        ctx.resolve = lambda tid: bindings.get(tid)
+        ctx.resolve = lambda terminal_id: bindings.get(terminal_id)
 
         class FakeGraph:
             def get_type_fields(self, lv_type):
@@ -492,7 +495,7 @@ class TestErrorBundleRaise:
                     ClusterField(name="code"),
                     ClusterField(name="source"),
                 ]
-        ctx.graph = FakeGraph()
+        ctx.graph = cast(InMemoryVIGraph, FakeGraph())
 
         fragment = nmux.generate(op, ctx)
 
@@ -523,7 +526,7 @@ class TestErrorBundleRaise:
             nmux_field_index=1,
         )
 
-        op = Operation(
+        op = PrimitiveOperation(
             id="nmux_err",
             name="Bundle",
             labels=["nMux"],
@@ -532,7 +535,7 @@ class TestErrorBundleRaise:
         )
 
         ctx = CodeGenContext()
-        ctx.resolve = lambda tid: {"code_in": "42"}.get(tid)
+        ctx.resolve = lambda terminal_id: {"code_in": "42"}.get(terminal_id)
 
         class FakeGraph:
             def get_type_fields(self, lv_type):
@@ -541,7 +544,7 @@ class TestErrorBundleRaise:
                     ClusterField(name="code"),
                     ClusterField(name="source"),
                 ]
-        ctx.graph = FakeGraph()
+        ctx.graph = cast(InMemoryVIGraph, FakeGraph())
 
         fragment = nmux.generate(op, ctx)
         assert fragment.statements == []

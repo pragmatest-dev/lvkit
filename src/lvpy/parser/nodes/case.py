@@ -7,7 +7,7 @@ import xml.etree.ElementTree as ET
 from lvpy.constants import STRUCTURE_NODE_CLASSES, TERMINAL_CLASS
 from lvpy.graph_types import CaseFrame, Tunnel
 
-from ..models import CaseStructure, TerminalInfo
+from ..models import ParsedCaseStructure, ParsedTerminalInfo
 from .base import extract_tunnel_mapping
 
 # Tunnel DCO classes used in case structures
@@ -47,20 +47,20 @@ def _find_own_descendants(
 
 def extract_case_structures(
     root: ET.Element,
-    terminal_info: dict[str, TerminalInfo] | None = None,
-) -> list[CaseStructure]:
+    terminal_info: dict[str, ParsedTerminalInfo] | None = None,
+) -> list[ParsedCaseStructure]:
     """Extract case structures with frame mappings.
 
     Handles both class='caseStruct' and class='select' elements.
 
     Args:
         root: XML root element
-        terminal_info: Terminal info dict (uid → TerminalInfo) for type lookup
+        terminal_info: Terminal info dict (uid → ParsedTerminalInfo) for type lookup
 
     Returns:
-        List of CaseStructure with frame mappings
+        List of ParsedCaseStructure with frame mappings
     """
-    case_structures: list[CaseStructure] = []
+    case_structures: list[ParsedCaseStructure] = []
 
     # Find caseStruct and select elements
     case_elems = list(root.findall(".//*[@class='caseStruct']"))
@@ -81,8 +81,8 @@ def extract_case_structures(
 def _extract_one_case_structure(
     case_elem: ET.Element,
     case_uid: str,
-    terminal_info: dict[str, TerminalInfo] | None = None,
-) -> CaseStructure | None:
+    terminal_info: dict[str, ParsedTerminalInfo] | None = None,
+) -> ParsedCaseStructure | None:
     """Extract a single case structure from an XML element."""
     selector_terminal_uid: str | None = None
     selector_type: str | None = None
@@ -236,7 +236,7 @@ def _extract_one_case_structure(
             if frame:
                 frames.append(frame)
 
-    return CaseStructure(
+    return ParsedCaseStructure(
         uid=case_uid,
         selector_terminal_uid=selector_terminal_uid,
         selector_type=selector_type,
@@ -346,7 +346,7 @@ def _type_name_to_selector_type(type_name: str) -> str | None:
     """Map a ParsedType.type_name to a selector type category.
 
     Args:
-        type_name: From TerminalInfo.parsed_type.type_name
+        type_name: From ParsedTerminalInfo.parsed_type.type_name
             e.g. "Boolean", "String", "NumInt32", "Enum", "Cluster"
 
     Returns:

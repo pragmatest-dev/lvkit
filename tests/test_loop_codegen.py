@@ -362,11 +362,14 @@ class TestLoopCodeGenGenerate:
         # Verify enumerate pattern: for i, item in enumerate(items)
         assert isinstance(for_loop.target, ast.Tuple), "Should unpack (i, item)"
         assert len(for_loop.target.elts) == 2
+        assert isinstance(for_loop.target.elts[0], ast.Name)
         assert for_loop.target.elts[0].id == "i"  # Index variable
 
         # Verify iter is enumerate(items)
         assert isinstance(for_loop.iter, ast.Call)
+        assert isinstance(for_loop.iter.func, ast.Name)
         assert for_loop.iter.func.id == "enumerate"
+        assert isinstance(for_loop.iter.args[0], ast.Name)
         assert for_loop.iter.args[0].id == "items"
 
     def test_generate_for_loop_with_n_terminal_uses_range(
@@ -410,6 +413,7 @@ class TestLoopCodeGenGenerate:
         assert for_loop.target.id == "i"
 
         assert isinstance(for_loop.iter, ast.Call)
+        assert isinstance(for_loop.iter.func, ast.Name)
         assert for_loop.iter.func.id == "range"
 
     def test_generate_while_loop_initializes_shift_register(
@@ -559,16 +563,20 @@ class TestLoopCodeGenGenerate:
         assert inner_for is not None
 
         # Outer should use 'i', inner should use 'j'
-        outer_var = (
-            outer_for.target.id
-            if isinstance(outer_for.target, ast.Name)
-            else outer_for.target.elts[0].id
-        )
-        inner_var = (
-            inner_for.target.id
-            if isinstance(inner_for.target, ast.Name)
-            else inner_for.target.elts[0].id
-        )
+        if isinstance(outer_for.target, ast.Name):
+            outer_var = outer_for.target.id
+        else:
+            assert isinstance(outer_for.target, ast.Tuple)
+            first_elt = outer_for.target.elts[0]
+            assert isinstance(first_elt, ast.Name)
+            outer_var = first_elt.id
+        if isinstance(inner_for.target, ast.Name):
+            inner_var = inner_for.target.id
+        else:
+            assert isinstance(inner_for.target, ast.Tuple)
+            first_elt = inner_for.target.elts[0]
+            assert isinstance(first_elt, ast.Name)
+            inner_var = first_elt.id
 
         assert outer_var == "i", f"Outer loop should use 'i', got '{outer_var}'"
         assert inner_var == "j", f"Inner loop should use 'j', got '{inner_var}'"

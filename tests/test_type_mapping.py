@@ -51,7 +51,8 @@ class TestParseTypeMapRich:
         # At least one cluster should have the standard error fields
         error_clusters = [
             lt for lt in cluster_types
-            if len(lt.fields) == 3
+            if lt.fields is not None
+            and len(lt.fields) == 3
             and {f.name for f in lt.fields} == {"status", "code", "source"}
         ]
         assert len(error_clusters) > 0
@@ -68,6 +69,7 @@ class TestParseTypeMapRich:
         assert len(enum_types) > 0
 
         enum = enum_types[0]
+        assert enum.values is not None
         assert "testFailure" in enum.values
         assert "testError" in enum.values
         assert "testSkipped" in enum.values
@@ -111,6 +113,7 @@ class TestParseTypeMapRich:
         assert len(cluster_typedefs) > 0
         # Should have parseable field names
         td = cluster_typedefs[0]
+        assert td.fields is not None
         field_names = [f.name for f in td.fields]
         assert len(field_names) >= 2
 

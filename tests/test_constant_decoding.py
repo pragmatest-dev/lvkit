@@ -9,11 +9,11 @@ from __future__ import annotations
 
 from lvpy.graph.construction import decode_constant
 from lvpy.graph_types import ClusterField, LVType
-from lvpy.parser.models import Constant
+from lvpy.parser.models import ParsedConstant
 
 
-def _make_const(hex_val: str, label: str | None = None) -> Constant:
-    return Constant(uid="test", type_desc="", value=hex_val, label=label)
+def _make_const(hex_val: str, label: str | None = None) -> ParsedConstant:
+    return ParsedConstant(uid="test", type_desc="", value=hex_val, label=label)
 
 
 def _make_type(

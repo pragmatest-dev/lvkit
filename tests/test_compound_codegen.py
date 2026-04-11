@@ -6,7 +6,7 @@ import ast
 
 from lvpy.codegen.context import CodeGenContext
 from lvpy.codegen.nodes import compound
-from lvpy.graph_types import Operation, PrimitiveOperation, Terminal
+from lvpy.graph_types import PrimitiveOperation, Terminal
 from tests.helpers import make_ctx
 
 
@@ -389,7 +389,7 @@ class TestArrayBuildGenerate:
         ctx.bind("term2", "val2")
         ctx.bind("term3", "val3")
 
-        op = Operation(
+        op = PrimitiveOperation(
             id="build1",
             name="Build Array",
             labels=["ArrayBuild"],
@@ -418,7 +418,7 @@ class TestArrayBuildGenerate:
         ctx.bind("term1", "val1")
         # term2 is not bound
 
-        op = Operation(
+        op = PrimitiveOperation(
             id="build1",
             name="Build Array",
             labels=["ArrayBuild"],
@@ -440,7 +440,7 @@ class TestArrayBuildGenerate:
         """Test that no output terminal returns empty fragment."""
         ctx = CodeGenContext()
 
-        op = Operation(
+        op = PrimitiveOperation(
             id="build1",
             name="Build Array",
             labels=["ArrayBuild"],
@@ -459,7 +459,7 @@ class TestArrayBuildGenerate:
         """Test generating empty array when no inputs."""
         ctx = CodeGenContext()
 
-        op = Operation(
+        op = PrimitiveOperation(
             id="build1",
             name="Build Array",
             labels=["ArrayBuild"],
@@ -494,7 +494,7 @@ class TestArrayBuildExecutable:
         ctx.bind("term2", "second")
         ctx.bind("term3", "third")
 
-        op = Operation(
+        op = PrimitiveOperation(
             id="build1",
             name="Build Array",
             labels=["ArrayBuild"],
@@ -526,7 +526,7 @@ class TestArrayBuildExecutable:
         ctx.bind("term_1", "one")
         ctx.bind("term_2", "two")
 
-        op = Operation(
+        op = PrimitiveOperation(
             id="build1",
             name="Build Array",
             labels=["ArrayBuild"],
@@ -553,7 +553,7 @@ class TestArrayBuildExecutable:
         """Test that empty array build produces empty list."""
         ctx = CodeGenContext()
 
-        op = Operation(
+        op = PrimitiveOperation(
             id="build1",
             name="Build Array",
             labels=["ArrayBuild"],

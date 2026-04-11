@@ -7,18 +7,18 @@ from pathlib import Path
 import pytest
 
 from lvpy.parser import (
-    BlockDiagram,
-    ConnectorPane,
-    ConnectorPaneSlot,
-    Constant,
-    FPTerminal,
-    LoopStructure,
-    Node,
-    SubVIPathRef,
-    TerminalInfo,
+    ParsedBlockDiagram,
+    ParsedConnectorPane,
+    ParsedConnectorPaneSlot,
+    ParsedConstant,
+    ParsedFPTerminal,
+    ParsedLoopStructure,
+    ParsedNode,
+    ParsedSubVIPathRef,
+    ParsedTerminalInfo,
+    ParsedWire,
+    ParsedWiringRule,
     TunnelMapping,
-    Wire,
-    WiringRule,
     parse_connector_pane,
     parse_polymorphic_info,
     parse_subvi_paths,
@@ -30,11 +30,11 @@ from lvpy.parser import (
 
 
 class TestNode:
-    """Tests for the Node dataclass."""
+    """Tests for the ParsedNode dataclass."""
 
     def test_node_creation_minimal(self):
-        """Test creating a Node with minimal fields."""
-        node = Node(uid="123", node_type="prim")
+        """Test creating a ParsedNode with minimal fields."""
+        node = ParsedNode(uid="123", node_type="prim")
         assert node.uid == "123"
         assert node.node_type == "prim"
         assert node.name is None
@@ -42,8 +42,8 @@ class TestNode:
         assert node.outputs == []
 
     def test_node_creation_full(self):
-        """Test creating a Node with all fields."""
-        node = Node(
+        """Test creating a ParsedNode with all fields."""
+        node = ParsedNode(
             uid="456",
             node_type="iUse",
             name="MySubVI.vi",
@@ -64,7 +64,7 @@ class TestConstant:
 
     def test_constant_creation_minimal(self):
         """Test creating a Constant with required fields."""
-        const = Constant(uid="c1", type_desc="stdNum", value="3F800000")
+        const = ParsedConstant(uid="c1", type_desc="stdNum", value="3F800000")
         assert const.uid == "c1"
         assert const.type_desc == "stdNum"
         assert const.value == "3F800000"
@@ -72,7 +72,7 @@ class TestConstant:
 
     def test_constant_creation_with_label(self):
         """Test creating a Constant with a label."""
-        const = Constant(
+        const = ParsedConstant(
             uid="c2", type_desc="stdString", value="48656C6C6F", label="greeting"
         )
         assert const.label == "greeting"
@@ -83,7 +83,7 @@ class TestWire:
 
     def test_wire_creation(self):
         """Test creating a Wire."""
-        wire = Wire(uid="w1", from_term="t1", to_term="t2")
+        wire = ParsedWire(uid="w1", from_term="t1", to_term="t2")
         assert wire.uid == "w1"
         assert wire.from_term == "t1"
         assert wire.to_term == "t2"
@@ -94,7 +94,7 @@ class TestFPTerminal:
 
     def test_fp_terminal_input(self):
         """Test creating an input (control) FP terminal."""
-        fp = FPTerminal(
+        fp = ParsedFPTerminal(
             uid="fp1", fp_dco_uid="dco1", name="Input Value", is_indicator=False
         )
         assert fp.uid == "fp1"
@@ -104,18 +104,18 @@ class TestFPTerminal:
 
     def test_fp_terminal_output(self):
         """Test creating an output (indicator) FP terminal."""
-        fp = FPTerminal(
+        fp = ParsedFPTerminal(
             uid="fp2", fp_dco_uid="dco2", name="Output Value", is_indicator=True
         )
         assert fp.is_indicator is True
 
 
 class TestTerminalInfo:
-    """Tests for the TerminalInfo dataclass."""
+    """Tests for the ParsedTerminalInfo dataclass."""
 
     def test_terminal_info_input(self):
         """Test creating an input terminal info."""
-        info = TerminalInfo(
+        info = ParsedTerminalInfo(
             uid="t1",
             parent_uid="node1",
             index=0,
@@ -131,7 +131,7 @@ class TestTerminalInfo:
 
     def test_terminal_info_output(self):
         """Test creating an output terminal info."""
-        info = TerminalInfo(
+        info = ParsedTerminalInfo(
             uid="t2",
             parent_uid="node1",
             index=1,
@@ -141,15 +141,15 @@ class TestTerminalInfo:
 
 
 class TestWiringRule:
-    """Tests for the WiringRule class."""
+    """Tests for the ParsedWiringRule class."""
 
     def test_wiring_rule_values(self):
-        """Test WiringRule constants."""
-        assert WiringRule.INVALID == 0
-        assert WiringRule.REQUIRED == 1
-        assert WiringRule.RECOMMENDED == 2
-        assert WiringRule.OPTIONAL == 3
-        assert WiringRule.DYNAMIC_DISPATCH == 4
+        """Test ParsedWiringRule constants."""
+        assert ParsedWiringRule.INVALID == 0
+        assert ParsedWiringRule.REQUIRED == 1
+        assert ParsedWiringRule.RECOMMENDED == 2
+        assert ParsedWiringRule.OPTIONAL == 3
+        assert ParsedWiringRule.DYNAMIC_DISPATCH == 4
 
 
 class TestTunnelMapping:
@@ -203,11 +203,11 @@ class TestTunnelMapping:
 
 
 class TestLoopStructure:
-    """Tests for the LoopStructure dataclass."""
+    """Tests for the ParsedLoopStructure dataclass."""
 
     def test_while_loop_creation(self):
         """Test creating a while loop structure."""
-        loop = LoopStructure(
+        loop = ParsedLoopStructure(
             uid="loop1",
             loop_type="whileLoop",
             boundary_terminal_uids=["bt1", "bt2"],
@@ -222,7 +222,7 @@ class TestLoopStructure:
 
     def test_for_loop_creation(self):
         """Test creating a for loop structure."""
-        loop = LoopStructure(
+        loop = ParsedLoopStructure(
             uid="loop2",
             loop_type="forLoop",
             tunnels=[
@@ -241,11 +241,11 @@ class TestLoopStructure:
 
 
 class TestConnectorPaneSlot:
-    """Tests for the ConnectorPaneSlot dataclass."""
+    """Tests for the ParsedConnectorPaneSlot dataclass."""
 
     def test_slot_empty(self):
         """Test creating an empty slot."""
-        slot = ConnectorPaneSlot(index=0)
+        slot = ParsedConnectorPaneSlot(index=0)
         assert slot.index == 0
         assert slot.fp_dco_uid is None
         assert slot.is_output is False
@@ -253,11 +253,11 @@ class TestConnectorPaneSlot:
 
     def test_slot_connected(self):
         """Test creating a connected slot."""
-        slot = ConnectorPaneSlot(
+        slot = ParsedConnectorPaneSlot(
             index=3,
             fp_dco_uid="dco123",
             is_output=True,
-            wiring_rule=WiringRule.REQUIRED,
+            wiring_rule=ParsedWiringRule.REQUIRED,
             type_id="TypeID(10)",
         )
         assert slot.fp_dco_uid == "dco123"
@@ -266,16 +266,16 @@ class TestConnectorPaneSlot:
 
 
 class TestConnectorPane:
-    """Tests for the ConnectorPane dataclass."""
+    """Tests for the ParsedConnectorPane dataclass."""
 
     def test_connector_pane_creation(self):
         """Test creating a connector pane."""
-        pane = ConnectorPane(
+        pane = ParsedConnectorPane(
             pattern_id=4,
             slots=[
-                ConnectorPaneSlot(index=0, fp_dco_uid="dco1"),
-                ConnectorPaneSlot(index=1),
-                ConnectorPaneSlot(index=2, fp_dco_uid="dco2"),
+                ParsedConnectorPaneSlot(index=0, fp_dco_uid="dco1"),
+                ParsedConnectorPaneSlot(index=1),
+                ParsedConnectorPaneSlot(index=2, fp_dco_uid="dco2"),
             ],
         )
         assert pane.pattern_id == 4
@@ -283,12 +283,12 @@ class TestConnectorPane:
 
     def test_get_connected_uids(self):
         """Test getting connected UIDs from connector pane."""
-        pane = ConnectorPane(
+        pane = ParsedConnectorPane(
             pattern_id=4,
             slots=[
-                ConnectorPaneSlot(index=0, fp_dco_uid="dco1"),
-                ConnectorPaneSlot(index=1),  # Empty slot
-                ConnectorPaneSlot(index=2, fp_dco_uid="dco2"),
+                ParsedConnectorPaneSlot(index=0, fp_dco_uid="dco1"),
+                ParsedConnectorPaneSlot(index=1),  # Empty slot
+                ParsedConnectorPaneSlot(index=2, fp_dco_uid="dco2"),
             ],
         )
         connected = pane.get_connected_uids()
@@ -298,11 +298,11 @@ class TestConnectorPane:
 
 
 class TestSubVIPathRef:
-    """Tests for the SubVIPathRef dataclass."""
+    """Tests for the ParsedSubVIPathRef dataclass."""
 
     def test_vilib_path_ref(self):
         """Test a vi.lib path reference."""
-        ref = SubVIPathRef(
+        ref = ParsedSubVIPathRef(
             name="File Exists.vi",
             path_tokens=["<vilib>", "Utility", "file.llb", "File Exists.vi"],
             is_vilib=True,
@@ -313,7 +313,7 @@ class TestSubVIPathRef:
 
     def test_userlib_path_ref(self):
         """Test a user.lib path reference."""
-        ref = SubVIPathRef(
+        ref = ParsedSubVIPathRef(
             name="MyHelper.vi",
             path_tokens=["<userlib>", "MyLib", "MyHelper.vi"],
             is_userlib=True,
@@ -323,7 +323,7 @@ class TestSubVIPathRef:
 
     def test_local_path_ref(self):
         """Test a local path reference."""
-        ref = SubVIPathRef(
+        ref = ParsedSubVIPathRef(
             name="Local.vi",
             path_tokens=["SubFolder", "Local.vi"],
         )
@@ -333,14 +333,14 @@ class TestSubVIPathRef:
 
 
 class TestBlockDiagram:
-    """Tests for the BlockDiagram dataclass."""
+    """Tests for the ParsedBlockDiagram dataclass."""
 
     def test_block_diagram_creation(self):
-        """Test creating a BlockDiagram."""
-        bd = BlockDiagram(
-            nodes=[Node(uid="n1", node_type="prim")],
-            constants=[Constant(uid="c1", type_desc="stdNum", value="0")],
-            wires=[Wire(uid="w1", from_term="t1", to_term="t2")],
+        """Test creating a ParsedBlockDiagram."""
+        bd = ParsedBlockDiagram(
+            nodes=[ParsedNode(uid="n1", node_type="prim")],
+            constants=[ParsedConstant(uid="c1", type_desc="stdNum", value="0")],
+            wires=[ParsedWire(uid="w1", from_term="t1", to_term="t2")],
         )
         assert len(bd.nodes) == 1
         assert len(bd.constants) == 1
@@ -349,9 +349,9 @@ class TestBlockDiagram:
 
     def test_get_node(self):
         """Test getting a node by UID."""
-        node1 = Node(uid="n1", node_type="prim", name="Add")
-        node2 = Node(uid="n2", node_type="iUse", name="SubVI.vi")
-        bd = BlockDiagram(nodes=[node1, node2], constants=[], wires=[])
+        node1 = ParsedNode(uid="n1", node_type="prim", name="Add")
+        node2 = ParsedNode(uid="n2", node_type="iUse", name="SubVI.vi")
+        bd = ParsedBlockDiagram(nodes=[node1, node2], constants=[], wires=[])
 
         found = bd.get_node("n1")
         assert found is not None
@@ -362,12 +362,12 @@ class TestBlockDiagram:
 
     def test_get_parent_uid(self):
         """Test getting parent UID for a terminal."""
-        bd = BlockDiagram(
+        bd = ParsedBlockDiagram(
             nodes=[],
             constants=[],
             wires=[],
             terminal_info={
-                "t1": TerminalInfo(
+                "t1": ParsedTerminalInfo(
                     uid="t1", parent_uid="node1", index=0, is_output=False
                 ),
             },
@@ -377,8 +377,8 @@ class TestBlockDiagram:
 
     def test_get_loop(self):
         """Test getting a loop by UID."""
-        loop = LoopStructure(uid="loop1", loop_type="whileLoop")
-        bd = BlockDiagram(nodes=[], constants=[], wires=[], loops=[loop])
+        loop = ParsedLoopStructure(uid="loop1", loop_type="whileLoop")
+        bd = ParsedBlockDiagram(nodes=[], constants=[], wires=[], loops=[loop])
 
         found = bd.get_loop("loop1")
         assert found is not None
@@ -394,8 +394,8 @@ class TestBlockDiagram:
             inner_terminal_uid="inner1",
             tunnel_type="lpTun",
         )
-        loop = LoopStructure(uid="loop1", loop_type="forLoop", tunnels=[tunnel])
-        bd = BlockDiagram(nodes=[], constants=[], wires=[], loops=[loop])
+        loop = ParsedLoopStructure(uid="loop1", loop_type="forLoop", tunnels=[tunnel])
+        bd = ParsedBlockDiagram(nodes=[], constants=[], wires=[], loops=[loop])
 
         # Find by outer terminal
         found_outer = bd.get_tunnel_mapping("outer1")
@@ -451,10 +451,11 @@ class TestParseVI:
         vi = parse_vi(bd_xml=xml_file)
         bd = vi.block_diagram
         assert len(bd.nodes) == 1
+        from lvpy.parser.node_types import PrimitiveNode
         node = bd.nodes[0]
         assert node.uid == "prim1"
         assert node.node_type == "prim"
-        # PrimitiveNode subclass has prim_index and prim_res_id
+        assert isinstance(node, PrimitiveNode)
         assert node.prim_index == 10
         assert node.prim_res_id == 1419
 
