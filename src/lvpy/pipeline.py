@@ -271,7 +271,7 @@ def _generate_polymorphic_module(
                 if idx not in all_outputs:
                     all_outputs[idx] = out
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 — per-variant; continue to next variant on failure
             # Comment out all lines of the error message
             error_msg = str(e).replace('\n', '\n# ')
             lines.append(f"# ERROR generating {variant_name}: {error_msg}")
@@ -342,87 +342,6 @@ def _generate_polymorphic_module(
 
     lines.append("")
     return "\n".join(lines)
-
-
-# ---------------------------------------------------------------------------
-# lvclass helpers
-# ---------------------------------------------------------------------------
-
-
-def _resolve_vi_path(cls_dir: Path, relative_path: str) -> Path | None:
-    """Resolve VI path from lvclass relative URL.
-
-    Class membership is defined by the lvclass XML - we're just resolving
-    the stored path to the actual file. LabVIEW stores paths with extra ../
-    that don't match the actual filesystem layout.
-
-    Args:
-        cls_dir: Directory containing the lvclass file
-        relative_path: Relative path from lvclass (e.g., "../hooks/setUp.vi")
-
-    Returns:
-        Resolved path if found, None otherwise
-    """
-    # Try direct resolution first
-    direct = cls_dir / relative_path
-    if direct.exists():
-        return direct.resolve()
-
-    # LabVIEW stores paths with extra ../ - strip them and resolve from cls_dir
-    stripped = relative_path
-    while stripped.startswith("../"):
-        stripped = stripped[3:]
-    if stripped != relative_path:
-        from_cls = cls_dir / stripped
-        if from_cls.exists():
-            return from_cls.resolve()
-
-    return None
-
-
-def _find_parent_class(child_path: Path, parent_name: str) -> Path | None:
-    """Find parent class file by searching up the directory tree.
-
-    Args:
-        child_path: Path to child .lvclass file
-        parent_name: Name of parent class (e.g., "TestCase")
-
-    Returns:
-        Path to parent .lvclass file, or None if not found
-    """
-    # Search pattern: look for ParentName.lvclass or ParentName/ParentName.lvclass
-    search_dirs = [
-        child_path.parent,  # Same directory
-        child_path.parent.parent,  # Parent directory
-        child_path.parent.parent.parent,  # Grandparent
-    ]
-
-    # Also search in common class locations
-    for ancestor in child_path.parents:
-        if (ancestor / "Classes").exists():
-            search_dirs.append(ancestor / "Classes")
-        if (ancestor / "source" / "Classes").exists():
-            search_dirs.append(ancestor / "source" / "Classes")
-
-    for search_dir in search_dirs:
-        if not search_dir.exists():
-            continue
-
-        # Direct match
-        direct = search_dir / f"{parent_name}.lvclass"
-        if direct.exists():
-            return direct
-
-        # Subdirectory match (ParentName/ParentName.lvclass)
-        subdir = search_dir / parent_name / f"{parent_name}.lvclass"
-        if subdir.exists():
-            return subdir
-
-        # Search recursively (slower but thorough)
-        for lvclass in search_dir.rglob(f"{parent_name}.lvclass"):
-            return lvclass
-
-    return None
 
 
 # ---------------------------------------------------------------------------
@@ -619,7 +538,7 @@ def {func_name}(*args, **kwargs) -> Any:
                     module_name, code, e,
                     output_dir_resolved, vi_name, generated,
                 )
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 — per-VI; keep generating remaining VIs
                 print(f"         -> FAILED: {e}")
                 traceback.print_exc()
                 generated.append((vi_name, None, "failed"))
@@ -656,7 +575,7 @@ def {func_name}(*args, **kwargs) -> Any:
                     output_dir_resolved, vi_name, generated,
                 )
 
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 — per-VI; keep generating remaining VIs
                 error_path = output_dir_resolved / f"{module_name}.error.py"
                 error_path.write_text(f"# ERROR: {e}")
                 print(f"         -> FAILED: {e}")
@@ -683,7 +602,7 @@ def {func_name}(*args, **kwargs) -> Any:
                 ast.parse(code)
                 wrapper_path.write_text(code)
                 generated.append((wrapper_name, wrapper_path, "ast"))
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 — per-wrapper; continue to next
                 print(f"  [poly wrapper] FAILED for {wrapper_name}: {e}")
                 traceback.print_exc()
 

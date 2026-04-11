@@ -7,7 +7,7 @@ _get_children_of, _build_frames_from_parent, _build_sequence_frames_from_parent.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 import networkx as nx
 
@@ -410,7 +410,7 @@ class OperationsMixin:
         frames: list[CaseFrame] | list[SequenceFrame],
         vi_name: str,
         child_uids: list[str],
-    ) -> list[CaseFrame] | list[SequenceFrame]:  # type: ignore[return]
+    ) -> list[CaseFrame] | list[SequenceFrame]:
         """Populate operations on existing frames from graph children."""
         frame_to_uids = self._group_children_by_frame(child_uids)
 
@@ -426,7 +426,7 @@ class OperationsMixin:
             frame.inner_node_uids = uids
             frame.operations = self._build_inner_nodes(uids, vi_name)
 
-        return frames
+        return cast("list[CaseFrame] | list[SequenceFrame]", frames)
 
     def _group_children_by_frame(
         self, child_uids: list[str],

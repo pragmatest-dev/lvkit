@@ -207,7 +207,7 @@ def analyze_vi(
     # Get execution order
     try:
         execution_order = graph.get_operation_order(vi_name)
-    except Exception:
+    except Exception:  # noqa: BLE001 — graph may not support ordering for this VI type
         execution_order = []
 
     # Generate summary

@@ -168,7 +168,7 @@ Property node drawers execute sequentially (top-to-bottom), not in parallel — 
 | Known primitives (from PDF) | 845 |
 | vilib + OpenG VIs mapped | 67 |
 | Node code generators | 13 |
-| MCP tools exposed | 14 |
+| MCP tools exposed | 12 |
 | CLI commands | 11 |
 | Claude Code skills | 7 |
 
@@ -176,7 +176,7 @@ Property node drawers execute sequentially (top-to-bottom), not in parallel — 
 
 The deterministic pipeline is the foundation. On top of it, lvpy offers:
 
-- **MCP server** (`lvpy mcp`): 14 tools for Claude Code, Copilot, or any MCP-compatible editor. Load a VI, explore the graph, generate code — all through tool calls.
+- **MCP server** (`lvpy mcp`): 12 tools for Claude Code, Copilot, or any MCP-compatible editor. Load a VI, explore the graph, generate code — all through tool calls.
 - **LLM cleanup** (`lvpy llm-generate`): Takes the AST output as a reference and asks an LLM to produce idiomatic Python. Falls back to AST if the LLM produces invalid syntax.
 - **5 user-facing Claude Code skills**, all installable into a downstream project via `lvpy init --skills claude` (or `--skills copilot` for the equivalent Copilot prompts + router): `/lvpy-convert` (full pipeline with resolution loop), `/lvpy-describe`, `/lvpy-resolve-primitive`, `/lvpy-resolve-vilib`, `/lvpy-idiomatic`. Two more skills (`/judge-output`, `/trace-bug`) are lvpy-internal maintainer tooling and are not packaged.
 

@@ -105,7 +105,7 @@ lvpy exposes an MCP server (`lvpy mcp` or the `lvpy-mcp` console script). Once p
 }
 ```
 
-The `--from lvpy` tells `uvx` which package to install; `lvpy-mcp` is the console-script entry point inside that package. Paste this into your MCP client config (Claude Code's `claude_code_config.json`, Cursor's `~/.cursor/mcp.json`, or equivalent), restart the client, and the lvpy tools become available — load_vi, describe_vi, get_operations, get_dataflow, get_structure, get_constants, generate_python, generate_documents, and analyze_vi.
+The `--from lvpy` tells `uvx` which package to install; `lvpy-mcp` is the console-script entry point inside that package. Paste this into your MCP client config (Claude Code's `claude_code_config.json`, Cursor's `~/.cursor/mcp.json`, or equivalent), restart the client, and the lvpy tools become available — `load`, `describe`, `get_operations`, `get_dataflow`, `get_structure`, `get_constants`, `generate_python`, `generate_documents`, and `analyze`.
 
 ## Architecture Overview
 
@@ -121,7 +121,7 @@ ParsedVI (BlockDiagram, FrontPanel, Metadata)
      v  graph/ (NetworkX multi-digraph)
 InMemoryVIGraph (operations, terminals, wires, types)
      |
-     +-> agent/codegen/ (deterministic AST-based)
+     +-> codegen/ (deterministic AST-based)
      |        |
      |        v
      |   Python Code
@@ -280,7 +280,7 @@ lvpy generate <vi> -o dir           # Deterministic AST code generation
 lvpy describe <vi>                  # Human-readable VI description
 lvpy docs <vi> <output_dir>         # Generate HTML documentation
 lvpy diff <vi_a> <vi_b>             # Compare two VI versions
-lvpy visualize <vi> -o graph.html   # Interactive graph visualization
+lvpy visualize <vi> -o graph.html   # Flowchart (--format interactive needs: pip install pyvis)
 lvpy agent <vi> -o dir              # Full conversion with LLM validation loop
 lvpy explore [dir]                  # NiceGUI project explorer
 lvpy structure <path>               # Analyze .lvlib/.lvclass structure
@@ -296,7 +296,7 @@ When running `lvpy mcp`, these tools are available:
 
 | Tool | Description |
 |------|-------------|
-| `analyze_vi` | Parse and describe VI structure |
+| `analyze` | Parse and describe VI structure |
 | `generate_documents` | Create HTML docs for VIs/libraries |
 | `generate_python` | AST code generation |
 
@@ -304,11 +304,11 @@ When running `lvpy mcp`, these tools are available:
 
 | Tool | Description |
 |------|-------------|
-| `load_vi` | Load VI into in-memory graph |
-| `list_loaded_vis` | List loaded VIs |
-| `get_vi_context` | Get full VI context (inputs, outputs, operations, wires) |
+| `load` | Load VI into in-memory graph |
+| `list_loaded` | List loaded VIs |
+| `get_context` | Get full VI context (inputs, outputs, operations, wires) |
 | `generate_ast_code` | Generate code from loaded VI |
-| `describe_vi` | Human-readable VI description |
+| `describe` | Human-readable VI description |
 | `get_operations` | List operations in a VI |
 | `get_dataflow` | Show wire connections |
 | `get_structure` | Inspect a structure node (loop, case, sequence) |
