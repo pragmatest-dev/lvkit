@@ -26,7 +26,6 @@ from lvpy.constants import (
 from lvpy.extractor import extract_vi_xml
 from lvpy.models import LVType
 
-from ..type_defaults import get_default_for_type
 from .flags import is_indicator, is_output_terminal
 from .front_panel import (
     _lvtype_to_parsed,
@@ -659,55 +658,30 @@ def _extract_subvi_info(
                 continue
             seen_deps.add(key)
             name = qname.rsplit(":", 1)[-1]
-            is_vilib = path_tokens[0] == "<vilib>"
-            is_userlib = path_tokens[0] == "<userlib>"
             dependency_refs.append(ParsedDependencyRef(
                 name=name,
                 path_tokens=path_tokens,
-                is_vilib=is_vilib,
-                is_userlib=is_userlib,
                 qualified_name=qname,
             ))
 
     # --- SubVI qualified names (for the dep loading loop in graph/loading.py) ---
     # Unchanged: VIVI, VIPI, DyOM, VIPV contribute qnames to be loaded.
-    for vivi in main_root.findall(".//LIvi//VIVI"):
-        qname = _resolve_qualified_name(vivi, caller_library)
-        if qname:
-            subvi_qualified_names.append(qname)
-
-    for vipi in main_root.findall(".//LIvi//VIPI"):
-        qname = _resolve_qualified_name(vipi, caller_library)
-        if qname:
-            subvi_qualified_names.append(qname)
-
-    for dyom in main_root.findall(".//LIvi//DyOM"):
-        qname = _resolve_qualified_name(dyom, caller_library)
-        if qname:
-            subvi_qualified_names.append(qname)
-
-    for vipv in main_root.findall(".//LIvi//VIPV"):
-        qname = _resolve_qualified_name(vipv, caller_library)
-        if qname:
-            subvi_qualified_names.append(qname)
+    for tag in ("VIVI", "VIPI", "DyOM", "VIPV"):
+        for elem in main_root.findall(f".//LIvi//{tag}"):
+            qname = _resolve_qualified_name(elem, caller_library)
+            if qname:
+                subvi_qualified_names.append(qname)
 
     # --- iUse UID → qualified name from BDHP section ---
     # PUPV first (polymorphic wrapper), IUVI overwrites (resolved variant).
-    for pupv in main_root.findall(".//LIbd//BDHP/PUPV"):
-        qname = _resolve_qualified_name(pupv, caller_library)
-        if qname:
-            for offset_elem in pupv.findall("LinkOffsetList/Offset"):
-                if offset_elem.text:
-                    uid = str(int(offset_elem.text, 16))
-                    iuse_to_qualified_name[uid] = qname
-
-    for iuvi in main_root.findall(".//LIbd//BDHP/IUVI"):
-        qname = _resolve_qualified_name(iuvi, caller_library)
-        if qname:
-            for offset_elem in iuvi.findall("LinkOffsetList/Offset"):
-                if offset_elem.text:
-                    uid = str(int(offset_elem.text, 16))
-                    iuse_to_qualified_name[uid] = qname
+    for tag in ("PUPV", "IUVI"):
+        for elem in main_root.findall(f".//LIbd//BDHP/{tag}"):
+            qname = _resolve_qualified_name(elem, caller_library)
+            if qname:
+                for offset_elem in elem.findall("LinkOffsetList/Offset"):
+                    if offset_elem.text:
+                        uid = str(int(offset_elem.text, 16))
+                        iuse_to_qualified_name[uid] = qname
 
     return subvi_qualified_names, iuse_to_qualified_name, dependency_refs
 
@@ -907,75 +881,6 @@ def _decode_numeric_default(data: bytes) -> str | None:
     except (ValueError,):
         pass
     return None
-
-
-def _decode_array_default(data: bytes, lv_type: LVType) -> str | None:
-    """Decode an array default value from DefaultData bytes.
-
-    Format: 4-byte length + elements (each element encoded by type)
-    """
-    if len(data) < 4:
-        return None
-
-    try:
-        # Get array length
-        array_len = int.from_bytes(data[:4], 'big')
-        if array_len == 0:
-            return "[]"
-
-        # Get element type
-        elem_type = lv_type.element_type
-        if not elem_type:
-            return None
-
-        elements = []
-        idx = 4
-
-        for _ in range(array_len):
-            if idx >= len(data):
-                break
-
-            elem_val, bytes_consumed = _decode_element(data[idx:], elem_type)
-            if elem_val is None:
-                return None
-
-            elements.append(elem_val)
-            idx += bytes_consumed
-
-        return "[" + ", ".join(elements) + "]"
-    except (ValueError, IndexError):
-        return None
-
-
-def _decode_cluster_default(data: bytes, lv_type: LVType) -> str | None:
-    """Decode a cluster default value from DefaultData bytes.
-
-    Format: sequential fields encoded by their respective types
-    """
-    if not lv_type.fields:
-        return None
-
-    try:
-        field_values = {}
-        idx = 0
-
-        for field in lv_type.fields:
-            if idx >= len(data):
-                break
-
-            field_val, bytes_consumed = _decode_element(data[idx:], field.type)
-            if field_val is None:
-                # Use type default for this field
-                field_val = get_default_for_type(field.type)
-
-            field_values[field.name] = field_val
-            idx += bytes_consumed
-
-        # Format as dict literal
-        items = [f"'{k}': {v}" for k, v in field_values.items()]
-        return "{" + ", ".join(items) + "}"
-    except (ValueError, IndexError):
-        return None
 
 
 def _decode_element(data: bytes, elem_type: LVType | None) -> tuple[str | None, int]:

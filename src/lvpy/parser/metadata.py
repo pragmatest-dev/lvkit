@@ -160,16 +160,20 @@ def parse_polymorphic_info(root: ET.Element) -> dict[str, Any]:
 
 
 def parse_subvi_paths(xml_path: Path | str) -> list[ParsedDependencyRef]:
-    """Parse dependency path references from the main VI XML.
+    """Parse dependency path references from the main VI XML (VIVI only).
 
-    The LIvi section contains link elements with LinkSavePathRef that
-    specify where to find dependencies relative to the caller.
+    .. deprecated::
+        This function only walks VIVI elements and is retained for test
+        introspection.  Production code should use ``parse_vi()`` which
+        calls ``_extract_subvi_info`` and returns the full
+        ``ParsedVIMetadata.dependency_refs`` list (covering all LIvi link
+        element types: VIVI, VIPI, VILB, FPPI, DDPI, VICC, etc.).
 
     Args:
         xml_path: Path to the main .xml file (not BDHb)
 
     Returns:
-        List of ParsedDependencyRef with path hints for each dependency
+        List of ParsedDependencyRef with path hints for each VIVI dependency
     """
     tree = ET.parse(xml_path)
     root = tree.getroot()
@@ -206,14 +210,9 @@ def parse_subvi_paths(xml_path: Path | str) -> list[ParsedDependencyRef]:
             continue
         seen.add(key)
 
-        is_vilib = path_tokens[0] == "<vilib>"
-        is_userlib = path_tokens[0] == "<userlib>"
-
         refs.append(ParsedDependencyRef(
             name=name,
             path_tokens=path_tokens,
-            is_vilib=is_vilib,
-            is_userlib=is_userlib,
             qualified_name=qualified_name,
         ))
 

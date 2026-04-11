@@ -305,10 +305,9 @@ class TestSubVIPathRef:
         ref = ParsedSubVIPathRef(
             name="File Exists.vi",
             path_tokens=["<vilib>", "Utility", "file.llb", "File Exists.vi"],
-            is_vilib=True,
         )
         assert ref.name == "File Exists.vi"
-        assert ref.is_vilib is True
+        assert ref.path_tokens[0] == "<vilib>"
         assert ref.get_relative_path() == "Utility/file.llb/File Exists.vi"
 
     def test_userlib_path_ref(self):
@@ -316,9 +315,8 @@ class TestSubVIPathRef:
         ref = ParsedSubVIPathRef(
             name="MyHelper.vi",
             path_tokens=["<userlib>", "MyLib", "MyHelper.vi"],
-            is_userlib=True,
         )
-        assert ref.is_userlib is True
+        assert ref.path_tokens[0] == "<userlib>"
         assert ref.get_relative_path() == "MyLib/MyHelper.vi"
 
     def test_local_path_ref(self):
@@ -327,8 +325,7 @@ class TestSubVIPathRef:
             name="Local.vi",
             path_tokens=["SubFolder", "Local.vi"],
         )
-        assert ref.is_vilib is False
-        assert ref.is_userlib is False
+        assert ref.path_tokens[0] not in ("<vilib>", "<userlib>")
         assert ref.get_relative_path() == "SubFolder/Local.vi"
 
 
@@ -661,8 +658,7 @@ class TestParseSubviPaths:
         assert len(refs) == 1
         ref = refs[0]
         assert ref.name == "File Exists.vi"
-        assert ref.is_vilib is True
-        assert ref.is_userlib is False
+        assert ref.path_tokens[0] == "<vilib>"
 
     def test_parse_userlib_subvi(self, tmp_path: Path):
         """Test parsing a user.lib SubVI reference."""
@@ -688,8 +684,7 @@ class TestParseSubviPaths:
         assert len(refs) == 1
         ref = refs[0]
         assert ref.name == "MyHelper__ogtk.vi"
-        assert ref.is_vilib is False
-        assert ref.is_userlib is True
+        assert ref.path_tokens[0] == "<userlib>"
 
 
 class TestParseViMetadata:

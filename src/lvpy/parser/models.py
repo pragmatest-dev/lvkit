@@ -191,12 +191,17 @@ class ParsedDependencyRef:
     """
     name: str  # Leaf filename, e.g., "TestCase.lvclass" or "listTestMethods.vi"
     path_tokens: list[str]  # Raw path tokens from LinkSavePathRef/String
-    is_vilib: bool = False  # True if first token is "<vilib>"
-    is_userlib: bool = False  # True if first token is "<userlib>"
     qualified_name: str | None = None  # e.g., "TestCase.lvclass:TestCase_Init.vi"
 
     def get_relative_path(self) -> str:
-        """Get the relative path under vilib/userlib (display only)."""
+        """Get a display string for the path tokens (display only).
+
+        For vilib/userlib deps, returns the path relative to the library root.
+        For caller-relative deps, returns the raw token join (leading empty
+        strings appear as leading slashes — not a valid file path).
+
+        Use ``resolve_against()`` for actual path resolution.
+        """
         if self.path_tokens and self.path_tokens[0] in ("<vilib>", "<userlib>"):
             return "/".join(self.path_tokens[1:])
         return "/".join(self.path_tokens)
