@@ -12,8 +12,8 @@ from pathlib import Path
 
 from lvpy.docs.html_generator import HTMLDocGenerator
 from lvpy.docs.utils import generate_dependency_description
+from lvpy.graph import InMemoryVIGraph
 from lvpy.graph_types import CaseOperation, SequenceOperation
-from lvpy.memory_graph import InMemoryVIGraph
 from lvpy.structure import parse_lvclass, parse_lvlib
 
 # ---------------------------------------------------------------------------

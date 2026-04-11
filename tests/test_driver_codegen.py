@@ -14,8 +14,8 @@ from __future__ import annotations
 
 import ast
 
-from lvpy.agent.codegen.ast_optimizer import eliminate_dead_code
-from lvpy.agent.codegen.context import _format_constant
+from lvpy.codegen.ast_optimizer import eliminate_dead_code
+from lvpy.codegen.context import _format_constant
 from lvpy.graph_types import Constant, LVType
 
 # =============================================================
@@ -193,7 +193,7 @@ class TestPolyVariantExtraction:
 
     def test_poly_variant_parsed_from_vi(self):
         """In.vi's Create Virtual Channel should resolve to 'Digital Output'."""
-        from lvpy.memory_graph import connect
+        from lvpy.graph import connect
         mg = connect()
         mg.load_vi("samples/DAQmx-Digital-IO/In.vi")
 
@@ -205,7 +205,7 @@ class TestPolyVariantExtraction:
 
     def test_write_variant_parsed(self):
         """In.vi's Write should have a Digital Bool variant name."""
-        from lvpy.memory_graph import connect
+        from lvpy.graph import connect
         mg = connect()
         mg.load_vi("samples/DAQmx-Digital-IO/In.vi")
 
@@ -218,7 +218,7 @@ class TestPolyVariantExtraction:
 
     def test_non_poly_nodes_have_no_variant(self):
         """Non-polymorphic nodes should have poly_variant_name=None."""
-        from lvpy.memory_graph import connect
+        from lvpy.graph import connect
         mg = connect()
         mg.load_vi("samples/DAQmx-Digital-IO/In.vi")
 
@@ -282,8 +282,8 @@ class TestInViEndToEnd:
     """End-to-end test that In.vi generates correct Python."""
 
     def _build_in_vi(self):
-        from lvpy.agent.codegen.builder import build_module
-        from lvpy.memory_graph import connect
+        from lvpy.codegen.builder import build_module
+        from lvpy.graph import connect
 
         mg = connect()
         mg.load_vi("samples/DAQmx-Digital-IO/In.vi")

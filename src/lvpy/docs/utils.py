@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from ..graph import InMemoryVIGraph
 from ..graph_types import VIContext
-from ..memory_graph import InMemoryVIGraph
 from ..vilib_resolver import get_resolver as get_vilib_resolver
 
 

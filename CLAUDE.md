@@ -10,7 +10,7 @@ lvpy converts LabVIEW VI files to Python code without requiring a LabVIEW licens
 
 ```bash
 # Install with dev dependencies
-pip install -e ".[dev]"
+uv sync
 
 # Run all tests
 pytest
@@ -22,7 +22,7 @@ pytest tests/test_lvpy.py::test_version
 ruff check .
 
 # Type check
-mypy src/
+python -m pyright src/lvpy/
 ```
 
 ## Architecture

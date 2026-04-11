@@ -4,7 +4,7 @@ Architecture:
 - parse_vi() is the single entry point
 - Returns ParsedVI containing all components
 - Pure XML extraction, no external lookups
-- Resolution/enrichment happens in memory_graph.py
+- Resolution/enrichment happens in lvpy.graph (InMemoryVIGraph)
 """
 
 from __future__ import annotations

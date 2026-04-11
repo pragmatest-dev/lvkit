@@ -6,8 +6,9 @@ guessing instead of using the actual lv_type data on terminals and constants.
 
 from __future__ import annotations
 
-from lvpy.agent.codegen.context import CodeGenContext, _format_constant
-from lvpy.agent.codegen.nodes import loop, primitive
+from lvpy.codegen.context import CodeGenContext, _format_constant
+from lvpy.codegen.nodes import loop, primitive
+from lvpy.graph import InMemoryVIGraph
 from lvpy.graph_types import (
     ClusterField,
     Constant,
@@ -15,7 +16,6 @@ from lvpy.graph_types import (
     Terminal,
     WireEnd,
 )
-from lvpy.memory_graph import InMemoryVIGraph
 from lvpy.primitive_resolver import _collect_imports
 from tests.helpers import make_node
 

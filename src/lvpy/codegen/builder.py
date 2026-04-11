@@ -7,8 +7,8 @@ import warnings
 from collections import deque
 from collections.abc import Callable
 
+from lvpy.graph import InMemoryVIGraph
 from lvpy.graph_types import Operation, Terminal, VIContext
-from lvpy.memory_graph import InMemoryVIGraph
 
 from .ast_optimizer import optimize_module
 from .ast_utils import parse_expr, to_function_name, to_var_name
@@ -282,7 +282,6 @@ def _generate_parallel_tier(
             body=body,
             decorator_list=[],
             returns=None,
-            type_params=[],
         )
         inner_stmts.append(func_def)
 
@@ -635,7 +634,6 @@ def build_result_class(vi_context: VIContext) -> ast.ClassDef | None:
         keywords=[],
         body=class_body,
         decorator_list=[],
-        type_params=[],
     )
 
 
@@ -664,7 +662,6 @@ def build_function_def(
         body=body,
         decorator_list=[],
         returns=returns,
-        type_params=[],
     )
 
 

@@ -2,7 +2,7 @@
 
 import ast
 
-from lvpy.agent.codegen.ast_optimizer import (
+from lvpy.codegen.ast_optimizer import (
     DeadCodeEliminator,
     eliminate_dead_code,
     remove_unused_imports,

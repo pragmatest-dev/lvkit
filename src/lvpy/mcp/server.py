@@ -1,8 +1,8 @@
 """MCP server for VI analysis tools.
 
 Supports two modes:
-1. Stateless tools (analyze_vi, generate_documents, generate_python) - subprocess-based
-2. Stateful graph tools (load_vi, get_vi_context, etc.) - graph persists across calls
+1. Stateless tools (analyze, generate_documents, generate_python) - subprocess-based
+2. Stateful graph tools (load, get_context, etc.) - graph persists across calls
 """
 
 from __future__ import annotations
@@ -17,7 +17,8 @@ from mcp.server.stdio import stdio_server
 from mcp.types import TextContent, Tool
 
 from .. import primitive_resolver, vilib_resolver
-from ..agent.codegen import build_module
+from ..codegen import build_module
+from ..graph import InMemoryVIGraph
 from ..graph.describe import (
     describe_constants as describe_constants_text,
 )
@@ -33,7 +34,6 @@ from ..graph.describe import (
 from ..graph.describe import (
     describe_vi as describe_vi_text,
 )
-from ..memory_graph import InMemoryVIGraph
 from ..project_store import find_project_store
 from .tools import analyze_vi, generate_documents, generate_python
 
@@ -75,7 +75,7 @@ async def list_tools() -> list[Tool]:
     """List available tools."""
     return [
         Tool(
-            name="analyze_vi",
+            name="analyze",
             description=(
                 "Analyze a LabVIEW VI file and describe what it does. "
                 "Returns JSON with VI structure "
@@ -243,7 +243,7 @@ async def list_tools() -> list[Tool]:
         ),
         # ===== Stateful Graph Tools =====
         Tool(
-            name="load_vi",
+            name="load",
             description=(
                 "Load a VI into the in-memory graph. "
                 "The graph persists across tool calls.\n\n"
@@ -275,7 +275,7 @@ async def list_tools() -> list[Tool]:
             },
         ),
         Tool(
-            name="list_loaded_vis",
+            name="list_loaded",
             description="List all VIs currently loaded in the graph.",
             inputSchema={
                 "type": "object",
@@ -283,7 +283,7 @@ async def list_tools() -> list[Tool]:
             },
         ),
         Tool(
-            name="get_vi_context",
+            name="get_context",
             description=(
                 "Get the full context for a loaded VI including inputs, outputs, "
                 "operations, wires, and constants. Use after load_vi."
@@ -321,7 +321,7 @@ async def list_tools() -> list[Tool]:
         ),
         # ===== Graph Exploration Tools (LLM-readable) =====
         Tool(
-            name="describe_vi",
+            name="describe",
             description=(
                 "Describe a loaded VI's purpose, signature, and structure "
                 "in human-readable text.\n\n"
@@ -439,7 +439,7 @@ async def list_tools() -> list[Tool]:
 @app.call_tool()
 async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
     """Handle tool calls."""
-    if name == "analyze_vi":
+    if name == "analyze":
         vi_path = arguments.get("vi_path")
         search_paths = arguments.get("search_paths", [])
         expand_subvis = arguments.get("expand_subvis", True)
@@ -504,7 +504,7 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
 
     # ===== Stateful Graph Tools =====
 
-    elif name == "load_vi":
+    elif name == "load":
         vi_path = arguments.get("vi_path")
         search_paths = arguments.get("search_paths", [])
         expand_subvis = arguments.get("expand_subvis", True)
@@ -529,14 +529,14 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
             TextContent(type="text", text=json.dumps({"loaded_vis": loaded}, indent=2))
         ]
 
-    elif name == "list_loaded_vis":
+    elif name == "list_loaded":
         graph = _get_graph()
         vis = list(graph.list_vis())
         return [
             TextContent(type="text", text=json.dumps({"loaded_vis": vis}, indent=2))
         ]
 
-    elif name == "get_vi_context":
+    elif name == "get_context":
         vi_name = arguments.get("vi_name")
         if not vi_name:
             raise ValueError("vi_name is required")
@@ -575,7 +575,7 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
 
     # ===== Graph Exploration Tools =====
 
-    elif name == "describe_vi":
+    elif name == "describe":
         vi_name = arguments.get("vi_name")
         if not vi_name:
             raise ValueError("vi_name is required")

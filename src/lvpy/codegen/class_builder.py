@@ -6,8 +6,8 @@ import ast
 from collections.abc import Callable
 from dataclasses import dataclass
 
+from lvpy.graph import InMemoryVIGraph
 from lvpy.graph_types import Terminal, VIContext
-from lvpy.memory_graph import InMemoryVIGraph
 from lvpy.structure import LVClass, LVMethod
 from lvpy.type_defaults import _is_class_refnum
 
@@ -241,7 +241,6 @@ class ClassBuilder:
             keywords=[],
             body=body,
             decorator_list=[],
-            type_params=[],
         )
 
     def _build_init(
@@ -331,7 +330,6 @@ class ClassBuilder:
             body=body,
             decorator_list=[],
             returns=ast.Constant(value=None),
-            type_params=[],
         )
 
     def _get_default_for_type(self, python_type: str) -> ast.expr:
@@ -473,7 +471,6 @@ class ClassBuilder:
                     body=getter_body,
                     decorator_list=[ast.Name(id="property", ctx=ast.Load())],
                     returns=ast.Name(id="Any", ctx=ast.Load()),
-                    type_params=[],
                 )
                 property_stmts.append(getter_def)
 
@@ -518,7 +515,6 @@ class ClassBuilder:
                         )
                     ],
                     returns=ast.Constant(value=None),
-                    type_params=[],
                 )
                 property_stmts.append(setter_def)
 
@@ -572,7 +568,6 @@ class ClassBuilder:
             body=body,
             decorator_list=[ast.Name(id="staticmethod", ctx=ast.Load())],
             returns=returns,
-            type_params=[],
         )
 
     def _build_instance_method(
@@ -649,7 +644,6 @@ class ClassBuilder:
             body=body,
             decorator_list=[],
             returns=returns,
-            type_params=[],
         )
 
     def _transform_instance_to_self(

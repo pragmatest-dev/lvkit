@@ -53,12 +53,8 @@ lvpy-mcp = "lvpy.mcp.server:main"
 dev = [
     "pytest",
     "ruff",
-    "mypy",
     "pyright",
     "pre-commit",
-]
-neo4j = [
-    "neo4j",
 ]
 
 [tool.hatch.build.targets.wheel]
@@ -93,10 +89,6 @@ target-version = "py310"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP"]
-
-[tool.mypy]
-python_version = "3.10"
-strict = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

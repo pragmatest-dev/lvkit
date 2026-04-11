@@ -6,13 +6,13 @@ with a proper graph (required since bind/resolve store var_names on the graph).
 
 from __future__ import annotations
 
-from lvpy.agent.codegen.context import CodeGenContext
+from lvpy.codegen.context import CodeGenContext
+from lvpy.graph import InMemoryVIGraph
 from lvpy.graph_types import (
     PrimitiveNode,
     Terminal,
     WireEnd,
 )
-from lvpy.memory_graph import InMemoryVIGraph
 
 
 def make_node(node_id: str, terminal_ids: list[str]) -> PrimitiveNode:

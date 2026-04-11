@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from lvpy.agent.codegen.context import CodeGenContext
+from lvpy.codegen.context import CodeGenContext
 
 from .helpers import make_ctx, make_graph_with_terminals
 

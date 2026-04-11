@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import ast
 
-from lvpy.agent.codegen.context import CodeGenContext
-from lvpy.agent.codegen.nodes import compound
+from lvpy.codegen.context import CodeGenContext
+from lvpy.codegen.nodes import compound
 from lvpy.graph_types import Operation, PrimitiveOperation, Terminal
 from tests.helpers import make_ctx
 
