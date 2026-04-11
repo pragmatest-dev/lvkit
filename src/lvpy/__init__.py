@@ -2,7 +2,6 @@
 
 __version__ = "0.1.0"
 
-from .graph.describe import summarize_vi
 from .graph_types import (
     Constant as GraphConstant,
 )
@@ -61,5 +60,4 @@ __all__ = [
     "Tunnel",
     "GraphConstant",
     "GraphWire",
-    "summarize_vi",
 ]
