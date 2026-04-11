@@ -7,7 +7,7 @@ The decoded_value is a human-readable string representation.
 
 from __future__ import annotations
 
-from lvpy.blockdiagram import decode_constant
+from lvpy.graph.construction import decode_constant
 from lvpy.graph_types import ClusterField, LVType
 from lvpy.parser.models import Constant
 

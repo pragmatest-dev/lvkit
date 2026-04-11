@@ -1,14 +1,20 @@
-"""Format graph data as human-readable text for LLM consumption.
+"""Format graph data as human-readable text.
 
-These functions take graph query results and produce structured text
-that an LLM can read and reason about — not JSON dumps, not code,
-but narrative descriptions of what a VI does.
+Provides two levels of VI description:
+
+- ``summarize_vi()`` — raw-XML-level text summary; works without a loaded graph.
+  Used by the CLI ``summarize`` command.
+- ``describe_vi()`` and friends — graph-level descriptions using a loaded
+  ``InMemoryVIGraph``; used by the MCP server and CLI ``describe`` command.
 """
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from collections.abc import Mapping
+from pathlib import Path
+from typing import TYPE_CHECKING, Any
 
+from ..constants import SYSTEM_DIR_TYPES
 from ..graph_types import (
     CaseOperation,
     Constant,
@@ -21,6 +27,7 @@ from ..graph_types import (
 from ..vilib_resolver import get_resolver as _get_vilib_resolver
 
 if TYPE_CHECKING:
+    from ..parser.models import Constant as ParsedConstant
     from .core import InMemoryVIGraph
 
 
@@ -493,3 +500,151 @@ def _describe_sequence(
         lines.append(f"  Operations: {len(op.inner_nodes)}")
         for inner in op.inner_nodes:
             lines.append(f"    - {_describe_single_op(inner)}")
+
+
+# ============================================================
+# Raw-XML-level summary (no graph required)
+# ============================================================
+
+
+def summarize_vi(
+    bd_xml_path: Path | str, main_xml_path: Path | str | None = None
+) -> str:
+    """Generate a human-readable summary of a VI's structure.
+
+    Works at the parser level — does not require a loaded graph.
+    Used by the CLI ``summarize`` command.
+
+    Args:
+        bd_xml_path: Path to the block diagram XML (*_BDHb.xml)
+        main_xml_path: Path to the main VI XML (optional, for metadata)
+    """
+    from ..parser import parse_vi
+    from ..parser.node_types import PrimitiveNode
+    from .construction import decode_constant
+
+    bd_xml_path = Path(bd_xml_path)
+    vi = parse_vi(bd_xml=bd_xml_path, main_xml=main_xml_path)
+    bd = vi.block_diagram
+    metadata = vi.metadata
+
+    vi_name = metadata.qualified_name or bd_xml_path.stem.replace("_BDHb", "")
+    subvi_refs = metadata.subvi_qualified_names
+
+    lines = [f'LabVIEW VI: "{vi_name}"', ""]
+
+    uid_to_node = {node.uid: node for node in bd.nodes}
+    uid_to_const = {const.uid: const for const in bd.constants}
+
+    lines.append("OPERATIONS:")
+    node_refs: dict[str, str] = {}
+    for i, node in enumerate(bd.nodes, 1):
+        ref = f"[{i}]"
+        node_refs[node.uid] = ref
+
+        if node.node_type == "iUse":
+            lines.append(f'  {ref} SubVI: "{node.name}"')
+        elif node.node_type == "prim" and isinstance(node, PrimitiveNode):
+            type_info = ""
+            if node.input_types or node.output_types:
+                inputs = ", ".join(node.input_types) if node.input_types else "none"
+                outputs = ", ".join(node.output_types) if node.output_types else "none"
+                type_info = f" (inputs: [{inputs}], outputs: [{outputs}])"
+            lines.append(f"  {ref} Primitive #{node.prim_res_id}{type_info}")
+        elif node.node_type == "whileLoop":
+            lines.append(f"  {ref} While Loop: while condition:")
+        elif node.node_type == "forLoop":
+            lines.append(f"  {ref} For Loop: for i in range(n):")
+        elif node.node_type == "select":
+            lines.append(f"  {ref} Case/Select: if/elif/else structure")
+        elif node.node_type == "propNode":
+            lines.append(f'  {ref} Property Node: "{node.name}"')
+        elif node.node_type in ("seq", "caseStruct", "eventStruct"):
+            lines.append(f"  {ref} {node.node_type}")
+
+    if bd.constants:
+        lines.append("")
+        lines.append("CONSTANTS:")
+        for const in bd.constants:
+            const_ref = f"const_{const.uid}"
+            node_refs[const.uid] = const_ref
+            enum_label = _summarize_enum_label(const, bd.enum_labels)
+            if enum_label:
+                lines.append(f"  - {const_ref}: {enum_label}")
+            else:
+                val_type, val = decode_constant(const)
+                if const.label:
+                    lines.append(f"  - {const_ref} ({const.label}): {val} ({val_type})")
+                else:
+                    lines.append(f"  - {const_ref}: {val} ({val_type})")
+
+    lines.append("")
+    lines.append("DATA FLOW:")
+    for wire in bd.wires:
+        from_parent = bd.term_to_parent.get(wire.from_term, wire.from_term)
+        to_parent = bd.term_to_parent.get(wire.to_term, wire.to_term)
+        from_desc = _summarize_terminal(
+            from_parent, node_refs, uid_to_node, uid_to_const
+        )
+        to_desc = _summarize_terminal(
+            to_parent, node_refs, uid_to_node, uid_to_const
+        )
+        lines.append(f"  {from_desc} -> {to_desc}")
+
+    if subvi_refs:
+        lines.append("")
+        lines.append("DEPENDENCIES (SubVIs called):")
+        for ref in subvi_refs:
+            lines.append(f"  - {ref}")
+
+    return "\n".join(lines)
+
+
+def _summarize_enum_label(
+    const: ParsedConstant, enum_labels: dict[str, list[str]]
+) -> str | None:
+    """Get the label for an enum constant value."""
+    try:
+        if len(const.value) == 8:
+            int_val = int(const.value, 16)
+            if const.uid in enum_labels:
+                labels = enum_labels[const.uid]
+                if 0 <= int_val < len(labels):
+                    return f"{labels[int_val]} (enum value {int_val})"
+            label_lower = (const.label or "").lower()
+            if "system directory" in label_lower or int_val in SYSTEM_DIR_TYPES:
+                dir_info = SYSTEM_DIR_TYPES.get(int_val)
+                if dir_info:
+                    name, win_env, unix_path = dir_info
+                    return (
+                        f"{name} (type {int_val}) -> Python:"
+                        f" os.environ['{win_env}'] on Windows,"
+                        f" '{unix_path}' on Unix"
+                    )
+    except (ValueError, TypeError):
+        pass
+    return None
+
+
+def _summarize_terminal(
+    parent_uid: str,
+    node_refs: dict[str, str],
+    uid_to_node: Mapping[str, Any],
+    uid_to_const: Mapping[str, Any],
+) -> str:
+    """Create a human-readable description of a terminal for summarize_vi."""
+    if parent_uid in node_refs:
+        return node_refs[parent_uid]
+    if parent_uid in uid_to_node:
+        node = uid_to_node[parent_uid]
+        node_type = getattr(node, "node_type", None)
+        name = getattr(node, "name", None)
+        prim_res_id = getattr(node, "prim_res_id", None)
+        if node_type == "iUse" and name:
+            return f'"{name}"'
+        if node_type == "prim" and prim_res_id:
+            return f"prim#{prim_res_id}"
+        return f"node_{parent_uid}"
+    if parent_uid in uid_to_const:
+        return f"const_{parent_uid}"
+    return f"term_{parent_uid}"

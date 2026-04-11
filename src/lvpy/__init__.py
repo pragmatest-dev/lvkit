@@ -2,7 +2,7 @@
 
 __version__ = "0.1.0"
 
-from .blockdiagram import summarize_vi
+from .graph.describe import summarize_vi
 from .graph_types import (
     Constant as GraphConstant,
 )
