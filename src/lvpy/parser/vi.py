@@ -33,6 +33,7 @@ from .front_panel import (
     extract_fp_terminals,
     parse_connector_pane,
 )
+from .metadata import parse_iuse_from_libd
 from .models import (
     ParsedBlockDiagram,
     ParsedConstant,
@@ -181,6 +182,14 @@ def _parse_metadata(
         iuse_to_qualified_name,
         subvi_path_refs,
     ) = _extract_subvi_info(main_root, qualified_name)
+
+    # Fallback for older VIs (pre-LV9): pylabview cannot parse their LIbd
+    # section, so BDHP/IUVI elements are absent from the XML. Read the raw
+    # _LIbd.bin binary directly to recover the iUse UID → qualified name map.
+    if not iuse_to_qualified_name:
+        libd_bin = main_xml.with_name(main_xml.stem + "_LIbd.bin")
+        if libd_bin.exists():
+            iuse_to_qualified_name = parse_iuse_from_libd(libd_bin)
 
     # Parse type map
     type_map = parse_type_map_rich(main_xml)

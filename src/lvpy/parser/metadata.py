@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import re
+import struct
 import xml.etree.ElementTree as ET
 from pathlib import Path
 from typing import Any
@@ -215,3 +217,74 @@ def parse_subvi_paths(xml_path: Path | str) -> list[ParsedSubVIPathRef]:
         ))
 
     return refs
+
+
+def parse_iuse_from_libd(libd_path: Path) -> dict[str, str]:
+    """Parse iUse UID → qualified VI name from a _LIbd.bin binary.
+
+    Fallback for older LabVIEW VIs (pre-LV9) whose main XML does not contain
+    decoded BDHP/IUVI elements. pylabview fails to parse these with:
+      "LinkObjIUseToVILink 'IUVI' contains path data of unrecognized class"
+
+    Each IUVI record in the binary has:
+      IUVI [4 bytes] \\x00\\x02 [pascal class_name] [pascal vi_name]
+           [PTH0 path-to-VI] [...] \\x00\\x00\\x00\\x01 [4-byte iUse UID]
+           [PTH0 path-to-class]
+
+    Both names are pascal strings: 1-byte length prefix + data (mac_roman).
+    The \\x00\\x02 is a 2-item count sentinel that appears within the first
+    8 bytes after the IUVI tag.
+    """
+    try:
+        data = libd_path.read_bytes()
+    except OSError:
+        return {}
+
+    result: dict[str, str] = {}
+
+    for m in re.finditer(b"IUVI", data):
+        pos = m.end()
+        record_end = min(pos + 512, len(data))
+
+        # Scan the first 8 bytes after IUVI for \x00\x02 (count = 2 strings)
+        count_offset = None
+        for i in range(pos, min(pos + 8, record_end - 1)):
+            if data[i] == 0x00 and data[i + 1] == 0x02:
+                count_offset = i + 2  # skip \x00\x02, point to first pascal string
+                break
+        if count_offset is None:
+            continue
+
+        # Pascal string 1: class/library name (e.g. "TestCase.lvclass")
+        p = count_offset
+        if p >= record_end:
+            continue
+        class_len = data[p]
+        p += 1
+        if p + class_len > record_end:
+            continue
+        class_name = data[p : p + class_len].decode("mac_roman", errors="replace")
+        p += class_len
+
+        # Pascal string 2: VI name (e.g. "TestCase_Init.vi")
+        if p >= record_end:
+            continue
+        vi_len = data[p]
+        p += 1
+        if p + vi_len > record_end or not vi_len:
+            continue
+        vi_name = data[p : p + vi_len].decode("mac_roman", errors="replace")
+
+        if not vi_name.endswith(".vi"):
+            continue  # sanity check — skip malformed records
+
+        qualified = f"{class_name}:{vi_name}"
+
+        # UID: the 4 bytes just before the second PTH0, preceded by \x00\x00\x00\x01
+        window = data[m.end() : record_end]
+        uid_m = re.search(b"\x00\x00\x00\x01(.{4})PTH0", window, re.DOTALL)
+        if uid_m:
+            uid = struct.unpack(">I", uid_m.group(1))[0]
+            result[str(uid)] = qualified
+
+    return result
