@@ -22,13 +22,14 @@ from .models import (
     ParsedConnectorPaneSlot,
     ParsedConstant,
     ParsedDefaultValue,
+    ParsedDependencyRef,
     ParsedFPControl,
     ParsedFPTerminal,
     ParsedFrontPanel,
     ParsedLoopStructure,
     ParsedNode,
     ParsedResolvedTypeDefValue,
-    ParsedSubVIPathRef,
+    ParsedSubVIPathRef,  # backward-compat alias for ParsedDependencyRef
     ParsedTerminalInfo,
     ParsedTypeDefRef,
     ParsedVI,
@@ -67,7 +68,8 @@ __all__ = [
     "ParsedLoopStructure",
     "ParsedNode",
     "ParsedResolvedTypeDefValue",
-    "ParsedSubVIPathRef",
+    "ParsedDependencyRef",
+    "ParsedSubVIPathRef",  # backward-compat alias
     "ParsedTerminalInfo",
     "Tunnel",
     "TunnelMapping",  # Backward compat alias for Tunnel

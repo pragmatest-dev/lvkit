@@ -1,7 +1,7 @@
 """Tests for type dependency loading (graph/loading.py).
 
-Covers _load_type_dependencies, _load_class_dep, _load_typedef_dep,
-_find_file — the paths that resolve class/typedef references in a VI's type_map.
+Covers _load_dependency, load_typedef, _find_file — the paths that resolve
+class/typedef references in a VI's type_map.
 """
 
 from __future__ import annotations
@@ -60,14 +60,15 @@ class TestLoadVIWithTypeDependencies:
 
 
 class TestEnsureTypeLoaded:
-    """_load_class_dep: load or stub a class dependency."""
+    """_load_dependency: load or stub a class dependency."""
 
     def test_stub_for_missing_class(self):
         graph = InMemoryVIGraph()
-        graph._load_class_dep(
+        graph._load_dependency(
             "NonExistent.lvclass",
-            search_paths=[],
-            caller_dir=Path("/nonexistent"),
+            None,
+            Path("/nonexistent/caller.vi"),
+            [],
         )
         assert graph._dep_graph.has_node("NonExistent.lvclass")
         assert "NonExistent.lvclass" in graph._stubs
@@ -77,20 +78,22 @@ class TestEnsureTypeLoaded:
         graph._dep_graph.add_node("Already.lvclass", node_type="class")
         initial_count = graph._dep_graph.number_of_nodes()
 
-        graph._load_class_dep(
+        graph._load_dependency(
             "Already.lvclass",
-            search_paths=[],
-            caller_dir=Path("/nonexistent"),
+            None,
+            Path("/nonexistent/caller.vi"),
+            [],
         )
         assert graph._dep_graph.number_of_nodes() == initial_count
 
     def test_qualified_name_extracts_leaf(self):
         """Qualified name extracts leaf for file search."""
         graph = InMemoryVIGraph()
-        graph._load_class_dep(
+        graph._load_dependency(
             "SomeLib.lvlib:Missing.lvclass",
-            search_paths=[],
-            caller_dir=Path("/nonexistent"),
+            None,
+            Path("/nonexistent/caller.vi"),
+            [],
         )
         # Should be stubbed under the full qualified name
         assert graph._dep_graph.has_node("SomeLib.lvlib:Missing.lvclass")
@@ -98,14 +101,15 @@ class TestEnsureTypeLoaded:
 
 
 class TestEnsureTypedefLoaded:
-    """_load_typedef_dep: load or stub a typedef dependency."""
+    """_load_dependency: load or stub a typedef dependency."""
 
     def test_stub_for_missing_typedef(self):
         graph = InMemoryVIGraph()
-        graph._load_typedef_dep(
+        graph._load_dependency(
             "Missing.ctl",
-            search_paths=[],
-            caller_dir=Path("/nonexistent"),
+            None,
+            Path("/nonexistent/caller.vi"),
+            [],
         )
         assert graph._dep_graph.has_node("Missing.ctl")
         assert "Missing.ctl" in graph._stubs
@@ -115,10 +119,11 @@ class TestEnsureTypedefLoaded:
         graph._dep_graph.add_node("Known.ctl", node_type="typedef")
         initial_count = graph._dep_graph.number_of_nodes()
 
-        graph._load_typedef_dep(
+        graph._load_dependency(
             "Known.ctl",
-            search_paths=[],
-            caller_dir=Path("/nonexistent"),
+            None,
+            Path("/nonexistent/caller.vi"),
+            [],
         )
         assert graph._dep_graph.number_of_nodes() == initial_count
 
