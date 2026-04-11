@@ -76,8 +76,8 @@ The graph layer is the source of truth. The codegen layer is built from it.
 | `src/lvpy/parser/vi.py` | XML→ParsedVI entry point |
 | `src/lvpy/parser/models.py` | Parser-layer data structures |
 | `src/lvpy/parser/type_mapping.py` | TypeID→LVType resolution |
-| `src/lvpy/agent/codegen/builder.py` | Code generation orchestration |
-| `src/lvpy/agent/codegen/context.py` | `CodeGenContext` — graph query wrapper |
+| `src/lvpy/codegen/builder.py` | Code generation orchestration |
+| `src/lvpy/codegen/context.py` | `CodeGenContext` — graph query wrapper |
 
 ---
 
