@@ -39,7 +39,8 @@ The conversion pipeline:
 
 - `src/lvpy/parser/` — XML → `ParsedVI` dataclasses (nodes, wires, constants, types)
 - `src/lvpy/graph/` — `InMemoryVIGraph`, graph construction, queries, operations
-- `src/lvpy/graph_types.py` — all type definitions (Pydantic graph nodes + dataclass codegen types)
+- `src/lvpy/models.py` — shared type definitions used by parser, graph, and codegen (`LVType`, `Operation`, `Frame`, `Terminal`, `Tunnel`, etc.)
+- `src/lvpy/graph/models.py` — graph/codegen-only types (`GraphNode` hierarchy, `VIContext`, `Wire`, query/info types, `BranchPoint`)
 - `src/lvpy/codegen/builder.py` — `build_module()` entry point for AST generation
 - `src/lvpy/pipeline.py` — orchestrates multi-VI generation
 - `src/lvpy/cli.py` — command-line interface
@@ -173,7 +174,7 @@ The "Wire types from dataflow" section shows what terminal indices the caller is
 - Ruff for linting (rules: E, F, I, UP)
 - mypy with strict mode for type checking
 - Line length: 88 characters
-- **Prefer dataclasses over dicts** - Use typed dataclasses from `graph_types.py` instead of raw dictionaries. Use attribute access (`obj.field`) not `.get("field")`
+- **Prefer dataclasses over dicts** - Use typed dataclasses from `models.py` or `graph/models.py` instead of raw dictionaries. Use attribute access (`obj.field`) not `.get("field")`
 
 ## Output Directory
 
