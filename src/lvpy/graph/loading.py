@@ -1,7 +1,8 @@
 """Loading mixin for InMemoryVIGraph.
 
 Methods: load_vi, load_lvclass, load_lvlib, load_lvproj, load_directory,
-_load_vi_recursive, _find_subvi, _resolve_class_vi_path.
+_load_vi_recursive, _load_type_dependencies, _load_class_dep, _load_typedef_dep,
+_find_subvi, _resolve_class_vi_path.
 """
 
 from __future__ import annotations
@@ -172,7 +173,7 @@ class LoadingMixin:
                 if member_name.lower().endswith(".ctl"):
                     # .ctl members are type definitions, not loadable VIs
                     typedef_qname = lib_qname + ":" + member_name
-                    self._ensure_typedef_loaded(
+                    self._load_typedef_dep(
                         typedef_qname, search_paths, lvlib_path.parent
                     )
                     if self._dep_graph.has_node(typedef_qname):
@@ -527,16 +528,16 @@ class LoadingMixin:
         for lv_type in type_map.values():
             # Class dependencies
             if lv_type.classname and lv_type.classname != "LabVIEW Object":
-                self._ensure_type_loaded(
+                self._load_class_dep(
                     lv_type.classname, search_paths, caller_dir,
                 )
             # Typedef dependencies
             if lv_type.typedef_name:
-                self._ensure_typedef_loaded(
+                self._load_typedef_dep(
                     lv_type.typedef_name, search_paths, caller_dir,
                 )
 
-    def _ensure_type_loaded(
+    def _load_class_dep(
         self,
         classname: str,
         search_paths: list[Path],
@@ -570,7 +571,7 @@ class LoadingMixin:
                 self._dep_graph.add_node(classname, node_type="class")
                 self._stubs.add(classname)
 
-    def _ensure_typedef_loaded(
+    def _load_typedef_dep(
         self,
         typedef_name: str,
         search_paths: list[Path],
