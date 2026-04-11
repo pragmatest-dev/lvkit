@@ -411,11 +411,13 @@ class ConstructionMixin:
                 if resolved_nt:
                     node_name = resolved_nt.name
 
-            # For older VIs, node_name may be "SubVI" (binary textRec not decoded by
-            # pylabview). Fall back to the iUse UID → qualified name map from LIbd.
+            # For older VIs, node_name may be a generic placeholder ("SubVI",
+            # "VI Refnum", etc.) because pylabview cannot decode binary textRec
+            # indices. Fall back to the iUse UID → qualified name map from LIbd.
             if node.node_type in ("iUse", "polyIUse", "dynIUse"):
                 iuse_resolved = (iuse_to_qname or {}).get(node.uid)
-                if iuse_resolved and (not node_name or node_name == "SubVI"):
+                _is_placeholder = not node_name or node_name == "SubVI"
+                if iuse_resolved and _is_placeholder:
                     node_name = iuse_resolved
 
             # Get description for SubVIs from vilib
