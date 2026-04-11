@@ -286,7 +286,7 @@ async def list_tools() -> list[Tool]:
             name="get_context",
             description=(
                 "Get the full context for a loaded VI including inputs, outputs, "
-                "operations, wires, and constants. Use after load_vi."
+                "operations, wires, and constants. Use after load."
             ),
             inputSchema={
                 "type": "object",
@@ -306,7 +306,7 @@ async def list_tools() -> list[Tool]:
                 "AST translation.\n\n"
                 "Always produces valid Python syntax. May have PRIMITIVE_xxx stubs for "
                 "unknown primitives that need manual implementation.\n\n"
-                "Use after load_vi to generate code for a specific VI."
+                "Use after load to generate code for a specific VI."
             ),
             inputSchema={
                 "type": "object",
@@ -350,7 +350,7 @@ async def list_tools() -> list[Tool]:
                 "Shows operations in execution order with nested structures "
                 "(case frames, loop bodies). Each operation shows what it "
                 "does, its inputs/outputs, and primitive ID if applicable.\n\n"
-                "Use after describe_vi to understand the detailed logic."
+                "Use after describe to understand the detailed logic."
             ),
             inputSchema={
                 "type": "object",
