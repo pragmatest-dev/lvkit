@@ -7,6 +7,7 @@ _find_subvi, _resolve_class_vi_path.
 
 from __future__ import annotations
 
+from dataclasses import replace as dc_replace
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -24,6 +25,7 @@ from ..parser import (
 )
 from ..parser.type_mapping import parse_type_map_rich
 from ..structure import (
+    LVPrivateDataField,
     get_project_classes,
     get_project_libraries,
     get_project_vis,
@@ -262,13 +264,16 @@ class LoadingMixin:
                 return LVType(kind="array", underlying_type=lv_type_name)
             return LVType(kind="primitive", underlying_type=lv_type_name)
 
-        fields = [
-            ClusterField(
-                name=f.name,
-                type=_field_to_lvtype(f.lv_type_name),
-            )
-            for f in cls.private_data_fields
-        ]
+        def _to_cluster_field(f: LVPrivateDataField) -> ClusterField:
+            lv_type = _field_to_lvtype(f.lv_type_name)
+            if f.sub_fields and lv_type is not None:
+                lv_type = dc_replace(
+                    lv_type,
+                    fields=[_to_cluster_field(sf) for sf in f.sub_fields],
+                )
+            return ClusterField(name=f.name, type=lv_type)
+
+        fields = [_to_cluster_field(f) for f in cls.private_data_fields]
         self._dep_graph.add_node(
             cls_qname,
             node_type="class",
