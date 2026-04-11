@@ -24,7 +24,7 @@ from lvpy.constants import (
     TERMINAL_CONTAINER_CLASSES,
 )
 from lvpy.extractor import extract_vi_xml
-from lvpy.graph_types import LVType
+from lvpy.models import LVType
 
 from ..type_defaults import get_default_for_type
 from .flags import is_indicator, is_output_terminal

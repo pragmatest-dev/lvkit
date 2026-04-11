@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
-from ..graph_types import ClusterField, LVType, Tunnel
+from ..models import ClusterField, LVType, Tunnel
 
 
 @dataclass
@@ -113,7 +113,7 @@ class ParsedLoopStructure:
     stop_condition_terminal_uid: str | None = None  # While loop stop (lTst)
 
 
-from ..graph_types import CaseFrame, SequenceFrame  # noqa: E402
+from ..models import CaseFrame, SequenceFrame  # noqa: E402
 
 
 @dataclass

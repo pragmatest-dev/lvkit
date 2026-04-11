@@ -9,26 +9,15 @@ from typing import TYPE_CHECKING, Any
 
 import networkx as nx
 
-from ..graph_types import (
-    AnyGraphNode,
+from ..models import (
     CaseFrame,
-    CaseStructureNode,
-    ConstantNode,
     FPTerminal,
-    LoopNode,
     LVType,
     PropertyDef,
     SequenceFrame,
-    SequenceNode,
-    StructureNode,
     Terminal,
     TunnelTerminal,
-    VINode,
-    WireEnd,
     control_type_to_lvtype,
-)
-from ..graph_types import (
-    PrimitiveNode as GraphPrimitiveNode,
 )
 from ..parser import (
     ParsedBlockDiagram,
@@ -50,6 +39,19 @@ from ..primitive_resolver import get_resolver as get_prim_resolver
 from ..primitive_resolver import resolve_primitive
 from ..type_defaults import get_default_for_type
 from ..vilib_resolver import get_resolver as get_vilib_resolver
+from .models import (
+    AnyGraphNode,
+    CaseStructureNode,
+    ConstantNode,
+    LoopNode,
+    SequenceNode,
+    StructureNode,
+    VINode,
+    WireEnd,
+)
+from .models import (
+    PrimitiveNode as GraphPrimitiveNode,
+)
 
 
 def decode_constant(

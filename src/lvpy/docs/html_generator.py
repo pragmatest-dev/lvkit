@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from lvpy.graph_types import (
+from lvpy.models import (
     CaseOperation,
     LoopOperation,
     PrimitiveOperation,

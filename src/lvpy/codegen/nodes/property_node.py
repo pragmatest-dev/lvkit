@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import ast
 
-from lvpy.graph_types import PropertyOperation
+from lvpy.models import PropertyOperation
 
 from ..ast_utils import build_assign, parse_expr, to_var_name
 from ..context import CodeGenContext

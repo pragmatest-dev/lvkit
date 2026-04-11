@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 
 from lvpy.graph import InMemoryVIGraph
-from lvpy.graph_types import ClusterField, LVType
+from lvpy.models import ClusterField, LVType
 
 SAMPLES = Path(__file__).resolve().parent.parent / "samples"
 TESTCASE_LVCLASS = (

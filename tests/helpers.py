@@ -8,11 +8,8 @@ from __future__ import annotations
 
 from lvpy.codegen.context import CodeGenContext
 from lvpy.graph import InMemoryVIGraph
-from lvpy.graph_types import (
-    PrimitiveNode,
-    Terminal,
-    WireEnd,
-)
+from lvpy.graph.models import PrimitiveNode, WireEnd
+from lvpy.models import Terminal
 
 
 def make_node(node_id: str, terminal_ids: list[str]) -> PrimitiveNode:

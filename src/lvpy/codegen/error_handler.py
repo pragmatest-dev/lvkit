@@ -48,12 +48,12 @@ import ast
 from enum import Enum, auto
 from typing import TYPE_CHECKING
 
-from lvpy.graph_types import (
+from lvpy.graph.models import VIContext
+from lvpy.models import (
     CaseOperation,
     Operation,
     PrimitiveOperation,
     SequenceOperation,
-    VIContext,
     _is_error_cluster,
 )
 

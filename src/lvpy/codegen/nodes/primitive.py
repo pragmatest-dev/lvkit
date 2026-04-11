@@ -5,7 +5,7 @@ from __future__ import annotations
 import ast
 import re
 
-from lvpy.graph_types import PrimitiveOperation, Terminal
+from lvpy.models import PrimitiveOperation, Terminal
 from lvpy.primitive_resolver import (
     PrimitiveResolutionNeeded,
     ResolvedPrimitive,

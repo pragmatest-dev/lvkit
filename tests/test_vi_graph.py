@@ -7,14 +7,8 @@ from pathlib import Path
 import pytest
 
 from lvpy.graph import InMemoryVIGraph, connect
-from lvpy.graph_types import (
-    ConstantNode,
-    FPTerminal,
-    PrimitiveNode,
-    Terminal,
-    VINode,
-    WireEnd,
-)
+from lvpy.graph.models import ConstantNode, PrimitiveNode, VINode, WireEnd
+from lvpy.models import FPTerminal, Terminal
 
 
 class TestInMemoryVIGraphCreation:

@@ -11,22 +11,21 @@ from pathlib import Path
 
 import networkx as nx
 
-from ..graph_types import (
+from ..models import ClusterField, LVType
+from ..parser.models import ParsedType
+from ..vilib_resolver import get_resolver as get_vilib_resolver
+from .models import (
     AnyGraphNode,
-    ClusterField,
     ConstantNode,
-    LVType,
     PolyInfo,
     StructureNode,
     VIMetadata,
     VINode,
     WireEnd,
 )
-from ..graph_types import (
+from .models import (
     PrimitiveNode as GraphPrimitiveNode,
 )
-from ..parser.models import ParsedType
-from ..vilib_resolver import get_resolver as get_vilib_resolver
 
 # Map node types to human-readable names for nodes without explicit names
 _NODE_TYPE_NAMES: dict[str, str] = {

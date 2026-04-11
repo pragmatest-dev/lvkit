@@ -5,7 +5,7 @@ from __future__ import annotations
 import ast
 import re
 
-from lvpy.graph_types import PrimitiveOperation
+from lvpy.models import PrimitiveOperation
 
 from ..ast_utils import build_assign, parse_expr, to_var_name
 from ..context import CodeGenContext

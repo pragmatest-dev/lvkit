@@ -7,7 +7,8 @@ from collections.abc import Callable
 from dataclasses import dataclass
 
 from lvpy.graph import InMemoryVIGraph
-from lvpy.graph_types import Terminal, VIContext
+from lvpy.graph.models import VIContext
+from lvpy.models import Terminal
 from lvpy.structure import LVClass, LVMethod
 from lvpy.type_defaults import _is_class_refnum
 

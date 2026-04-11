@@ -5,7 +5,7 @@ from __future__ import annotations
 import xml.etree.ElementTree as ET
 
 from lvpy.constants import LOOP_NODE_CLASSES, TERMINAL_CLASS, TUNNEL_DCO_CLASSES
-from lvpy.graph_types import Tunnel
+from lvpy.models import Tunnel
 
 from ..models import ParsedLoopStructure
 from .base import extract_tunnel_mapping

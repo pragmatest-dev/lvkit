@@ -12,16 +12,14 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from lvpy.graph import InMemoryVIGraph
-from lvpy.graph_types import (
+from lvpy.graph.models import (
     Constant,
     DestinationInfo,
-    Operation,
     PrimitiveNode,
     SourceInfo,
-    Terminal,
-    TunnelTerminal,
     VIContext,
 )
+from lvpy.models import Operation, Terminal, TunnelTerminal
 from lvpy.vilib_resolver import derive_python_name
 
 from .ast_utils import to_var_name

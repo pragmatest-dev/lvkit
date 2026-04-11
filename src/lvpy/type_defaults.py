@@ -8,7 +8,7 @@ Used in code generation when we need a default value, such as:
 
 from __future__ import annotations
 
-from .graph_types import LVType, _is_error_cluster
+from .models import LVType, _is_error_cluster
 from .vilib_resolver import derive_python_name
 
 # Map LabVIEW numeric type names to Python defaults

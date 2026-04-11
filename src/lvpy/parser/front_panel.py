@@ -6,7 +6,7 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 
 from lvpy.constants import FP_TERMINAL_CLASS
-from lvpy.graph_types import LVType
+from lvpy.models import LVType
 from lvpy.parser.utils import clean_labview_string
 
 from .flags import get_wiring_rule

@@ -12,12 +12,8 @@ from lvpy.codegen.condition_builder import (
 )
 from lvpy.codegen.context import CodeGenContext
 from lvpy.graph import InMemoryVIGraph
-from lvpy.graph_types import (
-    PrimitiveNode,
-    PrimitiveOperation,
-    Terminal,
-    WireEnd,
-)
+from lvpy.graph.models import PrimitiveNode, WireEnd
+from lvpy.models import PrimitiveOperation, Terminal
 
 
 def _make_wired_ctx(

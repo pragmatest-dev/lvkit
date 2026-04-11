@@ -10,20 +10,18 @@ from lvpy.codegen.builder import topological_sort_tiered
 from lvpy.codegen.context import CodeGenContext
 from lvpy.codegen.nodes import case, invoke_node, nmux, property_node
 from lvpy.graph import InMemoryVIGraph
-from lvpy.graph_types import (
+from lvpy.graph.models import CaseStructureNode, PrimitiveNode, WireEnd
+from lvpy.models import (
     CaseFrame,
     CaseOperation,
-    CaseStructureNode,
     ClusterField,
     InvokeOperation,
     LVType,
     Operation,
-    PrimitiveNode,
     PrimitiveOperation,
     PropertyDef,
     PropertyOperation,
     Terminal,
-    WireEnd,
 )
 from tests.helpers import make_graph_with_edge, make_graph_with_terminals, make_node
 
@@ -150,7 +148,7 @@ class TestErrorInputNotBound:
     """from_vi_context should NOT bind error cluster inputs."""
 
     def test_error_input_skipped(self):
-        from lvpy.graph_types import VIContext
+        from lvpy.graph.models import VIContext
 
         error_term = Terminal(
             id="err_in", index=0, direction="input",

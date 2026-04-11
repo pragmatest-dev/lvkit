@@ -9,7 +9,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from lvpy.graph_types import _LV_TO_PYTHON_TYPE
+from lvpy.models import _LV_TO_PYTHON_TYPE
 
 
 @dataclass

@@ -2,17 +2,9 @@
 
 __version__ = "0.1.0"
 
-from .graph_types import (
-    Constant as GraphConstant,
-)
-from .graph_types import (
-    Operation,
-    Terminal,
-    Tunnel,
-)
-from .graph_types import (
-    Wire as GraphWire,
-)
+from .graph.models import Constant as GraphConstant
+from .graph.models import Wire as GraphWire
+from .models import Operation, Terminal, Tunnel
 from .parser import (
     ParsedBlockDiagram,
     ParsedConnectorPane,

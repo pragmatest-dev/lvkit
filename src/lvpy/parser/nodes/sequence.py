@@ -5,7 +5,7 @@ from __future__ import annotations
 import xml.etree.ElementTree as ET
 
 from lvpy.constants import TERMINAL_CLASS, TUNNEL_DCO_CLASSES
-from lvpy.graph_types import SequenceFrame, Tunnel
+from lvpy.models import SequenceFrame, Tunnel
 
 from ..models import ParsedFlatSequenceStructure
 from .base import extract_tunnel_mapping

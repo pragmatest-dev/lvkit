@@ -10,7 +10,7 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 from lvpy._data import data_dir as _bundled_data_dir
-from lvpy.graph_types import ClusterField, EnumValue, LVType
+from lvpy.models import ClusterField, EnumValue, LVType
 
 
 @dataclass

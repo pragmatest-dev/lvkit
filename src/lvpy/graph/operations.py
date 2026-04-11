@@ -11,36 +11,38 @@ from typing import TYPE_CHECKING, cast
 
 import networkx as nx
 
-from ..graph_types import (
+from ..models import (
     CaseFrame,
     CaseOperation,
-    CaseStructureNode,
     FPTerminal,
     InvokeOperation,
-    LoopNode,
     LoopOperation,
     Operation,
-    PolyInfo,
     PrimitiveOperation,
     PropertyOperation,
     SequenceFrame,
-    SequenceNode,
     SequenceOperation,
-    StructureNode,
     SubVIOperation,
     Terminal,
     Tunnel,
     TunnelTerminal,
-    VINode,
-)
-from ..graph_types import (
-    PrimitiveNode as GraphPrimitiveNode,
 )
 from .core import (
     _NODE_TYPE_NAMES,
     _OPERATION_KINDS,
     _get_operation_labels,
     _graph_node_to_op_kind,
+)
+from .models import (
+    CaseStructureNode,
+    LoopNode,
+    PolyInfo,
+    SequenceNode,
+    StructureNode,
+    VINode,
+)
+from .models import (
+    PrimitiveNode as GraphPrimitiveNode,
 )
 
 

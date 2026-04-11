@@ -10,14 +10,8 @@ from lvpy.codegen.builder import build_module
 from lvpy.codegen.context import CodeGenContext
 from lvpy.codegen.nodes.primitive import _emit_unknown
 from lvpy.codegen.nodes.subvi import _emit_vilib_resolution
-from lvpy.graph_types import (
-    Operation,
-    PrimitiveOperation,
-    SubVIOperation,
-    Terminal,
-    VIContext,
-    VINode,
-)
+from lvpy.graph.models import VIContext, VINode
+from lvpy.models import Operation, PrimitiveOperation, SubVIOperation, Terminal
 from lvpy.primitive_resolver import PrimitiveResolutionNeeded
 from lvpy.vilib_resolver import (
     ResolutionContext,

@@ -16,13 +16,8 @@ from lvpy.codegen.builder import (
     topological_sort_tiered,
 )
 from lvpy.codegen.context import CodeGenContext
-from lvpy.graph_types import (
-    Operation,
-    SequenceFrame,
-    SequenceOperation,
-    Terminal,
-    Wire,
-)
+from lvpy.graph.models import Wire
+from lvpy.models import Operation, SequenceFrame, SequenceOperation, Terminal
 
 
 def _make_op(

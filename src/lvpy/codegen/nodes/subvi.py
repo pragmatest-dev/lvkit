@@ -5,7 +5,7 @@ from __future__ import annotations
 import ast
 import re
 
-from lvpy.graph_types import Operation, SubVIOperation, Terminal
+from lvpy.models import Operation, SubVIOperation, Terminal
 from lvpy.primitive_resolver import TerminalResolutionNeeded
 from lvpy.vilib_resolver import (
     ResolutionContext,
