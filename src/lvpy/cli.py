@@ -667,15 +667,6 @@ def cmd_visualize(args: argparse.Namespace) -> int:
 
     _configure_resolvers(args)
 
-    try:
-        import pyvis  # type: ignore[import-untyped]  # noqa: F401
-    except ImportError:
-        print(
-            "Error: pyvis not installed. Run: pip install pyvis",
-            file=sys.stderr,
-        )
-        return 1
-
     graph = InMemoryVIGraph()
     search_paths = (
         [Path(p) for p in args.search_paths] if args.search_paths else None
@@ -705,10 +696,19 @@ def cmd_visualize(args: argparse.Namespace) -> int:
         html = flowchart_html(graph, primary_vi)
         output.parent.mkdir(parents=True, exist_ok=True)
         output.write_text(html)
-    elif args.mode == "deps":
-        _visualize_deps(graph, output)
     else:
-        _visualize_dataflow(graph, output)
+        try:
+            import pyvis  # type: ignore[import-untyped]  # noqa: F401
+        except ImportError:
+            print(
+                "Error: pyvis not installed. Run: pip install pyvis",
+                file=sys.stderr,
+            )
+            return 1
+        if args.mode == "deps":
+            _visualize_deps(graph, output)
+        else:
+            _visualize_dataflow(graph, output)
 
     print(f"Graph saved to {args.output}")
 
