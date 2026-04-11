@@ -118,9 +118,13 @@ def parse_vi(
 
     bd_xml = Path(bd_xml)
 
-    # Derive source .vi path from BD XML path
-    source_path = bd_xml.with_name(bd_xml.name.replace("_BDHb.xml", ".vi"))
-    source_path_str = str(source_path) if source_path.exists() else None
+    # Derive source .vi path. Prefer the explicit vi_path argument since BD XML
+    # may now live in a temp cache dir rather than next to the source file.
+    if vi_path is not None:
+        source_path_str = str(Path(vi_path).resolve())
+    else:
+        source_path = bd_xml.with_name(bd_xml.name.replace("_BDHb.xml", ".vi"))
+        source_path_str = str(source_path) if source_path.exists() else None
 
     # Parse metadata from main XML
     metadata = _parse_metadata(main_xml, source_path_str)
