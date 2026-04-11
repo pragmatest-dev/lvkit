@@ -428,6 +428,18 @@ class LoadingMixin:
                 if subvi_qname in visited:
                     continue
 
+                # Class/library type references appear in the VIVI list alongside
+                # actual VI names. Route them through the proper loaders rather than
+                # trying to extract_vi_xml a non-VI file.
+                leaf = subvi_qname.rsplit(":", 1)[-1]
+                if leaf.endswith(".lvclass"):
+                    if expand_subvis:
+                        self._load_class_dep(subvi_qname, search_paths, caller_dir)
+                    continue
+                if leaf.endswith(".lvlib"):
+                    # Library references are informational — no loader needed here.
+                    continue
+
                 ref = subvi_ref_map.get(subvi_qname)
                 if ref and ref.path_tokens:
                     lookup_path = ref.get_relative_path()
