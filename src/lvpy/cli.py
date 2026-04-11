@@ -72,7 +72,7 @@ def main() -> int:
     """Main CLI entry point."""
     parser = argparse.ArgumentParser(
         prog="lvpy",
-        description="Convert LabVIEW VIs to Python without a LabVIEW license.",
+        description="Understand, convert, and document LabVIEW VI files.",
     )
     parser.add_argument("--version", action="version", version=f"lvpy {__version__}")
 
