@@ -427,6 +427,9 @@ class LoadingMixin:
             caller_dir = source_dir if source_dir is not None else bd_xml.parent
 
             for subvi_qname in metadata.subvi_qualified_names:
+                if not subvi_qname:
+                    continue
+
                 if subvi_qname == vi_name:
                     continue
 
@@ -442,7 +445,11 @@ class LoadingMixin:
                         self._load_class_dep(subvi_qname, search_paths, caller_dir)
                     continue
                 if leaf.endswith(".lvlib"):
-                    # Library references are informational — no loader needed here.
+                    # Library names appear in VIVI as type-context references, not
+                    # as callable VIs. The individual member VIs are listed separately
+                    # as qualified names (e.g. "MyLib.lvlib:VI.vi") and loaded through
+                    # the normal path. load_lvlib() would need a file path we don't
+                    # have here, so we skip.
                     continue
 
                 ref = subvi_ref_map.get(subvi_qname)
@@ -483,17 +490,11 @@ class LoadingMixin:
                                 if subvi_qname != loaded_name:
                                     self._qualified_aliases[subvi_qname] = loaded_name
                         except (RuntimeError, OSError):
-                            self._stubs.add(subvi_qname)
-                            self._dep_graph.add_node(subvi_qname)
-                            self._dep_graph.add_edge(vi_name, subvi_qname)
+                            self._stub_subvi(subvi_qname, vi_name)
                     else:
-                        self._stubs.add(subvi_qname)
-                        self._dep_graph.add_node(subvi_qname)
-                        self._dep_graph.add_edge(vi_name, subvi_qname)
+                        self._stub_subvi(subvi_qname, vi_name)
                 else:
-                    self._stubs.add(subvi_qname)
-                    self._dep_graph.add_node(subvi_qname)
-                    self._dep_graph.add_edge(vi_name, subvi_qname)
+                    self._stub_subvi(subvi_qname, vi_name)
 
         # Load type dependencies: classes referenced in type_map
         # that aren't in the dep_graph yet.
@@ -633,6 +634,11 @@ class LoadingMixin:
         # Stub it
         self._dep_graph.add_node(typedef_name, node_type="typedef")
         self._stubs.add(typedef_name)
+
+    def _stub_subvi(self, name: str, _parent_vi: str) -> None:
+        """Record a SubVI reference that could not be resolved as a stub."""
+        self._stubs.add(name)
+        self._dep_graph.add_node(name)
 
     def _find_file(
         self,

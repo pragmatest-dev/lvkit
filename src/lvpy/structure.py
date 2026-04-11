@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+import warnings
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -174,6 +175,7 @@ def _resolve_type_ids(
     root: ET.Element,
     type_ids: list[str | None],
     type_descs: list[ET.Element] | None = None,
+    _visited: frozenset[int] | None = None,
 ) -> list[LVPrivateDataField]:
     """Resolve TypeID references to field definitions from VCTP.
 
@@ -190,6 +192,9 @@ def _resolve_type_ids(
             return fields
         type_descs = [elem for elem in vctp if elem.tag == "TypeDesc"]
 
+    if _visited is None:
+        _visited = frozenset()
+
     for tid in type_ids:
         if tid is None:
             continue
@@ -198,6 +203,14 @@ def _resolve_type_ids(
         except ValueError:
             continue
         if idx >= len(type_descs):
+            warnings.warn(
+                f"TypeID {idx} is out of bounds (VCTP has {len(type_descs)} entries); "
+                "skipping field",
+                stacklevel=2,
+            )
+            continue
+        if idx in _visited:
+            # Circular TypeID reference in malformed VI — skip to avoid infinite loop
             continue
 
         type_elem = type_descs[idx]
@@ -211,7 +224,10 @@ def _resolve_type_ids(
                 resolved_elem = nested
                 lv_type = nested.get("Type", "")
 
-        # Get label: try the resolved element, then the original wrapper
+        # Get label: try the resolved element first, then the outer TypeDef wrapper.
+        # Every named cluster field must have a label (the field name). If neither
+        # element carries one, this is an anonymous structural TypeDesc (e.g. an
+        # inline type used for wiring only) and cannot be mapped to a Python field.
         label = resolved_elem.get("Label", "") or type_elem.get("Label", "")
         if not label:
             continue
@@ -225,12 +241,15 @@ def _resolve_type_ids(
             if items:
                 lv_type = ":".join(it.get("Text", "") for it in items)
 
-        # Recurse into Cluster sub-fields so _flatten_fields works correctly
+        # Recurse into Cluster sub-fields so _flatten_fields works correctly.
+        # Guard against malformed circular references by tracking visited indices.
         sub_fields: list[LVPrivateDataField] = []
         if lv_type == "Cluster":
             child_ids = [c.get("TypeID") for c in resolved_elem if c.tag == "TypeDesc"]
             if child_ids:
-                sub_fields = _resolve_type_ids(root, child_ids, type_descs)
+                sub_fields = _resolve_type_ids(
+                    root, child_ids, type_descs, _visited | {idx}
+                )
 
         python_type = _lv_type_to_python(lv_type)
         fields.append(LVPrivateDataField(
