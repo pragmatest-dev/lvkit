@@ -220,10 +220,7 @@ class ParsedFPDCOTypeMap:
 
 @dataclass
 class ParsedFPControl:
-    """A control or indicator on the front panel.
-
-    Used for NiceGUI UI generation and rich control details.
-    """
+    """A control or indicator on the front panel."""
     uid: str
     name: str
     control_type: str  # stdString, stdNumeric, stdBool, stdPath, stdEnum, etc.

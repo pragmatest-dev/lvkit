@@ -134,7 +134,7 @@ This table needs expansion as more VIs are encountered.
 When the code generator encounters a vilib VI with missing terminal indices, it raises a `VILibResolutionNeeded` exception. This is intentional - use the caller's dataflow info to fill in the missing indices.
 
 **Workflow:**
-1. Run the code generator (e.g., `scripts/ast_only.py`)
+1. Run the code generator (e.g., `scripts/generate_python.py`)
 2. When a VI lacks terminal index info, exception is raised with:
    - Terminal names from the vilib JSON
    - Wire types from the caller's dataflow (shows actual indices being used)
