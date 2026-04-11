@@ -18,7 +18,7 @@ from pathlib import Path
 from typing import Any
 
 from lvpy._data import data_dir as _bundled_data_dir
-from lvpy.graph_types import LVType
+from lvpy.models import LVType
 
 
 class TerminalObservation:

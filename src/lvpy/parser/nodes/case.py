@@ -5,7 +5,7 @@ from __future__ import annotations
 import xml.etree.ElementTree as ET
 
 from lvpy.constants import STRUCTURE_NODE_CLASSES, TERMINAL_CLASS
-from lvpy.graph_types import CaseFrame, Tunnel
+from lvpy.models import CaseFrame, Tunnel
 
 from ..models import ParsedCaseStructure, ParsedTerminalInfo
 from .base import extract_tunnel_mapping

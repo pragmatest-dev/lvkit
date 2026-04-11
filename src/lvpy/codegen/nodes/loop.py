@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import ast
 
-from lvpy.graph_types import LoopOperation, LVType, Operation, Tunnel
+from lvpy.models import LoopOperation, LVType, Operation, Tunnel
 
 from ..ast_utils import build_assign, parse_expr, to_var_name
 from ..context import CodeGenContext

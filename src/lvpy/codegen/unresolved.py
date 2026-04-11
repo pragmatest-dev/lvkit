@@ -29,7 +29,7 @@ from __future__ import annotations
 
 import ast
 
-from lvpy.graph_types import Operation
+from lvpy.models import Operation
 
 from .ast_utils import build_assign, to_var_name
 from .context import CodeGenContext

@@ -8,12 +8,8 @@ from __future__ import annotations
 
 import networkx as nx
 
-from ..graph_types import (
-    BranchPoint,
-    ParallelBranch,
-    VINode,
-)
 from .core import _OPERATION_KINDS, _graph_node_to_op_kind
+from .models import BranchPoint, ParallelBranch, VINode
 
 
 class AnalysisMixin:

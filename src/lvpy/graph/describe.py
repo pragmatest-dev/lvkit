@@ -8,16 +8,15 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from ..graph_types import (
+from ..models import (
     CaseOperation,
-    Constant,
     LoopOperation,
     Operation,
     PrimitiveOperation,
     SequenceOperation,
-    VIContext,
 )
 from ..vilib_resolver import get_resolver as _get_vilib_resolver
+from .models import Constant, VIContext
 
 if TYPE_CHECKING:
     from .core import InMemoryVIGraph

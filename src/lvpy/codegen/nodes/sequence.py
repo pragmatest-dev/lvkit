@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import ast
 
-from lvpy.graph_types import SequenceOperation
+from lvpy.models import SequenceOperation
 
 from ..context import CodeGenContext
 from ..fragment import CodeFragment

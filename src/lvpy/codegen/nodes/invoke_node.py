@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import ast
 
-from lvpy.graph_types import InvokeOperation
+from lvpy.models import InvokeOperation
 
 from ..ast_utils import to_var_name
 from ..context import CodeGenContext

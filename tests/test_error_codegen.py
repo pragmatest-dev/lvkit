@@ -24,15 +24,14 @@ from lvpy.codegen.error_handler import (
 )
 from lvpy.codegen.nodes import primitive
 from lvpy.graph import InMemoryVIGraph
-from lvpy.graph_types import (
+from lvpy.graph.models import SourceInfo, VIContext
+from lvpy.models import (
     CaseFrame,
     CaseOperation,
     LVType,
     Operation,
     PrimitiveOperation,
-    SourceInfo,
     Terminal,
-    VIContext,
 )
 
 
@@ -435,7 +434,7 @@ class TestErrorBundleRaise:
     def test_bundle_error_cluster_raises(self):
         """Bundling status=True into error cluster generates raise."""
         from lvpy.codegen.nodes import nmux
-        from lvpy.graph_types import ClusterField
+        from lvpy.models import ClusterField
 
         error_type = LVType(
             kind="cluster",
@@ -508,7 +507,7 @@ class TestErrorBundleRaise:
     def test_bundle_error_no_status_is_noop(self):
         """Bundling error cluster without status field is a no-op."""
         from lvpy.codegen.nodes import nmux
-        from lvpy.graph_types import ClusterField
+        from lvpy.models import ClusterField
 
         error_type = LVType(
             kind="cluster",

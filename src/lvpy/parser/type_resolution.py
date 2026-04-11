@@ -10,7 +10,7 @@ import re
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
-from ..graph_types import LVType
+from ..models import LVType
 from .models import ParsedResolvedTypeDefValue, ParsedTypeDefRef
 from .type_mapping import parse_type_map_rich
 

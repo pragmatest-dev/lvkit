@@ -7,16 +7,15 @@ from collections import Counter
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
-from ..graph_types import (
+from ..models import (
     CaseOperation,
-    Constant,
     LoopOperation,
     Operation,
     SequenceOperation,
     Terminal,
-    Wire,
 )
 from .describe import describe_vi
+from .models import Constant, Wire
 
 if TYPE_CHECKING:
     from .core import InMemoryVIGraph

@@ -8,7 +8,8 @@ from collections import deque
 from collections.abc import Callable
 
 from lvpy.graph import InMemoryVIGraph
-from lvpy.graph_types import Operation, Terminal, VIContext
+from lvpy.graph.models import VIContext
+from lvpy.models import Operation, Terminal
 
 from .ast_optimizer import optimize_module
 from .ast_utils import parse_expr, to_function_name, to_var_name

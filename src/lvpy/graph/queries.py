@@ -17,21 +17,21 @@ from typing import TYPE_CHECKING, Any
 
 import networkx as nx
 
-from ..graph_types import (
+from ..models import FPTerminal, Operation, Terminal
+from ..vilib_resolver import get_resolver as get_vilib_resolver
+from .core import _OPERATION_KINDS, _graph_node_to_op_kind
+from .models import (
     AnyGraphNode,
     ClusterInfo,
     Constant,
     ConstantInfo,
     ConstantNode,
-    FPTerminal,
-    Operation,
     PolyInfo,
     PrimitiveInfo,
     StructureNode,
     StubTerminalInfo,
     StubVIInfo,
     SubVICall,
-    Terminal,
     TerminalRef,
     VIContext,
     VIMetadata,
@@ -39,11 +39,9 @@ from ..graph_types import (
     Wire,
     WireEnd,
 )
-from ..graph_types import (
+from .models import (
     PrimitiveNode as GraphPrimitiveNode,
 )
-from ..vilib_resolver import get_resolver as get_vilib_resolver
-from .core import _OPERATION_KINDS, _graph_node_to_op_kind
 
 
 class QueryMixin:

@@ -5,7 +5,7 @@ from __future__ import annotations
 import ast
 import logging
 
-from lvpy.graph_types import CaseFrame, CaseOperation, _is_error_cluster
+from lvpy.models import CaseFrame, CaseOperation, _is_error_cluster
 
 from ..ast_utils import build_assign, parse_expr, to_var_name
 from ..context import CodeGenContext

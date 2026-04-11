@@ -4,7 +4,7 @@ Main entry point: parse_vi() returns ParsedVI with all components.
 """
 
 # Re-export all public APIs
-from ..graph_types import Tunnel
+from ..models import Tunnel
 from .defaults import parse_dfds
 from .front_panel import (
     extract_fp_terminals,

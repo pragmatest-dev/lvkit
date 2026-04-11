@@ -13,7 +13,8 @@ from lvpy.codegen.nodes.loop import (
     _negate_condition,
     _singularize,
 )
-from lvpy.graph_types import LoopOperation, Tunnel, Wire
+from lvpy.graph.models import Wire
+from lvpy.models import LoopOperation, Tunnel
 from tests.conftest import make_ctx
 
 

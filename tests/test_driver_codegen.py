@@ -16,7 +16,8 @@ import ast
 
 from lvpy.codegen.ast_optimizer import eliminate_dead_code
 from lvpy.codegen.context import _format_constant
-from lvpy.graph_types import Constant, LVType
+from lvpy.graph.models import Constant
+from lvpy.models import LVType
 
 # =============================================================
 # Boolean constant formatting

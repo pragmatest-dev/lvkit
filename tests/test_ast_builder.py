@@ -7,8 +7,8 @@ from typing import cast
 
 import pytest
 
-from lvpy.graph_types import (
-    Constant,
+from lvpy.graph.models import Constant, VIContext, Wire
+from lvpy.models import (
     FPTerminal,
     LoopOperation,
     LVType,
@@ -17,8 +17,6 @@ from lvpy.graph_types import (
     SubVIOperation,
     Terminal,
     Tunnel,
-    VIContext,
-    Wire,
 )
 
 
@@ -280,7 +278,8 @@ def test_context_resolution():
     """Test CodeGenContext variable resolution."""
     from lvpy.codegen import CodeGenContext
     from lvpy.graph import InMemoryVIGraph
-    from lvpy.graph_types import PrimitiveNode, Terminal
+    from lvpy.graph.models import PrimitiveNode
+    from lvpy.models import Terminal
 
     # Build a graph with terminals for bind/resolve to work
     graph = InMemoryVIGraph()
@@ -644,7 +643,7 @@ def test_context_cycle_detection():
     """Test that context handles cycles in data flow."""
     from lvpy.codegen import CodeGenContext
     from lvpy.graph import InMemoryVIGraph
-    from lvpy.graph_types import WireEnd
+    from lvpy.graph.models import WireEnd
 
     graph = InMemoryVIGraph()
     graph._graph.add_node("p1", node=None)
@@ -1135,7 +1134,7 @@ class TestLVTypeToPython:
 
     def test_primitive_int_types(self):
         """Test primitive integer types map to int."""
-        from lvpy.graph_types import LVType
+        from lvpy.models import LVType
 
         for int_type in ["NumInt8", "NumInt16", "NumInt32", "NumInt64",
                          "NumUInt8", "NumUInt16", "NumUInt32", "NumUInt64"]:
@@ -1144,7 +1143,7 @@ class TestLVTypeToPython:
 
     def test_primitive_float_types(self):
         """Test primitive float types map to float."""
-        from lvpy.graph_types import LVType
+        from lvpy.models import LVType
 
         for float_type in ["NumFloat32", "NumFloat64"]:
             lv_type = LVType(kind="primitive", underlying_type=float_type)
@@ -1152,49 +1151,49 @@ class TestLVTypeToPython:
 
     def test_primitive_string(self):
         """Test String maps to str."""
-        from lvpy.graph_types import LVType
+        from lvpy.models import LVType
 
         lv_type = LVType(kind="primitive", underlying_type="String")
         assert lv_type.to_python() == "str"
 
     def test_primitive_boolean(self):
         """Test Boolean maps to bool."""
-        from lvpy.graph_types import LVType
+        from lvpy.models import LVType
 
         lv_type = LVType(kind="primitive", underlying_type="Boolean")
         assert lv_type.to_python() == "bool"
 
     def test_primitive_path(self):
         """Test Path maps to Path."""
-        from lvpy.graph_types import LVType
+        from lvpy.models import LVType
 
         lv_type = LVType(kind="primitive", underlying_type="Path")
         assert lv_type.to_python() == "Path"
 
     def test_primitive_variant(self):
         """Test Variant maps to Any."""
-        from lvpy.graph_types import LVType
+        from lvpy.models import LVType
 
         lv_type = LVType(kind="primitive", underlying_type="Variant")
         assert lv_type.to_python() == "Any"
 
     def test_primitive_void(self):
         """Test Void maps to None."""
-        from lvpy.graph_types import LVType
+        from lvpy.models import LVType
 
         lv_type = LVType(kind="primitive", underlying_type="Void")
         assert lv_type.to_python() == "None"
 
     def test_primitive_unknown(self):
         """Test unknown primitive type maps to Any."""
-        from lvpy.graph_types import LVType
+        from lvpy.models import LVType
 
         lv_type = LVType(kind="primitive", underlying_type="UnknownType")
         assert lv_type.to_python() == "Any"
 
     def test_array_1d(self):
         """Test 1D array type annotation."""
-        from lvpy.graph_types import LVType
+        from lvpy.models import LVType
 
         element = LVType(kind="primitive", underlying_type="NumInt32")
         arr = LVType(kind="array", element_type=element, dimensions=1)
@@ -1202,7 +1201,7 @@ class TestLVTypeToPython:
 
     def test_array_2d(self):
         """Test 2D array type annotation."""
-        from lvpy.graph_types import LVType
+        from lvpy.models import LVType
 
         element = LVType(kind="primitive", underlying_type="NumFloat64")
         arr = LVType(kind="array", element_type=element, dimensions=2)
@@ -1210,14 +1209,14 @@ class TestLVTypeToPython:
 
     def test_array_no_element_type(self):
         """Test array with no element type defaults to Any."""
-        from lvpy.graph_types import LVType
+        from lvpy.models import LVType
 
         arr = LVType(kind="array")
         assert arr.to_python() == "list[Any]"
 
     def test_cluster_with_typedef_name(self):
         """Test cluster with typedef name uses class name."""
-        from lvpy.graph_types import LVType
+        from lvpy.models import LVType
 
         cluster = LVType(
             kind="cluster",
@@ -1227,14 +1226,14 @@ class TestLVTypeToPython:
 
     def test_cluster_without_typedef_name(self):
         """Test cluster without typedef name uses generic dict."""
-        from lvpy.graph_types import LVType
+        from lvpy.models import LVType
 
         cluster = LVType(kind="cluster")
         assert cluster.to_python() == "dict[str, Any]"
 
     def test_enum_with_typedef_name(self):
         """Test enum with typedef name uses class name."""
-        from lvpy.graph_types import LVType
+        from lvpy.models import LVType
 
         enum = LVType(
             kind="enum",
@@ -1244,14 +1243,14 @@ class TestLVTypeToPython:
 
     def test_enum_without_typedef_name(self):
         """Test enum without typedef name uses int."""
-        from lvpy.graph_types import LVType
+        from lvpy.models import LVType
 
         enum = LVType(kind="enum")
         assert enum.to_python() == "int"
 
     def test_ring_with_typedef_name(self):
         """Test ring with typedef name uses class name."""
-        from lvpy.graph_types import LVType
+        from lvpy.models import LVType
 
         ring = LVType(
             kind="ring",
@@ -1261,14 +1260,14 @@ class TestLVTypeToPython:
 
     def test_ring_without_typedef_name(self):
         """Test ring without typedef name uses int."""
-        from lvpy.graph_types import LVType
+        from lvpy.models import LVType
 
         ring = LVType(kind="ring")
         assert ring.to_python() == "int"
 
     def test_typedef_ref_with_name(self):
         """Test typedef_ref with name uses class name."""
-        from lvpy.graph_types import LVType
+        from lvpy.models import LVType
 
         # typedef_name uses ":" format like other typedef names
         ref = LVType(
@@ -1279,14 +1278,14 @@ class TestLVTypeToPython:
 
     def test_typedef_ref_without_name(self):
         """Test typedef_ref without name uses Any."""
-        from lvpy.graph_types import LVType
+        from lvpy.models import LVType
 
         ref = LVType(kind="typedef_ref")
         assert ref.to_python() == "Any"
 
     def test_unknown_kind(self):
         """Test unknown kind returns Any."""
-        from lvpy.graph_types import LVType
+        from lvpy.models import LVType
 
         lv_type = LVType(kind="unknown_kind")
         assert lv_type.to_python() == "Any"
@@ -1337,7 +1336,7 @@ class TestWireSlotIndex:
         """Test that slot indices are accessible via graph edge queries."""
         from lvpy.codegen.context import CodeGenContext
         from lvpy.graph import InMemoryVIGraph
-        from lvpy.graph_types import WireEnd
+        from lvpy.graph.models import WireEnd
 
         graph = InMemoryVIGraph()
         graph._graph.add_node("p1", node=None)
@@ -1409,7 +1408,7 @@ class TestErrorClusterFiltering:
     def test_error_cluster_input_filtered_by_name(self):
         """Test that error cluster inputs are filtered by name pattern."""
         from lvpy.codegen.builder import build_args
-        from lvpy.graph_types import FPTerminal, Terminal
+        from lvpy.models import FPTerminal, Terminal
 
         inputs = cast(list[Terminal], [
             FPTerminal(
@@ -1447,7 +1446,7 @@ class TestErrorClusterFiltering:
     def test_error_cluster_output_filtered_by_name(self):
         """Test that error cluster outputs are filtered by name pattern."""
         from lvpy.codegen.builder import build_result_class
-        from lvpy.graph_types import FPTerminal
+        from lvpy.models import FPTerminal
 
         vi_context = VIContext(
             name="Test.vi",
@@ -1486,7 +1485,7 @@ class TestErrorClusterFiltering:
     def test_all_error_outputs_returns_none(self):
         """Test that if all outputs are error clusters, no result class is created."""
         from lvpy.codegen.builder import build_result_class
-        from lvpy.graph_types import FPTerminal
+        from lvpy.models import FPTerminal
 
         vi_context = VIContext(
             name="Test.vi",

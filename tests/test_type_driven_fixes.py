@@ -9,13 +9,8 @@ from __future__ import annotations
 from lvpy.codegen.context import CodeGenContext, _format_constant
 from lvpy.codegen.nodes import loop, primitive
 from lvpy.graph import InMemoryVIGraph
-from lvpy.graph_types import (
-    ClusterField,
-    Constant,
-    LVType,
-    Terminal,
-    WireEnd,
-)
+from lvpy.graph.models import Constant, WireEnd
+from lvpy.models import ClusterField, LVType, Terminal
 from lvpy.primitive_resolver import _collect_imports
 from tests.helpers import make_node
 

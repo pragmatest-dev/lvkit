@@ -6,7 +6,7 @@ import ast
 
 from lvpy.codegen.context import CodeGenContext
 from lvpy.codegen.nodes import compound
-from lvpy.graph_types import PrimitiveOperation, Terminal
+from lvpy.models import PrimitiveOperation, Terminal
 from tests.helpers import make_ctx
 
 
@@ -204,7 +204,7 @@ class TestCompoundArithResolvesThroughDataflow:
 
     def test_or_resolves_through_wires(self):
         """Test that OR resolves inputs through wire connections."""
-        from lvpy.graph_types import Wire
+        from lvpy.graph.models import Wire
 
         # Set up dataflow: src1 -> term1, src2 -> term2
         data_flow = [

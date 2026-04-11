@@ -6,7 +6,7 @@ import ast
 import keyword
 import logging
 
-from lvpy.graph_types import ScalarValue
+from lvpy.models import ScalarValue
 
 logger = logging.getLogger(__name__)
 

@@ -14,7 +14,7 @@ from typing import TYPE_CHECKING
 import networkx as nx
 
 from ..extractor import extract_vi_xml
-from ..graph_types import ClusterField, LVType, PolyInfo, VIMetadata
+from ..models import ClusterField, LVType
 from ..parser import (
     ParsedBlockDiagram,
     ParsedConnectorPane,
@@ -33,6 +33,7 @@ from ..structure import (
     parse_lvlib,
     parse_lvproj,
 )
+from .models import PolyInfo, VIMetadata
 
 
 def _get_fp_root_type_id(fp_xml: Path | None) -> int | None:

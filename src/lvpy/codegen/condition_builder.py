@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import ast
 
-from lvpy.graph_types import Operation, PrimitiveOperation
+from lvpy.models import Operation, PrimitiveOperation
 
 from .ast_utils import parse_expr
 from .context import CodeGenContext

@@ -9,16 +9,14 @@ import pytest
 from lvpy.codegen.context import CodeGenContext
 from lvpy.codegen.nodes import sequence
 from lvpy.graph import InMemoryVIGraph
-from lvpy.graph_types import (
+from lvpy.graph.models import SequenceNode, VINode, WireEnd
+from lvpy.models import (
     Operation,
     SequenceFrame,
-    SequenceNode,
     SequenceOperation,
     Terminal,
     Tunnel,
     TunnelTerminal,
-    VINode,
-    WireEnd,
 )
 from lvpy.parser.models import (
     ParsedBlockDiagram,
