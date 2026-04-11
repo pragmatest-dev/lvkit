@@ -72,7 +72,7 @@ def main() -> int:
     """Main CLI entry point."""
     parser = argparse.ArgumentParser(
         prog="lvpy",
-        description="Convert LabVIEW VIs to Python code using AI",
+        description="Convert LabVIEW VIs to Python without a LabVIEW license.",
     )
     parser.add_argument("--version", action="version", version=f"lvpy {__version__}")
 
@@ -119,7 +119,7 @@ def main() -> int:
     )
     _add_project_root_arg(desc_parser)
 
-    # Generate command - AST-based Python generation (replaces convert)
+    # Generate command - deterministic AST-based Python generation
     gen_parser = subparsers.add_parser(
         "generate",
         help="Generate Python from VI files using deterministic AST pipeline",
@@ -152,8 +152,8 @@ def main() -> int:
         help=(
             "Don't fail on unknown primitives or vi.lib VIs. Instead emit "
             "an inline `raise PrimitiveResolutionNeeded(...)` / `raise "
-            "VILibResolutionNeeded(...)` in the generated Python so a "
-            "downstream LLM can fix it contextually."
+            "VILibResolutionNeeded(...)` in the generated Python so the "
+            "build succeeds and unresolved calls are visible at runtime."
         ),
     )
     _add_project_root_arg(gen_parser)
@@ -186,7 +186,7 @@ def main() -> int:
     # Visualize command - interactive graph visualization
     viz_parser = subparsers.add_parser(
         "visualize",
-        help="Interactive graph visualization in browser",
+        help="Generate VI graphs as Mermaid flowcharts or interactive diagrams",
     )
     viz_parser.add_argument(
         "input_path",
