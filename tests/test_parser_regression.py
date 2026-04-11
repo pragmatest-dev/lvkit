@@ -26,8 +26,9 @@ def extracted_xml():
 @pytest.fixture(scope="module")
 def parsed_vi(extracted_xml) -> ParsedVI:
     """Parse VI once for all tests."""
-    bd_xml, fp_xml, main_xml = extracted_xml
-    return parse_vi(bd_xml=bd_xml, fp_xml=fp_xml, main_xml=main_xml)
+    # Pass vi_path so parse_vi can record the original source location
+    # (bd_xml may now be in a temp cache dir rather than next to the VI).
+    return parse_vi(vi_path=TEST_VI)
 
 
 @pytest.fixture(scope="module")

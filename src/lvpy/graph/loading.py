@@ -131,6 +131,10 @@ class LoadingMixin:
             search_paths = [vi_path.parent]
 
         # Parse the VI hierarchy
+        # source_dir is the directory of the actual .vi file, not the extracted
+        # BD XML (which may be in a temp cache dir). SubVI and type-dependency
+        # resolution uses this to find siblings of the original source file.
+        source_dir = vi_path.parent if vi_path.suffix.lower() == ".vi" else None
         self._load_vi_recursive(
             bd_xml,
             fp_xml,
@@ -138,6 +142,7 @@ class LoadingMixin:
             expand_subvis=expand_subvis,
             search_paths=search_paths,
             visited=set(),
+            source_dir=source_dir,
         )
 
     def load_lvlib(
@@ -335,6 +340,7 @@ class LoadingMixin:
         expand_subvis: bool,
         search_paths: list[Path],
         visited: set[str],
+        source_dir: Path | None = None,
     ) -> str | None:
         """Recursively load a VI and its SubVIs.
 
@@ -403,7 +409,7 @@ class LoadingMixin:
                 if ref.qualified_name
             }
 
-            caller_dir = bd_xml.parent
+            caller_dir = source_dir if source_dir is not None else bd_xml.parent
 
             for subvi_qname in metadata.subvi_qualified_names:
                 if subvi_qname == vi_name:
@@ -441,6 +447,7 @@ class LoadingMixin:
                                 expand_subvis=True,
                                 search_paths=search_paths,
                                 visited=visited,
+                                source_dir=subvi_path.parent,
                             )
                             if loaded_name:
                                 self._dep_graph.add_edge(vi_name, loaded_name)
@@ -465,7 +472,9 @@ class LoadingMixin:
         # that aren't in the dep_graph yet.
         if type_map and expand_subvis:
             self._load_type_dependencies(
-                type_map, search_paths, bd_xml.parent, visited,
+                type_map, search_paths,
+                source_dir if source_dir is not None else bd_xml.parent,
+                visited,
             )
 
         # Build map of iUse uid → fully qualified on-disk path. The parser
