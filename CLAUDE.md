@@ -16,45 +16,34 @@ uv sync
 pytest
 
 # Run a single test
-pytest tests/test_lvpy.py::test_version
+pytest tests/test_parser.py::test_parse_vi
 
 # Lint
 ruff check .
 
 # Type check
-python -m pyright src/lvpy/
+python -m pyright src/
 ```
 
 ## Architecture
 
-The conversion pipeline has two stages:
+The conversion pipeline:
 
-1. **Structural parsing** (Python): pylabview extracts VI → XML, then `parser.py` extracts nodes/wires/constants into a graph
-2. **Semantic translation** (LLM): `summarizer.py` creates a human-readable summary, sent to local Ollama model (qwen2.5-coder:7b) to generate Python
+1. **Binary extraction**: pylabview (subprocess) reads the VI binary → XML files (`_BDHb.xml`, `_FPHb.xml`, `.xml`)
+2. **Parsing** (`parser/`): `parse_vi()` converts XML → `ParsedVI` dataclasses (nodes, wires, constants, types, front panel)
+3. **Graph construction** (`graph/`): `ParsedVI` → `InMemoryVIGraph` NetworkX multi-digraph. `get_vi_context()` returns `VIContext`.
+4. **Code generation** (`codegen/`): `build_module(vi_context, vi_name)` walks `VIContext` → Python `ast.Module` → source string
+5. **Orchestration** (`pipeline.py`): multi-VI load ordering, dependency resolution, file output
 
-### Modules
+### Key Modules
 
-- `src/lvpy/parser.py` - Parse pylabview XML output into structured `BlockDiagram` (nodes, wires, constants)
-- `src/lvpy/summarizer.py` - Generate human-readable VI summaries for LLM input
-- `src/lvpy/llm.py` - Ollama integration for code generation
-- `src/lvpy/converter.py` - Main conversion orchestration
-- `src/lvpy/cli.py` - Command-line interface
-
-### CLI Usage
-
-```bash
-# Check dependencies
-lvpy check
-
-# Show VI summary (for debugging)
-lvpy summarize path/to/vi_BDHb.xml --main-xml path/to/vi.xml
-```
-
-## Current Development Focus: generate_python.py
-
-**We are testing `scripts/generate_python.py`'s ability to generate deterministic, working Python from various VI formats.**
-
-The goal is clean, syntactically valid Python output. Eventually an agent will improve the generated code, but for now ALL testing uses generate_python.py.
+- `src/lvpy/parser/` — XML → `ParsedVI` dataclasses (nodes, wires, constants, types)
+- `src/lvpy/graph/` — `InMemoryVIGraph`, graph construction, queries, operations
+- `src/lvpy/graph_types.py` — all type definitions (Pydantic graph nodes + dataclass codegen types)
+- `src/lvpy/codegen/builder.py` — `build_module()` entry point for AST generation
+- `src/lvpy/pipeline.py` — orchestrates multi-VI generation
+- `src/lvpy/cli.py` — command-line interface
+- `src/lvpy/mcp/` — MCP server (12 tools)
 
 ### Standard Test Command
 
@@ -113,21 +102,39 @@ This preserves LabVIEW's semantics where:
 - First error is preserved and raised at merge point
 - All branches get a chance to clean up
 
-Implementation: `src/lvpy/agent/codegen/error_handler.py`
+Implementation: `src/lvpy/codegen/error_handler.py`
 
-### Key Data Structures
+## Adding New Primitives
 
-- `Node`: SubVI call (`iUse`) or primitive (`prim`) with uid, name, primIndex
-- `Wire`: Connection between terminals (from_term → to_term)
-- `Constant`: Value on diagram (hex-encoded, needs decoding)
+LabVIEW primitives are identified by `primResID`. When a conversion fails with `PrimitiveResolutionNeeded`, add an entry to `src/lvpy/data/primitives.json`:
 
-### Primitive Mapping
+```json
+{
+  "1234": {
+    "name": "My Primitive",
+    "category": "numeric",
+    "python_code": "{a} + {b}",
+    "inputs": [
+      {"index": 0, "name": "a", "type": "DBL"}
+    ],
+    "outputs": [
+      {"index": 2, "name": "result", "type": "DBL"}
+    ]
+  }
+}
+```
 
-LabVIEW primitives are identified by `primResID`. Known mappings in `summarizer.py:PRIMITIVE_MAP`:
-- 1419 → Build Path
-- 1420 → Strip Path
+Use the caller's dataflow in the exception output to determine correct terminal indices — do not guess.
 
-This table needs expansion as more VIs are encountered.
+## Adding New VILib VIs
+
+When a conversion fails with `VILibResolutionNeeded`, add the VI to the appropriate `src/lvpy/data/vilib/<category>.json`. The exception output shows terminal names from XML and actual wire indices from the caller — use those indices to fill in the `"index"` field for each terminal.
+
+**Workflow:**
+1. Run the code generator; note the exception output
+2. Match "Wire types from dataflow" indices to the terminal names listed
+3. Add entries to the vilib JSON with the correct `"index"` values
+4. Re-run to verify
 
 ## VILib Terminal Resolution Workflow
 
