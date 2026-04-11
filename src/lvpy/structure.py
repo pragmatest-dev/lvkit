@@ -30,6 +30,7 @@ class LVPrivateDataField:
     python_type: str = "Any"  # Inferred Python type
     default_value: str | None = None  # Default value expression
     lv_type_name: str = ""  # Raw LV type from VCTP (e.g. "String", "Boolean")
+    sub_fields: list[LVPrivateDataField] = field(default_factory=list)
 
 
 @dataclass
@@ -170,20 +171,24 @@ def _parse_private_data_fields(lvclass_path: Path) -> list[LVPrivateDataField]:
 
 
 def _resolve_type_ids(
-    root: ET.Element, type_ids: list[str | None]
+    root: ET.Element,
+    type_ids: list[str | None],
+    type_descs: list[ET.Element] | None = None,
 ) -> list[LVPrivateDataField]:
     """Resolve TypeID references to field definitions from VCTP.
 
     Gets field name from Label, LV type name from Type attribute,
     and extracts qualified classname from <Item> elements for class fields.
+    Recurses into Cluster fields to capture nested sub-fields (needed for
+    nMux flat-index resolution across the full cluster hierarchy).
     """
     fields: list[LVPrivateDataField] = []
 
-    vctp = root.find(".//VCTP/Section")
-    if vctp is None:
-        return fields
-
-    type_descs = [elem for elem in vctp if elem.tag == "TypeDesc"]
+    if type_descs is None:
+        vctp = root.find(".//VCTP/Section")
+        if vctp is None:
+            return fields
+        type_descs = [elem for elem in vctp if elem.tag == "TypeDesc"]
 
     for tid in type_ids:
         if tid is None:
@@ -197,33 +202,42 @@ def _resolve_type_ids(
 
         type_elem = type_descs[idx]
 
-        label = type_elem.get("Label", "")
-        if not label:
-            nested = type_elem.find("TypeDesc")
-            if nested is not None:
-                label = nested.get("Label", "")
-        if not label:
-            continue
-
+        # Resolve the actual type element (unwrap TypeDef)
+        resolved_elem = type_elem
         lv_type = type_elem.get("Type", "")
-        # For TypeDef wrappers, get the nested type
         if lv_type == "TypeDef":
             nested = type_elem.find("TypeDesc")
             if nested is not None:
+                resolved_elem = nested
                 lv_type = nested.get("Type", "")
 
+        # Get label: try the resolved element, then the original wrapper
+        label = resolved_elem.get("Label", "") or type_elem.get("Label", "")
+        if not label:
+            continue
+
         # For class refnums, extract qualified classname from <Item> chain
-        ref_type = type_elem.get("RefType", "")
+        ref_type = resolved_elem.get("RefType", "")
         if ref_type == "UDClassInst":
             items = type_elem.findall("Item")
+            if not items:
+                items = resolved_elem.findall("Item")
             if items:
                 lv_type = ":".join(it.get("Text", "") for it in items)
+
+        # Recurse into Cluster sub-fields so _flatten_fields works correctly
+        sub_fields: list[LVPrivateDataField] = []
+        if lv_type == "Cluster":
+            child_ids = [c.get("TypeID") for c in resolved_elem if c.tag == "TypeDesc"]
+            if child_ids:
+                sub_fields = _resolve_type_ids(root, child_ids, type_descs)
 
         python_type = _lv_type_to_python(lv_type)
         fields.append(LVPrivateDataField(
             name=label,
             python_type=python_type,
             lv_type_name=lv_type,
+            sub_fields=sub_fields,
         ))
 
     return fields
