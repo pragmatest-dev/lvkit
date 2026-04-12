@@ -18,15 +18,10 @@ lvpy parses `.vi` binaries directly into a queryable dataflow graph. Use it to d
 
 ```bash
 pip install lvpy
-
-# Set up a project-local resolution store
-lvpy init
-
-# Optional: install AI editor skills
-lvpy init --skills claude    # Claude Code
-lvpy init --skills copilot   # GitHub Copilot
-lvpy init --skills all       # both
+lvpy init --skills all       # create .lvpy/ + install Claude Code and Copilot skills
 ```
+
+Use `--skills claude` or `--skills copilot` to install for one AI agent only. Use `lvpy init` alone if you don't want any AI agent skills installed.
 
 ## What you can do with it
 
@@ -83,27 +78,15 @@ Coverage is incremental — see [Cleanroom approach](#cleanroom-approach) for wh
 
 ## How it works
 
-```
-VI Binary (.vi / .lvlib / .lvclass)
-     |
-     v  pylabview (subprocess)
-XML Files (_BDHb.xml, _FPHb.xml, .xml)
-     |
-     v  parser/ — XML → typed ParsedVI dataclasses
-     |
-     v  graph/ — ParsedVI → NetworkX InMemoryVIGraph
-     |
-     +-> codegen/builder.py  →  .py source files
-     +-> graph/describe.py   →  human-readable descriptions
-     +-> docs/               →  HTML documentation
-```
+lvpy reads VI binaries directly — no LabVIEW installation required. The pipeline has three stages:
 
-- **`parser/`** extracts nodes, wires, constants, and types from the raw XML into `ParsedVI` dataclasses.
-- **`graph/`** builds a NetworkX multi-digraph across all loaded VIs. `get_vi_context(vi_name)` returns a `VIContext` containing operations, terminals, wires, and types.
-- **`codegen/builder.py`** walks `VIContext` and emits Python source deterministically — no LLM, no sampling.
-- **`pipeline.py`** orchestrates multi-VI loads, dependency ordering, and file output.
+1. **Parse** — the VI binary is extracted to XML (via [pylabview](https://github.com/mefistotelis/pylabview)), then parsed into a typed representation of the block diagram: nodes, wires, constants, types, and front panel terminals.
 
-See [`docs/graph-reference.md`](docs/graph-reference.md) for the full type reference.
+2. **Graph** — all loaded VIs are linked into a graph that captures two things: the dependency tree (which VIs call which) and the dataflow within each VI (how data moves between operations). This is what `describe`, `docs`, `diff`, and `visualize` query — no semantic mappings needed.
+
+3. **Generate** — the graph is walked deterministically to produce Python source, HTML documentation, or flowcharts. Code generation is pure AST construction: same VI in, same output every run, no LLM.
+
+See [`docs/graph-reference.md`](docs/graph-reference.md) for the full graph type reference.
 
 ## AI and IDE integration
 
