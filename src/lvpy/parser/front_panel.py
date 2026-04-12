@@ -5,10 +5,10 @@ from __future__ import annotations
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
-from lvpy.constants import FP_TERMINAL_CLASS
 from lvpy.models import LVType
 from lvpy.parser.utils import clean_labview_string
 
+from .constants import FP_TERMINAL_CLASS
 from .flags import get_wiring_rule
 from .models import (
     ParsedConnectorPane,

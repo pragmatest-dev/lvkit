@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import xml.etree.ElementTree as ET
 
-from lvpy.constants import TERMINAL_CLASS, TUNNEL_DCO_CLASSES
 from lvpy.models import SequenceFrame, Tunnel
 
+from ..constants import TERMINAL_CLASS, TUNNEL_DCO_CLASSES
 from ..models import ParsedFlatSequenceStructure
 from .base import extract_tunnel_mapping
 

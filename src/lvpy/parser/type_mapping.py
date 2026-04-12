@@ -10,7 +10,7 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 
 from ..models import ClusterField, EnumValue, LVType
-from ..naming import build_qualified_name, build_relative_path
+from .naming import build_qualified_name, build_relative_path
 from .utils import clean_labview_string
 
 
