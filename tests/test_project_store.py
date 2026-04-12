@@ -333,7 +333,7 @@ def test_install_claude_skills_atomic_on_conflict(tmp_path: Path) -> None:
 # ============================================================
 
 
-_LVPY_SKILLS = (
+_LVKIT_SKILLS = (
     "lvkit-describe",
     "lvkit-convert",
     "lvkit-resolve-primitive",
@@ -350,14 +350,14 @@ def test_install_copilot_skills_writes_prompts_and_router(tmp_path: Path) -> Non
     # 5 prompts + 1 router. Asserted as a composition rather than a
     # bare integer so a future 6th skill is a clear test failure with
     # an explanatory message instead of an opaque "expected 6, got 7".
-    assert len(written) == len(_LVPY_SKILLS) + 1, (
-        f"expected {len(_LVPY_SKILLS)} prompts + 1 router = "
-        f"{len(_LVPY_SKILLS) + 1}, got {len(written)} files"
+    assert len(written) == len(_LVKIT_SKILLS) + 1, (
+        f"expected {len(_LVKIT_SKILLS)} prompts + 1 router = "
+        f"{len(_LVKIT_SKILLS) + 1}, got {len(written)} files"
     )
 
     # Each user-facing skill has its own prompt file
     prompts_dir = tmp_path / ".github" / "prompts"
-    for skill in _LVPY_SKILLS:
+    for skill in _LVKIT_SKILLS:
         path = prompts_dir / f"{skill}.prompt.md"
         assert path.is_file(), f"missing {path}"
         text = path.read_text()
@@ -376,7 +376,7 @@ def test_install_copilot_skills_writes_prompts_and_router(tmp_path: Path) -> Non
     assert router_text.startswith("---\n")
     assert 'applyTo: "**"' in router_text
     # Router lists every prompt
-    for skill in _LVPY_SKILLS:
+    for skill in _LVKIT_SKILLS:
         assert f"`/{skill}`" in router_text
 
 
@@ -408,7 +408,7 @@ def test_install_copilot_skills_prompt_bodies_use_lvkit_prefix(
         "resolve-vilib",
     }
 
-    for skill in _LVPY_SKILLS:
+    for skill in _LVKIT_SKILLS:
         body = (prompts_dir / f"{skill}.prompt.md").read_text()
         # Find every /<token> that looks like a skill ref. Allow
         # lvkit-prefixed names AND CLI subcommands like /describe used
@@ -469,7 +469,7 @@ def test_install_copilot_skills_atomic_on_conflict(tmp_path: Path) -> None:
         install_copilot_skills(tmp_path)
 
     # Other prompts and the router must not have been written.
-    for skill in _LVPY_SKILLS:
+    for skill in _LVKIT_SKILLS:
         if skill == "lvkit-convert":
             continue
         path = prompts_dir / f"{skill}.prompt.md"
