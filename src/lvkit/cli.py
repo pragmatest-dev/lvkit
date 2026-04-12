@@ -496,8 +496,9 @@ def cmd_setup(args: argparse.Namespace) -> int:
         editors = _detect_ai_editors(root)
         if not editors:
             print(
-                "No AI agent detected. Run with --skills claude or --skills copilot "
-                "to install skills explicitly."
+                "No AI agent detected. If you add one later, run `lvkit setup` again. "
+                "If you have one that wasn't detected, run `lvkit setup claude` or "
+                "`lvkit setup copilot` to install skills explicitly."
             )
             return 0
 
