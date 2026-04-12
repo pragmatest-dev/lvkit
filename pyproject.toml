@@ -10,7 +10,7 @@ readme = "README.md"
 requires-python = ">=3.10"
 license = "Apache-2.0"
 authors = [
-    { name = "Ryan Friedman" }
+    { name = "Pragmatest" }
 ]
 keywords = [
     "labview",
@@ -44,6 +44,10 @@ dependencies = [
     "mcp>=0.9.0",
     "pydantic>=2.0.0",
 ]
+
+[project.urls]
+Repository = "https://github.com/pragmatest-dev/lvpy"
+Issues = "https://github.com/pragmatest-dev/lvpy/issues"
 
 [project.scripts]
 lvpy = "lvpy.cli:main"
