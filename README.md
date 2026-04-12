@@ -21,7 +21,8 @@ pip install lvpy
 lvpy init --skills all       # create .lvpy/ + install Claude Code and Copilot skills
 ```
 
-Use `--skills claude` or `--skills copilot` to install for one AI agent only. Use `lvpy init` alone if you don't want any AI agent skills installed.
+Use `--skills claude` or `--skills copilot` to install for one AI agent only. 
+Use `lvpy init` alone if you don't want any AI agent skills installed.
 
 ## What you can do with it
 
