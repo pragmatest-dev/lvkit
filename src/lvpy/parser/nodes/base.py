@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import xml.etree.ElementTree as ET
 
-from lvpy.constants import TERMINAL_CLASS
 from lvpy.models import Tunnel
 
+from ..constants import TERMINAL_CLASS
 from ..flags import is_output_terminal
 from ..utils import extract_label, safe_int, safe_text
 

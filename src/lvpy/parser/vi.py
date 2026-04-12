@@ -15,7 +15,10 @@ import struct
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
-from lvpy.constants import (
+from lvpy.extractor import extract_vi_xml
+from lvpy.models import LVType
+
+from .constants import (
     MULTI_LABEL_CLASS,
     NODE_CLASS_SHIFT_REG,
     OPERATION_NODE_CLASSES,
@@ -23,9 +26,6 @@ from lvpy.constants import (
     TERMINAL_CLASS,
     TERMINAL_CONTAINER_CLASSES,
 )
-from lvpy.extractor import extract_vi_xml
-from lvpy.models import LVType
-
 from .flags import is_indicator, is_output_terminal
 from .front_panel import (
     _lvtype_to_parsed,

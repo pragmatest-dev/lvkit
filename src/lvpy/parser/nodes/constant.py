@@ -4,8 +4,7 @@ from __future__ import annotations
 
 import xml.etree.ElementTree as ET
 
-from lvpy.constants import CONSTANT_DCO_CLASS, TERMINAL_CLASS
-
+from ..constants import CONSTANT_DCO_CLASS, TERMINAL_CLASS
 from ..models import ParsedConstant
 from ..utils import clean_labview_string
 
