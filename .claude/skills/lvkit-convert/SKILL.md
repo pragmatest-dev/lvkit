@@ -107,11 +107,11 @@ lvkit mcp                          # Start MCP server for IDE integration
 The MCP server (`lvkit mcp`) provides tools for interactive exploration:
 
 **Session:**
-- `load_vi` — Load VI into persistent graph
-- `list_loaded_vis` — List loaded VIs
+- `load` — Load VI into persistent graph
+- `list_loaded` — List loaded VIs
 
 **Exploration:**
-- `describe_vi` — Human-readable VI overview (signature, SubVIs, control flow)
+- `describe` — Human-readable VI overview (signature, SubVIs, control flow)
 - `get_operations` — Execution order with nested structures
 - `get_dataflow` — Wire connections, optionally filtered by operation
 - `get_structure` — Case/loop/sequence details
@@ -120,11 +120,11 @@ The MCP server (`lvkit mcp`) provides tools for interactive exploration:
 **Generation:**
 - `generate_ast_code` — Deterministic Python from loaded VI
 - `generate_python` — Full pipeline: load + generate + write files
-- `get_vi_context` — Raw VI context as JSON
+- `get_context` — Raw VI context as JSON
 
 **Documentation:**
 - `generate_documents` — Create HTML documentation
-- `analyze_vi` — Parse and return VI structure
+- `analyze` — Parse and return VI structure
 
 ## Related Skills
 

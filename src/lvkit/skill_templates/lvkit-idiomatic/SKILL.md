@@ -18,27 +18,8 @@ The user provides either:
 
 Substitute `<vi-path>` and `<library-path>` with the user's actual paths.
 
-The simplest path is the CLI:
-
 ```bash
 lvkit describe "<vi-path>" --search-path "<library-path>"
-```
-
-Or programmatically if you need the operations list separately:
-
-```bash
-python3 -c "
-from pathlib import Path
-from lvkit.graph.core import InMemoryVIGraph
-from lvkit.graph.describe import describe_vi, describe_operations
-
-g = InMemoryVIGraph()
-g.load_vi('<vi-path>', search_paths=[Path('<library-path>')])
-vi_name = list(g.list_vis())[0]
-print(describe_vi(g, vi_name))
-print()
-print(describe_operations(g, vi_name))
-"
 ```
 
 ## Step 2: Read the generated code

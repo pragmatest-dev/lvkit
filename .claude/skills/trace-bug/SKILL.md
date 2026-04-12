@@ -24,15 +24,7 @@ Which graph operation produced the wrong code? Check:
 - Is it a constant value?
 
 ```bash
-python3 -c "
-from pathlib import Path
-from lvkit.graph.core import InMemoryVIGraph
-from lvkit.graph.describe import describe_operations
-
-g = InMemoryVIGraph()
-g.load_vi('VI_PATH', search_paths=[Path('SEARCH_PATH')])
-print(describe_operations(g, 'VI_NAME'))
-"
+lvkit describe "VI_PATH" --search-path "SEARCH_PATH"
 ```
 
 ## Step 2: Check the data source
@@ -60,73 +52,19 @@ Verify:
 
 ### For SubVIs — check terminal resolution
 
-```bash
-python3 -c "
-from pathlib import Path
-from lvkit.graph.core import InMemoryVIGraph
-
-g = InMemoryVIGraph()
-g.load_vi('VI_PATH', search_paths=[Path('SEARCH_PATH')])
-# Find the SubVI call node
-for nid in g._vi_nodes.get('VI_NAME', set()):
-    node = g._graph.nodes[nid].get('node')
-    if node and 'SUBVI_NAME' in (node.name or ''):
-        for t in node.terminals:
-            print(f'idx={t.index} dir={t.direction} name={t.name} type={t.lv_type}')
-"
-```
+Use MCP `get_dataflow` with the SubVI operation ID to see what terminals are wired and at what indices.
 
 ### For structures — check frame/tunnel resolution
 
-Use `get_structure` (MCP) or:
-```bash
-python3 -c "
-from pathlib import Path
-from lvkit.graph.core import InMemoryVIGraph
-from lvkit.graph.describe import describe_structure
-
-g = InMemoryVIGraph()
-g.load_vi('VI_PATH', search_paths=[Path('SEARCH_PATH')])
-print(describe_structure(g, 'VI_NAME', 'OPERATION_ID'))
-"
-```
+Use MCP `get_structure` with the structure operation ID.
 
 ### For type issues — check typedef field resolution
 
-```bash
-python3 -c "
-from pathlib import Path
-from lvkit.graph.core import InMemoryVIGraph
-
-g = InMemoryVIGraph()
-g.load_vi('VI_PATH', search_paths=[Path('SEARCH_PATH')])
-# Check what fields the type resolves to
-for nid in g._vi_nodes.get('VI_NAME', set()):
-    node = g._graph.nodes[nid].get('node')
-    if node and 'NODE_UID' in node.id:
-        for t in node.terminals:
-            if t.lv_type and t.lv_type.fields:
-                print(f'{t.name}: {len(t.lv_type.fields)} fields')
-                for i, f in enumerate(t.lv_type.fields):
-                    print(f'  [{i}] {f.name}')
-"
-```
+Read the parsed XML directly from the extracted VI files (in the `_BDHb.xml` or typedef `.ctl` file) and grep for the field names.
 
 ## Step 3: Trace the wire
 
-Follow the data flow to/from the problematic operation:
-
-```bash
-python3 -c "
-from pathlib import Path
-from lvkit.graph.core import InMemoryVIGraph
-from lvkit.graph.describe import describe_dataflow
-
-g = InMemoryVIGraph()
-g.load_vi('VI_PATH', search_paths=[Path('SEARCH_PATH')])
-print(describe_dataflow(g, 'VI_NAME', 'OPERATION_ID'))
-"
-```
+Use MCP `get_dataflow` with the operation ID to follow data flow to/from the problematic operation.
 
 ## Step 4: Identify root cause
 
