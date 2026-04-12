@@ -9,9 +9,9 @@ from __future__ import annotations
 import ast
 import xml.etree.ElementTree as ET
 
-from lvpy.codegen.nodes import subvi
-from lvpy.models import LVType, SubVIOperation, Terminal
-from lvpy.parser.vi import _extract_subvi_info, _resolve_qualified_name
+from lvkit.codegen.nodes import subvi
+from lvkit.models import LVType, SubVIOperation, Terminal
+from lvkit.parser.vi import _extract_subvi_info, _resolve_qualified_name
 from tests.helpers import make_ctx
 
 

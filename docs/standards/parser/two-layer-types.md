@@ -15,7 +15,7 @@ class ParsedType:
     typedef_name: str | None  # Qualified name
 ```
 
-Location: `src/lvpy/parser/models.py`
+Location: `src/lvkit/parser/models.py`
 
 ## LVType (graph layer)
 
@@ -31,8 +31,8 @@ class LVType:
     element_type: LVType | None          # array element
 ```
 
-Location: `src/lvpy/graph_types.py`
+Location: `src/lvkit/graph_types.py`
 
 ## Conversion
 
-Parser produces `ParsedType`. Graph layer (`lvpy.graph` / `InMemoryVIGraph`) enriches to `LVType` using `vilib_resolver` for external typedef resolution.
+Parser produces `ParsedType`. Graph layer (`lvkit.graph` / `InMemoryVIGraph`) enriches to `LVType` using `vilib_resolver` for external typedef resolution.

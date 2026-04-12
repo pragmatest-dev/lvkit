@@ -1,4 +1,4 @@
-# lvpy: LabVIEW-to-Python, No License Required
+# lvkit: LabVIEW-to-Python, No License Required
 
 A deterministic converter that reads LabVIEW `.vi` binaries and produces working Python — without LabVIEW installed, without an LLM, without guessing.
 
@@ -8,19 +8,19 @@ A deterministic converter that reads LabVIEW `.vi` binaries and produces working
 
 LabVIEW code is locked inside proprietary binaries. You can't read it without NI's tools. You can't version-diff it. You can't migrate it. If you want to move a LabVIEW test framework to Python, you're hand-translating thousands of VIs.
 
-lvpy reads those binaries directly and generates Python that preserves the original dataflow semantics — parallel execution, error handling, polymorphic dispatch, all of it.
+lvkit reads those binaries directly and generates Python that preserves the original dataflow semantics — parallel execution, error handling, polymorphic dispatch, all of it.
 
 ## Clean-Room Design
 
 We went out of our way to keep this clean-room. Every piece of semantic knowledge comes from published sources:
 
 - **Binary format parsing** uses [pylabview](https://github.com/mefistotelis/pylabview), an open-source reverse-engineered RSRC reader. No NI runtime, no LabVIEW APIs, no proprietary libraries.
-- **Primitive definitions** (845 identified) are extracted from NI's published PDF documentation, with page references on every entry. See `src/lvpy/data/primitives-from-pdf.json` — each has `"source": "NI PDF Documentation"` and a page number.
-- **Terminal names and types** come from the same published docs. Terminal *indices* — the connector pane layout, which the PDF doesn't give you — are auto-discovered from caller dataflow at generation time. When lvpy sees a wire connected to terminal index 3, it learns that index 3 exists. No guessing.
-- **Enum values and typedefs** are transcribed from published documentation into `src/lvpy/data/vilib/_types.json`. Clean-room parsing doesn't have access to LabVIEW's enum labels, so we built the mapping by hand from NI's PDFs.
+- **Primitive definitions** (845 identified) are extracted from NI's published PDF documentation, with page references on every entry. See `src/lvkit/data/primitives-from-pdf.json` — each has `"source": "NI PDF Documentation"` and a page number.
+- **Terminal names and types** come from the same published docs. Terminal *indices* — the connector pane layout, which the PDF doesn't give you — are auto-discovered from caller dataflow at generation time. When lvkit sees a wire connected to terminal index 3, it learns that index 3 exists. No guessing.
+- **Enum values and typedefs** are transcribed from published documentation into `src/lvkit/data/vilib/_types.json`. Clean-room parsing doesn't have access to LabVIEW's enum labels, so we built the mapping by hand from NI's PDFs.
 - **vilib and OpenG mappings** (67 VIs) are all documented with their PDF source pages and verified against observed wiring, not against running LabVIEW.
 
-The result: lvpy runs on Linux, Mac, Windows. No NI software. No license. No network calls. Just Python reading bytes.
+The result: lvkit runs on Linux, Mac, Windows. No NI software. No license. No network calls. Just Python reading bytes.
 
 ## How It Works
 
@@ -34,19 +34,19 @@ VI Binary → pylabview (XML extraction)
          → ast.unparse() → valid Python source
 ```
 
-Every output file is guaranteed syntactically valid because lvpy builds `ast.Module` nodes, not format strings. If it compiles, it was generated from real AST.
+Every output file is guaranteed syntactically valid because lvkit builds `ast.Module` nodes, not format strings. If it compiles, it was generated from real AST.
 
 The entire pipeline is deterministic. No LLM, no sampling, no randomness. Same `.vi` binary in → same `.py` file out, every time. Variable names come from terminal names in the graph, execution order comes from topological sort of data dependencies, structure comes from the AST builders. There's nothing probabilistic in the chain. You can diff the output, commit it, put it in CI — if the output changes, either the input changed or we shipped a bug.
 
 ## Two Graphs, Two Jobs
 
-lvpy maintains two separate NetworkX graphs that serve different purposes:
+lvkit maintains two separate NetworkX graphs that serve different purposes:
 
-**Graph 1 — Dependency graph** (`nx.DiGraph`): VI-level. Nodes are VI names, edges are "calls" relationships. This graph controls *load order* (callees before callers) and *generation order* (topological sort via `nx.condensation()` to handle mutual recursion). When you run `lvpy visualize --mode deps`, this is what you see.
+**Graph 1 — Dependency graph** (`nx.DiGraph`): VI-level. Nodes are VI names, edges are "calls" relationships. This graph controls *load order* (callees before callers) and *generation order* (topological sort via `nx.condensation()` to handle mutual recursion). When you run `lvkit visualize --mode deps`, this is what you see.
 
 **Graph 2 — Dataflow graph** (`nx.MultiDiGraph`): Node-level. Every operation, constant, and structure across all loaded VIs lives in a single unified graph. Nodes are typed Pydantic models (`VINode`, `PrimitiveNode`, `StructureNode`, `ConstantNode`). Edges are wires with typed `WireEnd` endpoints carrying terminal IDs, indices, and data types. MultiDiGraph because two nodes can be connected by multiple wires (bundled clusters, multiple outputs).
 
-The dependency graph tells lvpy *what order to generate code*. The dataflow graph tells lvpy *what code to generate*. Cross-VI edges in the dataflow graph connect SubVI call terminals directly to the callee's front panel terminals, enabling type propagation across VI boundaries.
+The dependency graph tells lvkit *what order to generate code*. The dataflow graph tells lvkit *what code to generate*. Cross-VI edges in the dataflow graph connect SubVI call terminals directly to the callee's front panel terminals, enabling type propagation across VI boundaries.
 
 ## What It Converts
 
@@ -62,7 +62,7 @@ The 139-VI TestCase class includes LabVIEW classes, polymorphic SubVIs, error cl
 
 ## Parallel Execution: Tiered Topological Sort
 
-LabVIEW is inherently parallel — any two operations without a data dependency can run simultaneously. lvpy preserves this.
+LabVIEW is inherently parallel — any two operations without a data dependency can run simultaneously. lvkit preserves this.
 
 The algorithm:
 
@@ -100,11 +100,11 @@ The parallelism comes from the graph, not from heuristics. If two operations hav
 
 ## Error Handling: Cluster-to-Exception Translation
 
-LabVIEW passes error clusters through wires. Python uses exceptions. lvpy translates between the two models based on what the graph actually does with errors:
+LabVIEW passes error clusters through wires. Python uses exceptions. lvkit translates between the two models based on what the graph actually does with errors:
 
-**Error case structures** (case selector wired to an error cluster): lvpy emits only the no-error frame. In the TestCase class, 45 of 47 error-case structures have empty error frames — they just re-wire the cluster. Python's exception propagation handles this naturally.
+**Error case structures** (case selector wired to an error cluster): lvkit emits only the no-error frame. In the TestCase class, 45 of 47 error-case structures have empty error frames — they just re-wire the cluster. Python's exception propagation handles this naturally.
 
-**Merge Errors at parallel join points**: When parallel branches can independently fail, lvpy wraps `future.result()` in try/except with a held-error pattern:
+**Merge Errors at parallel join points**: When parallel branches can independently fail, lvkit wraps `future.result()` in try/except with a held-error pattern:
 
 ```python
 _held_error = None
@@ -120,13 +120,13 @@ if _held_error:
 
 This preserves LabVIEW's semantics: all branches get to finish, the first error is re-raised at the merge point.
 
-**The placement is graph-driven**, not pattern-matched. lvpy traces error wires backward through the graph to determine scope. Only the operations actually on the error path get wrapped.
+**The placement is graph-driven**, not pattern-matched. lvkit traces error wires backward through the graph to determine scope. Only the operations actually on the error path get wrapped.
 
 ## Polymorphic VI Resolution
 
 LabVIEW polymorphic VIs bundle N variant implementations behind a single name — but the variants can have completely different terminal layouts, different input/output counts, different types. This isn't Java-style interface polymorphism; each variant is its own VI with its own connector pane. The caller's VI binary records which variant was selected at edit time via the `polySelector` XML attribute.
 
-lvpy reads that selector, looks up the specific variant in `src/lvpy/data/vilib/*.json`, and emits variant-specific code with the correct terminal mapping for that variant:
+lvkit reads that selector, looks up the specific variant in `src/lvkit/data/vilib/*.json`, and emits variant-specific code with the correct terminal mapping for that variant:
 
 ```python
 # Array Size(1D) variant — 1 input, 1 output:
@@ -174,11 +174,11 @@ Property node drawers execute sequentially (top-to-bottom), not in parallel — 
 
 ## AI Integration (Optional Layer)
 
-The deterministic pipeline is the foundation. On top of it, lvpy offers:
+The deterministic pipeline is the foundation. On top of it, lvkit offers:
 
-- **MCP server** (`lvpy mcp`): 12 tools for Claude Code, Copilot, or any MCP-compatible editor. Load a VI, explore the graph, generate code — all through tool calls.
-- **LLM cleanup** (`lvpy llm-generate`): Takes the AST output as a reference and asks an LLM to produce idiomatic Python. Falls back to AST if the LLM produces invalid syntax.
-- **5 user-facing Claude Code skills**, all installable into a downstream project via `lvpy init --skills claude` (or `--skills copilot` for the equivalent Copilot prompts + router): `/lvpy-convert` (full pipeline with resolution loop), `/lvpy-describe`, `/lvpy-resolve-primitive`, `/lvpy-resolve-vilib`, `/lvpy-idiomatic`. Two more skills (`/judge-output`, `/trace-bug`) are lvpy-internal maintainer tooling and are not packaged.
+- **MCP server** (`lvkit mcp`): 12 tools for Claude Code, Copilot, or any MCP-compatible editor. Load a VI, explore the graph, generate code — all through tool calls.
+- **LLM cleanup** (`lvkit llm-generate`): Takes the AST output as a reference and asks an LLM to produce idiomatic Python. Falls back to AST if the LLM produces invalid syntax.
+- **5 user-facing Claude Code skills**, all installable into a downstream project via `lvkit init --skills claude` (or `--skills copilot` for the equivalent Copilot prompts + router): `/lvkit-convert` (full pipeline with resolution loop), `/lvkit-describe`, `/lvkit-resolve-primitive`, `/lvkit-resolve-vilib`, `/lvkit-idiomatic`. Two more skills (`/judge-output`, `/trace-bug`) are lvkit-internal maintainer tooling and are not packaged.
 
 The AI never sees raw bytes. It queries the *typed dataflow graph* through MCP tools. Every wire, every type, every terminal index comes from the binary — the LLM just makes the output prettier.
 
@@ -186,8 +186,8 @@ The AI never sees raw bytes. It queries the *typed dataflow graph* through MCP t
 
 If you maintain a LabVIEW test framework like JKI VI Tester:
 
-1. **Read your own code without LabVIEW**: `lvpy describe YourVI.vi` shows signature, dependencies, operations, and dataflow — on any machine.
-2. **Generate documentation**: `lvpy docs YourProject/ output/` produces cross-referenced HTML with dependency graphs, no LabVIEW required.
+1. **Read your own code without LabVIEW**: `lvkit describe YourVI.vi` shows signature, dependencies, operations, and dataflow — on any machine.
+2. **Generate documentation**: `lvkit docs YourProject/ output/` produces cross-referenced HTML with dependency graphs, no LabVIEW required.
 3. **Migrate to Python incrementally**: Generate a Python skeleton from your existing VIs, then refine. The skeleton preserves parallel execution, error handling, and dependency structure.
 4. **Deterministic output**: Same VI always produces the same Python. No LLM variance, no hallucinations, no randomness. Suitable for CI/CD.
 5. **Visualize what you have**: Interactive dependency graphs and dataflow diagrams in the browser. See which VIs call which, how data flows, where parallel branches exist.

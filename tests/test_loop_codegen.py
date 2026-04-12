@@ -4,17 +4,17 @@ from __future__ import annotations
 
 import ast
 
-from lvpy.codegen.context import CodeGenContext
-from lvpy.codegen.nodes import loop
-from lvpy.codegen.nodes.loop import (
+from lvkit.codegen.context import CodeGenContext
+from lvkit.codegen.nodes import loop
+from lvkit.codegen.nodes.loop import (
     _get_dest_terminal_name,
     _get_source_terminal_name,
     _make_var_name,
     _negate_condition,
     _singularize,
 )
-from lvpy.graph.models import Wire
-from lvpy.models import LoopOperation, Tunnel
+from lvkit.graph.models import Wire
+from lvkit.models import LoopOperation, Tunnel
 from tests.conftest import make_ctx
 
 

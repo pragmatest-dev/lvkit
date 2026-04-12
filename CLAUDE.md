@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-lvpy converts LabVIEW VI files to Python code without requiring a LabVIEW license. It uses [pylabview](https://github.com/mefistotelis/pylabview) as the core parser for reading VI file formats.
+lvkit converts LabVIEW VI files to Python code without requiring a LabVIEW license. It uses [pylabview](https://github.com/mefistotelis/pylabview) as the core parser for reading VI file formats.
 
 ## Commands
 
@@ -42,14 +42,14 @@ The conversion pipeline:
 
 ### Key Modules
 
-- `src/lvpy/parser/` — XML → `ParsedVI` dataclasses (nodes, wires, constants, types)
-- `src/lvpy/graph/` — `InMemoryVIGraph`, graph construction, queries, operations
-- `src/lvpy/models.py` — shared type definitions used by parser, graph, and codegen (`LVType`, `Operation`, `Frame`, `Terminal`, `Tunnel`, etc.)
-- `src/lvpy/graph/models.py` — graph/codegen-only types (`GraphNode` hierarchy, `VIContext`, `Wire`, query/info types, `BranchPoint`)
-- `src/lvpy/codegen/builder.py` — `build_module()` entry point for AST generation
-- `src/lvpy/pipeline.py` — orchestrates multi-VI generation
-- `src/lvpy/cli.py` — command-line interface
-- `src/lvpy/mcp/` — MCP server (12 tools)
+- `src/lvkit/parser/` — XML → `ParsedVI` dataclasses (nodes, wires, constants, types)
+- `src/lvkit/graph/` — `InMemoryVIGraph`, graph construction, queries, operations
+- `src/lvkit/models.py` — shared type definitions used by parser, graph, and codegen (`LVType`, `Operation`, `Frame`, `Terminal`, `Tunnel`, etc.)
+- `src/lvkit/graph/models.py` — graph/codegen-only types (`GraphNode` hierarchy, `VIContext`, `Wire`, query/info types, `BranchPoint`)
+- `src/lvkit/codegen/builder.py` — `build_module()` entry point for AST generation
+- `src/lvkit/pipeline.py` — orchestrates multi-VI generation
+- `src/lvkit/cli.py` — command-line interface
+- `src/lvkit/mcp/` — MCP server (12 tools)
 
 ### Standard Test Command
 
@@ -108,11 +108,11 @@ This preserves LabVIEW's semantics where:
 - First error is preserved and raised at merge point
 - All branches get a chance to clean up
 
-Implementation: `src/lvpy/codegen/error_handler.py`
+Implementation: `src/lvkit/codegen/error_handler.py`
 
 ## Adding New Primitives
 
-LabVIEW primitives are identified by `primResID`. When a conversion fails with `PrimitiveResolutionNeeded`, add an entry to `src/lvpy/data/primitives.json`:
+LabVIEW primitives are identified by `primResID`. When a conversion fails with `PrimitiveResolutionNeeded`, add an entry to `src/lvkit/data/primitives.json`:
 
 ```json
 {
@@ -134,7 +134,7 @@ Use the caller's dataflow in the exception output to determine correct terminal 
 
 ## Adding New VILib VIs
 
-When a conversion fails with `VILibResolutionNeeded`, add the VI to the appropriate `src/lvpy/data/vilib/<category>.json`. The exception output shows terminal names from XML and actual wire indices from the caller — use those indices to fill in the `"index"` field for each terminal.
+When a conversion fails with `VILibResolutionNeeded`, add the VI to the appropriate `src/lvkit/data/vilib/<category>.json`. The exception output shows terminal names from XML and actual wire indices from the caller — use those indices to fill in the `"index"` field for each terminal.
 
 **Workflow:**
 1. Run the code generator; note the exception output

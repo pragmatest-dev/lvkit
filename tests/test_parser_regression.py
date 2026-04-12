@@ -4,11 +4,11 @@ from pathlib import Path
 
 import pytest
 
-from lvpy.extractor import extract_vi_xml
-from lvpy.graph import InMemoryVIGraph
-from lvpy.parser import ParsedVI, ParsedVIMetadata, parse_vi
-from lvpy.parser.metadata import parse_subvi_paths, parse_vi_metadata
-from lvpy.parser.type_mapping import parse_type_map_rich
+from lvkit.extractor import extract_vi_xml
+from lvkit.graph import InMemoryVIGraph
+from lvkit.parser import ParsedVI, ParsedVIMetadata, parse_vi
+from lvkit.parser.metadata import parse_subvi_paths, parse_vi_metadata
+from lvkit.parser.type_mapping import parse_type_map_rich
 
 TEST_VI = Path(
     "samples/JKI-VI-Tester/source/User Interfaces/"

@@ -1,32 +1,32 @@
 #!/usr/bin/env bash
 # Verify the in-repo .claude/skills/<name>/SKILL.md files match their
-# packaged templates in src/lvpy/skill_templates/claude/<name>/SKILL.md.
+# packaged templates in src/lvkit/skill_templates/claude/<name>/SKILL.md.
 #
-# lvpy ships user-facing skills via PyPI through the package data at
-# src/lvpy/skill_templates/. The source of truth is the packaged template;
-# the in-repo .claude/skills/ copy is a byte-identical mirror so lvpy
+# lvkit ships user-facing skills via PyPI through the package data at
+# src/lvkit/skill_templates/. The source of truth is the packaged template;
+# the in-repo .claude/skills/ copy is a byte-identical mirror so lvkit
 # maintainers using Claude Code in this repo get the same skills downstream
 # users receive.
 #
 # Skills that exist only in .claude/skills/ (not under skill_templates/)
 # are intentionally maintainer-only — they're not checked by this script.
-# That includes judge-output and trace-bug, which test/debug lvpy itself
+# That includes judge-output and trace-bug, which test/debug lvkit itself
 # and have no value to downstream users.
 #
-# Discovery is automatic: every directory under src/lvpy/skill_templates/
+# Discovery is automatic: every directory under src/lvkit/skill_templates/
 # must have a corresponding .claude/skills/ entry. Adding a new template
 # requires no script change. The templates are also the source for the
 # Copilot install path (built dynamically by install_copilot_instructions
 # in project_store.py) — that's why the directory is not named "claude/".
 #
 # This hook fails if any pair diverges. Fix by copying the template:
-#   cp src/lvpy/skill_templates/claude/<skill>/SKILL.md \
+#   cp src/lvkit/skill_templates/claude/<skill>/SKILL.md \
 #      .claude/skills/<skill>/SKILL.md
 
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-TEMPLATE_DIR="$REPO_ROOT/src/lvpy/skill_templates"
+TEMPLATE_DIR="$REPO_ROOT/src/lvkit/skill_templates"
 INREPO_DIR="$REPO_ROOT/.claude/skills"
 
 if [[ ! -d "$TEMPLATE_DIR" ]]; then

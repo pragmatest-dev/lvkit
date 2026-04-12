@@ -1,6 +1,6 @@
-# lvpy Demo Script (30 min including questions)
+# lvkit Demo Script (30 min including questions)
 
-## 1. What is lvpy? (2 min)
+## 1. What is lvkit? (2 min)
 
 LabVIEW-to-Python converter. No LabVIEW license needed. Reads .vi binary files directly.
 
@@ -10,17 +10,17 @@ Three modes: deterministic AST generation, interactive visualization, AI-assiste
 
 ```bash
 # What does this VI do? (shows signature, dependencies, operations)
-lvpy describe samples/DAQmx-Digital-IO/In.vi
+lvkit describe samples/DAQmx-Digital-IO/In.vi
 
 # With Mermaid dataflow chart
-lvpy describe samples/DAQmx-Digital-IO/In.vi --chart
+lvkit describe samples/DAQmx-Digital-IO/In.vi --chart
 ```
 
 Shows signature, inputs/outputs, SubVI calls, control flow, operations. All extracted from the binary, no LabVIEW needed.
 
 ```bash
 # A more interesting example with dependencies
-lvpy describe "samples/JKI-VI-Tester/source/User Interfaces/Graphical Test Runner/Graphical Test Runner Support/Get Settings Path.vi" \
+lvkit describe "samples/JKI-VI-Tester/source/User Interfaces/Graphical Test Runner/Graphical Test Runner Support/Get Settings Path.vi" \
   --search-path samples/OpenG/extracted
 ```
 
@@ -28,10 +28,10 @@ lvpy describe "samples/JKI-VI-Tester/source/User Interfaces/Graphical Test Runne
 
 ```bash
 # Interactive dependency graph — what calls what
-lvpy visualize samples/DAQmx-Digital-IO/In.vi --mode deps -o outputs/demo_deps.html --open
+lvkit visualize samples/DAQmx-Digital-IO/In.vi --mode deps -o outputs/demo_deps.html --open
 
 # Dataflow diagram — how data moves through the block diagram
-lvpy visualize samples/DAQmx-Digital-IO/In.vi --mode dataflow -o outputs/demo_flow.html --open
+lvkit visualize samples/DAQmx-Digital-IO/In.vi --mode dataflow -o outputs/demo_flow.html --open
 ```
 
 Click nodes. Show the topology. Point out parallel branches, structure nesting.
@@ -42,7 +42,7 @@ Click nodes. Show the topology. Point out parallel branches, structure nesting.
 
 ```bash
 # Convert a single VI
-lvpy generate samples/DAQmx-Digital-IO/In.vi -o outputs/demo --search-path samples/OpenG/extracted
+lvkit generate samples/DAQmx-Digital-IO/In.vi -o outputs/demo --search-path samples/OpenG/extracted
 ```
 
 Open `outputs/demo/in/in.py` and walk through:
@@ -53,7 +53,7 @@ Open `outputs/demo/in/in.py` and walk through:
 
 ```bash
 # Convert the whole directory
-lvpy generate samples/DAQmx-Digital-IO/ -o outputs/demo --search-path samples/OpenG/extracted
+lvkit generate samples/DAQmx-Digital-IO/ -o outputs/demo --search-path samples/OpenG/extracted
 ```
 
 Both VIs converted, 0 errors.
@@ -62,7 +62,7 @@ Both VIs converted, 0 errors.
 
 ```bash
 # Convert a VI from the Graphical Test Runner
-lvpy generate "samples/JKI-VI-Tester/source/User Interfaces/Graphical Test Runner/Graphical Test Runner Support/Get Settings Path.vi" \
+lvkit generate "samples/JKI-VI-Tester/source/User Interfaces/Graphical Test Runner/Graphical Test Runner Support/Get Settings Path.vi" \
   -o outputs/demo --search-path samples/OpenG/extracted
 ```
 
@@ -79,7 +79,7 @@ def get_settings_path() -> GetSettingsPathResult:
     return GetSettingsPathResult(config_path=appended_path)
 ```
 
-Walk through what lvpy did:
+Walk through what lvkit did:
 - Resolved `Get System Directory.vi` from vilib (LabVIEW standard library)
 - Resolved `Build Path` and `Strip Path` as OpenG polymorphic VIs — inlined at call sites
 - Resolved `Create Dir if Non-Existant` — inlined as `mkdir(parents=True, exist_ok=True)`
@@ -92,7 +92,7 @@ Walk through what lvpy did:
 
 ```bash
 # Convert an entire LabVIEW class with all dependencies
-lvpy generate samples/JKI-VI-Tester/source/Classes/TestCase/TestCase.lvclass \
+lvkit generate samples/JKI-VI-Tester/source/Classes/TestCase/TestCase.lvclass \
   -o outputs/demo --search-path samples/OpenG/extracted
 ```
 
@@ -105,7 +105,7 @@ Show the generated class wrapper. Show a few method implementations.
 ## 7. Generate documentation (3 min)
 
 ```bash
-lvpy docs samples/DAQmx-Digital-IO/ outputs/demo_docs
+lvkit docs samples/DAQmx-Digital-IO/ outputs/demo_docs
 ```
 
 Open `outputs/demo_docs/index.html`. Show:
@@ -118,7 +118,7 @@ Open `outputs/demo_docs/index.html`. Show:
 
 ```bash
 # The same analysis is available as MCP tools for Claude Code / Copilot
-lvpy mcp
+lvkit mcp
 ```
 
 Show the tool list. Explain:
@@ -128,18 +128,18 @@ Show the tool list. Explain:
 
 **If Claude Code is available**, demonstrate live:
 ```
-/lvpy load samples/DAQmx-Digital-IO/In.vi
-/lvpy describe In.vi
-/lvpy operations In.vi
+/lvkit load samples/DAQmx-Digital-IO/In.vi
+/lvkit describe In.vi
+/lvkit operations In.vi
 ```
 
 ## 9. AI integration — MCP + Skills (5 min)
 
-lvpy exposes the graph as MCP tools for any AI editor:
+lvkit exposes the graph as MCP tools for any AI editor:
 
 ```bash
 # Start the MCP server (Claude Code, Copilot, etc.)
-lvpy mcp
+lvkit mcp
 ```
 
 12 tools available: `load`, `describe`, `get_operations`, `get_dataflow`, `get_structure`, `get_constants`, `generate_ast_code`, `analyze`, `generate_documents`, `generate_python`, `list_loaded`, `get_context`.
@@ -152,12 +152,12 @@ lvpy mcp
 > get operations for In.vi
 ```
 
-**Skills for Claude Code** (5 user-facing skills, installable into a downstream project via `lvpy init --skills claude`; 2 more `/judge-output` and `/trace-bug` stay lvpy-maintainer-only):
-- `/lvpy-convert` — full conversion pipeline with resolution loop
-- `/lvpy-describe` — human-readable VI description
-- `/lvpy-resolve-primitive` — resolve unknown LabVIEW primitives via web search
-- `/lvpy-resolve-vilib` — resolve unknown vilib VIs via web search or the user's vi.lib install
-- `/lvpy-idiomatic` — improve generated code style
+**Skills for Claude Code** (5 user-facing skills, installable into a downstream project via `lvkit init --skills claude`; 2 more `/judge-output` and `/trace-bug` stay lvkit-maintainer-only):
+- `/lvkit-convert` — full conversion pipeline with resolution loop
+- `/lvkit-describe` — human-readable VI description
+- `/lvkit-resolve-primitive` — resolve unknown LabVIEW primitives via web search
+- `/lvkit-resolve-vilib` — resolve unknown vilib VIs via web search or the user's vi.lib install
+- `/lvkit-idiomatic` — improve generated code style
 
 **Talking point:** The AI doesn't guess — it queries the actual dataflow graph. Every wire, every type, every terminal index comes from the binary.
 
@@ -165,7 +165,7 @@ lvpy mcp
 
 ```bash
 # Generate with LLM cleanup (requires Anthropic API key)
-lvpy llm-generate samples/DAQmx-Digital-IO/In.vi -o outputs/demo_llm \
+lvkit llm-generate samples/DAQmx-Digital-IO/In.vi -o outputs/demo_llm \
   --search-path samples/OpenG/extracted
 ```
 
@@ -185,7 +185,7 @@ Event structures, XControls, ActiveX/.NET interop, some VI Server operations. Th
 LabVIEW error clusters become Python exceptions. Error wires become try/except. Merge Errors becomes ThreadPoolExecutor future.result() wrapping.
 
 *"Is the generated code production-ready?"*
-It's syntactically valid and structurally correct. An AI cleanup pass (lvpy llm-generate) can improve naming and idioms. The goal is 80% automated, 20% human review.
+It's syntactically valid and structurally correct. An AI cleanup pass (lvkit llm-generate) can improve naming and idioms. The goal is 80% automated, 20% human review.
 
 *"How fast is it?"*
 The AST pipeline is deterministic — no LLM calls. Single VI: <1 second. 94-file class: ~10 seconds.

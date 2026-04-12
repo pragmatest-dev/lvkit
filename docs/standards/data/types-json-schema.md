@@ -1,6 +1,6 @@
 # _types.json Schema
 
-File `src/lvpy/data/vilib/_types.json` defines typedefs (enums, clusters) referenced by vilib VIs.
+File `src/lvkit/data/vilib/_types.json` defines typedefs (enums, clusters) referenced by vilib VIs.
 
 ## Why It Exists
 

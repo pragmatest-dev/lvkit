@@ -1576,7 +1576,7 @@ DRIVERS: list[tuple[str, str, Any]] = [
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Generate driver data JSON for lvpy.",
+        description="Generate driver data JSON for lvkit.",
     )
     parser.add_argument(
         "--output", "-o",

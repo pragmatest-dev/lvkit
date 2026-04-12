@@ -4,16 +4,16 @@ from __future__ import annotations
 
 import ast
 
-from lvpy.codegen.condition_builder import (
+from lvkit.codegen.condition_builder import (
     BOOLEAN_PRIMITIVES,
     COMPARISON_PRIMITIVES,
     NOT_PRIMITIVES,
     build_condition_expr,
 )
-from lvpy.codegen.context import CodeGenContext
-from lvpy.graph import InMemoryVIGraph
-from lvpy.graph.models import PrimitiveNode, WireEnd
-from lvpy.models import PrimitiveOperation, Terminal
+from lvkit.codegen.context import CodeGenContext
+from lvkit.graph import InMemoryVIGraph
+from lvkit.graph.models import PrimitiveNode, WireEnd
+from lvkit.models import PrimitiveOperation, Terminal
 
 
 def _make_wired_ctx(

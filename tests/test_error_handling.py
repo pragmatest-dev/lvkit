@@ -2,7 +2,7 @@
 
 import pytest
 
-from lvpy.labview_error import LabVIEWError, merge_errors, no_error_cluster
+from lvkit.labview_error import LabVIEWError, merge_errors, no_error_cluster
 
 
 class TestLabVIEWError:

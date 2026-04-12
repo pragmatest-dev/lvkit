@@ -1,6 +1,6 @@
-# lvpy Graph Structure Reference
+# lvkit Graph Structure Reference
 
-A deep technical reference for lvpy's internal graph representation — the in-memory dataflow graph built from LabVIEW VI XML files and consumed by the code generator.
+A deep technical reference for lvkit's internal graph representation — the in-memory dataflow graph built from LabVIEW VI XML files and consumed by the code generator.
 
 ## Table of Contents
 
@@ -68,16 +68,16 @@ The graph layer is the source of truth. The codegen layer is built from it.
 
 | File | Purpose |
 |------|---------|
-| `src/lvpy/graph_types.py` | All data structure definitions (both layers) |
-| `src/lvpy/graph/core.py` | `InMemoryVIGraph` — graph container and queries |
-| `src/lvpy/graph/construction.py` | XML→graph node and edge building |
-| `src/lvpy/graph/loading.py` | VI/library recursive loading |
-| `src/lvpy/graph/queries.py` | Graph analysis queries |
-| `src/lvpy/parser/vi.py` | XML→ParsedVI entry point |
-| `src/lvpy/parser/models.py` | Parser-layer data structures |
-| `src/lvpy/parser/type_mapping.py` | TypeID→LVType resolution |
-| `src/lvpy/codegen/builder.py` | Code generation orchestration |
-| `src/lvpy/codegen/context.py` | `CodeGenContext` — graph query wrapper |
+| `src/lvkit/graph_types.py` | All data structure definitions (both layers) |
+| `src/lvkit/graph/core.py` | `InMemoryVIGraph` — graph container and queries |
+| `src/lvkit/graph/construction.py` | XML→graph node and edge building |
+| `src/lvkit/graph/loading.py` | VI/library recursive loading |
+| `src/lvkit/graph/queries.py` | Graph analysis queries |
+| `src/lvkit/parser/vi.py` | XML→ParsedVI entry point |
+| `src/lvkit/parser/models.py` | Parser-layer data structures |
+| `src/lvkit/parser/type_mapping.py` | TypeID→LVType resolution |
+| `src/lvkit/codegen/builder.py` | Code generation orchestration |
+| `src/lvkit/codegen/context.py` | `CodeGenContext` — graph query wrapper |
 
 ---
 

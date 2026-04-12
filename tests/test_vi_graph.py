@@ -6,9 +6,9 @@ from pathlib import Path
 
 import pytest
 
-from lvpy.graph import InMemoryVIGraph, connect
-from lvpy.graph.models import ConstantNode, PrimitiveNode, VINode, WireEnd
-from lvpy.models import FPTerminal, Terminal
+from lvkit.graph import InMemoryVIGraph, connect
+from lvkit.graph.models import ConstantNode, PrimitiveNode, VINode, WireEnd
+from lvkit.models import FPTerminal, Terminal
 
 
 class TestInMemoryVIGraphCreation:

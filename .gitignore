@@ -88,14 +88,14 @@ models/
 outputs/
 .tmp/
 
-# Project-local resolution store. lvpy ships cleanroom — anything in .lvpy/
+# Project-local resolution store. lvkit ships cleanroom — anything in .lvkit/
 # may be derived from licensed LabVIEW sources and must NEVER be committed
-# to lvpy's own repo. (Downstream users decide their own .lvpy/ gitignore
+# to lvkit's own repo. (Downstream users decide their own .lvkit/ gitignore
 # policy in their own projects.)
-.lvpy/
+.lvkit/
 
 # Large binary docs and proprietary references.
-# lvpy is cleanroom — NI's reference manual is not redistributable
+# lvkit is cleanroom — NI's reference manual is not redistributable
 # from this repo. Resolution skills look up function info via web
 # search against ni.com/docs instead.
 docs/*.pdf

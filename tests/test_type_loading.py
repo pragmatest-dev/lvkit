@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pytest
 
-from lvpy.graph import InMemoryVIGraph
+from lvkit.graph import InMemoryVIGraph
 
 SAMPLES = Path(__file__).resolve().parent.parent / "samples"
 TESTCASE_DIR = SAMPLES / "JKI-VI-Tester" / "source" / "Classes" / "TestCase"

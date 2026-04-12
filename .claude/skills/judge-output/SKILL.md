@@ -19,8 +19,8 @@ User provides:
 ```bash
 python3 -c "
 from pathlib import Path
-from lvpy.graph.core import InMemoryVIGraph
-from lvpy.graph.describe import describe_vi, describe_operations
+from lvkit.graph.core import InMemoryVIGraph
+from lvkit.graph.describe import describe_vi, describe_operations
 
 g = InMemoryVIGraph()
 g.load_vi('VI_PATH', search_paths=[Path('SEARCH_PATH')])

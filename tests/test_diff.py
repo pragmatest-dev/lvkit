@@ -1,11 +1,11 @@
-"""Tests for lvpy diff — comparing two VI versions."""
+"""Tests for lvkit diff — comparing two VI versions."""
 
 from __future__ import annotations
 
 from pathlib import Path
 
-from lvpy.graph.core import InMemoryVIGraph
-from lvpy.graph.diff import diff_structured, diff_text
+from lvkit.graph.core import InMemoryVIGraph
+from lvkit.graph.diff import diff_structured, diff_text
 
 SAMPLES = Path("samples/DAQmx-Digital-IO")
 

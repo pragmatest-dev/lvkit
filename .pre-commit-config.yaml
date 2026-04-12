@@ -9,7 +9,7 @@ repos:
     hooks:
       - id: pyright
         name: pyright
-        entry: python3 -m pyright src/lvpy/
+        entry: python3 -m pyright src/lvkit/
         language: system
         types: [python]
         pass_filenames: false
@@ -26,7 +26,7 @@ repos:
         entry: scripts/sync_skills.sh
         language: system
         # Trigger on any SKILL.md change under either tree. The script
-        # discovers skills dynamically from src/lvpy/skill_templates/ —
+        # discovers skills dynamically from src/lvkit/skill_templates/ —
         # adding a new packaged skill requires no hook-config change.
-        files: '^(\.claude/skills/.*/SKILL\.md|src/lvpy/skill_templates/claude/.*/SKILL\.md)$'
+        files: '^(\.claude/skills/.*/SKILL\.md|src/lvkit/skill_templates/claude/.*/SKILL\.md)$'
         pass_filenames: false
