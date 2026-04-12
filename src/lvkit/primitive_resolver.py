@@ -75,7 +75,9 @@ class PrimitiveResolutionNeeded(Exception):
 class TerminalResolutionNeeded(Exception):
     """Raised when a specific wired terminal cannot be resolved to a known index.
 
-    The primitive definition exists, but a terminal's index doesn't match.
+    kind="primitive": a built-in LabVIEW primitive with a missing terminal index
+    kind="vilib":     a vilib VI with a missing terminal index in data/vilib/
+    kind="subvi":     a user project VI whose terminal name could not be resolved
     """
 
     def __init__(
@@ -86,6 +88,7 @@ class TerminalResolutionNeeded(Exception):
         terminal_type: str | None,
         available: list[dict[str, str | int | None]],
         vi_name: str | None = None,
+        kind: str = "primitive",
     ):
         self.prim_id = str(prim_id)
         self.prim_name = prim_name
@@ -93,13 +96,20 @@ class TerminalResolutionNeeded(Exception):
         self.terminal_type = terminal_type
         self.available = available
         self.vi_name = vi_name
+        self.kind = kind
         super().__init__(self._format_message())
 
     def _format_message(self) -> str:
-        msg = (
-            f"Terminal resolution needed for primitive"
-            f" {self.prim_id} ({self.prim_name}).\n"
-        )
+        if self.kind == "vilib":
+            header = f"Terminal resolution needed for vilib VI '{self.prim_name}'."
+        elif self.kind == "subvi":
+            header = f"Terminal resolution needed for project VI '{self.prim_name}'."
+        else:
+            header = (
+                f"Terminal resolution needed for primitive"
+                f" {self.prim_id} ({self.prim_name})."
+            )
+        msg = header + "\n"
         if self.vi_name:
             msg += f"  In VI: {self.vi_name}\n"
         msg += (
@@ -114,10 +124,24 @@ class TerminalResolutionNeeded(Exception):
             )
         if not self.available:
             msg += "    (none available)\n"
-        msg += (
-            f"\n  Fix: add/update terminal in data/primitives.json"
-            f" under primitive {self.prim_id}"
-        )
+        if self.kind == "vilib":
+            msg += (
+                f"\n  Fix: add/update terminal index in"
+                f" .lvkit/data/vilib/<category>.json (project-local)"
+                f" or data/vilib/<category>.json (upstream)"
+                f" under VI '{self.prim_name}'"
+            )
+        elif self.kind == "subvi":
+            msg += (
+                f"\n  Fix: ensure '{self.prim_name}' is reachable via --search-path"
+                f" and its terminal names are present in the VI's front panel"
+            )
+        else:
+            msg += (
+                f"\n  Fix: add primitive {self.prim_id} to"
+                f" .lvkit/data/primitives.json (project-local)"
+                f" or data/primitives.json (upstream)"
+            )
         return msg
 
 
