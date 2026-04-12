@@ -21,7 +21,7 @@
         },
         {
           "name": "size(s)",
-          "description": "Functions \u00a9 National Instruments 391 size(s) is a 32-bit integer if array is one-dimensional (1D). If array is multidimensional, the returned value is a 1D array in which each element is a 32-bit integer that represents the number of elements in the corresponding dimension of array. The order of elements in the return array corresponds to row-major order. Thus, vol is the first index, followed by page, row, and column. These names are index identifiers and have no other meaning.",
+          "description": "Functions © National Instruments 391 size(s) is a 32-bit integer if array is one-dimensional (1D). If array is multidimensional, the returned value is a 1D array in which each element is a 32-bit integer that represents the number of elements in the corresponding dimension of array. The order of elements in the return array corresponds to row-major order. Thus, vol is the first index, followed by page, row, and column. These names are index identifiers and have no other meaning.",
           "default_value": null,
           "enum_values": null,
           "python_param": "sizes"
@@ -185,7 +185,7 @@
       "name": "Initialize Array",
       "page": 399,
       "category": "Array",
-      "description": "Creates an n-dimensional array in which every element is initialized to the value of element. Use the Positioning tool to resize the function and increase the number of dimensions (element, row, column, page, and so on) of the output array. The connector pane displays the default data types for this polymorphic function. Functions \u00a9 National Instruments 399",
+      "description": "Creates an n-dimensional array in which every element is initialized to the value of element. Use the Positioning tool to resize the function and increase the number of dimensions (element, row, column, page, and so on) of the output array. The connector pane displays the default data types for this polymorphic function. Functions © National Instruments 399",
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
@@ -292,7 +292,7 @@
       "terminals": [
         {
           "name": "array",
-          "description": "Functions \u00a9 National Instruments 403 array can be an n-dimensional array of any type.",
+          "description": "Functions © National Instruments 403 array can be an n-dimensional array of any type.",
           "default_value": null,
           "enum_values": null,
           "python_param": "array"
@@ -405,7 +405,7 @@
         },
         {
           "name": "dimension to index (column)",
-          "description": "dimension to index specifies the dimension of the 2D array to sort by. 0 column (default)\u2014Rearranges the rows by sorting the elements in the indexed column in ascending order. 1 row\u2014Rearranges the columns by sorting the elements in the indexed row in ascending order.",
+          "description": "dimension to index specifies the dimension of the 2D array to sort by. 0 column (default)—Rearranges the rows by sorting the elements in the indexed column in ascending order. 1 row—Rearranges the columns by sorting the elements in the indexed row in ascending order.",
           "default_value": null,
           "enum_values": [
             [
@@ -446,7 +446,7 @@
       "name": "Shuffle 1D Array",
       "page": 409,
       "category": "Array",
-      "description": "Rearranges the elements of a 1D array in a pseudorandom order. This VI uses a uniform shuffle so that every element has an equal chance of ending up in any position of the array. Technician , developer . Note If index is an array, this VI rearranges the elements in the indexed columns in order. In this example, this VI rearranges first the elements in column 2 to be ascending, and then the elements in column 0. Functions \u00a9 National Instruments 409",
+      "description": "Rearranges the elements of a 1D array in a pseudorandom order. This VI uses a uniform shuffle so that every element has an equal chance of ending up in any position of the array. Technician , developer . Note If index is an array, this VI rearranges the elements in the indexed columns in order. In this example, this VI rearranges first the elements in column 2 to be ascending, and then the elements in column 0. Functions © National Instruments 409",
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
@@ -546,7 +546,7 @@
         },
         {
           "name": "element",
-          "description": "Functions \u00a9 National Instruments 411 element is the value to search for in the array. element must be the same data type as the elements in 1D array.",
+          "description": "Functions © National Instruments 411 element is the value to search for in the array. element must be the same data type as the elements in 1D array.",
           "default_value": null,
           "enum_values": null,
           "python_param": "element"
@@ -560,7 +560,7 @@
         },
         {
           "name": "index of element",
-          "description": "index of element is the index where element is found. If the function does not find element, index of element is \u20131. You cannot use this function to retrieve the index of a value that is not an element of the array. For example, if you have an array of two elements (0.0 and 1.0), this function does not find the index of the value 0.5, as that value is not an element of the array. Use the Threshold 1D Array to find a fractional index. This function only finds a string if the element you specify m",
+          "description": "index of element is the index where element is found. If the function does not find element, index of element is –1. You cannot use this function to retrieve the index of a value that is not an element of the array. For example, if you have an array of two elements (0.0 and 1.0), this function does not find the index of the value 0.5, as that value is not an element of the array. Use the Threshold 1D Array to find a fractional index. This function only finds a string if the element you specify m",
           "default_value": null,
           "enum_values": null,
           "python_param": "index_of_element"
@@ -626,7 +626,7 @@
         },
         {
           "name": "array (last n elements first)",
-          "description": "Functions \u00a9 National Instruments 413 array (last n elements first) is the output array. For example, if n is 1, the input array[0] becomes output array[1], input array[1] becomes output array[2], and so on, and input array[m\u20131] becomes output array[0], where m is the number of elements in the array. If n is \u20132, input array[0] becomes output array[m\u20132], input array[1] becomes output array[m\u20131], and so on, and input array[m\u20131] becomes output array[m\u20133], where m is the number of elements in the arr",
+          "description": "Functions © National Instruments 413 array (last n elements first) is the output array. For example, if n is 1, the input array[0] becomes output array[1], input array[1] becomes output array[2], and so on, and input array[m–1] becomes output array[0], where m is the number of elements in the array. If n is –2, input array[0] becomes output array[m–2], input array[1] becomes output array[m–1], and so on, and input array[m–1] becomes output array[m–3], where m is the number of elements in the arr",
           "default_value": null,
           "enum_values": null,
           "python_param": "array_last_n_elements_first"
@@ -752,7 +752,7 @@
       "name": "Interpolate 1D Array Function",
       "page": 415,
       "category": "Array",
-      "description": "Linearly interpolates a decimal y value from an array of numbers or points using a fractional index or x value. The connector pane displays the default data types for this polymorphic function. Functions \u00a9 National Instruments 415",
+      "description": "Linearly interpolates a decimal y value from an array of numbers or points using a fractional index or x value. The connector pane displays the default data types for this polymorphic function. Functions © National Instruments 415",
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
@@ -858,7 +858,7 @@
       "name": "Decimate 1D Array",
       "page": 419,
       "category": "Array",
-      "description": "Divides the elements of array into the output arrays, placing elements into the outputs successively. This function drops any elements that cause the output arrays to have different lengths. You also can add additional output terminals by resizing the function. Functions \u00a9 National Instruments 419",
+      "description": "Divides the elements of array into the output arrays, placing elements into the outputs successively. This function drops any elements that cause the output arrays to have different lengths. You also can add additional output terminals by resizing the function. Functions © National Instruments 419",
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
@@ -873,14 +873,14 @@
         },
         {
           "name": "decimated array",
-          "description": "elements 0, n, 2n, \u2026 is the first output array. The function stores array[0] at index 0 of the first output array, array[1] is stored at index 0 of the second output array, array[n-1] at index 0 of the last output array, array[n] at index 1 of the first output array, and so on, where n is the number of output terminals for this function. For example, assume the array has 16 elements and that you wire four output arrays. The first output array receives elements 0, 4, 8, and 12. The second output ",
+          "description": "elements 0, n, 2n, … is the first output array. The function stores array[0] at index 0 of the first output array, array[1] is stored at index 0 of the second output array, array[n-1] at index 0 of the last output array, array[n] at index 1 of the first output array, and so on, where n is the number of output terminals for this function. For example, assume the array has 16 elements and that you wire four output arrays. The first output array receives elements 0, 4, 8, and 12. The second output ",
           "default_value": null,
           "enum_values": null,
           "python_param": "decimated_array"
         },
         {
           "name": "decimated array",
-          "description": "elements 1, n+1, 2n+1, \u2026 is the second output array, and so on.",
+          "description": "elements 1, n+1, 2n+1, … is the second output array, and so on.",
           "default_value": null,
           "enum_values": null,
           "python_param": "decimated_array"
@@ -925,7 +925,7 @@
       "terminals": [
         {
           "name": "array",
-          "description": "Functions \u00a9 National Instruments 421 array is a one-dimensional array of any type.",
+          "description": "Functions © National Instruments 421 array is a one-dimensional array of any type.",
           "default_value": null,
           "enum_values": null,
           "python_param": "array"
@@ -983,7 +983,7 @@
       "name": "Array To Matrix",
       "page": 423,
       "category": "Array",
-      "description": "Converts an array to a matrix of elements of the same type as the array elements. Wire data to the Real 2D Array input to determine the polymorphic instance to use or manually select the instance. \u2022 Array To Matrix - RA2 VI \u2022 Array To Matrix - RA VI \u2022 Array To Matrix - CA2 VI \u2022 Array To Matrix - CA VI If the array elements are not real or complex double-precision floating-point numbers, Functions \u00a9 National Instruments 423 LabVIEW converts the array elements to the closest data type. LabVIEW sto",
+      "description": "Converts an array to a matrix of elements of the same type as the array elements. Wire data to the Real 2D Array input to determine the polymorphic instance to use or manually select the instance. • Array To Matrix - RA2 VI • Array To Matrix - RA VI • Array To Matrix - CA2 VI • Array To Matrix - CA VI If the array elements are not real or complex double-precision floating-point numbers, Functions © National Instruments 423 LabVIEW converts the array elements to the closest data type. LabVIEW sto",
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
@@ -1169,7 +1169,7 @@
       "name": "Matrix To Array",
       "page": 428,
       "category": "Array",
-      "description": "Converts a matrix of elements to an array of elements of the same data type. Wire data to the Real Matrix input to determine the polymorphic instance to use or manually select the instance. \u2022 Matrix To Array - RM VI \u2022 Matrix To Array - CM VI Examples Refer to the following example files included with LabVIEW. \u2022 labview\\examples\\Mathematics\\Linear Algebra\\Matrix Fundamentals.vi Matrix To Array - RM VI Matrix To Array - RM VI Converts a matrix of elements to an array of elements of the same data t",
+      "description": "Converts a matrix of elements to an array of elements of the same data type. Wire data to the Real Matrix input to determine the polymorphic instance to use or manually select the instance. • Matrix To Array - RM VI • Matrix To Array - CM VI Examples Refer to the following example files included with LabVIEW. • labview\\examples\\Mathematics\\Linear Algebra\\Matrix Fundamentals.vi Matrix To Array - RM VI Matrix To Array - RM VI Converts a matrix of elements to an array of elements of the same data t",
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
@@ -1268,26 +1268,42 @@
       "name": "Remove Duplicates From 1D Array",
       "page": 429,
       "category": "Array",
-      "description": "Removes duplicate elements from a 1D array. This VI preserves the original order of the Functions \u00a9 National Instruments 429 elements.",
+      "description": "Removes duplicate elements from a 1D array. This VI preserves the original order of the Functions © National Instruments 429 elements.",
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "verified",
       "terminals": [
         {
           "name": "array",
           "description": "array specifies the input array. This input accepts a 1D array of any data type.",
           "default_value": null,
           "enum_values": null,
-          "python_param": "array"
+          "python_param": "array",
+          "index": 0,
+          "direction": "input"
         },
         {
           "name": "array with duplicates removed",
           "description": "array with duplicates removed returns an array with the duplicate elements removed from array.",
           "default_value": null,
           "enum_values": null,
-          "python_param": "array_with_duplicates_removed"
+          "python_param": "array_with_duplicates_removed",
+          "index": 1,
+          "direction": "output"
+        },
+        {
+          "name": "indices of removed elements",
+          "description": "indices of removed elements returns the indices of the removed duplicate elements from the original array.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "indices_of_removed_elements",
+          "index": 2,
+          "direction": "output"
         }
+      ],
+      "match_names": [
+        "Remove Duplicates from 1D Array__ogtk"
       ]
     },
     {
@@ -1626,7 +1642,7 @@
         },
         {
           "name": "appended array",
-          "description": "appended matrix is the resulting matrix. When you add the function to the block diagram, it has only one input available. Add inputs to the node by right-clicking an input and selecting Add Input from the shortcut menu or by resizing the node. The Build Matrix function operates in one of two different modes: Append by Rows or Append by Columns. When you add the function to the block diagram, the default mode is Append by Columns. If you right-click the function and select Build Matrix Mode\u00bbAppen",
+          "description": "appended matrix is the resulting matrix. When you add the function to the block diagram, it has only one input available. Add inputs to the node by right-clicking an input and selecting Add Input from the shortcut menu or by resizing the node. The Build Matrix function operates in one of two different modes: Append by Rows or Append by Columns. When you add the function to the block diagram, the default mode is Append by Columns. If you right-click the function and select Build Matrix Mode»Appen",
           "default_value": "mode is Append by Columns",
           "enum_values": null,
           "python_param": "appended_array"
@@ -1692,7 +1708,7 @@
         },
         {
           "name": "transposed matrix",
-          "description": "transposed matrix is the output matrix with transposed elements. Functions \u00a9 National Instruments 441 The conjugate transpose of matrix rearranges the elements so that the element at index (i, j) in matrix becomes the conjugate of the element at (j, i) in transposed matrix. For a real matrix, the transpose and conjugate transpose operations produce the same result.",
+          "description": "transposed matrix is the output matrix with transposed elements. Functions © National Instruments 441 The conjugate transpose of matrix rearranges the elements so that the element at index (i, j) in matrix becomes the conjugate of the element at (j, i) in transposed matrix. For a real matrix, the transpose and conjugate transpose operations produce the same result.",
           "default_value": null,
           "enum_values": null,
           "python_param": "transposed_matrix"
@@ -1743,7 +1759,7 @@
       "name": "Get Matrix Elements",
       "page": 443,
       "category": "Array",
-      "description": "Returns the elements of matrix at row and column. The row and column inputs specify row and column indexes. If you wire scalar data to row and column, for example i for row and j for column, the function returns a scalar Functions \u00a9 National Instruments 443 that contains the element at location (i, j). The connector pane displays the default data types for this polymorphic function.",
+      "description": "Returns the elements of matrix at row and column. The row and column inputs specify row and column indexes. If you wire scalar data to row and column, for example i for row and j for column, the function returns a scalar Functions © National Instruments 443 that contains the element at location (i, j). The connector pane displays the default data types for this polymorphic function.",
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
@@ -1783,7 +1799,7 @@
       "name": "Get Submatrix",
       "page": 445,
       "category": "Array",
-      "description": "Returns a submatrix of matrix starting at (row 1, column 1) and ending at (row N, column N). To retrieve elements that are not next to each other in matrix, use the Get Matrix Elements function. The connector pane displays the default data types for this polymorphic function. Functions \u00a9 National Instruments 445",
+      "description": "Returns a submatrix of matrix starting at (row 1, column 1) and ending at (row N, column N). To retrieve elements that are not next to each other in matrix, use the Get Matrix Elements function. The connector pane displays the default data types for this polymorphic function. Functions © National Instruments 445",
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
@@ -1837,7 +1853,7 @@
       "name": "Set Matrix Diagonal",
       "page": 447,
       "category": "Array",
-      "description": "Sets the diagonal of matrix beginning at (row, column). Add additional row, column, and new diagonal inputs and output matrix outputs by resizing the node. The connector pane displays the default data types for this polymorphic function. Functions \u00a9 National Instruments 447",
+      "description": "Sets the diagonal of matrix beginning at (row, column). Add additional row, column, and new diagonal inputs and output matrix outputs by resizing the node. The connector pane displays the default data types for this polymorphic function. Functions © National Instruments 447",
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
@@ -1884,7 +1900,7 @@
       "name": "Set Matrix Elements",
       "page": 449,
       "category": "Array",
-      "description": "Sets one or more elements in matrix at the indexes you specify in row and column. The row and column inputs specify row and column indexes. For example, if you wire numeric scalar values i and j to row and column, respectively, these inputs correspond Functions \u00a9 National Instruments 449 to a single matrix element at location (i, j). The connector pane displays the default data types for this polymorphic function.",
+      "description": "Sets one or more elements in matrix at the indexes you specify in row and column. The row and column inputs specify row and column indexes. For example, if you wire numeric scalar values i and j to row and column, respectively, these inputs correspond Functions © National Instruments 449 to a single matrix element at location (i, j). The connector pane displays the default data types for this polymorphic function.",
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
@@ -1996,7 +2012,7 @@
       "name": "Unbundle By Name",
       "page": 457,
       "category": "Array",
-      "description": "Returns the cluster elements whose names you specify. Functions \u00a9 National Instruments 457 You do not have to keep track of the order of the elements within the cluster. This function does not require the number of elements to match the number in the cluster. After you wire a cluster to this function, you can select an individual element from the function. The connector pane displays the default data types for this polymorphic function.",
+      "description": "Returns the cluster elements whose names you specify. Functions © National Instruments 457 You do not have to keep track of the order of the elements within the cluster. This function does not require the number of elements to match the number in the cluster. After you wire a cluster to this function, you can select an individual element from the function. The connector pane displays the default data types for this polymorphic function.",
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
