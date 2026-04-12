@@ -34,7 +34,7 @@ def generate(node: SubVIOperation, ctx: CodeGenContext) -> CodeFragment:
     # Look up VI — polymorphic variant if selected, otherwise base name
     vilib_vi = None
     if node.poly_variant_name:
-        vilib_vi = _resolve_poly_variant(subvi_name, node, ctx)
+        vilib_vi = _resolve_poly_variant(subvi_name, node)
         if not vilib_vi:
             # Variant not in JSON — fail or emit inline raise
             return _emit_vilib_resolution(node, ctx, vilib_vi=None)
@@ -236,7 +236,7 @@ def _generate_inline(
     )
 
 def _resolve_poly_variant(
-    base_name: str, node: Operation, ctx: CodeGenContext
+    base_name: str, node: Operation
 ) -> VIEntry | None:
     """Resolve a polymorphic VI to its specific variant.
 
@@ -367,6 +367,7 @@ def _build_arguments(
                 ),
                 available=[],
                 vi_name=ctx.vi_name if ctx else None,
+                kind="vilib" if vilib_vi is not None else "subvi",
             )
 
         # Check if this parameter is an enum typedef - generate enum reference
@@ -521,6 +522,7 @@ def _build_output_bindings(
                 ),
                 available=[],
                 vi_name=ctx.vi_name if ctx else None,
+                kind="vilib" if vilib_vi is not None else "subvi",
             )
 
         bindings[term_id] = f"{result_var}.{field}"

@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "lvkit"
-version = "0.1.0"
+version = "0.2.0"
 description = "Understand and convert LabVIEW VIs to Python without a LabVIEW license"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -45,6 +45,9 @@ dependencies = [
     "pydantic>=2.0.0",
 ]
 
+[project.optional-dependencies]
+visualize = ["pyvis"]
+
 [project.urls]
 Repository = "https://github.com/pragmatest-dev/lvkit"
 Issues = "https://github.com/pragmatest-dev/lvkit/issues"
@@ -64,7 +67,7 @@ dev = [
 [tool.hatch.build.targets.wheel]
 # Bundled JSON data and skill templates live INSIDE the package at
 # src/lvkit/data/ and src/lvkit/skill_templates/ so they ride along with
-# the wheel automatically. The resolvers and `lvkit init --skills` load
+# the wheel automatically. The resolvers and `lvkit setup` load
 # them via paths relative to the package or via importlib.resources.
 packages = ["src/lvkit"]
 

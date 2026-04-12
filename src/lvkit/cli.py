@@ -249,30 +249,39 @@ def main() -> int:
     )
     _add_project_root_arg(diff_parser)
 
-    # Init command - create .lvkit/ project store
-    init_parser = subparsers.add_parser(
-        "init",
-        help="Initialize a project-local .lvkit/ resolution store",
+    # Setup command - install AI editor skills and create .lvkit/ store
+    setup_parser = subparsers.add_parser(
+        "setup",
+        help="Install AI editor skills and create project-local .lvkit/ store",
     )
-    init_parser.add_argument(
+    setup_parser.add_argument(
         "directory",
         nargs="?",
         default=".",
         help="Directory in which to create .lvkit/ (default: current directory)",
     )
-    init_parser.add_argument(
-        "--skills",
+    setup_parser.add_argument(
+        "skills",
+        nargs="?",
         choices=["claude", "copilot", "all"],
         default=None,
         help=(
-            "Also install lvkit's resolve workflows into your LLM editor: "
-            "claude installs lvkit-prefixed Claude Code skills under "
-            ".claude/skills/; copilot installs per-workflow prompts under "
-            ".github/prompts/ plus a router at "
-            ".github/instructions/lvkit.instructions.md; all does both."
+            "AI agent to install skills for: claude, copilot, or all. "
+            "Omit to auto-detect from project layout (CLAUDE.md / .claude/ "
+            "for Claude Code; .github/copilot-instructions.md / "
+            ".github/instructions/ / .github/agents.md for Copilot)."
         ),
     )
-    init_parser.add_argument(
+    setup_parser.add_argument(
+        "--no-skills",
+        action="store_true",
+        help=(
+            "Create the .lvkit/ resolution store and README without installing "
+            "any AI editor skills. Use this if you want to add primitive or "
+            "vi.lib mappings manually."
+        ),
+    )
+    setup_parser.add_argument(
         "--force",
         action="store_true",
         help="Overwrite existing skill files even if they have local edits",
@@ -294,8 +303,8 @@ def main() -> int:
         return cmd_visualize(args)
     elif args.command == "diff":
         return cmd_diff(args)
-    elif args.command == "init":
-        return cmd_init(args)
+    elif args.command == "setup":
+        return cmd_setup(args)
     else:
         parser.print_help()
         return 0
@@ -397,7 +406,7 @@ def cmd_structure(args: argparse.Namespace) -> int:
         return 1
 
 
-def cmd_mcp(args: argparse.Namespace) -> int:
+def cmd_mcp(_args: argparse.Namespace) -> int:
     """Handle the mcp command - run MCP server."""
     from .mcp.server import main as mcp_main
 
@@ -449,21 +458,51 @@ def cmd_describe(args: argparse.Namespace) -> int:
         return 1
 
 
-def cmd_init(args: argparse.Namespace) -> int:
-    """Handle the init command — create a project-local .lvkit/ store."""
+def _detect_ai_editors(root: Path) -> list[str]:
+    """Detect which AI editors are configured in the project."""
+    editors = []
+    if (root / ".claude").is_dir() or (root / "CLAUDE.md").is_file():
+        editors.append("claude")
+    if (
+        (root / ".github" / "copilot-instructions.md").is_file()
+        or (root / ".github" / "instructions").is_dir()
+        or (root / ".github" / "agents.md").is_file()
+    ):
+        editors.append("copilot")
+    return editors
+
+
+def cmd_setup(args: argparse.Namespace) -> int:
+    """Handle the setup command — install AI skills and create .lvkit/ store."""
     root = Path(args.directory).resolve()
     if not root.is_dir():
         print(f"Error: Not a directory: {root}", file=sys.stderr)
         return 1
 
     store = init_project_store(root)
-    print(f"Initialized project store at {store}")
-    print(f"  README: {store / 'README.md'}")
+    print(f"Initialized .lvkit/ store at {store}")
 
-    # Optional: install LLM editor skills
-    skills = getattr(args, "skills", None)
+    if args.no_skills:
+        return 0
+
+    # Resolve which editors to install for
+    explicit = args.skills
+    if explicit == "all":
+        editors = ["claude", "copilot"]
+    elif explicit in ("claude", "copilot"):
+        editors = [explicit]
+    else:
+        # Auto-detect from project layout
+        editors = _detect_ai_editors(root)
+        if not editors:
+            print(
+                "No AI agent detected. Run with --skills claude or --skills copilot "
+                "to install skills explicitly."
+            )
+            return 0
+
     force = getattr(args, "force", False)
-    if skills in ("claude", "all"):
+    if "claude" in editors:
         try:
             written = install_claude_skills(root, force=force)
         except FileExistsError as e:
@@ -475,7 +514,7 @@ def cmd_init(args: argparse.Namespace) -> int:
                 print(f"  {p}")
         else:
             print("Claude Code skills already up to date.")
-    if skills in ("copilot", "all"):
+    if "copilot" in editors:
         try:
             copilot_written = install_copilot_skills(root, force=force)
         except FileExistsError as e:
@@ -488,22 +527,6 @@ def cmd_init(args: argparse.Namespace) -> int:
         else:
             print("Copilot files already up to date.")
 
-    print()
-    print("Next steps:")
-    print(
-        "  - Create .lvkit/primitives.json to override primitive mappings"
-        " (use lvkit's bundled primitives.json as a reference)"
-    )
-    print(
-        "  - Add vi.lib mappings to .lvkit/vilib/<category>.json and register them"
-        " in .lvkit/vilib/_index.json"
-    )
-    print("  - lvkit will check .lvkit/ before its bundled data when resolving.")
-    if not skills:
-        print(
-            "  - Run `lvkit init --skills all` to install resolve workflows"
-            " into Claude Code and/or Copilot."
-        )
     return 0
 
 

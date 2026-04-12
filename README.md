@@ -8,7 +8,6 @@ lvkit parses `.vi`, `.ctl`, `.lvclass`, and `.lvlib` files directly into queryab
 
 - [Quick Start](#quick-start)
 - [What you can do with it](#what-you-can-do-with-it)
-- [CLI Commands](#cli-commands)
 - [How it works](#how-it-works)
 - [AI and IDE integration](#ai-and-ide-integration)
 - [Cleanroom approach](#cleanroom-approach)
@@ -18,11 +17,29 @@ lvkit parses `.vi`, `.ctl`, `.lvclass`, and `.lvlib` files directly into queryab
 
 ```bash
 pip install lvkit
-lvkit init --skills all       # create .lvkit/ + install Claude Code and Copilot skills
+lvkit setup
 ```
 
-* Use `--skills claude` or `--skills copilot` to install for one AI agent only.
-* Use `lvkit init` alone if you don't want any AI agent skills installed.
+For a global install: `pipx install lvkit` or `uv tool install lvkit`.
+
+`lvkit setup` creates a `.lvkit/` resolution store and installs AI agent skills:
+
+- Auto-detects Claude Code (`CLAUDE.md` / `.claude/`) and Copilot (`.github/copilot-instructions.md` / `.github/instructions/` / `.github/agents.md`)
+- Pass `claude`, `copilot`, or `all` to be explicit
+- Use `--no-skills` to create the `.lvkit/` store without installing any skills
+
+| Command | Description |
+|---------|-------------|
+| `lvkit describe` | Human-readable VI description with signature and operations |
+| `lvkit docs` | Generate cross-referenced HTML documentation |
+| `lvkit diff` | Compare two VI versions — terminals, operations, wiring |
+| `lvkit visualize` | Mermaid flowchart or interactive dependency graph |
+| `lvkit generate` | Generate Python from a VI, library, or class (experimental — see [Cleanroom approach](#cleanroom-approach)) |
+| `lvkit structure` | Inspect `.lvlib` or `.lvclass` structure |
+| `lvkit setup` | Install AI agent skills; create `.lvkit/` resolution store |
+| `lvkit mcp` | Start the MCP server for IDE integration |
+
+`lvkit visualize --format interactive` requires `pip install lvkit[visualize]`. All other commands work on a bare `pip install lvkit`.
 
 ## What you can do with it
 
@@ -60,22 +77,7 @@ lvkit generate <input-path> -o <output-dir> [--search-path <libraries>] [--place
 
 `--placeholder-on-unresolved` lets the build succeed when mappings are missing — unresolved calls become inline `raise PrimitiveResolutionNeeded(...)` in the output so you can track them down at runtime.
 
-Coverage is incremental — see [Cleanroom approach](#cleanroom-approach) for what that means in practice.
-
-## CLI Commands
-
-| Command | Description |
-|---------|-------------|
-| `lvkit describe` | Human-readable VI description with signature and operations |
-| `lvkit docs` | Generate cross-referenced HTML documentation |
-| `lvkit diff` | Compare two VI versions — terminals, operations, wiring |
-| `lvkit visualize` | Mermaid flowchart or interactive dependency graph |
-| `lvkit generate` | Generate Python from a VI, library, or class |
-| `lvkit structure` | Inspect `.lvlib` or `.lvclass` structure |
-| `lvkit init` | Create `.lvkit/` resolution store; install AI editor skills |
-| `lvkit mcp` | Start the MCP server for IDE integration |
-
-`lvkit visualize --format interactive` requires `pip install pyvis`. All other commands work on a bare `pip install lvkit`.
+Coverage is incremental and results will vary — see [Cleanroom approach](#cleanroom-approach) for what that means in practice.
 
 ## How it works
 
@@ -93,17 +95,18 @@ See [`docs/graph-reference.md`](docs/graph-reference.md) for the full graph type
 
 The CLI works standalone from any terminal or CI script. For deeper IDE integration, lvkit ships two optional layers.
 
-**AI editor skills** — install lvkit's built-in workflows into Claude Code or Copilot so your AI can describe VIs, convert them, and resolve unknowns without you writing prompts. All five workflows call the CLI under the hood — no MCP server required.
+**AI agent skills** — install lvkit's built-in workflows into Claude Code or Copilot so your AI agent can describe VIs, convert them, and resolve unknowns without you writing prompts. All five workflows call the CLI under the hood — no MCP server required.
 
 ```bash
-lvkit init --skills claude    # installs .claude/skills/lvkit-*
-lvkit init --skills copilot   # installs .github/prompts/ + router instruction
-lvkit init --skills all       # both
+lvkit setup           # auto-detect from project layout
+lvkit setup claude    # installs .claude/skills/lvkit-*
+lvkit setup copilot   # installs .github/prompts/ + router instruction
+lvkit setup all       # both
 ```
 
 Five workflows ship: `lvkit-describe`, `lvkit-convert`, `lvkit-resolve-primitive`, `lvkit-resolve-vilib`, `lvkit-idiomatic`.
 
-**MCP server** — for interactive IDE sessions where your AI needs to load a graph, walk wires, and ask follow-up questions across multiple VIs:
+**MCP server** — for interactive IDE sessions where your AI agent needs to load a graph, walk wires, and ask follow-up questions across multiple VIs:
 
 ```json
 {
@@ -136,11 +139,13 @@ Coverage is incremental. When `lvkit generate` encounters an unmapped primitive 
 
 ### Project-local resolution store (`.lvkit/`)
 
-If you have a LabVIEW license, you can supplement the bundled mappings with a `.lvkit/` directory derived from your own install. lvkit reads `.lvkit/` first and falls back to its bundled data. The skills installed by `lvkit init` detect whether you're a lvkit maintainer or a downstream user and write mappings to the right destination.
+You can supplement the bundled mappings with a `.lvkit/` directory in your project root. lvkit reads `.lvkit/` first and falls back to its bundled data.
+
+Run `lvkit setup --no-skills` to create the store with a README that documents the file layout and JSON formats for adding primitive and vi.lib mappings manually.
 
 When `lvkit generate` hits an unknown, you have two options:
 
-1. **Resolve up front** — install the resolve skills (`lvkit init --skills claude`) and let your AI editor write the mapping into `.lvkit/`.
+1. **Resolve up front** — run `lvkit setup` to install the resolve skills and let your AI agent write the mapping into `.lvkit/`.
 2. **Defer to runtime** — pass `--placeholder-on-unresolved`. lvkit emits an inline `raise PrimitiveResolutionNeeded(...)` in the generated Python with full diagnostic context. The build succeeds; runtime fails at the unresolved call.
 
 ## Development

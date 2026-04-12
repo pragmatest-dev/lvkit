@@ -217,20 +217,21 @@ def test_no_project_store_default_behavior() -> None:
 # ============================================================
 
 
-def test_cli_init_creates_project_store(tmp_path: Path) -> None:
-    """`lvkit init <dir>` creates .lvkit/ with template content."""
+def test_cli_setup_creates_project_store(tmp_path: Path) -> None:
+    """`lvkit setup <dir> --no-skills` creates .lvkit/ store without installing skills."""
     import subprocess
     import sys
 
     result = subprocess.run(
-        [sys.executable, "-m", "lvkit.cli", "init", str(tmp_path)],
+        [sys.executable, "-m", "lvkit.cli", "setup", str(tmp_path), "--no-skills"],
         capture_output=True,
         text=True,
         check=True,
     )
-    assert "Initialized project store" in result.stdout
+    assert "Initialized .lvkit/" in result.stdout
     assert (tmp_path / ".lvkit" / "README.md").exists()
     assert (tmp_path / ".lvkit" / "vilib" / "_index.json").exists()
+    assert not (tmp_path / ".claude").exists()
 
 
 # ============================================================
@@ -493,15 +494,15 @@ def test_install_copilot_skills_force_overwrites(tmp_path: Path) -> None:
     assert "mode: agent" in edited.read_text()
 
 
-def test_cli_init_skills_claude(tmp_path: Path) -> None:
-    """`lvkit init --skills claude` installs Claude Code skills."""
+def test_cli_setup_skills_claude(tmp_path: Path) -> None:
+    """`lvkit setup claude` installs Claude Code skills."""
     import subprocess
     import sys
 
     result = subprocess.run(
         [
-            sys.executable, "-m", "lvkit.cli", "init",
-            str(tmp_path), "--skills", "claude",
+            sys.executable, "-m", "lvkit.cli", "setup",
+            str(tmp_path), "claude",
         ],
         capture_output=True,
         text=True,
@@ -513,15 +514,15 @@ def test_cli_init_skills_claude(tmp_path: Path) -> None:
     ).is_file()
 
 
-def test_cli_init_skills_all(tmp_path: Path) -> None:
-    """`lvkit init --skills all` installs both Claude and Copilot."""
+def test_cli_setup_skills_all(tmp_path: Path) -> None:
+    """`lvkit setup all` installs both Claude and Copilot."""
     import subprocess
     import sys
 
     result = subprocess.run(
         [
-            sys.executable, "-m", "lvkit.cli", "init",
-            str(tmp_path), "--skills", "all",
+            sys.executable, "-m", "lvkit.cli", "setup",
+            str(tmp_path), "all",
         ],
         capture_output=True,
         text=True,

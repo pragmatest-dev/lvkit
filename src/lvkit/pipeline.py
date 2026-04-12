@@ -20,6 +20,7 @@ from typing import Any
 from lvkit.codegen import ClassBuilder, ClassConfig, build_module
 from lvkit.codegen.ast_utils import to_function_name, to_module_name
 from lvkit.graph import InMemoryVIGraph
+from lvkit.project_store import find_project_store
 from lvkit.structure import parse_lvclass
 from lvkit.terminal_collector import get_collector
 from lvkit.vilib_resolver import VILibResolver
@@ -660,6 +661,17 @@ def {func_name}(*args, **kwargs) -> Any:
     print(f"  ast:   {ast_count}")
     print(f"  stub:  {stub_count}")
     print(f"  error: {error_count}")
+
+    if error_count > 0:
+        store = find_project_store()
+        if store:
+            print(f"\n  To resolve errors, add mappings to {store}/")
+            print(f"  See {store / 'README.md'} for file formats and instructions.")
+            print("  AI agent skills can add these automatically — run `lvkit setup` if not installed.")
+        else:
+            print("\n  To resolve errors:")
+            print("  - Run `lvkit setup` to install AI agent skills that resolve unknowns automatically.")
+            print("  - Or run `lvkit setup --no-skills` to create a .lvkit/ store for manual mappings.")
 
     # Save terminal observations for incremental collection
     collector = get_collector()
