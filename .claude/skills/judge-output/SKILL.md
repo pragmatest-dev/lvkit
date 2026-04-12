@@ -17,18 +17,7 @@ User provides:
 ## Step 1: Load the VI graph
 
 ```bash
-python3 -c "
-from pathlib import Path
-from lvkit.graph.core import InMemoryVIGraph
-from lvkit.graph.describe import describe_vi, describe_operations
-
-g = InMemoryVIGraph()
-g.load_vi('VI_PATH', search_paths=[Path('SEARCH_PATH')])
-vi_name = list(g.list_vis())[0]
-print(describe_vi(g, vi_name))
-print()
-print(describe_operations(g, vi_name))
-"
+lvkit describe "VI_PATH" --search-path "SEARCH_PATH"
 ```
 
 ## Step 2: Read the generated Python

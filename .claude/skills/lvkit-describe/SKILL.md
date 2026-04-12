@@ -6,103 +6,61 @@ allowed-tools: Bash, Read, Grep
 
 # Describe VI
 
-Understand what a LabVIEW VI does without converting it.
-
-Substitute the placeholders below with the user's actual paths:
-
-- `<vi-path>` — the .vi file you want to describe
-- `<library-path>` — additional search path for SubVI resolution (repeat for multiple)
-- `<vi-name>` — the canonical VI name as it appears in the loaded graph (e.g. `MyLib.lvlib:Foo.vi`)
-- `<operation-id>` — the ID of a specific operation node from the describe output
-
-## Quick path: CLI
-
-The `lvkit describe` CLI is the simplest entry point.
+Run `lvkit describe` on the VI:
 
 ```bash
 lvkit describe "<vi-path>" --search-path "<library-path>"
 ```
 
-Add `--chart` to also print a Mermaid flowchart of the dataflow:
+Add `--chart` to also print a Mermaid flowchart:
 
 ```bash
 lvkit describe "<vi-path>" --search-path "<library-path>" --chart
 ```
 
-## Programmatic path: Python
+**Report to the user using this format:**
 
-For deeper exploration (drilling into a specific operation, listing class methods, etc.) use the graph API directly.
+```
+# <VI name>
 
-### Overview
+**What it does:** <1-2 sentence interpretation — purpose, key behavior, notable observations>
 
-```bash
-python3 -c "
-from pathlib import Path
-from lvkit.graph.core import InMemoryVIGraph
-from lvkit.graph.describe import describe_vi, describe_operations, describe_constants
+**Signature:** `<function signature>`
 
-g = InMemoryVIGraph()
-g.load_vi('<vi-path>', search_paths=[Path('<library-path>')])
-vi = list(g.list_vis())[0]
-print(describe_vi(g, vi))
-print()
-print(describe_operations(g, vi))
-print()
-print(describe_constants(g, vi))
-"
+| Input | Type | Default |
+|---|---|---|
+| <name> | <type> | <default or —> |
+
+| Output | Type |
+|---|---|
+| <name> | <type> |
+
+**Control flow:** <brief description — frames, loops, cases>
+<bulleted breakdown if the structure has meaningful steps>
+
+| Constant | Type | Value |
+|---|---|---|
+| <inferred name or purpose> | <type> | <value> |
+
+| Dependency | Description |
+|---|---|
+| <VI name> | <what it does> |
+
+**Notable:** <surprising things, naming quirks, caveats — omit section if nothing to say>
 ```
 
-### Dataflow for a specific operation
-
-```bash
-python3 -c "
-from pathlib import Path
-from lvkit.graph.core import InMemoryVIGraph
-from lvkit.graph.describe import describe_dataflow
-
-g = InMemoryVIGraph()
-g.load_vi('<vi-path>', search_paths=[Path('<library-path>')])
-print(describe_dataflow(g, '<vi-name>', '<operation-id>'))
-"
-```
-
-### Structure details (case/loop/sequence)
-
-```bash
-python3 -c "
-from pathlib import Path
-from lvkit.graph.core import InMemoryVIGraph
-from lvkit.graph.describe import describe_structure
-
-g = InMemoryVIGraph()
-g.load_vi('<vi-path>', search_paths=[Path('<library-path>')])
-print(describe_structure(g, '<vi-name>', '<operation-id>'))
-"
-```
-
-### Classes — list all methods
-
-```bash
-python3 -c "
-from pathlib import Path
-from lvkit.graph.core import InMemoryVIGraph
-from lvkit.graph.describe import describe_vi
-
-g = InMemoryVIGraph()
-g.load_lvclass('<lvclass-path>', search_paths=[Path('<library-path>')])
-for vi in sorted(g.list_vis()):
-    if '.lvclass:' in vi:
-        print(describe_vi(g, vi))
-        print()
-"
-```
+Rules:
+- Omit any table that has no rows (e.g. no inputs → no inputs table)
+- Collapse repeated dependencies: `DAQmx Write.vi ×3`
+- Use judgment on Constants — infer purpose from context, omit trivial ones
+- Interpretation leads; raw data follows
 
 ## MCP alternative
 
-If MCP tools are available, use them directly instead of the CLI/Python paths:
+If MCP tools are available, use them directly:
 
-- `load_vi` → `describe_vi` → `get_operations` → `get_dataflow` → `get_structure` → `get_constants`
+- `load` → `describe` → `get_operations` → `get_dataflow` → `get_structure` → `get_constants`
 
 ## Note
 
-`lvkit describe` and the underlying graph functions never require resolution to succeed. Unknown primitives and vi.lib VIs render as `[prim N]` / their bare name — you can describe a VI even if lvkit has no mapping for some of its operations.
+`lvkit describe` never requires resolution to succeed. Unknown primitives and vi.lib VIs render as `[prim N]` / their bare name.
