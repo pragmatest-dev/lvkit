@@ -2,7 +2,7 @@
 
 Read, document, diff, and convert LabVIEW VI files — no LabVIEW license required.
 
-lvpy parses `.vi` binaries directly into a queryable dataflow graph. Use it to document legacy code, track changes in CI, feed VI structure to AI tools, or generate equivalent Python.
+lvpy parses `.vi`, `.ctl`, `.lvclass`, and `.lvlib` files directly into queryable dependency and dataflow graphs. Use it to document code, track changes in CI, feed VI structure to AI tools, or generate equivalent Python.
 
 ## Contents
 
