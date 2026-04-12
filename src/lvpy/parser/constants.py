@@ -1,4 +1,4 @@
-"""Constants used across the lvpy codebase."""
+"""Parser-internal constants for LabVIEW XML element class names and flags."""
 
 from __future__ import annotations
 
