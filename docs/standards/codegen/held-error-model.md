@@ -41,4 +41,4 @@ def my_vi(input_data):
 - `_held_error or e` preserves first error, ignores later ones
 - Results set to `None` on branch failure
 - Error raised at merge point, not immediately
-- Import: `from lvpy.labview_error import LabVIEWError`
+- Import: `from lvkit.labview_error import LabVIEWError`

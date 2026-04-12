@@ -2,7 +2,7 @@
 """Generate code using AST builder without LLM.
 
 Uses the new AST-based code generation (builder.py), not skeleton.
-This script is a thin wrapper around lvpy.pipeline.generate_python().
+This script is a thin wrapper around lvkit.pipeline.generate_python().
 """
 
 from __future__ import annotations
@@ -13,7 +13,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from lvpy.pipeline import generate_python
+from lvkit.pipeline import generate_python
 
 
 def main():

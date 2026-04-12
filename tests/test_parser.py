@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from lvpy.parser import (
+from lvkit.parser import (
     ParsedBlockDiagram,
     ParsedConnectorPane,
     ParsedConnectorPaneSlot,
@@ -448,7 +448,7 @@ class TestParseVI:
         vi = parse_vi(bd_xml=xml_file)
         bd = vi.block_diagram
         assert len(bd.nodes) == 1
-        from lvpy.parser.node_types import PrimitiveNode
+        from lvkit.parser.node_types import PrimitiveNode
         node = bd.nodes[0]
         assert node.uid == "prim1"
         assert node.node_type == "prim"
@@ -795,7 +795,7 @@ class TestRealVIParsing:
         if sample_vi_path is None:
             pytest.skip("Sample VI not available")
 
-        from lvpy.extractor import extract_vi_xml
+        from lvkit.extractor import extract_vi_xml
 
         bd_xml, fp_xml, main_xml = extract_vi_xml(sample_vi_path)
 

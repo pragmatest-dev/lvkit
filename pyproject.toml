@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "lvpy"
+name = "lvkit"
 version = "0.1.0"
 description = "Understand and convert LabVIEW VIs to Python without a LabVIEW license"
 readme = "README.md"
@@ -46,12 +46,12 @@ dependencies = [
 ]
 
 [project.urls]
-Repository = "https://github.com/pragmatest-dev/lvpy"
-Issues = "https://github.com/pragmatest-dev/lvpy/issues"
+Repository = "https://github.com/pragmatest-dev/lvkit"
+Issues = "https://github.com/pragmatest-dev/lvkit/issues"
 
 [project.scripts]
-lvpy = "lvpy.cli:main"
-lvpy-mcp = "lvpy.mcp.server:main"
+lvkit = "lvkit.cli:main"
+lvkit-mcp = "lvkit.mcp.server:main"
 
 [dependency-groups]
 dev = [
@@ -63,14 +63,14 @@ dev = [
 
 [tool.hatch.build.targets.wheel]
 # Bundled JSON data and skill templates live INSIDE the package at
-# src/lvpy/data/ and src/lvpy/skill_templates/ so they ride along with
-# the wheel automatically. The resolvers and `lvpy init --skills` load
+# src/lvkit/data/ and src/lvkit/skill_templates/ so they ride along with
+# the wheel automatically. The resolvers and `lvkit init --skills` load
 # them via paths relative to the package or via importlib.resources.
-packages = ["src/lvpy"]
+packages = ["src/lvkit"]
 
 [tool.hatch.build.targets.sdist]
 include = [
-    "src/lvpy",
+    "src/lvkit",
     "tests",
     "scripts",
     "README.md",
@@ -83,7 +83,7 @@ exclude = [
     "outputs",
     "docs/labview_ref_manual.txt",
     "docs/*.pdf",
-    ".lvpy",
+    ".lvkit",
     ".tmp",
 ]
 

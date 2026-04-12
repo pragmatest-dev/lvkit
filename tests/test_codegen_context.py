@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from lvpy.codegen.context import CodeGenContext
-from lvpy.graph import InMemoryVIGraph
-from lvpy.graph.models import WireEnd
+from lvkit.codegen.context import CodeGenContext
+from lvkit.graph import InMemoryVIGraph
+from lvkit.graph.models import WireEnd
 from tests.helpers import (
     make_graph_with_edge,
     make_graph_with_terminals,

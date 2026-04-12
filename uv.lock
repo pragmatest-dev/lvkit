@@ -350,7 +350,7 @@ wheels = [
 ]
 
 [[package]]
-name = "lvpy"
+name = "lvkit"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [

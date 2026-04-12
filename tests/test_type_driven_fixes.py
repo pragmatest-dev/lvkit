@@ -6,12 +6,12 @@ guessing instead of using the actual lv_type data on terminals and constants.
 
 from __future__ import annotations
 
-from lvpy.codegen.context import CodeGenContext, _format_constant
-from lvpy.codegen.nodes import loop, primitive
-from lvpy.graph import InMemoryVIGraph
-from lvpy.graph.models import Constant, WireEnd
-from lvpy.models import ClusterField, LVType, Terminal
-from lvpy.primitive_resolver import _collect_imports
+from lvkit.codegen.context import CodeGenContext, _format_constant
+from lvkit.codegen.nodes import loop, primitive
+from lvkit.graph import InMemoryVIGraph
+from lvkit.graph.models import Constant, WireEnd
+from lvkit.models import ClusterField, LVType, Terminal
+from lvkit.primitive_resolver import _collect_imports
 from tests.helpers import make_node
 
 # ── Fix A: Type-driven constant decoding ────────────────────────────

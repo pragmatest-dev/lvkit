@@ -26,8 +26,8 @@ Which graph operation produced the wrong code? Check:
 ```bash
 python3 -c "
 from pathlib import Path
-from lvpy.graph.core import InMemoryVIGraph
-from lvpy.graph.describe import describe_operations
+from lvkit.graph.core import InMemoryVIGraph
+from lvkit.graph.describe import describe_operations
 
 g = InMemoryVIGraph()
 g.load_vi('VI_PATH', search_paths=[Path('SEARCH_PATH')])
@@ -63,7 +63,7 @@ Verify:
 ```bash
 python3 -c "
 from pathlib import Path
-from lvpy.graph.core import InMemoryVIGraph
+from lvkit.graph.core import InMemoryVIGraph
 
 g = InMemoryVIGraph()
 g.load_vi('VI_PATH', search_paths=[Path('SEARCH_PATH')])
@@ -82,8 +82,8 @@ Use `get_structure` (MCP) or:
 ```bash
 python3 -c "
 from pathlib import Path
-from lvpy.graph.core import InMemoryVIGraph
-from lvpy.graph.describe import describe_structure
+from lvkit.graph.core import InMemoryVIGraph
+from lvkit.graph.describe import describe_structure
 
 g = InMemoryVIGraph()
 g.load_vi('VI_PATH', search_paths=[Path('SEARCH_PATH')])
@@ -96,7 +96,7 @@ print(describe_structure(g, 'VI_NAME', 'OPERATION_ID'))
 ```bash
 python3 -c "
 from pathlib import Path
-from lvpy.graph.core import InMemoryVIGraph
+from lvkit.graph.core import InMemoryVIGraph
 
 g = InMemoryVIGraph()
 g.load_vi('VI_PATH', search_paths=[Path('SEARCH_PATH')])
@@ -119,8 +119,8 @@ Follow the data flow to/from the problematic operation:
 ```bash
 python3 -c "
 from pathlib import Path
-from lvpy.graph.core import InMemoryVIGraph
-from lvpy.graph.describe import describe_dataflow
+from lvkit.graph.core import InMemoryVIGraph
+from lvkit.graph.describe import describe_dataflow
 
 g = InMemoryVIGraph()
 g.load_vi('VI_PATH', search_paths=[Path('SEARCH_PATH')])

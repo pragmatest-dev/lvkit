@@ -1,6 +1,6 @@
 # Discovering Primitive Terminal Indices from XML
 
-When adding a new primitive to `src/lvpy/data/primitives.json`, the terminal
+When adding a new primitive to `src/lvkit/data/primitives.json`, the terminal
 indices must come from the actual LabVIEW XML — not guessed.
 
 ## Steps

@@ -1,8 +1,8 @@
-"""Tests for lvpy."""
+"""Tests for lvkit."""
 
-import lvpy
+import lvkit
 
 
 def test_version() -> None:
     """Test version is defined."""
-    assert lvpy.__version__ == "0.1.0"
+    assert lvkit.__version__ == "0.1.0"

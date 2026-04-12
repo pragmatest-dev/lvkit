@@ -6,11 +6,11 @@ import xml.etree.ElementTree as ET
 
 import pytest
 
-from lvpy.codegen.context import CodeGenContext
-from lvpy.codegen.nodes import sequence
-from lvpy.graph import InMemoryVIGraph
-from lvpy.graph.models import SequenceNode, VINode, WireEnd
-from lvpy.models import (
+from lvkit.codegen.context import CodeGenContext
+from lvkit.codegen.nodes import sequence
+from lvkit.graph import InMemoryVIGraph
+from lvkit.graph.models import SequenceNode, VINode, WireEnd
+from lvkit.models import (
     Operation,
     SequenceFrame,
     SequenceOperation,
@@ -18,11 +18,11 @@ from lvpy.models import (
     Tunnel,
     TunnelTerminal,
 )
-from lvpy.parser.models import (
+from lvkit.parser.models import (
     ParsedBlockDiagram,
     ParsedFlatSequenceStructure,
 )
-from lvpy.parser.nodes.sequence import extract_flat_sequences
+from lvkit.parser.nodes.sequence import extract_flat_sequences
 
 # === Parser Tests ===
 
@@ -541,7 +541,7 @@ class TestCodeGenRegistry:
     """Test that sequence operations dispatch through the factory."""
 
     def test_flat_sequence_dispatches_to_sequence_module(self):
-        from lvpy.codegen.nodes import generate as generate_node
+        from lvkit.codegen.nodes import generate as generate_node
 
         op = SequenceOperation(
             id="1", name="Flat Sequence",
@@ -555,7 +555,7 @@ class TestCodeGenRegistry:
         assert result.bindings == {}
 
     def test_stacked_sequence_dispatches_to_sequence_module(self):
-        from lvpy.codegen.nodes import generate as generate_node
+        from lvkit.codegen.nodes import generate as generate_node
 
         op = SequenceOperation(
             id="1", name="Stacked Sequence",

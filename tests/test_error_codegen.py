@@ -15,17 +15,17 @@ from __future__ import annotations
 import ast
 from typing import cast
 
-from lvpy.codegen.builder import build_module, generate_body
-from lvpy.codegen.context import CodeGenContext
-from lvpy.codegen.error_handler import (
+from lvkit.codegen.builder import build_module, generate_body
+from lvkit.codegen.context import CodeGenContext
+from lvkit.codegen.error_handler import (
     ErrorHandlingPattern,
     classify_error_node,
     needs_error_handling,
 )
-from lvpy.codegen.nodes import primitive
-from lvpy.graph import InMemoryVIGraph
-from lvpy.graph.models import SourceInfo, VIContext
-from lvpy.models import (
+from lvkit.codegen.nodes import primitive
+from lvkit.graph import InMemoryVIGraph
+from lvkit.graph.models import SourceInfo, VIContext
+from lvkit.models import (
     CaseFrame,
     CaseOperation,
     LVType,
@@ -433,8 +433,8 @@ class TestErrorBundleRaise:
 
     def test_bundle_error_cluster_raises(self):
         """Bundling status=True into error cluster generates raise."""
-        from lvpy.codegen.nodes import nmux
-        from lvpy.models import ClusterField
+        from lvkit.codegen.nodes import nmux
+        from lvkit.models import ClusterField
 
         error_type = LVType(
             kind="cluster",
@@ -502,12 +502,12 @@ class TestErrorBundleRaise:
         assert "raise LabVIEWError" in code
         assert "code=42" in code
         assert "source='MyVI.vi'" in code
-        assert "from lvpy.labview_error import LabVIEWError" in fragment.imports
+        assert "from lvkit.labview_error import LabVIEWError" in fragment.imports
 
     def test_bundle_error_no_status_is_noop(self):
         """Bundling error cluster without status field is a no-op."""
-        from lvpy.codegen.nodes import nmux
-        from lvpy.models import ClusterField
+        from lvkit.codegen.nodes import nmux
+        from lvkit.models import ClusterField
 
         error_type = LVType(
             kind="cluster",
@@ -558,13 +558,13 @@ class TestErrorCodeLookup:
     """Error code descriptions are looked up from the reference manual."""
 
     def test_known_code(self):
-        from lvpy.labview_error_codes import get_error_description
+        from lvkit.labview_error_codes import get_error_description
 
         desc = get_error_description(-2147467259)
         assert desc == "Unspecified error."
 
     def test_unknown_code_fallback(self):
-        from lvpy.labview_error_codes import get_error_description
+        from lvkit.labview_error_codes import get_error_description
 
         desc = get_error_description(999999999)
         assert desc == "LabVIEW error 999999999"

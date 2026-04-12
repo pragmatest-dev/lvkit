@@ -6,14 +6,14 @@ import ast
 
 import pytest
 
-from lvpy.codegen.builder import build_module
-from lvpy.codegen.context import CodeGenContext
-from lvpy.codegen.nodes.primitive import _emit_unknown
-from lvpy.codegen.nodes.subvi import _emit_vilib_resolution
-from lvpy.graph.models import VIContext, VINode
-from lvpy.models import Operation, PrimitiveOperation, SubVIOperation, Terminal
-from lvpy.primitive_resolver import PrimitiveResolutionNeeded
-from lvpy.vilib_resolver import (
+from lvkit.codegen.builder import build_module
+from lvkit.codegen.context import CodeGenContext
+from lvkit.codegen.nodes.primitive import _emit_unknown
+from lvkit.codegen.nodes.subvi import _emit_vilib_resolution
+from lvkit.graph.models import VIContext, VINode
+from lvkit.models import Operation, PrimitiveOperation, SubVIOperation, Terminal
+from lvkit.primitive_resolver import PrimitiveResolutionNeeded
+from lvkit.vilib_resolver import (
     ResolutionContext,
     VILibResolutionNeeded,
 )
@@ -36,8 +36,8 @@ def test_primitive_resolution_needed_carries_qualified_vi_name() -> None:
     )
     assert exc.qualified_vi_name == "MyLib.lvlib:Bar.lvclass:Foo.vi"
     assert "MyLib.lvlib:Bar.lvclass:Foo.vi" in str(exc)
-    # Hint mentions both .lvpy/ and data/ paths
-    assert ".lvpy/primitives.json" in str(exc)
+    # Hint mentions both .lvkit/ and data/ paths
+    assert ".lvkit/primitives.json" in str(exc)
     assert "data/primitives.json" in str(exc)
 
 
@@ -53,7 +53,7 @@ def test_resolution_context_carries_qualified_path() -> None:
     msg = str(exc)
     assert "<vilib>/Utility/error.llb/Some VI.vi" in msg
     assert "MyProj.lvlib:Caller.vi" in msg
-    assert ".lvpy/vilib/" in msg
+    assert ".lvkit/vilib/" in msg
     assert "data/vilib/" in msg
 
 
@@ -230,7 +230,7 @@ def test_soft_mode_generated_code_runs_and_raises() -> None:
     fragment = _emit_unknown(node, prim_id=88888, ctx=ctx)
 
     # Wrap in a function and execute
-    src_lines = ["from lvpy.primitive_resolver import PrimitiveResolutionNeeded"]
+    src_lines = ["from lvkit.primitive_resolver import PrimitiveResolutionNeeded"]
     src_lines.append("def f():")
     body_module = ast.Module(body=fragment.statements, type_ignores=[])
     ast.fix_missing_locations(body_module)
@@ -286,7 +286,7 @@ def test_emit_soft_unresolved_rejects_non_literal_kwarg() -> None:
     sneaking into kwargs would produce invalid Python source. The guard
     catches this at codegen time instead of at SyntaxError time.
     """
-    from lvpy.codegen.unresolved import emit_soft_unresolved
+    from lvkit.codegen.unresolved import emit_soft_unresolved
 
     class NotALiteral:
         pass
@@ -312,7 +312,7 @@ def test_emit_soft_unresolved_rejects_non_literal_kwarg() -> None:
 
 def test_emit_soft_unresolved_rejects_non_literal_positional_arg() -> None:
     """The same guard applies to positional_args."""
-    from lvpy.codegen.unresolved import emit_soft_unresolved
+    from lvkit.codegen.unresolved import emit_soft_unresolved
 
     class NotALiteral:
         pass
@@ -364,7 +364,7 @@ def test_emit_soft_unresolved_source_kwargs_unchecked() -> None:
     They exist for non-literal values like dataclass constructors. The
     helper inserts them verbatim into the generated raise expression.
     """
-    from lvpy.codegen.unresolved import emit_soft_unresolved
+    from lvkit.codegen.unresolved import emit_soft_unresolved
 
     node = PrimitiveOperation(
         id="prim_src_kw",
@@ -379,7 +379,7 @@ def test_emit_soft_unresolved_source_kwargs_unchecked() -> None:
     fragment = emit_soft_unresolved(
         node=node,
         ctx=ctx,
-        exception_module="lvpy.vilib_resolver",
+        exception_module="lvkit.vilib_resolver",
         exception_class="VILibResolutionNeeded",
         positional_args=["VI Name.vi"],
         source_kwargs={"context": "ResolutionContext(caller_vi='Foo.vi')"},

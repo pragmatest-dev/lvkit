@@ -6,12 +6,12 @@ from __future__ import annotations
 import ast
 import logging
 
-from lvpy.codegen.builder import topological_sort_tiered
-from lvpy.codegen.context import CodeGenContext
-from lvpy.codegen.nodes import case, invoke_node, nmux, property_node
-from lvpy.graph import InMemoryVIGraph
-from lvpy.graph.models import CaseStructureNode, PrimitiveNode, WireEnd
-from lvpy.models import (
+from lvkit.codegen.builder import topological_sort_tiered
+from lvkit.codegen.context import CodeGenContext
+from lvkit.codegen.nodes import case, invoke_node, nmux, property_node
+from lvkit.graph import InMemoryVIGraph
+from lvkit.graph.models import CaseStructureNode, PrimitiveNode, WireEnd
+from lvkit.models import (
     CaseFrame,
     CaseOperation,
     ClusterField,
@@ -148,7 +148,7 @@ class TestErrorInputNotBound:
     """from_vi_context should NOT bind error cluster inputs."""
 
     def test_error_input_skipped(self):
-        from lvpy.graph.models import VIContext
+        from lvkit.graph.models import VIContext
 
         error_term = Terminal(
             id="err_in", index=0, direction="input",
@@ -278,7 +278,7 @@ class TestPassthroughElimination:
     """Primitive passthroughs (in_N → out) create bindings, not assignments."""
 
     def test_passthrough_detected(self):
-        from lvpy.codegen.nodes import primitive
+        from lvkit.codegen.nodes import primitive
 
         # Primitive with python_code: {"output": "in_0"} — pure passthrough
         graph = make_graph_with_edge("src_t", "in_t")
@@ -323,22 +323,22 @@ class TestEnumSanitization:
     """derive_python_name handles hyphens and special characters."""
 
     def test_hyphens_become_camelcase(self):
-        from lvpy.vilib_resolver import derive_python_name
+        from lvkit.vilib_resolver import derive_python_name
 
         assert derive_python_name("Method--Type") == "MethodType"
 
     def test_underscores_become_camelcase(self):
-        from lvpy.vilib_resolver import derive_python_name
+        from lvkit.vilib_resolver import derive_python_name
 
         assert derive_python_name("file_mode") == "FileMode"
 
     def test_ctl_extension_stripped(self):
-        from lvpy.vilib_resolver import derive_python_name
+        from lvkit.vilib_resolver import derive_python_name
 
         assert derive_python_name("Method.ctl") == "Method"
 
     def test_empty_string(self):
-        from lvpy.vilib_resolver import derive_python_name
+        from lvkit.vilib_resolver import derive_python_name
 
         assert derive_python_name("") == "UnknownType"
 

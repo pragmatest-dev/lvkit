@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import xml.etree.ElementTree as ET
 
-from lvpy.parser.models import ParsedTerminalInfo, ParsedType
-from lvpy.parser.nodes.case import extract_case_structures
+from lvkit.parser.models import ParsedTerminalInfo, ParsedType
+from lvkit.parser.nodes.case import extract_case_structures
 
 
 def _build_case_xml(

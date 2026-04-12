@@ -1,4 +1,4 @@
-"""Shared test helpers for lvpy tests.
+"""Shared test helpers for lvkit tests.
 
 Provides graph and context construction for tests that need CodeGenContext
 with a proper graph (required since bind/resolve store var_names on the graph).
@@ -6,10 +6,10 @@ with a proper graph (required since bind/resolve store var_names on the graph).
 
 from __future__ import annotations
 
-from lvpy.codegen.context import CodeGenContext
-from lvpy.graph import InMemoryVIGraph
-from lvpy.graph.models import PrimitiveNode, WireEnd
-from lvpy.models import Terminal
+from lvkit.codegen.context import CodeGenContext
+from lvkit.graph import InMemoryVIGraph
+from lvkit.graph.models import PrimitiveNode, WireEnd
+from lvkit.models import Terminal
 
 
 def make_node(node_id: str, terminal_ids: list[str]) -> PrimitiveNode:

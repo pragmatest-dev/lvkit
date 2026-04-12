@@ -1,5 +1,5 @@
 {
-  "include": ["src/lvpy"],
+  "include": ["src/lvkit"],
   "pythonVersion": "3.10",
   "typeCheckingMode": "basic"
 }

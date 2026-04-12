@@ -5,7 +5,7 @@ LabVIEW XML uses TypeID references. Resolution happens in `type_mapping.py`.
 ## API
 
 ```python
-from lvpy.parser.type_mapping import parse_type_map_rich
+from lvkit.parser.type_mapping import parse_type_map_rich
 
 type_map: dict[int, LVType] = parse_type_map_rich(xml_path)
 lv_type = type_map.get(type_id)  # Returns LVType or None
