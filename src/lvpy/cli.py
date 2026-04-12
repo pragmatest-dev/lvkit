@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import argparse
-import importlib.util
 import json
 import sys
 import traceback
@@ -77,9 +76,6 @@ def main() -> int:
     parser.add_argument("--version", action="version", version=f"lvpy {__version__}")
 
     subparsers = parser.add_subparsers(dest="command", help="Command to run")
-
-    # Check command (no additional arguments needed)
-    subparsers.add_parser("check", help="Check if dependencies are available")
 
     # Structure command
     struct_parser = subparsers.add_parser(
@@ -284,9 +280,7 @@ def main() -> int:
 
     args = parser.parse_args()
 
-    if args.command == "check":
-        return cmd_check(args)
-    elif args.command == "structure":
+    if args.command == "structure":
         return cmd_structure(args)
     elif args.command == "mcp":
         return cmd_mcp(args)
@@ -305,20 +299,6 @@ def main() -> int:
     else:
         parser.print_help()
         return 0
-
-
-def cmd_check(args: argparse.Namespace) -> int:
-    """Handle the check command."""
-    print("Checking dependencies...")
-    print()
-
-    # Check pylabview
-    if importlib.util.find_spec("pylabview") is not None:
-        print("✓ pylabview is installed")
-    else:
-        print("✗ pylabview not installed. Run: pip install pylabview")
-
-    return 0
 
 
 def cmd_structure(args: argparse.Namespace) -> int:
