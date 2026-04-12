@@ -2418,6 +2418,68 @@
       "verified": true,
       "pdf_page": 470
     },
+    "1118": {
+      "name": "Greater Than 0?",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "result",
+          "type": "Boolean"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "x",
+          "type": "numeric"
+        }
+      ],
+      "python_code": {
+        "result": "in_1 > 0"
+      },
+      "inline": true,
+      "verified": false
+    },
+    "8018": {
+      "name": "To More Specific Class",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "output_object",
+          "type": "Refnum"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "error_out",
+          "type": "Cluster"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "type_specifier",
+          "type": "Refnum"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "input_object",
+          "type": "Refnum"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "error_in",
+          "type": "Cluster"
+        }
+      ],
+      "python_code": {
+        "output_object": "in_3"
+      },
+      "inline": true,
+      "verified": true
+    },
     "8003": {
       "name": "Variant To Data",
       "terminals": [
