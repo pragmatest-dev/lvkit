@@ -236,6 +236,8 @@ def generate_documents(
     output_dir: str,
     search_paths: list[str] | None = None,
     expand_subvis: bool = True,
+    vilib_root: Path | None = None,
+    userlib_root: Path | None = None,
 ) -> str:
     """Generate HTML docs for a LabVIEW library, class, directory, or VI."""
     start_time = time.time()
@@ -279,6 +281,8 @@ def generate_documents(
     print(f"[TIMING] Starting VI loading ({expand_msg})...")
     t0 = time.time()
     graph = InMemoryVIGraph()
+    if vilib_root or userlib_root:
+        graph.set_library_roots(vilib_root=vilib_root, userlib_root=userlib_root)
     search_path_objs = [Path(p) for p in (search_paths or [])]
 
     loaded_vis: list[str] = []

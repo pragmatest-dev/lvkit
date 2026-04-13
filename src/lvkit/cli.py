@@ -37,6 +37,48 @@ def _add_project_root_arg(parser: argparse.ArgumentParser) -> None:
     )
 
 
+def _add_library_root_args(parser: argparse.ArgumentParser) -> None:
+    """Add --vilib and --userlib flags to a subparser."""
+    parser.add_argument(
+        "--vilib",
+        default=None,
+        metavar="DIR",
+        help=(
+            "Path to LabVIEW's vi.lib directory on disk. When set, "
+            "<vilib> dependency refs resolve to real .vi files, "
+            "terminal layouts are captured automatically, and results "
+            "are cached to .lvkit/vilib/ for future runs."
+        ),
+    )
+    parser.add_argument(
+        "--userlib",
+        default=None,
+        metavar="DIR",
+        help=(
+            "Path to LabVIEW's user.lib directory on disk. When set, "
+            "<userlib> dependency refs resolve to real .vi files."
+        ),
+    )
+
+
+def _parse_library_roots(
+    args: argparse.Namespace,
+) -> tuple[Path | None, Path | None]:
+    """Extract --vilib / --userlib from parsed args as Path objects."""
+    vilib_root = Path(args.vilib) if args.vilib else None
+    userlib_root = Path(args.userlib) if args.userlib else None
+    return vilib_root, userlib_root
+
+
+def _configure_library_roots(
+    graph: InMemoryVIGraph, args: argparse.Namespace
+) -> None:
+    """Apply --vilib / --userlib from parsed args to the graph."""
+    vilib_root, userlib_root = _parse_library_roots(args)
+    if vilib_root or userlib_root:
+        graph.set_library_roots(vilib_root=vilib_root, userlib_root=userlib_root)
+
+
 def _configure_resolvers(args: argparse.Namespace) -> Path | None:
     """Discover the project store and reset resolver singletons.
 
@@ -114,6 +156,7 @@ def main() -> int:
         help="Include Mermaid flowchart diagram",
     )
     _add_project_root_arg(desc_parser)
+    _add_library_root_args(desc_parser)
 
     # Generate command - deterministic AST-based Python generation
     gen_parser = subparsers.add_parser(
@@ -153,6 +196,7 @@ def main() -> int:
         ),
     )
     _add_project_root_arg(gen_parser)
+    _add_library_root_args(gen_parser)
 
     # Docs command - generate HTML documentation
     docs_parser = subparsers.add_parser(
@@ -178,6 +222,7 @@ def main() -> int:
         help="Don't expand SubVIs",
     )
     _add_project_root_arg(docs_parser)
+    _add_library_root_args(docs_parser)
 
     # Visualize command - interactive graph visualization
     viz_parser = subparsers.add_parser(
@@ -222,6 +267,7 @@ def main() -> int:
         "or interactive (pyvis, default for deps)",
     )
     _add_project_root_arg(viz_parser)
+    _add_library_root_args(viz_parser)
 
     # Diff command - compare two VIs
     diff_parser = subparsers.add_parser(
@@ -248,6 +294,7 @@ def main() -> int:
         help="Search paths for SubVI resolution (can be repeated)",
     )
     _add_project_root_arg(diff_parser)
+    _add_library_root_args(diff_parser)
 
     # Setup command - install AI editor skills and create .lvkit/ store
     setup_parser = subparsers.add_parser(
@@ -435,6 +482,7 @@ def cmd_describe(args: argparse.Namespace) -> int:
 
     try:
         graph = InMemoryVIGraph()
+        _configure_library_roots(graph, args)
         search_paths = [Path(p) for p in args.search_paths]
         graph.load_vi(str(input_path), search_paths=search_paths)
 
@@ -548,10 +596,12 @@ def cmd_diff(args: argparse.Namespace) -> int:
 
     try:
         graph_a = InMemoryVIGraph()
+        _configure_library_roots(graph_a, args)
         graph_a.load_vi(str(path_a), search_paths=search_paths)
         vi_name_a = graph_a.resolve_vi_name(path_a.name)
 
         graph_b = InMemoryVIGraph()
+        _configure_library_roots(graph_b, args)
         graph_b.load_vi(str(path_b), search_paths=search_paths)
         vi_name_b = graph_b.resolve_vi_name(path_b.name)
 
@@ -591,12 +641,15 @@ def cmd_generate(args: argparse.Namespace) -> int:
 
     try:
         sp = [Path(p) for p in args.search_paths] if args.search_paths else None
+        vilib_root, userlib_root = _parse_library_roots(args)
         result = generate_python(
             input_path,
             args.output,
             search_paths=sp,
             expand_subvis=not args.no_expand,
             soft_unresolved=args.placeholder_on_unresolved,
+            vilib_root=vilib_root,
+            userlib_root=userlib_root,
         )
         return 1 if result["error"] > 0 else 0
 
@@ -619,11 +672,14 @@ def cmd_docs(args: argparse.Namespace) -> int:
     _configure_resolvers(args)
 
     try:
+        vilib_root, userlib_root = _parse_library_roots(args)
         result = generate_documents(
             library_path=str(input_path),
             output_dir=args.output_dir,
             search_paths=args.search_paths if args.search_paths else None,
             expand_subvis=not args.no_expand,
+            vilib_root=vilib_root,
+            userlib_root=userlib_root,
         )
         print("\n" + result)
         return 0
@@ -644,6 +700,7 @@ def cmd_visualize(args: argparse.Namespace) -> int:
     _configure_resolvers(args)
 
     graph = InMemoryVIGraph()
+    _configure_library_roots(graph, args)
     search_paths = (
         [Path(p) for p in args.search_paths] if args.search_paths else None
     )

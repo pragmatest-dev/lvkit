@@ -75,6 +75,8 @@ class LoadingMixin:
     _loaded_vis: set[str]
     _source_paths: dict[str, Path]
     _vi_metadata: dict[str, VIMetadata]
+    _vilib_root: Path | None
+    _userlib_root: Path | None
 
     if TYPE_CHECKING:
         # Stubs for methods defined on other mixins / core, resolved via MRO
@@ -577,7 +579,11 @@ class LoadingMixin:
         # Resolve path: prefer the recorded ref, fall back to name-based search.
         resolved: Path | None = None
         if dep_ref is not None:
-            candidate = dep_ref.resolve_against(caller_file)
+            candidate = dep_ref.resolve_against(
+                caller_file,
+                vilib_root=self._vilib_root,
+                userlib_root=self._userlib_root,
+            )
             if candidate is not None and candidate.exists():
                 resolved = candidate
         if resolved is None:
@@ -615,6 +621,11 @@ class LoadingMixin:
                         self._dep_graph.add_edge(caller_qname, loaded_name)
                     if qualified_name != loaded_name:
                         self._qualified_aliases[qualified_name] = loaded_name
+                    # Auto-cache terminal layout for vilib VIs loaded from disk
+                    if (dep_ref is not None
+                            and dep_ref.path_tokens
+                            and dep_ref.path_tokens[0] == "<vilib>"):
+                        self._cache_vilib_terminal_layout(loaded_name, dep_ref)
             except (RuntimeError, OSError):
                 self._stub_subvi(qualified_name, caller_qname or "")
         elif leaf.endswith(".lvclass"):
@@ -647,6 +658,120 @@ class LoadingMixin:
         """Record a SubVI reference that could not be resolved as a stub."""
         self._stubs.add(name)
         self._dep_graph.add_node(name)
+
+    def _cache_vilib_terminal_layout(
+        self,
+        vi_name: str,
+        dep_ref: ParsedDependencyRef,
+    ) -> None:
+        """Cache terminal layout for a vi.lib VI loaded from disk.
+
+        Writes to .lvkit/vilib/<Category>.json and updates _index.json.
+        Only runs if .lvkit/ exists (created by `lvkit setup`).
+        Skips VIs already in the bundled JSON with complete terminals.
+        Safe to call repeatedly — overwrites stale entries.
+        """
+        import json as _json
+
+        from ..project_store import find_project_store
+        from ..vilib_resolver import get_resolver as get_vilib_resolver
+
+        store = find_project_store()
+        if store is None:
+            return
+
+        vilib_dir = store / "vilib"
+
+        # Derive category from first path component after <vilib>
+        tokens = dep_ref.path_tokens
+        category = tokens[1] if len(tokens) > 1 else "other"
+
+        # Build relative vi_path from tokens (skip <vilib>)
+        vi_path_rel = "/".join(tokens[1:]) if len(tokens) > 1 else vi_name
+
+        # Get the VI's front panel terminals from the graph
+        vi_node = self._graph.nodes.get(vi_name, {}).get("node")
+        if vi_node is None:
+            return
+
+        terminals_data = []
+        for term in getattr(vi_node, "terminals", []):
+            if term.index is None or term.index < 0:
+                continue
+            t: dict[str, object] = {
+                "name": term.name or "",
+                "index": term.index,
+                "direction": term.direction,
+            }
+            if term.lv_type:
+                t["type"] = term.lv_type.name or ""
+            terminals_data.append(t)
+
+        if not terminals_data:
+            return
+
+        # Skip if already in bundled JSON with complete terminals
+        resolver = get_vilib_resolver()
+        existing = resolver.resolve_by_name(vi_name)
+        if existing and existing.terminals:
+            bundled_indices = {
+                t.index for t in existing.terminals if t.index is not None
+            }
+            new_indices = {t["index"] for t in terminals_data}
+            if new_indices.issubset(bundled_indices):
+                return  # Bundled JSON already covers all terminals we found
+
+        # Prepare the entry
+        vi_leaf = vi_name if vi_name.endswith(".vi") else f"{vi_name}.vi"
+        entry: dict[str, object] = {
+            "name": vi_leaf,
+            "vi_path": vi_path_rel,
+            "category": category,
+            "terminals": terminals_data,
+            "status": "auto_cached",
+        }
+
+        # Read or create category file
+        vilib_dir.mkdir(parents=True, exist_ok=True)
+        category_file = vilib_dir / f"{category}.json"
+        if category_file.exists():
+            try:
+                existing_data = _json.loads(category_file.read_text())
+            except (_json.JSONDecodeError, OSError):
+                existing_data = {"entries": []}
+        else:
+            existing_data = {"entries": []}
+
+        entries: list[dict[str, object]] = existing_data.get("entries", [])
+
+        # Replace or append
+        replaced = False
+        for i, e in enumerate(entries):
+            if e.get("name") == vi_leaf:
+                entries[i] = entry
+                replaced = True
+                break
+        if not replaced:
+            entries.append(entry)
+
+        category_file.write_text(
+            _json.dumps({"entries": entries}, indent=2)
+        )
+
+        # Update _index.json
+        index_file = vilib_dir / "_index.json"
+        if index_file.exists():
+            try:
+                index_data = _json.loads(index_file.read_text())
+            except (_json.JSONDecodeError, OSError):
+                index_data = {"categories": {}}
+        else:
+            index_data = {"categories": {}}
+
+        categories: dict[str, str] = index_data.get("categories", {})
+        categories[category] = f"{category}.json"
+        index_data["categories"] = categories
+        index_file.write_text(_json.dumps(index_data, indent=2))
 
     def _find_file(
         self,

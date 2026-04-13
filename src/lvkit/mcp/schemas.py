@@ -177,37 +177,6 @@ def get_all_tool_schemas() -> list[dict[str, Any]]:
     return [{"name": name, **defn} for name, defn in TOOL_DEFINITIONS.items()]
 
 
-class ControlSchema(BaseModel):
-    """Schema for VI control (input)."""
-
-    name: str
-    type: str
-    default_value: str | int | float | bool | None = None
-    description: str = ""
-    slot_index: int
-
-
-class IndicatorSchema(BaseModel):
-    """Schema for VI indicator (output)."""
-
-    name: str
-    type: str
-    description: str = ""
-    slot_index: int
-
-
-class VIAnalysisResult(BaseModel):
-    """Complete VI analysis result."""
-
-    vi_name: str
-    summary: str = ""
-    controls: list[ControlSchema] = Field(default_factory=list)
-    indicators: list[IndicatorSchema] = Field(default_factory=list)
-    graph: dict[str, Any] = Field(default_factory=dict)
-    dependencies: dict[str, str] = Field(default_factory=dict)
-    execution_order: list[str] = Field(default_factory=list)
-
-
 class GeneratedFileSchema(BaseModel):
     """Schema for a single generated Python file."""
 

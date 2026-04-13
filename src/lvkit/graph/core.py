@@ -136,6 +136,23 @@ class InMemoryVIGraph(
         self._source_paths: dict[str, Path] = {}
         # VI metadata
         self._vi_metadata: dict[str, VIMetadata] = {}
+        # Optional disk roots for <vilib> / <userlib> path token resolution
+        self._vilib_root: Path | None = None
+        self._userlib_root: Path | None = None
+
+    def set_library_roots(
+        self,
+        vilib_root: Path | None = None,
+        userlib_root: Path | None = None,
+    ) -> None:
+        """Set disk roots for <vilib> and <userlib> path token resolution.
+
+        Call before loading any VIs. When set, dependency refs with
+        <vilib> or <userlib> tokens resolve to real .vi files on disk
+        instead of falling through to JSON-only lookup.
+        """
+        self._vilib_root = vilib_root
+        self._userlib_root = userlib_root
 
     def clear(self) -> None:
         """Clear all loaded data."""
