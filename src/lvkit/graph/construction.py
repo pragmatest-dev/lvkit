@@ -537,7 +537,7 @@ class ConstructionMixin:
                     frames=case_frames,
                     selector_terminal=selector_term,
                 )
-            elif node.node_type in ("flatSequence", "seq"):
+            elif node.node_type in ("flatSequence", "seq", "sequence"):
                 # Flat sequence
                 flat_seq = flatseq_by_uid.get(node.uid)
                 seq_frames: list[SequenceFrame] = []
