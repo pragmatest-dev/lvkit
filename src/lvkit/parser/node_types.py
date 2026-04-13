@@ -524,7 +524,7 @@ class _BuiltinPrimitiveHandler(NodeTypeHandler):
     primResID in the XML, so we assign it here based on the known mapping.
     """
 
-    def __init__(self, xml_class: str, display_name: str, prim_res_id: int):
+    def __init__(self, xml_class: str, display_name: str, prim_res_id: int | None):
         self.xml_class = xml_class
         self.display_name = display_name
         self._prim_res_id = prim_res_id
@@ -562,6 +562,11 @@ _HANDLERS: list[NodeTypeHandler] = [
     _BuiltinPrimitiveHandler("subset", "Array Subset", 1516),
     _BuiltinPrimitiveHandler("mergeErrors", "Merge Errors", 2401),
     _BuiltinPrimitiveHandler("oHExt", "Obtain/Release Semaphore", 8069),
+    # Array ops resolved via node_types section of primitives.json (no numeric ID)
+    _BuiltinPrimitiveHandler("aInit", "Initialize Array", None),
+    _BuiltinPrimitiveHandler("aReplace", "Replace Array Subset", None),
+    # Array ops resolved via primitives section (have numeric ID)
+    _BuiltinPrimitiveHandler("decimate", "Decimate 1D Array", 1062),
 ]
 
 # Build registry from handlers
