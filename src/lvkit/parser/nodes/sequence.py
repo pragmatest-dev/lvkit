@@ -13,7 +13,7 @@ from .base import extract_tunnel_mapping
 # Both flat and stacked sequences enforce sequential execution.
 # Flat: class="flatSequence", frames under <sequenceList>
 # Stacked: class="seq", frames under <diagramList>
-_SEQ_CLASSES = ("flatSequence", "seq")
+_SEQ_CLASSES = ("flatSequence", "seq", "sequence")
 
 
 def extract_flat_sequences(

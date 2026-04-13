@@ -406,7 +406,11 @@ class FlatSequenceHandler(NodeTypeHandler):
 
 
 class StackedSequenceHandler(NodeTypeHandler):
-    """Handler for Stacked Sequence structures (class="seq")."""
+    """Handler for Stacked Sequence structures (class="seq" or "sequence").
+
+    LabVIEW serializes stacked sequences as class="seq" in most versions and
+    class="sequence" in older versions. Both are structurally identical.
+    """
 
     xml_class = "seq"
     display_name = "Stacked Sequence"
@@ -420,6 +424,12 @@ class StackedSequenceHandler(NodeTypeHandler):
             input_types=input_types,
             output_types=output_types,
         )
+
+
+class _SequenceAliasHandler(StackedSequenceHandler):
+    """Handles class="sequence" — older LV versions use this instead of "seq"."""
+
+    xml_class = "sequence"
 
 
 class PrintfHandler(NodeTypeHandler):
@@ -553,6 +563,7 @@ _HANDLERS: list[NodeTypeHandler] = [
     InvokeNodeHandler(),
     FlatSequenceHandler(),
     StackedSequenceHandler(),
+    _SequenceAliasHandler(),
     PrintfHandler(),
     NMuxHandler(),
     # Built-in primitives with specialized XML classes
