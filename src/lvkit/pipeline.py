@@ -408,6 +408,11 @@ def generate_python(
             str(input_path), expand_subvis=expand_subvis,
             search_paths=search_path_list,
         )
+    elif input_path.suffix.lower() == ".llb":
+        graph.load_llb(
+            str(input_path), expand_subvis=expand_subvis,
+            search_paths=search_path_list,
+        )
     elif input_path.is_dir():
         graph.load_directory(
             str(input_path), expand_subvis=expand_subvis,

@@ -15,7 +15,7 @@ from typing import TYPE_CHECKING
 
 import networkx as nx
 
-from ..extractor import extract_vi_xml
+from ..extractor import extract_llb, extract_vi_xml
 from ..models import ClusterField, LVType
 from ..parser import (
     ParsedBlockDiagram,
@@ -112,6 +112,11 @@ class LoadingMixin:
 
         if clear_first:
             self.clear()
+
+        # Handle .llb containers by extracting members and loading each
+        if vi_path.suffix.lower() == ".llb":
+            self.load_llb(vi_path, expand_subvis, search_paths)
+            return
 
         # Handle .vi files by extracting first
         if vi_path.suffix.lower() == ".vi":
@@ -362,6 +367,67 @@ class LoadingMixin:
         for vi_path in dir_path.rglob("*.vi"):
             self.load_vi(vi_path, expand_subvis, search_paths)
 
+        for llb_path in dir_path.rglob("*.llb"):
+            if llb_path.is_file():
+                self.load_llb(llb_path, expand_subvis, search_paths)
+
+    def load_llb(
+        self,
+        llb_path: Path | str,
+        expand_subvis: bool = True,
+        search_paths: list[Path] | None = None,
+    ) -> None:
+        """Load all VIs from an LLB container archive.
+
+        If ``llb_path`` is already a directory (pre-extracted, as in the
+        OpenG samples), delegates to ``load_directory()``.  Otherwise extracts
+        the binary LLB to a cache directory and loads each extracted ``.vi``.
+        """
+        llb_path = Path(llb_path)
+        if llb_path.is_dir():
+            self.load_directory(llb_path, expand_subvis, search_paths)
+            return
+
+        try:
+            cache_dir = extract_llb(llb_path)
+        except RuntimeError:
+            return  # Unreadable LLB — silently skip
+
+        if search_paths is None:
+            search_paths = [cache_dir]
+
+        for vi_path in cache_dir.glob("*.vi"):
+            try:
+                self.load_vi(vi_path, expand_subvis, search_paths)
+            except (RuntimeError, ValueError):
+                pass  # Skip VIs that have no block diagram (compiled-only)
+
+    def _resolve_through_llb(self, candidate: Path) -> Path | None:
+        """Walk ``candidate``'s path components for a ``.llb`` file.
+
+        If any component resolves to an ``.llb`` binary archive, extract it to
+        the cache and return the path to the requested member VI inside the
+        cache directory.  Returns ``None`` if no ``.llb`` component exists or
+        the member is not found.
+        """
+        parts = candidate.parts
+        for i, part in enumerate(parts):
+            if part.lower().endswith(".llb"):
+                llb_path = Path(*parts[: i + 1])
+                if not llb_path.is_file():
+                    continue
+                # Remaining components give the member name
+                member_name = str(Path(*parts[i + 1 :])) if i + 1 < len(parts) else ""
+                if not member_name:
+                    continue
+                try:
+                    cache_dir = extract_llb(llb_path)
+                except RuntimeError:
+                    return None
+                member_path = cache_dir / member_name
+                return member_path if member_path.exists() else None
+        return None
+
     def _load_vi_recursive(
         self,
         bd_xml: Path,
@@ -584,8 +650,13 @@ class LoadingMixin:
                 vilib_root=self._vilib_root,
                 userlib_root=self._userlib_root,
             )
-            if candidate is not None and candidate.exists():
-                resolved = candidate
+            if candidate is not None:
+                if candidate.exists():
+                    resolved = candidate
+                else:
+                    llb_resolved = self._resolve_through_llb(candidate)
+                    if llb_resolved is not None:
+                        resolved = llb_resolved
         if resolved is None:
             if leaf.endswith(".vi"):
                 resolved = self._find_subvi(leaf, search_paths, caller_file.parent)
