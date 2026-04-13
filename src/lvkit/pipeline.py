@@ -356,6 +356,8 @@ def generate_python(
     search_paths: list[Path] | None = None,
     expand_subvis: bool = True,
     soft_unresolved: bool = False,
+    vilib_root: Path | None = None,
+    userlib_root: Path | None = None,
 ) -> dict:
     """Generate Python from VI files.
 
@@ -367,6 +369,8 @@ def generate_python(
         soft_unresolved: When True, unknown primitives / vi.lib VIs are
             emitted as inline `raise` statements instead of failing the
             build. See build_module() docstring for details.
+        vilib_root: Path to LabVIEW vi.lib on disk for <vilib> resolution
+        userlib_root: Path to LabVIEW user.lib on disk for <userlib> resolution
 
     Returns:
         Summary dict with keys: vilib, ast, stub, error counts
@@ -389,6 +393,8 @@ def generate_python(
     print(f"Loading: {input_path}")
 
     graph = InMemoryVIGraph()
+    if vilib_root or userlib_root:
+        graph.set_library_roots(vilib_root=vilib_root, userlib_root=userlib_root)
     search_path_list = list(search_paths) if search_paths else []
 
     # Detect input type and load appropriately

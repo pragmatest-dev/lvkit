@@ -35,7 +35,7 @@ from ..graph.describe import (
     describe_vi as describe_vi_text,
 )
 from ..project_store import find_project_store
-from .tools import analyze_vi, generate_documents, generate_python
+from .tools import generate_documents, generate_python
 
 
 def _configure_resolvers_for_vi(vi_path: str | Path) -> None:
@@ -74,58 +74,6 @@ def _get_graph():
 async def list_tools() -> list[Tool]:
     """List available tools."""
     return [
-        Tool(
-            name="analyze",
-            description=(
-                "Analyze a LabVIEW VI file and describe what it does. "
-                "Returns JSON with VI structure "
-                "(inputs, outputs, dataflow graph, dependencies). "
-                "\n\n"
-                "IMPORTANT: Present the results visually and descriptively:\n"
-                "1. Summary: 1-2 sentences describing what the VI does\n"
-                "2. Controls table: Input parameters (name, type, default, desc)\n"
-                "3. Indicators table: Output parameters with name, type, description\n"
-                "4. Dataflow diagram: Visual flowchart of the block diagram dataflow. "
-                "Show left-to-right flow from inputs → operations → outputs. "
-                "Use graph.operations and graph.data_flow to build the visualization. "
-                "Prefer Mermaid flowchart format, but render appropriately for your "
-                "environment: if rendered diagrams are unsupported (e.g., terminal), "
-                "draw ASCII art instead. "
-                "CRITICAL: The user must SEE the dataflow visually - do NOT dump raw "
-                "JSON or show unrendered Mermaid code as plain text.\n"
-                "5. Dependencies: List SubVIs called with 1-sentence descriptions\n"
-                "6. How it works: Step-by-step breakdown using execution_order\n"
-                "\n"
-                "Focus on a clear, visual block diagram - "
-                "LabVIEW is a visual dataflow language!"
-            ),
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "vi_path": {
-                        "type": "string",
-                        "description": (
-                            "Path to VI file (.vi) or block diagram XML (*_BDHb.xml)"
-                        ),
-                    },
-                    "search_paths": {
-                        "type": "array",
-                        "items": {"type": "string"},
-                        "description": "Optional list of search paths for dependencies",
-                        "default": [],
-                    },
-                    "expand_subvis": {
-                        "type": "boolean",
-                        "description": (
-                            "Load all SubVI dependencies (slower, complete) "
-                            "or just this VI (faster, limited)"
-                        ),
-                        "default": True,
-                    },
-                },
-                "required": ["vi_path"],
-            },
-        ),
         Tool(
             name="generate_documents",
             description=(
@@ -174,6 +122,18 @@ async def list_tools() -> list[Tool]:
                             "(slower) or just library VIs (faster)"
                         ),
                         "default": True,
+                    },
+                    "vilib_root": {
+                        "type": "string",
+                        "description": (
+                            "Path to LabVIEW vi.lib on disk for <vilib> resolution."
+                        ),
+                    },
+                    "userlib_root": {
+                        "type": "string",
+                        "description": (
+                            "Path to LabVIEW user.lib on disk for <userlib> resolution."
+                        ),
                     },
                 },
                 "required": ["library_path", "output_dir"],
@@ -237,6 +197,18 @@ async def list_tools() -> list[Tool]:
                         ),
                         "default": False,
                     },
+                    "vilib_root": {
+                        "type": "string",
+                        "description": (
+                            "Path to LabVIEW vi.lib on disk for <vilib> resolution."
+                        ),
+                    },
+                    "userlib_root": {
+                        "type": "string",
+                        "description": (
+                            "Path to LabVIEW user.lib on disk for <userlib> resolution."
+                        ),
+                    },
                 },
                 "required": ["vi_path", "output_dir"],
             },
@@ -247,8 +219,8 @@ async def list_tools() -> list[Tool]:
             description=(
                 "Load a VI into the in-memory graph. "
                 "The graph persists across tool calls.\n\n"
-                "Use this to load VIs before querying them with get_vi_context, "
-                "get_primitive_info, or generate_ast_code.\n\n"
+                "Use this to load VIs before querying them with get_context, "
+                "get_operations, get_dataflow, get_structure, or get_constants.\n\n"
                 "Returns list of loaded VIs "
                 "(includes dependencies if expand_subvis=true)."
             ),
@@ -270,6 +242,18 @@ async def list_tools() -> list[Tool]:
                         "description": "Load all SubVI dependencies recursively",
                         "default": True,
                     },
+                    "vilib_root": {
+                        "type": "string",
+                        "description": (
+                            "Path to LabVIEW vi.lib on disk for <vilib> resolution."
+                        ),
+                    },
+                    "userlib_root": {
+                        "type": "string",
+                        "description": (
+                            "Path to LabVIEW user.lib on disk for <userlib> resolution."
+                        ),
+                    },
                 },
                 "required": ["vi_path"],
             },
@@ -277,6 +261,17 @@ async def list_tools() -> list[Tool]:
         Tool(
             name="list_loaded",
             description="List all VIs currently loaded in the graph.",
+            inputSchema={
+                "type": "object",
+                "properties": {},
+            },
+        ),
+        Tool(
+            name="clear",
+            description=(
+                "Clear all VIs from the in-memory graph. "
+                "Use this to start fresh before loading a different project."
+            ),
             inputSchema={
                 "type": "object",
                 "properties": {},
@@ -439,31 +434,13 @@ async def list_tools() -> list[Tool]:
 @app.call_tool()
 async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
     """Handle tool calls."""
-    if name == "analyze":
-        vi_path = arguments.get("vi_path")
-        search_paths = arguments.get("search_paths", [])
-        expand_subvis = arguments.get("expand_subvis", True)
-
-        if not vi_path:
-            raise ValueError("vi_path is required")
-
-        _configure_resolvers_for_vi(vi_path)
-
-        # Run analysis (synchronous function in async context)
-        result = await asyncio.to_thread(
-            analyze_vi, vi_path, search_paths, expand_subvis
-        )
-
-        # Convert to JSON
-        result_json = result.model_dump_json(indent=2)
-
-        return [TextContent(type="text", text=result_json)]
-
-    elif name == "generate_documents":
+    if name == "generate_documents":
         library_path = arguments.get("library_path")
         output_dir = arguments.get("output_dir")
         search_paths = arguments.get("search_paths", [])
         expand_subvis = arguments.get("expand_subvis", True)
+        vilib_root = arguments.get("vilib_root")
+        userlib_root = arguments.get("userlib_root")
 
         if not library_path:
             raise ValueError("library_path is required")
@@ -474,7 +451,8 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
 
         # Run documentation generation (synchronous function in async context)
         result = await asyncio.to_thread(
-            generate_documents, library_path, output_dir, search_paths, expand_subvis
+            generate_documents, library_path, output_dir, search_paths, expand_subvis,
+            vilib_root=vilib_root, userlib_root=userlib_root,
         )
 
         return [TextContent(type="text", text=result)]
@@ -484,6 +462,8 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
         output_dir = arguments.get("output_dir")
         search_paths = arguments.get("search_paths", [])
         soft_unresolved = arguments.get("soft_unresolved", False)
+        vilib_root = arguments.get("vilib_root")
+        userlib_root = arguments.get("userlib_root")
 
         if not vi_path:
             raise ValueError("vi_path is required")
@@ -496,6 +476,7 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
         result = await asyncio.to_thread(
             generate_python, vi_path, output_dir, search_paths,
             include_code=False, soft_unresolved=soft_unresolved,
+            vilib_root=vilib_root, userlib_root=userlib_root,
         )
 
         # Return JSON for structured parsing by agent
@@ -508,6 +489,8 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
         vi_path = arguments.get("vi_path")
         search_paths = arguments.get("search_paths", [])
         expand_subvis = arguments.get("expand_subvis", True)
+        vilib_root = arguments.get("vilib_root")
+        userlib_root = arguments.get("userlib_root")
 
         if not vi_path:
             raise ValueError("vi_path is required")
@@ -516,6 +499,11 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
 
         def _load():
             graph = _get_graph()
+            if vilib_root or userlib_root:
+                graph.set_library_roots(
+                    vilib_root=Path(vilib_root) if vilib_root else None,
+                    userlib_root=Path(userlib_root) if userlib_root else None,
+                )
             search_path_objs = [Path(p) for p in search_paths] if search_paths else None
             graph.load_vi(
                 Path(vi_path),
@@ -535,6 +523,11 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
         return [
             TextContent(type="text", text=json.dumps({"loaded_vis": vis}, indent=2))
         ]
+
+    elif name == "clear":
+        global _graph
+        _graph = None
+        return [TextContent(type="text", text="Graph cleared.")]
 
     elif name == "get_context":
         vi_name = arguments.get("vi_name")

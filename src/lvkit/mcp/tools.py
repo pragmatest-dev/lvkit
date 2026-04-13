@@ -7,70 +7,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-from .schemas import (
-    CodeGenResult,
-    ControlSchema,
-    IndicatorSchema,
-    VIAnalysisResult,
-)
-
-
-def analyze_vi(
-    vi_path: str, search_paths: list[str] | None = None, expand_subvis: bool = True
-) -> VIAnalysisResult:
-    """Analyze a VI and return structured data.
-
-    This is a thin wrapper that calls the deterministic scripts/analyze_vi.py
-    script for process isolation and safety.
-
-    Args:
-        vi_path: Path to VI file (.vi) or block diagram XML (*_BDHb.xml)
-        search_paths: Optional list of search paths for dependencies
-        expand_subvis: If True, recursively load all SubVI dependencies
-                      (slower but complete). If False, only load this VI
-                      (faster but limited cross-references).
-
-    Returns:
-        VIAnalysisResult with complete VI structure
-    """
-    # Build command
-    script_path = (
-        Path(__file__).parent.parent.parent.parent / "scripts" / "analyze_vi.py"
-    )
-    cmd = [sys.executable, str(script_path), vi_path]
-
-    if search_paths:
-        for sp in search_paths:
-            cmd.extend(["--search-path", sp])
-
-    if not expand_subvis:
-        cmd.append("--no-expand")
-
-    # Run the deterministic script
-    result = subprocess.run(cmd, capture_output=True, text=True)
-
-    if result.returncode != 0:
-        error_msg = result.stderr or result.stdout
-        raise RuntimeError(f"VI analysis failed: {error_msg}")
-
-    # Parse JSON output from script
-    try:
-        data = json.loads(result.stdout)
-    except json.JSONDecodeError as e:
-        raise RuntimeError(
-            f"Failed to parse script output: {e}\nOutput: {result.stdout}"
-        )
-
-    # Convert to VIAnalysisResult
-    return VIAnalysisResult(
-        vi_name=data["vi_name"],
-        summary=data["summary"],
-        controls=[ControlSchema(**c) for c in data["controls"]],
-        indicators=[IndicatorSchema(**i) for i in data["indicators"]],
-        graph=data["graph"],
-        dependencies=data["dependencies"],
-        execution_order=data["execution_order"],
-    )
+from .schemas import CodeGenResult
 
 
 def generate_documents(
@@ -78,6 +15,8 @@ def generate_documents(
     output_dir: str,
     search_paths: list[str] | None = None,
     expand_subvis: bool = True,
+    vilib_root: str | None = None,
+    userlib_root: str | None = None,
 ) -> str:
     """Generate HTML documentation for a LabVIEW library, class, directory,
     or single VI.
@@ -108,6 +47,11 @@ def generate_documents(
     if not expand_subvis:
         cmd.append("--no-expand")
 
+    if vilib_root:
+        cmd.extend(["--vilib", vilib_root])
+    if userlib_root:
+        cmd.extend(["--userlib", userlib_root])
+
     # Run the deterministic script
     result = subprocess.run(cmd, capture_output=True, text=True)
 
@@ -131,6 +75,8 @@ def generate_python(
     search_paths: list[str] | None = None,
     include_code: bool = False,
     soft_unresolved: bool = False,
+    vilib_root: str | None = None,
+    userlib_root: str | None = None,
 ) -> CodeGenResult:
     """Generate Python code from a LabVIEW VI using AST-based translation.
 
@@ -165,6 +111,11 @@ def generate_python(
 
     if soft_unresolved:
         cmd.append("--placeholder-on-unresolved")
+
+    if vilib_root:
+        cmd.extend(["--vilib", vilib_root])
+    if userlib_root:
+        cmd.extend(["--userlib", userlib_root])
 
     # Run the deterministic script
     result = subprocess.run(cmd, capture_output=True, text=True)

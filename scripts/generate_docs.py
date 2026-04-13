@@ -16,6 +16,7 @@ if __name__ == "__main__":
 from lvkit.docs.html_generator import HTMLDocGenerator
 from lvkit.docs.utils import generate_dependency_description
 from lvkit.graph import InMemoryVIGraph
+from lvkit.models import CaseOperation, SequenceOperation
 from lvkit.structure import parse_lvclass, parse_lvlib
 
 
@@ -223,9 +224,11 @@ def prepare_vi_documentation_data(
         for op in ops:
             if "SubVI" in (op.labels or []) and op.name:
                 names.append(op.name)
-            names.extend(_extract_subvi_names(op.inner_nodes))
-            for frame in op.case_frames or []:
-                names.extend(_extract_subvi_names(frame.operations))
+            if isinstance(op, CaseOperation | SequenceOperation):
+                for frame in op.frames:
+                    names.extend(_extract_subvi_names(frame.operations))
+            else:
+                names.extend(_extract_subvi_names(op.inner_nodes))
         return names
 
     op_names = set(_extract_subvi_names(operations_dc))
@@ -297,6 +300,8 @@ def generate_documents(
     output_dir: str,
     search_paths: list[str] | None = None,
     expand_subvis: bool = True,
+    vilib_root: Path | None = None,
+    userlib_root: Path | None = None,
 ) -> str:
     """Generate HTML documentation for a LabVIEW library, class, directory,
     or single VI."""
@@ -343,6 +348,8 @@ def generate_documents(
     print(f"[TIMING] Starting VI loading ({expand_msg})...")
     t0 = time.time()
     graph = InMemoryVIGraph()
+    if vilib_root or userlib_root:
+        graph.set_library_roots(vilib_root=vilib_root, userlib_root=userlib_root)
     search_path_objs = [Path(p) for p in (search_paths or [])]
 
     loaded_vis = []
@@ -486,6 +493,14 @@ def main():
     parser.add_argument(
         "--no-expand", action="store_true", help="Don't expand SubVI dependencies"
     )
+    parser.add_argument(
+        "--vilib", default=None, metavar="DIR",
+        help="Path to LabVIEW vi.lib on disk for <vilib> resolution.",
+    )
+    parser.add_argument(
+        "--userlib", default=None, metavar="DIR",
+        help="Path to LabVIEW user.lib on disk for <userlib> resolution.",
+    )
 
     args = parser.parse_args()
 
@@ -495,6 +510,8 @@ def main():
             output_dir=args.output_dir,
             search_paths=args.search_paths,
             expand_subvis=not args.no_expand,
+            vilib_root=Path(args.vilib) if args.vilib else None,
+            userlib_root=Path(args.userlib) if args.userlib else None,
         )
         print("\n" + result)
         return 0

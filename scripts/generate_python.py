@@ -36,6 +36,14 @@ def main():
             "VILibResolutionNeeded(...)` in the generated Python."
         ),
     )
+    parser.add_argument(
+        "--vilib", default=None, metavar="DIR",
+        help="Path to LabVIEW vi.lib on disk for <vilib> resolution.",
+    )
+    parser.add_argument(
+        "--userlib", default=None, metavar="DIR",
+        help="Path to LabVIEW user.lib on disk for <userlib> resolution.",
+    )
     args = parser.parse_args()
 
     generate_python(
@@ -44,6 +52,8 @@ def main():
         search_paths=[Path(p) for p in args.search_paths],
         expand_subvis=True,
         soft_unresolved=args.placeholder_on_unresolved,
+        vilib_root=Path(args.vilib) if args.vilib else None,
+        userlib_root=Path(args.userlib) if args.userlib else None,
     )
 
 
