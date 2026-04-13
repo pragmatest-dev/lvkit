@@ -30,6 +30,14 @@ NODE_CLASS_CONCAT = "concat"  # Concatenate (strings/arrays)
 NODE_CLASS_SUBSET = "subset"  # Array/String Subset
 NODE_CLASS_MERGE_ERRORS = "mergeErrors"  # Merge Errors
 NODE_CLASS_OH_EXT = "oHExt"  # Obtain/Release Semaphore
+NODE_CLASS_MUX = "mux"      # Multiplexer (bundle at structure boundary)
+NODE_CLASS_DEMUX = "demux"  # Demultiplexer (unbundle at structure boundary)
+
+# Node classes that are explicitly ignored during parsing.
+# These are known LabVIEW elements with no Python equivalent and no dataflow
+# output — they are intentionally not converted to graph nodes.
+NODE_CLASS_COMMENT = "commentNode"  # Block diagram annotation / labeled wire section
+SKIP_NODE_CLASSES: frozenset[str] = frozenset({NODE_CLASS_COMMENT})
 
 # All node classes that contain operations (and therefore have terminals)
 OPERATION_NODE_CLASSES = (
@@ -57,6 +65,8 @@ OPERATION_NODE_CLASSES = (
     NODE_CLASS_SUBSET,
     NODE_CLASS_MERGE_ERRORS,
     NODE_CLASS_OH_EXT,
+    NODE_CLASS_MUX,
+    NODE_CLASS_DEMUX,
 )
 
 # Loop node classes

@@ -493,7 +493,7 @@ class NMuxHandler(NodeTypeHandler):
                                 int(i_elem.text)
                                 if i_elem is not None
                                 and i_elem.text
-                                else 0
+                                else dco_list_uids.index(d_uid)
                             )
                             dco_field_index[d_uid] = idx
 
@@ -504,6 +504,28 @@ class NMuxHandler(NodeTypeHandler):
             term_to_dco=term_to_dco,
             dco_field_index=dco_field_index,
         )
+
+
+class _MuxHandler(NMuxHandler):
+    """Handles class="mux" — bundle at structure boundaries.
+
+    Structurally identical to nMux but uses positional field indices
+    (no <i> tags on mxDCO elements).
+    """
+
+    xml_class = "mux"
+    display_name = "Multiplexer"
+
+
+class _DemuxHandler(NMuxHandler):
+    """Handles class="demux" — unbundle at structure boundaries.
+
+    Structurally identical to nMux but uses positional field indices
+    (no <i> tags on dmxDCO elements).
+    """
+
+    xml_class = "demux"
+    display_name = "Demultiplexer"
 
 
 class GenericHandler(NodeTypeHandler):
@@ -564,6 +586,8 @@ _HANDLERS: list[NodeTypeHandler] = [
     FlatSequenceHandler(),
     StackedSequenceHandler(),
     _SequenceAliasHandler(),
+    _MuxHandler(),
+    _DemuxHandler(),
     PrintfHandler(),
     NMuxHandler(),
     # Built-in primitives with specialized XML classes

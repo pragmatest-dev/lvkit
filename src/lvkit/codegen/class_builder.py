@@ -376,7 +376,9 @@ class ClassBuilder:
             return True
 
         # Check if all operations are just unbundle/bundle/case/error handling
-        simple_node_types = {"select", "case", "unbundle", "bundle", "nMux", "nDmux"}
+        simple_node_types = {
+            "select", "case", "unbundle", "bundle", "nMux", "nDmux", "mux", "demux",
+        }
         simple_prim_ids = {
             1340,  # Unbundle
             1302,  # Bundle
