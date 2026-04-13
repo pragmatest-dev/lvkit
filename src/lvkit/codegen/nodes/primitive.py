@@ -50,8 +50,6 @@ def generate(node: PrimitiveOperation, ctx: CodeGenContext) -> CodeFragment:
             resolved = None
     if not resolved and prim_id is not None:
         resolved = resolver.resolve(prim_id=prim_id)
-    if not resolved and node_type and node_type == 'prim':
-        resolved = resolver.resolve_by_node_type(node_type)
     if not resolved:
         if prim_id is None:
             return CodeFragment.empty()
