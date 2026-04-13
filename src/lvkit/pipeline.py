@@ -678,11 +678,20 @@ def {func_name}(*args, **kwargs) -> Any:
         if store:
             print(f"\n  To resolve errors, add mappings to {store}/")
             print(f"  See {store / 'README.md'} for file formats and instructions.")
-            print("  AI agent skills can add these automatically — run `lvkit setup` if not installed.")
+            print(
+                "  AI agent skills can add these automatically"
+                " — run `lvkit setup` if not installed."
+            )
         else:
             print("\n  To resolve errors:")
-            print("  - Run `lvkit setup` to install AI agent skills that resolve unknowns automatically.")
-            print("  - Or run `lvkit setup --no-skills` to create a .lvkit/ store for manual mappings.")
+            print(
+                "  - Run `lvkit setup` to install AI agent skills"
+                " that resolve unknowns automatically."
+            )
+            print(
+                "  - Or run `lvkit setup --no-skills` to create a"
+                " .lvkit/ store for manual mappings."
+            )
 
     # Save terminal observations for incremental collection
     collector = get_collector()

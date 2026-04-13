@@ -229,12 +229,18 @@ class InMemoryVIGraph(
     ) -> list[ClusterField] | None:
         """Get fields for any type. One API, all cases.
 
-        Named types (class, typedef) → dep_graph lookup.
+        Named types (class, typedef) → dep_graph lookup, then inline fallback.
         Anonymous clusters → inline fields on the type itself.
+
+        The fallback matters when a typedef is from a library not loaded into
+        the dep_graph (e.g. NI/DCAF types): the parser embeds inline fields
+        into the type_map, and _enrich_type carries them on lv_type.fields.
         """
         name = lv_type.classname or lv_type.typedef_name
         if name:
-            return self.get_class_fields(name)
+            fields = self.get_class_fields(name)
+            if fields is not None:
+                return fields
         return lv_type.fields
 
     def set_var_name(self, terminal_id: str, var_name: str) -> None:
