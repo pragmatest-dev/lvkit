@@ -1,8 +1,8 @@
 """Loading mixin for InMemoryVIGraph.
 
-Methods: load_vi, load_lvclass, load_lvlib, load_lvproj, load_typedef,
+Methods: load_vi, load_llb, load_lvclass, load_lvlib, load_lvproj, load_typedef,
 load_directory, _load_vi_recursive, _load_dependency, _find_subvi,
-_resolve_class_vi_path.
+_resolve_class_vi_path, _resolve_through_llb.
 """
 
 from __future__ import annotations
@@ -417,14 +417,13 @@ class LoadingMixin:
                 if not llb_path.is_file():
                     continue
                 # Remaining components give the member name
-                member_name = str(Path(*parts[i + 1 :])) if i + 1 < len(parts) else ""
-                if not member_name:
+                if i + 1 >= len(parts):
                     continue
                 try:
                     cache_dir = extract_llb(llb_path)
                 except RuntimeError:
                     return None
-                member_path = cache_dir / member_name
+                member_path = cache_dir / Path(*parts[i + 1 :])
                 return member_path if member_path.exists() else None
         return None
 
