@@ -586,10 +586,10 @@ _HANDLERS: list[NodeTypeHandler] = [
     FlatSequenceHandler(),
     StackedSequenceHandler(),
     _SequenceAliasHandler(),
-    _MuxHandler(),
-    _DemuxHandler(),
     PrintfHandler(),
     NMuxHandler(),
+    _MuxHandler(),
+    _DemuxHandler(),
     # Built-in primitives with specialized XML classes
     _BuiltinPrimitiveHandler("aDelete", "Delete From Array", 1901),
     _BuiltinPrimitiveHandler("aIndx", "Index Array", 1809),
