@@ -304,6 +304,7 @@ def _parse_front_panel(
 
         control = _parse_ddo(ddo, uid, indicator_dco_uids, default_value)
         if control:
+            control.ddo_uid = ddo.get("uid")
             controls.append(control)
 
     return ParsedFrontPanel(

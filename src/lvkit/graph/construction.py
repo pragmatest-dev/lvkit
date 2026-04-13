@@ -27,6 +27,7 @@ from ..parser import (
 from ..parser.models import ParsedConstant, ParsedType
 from ..parser.node_types import (
     CpdArithNode,
+    CtlRefConstNode,
     InvokeNode,
     PropertyNode,
     SelectNode,
@@ -232,6 +233,15 @@ class ConstructionMixin:
             for ctrl in fp.controls:
                 fp_by_uid[ctrl.uid] = ctrl
 
+        # Build inner ddo_uid → fPDCO uid mapping for ctlRefConst resolution.
+        # ctlRefConst.ddo_uid points to the inner ddo element inside an fPDCO;
+        # we need to map that back to the fPDCO uid to find the FP terminal.
+        ddo_to_fpdco: dict[str, str] = {}
+        if fp:
+            for ctrl in fp.controls:
+                if ctrl.ddo_uid:
+                    ddo_to_fpdco[ctrl.ddo_uid] = ctrl.uid
+
         # Build connector pane lookup: fp_dco_uid -> slot index
         conpane_slots: dict[str, int] = {}
         if conpane:
@@ -339,6 +349,27 @@ class ConstructionMixin:
 
         for node in bd.nodes:
             q_node_uid = self._qid(vi_name, node.uid)
+
+            # ctlRefConst: alias FP control references into the dataflow graph.
+            # If ddo_uid resolves to an FP terminal, alias this node's output
+            # terminal to that WireEnd so downstream wires connect directly to
+            # the FP variable. No graph node is created for ctlRefConst.
+            # Built-in refs (ddo_uid absent) are deferred — skip silently.
+            if isinstance(node, CtlRefConstNode):
+                if node.ddo_uid:
+                    fpdco_uid = ddo_to_fpdco.get(node.ddo_uid)
+                    if fpdco_uid:
+                        fp_wire_end = None
+                        for fp_term in bd.fp_terminals:
+                            if fp_term.fp_dco_uid == fpdco_uid:
+                                fp_wire_end = term_lookup.get(fp_term.uid)
+                                break
+                        if fp_wire_end:
+                            for term_uid, t_info in bd.terminal_info.items():
+                                if t_info.parent_uid == node.uid:
+                                    term_lookup[term_uid] = fp_wire_end
+                                    break
+                continue  # No graph node for ctlRefConst
 
             # Get known terminal layout for index matching.
             # Same system for all node types: primitives, node_types, vilib SubVIs.

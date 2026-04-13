@@ -83,6 +83,18 @@ class SelectNode(ParsedNode):
     dco_field_index: dict[str, int] = field(default_factory=dict)
 
 
+@dataclass
+class CtlRefConstNode(ParsedNode):
+    """Control reference constant (class="ctlRefConst").
+
+    ddo_uid set: references a specific FP control — terminal is aliased
+    to the FP terminal's WireEnd in the graph (no new graph node).
+    ddo_uid None: built-in reference ("This Application" etc.) — deferred.
+    """
+
+    ddo_uid: str | None = None
+
+
 # =============================================================================
 # Node Type Handlers
 # =============================================================================
@@ -528,6 +540,19 @@ class _DemuxHandler(NMuxHandler):
     display_name = "Demultiplexer"
 
 
+class CtlRefConstHandler(NodeTypeHandler):
+    """Handler for Control Reference Constant (class="ctlRefConst")."""
+
+    xml_class = "ctlRefConst"
+    display_name = "Control Reference Constant"
+
+    def parse(self, elem: ET.Element) -> CtlRefConstNode:
+        common = self._extract_common(elem)
+        ddo_elem = elem.find("ddo")
+        ddo_uid = ddo_elem.get("uid") if ddo_elem is not None else None
+        return CtlRefConstNode(**common, ddo_uid=ddo_uid)
+
+
 class GenericHandler(NodeTypeHandler):
     """Fallback handler for unknown node types."""
 
@@ -590,6 +615,7 @@ _HANDLERS: list[NodeTypeHandler] = [
     NMuxHandler(),
     _MuxHandler(),
     _DemuxHandler(),
+    CtlRefConstHandler(),
     # Built-in primitives with specialized XML classes
     _BuiltinPrimitiveHandler("aDelete", "Delete From Array", 1901),
     _BuiltinPrimitiveHandler("aIndx", "Index Array", 1809),

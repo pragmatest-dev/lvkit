@@ -32,6 +32,7 @@ NODE_CLASS_MERGE_ERRORS = "mergeErrors"  # Merge Errors
 NODE_CLASS_OH_EXT = "oHExt"  # Obtain/Release Semaphore
 NODE_CLASS_MUX = "mux"      # Multiplexer (bundle at structure boundary)
 NODE_CLASS_DEMUX = "demux"  # Demultiplexer (unbundle at structure boundary)
+NODE_CLASS_CTL_REF_CONST = "ctlRefConst"  # Control reference constant
 
 # Node classes that are explicitly ignored during parsing.
 # These are known LabVIEW elements with no Python equivalent and no dataflow
@@ -67,6 +68,7 @@ OPERATION_NODE_CLASSES = (
     NODE_CLASS_OH_EXT,
     NODE_CLASS_MUX,
     NODE_CLASS_DEMUX,
+    NODE_CLASS_CTL_REF_CONST,
 )
 
 # Loop node classes
