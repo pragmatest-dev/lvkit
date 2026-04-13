@@ -11,6 +11,7 @@ import sys
 import tempfile
 import zipfile
 from pathlib import Path
+from typing import Any
 
 _CACHE_ROOT = Path(tempfile.gettempdir()) / "lvkit" / "extract"
 _LLB_CACHE_ROOT = Path(tempfile.gettempdir()) / "lvkit" / "llb"
@@ -119,7 +120,7 @@ def _llb_cache_dir(llb_path: Path) -> Path:
     return _LLB_CACHE_ROOT / f"{llb_path.stem}_{digest}"
 
 
-def _open_llb_vi(llb_path: Path):  # type: ignore[return]
+def _open_llb_vi(llb_path: Path) -> Any:
     """Open an LLB file with the pylabview VI API.
 
     Returns a ``pylabview.LVrsrcontainer.VI`` object, or raises RuntimeError
@@ -225,8 +226,12 @@ def extract_llb(llb_path: Path) -> Path:
                                 zf.read(member)
                             )
                             extracted_any = True
-            except Exception:
-                pass
+            except Exception as exc:
+                print(
+                    f"Warning: failed to extract LVzp block from"
+                    f" {llb_path.name}: {exc}",
+                    file=sys.stderr,
+                )
 
     # Write sentinel so future calls skip re-extraction
     sentinel.touch()
@@ -238,49 +243,3 @@ def extract_llb(llb_path: Path) -> Path:
     return cache_dir
 
 
-def list_llb_members(llb_path: Path) -> list[str]:
-    """Return member filenames inside an LLB without full extraction.
-
-    This is lighter-weight than ``extract_llb()`` — it reads section headers
-    only, without writing files.
-
-    Args:
-        llb_path: Path to the ``.llb`` file.
-
-    Returns:
-        List of member filenames (e.g. ``["Error Cluster From Error Code.vi"]``).
-    """
-    llb_path = llb_path.resolve()
-
-    try:
-        vi = _open_llb_vi(llb_path)
-    except Exception:
-        return []
-
-    members: list[str] = []
-
-    for block_ident in ("UCRF", "CPRF", "ZCRF"):
-        block = vi.get(block_ident)
-        if block is None:
-            continue
-        for section in block.sections.values():
-            if section.name_text is None or len(section.name_text) == 0:
-                continue
-            member_name = _decode_member_name(section.name_text, vi.textEncoding)
-            if member_name:
-                members.append(member_name)
-
-    if not members:
-        block = vi.get("LVzp")
-        if block is not None and block.sections:
-            snum = next(iter(block.sections))
-            try:
-                bldata = block.getData(section_num=snum)
-                with zipfile.ZipFile(io.BytesIO(bldata.read())) as zf:
-                    for member in zf.namelist():
-                        if member.lower().endswith(".vi"):
-                            members.append(Path(member).name)
-            except Exception:
-                pass
-
-    return members
