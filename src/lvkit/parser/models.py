@@ -287,6 +287,7 @@ class ParsedFPControl:
     type_desc: str | None = None
     default_value: str | None = None
     enum_values: list[str] = field(default_factory=list)
+    ddo_uid: str | None = None  # UID of the inner ddo element (for ctlRefConst lookup)
     children: list[ParsedFPControl] = field(default_factory=list)  # For clusters
 
 
