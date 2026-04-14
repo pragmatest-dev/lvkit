@@ -632,6 +632,34 @@ class ConstructionMixin:
                 structure_terminals = self._build_structure_terminals(
                     bd, parser_tunnels, q_node_uid, term_lookup, vi_name,
                 )
+                # Add non-tunnel IPES terminals (cluster I/O via decomposeClusterDCO).
+                # These terminals don't appear in parser_tunnels (which only tracks
+                # decomposeRecomposeTunnel DCOs) but carry the cluster in/out of
+                # the structure. Adding them lets codegen resolve the cluster variable.
+                already_captured = {t.id for t in structure_terminals}
+                for t_uid, t_info in bd.terminal_info.items():
+                    if t_info.parent_uid != node.uid:
+                        continue
+                    q_t_uid = self._qid(vi_name, t_uid)
+                    if q_t_uid in already_captured:
+                        continue
+                    extra_lv_type = None
+                    if t_info.parsed_type:
+                        extra_lv_type = self._enrich_type(t_info.parsed_type)
+                    structure_terminals.append(Terminal(
+                        id=q_t_uid,
+                        direction="output" if t_info.is_output else "input",
+                        index=t_info.index,
+                        lv_type=extra_lv_type,
+                        name=t_info.name,
+                    ))
+                    if t_uid not in term_lookup:
+                        term_lookup[t_uid] = WireEnd(
+                            terminal_id=q_t_uid,
+                            node_id=q_node_uid,
+                            index=t_info.index,
+                            name=t_info.name,
+                        )
                 graph_node = InPlaceNode(
                     id=q_node_uid,
                     vi=vi_name,
