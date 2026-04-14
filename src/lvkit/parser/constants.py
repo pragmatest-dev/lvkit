@@ -9,7 +9,9 @@ import os
 NODE_CLASS_PRIM = "prim"
 NODE_CLASS_SUBVI = "iUse"
 NODE_CLASS_POLY_SUBVI = "polyIUse"  # Polymorphic SubVI call
-NODE_CLASS_DYN_SUBVI = "dynIUse"  # Dynamic dispatch VI call (class method)
+NODE_CLASS_DYN_SUBVI = "dynIUse"    # Dynamic dispatch VI call (class method)
+NODE_CLASS_CALL_PARENT = "callParentDynIUse"  # Call Parent Method (super() call)
+NODE_CLASS_CALL_BY_REF = "callByRefNode"  # Call By Reference node
 NODE_CLASS_WHILE_LOOP = "whileLoop"
 NODE_CLASS_FOR_LOOP = "forLoop"
 NODE_CLASS_SELECT = "select"
@@ -69,6 +71,8 @@ OPERATION_NODE_CLASSES = (
     NODE_CLASS_MUX,
     NODE_CLASS_DEMUX,
     NODE_CLASS_CTL_REF_CONST,
+    NODE_CLASS_CALL_PARENT,
+    NODE_CLASS_CALL_BY_REF,
 )
 
 # Loop node classes

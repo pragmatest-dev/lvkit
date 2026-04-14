@@ -393,6 +393,7 @@ def _process_element_terminals(
 
         dco = term.find("dco")
         dco_uid = dco.get("uid") if dco is not None else None
+        dco_class = dco.get("class", "") if dco is not None else ""
 
         # Get terminal index from dco.
         # Primitives use "parmIndex", SubVIs use "paramIdx".
@@ -408,8 +409,17 @@ def _process_element_terminals(
             else:
                 # No index field found. XML omits parmIndex when it's 0.
                 # Applies to SubVI calls AND primitives.
-                if elem_class in ("iUse", "polyIUse", "dynIUse", "prim"):
+                if elem_class in (
+                    "iUse", "polyIUse", "dynIUse", "callParentDynIUse",
+                    "callByRefNode", "prim",
+                ):
                     parm_index = 0
+
+        # callByRefNode frame terminals (hGrowCItem DCOs: error in/out,
+        # VI ref in/out) have no paramIdx and get negative indices so they
+        # don't collide with the callee iUseDCO terminals' paramIdx values.
+        if elem_class == "callByRefNode" and dco_class == "hGrowCItem":
+            parm_index = -(list_position + 1)
 
         # For specialized node classes (aDelete, aIndx, etc.),
         # resolve index from named DCO references on the parent node.
