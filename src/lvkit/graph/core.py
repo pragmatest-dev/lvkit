@@ -209,29 +209,53 @@ class InMemoryVIGraph(
     def get_class_fields(
         self, classname: str,
     ) -> list[ClusterField] | None:
-        """Get fields for a named type from dep_graph by key."""
+        """Get complete field list for a class including inherited parent fields.
+
+        LabVIEW nMux field indices are into the combined (parent + own) field
+        list, with parent fields first. Walks the inheritance chain recursively.
+        Returns None if the class is not in dep_graph.
+        """
         if not self._dep_graph.has_node(classname):
             return None
-        return self._dep_graph.nodes[classname].get("fields")
+        data = self._dep_graph.nodes[classname]
+        own_fields: list[ClusterField] = data.get("fields") or []
+        parent_name: str | None = data.get("parent_class")
+
+        if parent_name and parent_name != "LabVIEW Object":
+            parent_classname = parent_name + ".lvclass"
+            parent_fields = self.get_class_fields(parent_classname)
+            if parent_fields:
+                return parent_fields + own_fields
+
+        return own_fields
 
     def get_type_fields(
         self, lv_type: LVType,
     ) -> list[ClusterField] | None:
         """Get fields for any type. One API, all cases.
 
-        Named types (class, typedef) → dep_graph lookup, then inline fallback.
-        Anonymous clusters → inline fields on the type itself.
-
-        The fallback matters when a typedef is from a library not loaded into
-        the dep_graph (e.g. NI/DCAF types): the parser embeds inline fields
-        into the type_map, and _enrich_type carries them on lv_type.fields.
+        Class types use dep_graph (authoritative, includes inheritance chain).
+        Typedef/cluster types prefer inline fields from the VI's own type_map —
+        these are ground truth for that VI's dataflow and may be newer than the
+        dep_graph version (e.g. typedef with added fields). Fall back to dep_graph
+        when no inline fields are present.
         """
-        name = lv_type.classname or lv_type.typedef_name
-        if name:
-            fields = self.get_class_fields(name)
-            if fields is not None:
-                return fields
-        return lv_type.fields
+        if lv_type.classname:
+            # OOP class: dep_graph with full inheritance chain is authoritative
+            return self.get_class_fields(lv_type.classname)
+
+        if lv_type.fields:
+            # Inline fields from VI's own type_map take priority for non-class
+            # types (e.g. typedef clusters). The VI's type_map is ground truth
+            # for that specific VI's dataflow.
+            return lv_type.fields
+
+        if lv_type.typedef_name:
+            # No inline fields: fall back to dep_graph (handles typedef_ref
+            # types loaded from .ctl files, NI/DCAF types, etc.)
+            return self.get_class_fields(lv_type.typedef_name)
+
+        return None
 
     def set_var_name(self, terminal_id: str, var_name: str) -> None:
         """Set the Python variable name on a terminal. Called during codegen."""
