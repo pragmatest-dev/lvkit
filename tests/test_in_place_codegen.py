@@ -1,6 +1,6 @@
 """Tests for In Place Element Structure (IPES) code generation.
 
-IPES (decomposeRecomposeStructure) decomposes a cluster into fields, lets
+IPES (decomposeRecomposeStructure) decomposes data into fields, lets
 inner operations modify them, then recomposes. In Python this is transparent:
 decompose → field access bindings, recompose → write-back assignments.
 
@@ -225,9 +225,9 @@ class TestIPESOutputTunnels:
 
 
 class TestIPESDecomposeFieldBinding:
-    """Decompose ops bind field output terminals to cluster.field expressions."""
+    """Decompose ops bind field output terminals to data.field expressions."""
 
-    def test_field_output_bound_to_cluster_field(self):
+    def test_field_output_bound_to_data_field(self):
         lv_type = _cluster_type("x", "y")
         ctx = make_ctx("cluster_in", "dec_agg", "dec_field_x")
         ctx.bind("cluster_in", "my_cluster")
@@ -261,8 +261,8 @@ class TestIPESDecomposeFieldBinding:
         assert ctx.resolve("f1") == "obj.beta"
         assert ctx.resolve("f2") == "obj.gamma"
 
-    def test_missing_cluster_var_skips_decompose(self):
-        """If the cluster can't be resolved, no bindings are set."""
+    def test_missing_data_var_skips_decompose(self):
+        """If the data variable can't be resolved, no bindings are set."""
         lv_type = _cluster_type("x")
         ctx = make_ctx("cluster_in", "dec_agg", "dec_field_x")
         # cluster_in deliberately not bound
@@ -310,8 +310,8 @@ class TestIPESRecomposeWriteBack:
         )
         assert "my_cluster.count = new_count" in code
 
-    def test_recompose_agg_output_pre_bound_to_cluster(self):
-        """Recompose agg output is pre-bound to cluster var (same data, no copy)."""
+    def test_recompose_agg_output_pre_bound_to_data(self):
+        """Recompose agg output is pre-bound to data var (same data, no copy)."""
         lv_type = _cluster_type("value")
         ctx = make_ctx("cluster_in", "dec_agg", "dec_f", "rec_f", "rec_agg_out")
         ctx.bind("cluster_in", "the_cluster")
@@ -330,8 +330,8 @@ class TestIPESRecomposeWriteBack:
 
         assert ctx.resolve("rec_agg_out") == "the_cluster"
 
-    def test_no_writeback_when_cluster_unresolved(self):
-        """No cluster variable found → no write-back emitted."""
+    def test_no_writeback_when_data_unresolved(self):
+        """No data variable found → no write-back emitted."""
         lv_type = _cluster_type("x")
         ctx = make_ctx("rec_f", "rec_agg_out")
         ctx.bind("rec_f", "val")
@@ -340,7 +340,7 @@ class TestIPESRecomposeWriteBack:
 
         node = InPlaceOperation(
             id="ipes", name="IPES", labels=[],
-            terminals=[],  # no cluster input terminal
+            terminals=[],  # no data input terminal
             tunnels=[],
             recompose_ops=[rec],
         )
@@ -378,14 +378,14 @@ class TestIPESRecomposeWriteBack:
 
 
 # ---------------------------------------------------------------------------
-# Output boundary: cluster output terminal fallback
+# Output boundary: data output terminal fallback
 # ---------------------------------------------------------------------------
 
 
-class TestIPESFallbackCluster:
-    """decomposeClusterDCO output terminals get fallback cluster binding."""
+class TestIPESFallbackData:
+    """decomposeClusterDCO output terminals get fallback data binding."""
 
-    def test_non_tunnel_output_bound_to_cluster(self):
+    def test_non_tunnel_output_bound_to_data(self):
         """decomposeClusterDCO has no graph edge — must be explicitly bound."""
         lv_type = _cluster_type("value")
         ctx = make_ctx("cluster_in", "dec_agg", "dec_f", "cluster_out")
@@ -407,7 +407,7 @@ class TestIPESFallbackCluster:
         assert frag.bindings.get("cluster_out") == "my_cluster"
 
     def test_tunnel_outer_not_overwritten_by_fallback(self):
-        """Output tunnel outer must NOT be overwritten by the cluster fallback."""
+        """Output tunnel outer must NOT be overwritten by the data fallback."""
         lv_type = _cluster_type("value")
         ctx = make_ctx(
             "cluster_in", "dec_agg", "dec_f",
@@ -437,7 +437,7 @@ class TestIPESFallbackCluster:
         assert frag.bindings.get("cluster_out") == "my_cluster"
 
     def test_no_fallback_when_no_decompose(self):
-        """Without any decompose op, fallback_cluster is None — nothing bound."""
+        """Without any decompose op, data_var is None — nothing bound."""
         ctx = make_ctx("cluster_out")
 
         node = InPlaceOperation(
