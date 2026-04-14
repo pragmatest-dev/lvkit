@@ -465,7 +465,10 @@ class ConstructionMixin:
             # For older VIs, node_name may be a generic placeholder ("SubVI",
             # "VI Refnum", etc.) because pylabview cannot decode binary textRec
             # indices. Fall back to the iUse UID → qualified name map from LIbd.
-            if node.node_type in ("iUse", "polyIUse", "dynIUse"):
+            if node.node_type in (
+                "iUse", "polyIUse", "dynIUse", "callParentDynIUse",
+                "callByRefNode",
+            ):
                 iuse_resolved = (iuse_to_qname or {}).get(node.uid)
                 _is_placeholder = not node_name or node_name == "SubVI"
                 if iuse_resolved and _is_placeholder:
@@ -473,14 +476,20 @@ class ConstructionMixin:
 
             # Get description for SubVIs from vilib
             description = None
-            if node.node_type in ("iUse", "polyIUse", "dynIUse") and node_name:
+            if node.node_type in (
+                "iUse", "polyIUse", "dynIUse", "callParentDynIUse",
+                "callByRefNode",
+            ) and node_name:
                 vilib_r = get_vilib_resolver()
                 vi_entry = vilib_r.resolve_by_name(node_name)
                 if vi_entry and vi_entry.description:
                     description = vi_entry.description
 
             # Determine what kind of graph node to create
-            if node.node_type in ("iUse", "polyIUse", "dynIUse"):
+            if node.node_type in (
+                "iUse", "polyIUse", "dynIUse", "callParentDynIUse",
+                "callByRefNode",
+            ):
                 # SubVI call — stored as VINode
                 poly_variant = None
                 if isinstance(node, SubVINode) and node.poly_variant_name:
@@ -800,7 +809,10 @@ class ConstructionMixin:
             gnode = g.nodes.get(nid, {}).get("node")
             if not isinstance(gnode, VINode) or gnode.id == vi_name:
                 continue
-            if gnode.node_type not in ("iUse", "polyIUse", "dynIUse"):
+            # callByRefNode callee is runtime-determined — no static enrichment
+            if gnode.node_type not in (
+                "iUse", "polyIUse", "dynIUse", "callParentDynIUse",
+            ):
                 continue
 
             # Resolve callee VI name

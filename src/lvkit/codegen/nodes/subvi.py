@@ -27,9 +27,13 @@ def generate(node: SubVIOperation, ctx: CodeGenContext) -> CodeFragment:
     if not subvi_name:
         return CodeFragment.empty()
 
-    # Dynamic dispatch → obj.method(args) instead of func(obj, args)
-    if node.node_type == "dynIUse":
+    # Dynamic dispatch → obj.method(args) / super().method(args)
+    if node.node_type in ("dynIUse", "callParentDynIUse"):
         return _generate_dynamic_dispatch(node, ctx)
+
+    # Call By Reference → vi_ref(args...)
+    if node.node_type == "callByRefNode":
+        return _generate_call_by_ref(node, ctx)
 
     # Look up VI — polymorphic variant if selected, otherwise base name
     vilib_vi = None
@@ -592,15 +596,20 @@ def _generate_dynamic_dispatch(
         return _generate_static_fallback(node, ctx, method_name)
 
     receiver_var = ctx.resolve(receiver_term.id) or "self"
+    # Call Parent: method is dispatched via super(), but the class-output
+    # passthrough still references the original receiver object.
+    call_receiver = (
+        "super()" if node.node_type == "callParentDynIUse" else receiver_var
+    )
 
     # Sort other inputs by index for positional args
     other_inputs.sort(key=lambda x: x[0])
     args = [v for _, v in other_inputs]
 
-    # Build AST: receiver.method(args...)
+    # Build AST: receiver.method(args...)  or  super().method(args...)
     call = ast.Call(
         func=ast.Attribute(
-            value=ast.Name(id=receiver_var, ctx=ast.Load()),
+            value=ast.Name(id=call_receiver, ctx=ast.Load()),
             attr=method_name,
             ctx=ast.Load(),
         ),
@@ -643,6 +652,80 @@ def _generate_dynamic_dispatch(
         bindings=bindings,
         imports=set(),
     )
+
+def _generate_call_by_ref(
+    node: Operation, ctx: CodeGenContext,
+) -> CodeFragment:
+    """Generate vi_ref(args...) for Call By Reference nodes.
+
+    Frame terminals (index < 0) carry error in/out and VI ref in/out.
+    Callee terminals (index >= 0) mirror the called VI's connector pane.
+    The VI ref input is the callable; callee inputs become positional args.
+    """
+    subvi_name = node.name or "call_by_ref"
+    func_name = to_function_name(subvi_name)
+
+    # Find VI reference input terminal: frame (index < 0), input, not error
+    vi_ref_var: str | None = None
+    for term in node.terminals:
+        if (
+            term.direction == "input"
+            and term.index is not None and term.index < 0
+            and not term.is_error_cluster
+        ):
+            vi_ref_var = ctx.resolve(term.id)
+            if vi_ref_var:
+                break
+
+    if not vi_ref_var:
+        vi_ref_var = "vi_ref"  # unwired reference — best-effort fallback
+
+    # Collect callee input arguments (index >= 0, not error)
+    call_args: list[tuple[int, str]] = []
+    for term in node.terminals:
+        if term.direction != "input":
+            continue
+        if term.index is None or term.index < 0:
+            continue
+        if term.is_error_cluster:
+            continue
+        value = ctx.resolve(term.id)
+        if value is not None:
+            call_args.append((term.index, value))
+    call_args.sort(key=lambda x: x[0])
+
+    # Build AST: result = vi_ref(arg0, arg1, ...)
+    result_var = f"{func_name}_result"
+    call = ast.Call(
+        func=ast.Name(id=vi_ref_var, ctx=ast.Load()),
+        args=[_to_ast_value(v) for _, v in call_args],
+        keywords=[],
+    )
+
+    # Output bindings: callee outputs (index >= 0, not error)
+    bindings: dict[str, str] = {}
+    has_output = False
+    for term in node.terminals:
+        if term.direction != "output":
+            continue
+        if term.index is None or term.index < 0:
+            continue
+        if term.is_error_cluster:
+            continue
+        has_output = True
+        field = to_var_name(term.name or f"out_{term.index}")
+        bindings[term.id] = f"{result_var}.{field}"
+
+    if has_output:
+        stmt: ast.stmt = ast.Assign(
+            targets=[ast.Name(id=result_var, ctx=ast.Store())],
+            value=call,
+        )
+    else:
+        stmt = ast.Expr(value=call)
+
+    return CodeFragment(statements=[stmt], bindings=bindings, imports=set())
+
 
 def _generate_static_fallback(
     node: Operation, ctx: CodeGenContext, func_name: str

@@ -95,6 +95,18 @@ class CtlRefConstNode(ParsedNode):
     ddo_uid: str | None = None
 
 
+@dataclass
+class CallByRefNode(ParsedNode):
+    """Call By Reference node (class="callByRefNode").
+
+    Calls a VI determined at runtime via a VI reference wire.
+    frame_terminal_uids: UIDs of the 4 hGrowCItem terminals
+    (error in/out, VI ref in/out) from permDCOList.
+    """
+
+    frame_terminal_uids: list[str] = field(default_factory=list)
+
+
 # =============================================================================
 # Node Type Handlers
 # =============================================================================
@@ -230,6 +242,55 @@ class DynamicDispatchHandler(NodeTypeHandler):
     def parse(self, elem: ET.Element) -> SubVINode:
         common = self._extract_common(elem)
         return SubVINode(**common)
+
+
+class CallParentHandler(NodeTypeHandler):
+    """Handler for Call Parent Method nodes (class="callParentDynIUse").
+
+    Calls the parent class's implementation of a dynamic dispatch method.
+    Structurally identical to dynIUse; codegen emits super().method(args).
+    """
+
+    xml_class = "callParentDynIUse"
+    display_name = "Call Parent Method"
+
+    def parse(self, elem: ET.Element) -> SubVINode:
+        common = self._extract_common(elem)
+        return SubVINode(**common)
+
+
+class CallByRefHandler(NodeTypeHandler):
+    """Handler for Call By Reference nodes (class="callByRefNode").
+
+    Calls a VI determined at runtime via a VI reference wire. The
+    permDCOList element identifies the 4 frame terminals (hGrowCItem DCOs:
+    error in/out, VI ref in/out); remaining terminals are callee terminals.
+    """
+
+    xml_class = "callByRefNode"
+    display_name = "Call By Reference"
+
+    def parse(self, elem: ET.Element) -> CallByRefNode:
+        common = self._extract_common(elem)
+        # Collect frame DCO UIDs from permDCOList
+        frame_dco_uids: set[str] = set()
+        perm = elem.find("permDCOList")
+        if perm is not None:
+            for child in perm.findall("SL__arrayElement"):
+                uid = child.get("uid")
+                if uid:
+                    frame_dco_uids.add(uid)
+        # Map those DCO UIDs to their containing terminal UIDs
+        frame_terminal_uids: list[str] = []
+        term_list = elem.find("termList")
+        if term_list is not None:
+            for te in term_list.findall("SL__arrayElement"):
+                dco = te.find("dco")
+                if dco is not None and dco.get("uid") in frame_dco_uids:
+                    t_uid = te.get("uid")
+                    if t_uid:
+                        frame_terminal_uids.append(t_uid)
+        return CallByRefNode(**common, frame_terminal_uids=frame_terminal_uids)
 
 
 class CpdArithHandler(NodeTypeHandler):
@@ -601,6 +662,8 @@ _HANDLERS: list[NodeTypeHandler] = [
     SubVIHandler(),
     PolySubVIHandler(),
     DynamicDispatchHandler(),
+    CallParentHandler(),
+    CallByRefHandler(),
     CpdArithHandler(),
     ArrayBuildHandler(),
     WhileLoopHandler(),
