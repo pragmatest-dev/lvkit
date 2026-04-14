@@ -35,16 +35,19 @@ def generate(node: InPlaceOperation, ctx: CodeGenContext) -> CodeFragment:
     all_imports: set[str] = set()
 
     # --- Input boundary ---
-    # Regular field-value tunnels: outer → inner (input direction only).
     _bind_input_tunnels(node, ctx)
 
-    # Decompose (special input boundary): bind field output terminals to
-    # cluster.field expressions, record poser_uid → cluster_var mapping.
-    cluster_vars = _bind_decompose_fields(node, ctx)
+    # Find the ONE cluster variable flowing through this IPES.
+    # Same data in and out — no copies.
+    tunnel_outer_uids = {t.outer_terminal_uid for t in node.tunnels}
+    cluster_var = _find_cluster_var(node, tunnel_outer_uids, ctx)
 
-    # Pre-bind recompose agg outputs to the cluster variable so that BFS
-    # from parent structures can find the (same) cluster through the recompose.
-    _prebind_recompose_agg(node.recompose_ops, cluster_vars, ctx)
+    # Decompose: bind field output terminals to cluster.field expressions.
+    _bind_decompose_fields(node.decompose_ops, cluster_var, ctx)
+
+    # Pre-bind recompose agg outputs to the cluster variable so BFS
+    # from parent structures can find the (same) cluster through recompose.
+    _prebind_recompose_agg(node.recompose_ops, cluster_var, ctx)
 
     # --- Body (regular inner ops only) ---
     body_stmts = ctx.generate_body(node.inner_nodes)
@@ -55,7 +58,9 @@ def generate(node: InPlaceOperation, ctx: CodeGenContext) -> CodeFragment:
 
     # --- Output boundary ---
     # Recompose (special output boundary): emit cluster.field = modified_value.
-    all_stmts.extend(_emit_recompose_writebacks(node.recompose_ops, cluster_vars, ctx))
+    all_stmts.extend(
+        _emit_recompose_writebacks(node.recompose_ops, cluster_var, ctx)
+    )
 
     # Regular field-value tunnels: inner → outer (output direction only).
     _bind_output_tunnels(node, ctx, all_bindings)
@@ -63,7 +68,7 @@ def generate(node: InPlaceOperation, ctx: CodeGenContext) -> CodeFragment:
     # Cluster output terminals (decomposeClusterDCO) have no graph edges —
     # LabVIEW's implicit connection. Bind them to the cluster variable so
     # parent structures can resolve the modified cluster via BFS.
-    _bind_cluster_outputs(node, cluster_vars, all_bindings)
+    _bind_cluster_outputs(node, cluster_var, all_bindings)
 
     return CodeFragment(
         statements=all_stmts,
@@ -82,7 +87,7 @@ def _bind_input_tunnels(node: InPlaceOperation, ctx: CodeGenContext) -> None:
     outer_id_to_term = {t.id: t for t in node.terminals}
     for tunnel in node.tunnels:
         outer_term = outer_id_to_term.get(tunnel.outer_terminal_uid)
-        if outer_term and outer_term.direction != "input":
+        if not outer_term or outer_term.direction != "input":
             continue
         outer_var = ctx.resolve(tunnel.outer_terminal_uid)
         if outer_var:
@@ -90,48 +95,35 @@ def _bind_input_tunnels(node: InPlaceOperation, ctx: CodeGenContext) -> None:
 
 
 def _bind_decompose_fields(
-    node: InPlaceOperation, ctx: CodeGenContext,
-) -> dict[str, str]:
-    """Bind decompose field output terminals to cluster.field expressions.
-
-    Returns: poser_uid → cluster_var mapping (used to pair with recompose).
-    """
-    tunnel_outer_uids = {t.outer_terminal_uid for t in node.tunnels}
-    cluster_vars: dict[str, str] = {}
-
-    for op in node.decompose_ops:
+    decompose_ops: list[PrimitiveOperation],
+    cluster_var: str | None,
+    ctx: CodeGenContext,
+) -> None:
+    """Bind decompose field output terminals to cluster.field expressions."""
+    if cluster_var is None:
+        return
+    for op in decompose_ops:
         agg_in = _agg_terminal(op, "input")
         if agg_in is None:
             continue
-        # The cluster flows in via decomposeClusterDCO — no wire edge, so
-        # resolve through the IPES non-tunnel input terminals.
-        cluster_var = _find_cluster_var(node, tunnel_outer_uids, ctx)
-        if cluster_var is None:
-            continue
-        if op.poser_uid:
-            cluster_vars[op.poser_uid] = cluster_var
         class_fields = _get_class_fields(agg_in, ctx)
         for t in _field_terminals(op, "output"):
             ctx.bind(t.id, _field_expr(t, cluster_var, class_fields))
 
-    return cluster_vars
-
 
 def _prebind_recompose_agg(
     recompose_ops: list[PrimitiveOperation],
-    cluster_vars: dict[str, str],
+    cluster_var: str | None,
     ctx: CodeGenContext,
 ) -> None:
     """Pre-bind recompose agg output terminals to the cluster variable.
 
     Same data, no copies: the recompose agg output IS the same cluster
-    as the decompose agg input. Pre-binding allows BFS from parent
-    structures to find the cluster through the recompose agg output.
+    as the decompose agg input.
     """
+    if cluster_var is None:
+        return
     for op in recompose_ops:
-        cluster_var = cluster_vars.get(op.poser_uid or "")
-        if cluster_var is None:
-            continue
         agg_out = _agg_terminal(op, "output")
         if agg_out:
             ctx.bind(agg_out.id, cluster_var)
@@ -144,20 +136,18 @@ def _prebind_recompose_agg(
 
 def _emit_recompose_writebacks(
     recompose_ops: list[PrimitiveOperation],
-    cluster_vars: dict[str, str],
+    cluster_var: str | None,
     ctx: CodeGenContext,
 ) -> list[ast.stmt]:
-    """Emit cluster.field = modified_value assignments for each recompose op."""
+    """Emit cluster.field = modified_value for each recompose field."""
+    if cluster_var is None:
+        return []
     stmts: list[ast.stmt] = []
     for op in recompose_ops:
-        cluster_var = cluster_vars.get(op.poser_uid or "")
-        if cluster_var is None:
-            continue
-        agg_in = _agg_terminal(op, "input")
         agg_out = _agg_terminal(op, "output")
-        agg_term = agg_in or agg_out
-        class_fields = _get_class_fields(agg_term, ctx) if agg_term else None
-
+        class_fields = (
+            _get_class_fields(agg_out, ctx) if agg_out else None
+        )
         for t in _field_terminals(op, "input"):
             val = ctx.resolve(t.id)
             if val is None:
@@ -191,7 +181,7 @@ def _bind_output_tunnels(
     outer_id_to_term = {t.id: t for t in node.terminals}
     for tunnel in node.tunnels:
         outer_term = outer_id_to_term.get(tunnel.outer_terminal_uid)
-        if outer_term and outer_term.direction != "output":
+        if not outer_term or outer_term.direction != "output":
             continue
         inner_var = ctx.resolve(tunnel.inner_terminal_uid)
         if inner_var:
@@ -200,7 +190,7 @@ def _bind_output_tunnels(
 
 def _bind_cluster_outputs(
     node: InPlaceOperation,
-    cluster_vars: dict[str, str],
+    cluster_var: str | None,
     bindings: dict[str, str],
 ) -> None:
     """Bind decomposeClusterDCO output terminals to the cluster variable.
@@ -208,20 +198,17 @@ def _bind_cluster_outputs(
     These terminals have no graph edges (implicit LabVIEW connection), so
     BFS cannot find the cluster through them without an explicit binding.
     """
-    fallback_cluster = next(iter(cluster_vars.values()), None)
-    if fallback_cluster is None:
+    if cluster_var is None:
         return
-
     tunnel_inner_uids = {t.inner_terminal_uid for t in node.tunnels}
     tunnel_outer_uids = {t.outer_terminal_uid for t in node.tunnels}
-
     for t in node.terminals:
         if (
             t.direction == "output"
             and t.id not in tunnel_inner_uids
             and t.id not in tunnel_outer_uids
         ):
-            bindings[t.id] = fallback_cluster
+            bindings[t.id] = cluster_var
 
 
 # ---------------------------------------------------------------------------
