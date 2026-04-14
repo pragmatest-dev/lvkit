@@ -649,6 +649,7 @@ def _extract_subvi_info(
     _LIVI_LINK_TAGS = (
         "VIVI", "VIPI", "VIPV", "VILB", "FPPI", "DDPI",
         "VICC", "DDPC", "FPPC", "IUVI",
+        "BSVR", "SVVI",  # statVIRef link types
     )
     seen_deps: set[tuple[str, tuple[str, ...]]] = set()
     for tag in _LIVI_LINK_TAGS:
@@ -679,8 +680,8 @@ def _extract_subvi_info(
             ))
 
     # --- SubVI qualified names (for the dep loading loop in graph/loading.py) ---
-    # Unchanged: VIVI, VIPI, DyOM, VIPV contribute qnames to be loaded.
-    for tag in ("VIVI", "VIPI", "DyOM", "VIPV"):
+    # VIVI/VIPI/DyOM/VIPV: SubVI calls. BSVR: statVIRef targets.
+    for tag in ("VIVI", "VIPI", "DyOM", "VIPV", "BSVR"):
         for elem in main_root.findall(f".//LIvi//{tag}"):
             qname = _resolve_qualified_name(elem, caller_library)
             if qname:
