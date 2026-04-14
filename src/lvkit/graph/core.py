@@ -61,10 +61,6 @@ def _graph_node_to_op_kind(node: AnyGraphNode) -> str:
     if isinstance(node, VINode):
         return "vi"
     if isinstance(node, GraphPrimitiveNode):
-        if node.node_type in ("caseStruct", "select"):
-            return "caseStruct"
-        if node.node_type in ("whileLoop", "forLoop"):
-            return "loop"
         return "primitive"
     if isinstance(node, StructureNode):
         if node.node_type in ("caseStruct", "select"):
