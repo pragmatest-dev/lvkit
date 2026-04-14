@@ -5,6 +5,7 @@ Methods: _add_vi_to_graph, _build_structure_terminals, _format_lv_type_for_displ
 
 from __future__ import annotations
 
+from types import SimpleNamespace
 from typing import TYPE_CHECKING, Any
 
 import networkx as nx
@@ -36,6 +37,7 @@ from ..parser.node_types import (
 from ..parser.node_types import (
     PrimitiveNode as ParserPrimitiveNode,
 )
+from ..parser.vi import _decode_element
 from ..primitive_resolver import get_resolver as get_prim_resolver
 from ..primitive_resolver import resolve_primitive
 from ..type_defaults import get_default_for_type
@@ -65,8 +67,6 @@ def decode_constant(
         const: The constant to decode
         lv_type: LVType from the graph (authoritative type info)
     """
-    from ..parser.vi import _decode_element
-
     value = const.value
 
     if lv_type is not None:
@@ -158,6 +158,25 @@ class ConstructionMixin:
         def resolve_vi_name(self, _vi_name: str) -> str: ...
 
     @staticmethod
+    def _enrich_nmux_terminals(
+        node: SelectNode, graph_node: GraphPrimitiveNode,
+    ) -> None:
+        """Mark agg/list roles and field indices on nMux terminals."""
+        if not node.dco_agg_uid:
+            return
+        agg_dco = node.dco_agg_uid
+        list_dcos = set(node.dco_list_uids)
+        for term in graph_node.terminals:
+            raw_tid = term.id.split("::")[-1] if "::" in term.id else term.id
+            dco_uid = node.term_to_dco.get(raw_tid)
+            if dco_uid == agg_dco:
+                term.nmux_role = "agg"
+            elif dco_uid in list_dcos:
+                term.nmux_role = "list"
+                if dco_uid in node.dco_field_index:
+                    term.nmux_field_index = node.dco_field_index[dco_uid]
+
+    @staticmethod
     def _format_lv_type_for_display(lv_type: LVType) -> str:
         """Format LVType for human-readable display."""
         if lv_type.kind == "primitive":
@@ -236,11 +255,10 @@ class ConstructionMixin:
         # Build inner ddo_uid → fPDCO uid mapping for ctlRefConst resolution.
         # ctlRefConst.ddo_uid points to the inner ddo element inside an fPDCO;
         # we need to map that back to the fPDCO uid to find the FP terminal.
-        ddo_to_fpdco: dict[str, str] = {}
-        if fp:
-            for ctrl in fp.controls:
-                if ctrl.ddo_uid:
-                    ddo_to_fpdco[ctrl.ddo_uid] = ctrl.uid
+        ddo_to_fpdco: dict[str, str] = (
+            {ctrl.ddo_uid: ctrl.uid for ctrl in fp.controls if ctrl.ddo_uid}
+            if fp else {}
+        )
 
         # Build connector pane lookup: fp_dco_uid -> slot index
         conpane_slots: dict[str, int] = {}
@@ -591,55 +609,26 @@ class ConstructionMixin:
                     terminals=structure_terminals,
                     frames=seq_frames,
                 )
-            elif isinstance(node, ParserPrimitiveNode):
-                # Primitive node
-                prim_kwargs: dict[str, Any] = {
-                    "prim_id": node.prim_res_id,
-                    "prim_index": node.prim_index,
-                }
-                if isinstance(node, CpdArithNode):
-                    prim_kwargs["operation"] = node.operation
-                if isinstance(node, PropertyNode):
-                    prim_kwargs["object_name"] = node.object_name
-                    prim_kwargs["object_method_id"] = node.object_method_id
-                    prim_kwargs["properties"] = [
-                        PropertyDef(name=p.get("name", ""))
-                        if isinstance(p, dict) else p
-                        for p in node.properties
-                    ]
-                if isinstance(node, InvokeNode):
-                    prim_kwargs["object_name"] = node.object_name
-                    prim_kwargs["object_method_id"] = node.object_method_id
-                    prim_kwargs["method_name"] = node.method_name
-                    prim_kwargs["method_code"] = node.method_code
-
-                graph_node = GraphPrimitiveNode(
-                    id=q_node_uid,
-                    vi=vi_name,
-                    name=node_name,
-                    node_type=node.node_type,
-                    terminals=node_terminals,
-                    description=description,
-                    **prim_kwargs,
-                )
             else:
-                # Generic primitive / operation
-                prim_kwargs = {}
+                # Primitive or generic operation node
+                prim_kwargs: dict[str, Any] = {}
+                if isinstance(node, ParserPrimitiveNode):
+                    prim_kwargs["prim_id"] = node.prim_res_id
+                    prim_kwargs["prim_index"] = node.prim_index
                 if isinstance(node, CpdArithNode):
                     prim_kwargs["operation"] = node.operation
-                if isinstance(node, PropertyNode):
+                if isinstance(node, (PropertyNode, InvokeNode)):
                     prim_kwargs["object_name"] = node.object_name
                     prim_kwargs["object_method_id"] = node.object_method_id
-                    prim_kwargs["properties"] = [
-                        PropertyDef(name=p.get("name", ""))
-                        if isinstance(p, dict) else p
-                        for p in node.properties
-                    ]
-                if isinstance(node, InvokeNode):
-                    prim_kwargs["object_name"] = node.object_name
-                    prim_kwargs["object_method_id"] = node.object_method_id
-                    prim_kwargs["method_name"] = node.method_name
-                    prim_kwargs["method_code"] = node.method_code
+                    if isinstance(node, PropertyNode):
+                        prim_kwargs["properties"] = [
+                            PropertyDef(name=p.get("name", ""))
+                            if isinstance(p, dict) else p
+                            for p in node.properties
+                        ]
+                    elif isinstance(node, InvokeNode):
+                        prim_kwargs["method_name"] = node.method_name
+                        prim_kwargs["method_code"] = node.method_code
 
                 graph_node = GraphPrimitiveNode(
                     id=q_node_uid,
@@ -652,22 +641,8 @@ class ConstructionMixin:
                 )
 
             # Mark nMux terminal roles (agg vs list) and field indices
-            if isinstance(node, SelectNode) and node.dco_agg_uid:
-                agg_dco = node.dco_agg_uid
-                list_dcos = set(node.dco_list_uids)
-                for term in graph_node.terminals:
-                    raw_tid = (
-                        term.id.split("::")[-1]
-                        if "::" in term.id else term.id
-                    )
-                    dco_uid = node.term_to_dco.get(raw_tid)
-                    if dco_uid == agg_dco:
-                        term.nmux_role = "agg"
-                    elif dco_uid in list_dcos:
-                        term.nmux_role = "list"
-                        # Set field index from <i> tag in XML
-                        if dco_uid in node.dco_field_index:
-                            term.nmux_field_index = node.dco_field_index[dco_uid]
+            if isinstance(node, SelectNode):
+                self._enrich_nmux_terminals(node, graph_node)
 
             g.add_node(q_node_uid, node=graph_node)
             vi_node_uids.add(q_node_uid)
@@ -896,7 +871,6 @@ class ConstructionMixin:
                 else:
                     g.add_edge(callee_name, nid, source=dst_we, dest=src_we)
 
-    # Tunnel types where the outer terminal is an input (data flows IN)
     @staticmethod
     def _resolve_terminal_indices(
         raw_terms: list[tuple[str, Any, LVType | None]],
@@ -1015,10 +989,10 @@ class ConstructionMixin:
             # Build fake raw_terms for elimination
             fake_terms = []
             for t in gnode.terminals:
-                fake_ti = type('', (), {
-                    'index': t.index,
-                    'is_output': t.direction == 'output',
-                })()
+                fake_ti = SimpleNamespace(
+                    index=t.index,
+                    is_output=t.direction == 'output',
+                )
                 fake_terms.append(('', fake_ti, t.lv_type))
 
             self._resolve_terminal_indices(fake_terms, prim_terminals)

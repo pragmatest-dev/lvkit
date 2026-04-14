@@ -44,19 +44,12 @@ _KIND_TO_LABELS: dict[str, list[str]] = {
     "primitive": ["Primitive"],
     "caseStruct": ["CaseStructure"],
     "loop": ["Loop"],
+    "operation": ["Operation"],
+    "constant": ["Constant"],
 }
 
 # Graph node kinds that represent executable operations
 _OPERATION_KINDS = ("vi", "primitive", "operation", "caseStruct", "loop")
-
-# Graph node kind literals used by typed graph nodes
-_GRAPH_NODE_KIND_MAP = {
-    "vi": "vi",
-    "primitive": "primitive",
-    "structure": "structure",
-    "constant": "constant",
-}
-
 
 def _get_operation_labels(kind: str) -> list[str]:
     """Get labels for an operation based on its kind."""
@@ -219,10 +212,7 @@ class InMemoryVIGraph(
         """Get fields for a named type from dep_graph by key."""
         if not self._dep_graph.has_node(classname):
             return None
-        fields: list[ClusterField] | None = (
-            self._dep_graph.nodes[classname].get("fields")
-        )
-        return fields
+        return self._dep_graph.nodes[classname].get("fields")
 
     def get_type_fields(
         self, lv_type: LVType,
@@ -320,22 +310,14 @@ class InMemoryVIGraph(
 
     def _kind_to_labels(self, kind: str) -> list[str]:
         """Convert internal kind to labels list."""
-        if kind == "vi":
-            return ["SubVI"]
-        elif kind == "primitive":
-            return ["Primitive"]
-        elif kind == "operation":
-            return ["Operation"]
-        elif kind == "constant":
-            return ["Constant"]
-        return []
+        return _KIND_TO_LABELS.get(kind, [])
 
     # === Context Manager ===
 
     def __enter__(self) -> InMemoryVIGraph:
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+    def __exit__(self, _exc_type, _exc_val, _exc_tb) -> None:
         self.clear()
 
 
