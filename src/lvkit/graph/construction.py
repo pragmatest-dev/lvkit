@@ -46,6 +46,7 @@ from .models import (
     AnyGraphNode,
     CaseStructureNode,
     ConstantNode,
+    InPlaceNode,
     LoopNode,
     SequenceNode,
     StructureNode,
@@ -375,6 +376,7 @@ class ConstructionMixin:
         loop_by_uid = {loop.uid: loop for loop in bd.loops}
         case_by_uid = {cs.uid: cs for cs in bd.case_structures}
         flatseq_by_uid = {fs.uid: fs for fs in bd.flat_sequences}
+        decompose_by_uid = {ds.uid: ds for ds in bd.decompose_structures}
 
         for node in bd.nodes:
             q_node_uid = self._qid(vi_name, node.uid)
@@ -623,6 +625,20 @@ class ConstructionMixin:
                     terminals=structure_terminals,
                     frames=seq_frames,
                 )
+            elif node.node_type == "decomposeRecomposeStructure":
+                # In Place Element Structure
+                decompose_struct = decompose_by_uid.get(node.uid)
+                parser_tunnels = decompose_struct.tunnels if decompose_struct else []
+                structure_terminals = self._build_structure_terminals(
+                    bd, parser_tunnels, q_node_uid, term_lookup, vi_name,
+                )
+                graph_node = InPlaceNode(
+                    id=q_node_uid,
+                    vi=vi_name,
+                    name=node_name or "In Place Element",
+                    node_type=node.node_type,
+                    terminals=structure_terminals,
+                )
             else:
                 # Primitive or generic operation node
                 prim_kwargs: dict[str, Any] = {}
@@ -657,6 +673,10 @@ class ConstructionMixin:
             # Mark nMux terminal roles (agg vs list) and field indices
             if isinstance(node, SelectNode):
                 self._enrich_nmux_terminals(node, graph_node)
+                if node.poser_uid:
+                    g.add_node(q_node_uid, node=graph_node, poser_uid=node.poser_uid)
+                    vi_node_uids.add(q_node_uid)
+                    continue
 
             g.add_node(q_node_uid, node=graph_node)
             vi_node_uids.add(q_node_uid)
@@ -693,6 +713,14 @@ class ConstructionMixin:
                         inner_node = g.nodes[q_uid]["node"]
                         inner_node.parent = q_fs_uid
                         inner_node.frame = str(idx)
+
+        for ds in bd.decompose_structures:
+            q_ds_uid = self._qid(vi_name, ds.uid)
+            for uid in ds.inner_node_uids:
+                q_uid = self._qid(vi_name, uid)
+                if q_uid in g and "node" in g.nodes[q_uid]:
+                    inner_node = g.nodes[q_uid]["node"]
+                    inner_node.parent = q_ds_uid
 
         # === 5. Register remaining terminal_info entries in term_lookup ===
         # Most tunnel/sRN terminals are already registered by
@@ -745,6 +773,11 @@ class ConstructionMixin:
                                     effective_parent = self._qid(vi_name, fs.uid)
                                     break
                             if effective_parent != q_parent_uid:
+                                break
+                    if effective_parent == q_parent_uid:
+                        for ds in bd.decompose_structures:
+                            if parent_uid in ds.inner_node_uids:
+                                effective_parent = self._qid(vi_name, ds.uid)
                                 break
 
                 term_lookup[term_uid] = WireEnd(

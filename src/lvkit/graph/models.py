@@ -119,6 +119,16 @@ class SequenceNode(StructureNode):
     frames: list[SequenceFrame] = []
 
 
+class InPlaceNode(StructureNode):
+    """An In Place Element Structure (decompose/recompose).
+
+    In Python, objects are mutable references so IPES is transparent —
+    no control flow, just field access and in-place write-back.
+    """
+
+    pass
+
+
 class ConstantNode(GraphNode):
     """A constant value. One output terminal (index 0)."""
 
@@ -130,7 +140,7 @@ class ConstantNode(GraphNode):
 
 
 # Discriminated union of all node types
-AnyGraphNode = VINode | PrimitiveNode | StructureNode | ConstantNode
+AnyGraphNode = VINode | PrimitiveNode | StructureNode | ConstantNode | InPlaceNode
 
 
 # ============================================================

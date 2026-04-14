@@ -118,6 +118,20 @@ from ..models import CaseFrame, SequenceFrame  # noqa: E402
 
 
 @dataclass
+class ParsedDecomposeRecomposeStructure:
+    """An In Place Element Structure on the block diagram.
+
+    Decomposes a cluster/array/DVR into fields at entry, executes inner
+    operations that modify those fields, then recomposes at exit.
+    In Python codegen, this is transparent (no control flow) — just field
+    access and in-place write-back.
+    """
+    uid: str
+    tunnels: list[Tunnel] = field(default_factory=list)
+    inner_node_uids: list[str] = field(default_factory=list)
+
+
+@dataclass
 class ParsedCaseStructure:
     """A case structure on the block diagram."""
 
@@ -335,6 +349,9 @@ class ParsedBlockDiagram:
     loops: list[ParsedLoopStructure] = field(default_factory=list)
     case_structures: list[ParsedCaseStructure] = field(default_factory=list)
     flat_sequences: list[ParsedFlatSequenceStructure] = field(default_factory=list)
+    decompose_structures: list[ParsedDecomposeRecomposeStructure] = field(
+        default_factory=list,
+    )
     # Maps sRN UID → containing structure UID (for scoped terminal collection)
     srn_to_structure: dict[str, str] = field(default_factory=dict)
 
@@ -375,6 +392,13 @@ class ParsedBlockDiagram:
         # Also check flat sequence tunnels
         for flat_seq in self.flat_sequences:
             for tunnel in flat_seq.tunnels:
+                if tunnel.outer_terminal_uid == terminal_uid:
+                    return tunnel
+                if tunnel.inner_terminal_uid == terminal_uid:
+                    return tunnel
+        # Also check IPES tunnels
+        for ds in self.decompose_structures:
+            for tunnel in ds.tunnels:
                 if tunnel.outer_terminal_uid == terminal_uid:
                     return tunnel
                 if tunnel.inner_terminal_uid == terminal_uid:

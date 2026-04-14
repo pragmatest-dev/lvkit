@@ -50,6 +50,7 @@ from .node_types import parse_node
 from .nodes import (
     extract_case_structures,
     extract_constants,
+    extract_decompose_structures,
     extract_flat_sequences,
     extract_loops,
 )
@@ -225,6 +226,7 @@ def _parse_block_diagram(
     loops = extract_loops(root)
     case_structures = extract_case_structures(root, terminal_info)
     flat_sequences = extract_flat_sequences(root)
+    decompose_structures = extract_decompose_structures(root)
 
     return ParsedBlockDiagram(
         nodes=nodes,
@@ -236,6 +238,7 @@ def _parse_block_diagram(
         loops=loops,
         case_structures=case_structures,
         flat_sequences=flat_sequences,
+        decompose_structures=decompose_structures,
         srn_to_structure=srn_to_structure,
     )
 

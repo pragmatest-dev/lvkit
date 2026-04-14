@@ -15,6 +15,7 @@ from ..models import (
     CaseFrame,
     CaseOperation,
     FPTerminal,
+    InPlaceOperation,
     InvokeOperation,
     LoopOperation,
     Operation,
@@ -35,6 +36,7 @@ from .core import (
 )
 from .models import (
     CaseStructureNode,
+    InPlaceNode,
     LoopNode,
     PolyInfo,
     SequenceNode,
@@ -119,6 +121,10 @@ class OperationsMixin:
                     gnode.frames, vi_name, child_uids,
                 )
 
+            elif isinstance(gnode, InPlaceNode):
+                labels = ["InPlaceStructure"]
+                inner_nodes = self._build_inner_nodes(child_uids, vi_name)
+
         # Name fallback for unnamed structures
         node_name = gnode.name
         if not node_name and node_type:
@@ -138,6 +144,8 @@ class OperationsMixin:
         }
 
         # Build the right operation subtype
+        if isinstance(gnode, InPlaceNode):
+            return InPlaceOperation(**common)
         if isinstance(gnode, CaseStructureNode):
             return CaseOperation(
                 **common,
@@ -176,10 +184,12 @@ class OperationsMixin:
                     method_name=gnode.method_name,
                     method_code=gnode.method_code,
                 )
+            poser_uid = self._graph.nodes[uid].get("poser_uid")
             return PrimitiveOperation(
                 **common,
                 primResID=gnode.prim_id,
                 operation=gnode.operation,
+                poser_uid=poser_uid,
             )
 
         # Fallback: base Operation

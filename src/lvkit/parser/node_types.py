@@ -73,6 +73,7 @@ class SelectNode(ParsedNode):
     nMux is a bundle/unbundle node at structure boundaries.
     dco_agg_uid identifies the aggregate (cluster) terminal's DCO.
     dco_list_uids identify the field value terminals' DCOs.
+    poser_uid links decompose↔recompose pairs inside an IPES structure.
     """
 
     dco_agg_uid: str | None = None
@@ -81,6 +82,8 @@ class SelectNode(ParsedNode):
     term_to_dco: dict[str, str] = field(default_factory=dict)
     # Maps DCO UID → field index from <i> tag (nMux bundle/unbundle)
     dco_field_index: dict[str, int] = field(default_factory=dict)
+    # Pairing UID for decompose/recompose nodes (from <poser uid="..."/>)
+    poser_uid: str | None = None
 
 
 @dataclass
@@ -614,6 +617,105 @@ class CtlRefConstHandler(NodeTypeHandler):
         return CtlRefConstNode(**common, ddo_uid=ddo_uid)
 
 
+class DecomposeClusterHandler(NodeTypeHandler):
+    """Handler for decompose cluster nodes (class="decomposeClusterNode").
+
+    Decomposes a cluster into its fields inside an In Place Element Structure.
+    Same dcoAgg/dcoList pattern as nMux, but uses <index> for field indices
+    and <poser uid="..."/> to link to the paired recompose node.
+    """
+
+    xml_class = "decomposeClusterNode"
+    display_name = "Decompose Cluster"
+
+    def parse(self, elem: ET.Element) -> SelectNode:
+        common = self._extract_common(elem)
+
+        dco_agg_elem = elem.find("dcoAgg")
+        dco_agg_uid = dco_agg_elem.get("uid") if dco_agg_elem is not None else None
+
+        dco_list_elem = elem.find("dcoList")
+        dco_list_uids: list[str] = []
+        if dco_list_elem is not None:
+            for child in dco_list_elem.findall("SL__arrayElement"):
+                uid = child.get("uid")
+                if uid:
+                    dco_list_uids.append(uid)
+
+        term_to_dco: dict[str, str] = {}
+        dco_field_index: dict[str, int] = {}
+        list_dco_set = set(dco_list_uids)
+        term_list = elem.find("termList")
+        if term_list is not None:
+            for term_elem in term_list.findall("SL__arrayElement"):
+                t_uid = term_elem.get("uid")
+                dco_elem = term_elem.find("dco")
+                if t_uid and dco_elem is not None:
+                    d_uid = dco_elem.get("uid")
+                    if d_uid:
+                        term_to_dco[t_uid] = d_uid
+                        if d_uid in list_dco_set:
+                            index_elem = dco_elem.find("index")
+                            idx = (
+                                int(index_elem.text)
+                                if index_elem is not None and index_elem.text
+                                else dco_list_uids.index(d_uid)
+                            )
+                            dco_field_index[d_uid] = idx
+
+        poser_elem = elem.find("poser")
+        poser_uid = poser_elem.get("uid") if poser_elem is not None else None
+
+        return SelectNode(
+            **common,
+            dco_agg_uid=dco_agg_uid,
+            dco_list_uids=dco_list_uids,
+            term_to_dco=term_to_dco,
+            dco_field_index=dco_field_index,
+            poser_uid=poser_uid,
+        )
+
+
+class DecomposeArrayHandler(DecomposeClusterHandler):
+    """Handler for decompose array nodes (class="decomposeArrayNode").
+
+    Structurally identical to DecomposeClusterHandler — same dcoAgg/dcoList
+    pattern with <index> and <poser> pairing.
+    """
+
+    xml_class = "decomposeArrayNode"
+    display_name = "Decompose Array"
+
+
+class _DecomposeDataValRefHandler(NodeTypeHandler):
+    """Stub handler for DVR decompose nodes (class="decomposeDataValRefNode").
+
+    DVR decompose has a different structure — terminals are parsed so the graph
+    stays consistent, but codegen is deferred to V2.
+    """
+
+    xml_class = "decomposeDataValRefNode"
+    display_name = "Decompose Data Value Reference"
+
+    def parse(self, elem: ET.Element) -> ParsedNode:
+        common = self._extract_common(elem)
+        return ParsedNode(**common)
+
+
+class _DecomposeMatchHandler(NodeTypeHandler):
+    """Stub handler for variant match nodes (class="decomposeMatchNode").
+
+    Variant decompose — terminals are parsed but codegen is deferred to V2.
+    """
+
+    xml_class = "decomposeMatchNode"
+    display_name = "Decompose Match"
+
+    def parse(self, elem: ET.Element) -> ParsedNode:
+        common = self._extract_common(elem)
+        return ParsedNode(**common)
+
+
 class GenericHandler(NodeTypeHandler):
     """Fallback handler for unknown node types."""
 
@@ -679,6 +781,10 @@ _HANDLERS: list[NodeTypeHandler] = [
     _MuxHandler(),
     _DemuxHandler(),
     CtlRefConstHandler(),
+    DecomposeClusterHandler(),
+    DecomposeArrayHandler(),
+    _DecomposeDataValRefHandler(),
+    _DecomposeMatchHandler(),
     # Built-in primitives with specialized XML classes
     _BuiltinPrimitiveHandler("aDelete", "Delete From Array", 1901),
     _BuiltinPrimitiveHandler("aIndx", "Index Array", 1809),

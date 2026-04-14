@@ -35,6 +35,8 @@ NODE_CLASS_OH_EXT = "oHExt"  # Obtain/Release Semaphore
 NODE_CLASS_MUX = "mux"      # Multiplexer (bundle at structure boundary)
 NODE_CLASS_DEMUX = "demux"  # Demultiplexer (unbundle at structure boundary)
 NODE_CLASS_CTL_REF_CONST = "ctlRefConst"  # Control reference constant
+# In Place Element Structure (IPES)
+NODE_CLASS_DECOMPOSE_RECOMPOSE = "decomposeRecomposeStructure"
 
 # Node classes that are explicitly ignored during parsing.
 # These are known LabVIEW elements with no Python equivalent and no dataflow
@@ -73,6 +75,12 @@ OPERATION_NODE_CLASSES = (
     NODE_CLASS_CTL_REF_CONST,
     NODE_CLASS_CALL_PARENT,
     NODE_CLASS_CALL_BY_REF,
+    NODE_CLASS_DECOMPOSE_RECOMPOSE,
+    # Inner decompose/recompose node types (inside IPES structures)
+    "decomposeClusterNode",
+    "decomposeArrayNode",
+    "decomposeDataValRefNode",
+    "decomposeMatchNode",
 )
 
 # Loop node classes
@@ -84,6 +92,7 @@ STRUCTURE_NODE_CLASSES = frozenset({
     NODE_CLASS_SELECT, NODE_CLASS_CASE_STRUCT,
     NODE_CLASS_FLAT_SEQ, NODE_CLASS_SEQ, NODE_CLASS_SEQUENCE,
     NODE_CLASS_EVENT_STRUCT,
+    NODE_CLASS_DECOMPOSE_RECOMPOSE,
 })
 
 # Conditional/case node classes
@@ -96,6 +105,8 @@ TUNNEL_CLASS_LOOP_TUNNEL = "lpTun"  # Loop tunnel (simple pass-through)
 TUNNEL_CLASS_LMAX = "lMax"  # Accumulator/max output
 TUNNEL_CLASS_SEQ_TUN = "seqTun"  # Sequence tunnel (pass-through between frames)
 TUNNEL_CLASS_FLAT_SEQ_TUN = "flatSeqTun"  # Flat seq tunnel (with mate)
+# IPES cluster/array/DVR tunnel
+TUNNEL_CLASS_DECOMPOSE_RECOMPOSE = "decomposeRecomposeTunnel"
 
 # Shift register node (contains inner tunnel terminals)
 NODE_CLASS_SHIFT_REG = "sRN"  # Shift register node - holds inner ends of tunnels
@@ -108,6 +119,7 @@ TUNNEL_DCO_CLASSES = (
     TUNNEL_CLASS_LMAX,
     TUNNEL_CLASS_SEQ_TUN,
     TUNNEL_CLASS_FLAT_SEQ_TUN,
+    TUNNEL_CLASS_DECOMPOSE_RECOMPOSE,
 )
 
 # Node classes that have terminals (for terminal extraction)
