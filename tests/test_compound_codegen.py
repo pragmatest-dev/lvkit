@@ -569,3 +569,132 @@ class TestArrayBuildExecutable:
         output_var = fragment.bindings["term_out"]
 
         assert result[output_var] == []
+
+
+class TestArrayBuildWithArrayInputs:
+    """Tests for aBuild when inputs are arrays (concatenation, not scalar wrapping)."""
+
+    def _compile_and_run(self, statements: list, local_vars: dict) -> dict:
+        module = ast.Module(body=statements, type_ignores=[])
+        ast.fix_missing_locations(module)
+        code = compile(module, "<test>", "exec")
+        exec(code, {}, local_vars)
+        return local_vars
+
+    def test_array_input_concatenated_not_wrapped(self):
+        """Array input terminals must be concatenated with +, not wrapped in []."""
+        from lvkit.models import LVType
+
+        array_type = LVType(kind="array")
+        ctx = make_ctx("term_arr", "term_out")
+        ctx.bind("term_arr", "existing_list")
+
+        op = PrimitiveOperation(
+            id="build1",
+            name="Build Array",
+            labels=["ArrayBuild"],
+            node_type="aBuild",
+            terminals=[
+                Terminal(id="term_arr", index=0, direction="input", lv_type=array_type),
+                Terminal(id="term_out", index=1, direction="output"),
+            ],
+        )
+        fragment = compound.generate_array_build(op, ctx)
+
+        ast.fix_missing_locations(fragment.statements[0])
+        code = ast.unparse(fragment.statements[0])
+        # Array input should NOT be wrapped: no "[existing_list]" pattern
+        assert "[existing_list]" not in code
+        # Should appear directly (concatenation or direct use)
+        assert "existing_list" in code
+
+        # Verify runtime: concatenation preserves elements
+        result = self._compile_and_run(
+            fragment.statements, {"existing_list": [1, 2, 3]}
+        )
+        output_var = fragment.bindings["term_out"]
+        assert result[output_var] == [1, 2, 3]
+
+    def test_scalar_input_wrapped_in_list(self):
+        """Scalar (non-array) input terminals must be wrapped in []."""
+        ctx = make_ctx("term_scalar", "term_out")
+        ctx.bind("term_scalar", "my_val")
+
+        op = PrimitiveOperation(
+            id="build1",
+            name="Build Array",
+            labels=["ArrayBuild"],
+            node_type="aBuild",
+            terminals=[
+                # no lv_type → treated as scalar
+                Terminal(id="term_scalar", index=0, direction="input"),
+                Terminal(id="term_out", index=1, direction="output"),
+            ],
+        )
+        fragment = compound.generate_array_build(op, ctx)
+
+        ast.fix_missing_locations(fragment.statements[0])
+        code = ast.unparse(fragment.statements[0])
+        assert "[my_val]" in code
+
+        result = self._compile_and_run(
+            fragment.statements, {"my_val": 42}
+        )
+        output_var = fragment.bindings["term_out"]
+        assert result[output_var] == [42]
+
+    def test_mixed_array_and_scalar_inputs(self):
+        """Mixed array + scalar inputs: array concatenated, scalar wrapped."""
+        from lvkit.models import LVType
+
+        array_type = LVType(kind="array")
+        ctx = make_ctx("term_arr", "term_scalar", "term_out")
+        ctx.bind("term_arr", "head_list")
+        ctx.bind("term_scalar", "new_item")
+
+        op = PrimitiveOperation(
+            id="build1",
+            name="Build Array",
+            labels=["ArrayBuild"],
+            node_type="aBuild",
+            terminals=[
+                Terminal(id="term_arr", index=0, direction="input", lv_type=array_type),
+                Terminal(id="term_scalar", index=1, direction="input"),
+                Terminal(id="term_out", index=2, direction="output"),
+            ],
+        )
+        fragment = compound.generate_array_build(op, ctx)
+
+        result = self._compile_and_run(
+            fragment.statements, {"head_list": [10, 20], "new_item": 30}
+        )
+        output_var = fragment.bindings["term_out"]
+        assert result[output_var] == [10, 20, 30]
+
+    def test_two_array_inputs_concatenated(self):
+        """Two array inputs are concatenated directly."""
+        from lvkit.models import LVType
+
+        array_type = LVType(kind="array")
+        ctx = make_ctx("term_a", "term_b", "term_out")
+        ctx.bind("term_a", "list_a")
+        ctx.bind("term_b", "list_b")
+
+        op = PrimitiveOperation(
+            id="build1",
+            name="Build Array",
+            labels=["ArrayBuild"],
+            node_type="aBuild",
+            terminals=[
+                Terminal(id="term_a", index=0, direction="input", lv_type=array_type),
+                Terminal(id="term_b", index=1, direction="input", lv_type=array_type),
+                Terminal(id="term_out", index=2, direction="output"),
+            ],
+        )
+        fragment = compound.generate_array_build(op, ctx)
+
+        result = self._compile_and_run(
+            fragment.statements, {"list_a": [1, 2], "list_b": [3, 4]}
+        )
+        output_var = fragment.bindings["term_out"]
+        assert result[output_var] == [1, 2, 3, 4]

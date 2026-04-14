@@ -91,6 +91,8 @@ class OperationsMixin:
         case_frames: list[CaseFrame] = []
         seq_frames: list[SequenceFrame] = []
         selector_terminal: str | None = None
+        decompose: list[PrimitiveOperation] = []
+        recompose: list[PrimitiveOperation] = []
         node_type = gnode.node_type or ""
 
         if isinstance(gnode, StructureNode):
@@ -123,7 +125,8 @@ class OperationsMixin:
 
             elif isinstance(gnode, InPlaceNode):
                 labels = ["InPlaceStructure"]
-                inner_nodes = self._build_inner_nodes(child_uids, vi_name)
+                all_inner = self._build_inner_nodes(child_uids, vi_name)
+                decompose, recompose, inner_nodes = _classify_ipes_ops(all_inner)
 
         # Name fallback for unnamed structures
         node_name = gnode.name
@@ -145,7 +148,11 @@ class OperationsMixin:
 
         # Build the right operation subtype
         if isinstance(gnode, InPlaceNode):
-            return InPlaceOperation(**common)
+            return InPlaceOperation(
+                **common,
+                decompose_ops=decompose,
+                recompose_ops=recompose,
+            )
         if isinstance(gnode, CaseStructureNode):
             return CaseOperation(
                 **common,
@@ -454,3 +461,38 @@ class OperationsMixin:
                 frame_to_uids[fv] = []
             frame_to_uids[fv].append(uid)
         return frame_to_uids
+
+
+def _classify_ipes_ops(
+    inner: list[Operation],
+) -> tuple[list[PrimitiveOperation], list[PrimitiveOperation], list[Operation]]:
+    """Split IPES inner ops into decompose, recompose, and regular.
+
+    Decompose ops: PrimitiveOperation with poser_uid and list OUTPUT terminals
+    only (they unbundle the cluster into field values at the input boundary).
+    Recompose ops: PrimitiveOperation with poser_uid and list INPUT terminals
+    only (they rebundle field values into the cluster at the output boundary).
+    Regular ops: everything else — passed to generate_body() as normal.
+    """
+    decompose: list[PrimitiveOperation] = []
+    recompose: list[PrimitiveOperation] = []
+    regular: list[Operation] = []
+
+    for op in inner:
+        if not isinstance(op, PrimitiveOperation) or not op.poser_uid:
+            regular.append(op)
+            continue
+        has_list_out = any(
+            t.nmux_role == "list" and t.direction == "output" for t in op.terminals
+        )
+        has_list_in = any(
+            t.nmux_role == "list" and t.direction == "input" for t in op.terminals
+        )
+        if has_list_out and not has_list_in:
+            decompose.append(op)
+        elif has_list_in and not has_list_out:
+            recompose.append(op)
+        else:
+            regular.append(op)
+
+    return decompose, recompose, regular
