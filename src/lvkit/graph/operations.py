@@ -469,10 +469,12 @@ def _classify_ipes_ops(
     """Split IPES inner ops into decompose, recompose, and regular.
 
     Decompose ops: PrimitiveOperation with poser_uid and list OUTPUT terminals
-    only (they unbundle the cluster into field values at the input boundary).
+    only (they unbundle the data into field values at the input boundary).
     Recompose ops: PrimitiveOperation with poser_uid and list INPUT terminals
-    only (they rebundle field values into the cluster at the output boundary).
-    Regular ops: everything else — passed to generate_body() as normal.
+    only (they rebundle field values into the data at the output boundary).
+    Regular ops: everything else (including ops with list terminals in BOTH
+    directions, or poser_uid ops with no list terminals) — passed to
+    generate_body() as normal.
     """
     decompose: list[PrimitiveOperation] = []
     recompose: list[PrimitiveOperation] = []
