@@ -2945,8 +2945,8 @@
         }
       ],
       "python_code": {
-        "output array": "array[:index] + array[index + length:]",
-        "deleted portion": "array[index:index + length]"
+        "deleted portion": "array[index:index + length]",
+        "output array": "array[:index] + array[index + length:]"
       }
     },
     "aIndx": {
