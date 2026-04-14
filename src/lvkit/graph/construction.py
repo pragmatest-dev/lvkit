@@ -412,32 +412,38 @@ class ConstructionMixin:
             # to a Python function name (bare identifier, not a string).
             if isinstance(node, StatVIRefNode):
                 vi_ref_name = node.name
-                if vi_ref_name and vi_ref_name != "Static VI Reference":
-                    vi_ref_type = LVType(
-                        kind="primitive", underlying_type="VIRefnum",
+                if not vi_ref_name or vi_ref_name == "Static VI Reference":
+                    logger.warning(
+                        "VI %s: statVIRef %s has no label — skipping",
+                        vi_name, node.uid,
                     )
-                    const_node = ConstantNode(
-                        id=q_node_uid,
-                        vi=vi_name,
-                        value=vi_ref_name,
-                        lv_type=vi_ref_type,
-                        label=vi_ref_name,
-                        terminals=[Terminal(
-                            id=q_node_uid, index=0,
-                            direction="output", lv_type=vi_ref_type,
-                        )],
-                    )
-                    g.add_node(q_node_uid, node=const_node)
-                    vi_node_uids.add(q_node_uid)
-                    for term_uid, t_info in bd.terminal_info.items():
-                        if t_info.parent_uid == node.uid:
-                            term_lookup[term_uid] = WireEnd(
-                                terminal_id=q_node_uid,
-                                node_id=q_node_uid,
-                                index=0,
-                                name=vi_ref_name,
-                            )
-                            break
+                    continue
+                vi_ref_type = LVType(
+                    kind="primitive", underlying_type="VIRefnum",
+                )
+                const_node = ConstantNode(
+                    id=q_node_uid,
+                    vi=vi_name,
+                    value=vi_ref_name,
+                    lv_type=vi_ref_type,
+                    raw_value=vi_ref_name,
+                    label=vi_ref_name,
+                    terminals=[Terminal(
+                        id=q_node_uid, index=0,
+                        direction="output", lv_type=vi_ref_type,
+                    )],
+                )
+                g.add_node(q_node_uid, node=const_node)
+                vi_node_uids.add(q_node_uid)
+                for term_uid, t_info in bd.terminal_info.items():
+                    if t_info.parent_uid == node.uid:
+                        term_lookup[term_uid] = WireEnd(
+                            terminal_id=q_node_uid,
+                            node_id=q_node_uid,
+                            index=0,
+                            name=vi_ref_name,
+                        )
+                        break
                 continue  # No operation node for statVIRef
 
             # Get known terminal layout for index matching.
