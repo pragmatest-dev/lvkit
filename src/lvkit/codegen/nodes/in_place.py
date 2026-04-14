@@ -61,13 +61,12 @@ def generate(node: InPlaceOperation, ctx: CodeGenContext) -> CodeFragment:
         agg_in = _agg_terminal(op, "input")
         if agg_in is None:
             continue
-        cluster_var = ctx.resolve(agg_in.id)
-        if cluster_var is None:
-            # IPES agg connections are implicit — no wire links the cluster
-            # input terminal to the decompose node's agg input. Find the
-            # cluster from non-tunnel IPES input terminals (connected via
-            # decomposeClusterDCO, not decomposeRecomposeTunnel).
-            cluster_var = _find_cluster_var(node, tunnel_outer_uids, ctx)
+        # The decomposeClusterDCO creates an implicit (non-wire) link between
+        # the cluster input terminal (467) and the decompose agg input (454).
+        # No wire edge exists for agg_in, so ctx.resolve(agg_in.id) always
+        # returns None. Find the cluster via the IPES's non-tunnel input
+        # terminals, which ARE connected by normal wires from the outer scope.
+        cluster_var = _find_cluster_var(node, tunnel_outer_uids, ctx)
         if cluster_var is None:
             continue
         if op.poser_uid:
