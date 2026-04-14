@@ -535,6 +535,12 @@ def _format_constant(const: Constant) -> str:
     value = const.value
     underlying = const.lv_type.underlying_type if const.lv_type else None
 
+    # VI Reference: value is the VI name — convert to Python function name.
+    if underlying == "VIRefnum" and isinstance(value, str):
+        from .ast_utils import to_function_name
+
+        return to_function_name(value)
+
     if value is None:
         return "None"
 
