@@ -56,6 +56,19 @@ from .models import (
     PrimitiveNode as GraphPrimitiveNode,
 )
 
+# All node types that represent a SubVI call (dynamic or static).
+# callByRefNode is included for node creation/name resolution but excluded
+# from _connect_subvi_calls — its callee is runtime-determined, no static
+# enrichment is possible.
+_SUBVI_CALL_NODE_TYPES: frozenset[str] = frozenset({
+    "iUse", "polyIUse", "dynIUse", "callParentDynIUse", "callByRefNode",
+})
+
+# Subset of _SUBVI_CALL_NODE_TYPES that allow static callee enrichment.
+_STATIC_SUBVI_CALL_NODE_TYPES: frozenset[str] = frozenset({
+    "iUse", "polyIUse", "dynIUse", "callParentDynIUse",
+})
+
 
 def decode_constant(
     const: ParsedConstant,
@@ -225,8 +238,6 @@ class ConstructionMixin:
 
         Creates typed graph nodes (VINode, ConstantNode, PrimitiveNode,
         StructureNode) and typed edges (WireEnd source/dest).
-
-        term_lookup is a LOCAL dict used during construction only.
 
         iuse_to_qpath maps an iUse uid to its fully qualified on-disk path
         (e.g. "<vilib>/Utility/error.llb/Foo.vi"). Used to populate
@@ -427,7 +438,10 @@ class ConstructionMixin:
 
             # Resolve -1 indices by type+direction matching
             if known_terminals:
-                self._resolve_terminal_indices(raw_terms, known_terminals)
+                self._resolve_terminal_indices(
+                    [(t_info, lv_type) for _, t_info, lv_type in raw_terms],
+                    known_terminals,
+                )
 
             node_terminals: list[Terminal] = []
             for term_uid, t_info, lv_type in raw_terms:
@@ -465,10 +479,7 @@ class ConstructionMixin:
             # For older VIs, node_name may be a generic placeholder ("SubVI",
             # "VI Refnum", etc.) because pylabview cannot decode binary textRec
             # indices. Fall back to the iUse UID → qualified name map from LIbd.
-            if node.node_type in (
-                "iUse", "polyIUse", "dynIUse", "callParentDynIUse",
-                "callByRefNode",
-            ):
+            if node.node_type in _SUBVI_CALL_NODE_TYPES:
                 iuse_resolved = (iuse_to_qname or {}).get(node.uid)
                 _is_placeholder = not node_name or node_name == "SubVI"
                 if iuse_resolved and _is_placeholder:
@@ -476,20 +487,14 @@ class ConstructionMixin:
 
             # Get description for SubVIs from vilib
             description = None
-            if node.node_type in (
-                "iUse", "polyIUse", "dynIUse", "callParentDynIUse",
-                "callByRefNode",
-            ) and node_name:
+            if node.node_type in _SUBVI_CALL_NODE_TYPES and node_name:
                 vilib_r = get_vilib_resolver()
                 vi_entry = vilib_r.resolve_by_name(node_name)
                 if vi_entry and vi_entry.description:
                     description = vi_entry.description
 
             # Determine what kind of graph node to create
-            if node.node_type in (
-                "iUse", "polyIUse", "dynIUse", "callParentDynIUse",
-                "callByRefNode",
-            ):
+            if node.node_type in _SUBVI_CALL_NODE_TYPES:
                 # SubVI call — stored as VINode
                 poly_variant = None
                 if isinstance(node, SubVINode) and node.poly_variant_name:
@@ -809,10 +814,9 @@ class ConstructionMixin:
             gnode = g.nodes.get(nid, {}).get("node")
             if not isinstance(gnode, VINode) or gnode.id == vi_name:
                 continue
-            # callByRefNode callee is runtime-determined — no static enrichment
-            if gnode.node_type not in (
-                "iUse", "polyIUse", "dynIUse", "callParentDynIUse",
-            ):
+            # callByRefNode excluded — callee is runtime-determined, no static
+            # enrichment possible. Only iUse/polyIUse/dynIUse/callParentDynIUse.
+            if gnode.node_type not in _STATIC_SUBVI_CALL_NODE_TYPES:
                 continue
 
             # Resolve callee VI name
@@ -885,7 +889,7 @@ class ConstructionMixin:
 
     @staticmethod
     def _resolve_terminal_indices(
-        raw_terms: list[tuple[str, Any, LVType | None]],
+        raw_terms: list[tuple[Any, LVType | None]],
         known_terminals: list,
     ) -> None:
         """Resolve -1 indices. Direct match by type+direction or bust.
@@ -895,11 +899,11 @@ class ConstructionMixin:
         one match, assign. Otherwise leave -1.
         """
         assigned_indices: set[int] = set()
-        for _, t_info, _ in raw_terms:
+        for t_info, _ in raw_terms:
             if t_info.index >= 0:
                 assigned_indices.add(t_info.index)
 
-        for _, t_info, lv_type in raw_terms:
+        for t_info, lv_type in raw_terms:
             if t_info.index >= 0:
                 continue
             if not lv_type or not lv_type.underlying_type:
@@ -1164,9 +1168,11 @@ class ConstructionMixin:
         for uid, ti in bd.terminal_info.items():
             if ti.parent_uid and ti.parent_uid not in known_node_uids:
                 # Scope to sRNs belonging to THIS structure
-                if not bd.srn_to_structure or bd.srn_to_structure.get(
-                    ti.parent_uid,
-                ) == raw_structure_uid:
+                srn_in_scope = (
+                    not bd.srn_to_structure
+                    or bd.srn_to_structure.get(ti.parent_uid) == raw_structure_uid
+                )
+                if srn_in_scope:
                     all_srn_parents.add(ti.parent_uid)
 
         for srn_uid in all_srn_parents:

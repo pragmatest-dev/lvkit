@@ -645,14 +645,14 @@ class _BuiltinPrimitiveHandler(NodeTypeHandler):
     def __init__(self, xml_class: str, display_name: str, prim_res_id: int | None):
         self.xml_class = xml_class
         self.display_name = display_name
-        self._prim_res_id = prim_res_id
+        self.prim_res_id = prim_res_id
 
     def parse(self, elem: ET.Element) -> PrimitiveNode:
         common = self._extract_common(elem)
         return PrimitiveNode(
             **common,
             prim_index=None,
-            prim_res_id=self._prim_res_id,
+            prim_res_id=self.prim_res_id,
         )
 
 

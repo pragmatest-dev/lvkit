@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import ast
 import re
+from typing import Never
 
 from lvkit.models import Operation, SubVIOperation, Terminal
 from lvkit.primitive_resolver import TerminalResolutionNeeded
@@ -43,7 +44,7 @@ def generate(node: SubVIOperation, ctx: CodeGenContext) -> CodeFragment:
             # Variant not in JSON — fail or emit inline raise
             return _emit_vilib_resolution(node, ctx, vilib_vi=None)
 
-    if not vilib_vi:
+    else:
         vilib_vi = _get_vilib_vi(subvi_name, node, ctx)
 
     # Check for inline replacement first
@@ -268,7 +269,7 @@ def _get_vilib_vi(
         # For polymorphic calls, resolve to the actual variant.
         # If variant not found, fail — don't silently use the wrapper.
         vi = None
-        if node and hasattr(node, 'poly_variant_name') and node.poly_variant_name:
+        if node and node.poly_variant_name:
             vi = resolver.resolve_poly_variant(subvi_name, node.poly_variant_name)
 
         if vi is None:
@@ -317,6 +318,27 @@ def _get_vilib_vi(
     except ImportError:
         return None
 
+def _raise_terminal_resolution(
+    subvi_name: str,
+    direction: str,
+    term: Terminal,
+    ctx: CodeGenContext | None,
+    vilib_vi: VIEntry | None,
+) -> Never:
+    """Raise TerminalResolutionNeeded for an unresolvable terminal name."""
+    raise TerminalResolutionNeeded(
+        prim_id=subvi_name or "unknown",
+        prim_name=subvi_name or "unknown",
+        terminal_direction=direction,
+        terminal_type=(
+            term.lv_type.underlying_type if term.lv_type else None
+        ),
+        available=[],
+        vi_name=ctx.vi_name if ctx else None,
+        kind="vilib" if vilib_vi is not None else "subvi",
+    )
+
+
 def _build_arguments(
     node: Operation,
     ctx: CodeGenContext,
@@ -352,27 +374,14 @@ def _build_arguments(
         # Determine parameter name with priority:
         # 1. vilib python_param name
         # 2. Terminal name (enriched from callee FP by resolve_name)
-        param_name = None
-
         if vilib_inputs and term_index in vilib_inputs:
             # vilib knows the correct parameter name
             param_name = to_var_name(vilib_inputs[term_index])
         elif term_name:
             # Use terminal name from node
             param_name = to_var_name(term_name)
-
-        if not param_name:
-            raise TerminalResolutionNeeded(
-                prim_id=subvi_name or "unknown",
-                prim_name=subvi_name or "unknown",
-                terminal_direction="input",
-                terminal_type=(
-                    term.lv_type.underlying_type if term.lv_type else None
-                ),
-                available=[],
-                vi_name=ctx.vi_name if ctx else None,
-                kind="vilib" if vilib_vi is not None else "subvi",
-            )
+        else:
+            _raise_terminal_resolution(subvi_name, "input", term, ctx, vilib_vi)
 
         # Check if this parameter is an enum typedef - generate enum reference
         final_value = _resolve_enum_value(
@@ -509,25 +518,12 @@ def _build_output_bindings(
             continue
 
         # Priority: vilib name > terminal name (enriched from callee)
-        field = None
-
         if vilib_outputs and term_index in vilib_outputs:
             field = to_var_name(vilib_outputs[term_index])
         elif term_name:
             field = to_var_name(term_name)
-
-        if not field:
-            raise TerminalResolutionNeeded(
-                prim_id=subvi_name or "unknown",
-                prim_name=subvi_name or "unknown",
-                terminal_direction="output",
-                terminal_type=(
-                    term.lv_type.underlying_type if term.lv_type else None
-                ),
-                available=[],
-                vi_name=ctx.vi_name if ctx else None,
-                kind="vilib" if vilib_vi is not None else "subvi",
-            )
+        else:
+            _raise_terminal_resolution(subvi_name, "output", term, ctx, vilib_vi)
 
         bindings[term_id] = f"{result_var}.{field}"
 
@@ -678,7 +674,15 @@ def _generate_call_by_ref(
                 break
 
     if not vi_ref_var:
-        vi_ref_var = "vi_ref"  # unwired reference — best-effort fallback
+        raise TerminalResolutionNeeded(
+            prim_id=subvi_name,
+            prim_name=subvi_name,
+            terminal_direction="input",
+            terminal_type="VI Refnum",
+            available=[],
+            vi_name=ctx.vi_name if ctx else None,
+            kind="subvi",
+        )
 
     # Collect callee input arguments (index >= 0, not error)
     call_args: list[tuple[int, str]] = []
@@ -716,8 +720,9 @@ def _generate_call_by_ref(
         field = to_var_name(term.name or f"out_{term.index}")
         bindings[term.id] = f"{result_var}.{field}"
 
+    stmt: ast.stmt
     if has_output:
-        stmt: ast.stmt = ast.Assign(
+        stmt = ast.Assign(
             targets=[ast.Name(id=result_var, ctx=ast.Store())],
             value=call,
         )
@@ -764,9 +769,7 @@ def _generate_static_fallback(
 
 def _is_class_terminal(term: Terminal) -> bool:
     """Check if a terminal carries a class instance (UDClassInst)."""
-    if hasattr(term, "lv_type") and term.lv_type:
-        return term.lv_type.ref_type == "UDClassInst"
-    return False
+    return bool(term.lv_type and term.lv_type.ref_type == "UDClassInst")
 
 def _emit_vilib_resolution(
     node: Operation,
@@ -829,7 +832,7 @@ def _build_resolution_context(
     Collects wire types from caller's dataflow to help resolve terminal indices.
     """
     poly_selector: str | None = None
-    if hasattr(node, 'poly_variant_name') and node.poly_variant_name:
+    if node.poly_variant_name:
         poly_selector = node.poly_variant_name
 
     # Collect wire types from dataflow (actual indices being used)
