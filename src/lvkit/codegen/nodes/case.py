@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import ast
+import keyword
 import logging
 
 from lvkit.models import CaseFrame, CaseOperation, _is_error_cluster
@@ -280,9 +281,18 @@ def _pre_declare_outputs(
 ) -> list[ast.stmt]:
     """Pre-declare output tunnel variables before the case structure."""
     param_names = {to_var_name(inp.name or "") for inp in ctx.vi_inputs}
+    # Collect vars from INPUT tunnel outers only.  Output tunnel outers are
+    # resolved via BFS through the inner graph (self-loops, IPES output
+    # terminals) and would incorrectly mark frame-computed variables as
+    # "already defined", suppressing needed pre-declarations.
     input_vars: set[str] = set()
+    outer_id_to_term = {t.id: t for t in node.terminals}
     for tunnel in node.tunnels:
-        outer_var = ctx.resolve(tunnel.outer_terminal_uid)
+        outer_uid = tunnel.outer_terminal_uid
+        outer_term = outer_id_to_term.get(outer_uid)
+        if outer_term and outer_term.direction != "input":
+            continue
+        outer_var = ctx.resolve(outer_uid)
         if outer_var:
             input_vars.add(outer_var)
 
@@ -296,6 +306,10 @@ def _pre_declare_outputs(
         if var_name in input_vars:
             continue
         if var_name in declared:
+            continue
+        # Skip non-identifier strings (e.g. "0.0") and Python keywords
+        # (True, False, None) — these cannot appear on the left of an assignment.
+        if not var_name.isidentifier() or keyword.iskeyword(var_name):
             continue
         declared.add(var_name)
         pre_decls.append(
