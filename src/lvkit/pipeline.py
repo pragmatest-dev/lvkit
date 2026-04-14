@@ -10,6 +10,7 @@ import ast
 import re
 import shutil
 import sys
+import textwrap
 import traceback
 from collections import defaultdict
 from collections.abc import Callable
@@ -274,8 +275,8 @@ def _generate_polymorphic_module(
 
         except Exception as e:  # noqa: BLE001 — per-variant; continue to next variant on failure
             # Comment out all lines of the error message
-            error_msg = str(e).replace('\n', '\n# ')
-            lines.append(f"# ERROR generating {variant_name}: {error_msg}")
+            error_msg = textwrap.indent(str(e), "# ")
+            lines.append(f"# ERROR generating {variant_name}:\n{error_msg}")
 
     # Generate wrapper function
     wrapper_func = to_function_name(wrapper_name)

@@ -270,10 +270,9 @@ class ParsedFPDCOTypeMap:
 
     def get_type(self, dco_uid: str) -> str | None:
         """Get typeDesc for a DCO by UID."""
-        for t in self.types:
-            if t.uid == dco_uid:
-                return t.type_desc
-        return None
+        return next(
+            (t.type_desc for t in self.types if t.uid == dco_uid), None,
+        )
 
 
 @dataclass
