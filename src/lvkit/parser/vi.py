@@ -879,7 +879,7 @@ def _decode_numeric_default(data: bytes) -> str | None:
                 return str(float_val)
             except struct.error:
                 return str(int.from_bytes(data, 'big', signed=True))
-    except (ValueError,):
+    except ValueError:
         pass
     return None
 
