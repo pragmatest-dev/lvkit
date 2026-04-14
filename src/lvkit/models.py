@@ -292,6 +292,7 @@ class PrimitiveOperation(Operation):
 
     primResID: int | None = None
     operation: str | None = None  # cpdArith: "add", "or"
+    poser_uid: str | None = None  # Decompose/recompose pair UID (IPES)
 
 
 class SubVIOperation(Operation):
@@ -333,6 +334,12 @@ class SequenceOperation(Operation):
     """Flat or stacked sequence."""
 
     frames: list[SequenceFrame] = []
+
+
+class InPlaceOperation(Operation):
+    """In Place Element Structure (decompose/recompose)."""
+
+    pass
 
 
 # Resolve forward references for self-referential types

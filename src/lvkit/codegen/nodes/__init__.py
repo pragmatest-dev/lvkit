@@ -11,6 +11,7 @@ import ast
 
 from lvkit.models import (
     CaseOperation,
+    InPlaceOperation,
     InvokeOperation,
     LoopOperation,
     Operation,
@@ -28,6 +29,7 @@ from . import (
     case,
     compound,
     constant,
+    in_place,
     invoke_node,
     loop,
     nmux,
@@ -46,6 +48,8 @@ def generate(node: Operation, ctx: CodeGenContext) -> CodeFragment:
     Match-based dispatch: narrows the type, calls the right module.
     """
     match node:
+        case InPlaceOperation():
+            return in_place.generate(node, ctx)
         case CaseOperation():
             return case.generate(node, ctx)
         case LoopOperation():

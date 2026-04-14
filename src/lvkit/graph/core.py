@@ -36,6 +36,7 @@ _NODE_TYPE_NAMES: dict[str, str] = {
     "eventStruct": "Event Structure",
     "flatSequence": "Flat Sequence",
     "seq": "Stacked Sequence",
+    "decomposeRecomposeStructure": "In Place Element",
 }
 
 # Map operation kind to labels
