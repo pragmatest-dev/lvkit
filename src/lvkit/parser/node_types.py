@@ -99,6 +99,18 @@ class CtlRefConstNode(ParsedNode):
 
 
 @dataclass
+class StatVIRefNode(ParsedNode):
+    """Static VI Reference constant (class="statVIRef").
+
+    Compile-time reference to a specific VI. The VI name comes from
+    the label text. Downstream callByRefNode/property/invoke nodes
+    resolve it as a callable or object reference.
+    """
+
+    pass  # name comes from label via _extract_common
+
+
+@dataclass
 class CallByRefNode(ParsedNode):
     """Call By Reference node (class="callByRefNode").
 
@@ -617,6 +629,17 @@ class CtlRefConstHandler(NodeTypeHandler):
         return CtlRefConstNode(**common, ddo_uid=ddo_uid)
 
 
+class StatVIRefHandler(NodeTypeHandler):
+    """Handler for Static VI Reference (class="statVIRef")."""
+
+    xml_class = "statVIRef"
+    display_name = "Static VI Reference"
+
+    def parse(self, elem: ET.Element) -> StatVIRefNode:
+        common = self._extract_common(elem)
+        return StatVIRefNode(**common)
+
+
 class DecomposeClusterHandler(NodeTypeHandler):
     """Handler for decompose cluster nodes (class="decomposeClusterNode").
 
@@ -781,6 +804,7 @@ _HANDLERS: list[NodeTypeHandler] = [
     _MuxHandler(),
     _DemuxHandler(),
     CtlRefConstHandler(),
+    StatVIRefHandler(),
     DecomposeClusterHandler(),
     DecomposeArrayHandler(),
     _DecomposeDataValRefHandler(),
