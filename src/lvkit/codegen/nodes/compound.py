@@ -106,7 +106,14 @@ def _make_arith_var_name(operation: str, input_names: list[str]) -> str:
 def generate_array_build(
     node: PrimitiveOperation, ctx: CodeGenContext,
 ) -> CodeFragment:
-    """Generate code for array building (aBuild)."""
+    """Generate code for array building (aBuild).
+
+    LabVIEW's Build Array concatenates/appends inputs:
+    - Array inputs are concatenated directly (a + b)
+    - Scalar inputs are wrapped in a list ([x]) before concatenation
+
+    This produces `existing + [new_element]` rather than `[existing, new_element]`.
+    """
     terminals = node.terminals
 
     inputs = [t for t in terminals if t.direction == "input"]
@@ -118,19 +125,34 @@ def generate_array_build(
     output_term = outputs[0]
     output_id = output_term.id
 
-    elements = []
-    input_names = []
+    parts: list[ast.expr] = []
+    input_names: list[str] = []
     for inp in sorted(inputs, key=lambda t: t.index):
         val = ctx.resolve(inp.id)
         if val:
-            elements.append(parse_expr(val))
             input_names.append(val)
+            is_array = inp.lv_type is not None and inp.lv_type.kind == "array"
+            if is_array:
+                # Concatenate array-typed inputs directly
+                parts.append(parse_expr(val))
+            else:
+                # Wrap scalar/cluster inputs as a single-element list
+                parts.append(ast.List(elts=[parse_expr(val)], ctx=ast.Load()))
         else:
-            elements.append(ast.Constant(value=None))
+            parts.append(ast.List(elts=[ast.Constant(value=None)], ctx=ast.Load()))
 
     var_name = _make_array_var_name(input_names)
-    list_expr = ast.List(elts=elements, ctx=ast.Load())
-    stmt = build_assign(var_name, list_expr)
+
+    if not parts:
+        expr: ast.expr = ast.List(elts=[], ctx=ast.Load())
+    elif len(parts) == 1:
+        expr = parts[0]
+    else:
+        expr = parts[0]
+        for part in parts[1:]:
+            expr = ast.BinOp(left=expr, op=ast.Add(), right=part)
+
+    stmt = build_assign(var_name, expr)
 
     return CodeFragment(
         statements=[stmt],
