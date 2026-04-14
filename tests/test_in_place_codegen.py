@@ -330,22 +330,18 @@ class TestIPESRecomposeWriteBack:
 
         assert ctx.resolve("rec_agg_out") == "the_cluster"
 
-    def test_recompose_skipped_if_no_matching_decompose(self):
-        """Recompose with no matching poser_uid produces no write-back."""
+    def test_no_writeback_when_cluster_unresolved(self):
+        """No cluster variable found → no write-back emitted."""
         lv_type = _cluster_type("x")
-        ctx = make_ctx("cluster_in", "dec_agg", "dec_f", "rec_f", "rec_agg_out")
-        ctx.bind("cluster_in", "my_cluster")
+        ctx = make_ctx("rec_f", "rec_agg_out")
         ctx.bind("rec_f", "val")
 
-        dec = _dec_op("p1", "dec_agg", "dec_f", lv_type=lv_type)
-        # different poser_uid → no match → no write-back
-        rec = _rec_op("p2", "rec_agg_out", "rec_f", lv_type=lv_type)
+        rec = _rec_op("p1", "rec_agg_out", "rec_f", lv_type=lv_type)
 
         node = InPlaceOperation(
             id="ipes", name="IPES", labels=[],
-            terminals=[Terminal(id="cluster_in", index=0, direction="input")],
+            terminals=[],  # no cluster input terminal
             tunnels=[],
-            decompose_ops=[dec],
             recompose_ops=[rec],
         )
         frag = in_place.generate(node, ctx)
