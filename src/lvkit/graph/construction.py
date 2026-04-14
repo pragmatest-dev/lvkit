@@ -5,6 +5,7 @@ Methods: _add_vi_to_graph, _build_structure_terminals, _format_lv_type_for_displ
 
 from __future__ import annotations
 
+import logging
 from types import SimpleNamespace
 from typing import TYPE_CHECKING, Any
 
@@ -56,6 +57,8 @@ from .models import (
 from .models import (
     PrimitiveNode as GraphPrimitiveNode,
 )
+
+logger = logging.getLogger(__name__)
 
 # All node types that represent a SubVI call (dynamic or static).
 # callByRefNode is included for node creation/name resolution but excluded
@@ -628,14 +631,20 @@ class ConstructionMixin:
             elif node.node_type == "decomposeRecomposeStructure":
                 # In Place Element Structure
                 decompose_struct = decompose_by_uid.get(node.uid)
+                if not decompose_struct:
+                    logger.warning(
+                        "VI %s: IPES %s not in parser structures"
+                        " — no tunnels extracted",
+                        vi_name, node.uid,
+                    )
                 parser_tunnels = decompose_struct.tunnels if decompose_struct else []
                 structure_terminals = self._build_structure_terminals(
                     bd, parser_tunnels, q_node_uid, term_lookup, vi_name,
                 )
-                # Add non-tunnel IPES terminals (cluster I/O via decomposeClusterDCO).
+                # Add non-tunnel IPES terminals (data I/O via decomposeClusterDCO).
                 # These terminals don't appear in parser_tunnels (which only tracks
-                # decomposeRecomposeTunnel DCOs) but carry the cluster in/out of
-                # the structure. Adding them lets codegen resolve the cluster variable.
+                # decomposeRecomposeTunnel DCOs) but carry the data in/out of
+                # the structure. Adding them lets codegen resolve the data variable.
                 already_captured = {t.id for t in structure_terminals}
                 for t_uid, t_info in bd.terminal_info.items():
                     if t_info.parent_uid != node.uid:

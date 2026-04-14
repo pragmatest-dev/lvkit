@@ -15,8 +15,13 @@ import pytest
 
 from lvkit.codegen.builder import build_module
 from lvkit.graph import InMemoryVIGraph
+from lvkit.models import InPlaceOperation
 
 SEARCH_PATHS = [Path("samples/OpenG/extracted")]
+DCAF_SEARCH_PATHS = [
+    Path("samples/DCAF-DAQModule/source"),
+    Path("samples/OpenG/extracted"),
+]
 
 GET_SETTINGS_PATH_VI = Path(
     "samples/JKI-VI-Tester/source/User Interfaces/"
@@ -26,6 +31,8 @@ GET_SETTINGS_PATH_VI = Path(
 DAQMX_IN_VI = Path("samples/DAQmx-Digital-IO/In.vi")
 DAQMX_OUT_VI = Path("samples/DAQmx-Digital-IO/Out.vi")
 TESTCASE_DIR = Path("samples/JKI-VI-Tester/source/Classes/TestCase")
+DCAF_CONFIG_DIR = Path("samples/DCAF-DAQModule/source/module/configuration")
+DELETE_LINE_VI = DCAF_CONFIG_DIR / "Delete Line.vi"
 
 
 def _skip_if_missing(*paths: Path) -> None:
@@ -269,3 +276,74 @@ class TestTestCaseLvclass:
                 assert_no_garbage(code, vi_name)
             except Exception:
                 pass  # Generation failures caught by other test
+
+
+# ── IPES (In Place Element Structure) ──────────────────────
+
+
+@pytest.fixture(scope="module")
+def delete_line_graph() -> InMemoryVIGraph:
+    _skip_if_missing(DELETE_LINE_VI)
+    g = InMemoryVIGraph()
+    g.load_vi(
+        str(DELETE_LINE_VI),
+        expand_subvis=True,
+        search_paths=DCAF_SEARCH_PATHS,
+    )
+    return g
+
+
+def _find_ipes_ops(ops: list) -> list[InPlaceOperation]:
+    """Recursively find all InPlaceOperation instances in the op tree."""
+    found: list[InPlaceOperation] = []
+    for op in ops:
+        if isinstance(op, InPlaceOperation):
+            found.append(op)
+        for inner in op.inner_nodes:
+            if isinstance(inner, InPlaceOperation):
+                found.append(inner)
+        if hasattr(op, "frames"):
+            for frame in op.frames:
+                found.extend(_find_ipes_ops(frame.operations))
+    return found
+
+
+class TestIPESDeleteLine:
+    """E2E: Delete Line.vi — IPES inside a case frame."""
+
+    VI_NAME = "Delete Line.vi"
+
+    def test_graph_has_ipes_operation(self, delete_line_graph):
+        """Parser → graph → InPlaceOperation with boundary ops."""
+        ops = delete_line_graph.get_operations(self.VI_NAME)
+        ipes_ops = _find_ipes_ops(ops)
+        assert len(ipes_ops) >= 1, "Expected at least one IPES"
+
+    def test_ipes_has_decompose_and_recompose(self, delete_line_graph):
+        """IPES must have decompose and recompose boundary ops."""
+        ops = delete_line_graph.get_operations(self.VI_NAME)
+        ipes = _find_ipes_ops(ops)[0]
+        assert len(ipes.decompose_ops) >= 1
+        assert len(ipes.recompose_ops) >= 1
+
+    def test_decompose_has_agg_and_list_terminals(self, delete_line_graph):
+        """Decompose op must have agg input + list outputs."""
+        ops = delete_line_graph.get_operations(self.VI_NAME)
+        ipes = _find_ipes_ops(ops)[0]
+        dec = ipes.decompose_ops[0]
+        agg = [t for t in dec.terminals if t.nmux_role == "agg"]
+        fields = [t for t in dec.terminals if t.nmux_role == "list"]
+        assert len(agg) >= 1, "Decompose needs an agg terminal"
+        assert len(fields) >= 1, "Decompose needs list terminals"
+
+    def test_codegen_produces_field_writeback(self, delete_line_graph):
+        """Generated code must write back to the same data variable."""
+        code = _generate(delete_line_graph, self.VI_NAME)
+        assert_valid_python(code, self.VI_NAME)
+        # IPES writes modified field back to the input variable
+        assert ".lines" in code, "Expected field write-back"
+
+    def test_same_variable_in_and_out(self, delete_line_graph):
+        """Return value must reference the same variable as input."""
+        code = _generate(delete_line_graph, self.VI_NAME)
+        assert "daqmx_module_configuration_out=daqmx_module_configuration_in" in code
