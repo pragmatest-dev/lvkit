@@ -337,9 +337,19 @@ class SequenceOperation(Operation):
 
 
 class InPlaceOperation(Operation):
-    """In Place Element Structure (decompose/recompose)."""
+    """In Place Element Structure (decompose/recompose).
 
-    pass
+    IPES takes data in, decomposes at the input boundary (creating field
+    access expressions), lets inner ops modify fields, then recomposes at
+    the output boundary (writing fields back). Same data, no copies.
+
+    decompose_ops and recompose_ops are boundary operations — they sit on
+    the structure border like special tunnels, not inside the body.
+    They do not go through generate_body().
+    """
+
+    decompose_ops: list[PrimitiveOperation] = []
+    recompose_ops: list[PrimitiveOperation] = []
 
 
 # Resolve forward references for self-referential types
