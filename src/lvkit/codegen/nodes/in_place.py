@@ -27,19 +27,22 @@ def generate(node: InPlaceOperation, ctx: CodeGenContext) -> CodeFragment:
     """Generate code for an In Place Element Structure.
 
     Steps:
-    1. Bind input tunnels so inner terminals resolve to outer values
+    1. Bind decomposeRecomposeTunnel inner terminals (field-value tunnels)
     2. Identify decompose/recompose inner op pairs (by poser_uid)
     3. For each decompose op: bind field output terminals to cluster.field exprs
     4. For each recompose op: pre-bind agg output to the cluster variable
     5. Execute regular inner operations
     6. For each recompose op: emit cluster.field = value assignment statements
-    7. Bind output tunnels
+    7. Bind output tunnels and cluster output terminals
     """
     all_stmts: list[ast.stmt] = []
     all_bindings: dict[str, str] = {}
     all_imports: set[str] = set()
 
-    # 1. Bind input tunnels
+    # 1. Bind decomposeRecomposeTunnel inner terminals to their outer values.
+    # These tunnels carry FIELD VALUES (not the cluster itself) — do not use
+    # them as the cluster variable fallback.
+    tunnel_outer_uids = {t.outer_terminal_uid for t in node.tunnels}
     for tunnel in node.tunnels:
         outer_var = ctx.resolve(tunnel.outer_terminal_uid)
         if outer_var:
@@ -59,6 +62,12 @@ def generate(node: InPlaceOperation, ctx: CodeGenContext) -> CodeFragment:
         if agg_in is None:
             continue
         cluster_var = ctx.resolve(agg_in.id)
+        if cluster_var is None:
+            # IPES agg connections are implicit — no wire links the cluster
+            # input terminal to the decompose node's agg input. Find the
+            # cluster from non-tunnel IPES input terminals (connected via
+            # decomposeClusterDCO, not decomposeRecomposeTunnel).
+            cluster_var = _find_cluster_var(node, tunnel_outer_uids, ctx)
         if cluster_var is None:
             continue
         if op.poser_uid:
@@ -116,17 +125,52 @@ def generate(node: InPlaceOperation, ctx: CodeGenContext) -> CodeFragment:
             )
             all_stmts.append(stmt)
 
-    # 7. Bind output tunnels
+    # 7. Bind output tunnels and cluster output terminals.
+    # decomposeRecomposeTunnel outer terminals: bind to resolved inner value.
+    # Cluster output terminals (non-tunnel outputs): bind to cluster variable
+    # so downstream case/loop structure output tunnels can resolve it.
+    fallback_cluster = next(iter(cluster_vars.values()), None)
+    tunnel_inner_uids = {t.inner_terminal_uid for t in node.tunnels}
+
     for tunnel in node.tunnels:
         inner_var = ctx.resolve(tunnel.inner_terminal_uid)
         if inner_var:
             all_bindings[tunnel.outer_terminal_uid] = inner_var
+        elif fallback_cluster:
+            all_bindings[tunnel.outer_terminal_uid] = fallback_cluster
+
+    # Bind non-tunnel IPES output terminals to the cluster variable.
+    # This lets parent structures resolve the modified cluster via BFS.
+    if fallback_cluster:
+        for t in node.terminals:
+            if t.direction == "output" and t.id not in tunnel_inner_uids:
+                ctx.bind(t.id, fallback_cluster)
+                all_bindings[t.id] = fallback_cluster
 
     return CodeFragment(
         statements=all_stmts,
         bindings=all_bindings,
         imports=all_imports,
     )
+
+
+def _find_cluster_var(
+    node: InPlaceOperation,
+    tunnel_outer_uids: set[str],
+    ctx: CodeGenContext,
+) -> str | None:
+    """Find the cluster variable from non-tunnel IPES input terminals.
+
+    The cluster flows into the IPES via decomposeClusterDCO terminals, which
+    are stored as regular input terminals on the InPlaceOperation (not in
+    node.tunnels, which only tracks decomposeRecomposeTunnel terminals).
+    """
+    for t in node.terminals:
+        if t.direction == "input" and t.id not in tunnel_outer_uids:
+            var = ctx.resolve(t.id)
+            if var:
+                return var
+    return None
 
 
 def _classify_inner_ops(
