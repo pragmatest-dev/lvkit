@@ -22,7 +22,7 @@ from lvkit.graph.models import (
 from lvkit.models import Operation, Terminal, TunnelTerminal
 from lvkit.vilib_resolver import derive_python_name
 
-from .ast_utils import to_var_name
+from .ast_utils import to_function_name, to_var_name
 
 
 @dataclass
@@ -476,8 +476,6 @@ def _bind_inputs_and_constants(
                 if ctx.import_resolver:
                     ctx.add_import(ctx.import_resolver(vi_name))
                 else:
-                    from .ast_utils import to_function_name
-
                     func = to_function_name(vi_name)
                     ctx.add_import(f"from .{func} import {func}")
 
@@ -551,8 +549,6 @@ def _format_constant(const: Constant) -> str:
 
     # VI Reference: value is the VI name — convert to Python function name.
     if underlying == "VIRefnum" and isinstance(value, str):
-        from .ast_utils import to_function_name
-
         return to_function_name(value)
 
     if value is None:
