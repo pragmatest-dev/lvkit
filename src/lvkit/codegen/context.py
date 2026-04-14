@@ -466,6 +466,20 @@ def _bind_inputs_and_constants(
     for const in constants:
         if const.id:
             ctx.bind(const.id, _format_constant(const))
+            # VIRefnum constants need an import for the callable.
+            if (
+                const.lv_type
+                and const.lv_type.underlying_type == "VIRefnum"
+                and isinstance(const.value, str)
+            ):
+                vi_name = const.value
+                if ctx.import_resolver:
+                    ctx.add_import(ctx.import_resolver(vi_name))
+                else:
+                    from .ast_utils import to_function_name
+
+                    func = to_function_name(vi_name)
+                    ctx.add_import(f"from .{func} import {func}")
 
 
 def _decode_numeric_constant(value: str, underlying_type: str) -> str:
