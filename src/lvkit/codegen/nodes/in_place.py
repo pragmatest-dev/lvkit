@@ -125,24 +125,39 @@ def generate(node: InPlaceOperation, ctx: CodeGenContext) -> CodeFragment:
             all_stmts.append(stmt)
 
     # 7. Bind output tunnels and cluster output terminals.
-    # decomposeRecomposeTunnel outer terminals: bind to resolved inner value.
-    # Cluster output terminals (non-tunnel outputs): bind to cluster variable
-    # so downstream case/loop structure output tunnels can resolve it.
-    fallback_cluster = next(iter(cluster_vars.values()), None)
+    #
+    # decomposeRecomposeTunnel types:
+    #   Input tunnel  (outer.direction == "input"):  data flows outer → inner.
+    #                 Step 1 already bound inner from outer.  Nothing to do here.
+    #   Output tunnel (outer.direction == "output"): data flows inner → outer.
+    #                 Resolve the inner value (produced by inner ops) and bind
+    #                 the outer so the parent structure can read it via BFS.
+    #
+    # Cluster output terminals (decomposeClusterDCO, non-tunnel):
+    #   No graph edge connects them to the inner ops (implicit LabVIEW connection),
+    #   so BFS cannot find the cluster without an explicit binding.
+    outer_id_to_term = {t.id: t for t in node.terminals}
     tunnel_inner_uids = {t.inner_terminal_uid for t in node.tunnels}
+    fallback_cluster = next(iter(cluster_vars.values()), None)
 
     for tunnel in node.tunnels:
+        outer_term = outer_id_to_term.get(tunnel.outer_terminal_uid)
+        if outer_term and outer_term.direction != "output":
+            # Input tunnel — skip (step 1 already propagated outer → inner).
+            continue
         inner_var = ctx.resolve(tunnel.inner_terminal_uid)
         if inner_var:
             all_bindings[tunnel.outer_terminal_uid] = inner_var
-        elif fallback_cluster:
-            all_bindings[tunnel.outer_terminal_uid] = fallback_cluster
 
-    # Bind non-tunnel IPES output terminals to the cluster variable.
-    # This lets parent structures resolve the modified cluster via BFS.
+    # Bind decomposeClusterDCO output terminals to the cluster variable so
+    # parent structures can resolve the modified cluster via BFS.
     if fallback_cluster:
         for t in node.terminals:
-            if t.direction == "output" and t.id not in tunnel_inner_uids:
+            if (
+                t.direction == "output"
+                and t.id not in tunnel_inner_uids
+                and t.id not in tunnel_outer_uids
+            ):
                 ctx.bind(t.id, fallback_cluster)
                 all_bindings[t.id] = fallback_cluster
 
