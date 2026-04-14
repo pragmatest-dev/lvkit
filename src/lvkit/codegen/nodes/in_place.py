@@ -3,12 +3,12 @@
 An IPES takes one piece of data in, decomposes it at the input boundary
 (creating field access expressions), lets inner operations modify those
 fields, then recomposes at the output boundary (writing fields back).
-Same data, no copies — the cluster variable is the same in and out.
+Same data, no copies — works for clusters, arrays, classes, and DVRs.
 
 generate() is structured as three explicit passes:
   Input boundary  — bind input tunnels + decompose field bindings
   Body            — generate_body(inner_nodes) for regular inner ops
-  Output boundary — recompose write-backs + bind output tunnels + cluster fallback
+  Output boundary — recompose write-backs + bind output tunnels + data output fallback
 """
 
 from __future__ import annotations
@@ -37,17 +37,17 @@ def generate(node: InPlaceOperation, ctx: CodeGenContext) -> CodeFragment:
     # --- Input boundary ---
     _bind_input_tunnels(node, ctx)
 
-    # Find the ONE cluster variable flowing through this IPES.
+    # Find the ONE data variable flowing through this IPES.
     # Same data in and out — no copies.
     tunnel_outer_uids = {t.outer_terminal_uid for t in node.tunnels}
-    cluster_var = _find_cluster_var(node, tunnel_outer_uids, ctx)
+    data_var = _find_data_var(node, tunnel_outer_uids, ctx)
 
-    # Decompose: bind field output terminals to cluster.field expressions.
-    _bind_decompose_fields(node.decompose_ops, cluster_var, ctx)
+    # Decompose: bind field output terminals to data.field expressions.
+    _bind_decompose_fields(node.decompose_ops, data_var, ctx)
 
-    # Pre-bind recompose agg outputs to the cluster variable so BFS
-    # from parent structures can find the (same) cluster through recompose.
-    _prebind_recompose_agg(node.recompose_ops, cluster_var, ctx)
+    # Pre-bind recompose agg outputs to the data variable so BFS
+    # from parent structures can find the (same) data through recompose.
+    _prebind_recompose_agg(node.recompose_ops, data_var, ctx)
 
     # --- Body (regular inner ops only) ---
     body_stmts = ctx.generate_body(node.inner_nodes)
@@ -57,18 +57,18 @@ def generate(node: InPlaceOperation, ctx: CodeGenContext) -> CodeFragment:
     all_imports.update(ctx.imports)
 
     # --- Output boundary ---
-    # Recompose (special output boundary): emit cluster.field = modified_value.
+    # Recompose (special output boundary): emit data.field = modified_value.
     all_stmts.extend(
-        _emit_recompose_writebacks(node.recompose_ops, cluster_var, ctx)
+        _emit_recompose_writebacks(node.recompose_ops, data_var, ctx)
     )
 
     # Regular field-value tunnels: inner → outer (output direction only).
     _bind_output_tunnels(node, ctx, all_bindings)
 
     # Cluster output terminals (decomposeClusterDCO) have no graph edges —
-    # LabVIEW's implicit connection. Bind them to the cluster variable so
-    # parent structures can resolve the modified cluster via BFS.
-    _bind_cluster_outputs(node, cluster_var, all_bindings)
+    # LabVIEW's implicit connection. Bind them to the data variable so
+    # parent structures can resolve the modified data via BFS.
+    _bind_data_outputs(node, data_var, all_bindings)
 
     return CodeFragment(
         statements=all_stmts,
@@ -96,11 +96,11 @@ def _bind_input_tunnels(node: InPlaceOperation, ctx: CodeGenContext) -> None:
 
 def _bind_decompose_fields(
     decompose_ops: list[PrimitiveOperation],
-    cluster_var: str | None,
+    data_var: str | None,
     ctx: CodeGenContext,
 ) -> None:
-    """Bind decompose field output terminals to cluster.field expressions."""
-    if cluster_var is None:
+    """Bind decompose field output terminals to data.field expressions."""
+    if data_var is None:
         return
     for op in decompose_ops:
         agg_in = _agg_terminal(op, "input")
@@ -108,25 +108,25 @@ def _bind_decompose_fields(
             continue
         class_fields = _get_class_fields(agg_in, ctx)
         for t in _field_terminals(op, "output"):
-            ctx.bind(t.id, _field_expr(t, cluster_var, class_fields))
+            ctx.bind(t.id, _field_expr(t, data_var, class_fields))
 
 
 def _prebind_recompose_agg(
     recompose_ops: list[PrimitiveOperation],
-    cluster_var: str | None,
+    data_var: str | None,
     ctx: CodeGenContext,
 ) -> None:
-    """Pre-bind recompose agg output terminals to the cluster variable.
+    """Pre-bind recompose agg output terminals to the data variable.
 
-    Same data, no copies: the recompose agg output IS the same cluster
+    Same data, no copies: the recompose agg output IS the same data
     as the decompose agg input.
     """
-    if cluster_var is None:
+    if data_var is None:
         return
     for op in recompose_ops:
         agg_out = _agg_terminal(op, "output")
         if agg_out:
-            ctx.bind(agg_out.id, cluster_var)
+            ctx.bind(agg_out.id, data_var)
 
 
 # ---------------------------------------------------------------------------
@@ -136,11 +136,11 @@ def _prebind_recompose_agg(
 
 def _emit_recompose_writebacks(
     recompose_ops: list[PrimitiveOperation],
-    cluster_var: str | None,
+    data_var: str | None,
     ctx: CodeGenContext,
 ) -> list[ast.stmt]:
-    """Emit cluster.field = modified_value for each recompose field."""
-    if cluster_var is None:
+    """Emit data.field = modified_value for each recompose field."""
+    if data_var is None:
         return []
     stmts: list[ast.stmt] = []
     for op in recompose_ops:
@@ -159,7 +159,7 @@ def _emit_recompose_writebacks(
                 ast.Assign(
                     targets=[
                         ast.Attribute(
-                            value=parse_expr(cluster_var),
+                            value=parse_expr(data_var),
                             attr=fname,
                             ctx=ast.Store(),
                         ),
@@ -188,17 +188,17 @@ def _bind_output_tunnels(
             bindings[tunnel.outer_terminal_uid] = inner_var
 
 
-def _bind_cluster_outputs(
+def _bind_data_outputs(
     node: InPlaceOperation,
-    cluster_var: str | None,
+    data_var: str | None,
     bindings: dict[str, str],
 ) -> None:
-    """Bind decomposeClusterDCO output terminals to the cluster variable.
+    """Bind IPES output terminals to the data variable.
 
-    These terminals have no graph edges (implicit LabVIEW connection), so
-    BFS cannot find the cluster through them without an explicit binding.
+    The decomposeClusterDCO output terminals have no graph edges (implicit
+    LabVIEW connection), so BFS cannot find the data without explicit binding.
     """
-    if cluster_var is None:
+    if data_var is None:
         return
     tunnel_inner_uids = {t.inner_terminal_uid for t in node.tunnels}
     tunnel_outer_uids = {t.outer_terminal_uid for t in node.tunnels}
@@ -208,7 +208,7 @@ def _bind_cluster_outputs(
             and t.id not in tunnel_inner_uids
             and t.id not in tunnel_outer_uids
         ):
-            bindings[t.id] = cluster_var
+            bindings[t.id] = data_var
 
 
 # ---------------------------------------------------------------------------
@@ -216,16 +216,16 @@ def _bind_cluster_outputs(
 # ---------------------------------------------------------------------------
 
 
-def _find_cluster_var(
+def _find_data_var(
     node: InPlaceOperation,
     tunnel_outer_uids: set[str],
     ctx: CodeGenContext,
 ) -> str | None:
-    """Find the cluster variable from non-tunnel IPES input terminals.
+    """Find the data variable from non-tunnel IPES input terminals.
 
-    The cluster flows into the IPES via decomposeClusterDCO terminals, stored
+    The data flows into the IPES via decomposeClusterDCO terminals, stored
     as plain input terminals on the InPlaceOperation (not in node.tunnels).
-    If no wired cluster input exists, returns None and the IPES is a no-op.
+    If no wired input exists, returns None and the IPES is a no-op.
     """
     for t in node.terminals:
         if t.direction == "input" and t.id not in tunnel_outer_uids:
@@ -236,7 +236,7 @@ def _find_cluster_var(
 
 
 def _agg_terminal(op: PrimitiveOperation, direction: str) -> Terminal | None:
-    """Find the aggregate (cluster) terminal for the given direction."""
+    """Find the aggregate terminal for the given direction."""
     for t in op.terminals:
         if t.nmux_role == "agg" and t.direction == direction:
             return t
