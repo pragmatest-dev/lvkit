@@ -164,13 +164,39 @@ def main() -> None:
     for bucket in vilib_buckets.values():
         bucket.sort(key=lambda x: -x["count"])
 
+    # JSON-level audit: count all entries in vilib JSON (not just sample refs).
+    # Each entry appears under multiple keys in _by_name — dedup by object id.
+    seen_ids: set[int] = set()
+    json_vilib_total = 0
+    json_vilib_captured = 0
+    json_vilib_needs_terminals = 0
+    json_vilib_missing_idx = 0
+    for entry in vilib_resolver._by_name.values():
+        if id(entry) in seen_ids:
+            continue
+        seen_ids.add(id(entry))
+        json_vilib_total += 1
+        if entry.status == "needs_terminals":
+            json_vilib_needs_terminals += 1
+        elif any(t.index is None for t in entry.terminals):
+            json_vilib_missing_idx += 1
+        else:
+            json_vilib_captured += 1
+
+    json_prim_total = len(prim_resolver.get_all_ids())
+    json_prim_captured = sum(
+        1 for pid in prim_resolver.get_all_ids()
+        if classify_primitive(prim_resolver.get_by_id(pid)) == CAPTURED
+    )
+    json_prim_partial = json_prim_total - json_prim_captured
+
     # Write report
     REPORT_PATH.parent.mkdir(parents=True, exist_ok=True)
     lines: list[str] = []
     lines.append(f"# Unresolved Audit — {date.today().isoformat()}\n")
     lines.append(f"Scanned {len(pairs)} VI block diagrams from `samples/`.\n")
 
-    lines.append("## Summary\n")
+    lines.append("## Summary (sample usage)\n")
     lines.append(
         f"- **Primitives**: "
         f"{len(prim_buckets[CAPTURED])} captured / "
@@ -184,6 +210,18 @@ def main() -> None:
         f"{len(vilib_buckets[PARTIAL])} partial / "
         f"{len(vilib_buckets[MISSING])} missing "
         f"({len(vilib_usage)} unique paths seen)"
+    )
+    lines.append("")
+    lines.append("## JSON data state (all entries, regardless of samples)\n")
+    lines.append(
+        f"- **Primitives JSON**: {json_prim_total} total — "
+        f"{json_prim_captured} captured / {json_prim_partial} partial"
+    )
+    lines.append(
+        f"- **VIlib JSON**: {json_vilib_total} total — "
+        f"{json_vilib_captured} captured / "
+        f"{json_vilib_needs_terminals} needs_terminals / "
+        f"{json_vilib_missing_idx} missing indices"
     )
     if parse_failures:
         lines.append(f"- **Parse failures**: {len(parse_failures)}")
