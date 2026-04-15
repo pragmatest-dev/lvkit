@@ -1795,6 +1795,119 @@
       "verified": true,
       "pdf_page": 398
     },
+    "1120": {
+      "name": "Transpose 2D Array",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "transposed_array",
+          "type": "Array"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "array_2d",
+          "type": "Array"
+        }
+      ],
+      "python_code": {
+        "transposed_array": "list(map(list, zip(*in_1)))"
+      },
+      "inline": true,
+      "verified": true,
+      "pdf_page": 420
+    },
+    "8056": {
+      "name": "File Dialog",
+      "terminals": [
+        {"index": 0, "direction": "out", "name": "error_out", "type": "Cluster"},
+        {"index": 1, "direction": "out", "name": "cancelled", "type": "Boolean"},
+        {"index": 3, "direction": "out", "name": "selected_path", "type": "Path"},
+        {"index": 7, "direction": "in", "name": "prompt", "type": "String"},
+        {"index": 8, "direction": "in", "name": "error_in", "type": "Cluster"},
+        {"index": 9, "direction": "in", "name": "select_mode_a", "type": "Boolean"},
+        {"index": 10, "direction": "in", "name": "select_mode_b", "type": "Boolean"},
+        {"index": 11, "direction": "in", "name": "start_path", "type": "Path"}
+      ],
+      "python_code": {
+        "selected_path": "Path(input(in_7 or 'Select path: '))",
+        "cancelled": "False",
+        "error_out": "in_8"
+      },
+      "inline": true,
+      "verified": true,
+      "pdf_page": 1770,
+      "note": "LabVIEW File Dialog — displays UI for path selection. Python equivalent uses input() stub; real apps should use tkinter.filedialog. idx=9,10 are configuration Booleans (file/folder/new-or-existing flags)."
+    },
+    "1167": {
+      "name": "Boolean To (0,1)",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "number",
+          "type": "NumInt16"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "boolean",
+          "type": "polymorphic"
+        }
+      ],
+      "python_code": {
+        "number": "int(in_1)"
+      },
+      "inline": true,
+      "verified": true,
+      "note": "Polymorphic: Boolean -> I16, array of Boolean -> array of I16."
+    },
+    "1113": {
+      "name": "Equal To 0?",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "x_equal_to_0",
+          "type": "Boolean"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "x",
+          "type": "polymorphic"
+        }
+      ],
+      "python_code": {
+        "x_equal_to_0": "in_1 == 0"
+      },
+      "inline": true,
+      "verified": true,
+      "note": "Polymorphic: scalar -> bool, array -> bool array (list comprehension in Python)."
+    },
+    "1902": {
+      "name": "Reverse 1D Array",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "reversed_array",
+          "type": "Array"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "array",
+          "type": "Array"
+        }
+      ],
+      "python_code": {
+        "reversed_array": "in_1[::-1]"
+      },
+      "inline": true,
+      "verified": true
+    },
     "1128": {
       "name": "Not A Number/Path/Refnum?",
       "terminals": [
