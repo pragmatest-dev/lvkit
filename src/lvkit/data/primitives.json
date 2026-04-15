@@ -1037,6 +1037,21 @@
       "pdf_page": 538,
       "note": "Polymorphic: Boolean -> I16 (1 or 0). Array of Boolean -> Array of I16. primIndex=69."
     },
+    "1053": {
+      "name": "Divide",
+      "terminals": [
+        {"index": 0, "direction": "out", "name": "quotient", "type": "polymorphic"},
+        {"index": 1, "direction": "in", "name": "x", "type": "polymorphic"},
+        {"index": 2, "direction": "in", "name": "y", "type": "polymorphic"}
+      ],
+      "python_code": {
+        "quotient": "in_1 / in_2"
+      },
+      "inline": true,
+      "verified": true,
+      "pdf_page": 520,
+      "note": "primIndex=106. Polymorphic. Per docs: int/int produces Float64 (matches our 22+ observed instances of NumInt32/NumInt32 -> NumFloat64). Python `/` operator has same semantics."
+    },
     "1111": {
       "name": "Less Or Equal?",
       "terminals": [
