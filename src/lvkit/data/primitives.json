@@ -1037,6 +1037,21 @@
       "pdf_page": 538,
       "note": "Polymorphic: Boolean -> I16 (1 or 0). Array of Boolean -> Array of I16. primIndex=69."
     },
+    "1081": {
+      "name": "Logical Shift",
+      "terminals": [
+        {"index": 0, "direction": "out", "name": "shifted", "type": "polymorphic"},
+        {"index": 1, "direction": "in", "name": "x", "type": "polymorphic"},
+        {"index": 2, "direction": "in", "name": "y", "type": "NumInt32"}
+      ],
+      "python_code": {
+        "shifted": "(in_1 << in_2) if in_2 >= 0 else (in_1 >> -in_2)"
+      },
+      "inline": true,
+      "verified": true,
+      "pdf_page": 560,
+      "note": "primIndex=101. Polymorphic on x (any int type). y = shift count: positive=left, negative=right (LabVIEW semantics; Python `<<` only does left)."
+    },
     "1053": {
       "name": "Divide",
       "terminals": [
