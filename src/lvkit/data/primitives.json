@@ -1795,6 +1795,29 @@
       "verified": true,
       "pdf_page": 398
     },
+    "1902": {
+      "name": "Reverse 1D Array",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "reversed_array",
+          "type": "Array"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "array",
+          "type": "Array"
+        }
+      ],
+      "python_code": {
+        "reversed_array": "in_1[::-1]"
+      },
+      "inline": true,
+      "verified": true,
+      "pdf_page": 411
+    },
     "1128": {
       "name": "Not A Number/Path/Refnum?",
       "terminals": [
