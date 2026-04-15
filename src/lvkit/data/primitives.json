@@ -1013,6 +1013,30 @@
       "verified": true,
       "pdf_page": 750
     },
+    "1113": {
+      "name": "Equal To 0?",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "x_equals_zero",
+          "type": "Boolean"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "x",
+          "type": "polymorphic"
+        }
+      ],
+      "python_code": {
+        "x_equals_zero": "in_1 == 0"
+      },
+      "inline": true,
+      "verified": true,
+      "pdf_page": 751,
+      "note": "Polymorphic variant of 1115. Output is Boolean for scalar, Boolean array for array input."
+    },
     "1115": {
       "name": "Equal To 0?",
       "terminals": [
