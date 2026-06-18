@@ -28,6 +28,26 @@ from ..formula.compile import compile_shared, platform_tag
 # scalar_in | scalar_out | array_in | array_inout | array_out.
 ParamSpec = tuple[str, str, str, str]
 
+# ctypes scalar names that require an int (LabVIEW would coerce a wired
+# floating value to the integer terminal type by rounding).
+_INT_CTYPES = frozenset({
+    "c_int8", "c_int16", "c_int32", "c_int64",
+    "c_uint8", "c_uint16", "c_uint32", "c_uint64",
+})
+
+
+def _coerce_scalar(ctype_name: str, value):
+    """Coerce a Python value to what the ctypes scalar argtype accepts.
+
+    ctypes rejects a float for an integer parameter; LabVIEW would round a
+    floating value into an integer terminal, so we round-to-int here too.
+    """
+    if ctype_name in _INT_CTYPES:
+        return int(round(value))
+    if ctype_name in ("c_float", "c_double"):
+        return float(value)
+    return value
+
 
 def _cache_dir() -> Path:
     base = os.environ.get("LVKIT_CACHE")
@@ -84,7 +104,7 @@ def load(
         for _pname, ctype_name, role, var in params:
             ct = getattr(ctypes, ctype_name)
             if role == "scalar_in":
-                args.append(inputs[var])
+                args.append(_coerce_scalar(ctype_name, inputs[var]))
             elif role == "scalar_out":
                 obj = ct()
                 args.append(ctypes.byref(obj))
