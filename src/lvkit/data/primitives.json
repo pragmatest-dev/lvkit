@@ -673,6 +673,27 @@
       "inline": true,
       "verified": true
     },
+    "1049": {
+      "name": "Sign",
+      "guess_reason": "Unary, type-preserving numeric op (DBL->DBL, Array[DBL]->Array[DBL]); raw typeDescs confirm both ends NumFloat64. Forced by this VI's direction detection: consecutive angle deltas -> Sign(each) -> Add Array Elements(sum) -> Sign(sum) -> To Byte Integer -> xcreasing in {-1,0,+1}. Only Sign (returns 1/0/-1, type-preserving) collapses the sum to a +/-1 direction; sum (not product) makes it a wrap-robust majority vote. Array inputs would need element-wise handling.",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "sign",
+          "type": "polymorphic"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "x",
+          "type": "polymorphic"
+        }
+      ],
+      "python_code": {"sign": "(in_1 > 0) - (in_1 < 0)"},
+      "inline": true,
+      "verified": true
+    },
     "1140": {
       "name": "To Byte Integer",
       "guess_reason": "Conversion to signed 8-bit integer: output is always NumInt8 (or Array[NumInt8]) regardless of input numeric type, verified across corpus (NumInt8/NumInt64/NumInt32/Array[NumFloat64] inputs). NI docs: rounds float to nearest (ties to even) and saturates to [-128, 127]. Scalar template; array inputs would need element-wise handling.",
@@ -1834,13 +1855,14 @@
       "pdf_page": 641
     },
     "1903": {
-      "name": "Array Size",
+      "name": "Add Array Elements",
+      "guess_reason": "Was mislabeled 'Array Size'. Raw typeDesc proves the output is element-typed (Array[NumFloat64] -> NumFloat64), not an I32 count, so it is a numeric reduction, not Array Size (the real Array Size is primResID 1809, Array[X] -> I32). Sits in the array-reduction cluster (1910 Or Array Elements, 1911 And Array Elements). Forced by this VI's logic: sum of per-step Sign(deltas) gives a wrap-robust direction vote. Corpus I32-array instances (sum of int array -> int) are consistent.",
       "terminals": [
         {
           "index": 0,
           "direction": "out",
-          "name": "size",
-          "type": "NumInt32"
+          "name": "sum",
+          "type": "polymorphic"
         },
         {
           "index": 1,
@@ -1850,11 +1872,10 @@
         }
       ],
       "python_code": {
-        "size": "len(in_1)"
+        "sum": "sum(in_1)"
       },
       "inline": true,
-      "verified": true,
-      "pdf_page": 391
+      "verified": true
     },
     "1120": {
       "name": "Sort 1D Array",
