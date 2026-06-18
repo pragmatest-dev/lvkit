@@ -11,6 +11,7 @@ import ast
 
 from lvkit.models import (
     CaseOperation,
+    FormulaOperation,
     InPlaceOperation,
     InvokeOperation,
     LoopOperation,
@@ -29,6 +30,7 @@ from . import (
     case,
     compound,
     constant,
+    formula,
     in_place,
     invoke_node,
     loop,
@@ -62,6 +64,8 @@ def generate(node: Operation, ctx: CodeGenContext) -> CodeFragment:
             return invoke_node.generate(node, ctx)
         case SubVIOperation():
             return subvi.generate(node, ctx)
+        case FormulaOperation():
+            return formula.generate(node, ctx)
         case PrimitiveOperation():
             return _generate_primitive(node, ctx)
         case _ if "Constant" in node.labels:

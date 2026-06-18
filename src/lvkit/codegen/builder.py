@@ -35,6 +35,7 @@ def build_module(
     has_parallel_branches: bool | None = None,
     graph: InMemoryVIGraph | None = None,
     soft_unresolved: bool = False,
+    formula_sink: list | None = None,
 ) -> str:
     """Build complete Python module from VI context.
 
@@ -58,6 +59,10 @@ def build_module(
     # Initialize context with inputs and constants
     ctx = CodeGenContext.from_vi_context(vi_context, graph=graph)  # InMemoryVIGraph
     ctx.import_resolver = import_resolver
+    # When a sink is provided, formula-node C artifacts accumulate into it so
+    # the pipeline can write + compile them next to the generated module.
+    if formula_sink is not None:
+        ctx.formula_artifacts = formula_sink
     ctx.vi_name = vi_name
     ctx.qualified_vi_name = vi_context.qualified_name
     ctx.soft_unresolved = soft_unresolved
