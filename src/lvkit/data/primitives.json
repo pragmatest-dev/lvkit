@@ -653,33 +653,46 @@
       "pdf_page": 817
     },
     "1809": {
-      "name": "Index Array",
+      "name": "Array Size",
+      "guess_reason": "class=prim primResID 1809 is Array Size (Array[X] -> NumInt32), verified across many samples with varied element types (Path/Refnum/String/Cluster/NumInt32) all yielding a single I32 output. The expandable Index Array is XML class aIndx (resolved by node_type), not this primResID.",
       "terminals": [
         {
           "index": 0,
           "direction": "out",
-          "name": "element",
-          "type": "polymorphic",
-          "expandable": true
+          "name": "size",
+          "type": "NumInt32"
         },
         {
           "index": 1,
           "direction": "in",
           "name": "array",
           "type": "array"
-        },
-        {
-          "index": 2,
-          "direction": "in",
-          "name": "index",
-          "type": "polymorphic",
-          "default_value": "0"
         }
       ],
-      "python_code": "in_1[in_2]",
+      "python_code": "len(in_1)",
       "inline": true,
-      "verified": true,
-      "pdf_page": 392
+      "verified": true
+    },
+    "1140": {
+      "name": "To Byte Integer",
+      "guess_reason": "Conversion to signed 8-bit integer: output is always NumInt8 (or Array[NumInt8]) regardless of input numeric type, verified across corpus (NumInt8/NumInt64/NumInt32/Array[NumFloat64] inputs). NI docs: rounds float to nearest (ties to even) and saturates to [-128, 127]. Scalar template; array inputs would need element-wise handling.",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "byte_integer",
+          "type": "NumInt8"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "number",
+          "type": "numeric"
+        }
+      ],
+      "python_code": "max(-128, min(127, int(round(in_1))))",
+      "inline": true,
+      "verified": true
     },
     "1166": {
       "name": "String Subset",
