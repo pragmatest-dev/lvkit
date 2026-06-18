@@ -129,6 +129,18 @@ class InPlaceNode(StructureNode):
     pass
 
 
+class FormulaNode(GraphNode):
+    """A Formula Node (fBox) — an embedded C-like script over typed terminals.
+
+    Terminals carry the script's variables (name, type, direction). The
+    script is compiled to native code and called via FFI at codegen time;
+    its logic is never reinterpreted into Python.
+    """
+
+    kind: Literal["formula"] = "formula"
+    script: str | None = None
+
+
 class ConstantNode(GraphNode):
     """A constant value. One output terminal (index 0)."""
 
@@ -140,7 +152,10 @@ class ConstantNode(GraphNode):
 
 
 # Discriminated union of all node types
-AnyGraphNode = VINode | PrimitiveNode | StructureNode | ConstantNode | InPlaceNode
+AnyGraphNode = (
+    VINode | PrimitiveNode | StructureNode | ConstantNode | InPlaceNode
+    | FormulaNode
+)
 
 
 # ============================================================
