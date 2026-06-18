@@ -109,6 +109,8 @@ def extract_label(elem: ET.Element) -> str | None:
         (".//textRec/text", True),
         # label/textRec/text (some node types)
         ("label/textRec/text", False),
+        # Formula Node terminal variable name (fBoxDCO/vblName)
+        ("vblName/text", False),
     ]
 
     for xpath, filter_pane in search_paths:

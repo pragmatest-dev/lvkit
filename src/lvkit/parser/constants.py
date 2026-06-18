@@ -36,6 +36,7 @@ NODE_CLASS_MUX = "mux"      # Multiplexer (bundle at structure boundary)
 NODE_CLASS_DEMUX = "demux"  # Demultiplexer (unbundle at structure boundary)
 NODE_CLASS_CTL_REF_CONST = "ctlRefConst"  # Control reference constant
 NODE_CLASS_STAT_VI_REF = "statVIRef"  # Static VI Reference constant
+NODE_CLASS_FORMULA = "fBox"  # Formula Node (embedded C-like script)
 # In Place Element Structure (IPES)
 NODE_CLASS_DECOMPOSE_RECOMPOSE = "decomposeRecomposeStructure"
 
@@ -75,6 +76,7 @@ OPERATION_NODE_CLASSES = (
     NODE_CLASS_DEMUX,
     NODE_CLASS_CTL_REF_CONST,
     NODE_CLASS_STAT_VI_REF,
+    NODE_CLASS_FORMULA,
     NODE_CLASS_CALL_PARENT,
     NODE_CLASS_CALL_BY_REF,
     NODE_CLASS_DECOMPOSE_RECOMPOSE,
