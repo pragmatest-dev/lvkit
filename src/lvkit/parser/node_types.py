@@ -60,6 +60,19 @@ class ArrayBuildNode(ParsedNode):
 
 
 @dataclass
+class FormulaNode(ParsedNode):
+    """A Formula Node (class="fBox") with an embedded C-like script.
+
+    The script is a restricted C-like language (not raw C): it uses the
+    ``**`` power operator and LabVIEW type keywords (int8/int16/float32...).
+    Terminal variables (names, types, directions) are carried on the base
+    ParsedNode terminal fields; this subclass adds the script text.
+    """
+
+    script: str | None = None
+
+
+@dataclass
 class LoopNode(ParsedNode):
     """Loop structure node (class="whileLoop" or "forLoop")."""
 
@@ -739,6 +752,25 @@ class _DecomposeMatchHandler(NodeTypeHandler):
         return ParsedNode(**common)
 
 
+class FormulaNodeHandler(NodeTypeHandler):
+    """Handler for Formula Nodes (class="fBox")."""
+
+    xml_class = "fBox"
+    display_name = "Formula Node"
+
+    def parse(self, elem: ET.Element) -> FormulaNode:
+        common = self._extract_common(elem)
+        # The script lives in <formula class="textHair"><text>"..."</text>.
+        # ElementTree already decodes XML entities (&lt; -> <); the text is
+        # quote-wrapped, which clean_labview_string strips. Newlines/tabs are
+        # preserved. Do NOT confuse with the sibling <lineNumbers>/<text>.
+        text_elem = elem.find("formula/text")
+        script = None
+        if text_elem is not None and text_elem.text is not None:
+            script = clean_labview_string(text_elem.text)
+        return FormulaNode(**common, script=script)
+
+
 class GenericHandler(NodeTypeHandler):
     """Fallback handler for unknown node types."""
 
@@ -805,6 +837,7 @@ _HANDLERS: list[NodeTypeHandler] = [
     _DemuxHandler(),
     CtlRefConstHandler(),
     StatVIRefHandler(),
+    FormulaNodeHandler(),
     DecomposeClusterHandler(),
     DecomposeArrayHandler(),
     _DecomposeDataValRefHandler(),
