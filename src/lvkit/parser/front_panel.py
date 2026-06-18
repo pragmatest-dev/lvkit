@@ -34,6 +34,11 @@ def _lvtype_to_parsed(lv_type: LVType) -> ParsedType:
         classname=lv_type.classname,
         fields=lv_type.fields,
         enum_values=lv_type.values,
+        element_type=(
+            _lvtype_to_parsed(lv_type.element_type)
+            if lv_type.element_type else None
+        ),
+        dimensions=lv_type.dimensions,
     )
 
 
