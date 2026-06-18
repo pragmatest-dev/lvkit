@@ -11,9 +11,11 @@ from typing import TYPE_CHECKING
 from ..models import (
     CaseOperation,
     LoopOperation,
+    LVType,
     Operation,
     PrimitiveOperation,
     SequenceOperation,
+    Terminal,
 )
 from ..vilib_resolver import get_resolver as _get_vilib_resolver
 from .models import Constant, VIContext
@@ -64,6 +66,9 @@ def describe_vi(graph: InMemoryVIGraph, vi_name: str) -> str:
         lines.append("  (none)")
         lines.append("")
 
+    # Class context: when this VI is a .lvclass method
+    lines.extend(_describe_class_context(graph, ctx))
+
     # Constants: show actual values
     if ctx.constants:
         lines.append("## Constants")
@@ -73,20 +78,23 @@ def describe_vi(graph: InMemoryVIGraph, vi_name: str) -> str:
             lines.append(f"  {name}: {type_str} = {c.value!r}")
         lines.append("")
 
-    # Dependencies: SubVI calls with descriptions
+    # Dependencies: SubVI calls with their signatures and descriptions
     subvi_names = _collect_subvi_names(ctx.operations)
     if subvi_names:
         lines.append("## Dependencies")
         for name in sorted(subvi_names):
             desc = _get_subvi_description(graph, name)
+            sig = _subvi_signature(graph, name)
+            entry = f"  {name}"
+            if sig:
+                entry += f": {sig}"
             if desc:
-                lines.append(f"  {name} — {desc}")
-            else:
-                lines.append(f"  {name}")
+                entry += f" — {desc}"
+            lines.append(entry)
         lines.append("")
 
     # Control flow
-    structures = _collect_structures(ctx.operations)
+    structures = _collect_structures(graph, ctx, ctx.operations, ctx.operations)
     if structures:
         lines.append("## Control Flow")
         for s in structures:
@@ -275,36 +283,196 @@ def _get_subvi_description(
     return None
 
 
-def _collect_structures(
-    operations: list[Operation],
+def _type_label(t: LVType | None) -> str:
+    """Compact human-readable LVType label for class fields."""
+    return t.to_python() if t is not None else "Any"
+
+
+def _describe_class_context(
+    graph: InMemoryVIGraph, ctx: VIContext,
 ) -> list[str]:
-    """Summarize control flow structures."""
+    """Describe the owning class when this VI is a .lvclass method.
+
+    Surfaces the class's parent, fields, and sibling methods — context an
+    agent needs to write a method body but which is absent from the VI's
+    own dataflow. Returns an empty list for non-class VIs.
+    """
+    cls = ctx.library
+    if not cls or not cls.endswith(".lvclass"):
+        return []
+    if not graph._dep_graph.has_node(cls):
+        return []
+
+    attrs = graph._dep_graph.nodes[cls]
+    fields = graph.get_class_fields(cls) or []
+    siblings = sorted({
+        t.split(":")[-1]
+        for _, t, e in graph._dep_graph.edges(cls, data=True)
+        if e.get("rel") == "owns" and t.endswith(".vi")
+    })
+
+    lines = ["## Class", f"  {cls}"]
+    parent = attrs.get("parent_class")
+    if parent:
+        lines.append(f"  parent: {parent}")
+    if fields:
+        lines.append("  fields:")
+        for f in fields:
+            lines.append(f"    {f.name}: {_type_label(f.type)}")
+    if siblings:
+        lines.append(f"  methods: {', '.join(siblings)}")
+    lines.append("")
+    return lines
+
+
+def _subvi_signature(graph: InMemoryVIGraph, name: str) -> str | None:
+    """One-line signature for a called SubVI.
+
+    Loaded VIs use their resolved front-panel signature; unloaded vilib
+    refs fall back to the resolver's terminal layout. Returns None when
+    neither is available.
+    """
+    loaded = set(graph.list_vis())
+    qname = name
+    if qname not in loaded:
+        try:
+            resolved = graph.resolve_vi_name(name)
+        except (KeyError, ValueError):
+            resolved = None
+        if resolved in loaded:
+            qname = resolved  # type: ignore[assignment]
+
+    if qname in loaded:
+        sctx = graph.get_vi_context(qname)
+        ins = [
+            f"{t.name}: {t.python_type()}"
+            for t in sctx.inputs if not t.is_error_cluster
+        ]
+        outs = [
+            f"{t.name}: {t.python_type()}"
+            for t in sctx.outputs if not t.is_error_cluster
+        ]
+        return f"({', '.join(ins)}) → ({', '.join(outs)})"
+
+    entry = _get_vilib_resolver().resolve_by_name(name)
+    if entry is not None and entry.terminals:
+        ins = [
+            f"{t.name}: {t.type}"
+            for t in entry.terminals if t.direction == "input"
+        ]
+        outs = [
+            f"{t.name}: {t.type}"
+            for t in entry.terminals if t.direction == "output"
+        ]
+        return f"({', '.join(ins)}) → ({', '.join(outs)})"
+    return None
+
+
+def _find_op_owning_terminal(
+    operations: list[Operation], terminal_id: str | None,
+) -> tuple[Operation, Terminal] | None:
+    """Recursively find the operation that owns the given terminal."""
+    if terminal_id is None:
+        return None
+    for op in operations:
+        for t in op.terminals:
+            if t.id == terminal_id:
+                return op, t
+        hit = _find_op_owning_terminal(op.inner_nodes, terminal_id)
+        if hit:
+            return hit
+        if isinstance(op, (CaseOperation, SequenceOperation)):
+            for frame in op.frames:
+                hit = _find_op_owning_terminal(frame.operations, terminal_id)
+                if hit:
+                    return hit
+    return None
+
+
+def _resolve_selector(
+    graph: InMemoryVIGraph,
+    ctx: VIContext,
+    root_ops: list[Operation],
+    selector_terminal: str | None,
+) -> str | None:
+    """Trace a selector/stop wire back one hop to identify what gates it.
+
+    Returns a short ``Node.terminal`` label, a front-panel input name, or
+    None when the wire source can't be located.
+    """
+    if not selector_terminal:
+        return None
+    sources = graph.incoming_edges(selector_terminal)
+    if not sources:
+        return None
+    src = sources[0]
+    hit = _find_op_owning_terminal(root_ops, src.terminal_id)
+    if hit is None:
+        for t in ctx.inputs:
+            if t.id == src.terminal_id:
+                return t.name
+        return None
+    op, term = hit
+    op_name = op.name or op.id
+    term_name = term.name or f"idx={term.index}"
+    return f"{op_name}.{term_name}"
+
+
+def _collect_structures(
+    graph: InMemoryVIGraph,
+    ctx: VIContext,
+    operations: list[Operation],
+    root_ops: list[Operation],
+) -> list[str]:
+    """Summarize control flow structures.
+
+    Case/loop entries are annotated with what gates them — the selector
+    (or stop-condition) wire traced back one hop to its source operation
+    or front-panel input. ``root_ops`` is the VI's full top-level operation
+    list, kept constant through recursion so selector tracing can reach any
+    node regardless of nesting depth.
+    """
     structures: list[str] = []
     for op in operations:
         match op:
             case CaseOperation():
-                selector = op.selector_terminal or "unknown"
                 n_frames = len(op.frames)
-                structures.append(
-                    f"Case structure ({n_frames} frames,"
-                    f" selector: {selector})"
+                gated = _resolve_selector(
+                    graph, ctx, root_ops, op.selector_terminal,
                 )
+                if gated:
+                    sel = f", gated on {gated}"
+                elif op.selector_terminal:
+                    sel = f", selector: {op.selector_terminal}"
+                else:
+                    sel = ""
+                structures.append(f"Case structure ({n_frames} frames{sel})")
                 for frame in op.frames:
-                    for s in _collect_structures(frame.operations):
+                    for s in _collect_structures(
+                        graph, ctx, frame.operations, root_ops,
+                    ):
                         structures.append(f"  └ {s}")
             case LoopOperation():
                 kind = "While loop" if op.loop_type == "whileLoop" else "For loop"
-                structures.append(kind)
+                gated = _resolve_selector(
+                    graph, ctx, root_ops, op.stop_condition_terminal,
+                )
+                structures.append(
+                    f"{kind} (stops when {gated})" if gated else kind
+                )
             case SequenceOperation():
                 n_frames = len(op.frames)
                 structures.append(f"Flat sequence ({n_frames} frames)")
                 for frame in op.frames:
-                    for s in _collect_structures(frame.operations):
+                    for s in _collect_structures(
+                        graph, ctx, frame.operations, root_ops,
+                    ):
                         structures.append(f"  └ {s}")
             case _:
                 pass
         structures.extend(
-            f"  └ {s}" for s in _collect_structures(op.inner_nodes)
+            f"  └ {s}"
+            for s in _collect_structures(graph, ctx, op.inner_nodes, root_ops)
         )
     return structures
 

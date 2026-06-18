@@ -669,7 +669,16 @@ class LoadingMixin:
                 "library" if leaf.endswith(".lvlib") else
                 "vi"
             )
-            self._dep_graph.add_node(qualified_name, node_type=node_type)
+            # Carry path_tokens from the parser so downstream consumers
+            # (export, diagnostics) know what `<vilib>/...` family the
+            # missing dep belongs to. Purely additive node attr.
+            path_tokens = (
+                list(dep_ref.path_tokens) if dep_ref and dep_ref.path_tokens
+                else None
+            )
+            self._dep_graph.add_node(
+                qualified_name, node_type=node_type, path_tokens=path_tokens,
+            )
             self._stubs.add(qualified_name)
             if caller_qname:
                 self._dep_graph.add_edge(caller_qname, qualified_name)
@@ -697,7 +706,9 @@ class LoadingMixin:
                             and dep_ref.path_tokens[0] == "<vilib>"):
                         self._cache_vilib_terminal_layout(loaded_name, dep_ref)
             except (RuntimeError, OSError):
-                self._stub_subvi(qualified_name, caller_qname or "")
+                self._stub_subvi(
+                    qualified_name, caller_qname or "", dep_ref=dep_ref,
+                )
         elif leaf.endswith(".lvclass"):
             parts = qualified_name.split(":")
             owner_chain = parts[:-1] if len(parts) > 1 else None
@@ -719,15 +730,37 @@ class LoadingMixin:
                 self._dep_graph.add_edge(caller_qname, qualified_name)
         else:
             # Unknown extension — stub rather than guess.
-            self._dep_graph.add_node(qualified_name, node_type="unknown")
+            path_tokens = (
+                list(dep_ref.path_tokens) if dep_ref and dep_ref.path_tokens
+                else None
+            )
+            self._dep_graph.add_node(
+                qualified_name, node_type="unknown", path_tokens=path_tokens,
+            )
             self._stubs.add(qualified_name)
             if caller_qname:
                 self._dep_graph.add_edge(caller_qname, qualified_name)
 
-    def _stub_subvi(self, name: str, _parent_vi: str) -> None:
-        """Record a SubVI reference that could not be resolved as a stub."""
+    def _stub_subvi(
+        self,
+        name: str,
+        _parent_vi: str,
+        dep_ref: ParsedDependencyRef | None = None,
+    ) -> None:
+        """Record a SubVI reference that could not be resolved as a stub.
+
+        Carries path_tokens from the parser's LinkSavePathRef when
+        available — diagnostics-only, never gates code generation.
+        """
         self._stubs.add(name)
-        self._dep_graph.add_node(name)
+        path_tokens = (
+            list(dep_ref.path_tokens)
+            if dep_ref and dep_ref.path_tokens
+            else None
+        )
+        self._dep_graph.add_node(
+            name, node_type="vi", path_tokens=path_tokens,
+        )
 
     def _cache_vilib_terminal_layout(
         self,
