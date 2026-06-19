@@ -1,89 +1,91 @@
-"""Tests for Formula Node codegen + pipeline artifact emission.
+"""Tests for Formula Node codegen.
 
 Self-contained (no .vi fixture): builds a FormulaOperation directly, runs the
-node generator, and checks that it emits the loader call, binds outputs, and
-registers a C artifact that the pipeline helper writes + compiles.
+node generator, and checks that it injects a module-level Python helper
+function, emits a call to it, and binds the outputs — no C artifact, no FFI.
 """
 
 from __future__ import annotations
 
 import ast
-import shutil
 
 import pytest
 
-from lvkit.codegen.context import CodeGenContext, FormulaArtifact
+from lvkit.codegen.context import CodeGenContext
 from lvkit.codegen.nodes import formula
 from lvkit.models import FormulaOperation, LVType, Terminal
-
-CC = shutil.which("cc") or shutil.which("gcc")
 
 
 def _dbl() -> LVType:
     return LVType(kind="primitive", underlying_type="NumFloat64")
 
 
-def _op() -> FormulaOperation:
+def _i16() -> LVType:
+    return LVType(kind="primitive", underlying_type="NumInt16")
+
+
+def _op(
+    script: str = "y = a + 2**3;", y_type: LVType | None = None,
+) -> FormulaOperation:
     return FormulaOperation(
         id="my_vi.vi::42",
         name="Formula Node",
         labels=["FormulaNode"],
         node_type="fBox",
-        script="y = a + 2**3;",
+        script=script,
         terminals=[
             Terminal(id="t_a", index=0, direction="input", name="a", lv_type=_dbl()),
-            Terminal(id="t_y", index=1, direction="output", name="y", lv_type=_dbl()),
+            Terminal(id="t_y", index=1, direction="output", name="y",
+                     lv_type=y_type or _dbl()),
         ],
     )
 
 
-def test_generate_emits_loader_and_binds_output():
+def test_generate_injects_helper_and_binds_output():
     op = _op()
     ctx = CodeGenContext(vi_name="my_vi.vi")
     frag = formula.generate(op, ctx)
 
-    # An artifact was registered for the pipeline to write + compile.
-    assert len(ctx.formula_artifacts) == 1
-    art = ctx.formula_artifacts[0]
-    assert art.basename == "my_vi_vi_formula_42"
-    assert "void formula_42(" in art.c_source
+    # A module-level helper function was injected (no C artifact).
+    assert len(ctx.formula_helpers) == 1
+    helper = ctx.formula_helpers[0]
+    assert isinstance(helper, ast.FunctionDef)
+    assert helper.name == "_formula_42"
 
     src = "\n".join(ast.unparse(s) for s in frag.statements)
-    assert "_lvkit_formula.load(" in src
-    assert "_formula_42(" in src
+    assert "_formula_42(a=" in src                # call with resolved input
     # output terminal bound to a fresh variable read out of the result dict
     assert frag.bindings.get("t_y")
     assert f"{frag.bindings['t_y']} = " in src
-    assert "from lvkit.runtime import formula as _lvkit_formula" in frag.imports
+    # pure-float script needs no runtime import
+    assert not any("runtime import" in i for i in frag.imports)
 
 
-@pytest.mark.skipif(CC is None, reason="no C compiler available")
-def test_pipeline_emits_c_and_compiles_so(tmp_path):
-    from lvkit.formula.compile import platform_tag
-    from lvkit.pipeline import _emit_formula_artifacts
-
+def test_injected_helper_is_valid_runnable_python():
     op = _op()
     ctx = CodeGenContext(vi_name="my_vi.vi")
     formula.generate(op, ctx)
+    helper = ctx.formula_helpers[0]
 
-    _emit_formula_artifacts(ctx.formula_artifacts, tmp_path)
+    mod = ast.Module(body=[helper], type_ignores=[])
+    ast.fix_missing_locations(mod)
+    ns: dict = {}
+    exec(ast.unparse(mod), ns)
+    assert ns["_formula_42"](a=5.0)["y"] == 13.0
 
-    base = "my_vi_vi_formula_42"
-    assert (tmp_path / f"{base}.c").exists()
-    assert (tmp_path / f"{base}.{platform_tag()}.so").exists()
+
+def test_int_output_pulls_in_lv_runtime_import():
+    # An integer-typed output coerces width via _lv, so the import is needed.
+    op = _op(script="y = a;", y_type=_i16())
+    ctx = CodeGenContext(vi_name="my_vi.vi")
+    frag = formula.generate(op, ctx)
+    assert "from lvkit.runtime import lv as _lv" in frag.imports
 
 
 def test_unknown_function_in_script_fails_loud():
-    op = _op()
-    op.script = "y = mystery(a);"
+    op = _op(script="y = mystery(a);")
     ctx = CodeGenContext(vi_name="my_vi.vi")
     from lvkit.formula import FormulaTranspileError
 
     with pytest.raises(FormulaTranspileError):
         formula.generate(op, ctx)
-
-
-def test_artifact_dataclass_roundtrip():
-    art = FormulaArtifact("base", "int x;")
-    assert art.basename == "base"
-    assert art.c_source == "int x;"

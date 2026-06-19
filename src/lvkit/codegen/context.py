@@ -37,19 +37,6 @@ class VISignature:
 
 
 @dataclass
-class FormulaArtifact:
-    """A Formula Node's transpiled C, to be written + compiled by the pipeline.
-
-    Collected on the context during codegen; the pipeline writes
-    ``<basename>.c`` next to the generated module and compiles a
-    platform-tagged ``.so``.
-    """
-
-    basename: str
-    c_source: str
-
-
-@dataclass
 class CodeGenContext:
     """Context that flows through code generation traversal.
 
@@ -86,10 +73,10 @@ class CodeGenContext:
     # in the codegen tree. Passing as parameter would thread through
     # every generate() call.
     import_resolver: Callable[[str], str] | None = field(default=None, repr=False)
-    # Formula Node C artifacts collected during codegen; the pipeline writes
-    # and compiles them next to the module. Shared across child contexts so a
-    # formula node nested in a structure still registers its artifact.
-    formula_artifacts: list[FormulaArtifact] = field(default_factory=list)
+    # Module-level Python functions generated for Formula Nodes; the builder
+    # injects them above the VI function. Shared across child contexts so a
+    # formula node nested in a structure still registers its helper.
+    formula_helpers: list[ast.stmt] = field(default_factory=list)
     # Callback for recursive body generation. Set by builder.py,
     # used by case/loop codegen to generate inner node code without
     # importing back into the builder (which would create a cycle).
@@ -324,7 +311,7 @@ class CodeGenContext:
             array_vars=self.array_vars,  # Shared — one set across the VI
             vi_inputs=self.vi_inputs,
             import_resolver=self.import_resolver,
-            formula_artifacts=self.formula_artifacts,  # Shared — one list
+            formula_helpers=self.formula_helpers,  # Shared — one list
             _body_generator=self._body_generator,
         )
 
