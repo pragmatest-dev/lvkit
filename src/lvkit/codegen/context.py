@@ -77,6 +77,10 @@ class CodeGenContext:
     # across the same generation pass.
     _branch_counter: int = field(default=0, repr=False)
     _allocated_vars: set[str] = field(default_factory=set, repr=False)
+    # Variable names bound to array-typed values. A final codegen pass uses
+    # this to broadcast operators over operands that turned out to be arrays
+    # even after single-use expression inlining.
+    array_vars: set[str] = field(default_factory=set, repr=False)
     vi_inputs: list[Terminal] = field(default_factory=list)
     # Lives on context because subvi.py reads it at arbitrary depth
     # in the codegen tree. Passing as parameter would thread through
@@ -317,6 +321,7 @@ class CodeGenContext:
             use_held_error_model=self.use_held_error_model,
             soft_unresolved=self.soft_unresolved,
             _allocated_vars=self._allocated_vars,  # Shared — same scope
+            array_vars=self.array_vars,  # Shared — one set across the VI
             vi_inputs=self.vi_inputs,
             import_resolver=self.import_resolver,
             formula_artifacts=self.formula_artifacts,  # Shared — one list
