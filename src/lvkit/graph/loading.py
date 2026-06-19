@@ -839,7 +839,7 @@ class LoadingMixin:
         category_file = vilib_dir / f"{category}.json"
         if category_file.exists():
             try:
-                existing_data = _json.loads(category_file.read_text())
+                existing_data = _json.loads(category_file.read_text(encoding="utf-8"))
             except (_json.JSONDecodeError, OSError):
                 existing_data = {"entries": []}
         else:
@@ -858,14 +858,14 @@ class LoadingMixin:
             entries.append(entry)
 
         category_file.write_text(
-            _json.dumps({"entries": entries}, indent=2)
+            _json.dumps({"entries": entries}, indent=2), encoding="utf-8"
         )
 
         # Update _index.json
         index_file = vilib_dir / "_index.json"
         if index_file.exists():
             try:
-                index_data = _json.loads(index_file.read_text())
+                index_data = _json.loads(index_file.read_text(encoding="utf-8"))
             except (_json.JSONDecodeError, OSError):
                 index_data = {"categories": {}}
         else:
@@ -874,7 +874,7 @@ class LoadingMixin:
         categories: dict[str, str] = index_data.get("categories", {})
         categories[category] = f"{category}.json"
         index_data["categories"] = categories
-        index_file.write_text(_json.dumps(index_data, indent=2))
+        index_file.write_text(_json.dumps(index_data, indent=2), encoding="utf-8")
 
     def _find_file(
         self,

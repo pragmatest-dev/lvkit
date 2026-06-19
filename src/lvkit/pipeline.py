@@ -47,28 +47,6 @@ class GenerationResult:
 # ---------------------------------------------------------------------------
 
 
-def _emit_formula_artifacts(artifacts: list, out_dir: Path) -> None:
-    """Write each Formula Node's .c next to the module and compile a
-    platform-tagged .so. A gen-time compile failure is non-fatal: the .c
-    ships and the runtime compiles it on first use (the hybrid fallback)."""
-    if not artifacts:
-        return
-    from .formula.compile import (
-        FormulaCompileError,
-        compile_shared,
-        platform_tag,
-    )
-    for art in artifacts:
-        c_path = out_dir / f"{art.basename}.c"
-        c_path.write_text(art.c_source)
-        so_path = out_dir / f"{art.basename}.{platform_tag()}.so"
-        try:
-            compile_shared(c_path, so_path)
-            print(f"         -> formula: {c_path.name} + {so_path.name}")
-        except FormulaCompileError as e:
-            print(f"         -> formula: {c_path.name} (compile deferred: {e})")
-
-
 def _write_syntax_error(
     module_name: str,
     code: str,
@@ -79,7 +57,7 @@ def _write_syntax_error(
 ) -> None:
     """Write a .error.py file for a SyntaxError during generation."""
     error_path = output_dir / f"{module_name}.error.py"
-    error_path.write_text(f"# SYNTAX ERROR: {error}\n\n{code}")
+    error_path.write_text(f"# SYNTAX ERROR: {error}\n\n{code}", encoding="utf-8")
     print(f"         -> SYNTAX ERROR: {error_path.name}")
     generated.append((vi_name, error_path, "error"))
 
@@ -161,7 +139,9 @@ def get_output_path(
             # Ensure library __init__.py exists
             init_path = lib_dir / "__init__.py"
             if not init_path.exists():
-                init_path.write_text(f'"""Package for {library_name} library."""\n')
+                init_path.write_text(
+                    f'"""Package for {library_name} library."""\n', encoding="utf-8"
+                )
         return (lib_dir / f"{module_name}.py", library_name)
     else:
         return (output_dir / f"{module_name}.py", None)
@@ -532,7 +512,7 @@ def generate_python(
         if has_vilib:
             # Generate vilib/openg implementation
             code = vilib_resolver.get_implementation(vi_name) or ""
-            output_path.write_text(code)
+            output_path.write_text(code, encoding="utf-8")
             print(f"         -> vilib: {output_path.name}")
             generated.append((vi_name, output_path, "vilib"))
 
@@ -546,7 +526,7 @@ from typing import Any
 def {func_name}(*args, **kwargs) -> Any:
     raise NotImplementedError("{vi_name}")
 '''
-            output_path.write_text(code)
+            output_path.write_text(code, encoding="utf-8")
             print(f"         -> stub: {output_path.name}")
             generated.append((vi_name, output_path, "stub"))
 
@@ -562,7 +542,7 @@ def {func_name}(*args, **kwargs) -> Any:
                     soft_unresolved=soft_unresolved,
                 )
                 ast.parse(code)  # Validate syntax
-                output_path.write_text(code)
+                output_path.write_text(code, encoding="utf-8")
                 print(
                     f"         -> polymorphic: {output_path.name}"
                     f" ({len(variants)} variants)"
@@ -592,18 +572,15 @@ def {func_name}(*args, **kwargs) -> Any:
                     graph=graph, vilib_resolver=vilib_resolver,
                     caller_library=caller_lib,
                 )
-                formula_artifacts: list = []
                 code = build_module(
                     vi_context, vi_name,
                     import_resolver=import_resolver, graph=graph,
                     soft_unresolved=soft_unresolved,
-                    formula_sink=formula_artifacts,
                 )
 
                 # Validate syntax
                 ast.parse(code)
-                output_path.write_text(code)
-                _emit_formula_artifacts(formula_artifacts, output_path.parent)
+                output_path.write_text(code, encoding="utf-8")
                 print(f"         -> AST: {output_path.name}")
                 generated.append((vi_name, output_path, "ast"))
 
@@ -615,7 +592,7 @@ def {func_name}(*args, **kwargs) -> Any:
 
             except Exception as e:  # noqa: BLE001 — per-VI; keep generating remaining VIs
                 error_path = output_dir_resolved / f"{module_name}.error.py"
-                error_path.write_text(f"# ERROR: {e}")
+                error_path.write_text(f"# ERROR: {e}", encoding="utf-8")
                 print(f"         -> FAILED: {e}")
                 generated.append((vi_name, error_path, "error"))
 
@@ -638,7 +615,7 @@ def {func_name}(*args, **kwargs) -> Any:
                     soft_unresolved=soft_unresolved,
                 )
                 ast.parse(code)
-                wrapper_path.write_text(code)
+                wrapper_path.write_text(code, encoding="utf-8")
                 generated.append((wrapper_name, wrapper_path, "ast"))
             except Exception as e:  # noqa: BLE001 — per-wrapper; continue to next
                 print(f"  [poly wrapper] FAILED for {wrapper_name}: {e}")
@@ -647,7 +624,7 @@ def {func_name}(*args, **kwargs) -> Any:
     # Generate minimal __init__.py (just makes it a package)
     init_path = output_dir_resolved / "__init__.py"
     if not init_path.exists():
-        init_path.write_text('"""Generated package."""\n')
+        init_path.write_text('"""Generated package."""\n', encoding="utf-8")
 
     # Generate class wrapper if input was an lvclass
     if input_path.suffix.lower() == ".lvclass":
@@ -684,7 +661,7 @@ def {func_name}(*args, **kwargs) -> Any:
         # Write class file
         class_filename = to_module_name(lvclass.name) + ".py"
         class_path = output_dir_resolved / class_filename
-        class_path.write_text(class_code)
+        class_path.write_text(class_code, encoding="utf-8")
         print(f"\nGenerated class wrapper: {class_filename}")
 
     print(f"\nOutput: {output_dir_resolved}")

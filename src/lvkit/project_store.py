@@ -126,7 +126,7 @@ def init_project_store(root: Path) -> Path:
 
     readme = store / "README.md"
     if not readme.exists():
-        readme.write_text(_README_TEMPLATE)
+        readme.write_text(_README_TEMPLATE, encoding="utf-8")
 
     # Create empty index files for each category dir so loaders find them.
     for subdir in ("vilib", "openg", "drivers"):
@@ -134,7 +134,9 @@ def init_project_store(root: Path) -> Path:
         sub.mkdir(exist_ok=True)
         index = sub / "_index.json"
         if not index.exists():
-            index.write_text(json.dumps({"categories": {}}, indent=2) + "\n")
+            index.write_text(
+                json.dumps({"categories": {}}, indent=2) + "\n", encoding="utf-8"
+            )
 
     return store
 
@@ -244,7 +246,9 @@ def install_claude_skills(target_dir: Path, force: bool = False) -> list[Path]:
                 " its SKILL.md — packaging or sync error."
             )
         dest = skills_dir / skill_dir.name / "SKILL.md"
-        _stage_write(dest, template_file.read_text(), force, plan, conflicts)
+        _stage_write(
+            dest, template_file.read_text(encoding="utf-8"), force, plan, conflicts
+        )
 
     if conflicts:
         names = "\n  ".join(str(p) for p in conflicts)
@@ -258,7 +262,7 @@ def install_claude_skills(target_dir: Path, force: bool = False) -> list[Path]:
     written: list[Path] = []
     for dest, new_content in plan:
         dest.parent.mkdir(parents=True, exist_ok=True)
-        dest.write_text(new_content)
+        dest.write_text(new_content, encoding="utf-8")
         written.append(dest)
 
     return written
@@ -312,7 +316,9 @@ def install_copilot_skills(
                 f"Skill template directory {skill_dir.name!r} is missing"
                 " its SKILL.md — packaging or sync error."
             )
-        prompt_content = _build_copilot_prompt(template_file.read_text())
+        prompt_content = _build_copilot_prompt(
+            template_file.read_text(encoding="utf-8")
+        )
         dest = target_dir / ".github" / "prompts" / f"{skill_dir.name}.prompt.md"
         _stage_write(dest, prompt_content, force, plan, conflicts)
 
@@ -332,7 +338,7 @@ def install_copilot_skills(
     written: list[Path] = []
     for dest, new_content in plan:
         dest.parent.mkdir(parents=True, exist_ok=True)
-        dest.write_text(new_content)
+        dest.write_text(new_content, encoding="utf-8")
         written.append(dest)
     return written
 
@@ -354,7 +360,7 @@ def _stage_write(
     not flagged as conflicts).
     """
     if dest.exists():
-        existing = dest.read_text()
+        existing = dest.read_text(encoding="utf-8")
         if existing == new_content:
             return  # already up to date
         if not force:
@@ -418,7 +424,7 @@ def _build_copilot_router(skill_dirs: list[Any]) -> str:
         "",
     ]
     for skill_dir in skill_dirs:
-        skill_md = skill_dir.joinpath("SKILL.md").read_text()
+        skill_md = skill_dir.joinpath("SKILL.md").read_text(encoding="utf-8")
         fm, _ = _split_frontmatter(skill_md)
         description = _yaml_get(fm, "description") or skill_dir.name
         lines.append(f"- `/{skill_dir.name}` — {description}")
