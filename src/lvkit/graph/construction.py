@@ -730,6 +730,14 @@ class ConstructionMixin:
                 )
             elif node.node_type == "fBox":
                 # Formula Node — embedded C-like script over typed terminals.
+                # The "fBox" class is only ever parsed into a ParserFormulaNode;
+                # anything else here means the parser dispatch is broken, so
+                # fail loud rather than silently drop the script.
+                if not isinstance(node, ParserFormulaNode):
+                    raise TypeError(
+                        f"fBox node {q_node_uid!r} is {type(node).__name__}, "
+                        "expected ParserFormulaNode (script would be lost)"
+                    )
                 graph_node = GraphFormulaNode(
                     id=q_node_uid,
                     vi=vi_name,
@@ -737,8 +745,7 @@ class ConstructionMixin:
                     node_type=node.node_type,
                     terminals=node_terminals,
                     description=description,
-                    script=node.script
-                    if isinstance(node, ParserFormulaNode) else None,
+                    script=node.script,
                 )
             else:
                 # Primitive or generic operation node
