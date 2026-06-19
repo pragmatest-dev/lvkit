@@ -217,35 +217,13 @@
       "pdf_page": 689
     },
     "1050": {
-      "name": "Build Array",
-      "terminals": [
-        {
-          "index": 0,
-          "direction": "out",
-          "name": "appended array",
-          "type": "polymorphic"
-        },
-        {
-          "index": 1,
-          "direction": "in",
-          "name": "element",
-          "type": "polymorphic",
-          "expandable": true
-        }
-      ],
-      "python_code": "[{expandable_inputs}]",
-      "inline": true,
-      "verified": true,
-      "pdf_page": 400
-    },
-    "1052": {
-      "name": "Subtract",
+      "name": "Add",
       "elementwise": true,
       "terminals": [
         {
           "index": 0,
           "direction": "out",
-          "name": "difference",
+          "name": "sum",
           "type": "polymorphic"
         },
         {
@@ -262,7 +240,37 @@
         }
       ],
       "python_code": {
-        "difference": "in_1 - in_2"
+        "sum": "in_1 + in_2"
+      },
+      "inline": true,
+      "verified": true,
+      "pdf_page": 517
+    },
+    "1052": {
+      "name": "Multiply",
+      "elementwise": true,
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "product",
+          "type": "polymorphic"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "x",
+          "type": "polymorphic"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "y",
+          "type": "polymorphic"
+        }
+      ],
+      "python_code": {
+        "product": "in_1 * in_2"
       },
       "inline": true,
       "verified": true,
