@@ -29,7 +29,7 @@ def _load_codes() -> dict[str, str]:
     if _ERROR_CODES is None:
         data_path = _bundled_data_dir() / "labview_error_codes.json"
         if data_path.exists():
-            _ERROR_CODES = json.loads(data_path.read_text())
+            _ERROR_CODES = json.loads(data_path.read_text(encoding="utf-8"))
         else:
             _ERROR_CODES = {}
     return _ERROR_CODES or {}
