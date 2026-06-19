@@ -42,6 +42,27 @@ def test_scalar_and_array_marshaling(tmp_path):
     assert result["out"] == [2.0, 4.0, 6.0]    # data*2, written in place
 
 
+def test_empty_array_input_marshals(tmp_path):
+    # A zero-length array must marshal as an empty ctypes buffer and read back
+    # as []. n=0 means the loop body never runs, so no out-of-bounds access.
+    script = (
+        "int32 i=0;\n"
+        "for (i=0; i<n; i++) out[i] = data[i]*2;\n"
+    )
+    variables = [
+        VarSpec("n", "NumInt32", "in", False),
+        VarSpec("data", "NumFloat64", "in", True),
+        VarSpec("out", "NumFloat64", "inout", True),
+    ]
+    res = transpile(script, variables, func_name="formula_e")
+    (tmp_path / "fe.c").write_text(res.c_source)
+    params = [(p.name, p.ctype, p.role, p.var) for p in res.params]
+
+    fn = rt.load(tmp_path, "fe", "formula_e", params)
+    result = fn(n=0, data=[], out=[])
+    assert result["out"] == []
+
+
 def test_int_assignment_rounds_at_runtime(tmp_path):
     # 7/2 = 3.5 -> LabVIEW rounds to nearest even -> 4 (C would truncate to 3)
     script = "k = a / b;\n"

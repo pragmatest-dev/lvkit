@@ -7,7 +7,9 @@ prebuilt binary). Fails loud with the compiler's stderr.
 
 from __future__ import annotations
 
+import os
 import platform
+import shutil
 import subprocess
 from pathlib import Path
 
@@ -22,7 +24,6 @@ def platform_tag() -> str:
 
 
 def _compiler() -> str:
-    import shutil
     cc = shutil.which("cc") or shutil.which("gcc") or shutil.which("clang")
     if cc is None:
         raise FormulaCompileError(
@@ -41,7 +42,7 @@ def compile_shared(c_path: Path, so_path: Path) -> Path:
     c_path = Path(c_path)
     so_path = Path(so_path)
     so_path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = so_path.with_suffix(so_path.suffix + f".tmp{__import__('os').getpid()}")
+    tmp = so_path.with_suffix(so_path.suffix + f".tmp{os.getpid()}")
     cmd = [
         _compiler(), "-shared", "-fPIC", "-O2",
         str(c_path), "-o", str(tmp), "-lm",

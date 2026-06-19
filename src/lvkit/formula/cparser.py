@@ -276,16 +276,13 @@ class Parser:
         return self._parse_power()
 
     def _parse_power(self) -> Expr:
-        base = self._parse_postfix()
+        base = self._parse_primary()
         if self._is("**"):
             self._next()
             # Right-associative; allow a unary exponent (e.g. 2**-3).
             exp = self._parse_unary()
             return Binary("**", base, exp)
         return base
-
-    def _parse_postfix(self) -> Expr:
-        return self._parse_primary()
 
     def _parse_primary(self) -> Expr:
         t = self._next()

@@ -133,6 +133,60 @@ def test_signature_roles():
     assert roles["r"] == "scalar_out"
 
 
+# --- loops (while / do-while) ---------------------------------------------
+# These are supported by the parser and emitter (switch/case/break are not);
+# lock that behaviour so a future change can't silently drop them.
+
+
+def test_while_loop_transpiles():
+    out = _body(
+        "int32 i=0;\nwhile (i < n) { acc = acc + i; i = i + 1; }",
+        [
+            VarSpec("n", "NumInt32", "in", False),
+            VarSpec("acc", "NumFloat64", "out", False),
+        ],
+    )
+    assert "while ((i < n))" in out
+    assert "acc = (acc + i);" in out
+
+
+def test_do_while_transpiles():
+    out = _body(
+        "int32 i=0;\ndo { acc = acc + i; i = i + 1; } while (i < n);",
+        [
+            VarSpec("n", "NumInt32", "in", False),
+            VarSpec("acc", "NumFloat64", "out", False),
+        ],
+    )
+    assert "do" in out
+    assert "while ((i < n));" in out
+
+
+@pytest.mark.skipif(CC is None, reason="no C compiler available")
+def test_while_and_do_while_c_compiles(tmp_path):
+    assert CC is not None
+    script = (
+        "int32 i=0;\n"
+        "while (i < n) { acc = acc + data[i]; i = i + 1; }\n"
+        "i = 0;\n"
+        "do { acc = acc - 1; i = i + 1; } while (i < n);\n"
+    )
+    variables = [
+        VarSpec("data", "NumFloat64", "in", True),
+        VarSpec("n", "NumInt32", "in", False),
+        VarSpec("acc", "NumFloat64", "out", False),
+    ]
+    res = transpile(script, variables)
+    src = tmp_path / "loops.c"
+    src.write_text(res.c_source)
+    obj = tmp_path / "loops.o"
+    r = subprocess.run(
+        [CC, "-c", "-O2", "-Wall", "-Werror", str(src), "-o", str(obj)],
+        capture_output=True, text=True,
+    )
+    assert r.returncode == 0, r.stderr
+
+
 # --- fail loud ------------------------------------------------------------
 
 

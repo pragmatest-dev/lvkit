@@ -34,43 +34,6 @@ def _call(fn: str, args: list[ast.expr]) -> ast.Call:
     )
 
 
-class _Arrayify(ast.NodeTransformer):
-    used: bool = False
-
-    def visit_BinOp(self, node: ast.BinOp) -> ast.AST:
-        self.generic_visit(node)
-        fn = _BINOP.get(type(node.op))
-        if fn:
-            self.used = True
-            return _call(fn, [node.left, node.right])
-        return node
-
-    def visit_UnaryOp(self, node: ast.UnaryOp) -> ast.AST:
-        self.generic_visit(node)
-        if isinstance(node.op, ast.USub):
-            self.used = True
-            return _call("neg", [node.operand])
-        return node
-
-    def visit_Compare(self, node: ast.Compare) -> ast.AST:
-        self.generic_visit(node)
-        if len(node.ops) == 1:
-            fn = _CMP.get(type(node.ops[0]))
-            if fn:
-                self.used = True
-                return _call(fn, [node.left, node.comparators[0]])
-        return node
-
-
-def arrayify(expr: ast.expr) -> tuple[ast.expr, bool]:
-    """Return (rewritten_expr, used_helper). ``used_helper`` is True when any
-    operator was rewritten (so the caller adds the import)."""
-    t = _Arrayify()
-    new = t.visit(expr)
-    ast.fix_missing_locations(new)
-    return new, t.used
-
-
 def _is_array_valued(node: ast.expr, array_vars: frozenset[str]) -> bool:
     """An operator's operand carries an array if it names a known array
     variable or is already an ``_lv.*`` broadcast call (which returns an array
@@ -84,41 +47,67 @@ def _is_array_valued(node: ast.expr, array_vars: frozenset[str]) -> bool:
     return False
 
 
-class _ModuleArrayify(ast.NodeTransformer):
-    """Arrayify operators whose operands are array-valued, anywhere in the
-    tree. Catches expressions that were inlined past the per-node hook."""
+class _ArrayifyBase(ast.NodeTransformer):
+    """Rewrite numeric operators into ``_lv.*`` broadcast calls. Subclasses
+    decide *which* operators to rewrite via ``_should`` — the dispatch over
+    BinOp/UnaryOp/Compare is shared so it lives in exactly one place."""
 
-    def __init__(self, array_vars: frozenset[str]):
-        self.array_vars = array_vars
-        self.used = False
+    used: bool = False
 
-    def _arr(self, n: ast.expr) -> bool:
-        return _is_array_valued(n, self.array_vars)
+    def _should(self, *operands: ast.expr) -> bool:
+        raise NotImplementedError
 
     def visit_BinOp(self, node: ast.BinOp) -> ast.AST:
         self.generic_visit(node)
         fn = _BINOP.get(type(node.op))
-        if fn and (self._arr(node.left) or self._arr(node.right)):
+        if fn and self._should(node.left, node.right):
             self.used = True
             return _call(fn, [node.left, node.right])
         return node
 
     def visit_UnaryOp(self, node: ast.UnaryOp) -> ast.AST:
         self.generic_visit(node)
-        if isinstance(node.op, ast.USub) and self._arr(node.operand):
+        if isinstance(node.op, ast.USub) and self._should(node.operand):
             self.used = True
             return _call("neg", [node.operand])
         return node
 
     def visit_Compare(self, node: ast.Compare) -> ast.AST:
         self.generic_visit(node)
-        if len(node.ops) == 1 and (self._arr(node.left)
-                                   or self._arr(node.comparators[0])):
+        if len(node.ops) == 1:
             fn = _CMP.get(type(node.ops[0]))
-            if fn:
+            if fn and self._should(node.left, node.comparators[0]):
                 self.used = True
                 return _call(fn, [node.left, node.comparators[0]])
         return node
+
+
+class _Arrayify(_ArrayifyBase):
+    """Rewrite every numeric operator — used per-node when the whole template
+    expression is already known to be array-valued."""
+
+    def _should(self, *operands: ast.expr) -> bool:
+        return True
+
+
+class _ModuleArrayify(_ArrayifyBase):
+    """Rewrite only operators with an array-valued operand, anywhere in the
+    tree. Catches expressions that were inlined past the per-node hook."""
+
+    def __init__(self, array_vars: frozenset[str]):
+        self.array_vars = array_vars
+
+    def _should(self, *operands: ast.expr) -> bool:
+        return any(_is_array_valued(o, self.array_vars) for o in operands)
+
+
+def arrayify(expr: ast.expr) -> tuple[ast.expr, bool]:
+    """Return (rewritten_expr, used_helper). ``used_helper`` is True when any
+    operator was rewritten (so the caller adds the import)."""
+    t = _Arrayify()
+    new = t.visit(expr)
+    ast.fix_missing_locations(new)
+    return new, t.used
 
 
 def arrayify_module(body: list[ast.stmt], array_vars: frozenset[str]) -> bool:
