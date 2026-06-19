@@ -24,6 +24,9 @@ from .models import (
     WireEnd,
 )
 from .models import (
+    FormulaNode as GraphFormulaNode,
+)
+from .models import (
     PrimitiveNode as GraphPrimitiveNode,
 )
 
@@ -47,10 +50,11 @@ _KIND_TO_LABELS: dict[str, list[str]] = {
     "loop": ["Loop"],
     "operation": ["Operation"],
     "constant": ["Constant"],
+    "formula": ["FormulaNode"],
 }
 
 # Graph node kinds that represent executable operations
-_OPERATION_KINDS = ("vi", "primitive", "operation", "caseStruct", "loop")
+_OPERATION_KINDS = ("vi", "primitive", "operation", "caseStruct", "loop", "formula")
 
 def _get_operation_labels(kind: str) -> list[str]:
     """Get labels for an operation based on its kind."""
@@ -61,6 +65,8 @@ def _graph_node_to_op_kind(node: AnyGraphNode) -> str:
     """Map a typed graph node to the operation kind string."""
     if isinstance(node, VINode):
         return "vi"
+    if isinstance(node, GraphFormulaNode):
+        return "formula"
     if isinstance(node, GraphPrimitiveNode):
         return "primitive"
     if isinstance(node, StructureNode):
@@ -180,6 +186,8 @@ class InMemoryVIGraph(
             typedef_path=parsed_type.typedef_path,
             typedef_name=parsed_type.typedef_name,
             values=parsed_type.enum_values,
+            element_type=self._enrich_type(parsed_type.element_type),
+            dimensions=parsed_type.dimensions,
         )
 
         # Anonymous clusters: fields ARE the type definition (no external

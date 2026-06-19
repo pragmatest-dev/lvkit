@@ -4,7 +4,11 @@ from __future__ import annotations
 
 import pytest
 
-from lvkit.parser.naming import build_qualified_name, build_relative_path, parse_qualified_name
+from lvkit.parser.naming import (
+    build_qualified_name,
+    build_relative_path,
+    parse_qualified_name,
+)
 
 
 class TestBuildQualifiedName:

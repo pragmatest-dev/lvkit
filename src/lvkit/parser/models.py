@@ -28,6 +28,8 @@ class ParsedType:
     classname: str | None = None  # "Lib.lvlib:TestCase.lvclass"
     fields: list[ClusterField] | None = None  # Recursive cluster fields
     enum_values: dict | None = None  # {name: EnumValue} from VCTP
+    element_type: ParsedType | None = None  # Array element type (recursive)
+    dimensions: int | None = None  # Array dimension count
 
 
 @dataclass

@@ -1,8 +1,11 @@
 """Tests for lvkit."""
 
+from importlib.metadata import version
+
 import lvkit
 
 
 def test_version() -> None:
-    """Test version is defined."""
-    assert lvkit.__version__ == "0.1.0"
+    """__version__ is defined and matches the installed package metadata."""
+    assert lvkit.__version__
+    assert lvkit.__version__ == version("lvkit")

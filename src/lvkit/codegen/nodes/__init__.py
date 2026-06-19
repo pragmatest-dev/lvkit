@@ -11,6 +11,7 @@ import ast
 
 from lvkit.models import (
     CaseOperation,
+    FormulaOperation,
     InPlaceOperation,
     InvokeOperation,
     LoopOperation,
@@ -29,6 +30,7 @@ from . import (
     case,
     compound,
     constant,
+    formula,
     in_place,
     invoke_node,
     loop,
@@ -62,6 +64,8 @@ def generate(node: Operation, ctx: CodeGenContext) -> CodeFragment:
             return invoke_node.generate(node, ctx)
         case SubVIOperation():
             return subvi.generate(node, ctx)
+        case FormulaOperation():
+            return formula.generate(node, ctx)
         case PrimitiveOperation():
             return _generate_primitive(node, ctx)
         case _ if "Constant" in node.labels:
@@ -84,6 +88,11 @@ def _generate_primitive(
         case "printf":
             return printf.generate(node, ctx)
         case _:
+            # Build Array as a plain prim (resID 1050) — not the expandable
+            # aBuild class — still concatenates inputs (scalars wrapped, arrays
+            # joined), not nested into `[scalar, array]`.
+            if node.primResID == 1050:
+                return compound.generate_array_build(node, ctx)
             return primitive.generate(node, ctx)
 
 

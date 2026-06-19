@@ -642,42 +642,51 @@ def _extract_subvi_info(
     if caller_qualified_name and ":" in caller_qualified_name:
         caller_library = caller_qualified_name.split(":")[0]
 
-    # --- Collect dependency path refs from ALL LIvi link element types ---
+    # --- Collect dependency path refs from ALL link element types ---
     # Every element that carries both LinkSaveQualName + LinkSavePathRef uses
-    # the identical schema. Iterate all of them regardless of file extension
-    # so classes, typedefs, and libraries get the same treatment as SubVIs.
+    # the identical schema. Two scopes carry these:
+    #   - LIvi/...   : VIVI/VIPI/VICC/etc. — saved-by-LV reference table
+    #   - LIbd/BDHP/ : IUVI/PUPV — block-diagram iUse instance records
+    # Some VIs only emit one or the other (e.g., DAQmx callers carry path
+    # refs under LIbd/BDHP/IUVI with nothing in LIvi). Walk both.
     _LIVI_LINK_TAGS = (
         "VIVI", "VIPI", "VIPV", "VILB", "FPPI", "DDPI",
         "VICC", "DDPC", "FPPC", "IUVI",
         "BSVR", "SVVI",  # statVIRef link types
     )
+    _BDHP_LINK_TAGS = ("IUVI", "PUPV")  # block-diagram iUse path refs
+    scopes: list[tuple[str, tuple[str, ...]]] = [
+        (".//LIvi//{tag}", _LIVI_LINK_TAGS),
+        (".//LIbd//BDHP/{tag}", _BDHP_LINK_TAGS),
+    ]
     seen_deps: set[tuple[str, tuple[str, ...]]] = set()
-    for tag in _LIVI_LINK_TAGS:
-        for elem in main_root.findall(f".//LIvi//{tag}"):
-            qname = _resolve_qualified_name(elem, caller_library)
-            if not qname:
-                continue
-            path_ref = elem.find("LinkSavePathRef")
-            if path_ref is None:
-                continue
-            # Preserve empty strings — they are the '..' navigation markers.
-            # <String /> (self-closing) has .text = None; map to "".
-            path_tokens = [
-                s.text if s.text is not None else ""
-                for s in path_ref.findall("String")
-            ]
-            if not path_tokens:
-                continue
-            key: tuple[str, tuple[str, ...]] = (qname, tuple(path_tokens))
-            if key in seen_deps:
-                continue
-            seen_deps.add(key)
-            name = qname.rsplit(":", 1)[-1]
-            dependency_refs.append(ParsedDependencyRef(
-                name=name,
-                path_tokens=path_tokens,
-                qualified_name=qname,
-            ))
+    for xpath_template, tags in scopes:
+        for tag in tags:
+            for elem in main_root.findall(xpath_template.format(tag=tag)):
+                qname = _resolve_qualified_name(elem, caller_library)
+                if not qname:
+                    continue
+                path_ref = elem.find("LinkSavePathRef")
+                if path_ref is None:
+                    continue
+                # Preserve empty strings — they are '..' navigation markers.
+                # <String /> (self-closing) has .text = None; map to "".
+                path_tokens = [
+                    s.text if s.text is not None else ""
+                    for s in path_ref.findall("String")
+                ]
+                if not path_tokens:
+                    continue
+                key: tuple[str, tuple[str, ...]] = (qname, tuple(path_tokens))
+                if key in seen_deps:
+                    continue
+                seen_deps.add(key)
+                name = qname.rsplit(":", 1)[-1]
+                dependency_refs.append(ParsedDependencyRef(
+                    name=name,
+                    path_tokens=path_tokens,
+                    qualified_name=qname,
+                ))
 
     # --- SubVI qualified names (for the dep loading loop in graph/loading.py) ---
     # VIVI/VIPI/DyOM/VIPV: SubVI calls. BSVR: statVIRef targets.
