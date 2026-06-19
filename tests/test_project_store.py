@@ -234,6 +234,23 @@ def test_cli_setup_creates_project_store(tmp_path: Path) -> None:
     assert not (tmp_path / ".claude").exists()
 
 
+def test_cli_setup_skills_choice_is_not_a_directory(tmp_path: Path) -> None:
+    """`lvkit setup copilot` installs copilot skills in CWD — it must NOT bind
+    'copilot' to the directory arg. Regression: that failed with 'Not a
+    directory: .../copilot'."""
+    import subprocess
+    import sys
+
+    result = subprocess.run(
+        [sys.executable, "-m", "lvkit.cli", "setup", "copilot"],
+        cwd=tmp_path, capture_output=True, text=True,
+    )
+    assert result.returncode == 0, result.stderr
+    assert "Not a directory" not in result.stderr
+    assert (tmp_path / ".lvkit").is_dir()
+    assert (tmp_path / ".github" / "prompts").is_dir()   # copilot skills, in CWD
+
+
 # ============================================================
 # Skill installation
 # ============================================================
