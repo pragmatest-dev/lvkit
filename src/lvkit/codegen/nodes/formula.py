@@ -84,6 +84,12 @@ def generate(node: FormulaOperation, ctx: CodeGenContext) -> CodeFragment:
             val = ctx.resolve(term.id) if term else None
             if val is None:
                 val = "[]" if spec.is_array else "0"
+            elif spec.is_array:
+                # LabVIEW value-copies arrays at a wire branch; the formula
+                # node works on its own buffer per terminal. Copy each array
+                # arg so the function's in-place writes can't alias the caller's
+                # data or another terminal (which corrupts results).
+                val = f"list({val})"
             input_args.append(f"{spec.name}={val}")
 
     bindings: dict[str, str] = {}

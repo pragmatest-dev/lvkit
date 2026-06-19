@@ -82,6 +82,41 @@ def test_int_output_pulls_in_lv_runtime_import():
     assert "from lvkit.runtime import lv as _lv" in frag.imports
 
 
+def test_formula_does_not_mutate_callers_array():
+    """BEHAVIORAL guard (not a string match): a Formula Node writes its in/out
+    array in place, so the caller's array must NOT be mutated — LabVIEW value-
+    copies arrays at a wire branch. Built + executed end to end, so it survives
+    ANY future copy mechanism (formula-call copy OR value-copy-at-branch): if a
+    branching change re-introduces aliasing, the caller's list gets mutated and
+    this fails. This is the exact failure mode that corrupted Himmelt's VI."""
+    arr = LVType(kind="array", underlying_type="Array", element_type=_dbl())
+    op = FormulaOperation(
+        id="vi::9", name="Formula Node", labels=["FormulaNode"], node_type="fBox",
+        script="int32 i=0;\nfor (i=0; i<n; i++) buf[i] = buf[i] + 1;",
+        terminals=[
+            Terminal(id="t_in", index=0, direction="input", name="buf", lv_type=arr),
+            Terminal(id="t_out", index=1, direction="output", name="buf", lv_type=arr),
+            Terminal(id="t_n", index=2, direction="input", name="n",
+                     lv_type=LVType(kind="primitive", underlying_type="NumInt32")),
+        ],
+    )
+    from tests.helpers import make_ctx
+    ctx = make_ctx("t_in", "t_out", "t_n")
+    ctx.bind("t_in", "data")   # the input array wire...
+    ctx.bind("t_n", "count")
+    frag = formula.generate(op, ctx)
+
+    mod = ast.Module(body=[ctx.formula_helpers[0], *frag.statements],
+                     type_ignores=[])
+    ast.fix_missing_locations(mod)
+    ns: dict = {"data": [1.0, 2.0, 3.0], "count": 3}
+    exec("import math\nfrom lvkit.runtime import lv as _lv\n" + ast.unparse(mod), ns)
+
+    assert ns["data"] == [1.0, 2.0, 3.0], "caller's array was mutated (aliased!)"
+    out_var = frag.bindings["t_out"]
+    assert ns[out_var] == [2.0, 3.0, 4.0]          # the node's own (copied) buffer
+
+
 def test_unknown_function_in_script_fails_loud():
     op = _op(script="y = mystery(a);")
     ctx = CodeGenContext(vi_name="my_vi.vi")
