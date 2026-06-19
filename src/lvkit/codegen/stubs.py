@@ -47,7 +47,7 @@ class StubGenerator:
         for func_name, info in self._stubs.items():
             path = output_dir / f"{func_name}.py"
             code = self._generate_stub_module(func_name, info)
-            path.write_text(code)
+            path.write_text(code, encoding="utf-8")
             generated.append(path)
         return generated
 

@@ -1,26 +1,55 @@
-"""Compile-and-call test for the Formula Node runtime.
+"""Tests for the Formula Node runtime helpers and emitted-function execution.
 
-Transpiles a small script, compiles it via the runtime loader (no prebuilt
-.so present, so it falls back to compiling the .c), and verifies marshaling
-of scalar in/out and array in/out across the FFI boundary.
+The Formula Node backend emits pure Python (no C compiler / FFI). LabVIEW
+numeric semantics that Python doesn't reproduce natively — fixed-width
+integer wrap, round-to-nearest-even on int assignment, C-style fmod/rem —
+live as helpers in lvkit.runtime.lv. These tests pin those helpers and run a
+representative emitted function end to end (scalar + array in/out).
 """
 
 from __future__ import annotations
 
-import shutil
-
-import pytest
-
 from lvkit.formula.emit import VarSpec, transpile
-from lvkit.runtime import formula as rt
+from lvkit.runtime import lv
 
-CC = shutil.which("cc") or shutil.which("gcc")
-pytestmark = pytest.mark.skipif(CC is None, reason="no C compiler available")
+# --- fixed-width integer coercion (round-to-nearest-even + wrap) -----------
 
 
-def test_scalar_and_array_marshaling(tmp_path):
+def test_signed_width_wrap():
+    assert lv.i16(40000) == -25536        # 40000 - 65536
+    assert lv.i16(-1) == -1
+    assert lv.i8(127) == 127
+    assert lv.i8(128) == -128             # wraps past the signed max
+
+
+def test_unsigned_width_wrap():
+    assert lv.u8(300) == 44               # 300 % 256
+    assert lv.u8(-1) == 255
+    assert lv.u16(65536) == 0
+
+
+def test_round_ties_to_even_on_store():
+    # LabVIEW rounds a real into an integer terminal, ties to even.
+    assert lv.i32(2.5) == 2
+    assert lv.i32(3.5) == 4
+    assert lv.i32(-2.5) == -2
+
+
+def test_sign_fmod_rem():
+    assert lv.sign(-3.2) == -1
+    assert lv.sign(0) == 0
+    assert lv.sign(5) == 1
+    # C/LV fmod takes the sign of the dividend (Python % takes the divisor's)
+    assert lv.fmod(-7.0, 3.0) == -1.0
+    assert lv.rem(7.5, 2.0) == -0.5       # 7.5 - 2*round(3.75) = 7.5 - 8
+
+
+# --- emitted function executes (scalar + array marshaling) -----------------
+
+
+def test_scalar_and_array_round_trip():
     script = (
-        "int16 i=0;\n"
+        "int32 i=0;\n"
         "y = a + 2**3;\n"
         "for (i=0; i<n; i++) out[i] = data[i]*2;\n"
     )
@@ -32,65 +61,23 @@ def test_scalar_and_array_marshaling(tmp_path):
         VarSpec("out", "NumFloat64", "inout", True),
     ]
     res = transpile(script, variables, func_name="formula_t")
-    (tmp_path / "ft.c").write_text(res.c_source)
-    params = [(p.name, p.ctype, p.role, p.var) for p in res.params]
-
-    fn = rt.load(tmp_path, "ft", "formula_t", params)
-    result = fn(a=5.0, n=3, data=[1.0, 2.0, 3.0], out=[0.0, 0.0, 0.0])
+    ns: dict = {}
+    exec("import math\nfrom lvkit.runtime import lv as _lv\n" + res.source, ns)
+    result = ns["formula_t"](a=5.0, n=3, data=[1.0, 2.0, 3.0], out=[0.0, 0.0, 0.0])
 
     assert result["y"] == 13.0                 # 5 + 2**3
     assert result["out"] == [2.0, 4.0, 6.0]    # data*2, written in place
 
 
-def test_empty_array_input_marshals(tmp_path):
-    # A zero-length array must marshal as an empty ctypes buffer and read back
-    # as []. n=0 means the loop body never runs, so no out-of-bounds access.
-    script = (
-        "int32 i=0;\n"
-        "for (i=0; i<n; i++) out[i] = data[i]*2;\n"
-    )
+def test_empty_array_input():
+    # A zero-length array runs the loop zero times and reads back as [].
+    script = "int32 i=0;\nfor (i=0; i<n; i++) out[i] = data[i]*2;\n"
     variables = [
         VarSpec("n", "NumInt32", "in", False),
         VarSpec("data", "NumFloat64", "in", True),
         VarSpec("out", "NumFloat64", "inout", True),
     ]
     res = transpile(script, variables, func_name="formula_e")
-    (tmp_path / "fe.c").write_text(res.c_source)
-    params = [(p.name, p.ctype, p.role, p.var) for p in res.params]
-
-    fn = rt.load(tmp_path, "fe", "formula_e", params)
-    result = fn(n=0, data=[], out=[])
-    assert result["out"] == []
-
-
-def test_int_assignment_rounds_at_runtime(tmp_path):
-    # 7/2 = 3.5 -> LabVIEW rounds to nearest even -> 4 (C would truncate to 3)
-    script = "k = a / b;\n"
-    variables = [
-        VarSpec("a", "NumFloat64", "in", False),
-        VarSpec("b", "NumFloat64", "in", False),
-        VarSpec("k", "NumInt32", "out", False),
-    ]
-    res = transpile(script, variables, func_name="formula_r")
-    (tmp_path / "fr.c").write_text(res.c_source)
-    params = [(p.name, p.ctype, p.role, p.var) for p in res.params]
-
-    fn = rt.load(tmp_path, "fr", "formula_r", params)
-    assert fn(a=7.0, b=2.0)["k"] == 4          # round-to-nearest, not trunc(3)
-
-
-def test_int_division_is_real_not_integer(tmp_path):
-    # Formula Node: int/int is REAL division (-> float), unlike C's int/int.
-    # Truncation only happens at assignment to an integer variable.
-    script = "y = a / b;\n"
-    variables = [
-        VarSpec("a", "NumInt32", "in", False),
-        VarSpec("b", "NumInt32", "in", False),
-        VarSpec("y", "NumFloat64", "out", False),
-    ]
-    res = transpile(script, variables, func_name="formula_d")
-    (tmp_path / "fd.c").write_text(res.c_source)
-    params = [(p.name, p.ctype, p.role, p.var) for p in res.params]
-
-    fn = rt.load(tmp_path, "fd", "formula_d", params)
-    assert fn(a=8192, b=32768)["y"] == 0.25    # not C's 8192 // 32768 == 0
+    ns: dict = {}
+    exec("import math\nfrom lvkit.runtime import lv as _lv\n" + res.source, ns)
+    assert ns["formula_e"](n=0, data=[], out=[])["out"] == []

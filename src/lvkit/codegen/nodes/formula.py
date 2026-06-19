@@ -1,9 +1,9 @@
 """Code generation for Formula Nodes (fBox).
 
-Transpiles the embedded script to C, registers the C as an artifact the
-pipeline writes + compiles next to the module, and emits Python that loads
-the compiled function (via lvkit.runtime.formula) and calls it with the
-node's resolved input variables, binding each output.
+Transpiles the embedded script to a deterministic, self-contained Python
+function, injects that function at module level (via the context), and emits
+a call to it with the node's resolved input variables, binding each output.
+No C compiler, no FFI — the generated module is pure Python.
 """
 
 from __future__ import annotations
@@ -15,7 +15,6 @@ from typing import TYPE_CHECKING
 from lvkit.formula.emit import VarSpec, transpile
 from lvkit.models import FormulaOperation
 
-from ..context import FormulaArtifact
 from ..fragment import CodeFragment
 from .base import CodeGenError
 
@@ -67,13 +66,12 @@ def generate(node: FormulaOperation, ctx: CodeGenContext) -> CodeFragment:
 
     uid = node.id.split("::")[-1]
     suffix = re.sub(r"\W", "_", uid)
-    func_name = f"formula_{suffix}"
-    module_slug = re.sub(r"\W", "_", (ctx.vi_name or "vi")).lower()
-    basename = f"{module_slug}_formula_{suffix}"
+    func_name = f"_formula_{suffix}"
 
     specs = _varspecs(node)
     result = transpile(node.script, specs, func_name=func_name)
-    ctx.formula_artifacts.append(FormulaArtifact(basename, result.c_source))
+    # Inject the generated function at module level (once per node).
+    ctx.formula_helpers.append(result.func_def)
 
     # Map terminals by direction for input resolution / output binding.
     inputs = {t.name: t for t in node.terminals if t.direction == "input" and t.name}
@@ -90,7 +88,6 @@ def generate(node: FormulaOperation, ctx: CodeGenContext) -> CodeFragment:
 
     bindings: dict[str, str] = {}
     output_lines: list[str] = []
-    loader = f"_formula_{suffix}"
     resvar = f"_fr_{suffix}"
     for spec in specs:
         if spec.direction in ("out", "inout"):
@@ -101,11 +98,8 @@ def generate(node: FormulaOperation, ctx: CodeGenContext) -> CodeFragment:
             bindings[term.id] = out_var
             output_lines.append(f"{out_var} = {resvar}[{spec.name!r}]")
 
-    params = [(p.name, p.ctype, p.role, p.var) for p in result.params]
     lines = [
-        f"{loader} = _lvkit_formula.load("
-        f"Path(__file__).parent, {basename!r}, {func_name!r}, {params!r})",
-        f"{resvar} = {loader}({', '.join(input_args)})",
+        f"{resvar} = {func_name}({', '.join(input_args)})",
         *output_lines,
     ]
     stmts = ast.parse("\n".join(lines)).body
@@ -113,8 +107,5 @@ def generate(node: FormulaOperation, ctx: CodeGenContext) -> CodeFragment:
     return CodeFragment(
         statements=stmts,
         bindings=bindings,
-        imports={
-            "from lvkit.runtime import formula as _lvkit_formula",
-            "from pathlib import Path",
-        },
+        imports=set(result.imports),
     )

@@ -741,7 +741,7 @@ def cmd_visualize(args: argparse.Namespace) -> int:
         primary_vi = vis[0] if vis else ""
         html = flowchart_html(graph, primary_vi)
         output.parent.mkdir(parents=True, exist_ok=True)
-        output.write_text(html)
+        output.write_text(html, encoding="utf-8")
     else:
         try:
             import pyvis  # type: ignore[import-untyped]  # noqa: F401
@@ -860,10 +860,10 @@ def _build_legend(mode: str) -> str:
 
 def _inject_extras(output: Path, mode: str) -> None:
     """Inject legend and properties panel into generated HTML."""
-    html = output.read_text()
+    html = output.read_text(encoding="utf-8")
     extras = _build_legend(mode) + _PROPERTIES_PANEL
     html = html.replace("</body>", extras + "</body>")
-    output.write_text(html)
+    output.write_text(html, encoding="utf-8")
 
 
 def _visualize_dataflow(
