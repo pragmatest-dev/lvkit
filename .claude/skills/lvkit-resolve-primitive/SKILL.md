@@ -33,8 +33,11 @@ In **both** modes, the function-identification step (Step 5) uses live web searc
 ## Step 1: Record the diagnostic
 
 Write down the EXACT diagnostic output:
-- primResID
-- Every terminal: index, direction, type
+- primResID **and the node's XML class** (`prim`, `aIndx`, `cpdArith`, … — the
+  same resID can mean different ops across classes; see Step 4.5)
+- Every terminal: index, direction, and **full type** — for arrays record the
+  ELEMENT type (`Array[NumInt32]`, not just `Array`); the output type is the
+  single most important field for identification (Step 4.5)
 - The VI name (and the qualified name if present — "In VI: ..." line)
 
 **IMPORTANT: Primitives only show WIRED terminals.** Unlike VIs (which show all connector pane terminals), primitives only include terminals that have wires connected. A primitive with 7 possible terminals may only show 5 in a given VI. When matching against documentation or source, the observed terminals are a SUBSET of the full terminal list. Match by the terminals you see, not by total count.
@@ -170,6 +173,70 @@ Related LabVIEW primitives share primResID ranges:
 
 Does the terminal signature (types, count, directions) fit the range?
 
+## Step 4.5: Types are the discriminator (read this every time)
+
+Shape (how many inputs/outputs) is NOT enough to identify a primitive. The
+**exact I/O types — especially the OUTPUT type and array element types — are
+what distinguish operations that look identical by shape.** Most mislabeled
+entries in `data/primitives.json` come from guessing by shape and ignoring
+type.
+
+**Get ground-truth types, not display labels.** The parser sometimes flattens
+an array terminal to just `Array` (no element type) or types an output by
+context. When an output type is surprising or pivotal, resolve the raw
+`<typeDesc>TypeID(N)</typeDesc>` against the type map instead of trusting the
+graph's resolved kind:
+
+```bash
+python3 -c "
+from lvkit.parser.type_mapping import parse_type_map_rich
+tm = parse_type_map_rich('<main>.xml')
+lt = tm.get(N); print(lt.kind, lt.underlying_type, getattr(lt.element_type,'underlying_type',None))
+"
+```
+
+**Array → scalar is the classic trap.** Many different ops take an array and
+return a scalar, and they are only told apart by the OUTPUT type:
+- `Array[X] → NumInt32` (a count, element-type-independent) → **Array Size** /
+  a search/index returning a position. The output is an integer regardless of
+  the element type.
+- `Array[X] → X` (output is the element type — `Array[DBL] → DBL`) → a
+  **reduction**: Add Array Elements (sum), Multiply Array Elements (product),
+  Array Max/Min, etc. NOT Array Size.
+
+So **never label an `Array → scalar` op "Array Size" unless the output is an
+integer count.** If the output carries the element type, it is a reduction.
+
+**Cross-reference with VARIED element types (Step 2) to force the answer.** An
+op that yields `NumInt32` for *non-numeric* element types (Path, Refnum,
+String, Cluster) can ONLY be a count — you cannot sum paths. An op whose
+output type tracks the input element type is a reduction. One instance over a
+`DBL` array (where sum and size both look plausible) is ambiguous; instances
+over mixed element types are decisive.
+
+**Watch for resID collisions across XML classes.** The same primResID can be
+assigned to two different operations depending on the node's XML class. Codegen
+resolves `node_type` (XML class) BEFORE `primResID`, so an expandable node
+(e.g. `aIndx` = Index Array) and a plain `prim` with the same numeric resID can
+coexist as different functions. Always note the node's XML class, not just the
+resID, and check whether a specialized handler already covers the class.
+
+**Audit for duplicate names before adding.** If `data/primitives.json` already
+has several entries with the same `name` (e.g. multiple "Array Size"), that is
+a red flag that earlier resolutions guessed by shape. Do not add another —
+verify by output type which entries are actually that function and treat the
+rest as suspect.
+
+**Force the identity from the consumer dataflow (extends Step 3).** When types
+narrow it to a small set, reconstruct the surrounding expression as code and
+ask which candidate makes the algorithm coherent. Example from a real VI: a
+unary `DBL→DBL` op fed `deltas → ? → sum → ? → To Byte Integer → direction
+flag (±1)`. Only **Sign** makes that a wrap-robust majority-vote direction
+detector; Negate/Abs/Decrement produce a value that can't be a ±1 flag. The
+consumer's required output (here, ±1) plus the types uniquely determine the
+function. This is deterministic deduction, not guessing — but only when both
+the types and the consumer constraint pin it.
+
 ## Step 5: Identify the function via web search
 
 lvkit does not bundle NI's reference manual. Use the WebSearch tool to look up candidate functions on NI's documentation site.
@@ -261,7 +328,10 @@ Placeholder entries emit a `warnings.warn()` and generate `pass` + a TODO commen
 
 ## NEVER do these things
 
-- NEVER guess a function name from terminal types alone
+- NEVER guess a function name from terminal SHAPE (input/output count) alone — the I/O TYPES, especially the output and array element types, are the discriminator
+- NEVER label an `Array → scalar` op "Array Size" unless the output is an integer count; an element-typed output (`Array[DBL] → DBL`) is a reduction (sum/product/max), not a count
+- NEVER trust an existing `primitives.json` label — duplicate names (e.g. several "Array Size") signal earlier shape-based guesses; re-verify by output type
+- NEVER identify a primitive by resID alone when its XML class has a specialized handler — the same resID can mean different ops across classes (codegen resolves node_type before resID)
 - NEVER say "polymorphic" to explain away type mismatches — ask the user
 - NEVER copy a name from another entry because "it looks similar"
 - NEVER fill python_code without confirming semantics from the documentation
