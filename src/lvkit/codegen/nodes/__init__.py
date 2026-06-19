@@ -88,6 +88,11 @@ def _generate_primitive(
         case "printf":
             return printf.generate(node, ctx)
         case _:
+            # Build Array as a plain prim (resID 1050) — not the expandable
+            # aBuild class — still concatenates inputs (scalars wrapped, arrays
+            # joined), not nested into `[scalar, array]`.
+            if node.primResID == 1050:
+                return compound.generate_array_build(node, ctx)
             return primitive.generate(node, ctx)
 
 
