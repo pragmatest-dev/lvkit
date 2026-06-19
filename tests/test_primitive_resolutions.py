@@ -15,9 +15,6 @@ from __future__ import annotations
 
 import pytest
 
-from lvkit.codegen.context import CodeGenContext
-from lvkit.codegen.nodes import _generate_primitive
-from lvkit.models import LVType, PrimitiveOperation, Terminal
 from lvkit.primitive_resolver import get_resolver
 
 EXPECTED_NAMES = {
@@ -27,8 +24,13 @@ EXPECTED_NAMES = {
     1057: "Absolute Value",
     1049: "Sign",
     1140: "To Byte Integer",
+    # The 2-input arithmetic block: 1050 Add, 1051 Subtract, 1052 Multiply,
+    # 1053 Divide. 1050 was previously mis-IDed as "Build Array" (it was an
+    # Add broadcasting a scalar over an array); 1052 was a duplicate "Subtract".
+    1050: "Add",
     1051: "Subtract",
-    1050: "Build Array",
+    1052: "Multiply",
+    1053: "Divide",
 }
 
 
@@ -60,35 +62,25 @@ def test_key_python_code_semantics():
     # Sign -> +/-1, To Byte Integer -> saturating I8
     assert "(in_1 > 0) - (in_1 < 0)" in str(res.resolve(prim_id=1049).python_code)
     assert "127" in str(res.resolve(prim_id=1140).python_code)
+    # 2-input arithmetic: Add / Subtract / Multiply / Divide (operators give
+    # LV's type coercion for free; Divide is true division -> always float).
+    assert "in_1 + in_2" in str(res.resolve(prim_id=1050).python_code)
+    assert "in_1 - in_2" in str(res.resolve(prim_id=1051).python_code)
+    assert "in_1 * in_2" in str(res.resolve(prim_id=1052).python_code)
+    assert "in_1 / in_2" in str(res.resolve(prim_id=1053).python_code)
 
 
 def test_numeric_primitives_are_elementwise():
     res = get_resolver()
-    for prim_id in (1051, 1049):  # Subtract, Sign broadcast over arrays
+    # Add, Subtract, Multiply, Sign all broadcast over arrays
+    for prim_id in (1050, 1051, 1052, 1049):
         assert res.resolve(prim_id=prim_id).elementwise is True
 
 
-def test_build_array_prim_1050_concatenates_not_nests():
-    """prim 1050 (plain Build Array) must route to the concatenating handler
-    ([scalar] + array), not nest into [scalar, array]."""
-    arr = LVType(kind="array", underlying_type="Array",
-                 element_type=LVType(kind="primitive", underlying_type="NumFloat64"))
-    dbl = LVType(kind="primitive", underlying_type="NumFloat64")
-    op = PrimitiveOperation(
-        id="vi::1", name="Build Array", labels=["Primitive"],
-        node_type="prim", primResID=1050,
-        terminals=[
-            Terminal(id="o", index=0, direction="output", name="appended", lv_type=arr),
-            Terminal(id="s", index=1, direction="input", name="scalar", lv_type=dbl),
-            Terminal(id="a", index=2, direction="input", name="arr", lv_type=arr),
-        ],
-    )
-    frag = _generate_primitive(op, CodeGenContext(vi_name="vi"))
-    import ast
-    mod = ast.Module(body=list(frag.statements), type_ignores=[])
-    ast.fix_missing_locations(mod)
-    src = ast.unparse(mod)
-    # The concatenating handler wraps the scalar and joins with '+';
-    # the (wrong) nesting path emits a 2-element list literal `[x, y]`.
-    assert " + " in src, f"expected concatenation, got: {src}"
-    assert "[None, None]" not in src
+def test_arithmetic_block_is_not_build_array():
+    """The 2-input arithmetic block must never resolve back to Build Array —
+    1050 was mis-IDed that way (a scalar+array Add read as concatenation).
+    Real Build Array is the expandable 'aBuild' node class, not a plain prim."""
+    res = get_resolver()
+    for prim_id in (1050, 1051, 1052, 1053):
+        assert res.resolve(prim_id=prim_id).name != "Build Array"
