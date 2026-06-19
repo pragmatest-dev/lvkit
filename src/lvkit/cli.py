@@ -535,6 +535,14 @@ def _detect_ai_editors(root: Path) -> list[str]:
 
 def cmd_setup(args: argparse.Namespace) -> int:
     """Handle the setup command — install AI skills and create .lvkit/ store."""
+    # `directory` and `skills` are both optional positionals, so a lone
+    # `lvkit setup copilot` binds "copilot" to `directory`. If the only
+    # positional given is a skills choice, treat it as the skills target in
+    # the current directory (the obvious intent).
+    if args.skills is None and args.directory in ("claude", "copilot", "all"):
+        args.skills = args.directory
+        args.directory = "."
+
     root = Path(args.directory).resolve()
     if not root.is_dir():
         print(f"Error: Not a directory: {root}", file=sys.stderr)
