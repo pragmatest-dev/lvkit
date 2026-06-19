@@ -56,3 +56,20 @@ def test_int_assignment_rounds_at_runtime(tmp_path):
 
     fn = rt.load(tmp_path, "fr", "formula_r", params)
     assert fn(a=7.0, b=2.0)["k"] == 4          # round-to-nearest, not trunc(3)
+
+
+def test_int_division_is_real_not_integer(tmp_path):
+    # Formula Node: int/int is REAL division (-> float), unlike C's int/int.
+    # Truncation only happens at assignment to an integer variable.
+    script = "y = a / b;\n"
+    variables = [
+        VarSpec("a", "NumInt32", "in", False),
+        VarSpec("b", "NumInt32", "in", False),
+        VarSpec("y", "NumFloat64", "out", False),
+    ]
+    res = transpile(script, variables, func_name="formula_d")
+    (tmp_path / "fd.c").write_text(res.c_source)
+    params = [(p.name, p.ctype, p.role, p.var) for p in res.params]
+
+    fn = rt.load(tmp_path, "fd", "formula_d", params)
+    assert fn(a=8192, b=32768)["y"] == 0.25    # not C's 8192 // 32768 == 0
