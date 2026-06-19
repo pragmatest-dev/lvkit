@@ -26,6 +26,7 @@
     },
     "1104": {
       "name": "Greater?",
+      "elementwise": true,
       "terminals": [
         {
           "index": 0,
@@ -105,6 +106,7 @@
     },
     "1051": {
       "name": "Subtract",
+      "elementwise": true,
       "terminals": [
         {
           "index": 0,
@@ -238,6 +240,7 @@
     },
     "1052": {
       "name": "Subtract",
+      "elementwise": true,
       "terminals": [
         {
           "index": 0,
@@ -266,30 +269,31 @@
       "pdf_page": 517
     },
     "1057": {
-      "name": "Array Size",
+      "name": "Absolute Value",
+      "guess_reason": "Was mislabeled 'Array Size'. It is unary scalar X -> scalar X (same type), not an array op, and sits in the numeric cluster (1050-1064), not the array-size range. Confirmed by usage: Subtract -> 1057 -> Increment -> ROI coordinate computes |x1-x0|+1 (a pixel span). This is the integer-typed Absolute Value; 1054 is the same op for extended float (verified by the |a-b|>tolerance compare in failUnlessEqual/passIfEqual), and the two never co-occur. Array inputs would need element-wise handling.",
       "terminals": [
         {
           "index": 0,
           "direction": "out",
-          "name": "size",
+          "name": "absolute_value",
           "type": "polymorphic"
         },
         {
           "index": 1,
           "direction": "in",
-          "name": "array",
-          "type": "array"
+          "name": "x",
+          "type": "polymorphic"
         }
       ],
       "python_code": {
-        "size": "len(in_1)"
+        "absolute_value": "abs(in_1)"
       },
       "inline": true,
-      "verified": true,
-      "pdf_page": 391
+      "verified": true
     },
     "1061": {
       "name": "Add",
+      "elementwise": true,
       "terminals": [
         {
           "index": 0,
@@ -347,8 +351,8 @@
         }
       ],
       "python_code": {
-        "first_subarray": "in_3[:in_2]",
-        "second_subarray": "in_3[in_2:]"
+        "first_subarray": "in_3[:int(in_2)]",
+        "second_subarray": "in_3[int(in_2):]"
       },
       "inline": true,
       "verified": true,
@@ -357,6 +361,7 @@
     },
     "1103": {
       "name": "Greater Or Equal?",
+      "elementwise": true,
       "terminals": [
         {
           "index": 0,
@@ -653,33 +658,68 @@
       "pdf_page": 817
     },
     "1809": {
-      "name": "Index Array",
+      "name": "Array Size",
+      "guess_reason": "class=prim primResID 1809 is Array Size (Array[X] -> NumInt32), verified across many samples with varied element types (Path/Refnum/String/Cluster/NumInt32) all yielding a single I32 output. The expandable Index Array is XML class aIndx (resolved by node_type), not this primResID.",
       "terminals": [
         {
           "index": 0,
           "direction": "out",
-          "name": "element",
-          "type": "polymorphic",
-          "expandable": true
+          "name": "size",
+          "type": "NumInt32"
         },
         {
           "index": 1,
           "direction": "in",
           "name": "array",
           "type": "array"
-        },
-        {
-          "index": 2,
-          "direction": "in",
-          "name": "index",
-          "type": "polymorphic",
-          "default_value": "0"
         }
       ],
-      "python_code": "in_1[in_2]",
+      "python_code": "len(in_1)",
       "inline": true,
-      "verified": true,
-      "pdf_page": 392
+      "verified": true
+    },
+    "1049": {
+      "name": "Sign",
+      "elementwise": true,
+      "guess_reason": "Unary, type-preserving numeric op (DBL->DBL, Array[DBL]->Array[DBL]); raw typeDescs confirm both ends NumFloat64. Forced by this VI's direction detection: consecutive angle deltas -> Sign(each) -> Add Array Elements(sum) -> Sign(sum) -> To Byte Integer -> xcreasing in {-1,0,+1}. Only Sign (returns 1/0/-1, type-preserving) collapses the sum to a +/-1 direction; sum (not product) makes it a wrap-robust majority vote. Array inputs would need element-wise handling.",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "sign",
+          "type": "polymorphic"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "x",
+          "type": "polymorphic"
+        }
+      ],
+      "python_code": {"sign": "(in_1 > 0) - (in_1 < 0)"},
+      "inline": true,
+      "verified": true
+    },
+    "1140": {
+      "name": "To Byte Integer",
+      "guess_reason": "Conversion to signed 8-bit integer: output is always NumInt8 (or Array[NumInt8]) regardless of input numeric type, verified across corpus (NumInt8/NumInt64/NumInt32/Array[NumFloat64] inputs). NI docs: rounds float to nearest (ties to even) and saturates to [-128, 127]. Scalar template; array inputs would need element-wise handling.",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "byte_integer",
+          "type": "NumInt8"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "number",
+          "type": "numeric"
+        }
+      ],
+      "python_code": "max(-128, min(127, int(round(in_1))))",
+      "inline": true,
+      "verified": true
     },
     "1166": {
       "name": "String Subset",
@@ -801,6 +841,7 @@
     },
     "1058": {
       "name": "Increment",
+      "elementwise": true,
       "terminals": [
         {
           "index": 0,
@@ -824,6 +865,7 @@
     },
     "1069": {
       "name": "Negate",
+      "elementwise": true,
       "terminals": [
         {
           "index": 0,
@@ -887,6 +929,7 @@
     },
     "1110": {
       "name": "Not Equal?",
+      "elementwise": true,
       "terminals": [
         {
           "index": 0,
@@ -954,6 +997,7 @@
     },
     "1105": {
       "name": "Less?",
+      "elementwise": true,
       "terminals": [
         {
           "index": 0,
@@ -985,6 +1029,7 @@
     },
     "1114": {
       "name": "Greater Or Equal?",
+      "elementwise": true,
       "terminals": [
         {
           "index": 0,
@@ -1054,6 +1099,7 @@
     },
     "1053": {
       "name": "Divide",
+      "elementwise": true,
       "terminals": [
         {"index": 0, "direction": "out", "name": "quotient", "type": "polymorphic"},
         {"index": 1, "direction": "in", "name": "x", "type": "polymorphic"},
@@ -1069,6 +1115,7 @@
     },
     "1111": {
       "name": "Less Or Equal?",
+      "elementwise": true,
       "terminals": [
         {"index": 0, "direction": "out", "name": "x_less_or_equal_y", "type": "Boolean"},
         {"index": 1, "direction": "in", "name": "x", "type": "polymorphic"},
@@ -1626,6 +1673,7 @@
     },
     "1102": {
       "name": "Equal?",
+      "elementwise": true,
       "terminals": [
         {
           "index": 0,
@@ -1752,13 +1800,14 @@
       "pdf_page": 653
     },
     "1904": {
-      "name": "Array Size",
+      "name": "Multiply Array Elements",
+      "guess_reason": "Was mislabeled 'Array Size'. Output tracks the element type (Array[UInt32]->UInt32, Array[Int32]->Int32), so it is a numeric reduction, not an I32 count. Sibling of Add Array Elements (1903) in the array-reduction cluster (1910 Or, 1911 And Array Elements). Sum-vs-product settled by context: in 'MultiD Array to 1D Array', 1904(dimension_sizes) feeds a For Loop count -- the total element count of an n-D array is the PRODUCT of its dimension sizes. Empty array -> 1 (math.prod identity), matching LabVIEW.",
       "terminals": [
         {
           "index": 0,
           "direction": "out",
-          "name": "size",
-          "type": "NumInt32"
+          "name": "product",
+          "type": "polymorphic"
         },
         {
           "index": 1,
@@ -1768,11 +1817,11 @@
         }
       ],
       "python_code": {
-        "size": "len(in_1)"
+        "_import": "import math",
+        "product": "math.prod(in_1)"
       },
       "inline": true,
-      "verified": true,
-      "pdf_page": 391
+      "verified": true
     },
     "1910": {
       "name": "Or Array Elements",
@@ -1821,13 +1870,14 @@
       "pdf_page": 641
     },
     "1903": {
-      "name": "Array Size",
+      "name": "Add Array Elements",
+      "guess_reason": "Was mislabeled 'Array Size'. Raw typeDesc proves the output is element-typed (Array[NumFloat64] -> NumFloat64), not an I32 count, so it is a numeric reduction, not Array Size (the real Array Size is primResID 1809, Array[X] -> I32). Sits in the array-reduction cluster (1910 Or Array Elements, 1911 And Array Elements). Forced by this VI's logic: sum of per-step Sign(deltas) gives a wrap-robust direction vote. Corpus I32-array instances (sum of int array -> int) are consistent.",
       "terminals": [
         {
           "index": 0,
           "direction": "out",
-          "name": "size",
-          "type": "NumInt32"
+          "name": "sum",
+          "type": "polymorphic"
         },
         {
           "index": 1,
@@ -1837,11 +1887,10 @@
         }
       ],
       "python_code": {
-        "size": "len(in_1)"
+        "sum": "sum(in_1)"
       },
       "inline": true,
-      "verified": true,
-      "pdf_page": 391
+      "verified": true
     },
     "1120": {
       "name": "Sort 1D Array",
@@ -1928,8 +1977,8 @@
         }
       ],
       "python_code": {
-        "deleted_portion": "in_1[in_2:in_2+in_4]",
-        "output_array": "in_1[:in_2] + in_1[in_2+in_4:]"
+        "deleted_portion": "in_1[int(in_2):int(in_2)+int(in_4)]",
+        "output_array": "in_1[:int(in_2)] + in_1[int(in_2)+int(in_4):]"
       },
       "inline": true,
       "verified": true,
@@ -3138,7 +3187,7 @@
           "default_value": "0"
         }
       ],
-      "python_code": "array[index]"
+      "python_code": "array[int(index)]"
     },
     "aInit": {
       "name": "Initialize Array",

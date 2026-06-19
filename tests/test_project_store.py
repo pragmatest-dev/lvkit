@@ -218,7 +218,7 @@ def test_no_project_store_default_behavior() -> None:
 
 
 def test_cli_setup_creates_project_store(tmp_path: Path) -> None:
-    """`lvkit setup <dir> --no-skills` creates .lvkit/ store without installing skills."""
+    """`lvkit setup <dir> --no-skills` creates .lvkit/ store, no skills install."""
     import subprocess
     import sys
 

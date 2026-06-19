@@ -352,6 +352,17 @@ class InPlaceOperation(Operation):
     recompose_ops: list[PrimitiveOperation] = []
 
 
+class FormulaOperation(Operation):
+    """A Formula Node (fBox): an embedded C-like script over typed terminals.
+
+    The ``script`` is compiled to native code and invoked via FFI in the
+    generated Python. Terminals carry the script's input/output variables
+    (name, LVType, direction) on the base Operation.
+    """
+
+    script: str | None = None
+
+
 # Resolve forward references for self-referential types
 Operation.model_rebuild()
 Frame.model_rebuild()

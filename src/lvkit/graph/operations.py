@@ -14,6 +14,7 @@ import networkx as nx
 from ..models import (
     CaseFrame,
     CaseOperation,
+    FormulaOperation,
     FPTerminal,
     InPlaceOperation,
     InvokeOperation,
@@ -42,6 +43,9 @@ from .models import (
     SequenceNode,
     StructureNode,
     VINode,
+)
+from .models import (
+    FormulaNode as GraphFormulaNode,
 )
 from .models import (
     PrimitiveNode as GraphPrimitiveNode,
@@ -175,6 +179,8 @@ class OperationsMixin:
                 **common,
                 poly_variant_name=gnode.poly_variant_name,
             )
+        if isinstance(gnode, GraphFormulaNode):
+            return FormulaOperation(**common, script=gnode.script)
         if isinstance(gnode, GraphPrimitiveNode):
             if gnode.properties:
                 return PropertyOperation(

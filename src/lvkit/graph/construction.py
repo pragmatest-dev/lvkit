@@ -37,6 +37,9 @@ from ..parser.node_types import (
     SubVINode,
 )
 from ..parser.node_types import (
+    FormulaNode as ParserFormulaNode,
+)
+from ..parser.node_types import (
     PrimitiveNode as ParserPrimitiveNode,
 )
 from ..parser.vi import _decode_element
@@ -54,6 +57,9 @@ from .models import (
     StructureNode,
     VINode,
     WireEnd,
+)
+from .models import (
+    FormulaNode as GraphFormulaNode,
 )
 from .models import (
     PrimitiveNode as GraphPrimitiveNode,
@@ -177,9 +183,14 @@ class ConstructionMixin:
 
     @staticmethod
     def _enrich_nmux_terminals(
-        node: SelectNode, graph_node: GraphPrimitiveNode,
+        node: SelectNode, graph_node: AnyGraphNode,
     ) -> None:
-        """Mark agg/list roles and field indices on nMux terminals."""
+        """Mark agg/list roles and field indices on nMux terminals.
+
+        Only nMux (Select) nodes reach this, which are always built as
+        primitive graph nodes; the wider type is for the post-dispatch
+        call site where the static type is the full node union.
+        """
         if not node.dco_agg_uid:
             return
         agg_dco = node.dco_agg_uid
@@ -716,6 +727,25 @@ class ConstructionMixin:
                     name=node_name or "In Place Element",
                     node_type=node.node_type,
                     terminals=structure_terminals,
+                )
+            elif node.node_type == "fBox":
+                # Formula Node — embedded C-like script over typed terminals.
+                # The "fBox" class is only ever parsed into a ParserFormulaNode;
+                # anything else here means the parser dispatch is broken, so
+                # fail loud rather than silently drop the script.
+                if not isinstance(node, ParserFormulaNode):
+                    raise TypeError(
+                        f"fBox node {q_node_uid!r} is {type(node).__name__}, "
+                        "expected ParserFormulaNode (script would be lost)"
+                    )
+                graph_node = GraphFormulaNode(
+                    id=q_node_uid,
+                    vi=vi_name,
+                    name=node_name,
+                    node_type=node.node_type,
+                    terminals=node_terminals,
+                    description=description,
+                    script=node.script,
                 )
             else:
                 # Primitive or generic operation node

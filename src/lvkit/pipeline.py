@@ -47,6 +47,28 @@ class GenerationResult:
 # ---------------------------------------------------------------------------
 
 
+def _emit_formula_artifacts(artifacts: list, out_dir: Path) -> None:
+    """Write each Formula Node's .c next to the module and compile a
+    platform-tagged .so. A gen-time compile failure is non-fatal: the .c
+    ships and the runtime compiles it on first use (the hybrid fallback)."""
+    if not artifacts:
+        return
+    from .formula.compile import (
+        FormulaCompileError,
+        compile_shared,
+        platform_tag,
+    )
+    for art in artifacts:
+        c_path = out_dir / f"{art.basename}.c"
+        c_path.write_text(art.c_source)
+        so_path = out_dir / f"{art.basename}.{platform_tag()}.so"
+        try:
+            compile_shared(c_path, so_path)
+            print(f"         -> formula: {c_path.name} + {so_path.name}")
+        except FormulaCompileError as e:
+            print(f"         -> formula: {c_path.name} (compile deferred: {e})")
+
+
 def _write_syntax_error(
     module_name: str,
     code: str,
@@ -570,15 +592,18 @@ def {func_name}(*args, **kwargs) -> Any:
                     graph=graph, vilib_resolver=vilib_resolver,
                     caller_library=caller_lib,
                 )
+                formula_artifacts: list = []
                 code = build_module(
                     vi_context, vi_name,
                     import_resolver=import_resolver, graph=graph,
                     soft_unresolved=soft_unresolved,
+                    formula_sink=formula_artifacts,
                 )
 
                 # Validate syntax
                 ast.parse(code)
                 output_path.write_text(code)
+                _emit_formula_artifacts(formula_artifacts, output_path.parent)
                 print(f"         -> AST: {output_path.name}")
                 generated.append((vi_name, output_path, "ast"))
 

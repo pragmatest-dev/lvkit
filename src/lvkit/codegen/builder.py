@@ -14,6 +14,7 @@ from lvkit.models import Operation, Terminal
 from .ast_optimizer import optimize_module
 from .ast_utils import parse_expr, to_function_name, to_var_name
 from .context import CodeGenContext
+from .elementwise import LV_IMPORT, arrayify_module
 from .error_handler import (
     ErrorHandlingPattern,
     build_clear_try_except,
@@ -35,6 +36,7 @@ def build_module(
     has_parallel_branches: bool | None = None,
     graph: InMemoryVIGraph | None = None,
     soft_unresolved: bool = False,
+    formula_sink: list | None = None,
 ) -> str:
     """Build complete Python module from VI context.
 
@@ -58,6 +60,10 @@ def build_module(
     # Initialize context with inputs and constants
     ctx = CodeGenContext.from_vi_context(vi_context, graph=graph)  # InMemoryVIGraph
     ctx.import_resolver = import_resolver
+    # When a sink is provided, formula-node C artifacts accumulate into it so
+    # the pipeline can write + compile them next to the generated module.
+    if formula_sink is not None:
+        ctx.formula_artifacts = formula_sink
     ctx.vi_name = vi_name
     ctx.qualified_vi_name = vi_context.qualified_name
     ctx.soft_unresolved = soft_unresolved
@@ -76,6 +82,11 @@ def build_module(
 
     # Generate operation code
     body.extend(generate_body(vi_context.operations, ctx))
+
+    # Final pass: broadcast numeric operators over array-valued operands that
+    # were inlined (single-use) past the per-node element-wise hook.
+    if arrayify_module(body, frozenset(ctx.array_vars)):
+        ctx.imports.add(LV_IMPORT)
 
     # Add held error check before return if we have error handling
     if use_error_handling:

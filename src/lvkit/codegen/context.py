@@ -37,6 +37,19 @@ class VISignature:
 
 
 @dataclass
+class FormulaArtifact:
+    """A Formula Node's transpiled C, to be written + compiled by the pipeline.
+
+    Collected on the context during codegen; the pipeline writes
+    ``<basename>.c`` next to the generated module and compiles a
+    platform-tagged ``.so``.
+    """
+
+    basename: str
+    c_source: str
+
+
+@dataclass
 class CodeGenContext:
     """Context that flows through code generation traversal.
 
@@ -64,11 +77,19 @@ class CodeGenContext:
     # across the same generation pass.
     _branch_counter: int = field(default=0, repr=False)
     _allocated_vars: set[str] = field(default_factory=set, repr=False)
+    # Variable names bound to array-typed values. A final codegen pass uses
+    # this to broadcast operators over operands that turned out to be arrays
+    # even after single-use expression inlining.
+    array_vars: set[str] = field(default_factory=set, repr=False)
     vi_inputs: list[Terminal] = field(default_factory=list)
     # Lives on context because subvi.py reads it at arbitrary depth
     # in the codegen tree. Passing as parameter would thread through
     # every generate() call.
     import_resolver: Callable[[str], str] | None = field(default=None, repr=False)
+    # Formula Node C artifacts collected during codegen; the pipeline writes
+    # and compiles them next to the module. Shared across child contexts so a
+    # formula node nested in a structure still registers its artifact.
+    formula_artifacts: list[FormulaArtifact] = field(default_factory=list)
     # Callback for recursive body generation. Set by builder.py,
     # used by case/loop codegen to generate inner node code without
     # importing back into the builder (which would create a cycle).
@@ -300,8 +321,10 @@ class CodeGenContext:
             use_held_error_model=self.use_held_error_model,
             soft_unresolved=self.soft_unresolved,
             _allocated_vars=self._allocated_vars,  # Shared — same scope
+            array_vars=self.array_vars,  # Shared — one set across the VI
             vi_inputs=self.vi_inputs,
             import_resolver=self.import_resolver,
+            formula_artifacts=self.formula_artifacts,  # Shared — one list
             _body_generator=self._body_generator,
         )
 

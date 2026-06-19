@@ -486,7 +486,20 @@ def cmd_describe(args: argparse.Namespace) -> int:
         search_paths = [Path(p) for p in args.search_paths]
         graph.load_vi(str(input_path), search_paths=search_paths)
 
+        # Disambiguate by parent dir when multiple loaded VIs share the
+        # input's leaf name (e.g. TestCase.lvclass:run.vi vs TestSuite's)
+        vis = graph.list_vis()
         vi_name = graph.resolve_vi_name(input_path.name)
+        candidates = [v for v in vis if v.rsplit(":", 1)[-1] == input_path.name]
+        if len(candidates) > 1:
+            parent_dir = input_path.parent.name
+            preferred = [
+                c for c in candidates
+                if c.startswith(f"{parent_dir}.lvclass:")
+                or c.startswith(f"{parent_dir}.lvlib:")
+            ]
+            if preferred:
+                vi_name = preferred[0]
 
         print(describe_vi(graph, vi_name))
 
