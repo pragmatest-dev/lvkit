@@ -269,27 +269,27 @@
       "pdf_page": 517
     },
     "1057": {
-      "name": "Array Size",
+      "name": "Absolute Value",
+      "guess_reason": "Was mislabeled 'Array Size'. It is unary scalar X -> scalar X (same type), not an array op, and sits in the numeric cluster (1050-1064), not the array-size range. Confirmed by usage: Subtract -> 1057 -> Increment -> ROI coordinate computes |x1-x0|+1 (a pixel span). This is the integer-typed Absolute Value; 1054 is the same op for extended float (verified by the |a-b|>tolerance compare in failUnlessEqual/passIfEqual), and the two never co-occur. Array inputs would need element-wise handling.",
       "terminals": [
         {
           "index": 0,
           "direction": "out",
-          "name": "size",
+          "name": "absolute_value",
           "type": "polymorphic"
         },
         {
           "index": 1,
           "direction": "in",
-          "name": "array",
-          "type": "array"
+          "name": "x",
+          "type": "polymorphic"
         }
       ],
       "python_code": {
-        "size": "len(in_1)"
+        "absolute_value": "abs(in_1)"
       },
       "inline": true,
-      "verified": true,
-      "pdf_page": 391
+      "verified": true
     },
     "1061": {
       "name": "Add",
@@ -1800,13 +1800,14 @@
       "pdf_page": 653
     },
     "1904": {
-      "name": "Array Size",
+      "name": "Multiply Array Elements",
+      "guess_reason": "Was mislabeled 'Array Size'. Output tracks the element type (Array[UInt32]->UInt32, Array[Int32]->Int32), so it is a numeric reduction, not an I32 count. Sibling of Add Array Elements (1903) in the array-reduction cluster (1910 Or, 1911 And Array Elements). Sum-vs-product settled by context: in 'MultiD Array to 1D Array', 1904(dimension_sizes) feeds a For Loop count -- the total element count of an n-D array is the PRODUCT of its dimension sizes. Empty array -> 1 (math.prod identity), matching LabVIEW.",
       "terminals": [
         {
           "index": 0,
           "direction": "out",
-          "name": "size",
-          "type": "NumInt32"
+          "name": "product",
+          "type": "polymorphic"
         },
         {
           "index": 1,
@@ -1816,11 +1817,11 @@
         }
       ],
       "python_code": {
-        "size": "len(in_1)"
+        "_import": "import math",
+        "product": "math.prod(in_1)"
       },
       "inline": true,
-      "verified": true,
-      "pdf_page": 391
+      "verified": true
     },
     "1910": {
       "name": "Or Array Elements",
