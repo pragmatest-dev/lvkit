@@ -26,6 +26,7 @@
     },
     "1104": {
       "name": "Greater?",
+      "elementwise": true,
       "terminals": [
         {
           "index": 0,
@@ -105,6 +106,7 @@
     },
     "1051": {
       "name": "Subtract",
+      "elementwise": true,
       "terminals": [
         {
           "index": 0,
@@ -238,6 +240,7 @@
     },
     "1052": {
       "name": "Subtract",
+      "elementwise": true,
       "terminals": [
         {
           "index": 0,
@@ -290,6 +293,7 @@
     },
     "1061": {
       "name": "Add",
+      "elementwise": true,
       "terminals": [
         {
           "index": 0,
@@ -357,6 +361,7 @@
     },
     "1103": {
       "name": "Greater Or Equal?",
+      "elementwise": true,
       "terminals": [
         {
           "index": 0,
@@ -675,6 +680,7 @@
     },
     "1049": {
       "name": "Sign",
+      "elementwise": true,
       "guess_reason": "Unary, type-preserving numeric op (DBL->DBL, Array[DBL]->Array[DBL]); raw typeDescs confirm both ends NumFloat64. Forced by this VI's direction detection: consecutive angle deltas -> Sign(each) -> Add Array Elements(sum) -> Sign(sum) -> To Byte Integer -> xcreasing in {-1,0,+1}. Only Sign (returns 1/0/-1, type-preserving) collapses the sum to a +/-1 direction; sum (not product) makes it a wrap-robust majority vote. Array inputs would need element-wise handling.",
       "terminals": [
         {
@@ -835,6 +841,7 @@
     },
     "1058": {
       "name": "Increment",
+      "elementwise": true,
       "terminals": [
         {
           "index": 0,
@@ -858,6 +865,7 @@
     },
     "1069": {
       "name": "Negate",
+      "elementwise": true,
       "terminals": [
         {
           "index": 0,
@@ -921,6 +929,7 @@
     },
     "1110": {
       "name": "Not Equal?",
+      "elementwise": true,
       "terminals": [
         {
           "index": 0,
@@ -988,6 +997,7 @@
     },
     "1105": {
       "name": "Less?",
+      "elementwise": true,
       "terminals": [
         {
           "index": 0,
@@ -1019,6 +1029,7 @@
     },
     "1114": {
       "name": "Greater Or Equal?",
+      "elementwise": true,
       "terminals": [
         {
           "index": 0,
@@ -1088,6 +1099,7 @@
     },
     "1053": {
       "name": "Divide",
+      "elementwise": true,
       "terminals": [
         {"index": 0, "direction": "out", "name": "quotient", "type": "polymorphic"},
         {"index": 1, "direction": "in", "name": "x", "type": "polymorphic"},
@@ -1103,6 +1115,7 @@
     },
     "1111": {
       "name": "Less Or Equal?",
+      "elementwise": true,
       "terminals": [
         {"index": 0, "direction": "out", "name": "x_less_or_equal_y", "type": "Boolean"},
         {"index": 1, "direction": "in", "name": "x", "type": "polymorphic"},
@@ -1660,6 +1673,7 @@
     },
     "1102": {
       "name": "Equal?",
+      "elementwise": true,
       "terminals": [
         {
           "index": 0,

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import ast
+import builtins
 import keyword
 import logging
 
@@ -210,10 +211,15 @@ def to_var_name(name: str) -> str:
         result = "var_" + result
     if not result:
         result = "var"
-    # Handle Python keywords
-    if keyword.iskeyword(result):
+    # Avoid shadowing Python keywords and builtins (e.g. an output named
+    # "sum" must not become a `sum` variable that then breaks `sum(...)`).
+    if keyword.iskeyword(result) or result in _PY_BUILTINS:
         result = result + "_"
     return result
+
+
+# Builtin names a generated variable must not shadow.
+_PY_BUILTINS = frozenset(dir(builtins))
 
 
 def to_function_name(vi_name: str) -> str:
