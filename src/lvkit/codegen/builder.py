@@ -12,9 +12,9 @@ from lvkit.graph.models import VIContext
 from lvkit.models import Operation, Terminal
 
 from .ast_optimizer import optimize_module
-from .elementwise import LV_IMPORT, arrayify_module
 from .ast_utils import parse_expr, to_function_name, to_var_name
 from .context import CodeGenContext
+from .elementwise import LV_IMPORT, arrayify_module
 from .error_handler import (
     ErrorHandlingPattern,
     build_clear_try_except,
