@@ -118,6 +118,15 @@ def generate(node: PrimitiveOperation, ctx: CodeGenContext) -> CodeFragment:
     # Merge passthrough bindings
     fragment.bindings.update(passthrough_bindings)
 
+    # Record array-typed output variables so a final pass can broadcast
+    # operators over them even after single-use expression inlining.
+    for term in node.terminals:
+        if (term.direction == "output" and term.lv_type is not None
+                and term.lv_type.kind == "array"):
+            bound = fragment.bindings.get(term.id)
+            if bound and bound.isidentifier():
+                ctx.array_vars.add(bound)
+
     # Add imports from primitive definition (normalize bare module names)
     if resolved.imports:
         for imp in resolved.imports:

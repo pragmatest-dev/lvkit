@@ -69,3 +69,66 @@ def arrayify(expr: ast.expr) -> tuple[ast.expr, bool]:
     new = t.visit(expr)
     ast.fix_missing_locations(new)
     return new, t.used
+
+
+def _is_array_valued(node: ast.expr, array_vars: frozenset[str]) -> bool:
+    """An operator's operand carries an array if it names a known array
+    variable or is already an ``_lv.*`` broadcast call (which returns an array
+    when its input was one). A subscript (``a[i]``) is an element — scalar."""
+    if isinstance(node, ast.Name):
+        return node.id in array_vars
+    if (isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
+            and isinstance(node.func.value, ast.Name)
+            and node.func.value.id == "_lv"):
+        return True
+    return False
+
+
+class _ModuleArrayify(ast.NodeTransformer):
+    """Arrayify operators whose operands are array-valued, anywhere in the
+    tree. Catches expressions that were inlined past the per-node hook."""
+
+    def __init__(self, array_vars: frozenset[str]):
+        self.array_vars = array_vars
+        self.used = False
+
+    def _arr(self, n: ast.expr) -> bool:
+        return _is_array_valued(n, self.array_vars)
+
+    def visit_BinOp(self, node: ast.BinOp) -> ast.AST:
+        self.generic_visit(node)
+        fn = _BINOP.get(type(node.op))
+        if fn and (self._arr(node.left) or self._arr(node.right)):
+            self.used = True
+            return _call(fn, [node.left, node.right])
+        return node
+
+    def visit_UnaryOp(self, node: ast.UnaryOp) -> ast.AST:
+        self.generic_visit(node)
+        if isinstance(node.op, ast.USub) and self._arr(node.operand):
+            self.used = True
+            return _call("neg", [node.operand])
+        return node
+
+    def visit_Compare(self, node: ast.Compare) -> ast.AST:
+        self.generic_visit(node)
+        if len(node.ops) == 1 and (self._arr(node.left)
+                                   or self._arr(node.comparators[0])):
+            fn = _CMP.get(type(node.ops[0]))
+            if fn:
+                self.used = True
+                return _call(fn, [node.left, node.comparators[0]])
+        return node
+
+
+def arrayify_module(body: list[ast.stmt], array_vars: frozenset[str]) -> bool:
+    """Rewrite operators over array-valued operands across a whole function
+    body (post-codegen, so inlined single-use expressions are covered).
+    Returns True if anything was rewritten."""
+    if not array_vars:
+        return False
+    t = _ModuleArrayify(array_vars)
+    for stmt in body:
+        t.visit(stmt)
+    ast.fix_missing_locations(ast.Module(body=body, type_ignores=[]))
+    return t.used

@@ -12,6 +12,7 @@ from lvkit.graph.models import VIContext
 from lvkit.models import Operation, Terminal
 
 from .ast_optimizer import optimize_module
+from .elementwise import LV_IMPORT, arrayify_module
 from .ast_utils import parse_expr, to_function_name, to_var_name
 from .context import CodeGenContext
 from .error_handler import (
@@ -81,6 +82,11 @@ def build_module(
 
     # Generate operation code
     body.extend(generate_body(vi_context.operations, ctx))
+
+    # Final pass: broadcast numeric operators over array-valued operands that
+    # were inlined (single-use) past the per-node element-wise hook.
+    if arrayify_module(body, frozenset(ctx.array_vars)):
+        ctx.imports.add(LV_IMPORT)
 
     # Add held error check before return if we have error handling
     if use_error_handling:

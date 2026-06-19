@@ -351,8 +351,8 @@
         }
       ],
       "python_code": {
-        "first_subarray": "in_3[:in_2]",
-        "second_subarray": "in_3[in_2:]"
+        "first_subarray": "in_3[:int(in_2)]",
+        "second_subarray": "in_3[int(in_2):]"
       },
       "inline": true,
       "verified": true,
@@ -1976,8 +1976,8 @@
         }
       ],
       "python_code": {
-        "deleted_portion": "in_1[in_2:in_2+in_4]",
-        "output_array": "in_1[:in_2] + in_1[in_2+in_4:]"
+        "deleted_portion": "in_1[int(in_2):int(in_2)+int(in_4)]",
+        "output_array": "in_1[:int(in_2)] + in_1[int(in_2)+int(in_4):]"
       },
       "inline": true,
       "verified": true,
@@ -3186,7 +3186,7 @@
           "default_value": "0"
         }
       ],
-      "python_code": "array[index]"
+      "python_code": "array[int(index)]"
     },
     "aInit": {
       "name": "Initialize Array",
