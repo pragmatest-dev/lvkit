@@ -64,7 +64,8 @@ add("RF", "TARGET = 1 / 3;",   "0.333..=real-div 0.0=trunc")
 # === E. Modulo: operator (int & float) and mod()/rem() functions ===========
 add("RI", "TARGET = -7 % 3;",  "-1=C-sign-of-dividend 2=floored")
 add("RI", "TARGET = 7 % -3;",  "1=C-sign-of-dividend -2=floored")
-add("RF", "TARGET = 7.5 % 2;", "1.5=fmod (does %% work on doubles?)")
+# 7.5 %% 2 moved to the quarantine node (RX): C's %% is integer-only, so a
+# float operand here might be a COMPILE error that would void the main node.
 add("RF", "TARGET = mod(-7, 3);",  "-1=C 2=floored")
 add("RF", "TARGET = mod(7.5, 2);", "1.5")
 add("RF", "TARGET = rem(7, 3);",   "1=round-remainder")
@@ -174,13 +175,9 @@ add("RF", "TARGET = rand();",       "uniform [0,1) — report a sample")
 add("RI", "TARGET = sizeOfDim(A, 0);", "5=length-of-A")
 add("RF", "TARGET = A[0];",            "10")
 add("RF", "TARGET = A[n - 1];",        "50")
-add("RI", "TARGET = sizeOfDim(B, 0);", "2=rows")
-add("RI", "TARGET = sizeOfDim(B, 1);", "3=cols")
-add("RF", "TARGET = B[1][2];",         "6=2D-indexing")
 
 # === N. Constants / literals ===============================================
 add("RF", "TARGET = pi;",          "3.14159265")
-add("RF", "TARGET = 1E3;",         "1000=accepts-exponent")
 
 # === M(float32). Single precision ==========================================
 add("RF", "s = 1.0 / 3.0; TARGET = s;",
@@ -199,6 +196,13 @@ add("RX", "TARGET = acos(2.0);",   "nan=out-of-domain traps")
 add("RX", "TARGET = (-8) ** (1.0 / 3.0);", "nan=C-pow -2=real-cube-root")
 add("RX", "TARGET = 0 ** 0;",      "1 nan")
 add("RX", "TARGET = tan(pi / 2);", "huge-finite inf")
+# Risky SYNTAX (could be a COMPILE error, not a trap) — isolated here so it
+# can't void the main node. B is a 2-by-3 double input = [[1,2,3],[4,5,6]].
+add("RX", "TARGET = 7.5 % 2;",         "1.5=fmod errors=%-is-integer-only")
+add("RX", "TARGET = 1E3;",             "1000=exponent-ok errors=not-accepted")
+add("RX", "TARGET = sizeOfDim(B, 0);", "2=rows-2D")
+add("RX", "TARGET = sizeOfDim(B, 1);", "3=cols-2D")
+add("RX", "TARGET = B[1][2];",         "6=2D-indexing errors=syntax")
 
 PROBES = P
 
@@ -265,20 +269,37 @@ def main() -> None:
             expr = f"{decls} {expr}"
         rows.append((f"{slot}[{k}]", expr, our_value(slot, decls, stmt), note))
 
+    smoke_lv = (
+        "/* SMOKE TEST — run this FIRST (≈30 s) to confirm the mechanism.\n"
+        " * Terminal: SI = int32 array (in+out), >= 4 elements, init 0.\n"
+        " * If the mechanism is sound, SI comes back = [44, 8, 512, 3]:\n"
+        "   *  SI[0]=44  -> a uInt8 LOCAL wraps on assignment (key assumption!)\n"
+        "   *  SI[1]=8   -> bitwise AND works\n"
+        "   *  SI[2]=512 -> ** is right-associative\n"
+        "   *  SI[3]=3   -> a function (log2) works + rounds into an int\n"
+        " * If SI[0] comes back 300 (not 44), integer LOCALS don't coerce — tell\n"
+        " * us and we switch the width probes to typed output terminals. */\n"
+        "uInt8 u8; u8 = 300;\n"
+        "SI[0] = u8;\n"
+        "SI[1] = 12 & 8;\n"
+        "SI[2] = 2 ** 3 ** 2;\n"
+        "SI[3] = log2(8.0);\n"
+    )
     main_head = (
         "/* lvkit Formula Node semantics probe — MAIN.\n"
         " * Create a Formula Node with these terminals:\n"
-        "   *  A  : double array   (INPUT)  = [10,20,30,40,50]\n"
-        "   *  B  : double 2D array (INPUT)  = [[1,2,3],[4,5,6]]\n"
-        "   *  n  : int32          (INPUT)  = 5\n"
+        "   *  A  : double array  (INPUT)  = [10,20,30,40,50]\n"
+        "   *  n  : int32         (INPUT)  = 5\n"
         f"   *  RI : int32 array  (in+out)  >= {sizes['RI']} elements, init 0\n"
         f"   *  RF : double array (in+out)  >= {sizes['RF']} elements, init 0\n"
         " * Paste this, run once, report RI and RF. */\n"
     )
     edge_head = (
-        "/* lvkit Formula Node semantics probe — SPECIAL VALUES.\n"
-        " * Put this in a SEPARATE Formula Node so a divide-by-zero / sqrt(-1)\n"
-        " * trap can't void the MAIN run. A trap here is itself a valid result.\n"
+        "/* lvkit Formula Node semantics probe — EDGE / RISKY (SEPARATE node).\n"
+        " * Kept apart so a divide-by-zero trap OR a syntax error here can't\n"
+        " * void the MAIN run. A trap or compile error IS itself a valid result\n"
+        " * (report \"traps\" / \"won't compile, line N\").\n"
+        "   *  B  : double 2D array (INPUT)  = [[1,2,3],[4,5,6]]\n"
         f"   *  RX : double array (in+out) >= {sizes['RX']} elements, init 0 */\n"
     )
     main_lv = build_node_script(("RI", "RF"), main_head)
@@ -291,6 +312,12 @@ def main() -> None:
         "docs leave underspecified. Run it in a real **Formula Node** (typed "
         "terminals) — the Eval Formula Node VI is real-numbers-only and can't "
         "show integer behaviour.\n",
+        "## Script 0 — smoke test (run this FIRST)\n",
+        "Confirms the probe mechanism before the big run — especially that a "
+        "typed integer **local** wraps on assignment (the assumption the whole "
+        "integer-width section rests on). Expected back: `SI = [44, 8, 512, 3]`. "
+        "If `SI[0]` is `300`, tell us and we'll rework those probes.\n",
+        "```c", smoke_lv.rstrip(), "```\n",
         "## Script 1 — main probe (required)\n", "```c", main_lv.rstrip(), "```\n",
         "## Script 2 — special values (run as a SEPARATE Formula Node)\n",
         "These can trap at the node level (divide-by-zero, sqrt of a negative, "
