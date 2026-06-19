@@ -180,7 +180,9 @@ class _Emitter:
                 return "int"
             if e.op in ("&", "|", "^", "<<", ">>"):
                 return "int"
-            if e.op == "**":
+            if e.op in ("**", "/"):
+                # Power and division always yield a float in a Formula Node
+                # (int/int is real division).
                 return "float"
             lt, rt = self._texpr(e.left), self._texpr(e.right)
             return "float" if "float" in (lt, rt) else "int"
@@ -214,6 +216,12 @@ class _Emitter:
             if e.op == "%" and "float" in (self._texpr(e.left),
                                            self._texpr(e.right)):
                 return f"fmod({left}, {right})"
+            if e.op == "/":
+                # Formula Node division is real division even for two
+                # integers (int/int -> float); integer truncation only
+                # happens at assignment to an integer variable. Force float
+                # division by promoting the left operand to double.
+                return f"((double)({left}) / ({right}))"
             # Fully parenthesize so C precedence never reshapes the AST.
             return f"({left} {e.op} {right})"
         raise FormulaTranspileError(f"cannot emit expression {e!r}")
