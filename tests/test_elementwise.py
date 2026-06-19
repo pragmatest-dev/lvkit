@@ -22,6 +22,15 @@ def test_list_list_elementwise():
     assert lv.add([1, 2], [10, 20]) == [11, 22]
 
 
+def test_mismatched_arrays_truncate_to_shortest():
+    # LabVIEW: a binary numeric op on two arrays of different sizes outputs an
+    # array the size of the *smaller* input. zip() stops at the shorter one.
+    assert lv.add([1, 2, 3, 4, 5], [10, 20, 30]) == [11, 22, 33]
+    assert lv.sub([10, 20], [1, 2, 3, 4]) == [9, 18]
+    # recurses for 2D — ragged inner rows also truncate to the shorter row
+    assert lv.mul([[1, 2, 3], [4, 5]], [[2, 2], [10, 10, 10]]) == [[2, 4], [40, 50]]
+
+
 def test_scalar_array_broadcast():
     assert lv.sub([10, 20, 30], 5) == [5, 15, 25]
     assert lv.sub(100, [1, 2, 3]) == [99, 98, 97]
