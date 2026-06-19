@@ -183,6 +183,9 @@ class ResolvedPrimitive(BaseModel):
     confidence: str = "unknown"
     description: str = ""
     imports: list[str] = Field(default_factory=list)
+    # LabVIEW numeric primitives operate element-wise on arrays. When True,
+    # codegen broadcasts the operation over list operands.
+    elementwise: bool = False
 
 
 def _collect_imports(prim: dict) -> list[str]:
@@ -411,6 +414,7 @@ class PrimitiveResolver:
                     confidence=confidence,
                     description=prim.get("guess_reason", ""),
                     imports=_collect_imports(prim),
+                    elementwise=prim.get("elementwise", False),
                 )
 
         # Strategy 2: Name-based lookup
@@ -462,6 +466,7 @@ class PrimitiveResolver:
                 confidence="exact_name",
                 description=prim.get("guess_reason", prim.get("category", "")),
                 imports=_collect_imports(prim),
+                elementwise=prim.get("elementwise", False),
             )
         return None
 
@@ -487,6 +492,7 @@ class PrimitiveResolver:
                 confidence="node_type",
                 description=info.get("description", ""),
                 imports=_collect_imports(info),
+                elementwise=info.get("elementwise", False),
             )
         return None
 

@@ -20,8 +20,18 @@ from ..ast_utils import (
     to_var_name,
 )
 from ..context import CodeGenContext
+from ..elementwise import LV_IMPORT, arrayify
 from ..fragment import CodeFragment
 from ..unresolved import emit_soft_unresolved
+
+
+def _has_array_input(node: PrimitiveOperation) -> bool:
+    """True if any wired input terminal carries an array type."""
+    return any(
+        t.direction == "input" and t.lv_type is not None
+        and t.lv_type.kind == "array"
+        for t in node.terminals
+    )
 
 
 def generate(node: PrimitiveOperation, ctx: CodeGenContext) -> CodeFragment:
@@ -89,14 +99,20 @@ def generate(node: PrimitiveOperation, ctx: CodeGenContext) -> CodeFragment:
         node, resolved, ctx, skip_term_ids=passthrough_term_ids,
     )
 
+    # Numeric primitives are element-wise over arrays. When this op is flagged
+    # elementwise and an operand is an array, broadcast its operators.
+    arrayify_ops = bool(resolved.elementwise and _has_array_input(node))
+
     # Build code based on code type
     if isinstance(resolved.python_code, dict):
         fragment = _build_dict_hint(
-            resolved.python_code, input_map, wired_outputs, ctx, resolved
+            resolved.python_code, input_map, wired_outputs, ctx, resolved,
+            arrayify_ops,
         )
     else:
         fragment = _build_string_hint(
-            resolved.python_code or "", input_map, wired_outputs, ctx, resolved
+            resolved.python_code or "", input_map, wired_outputs, ctx, resolved,
+            arrayify_ops,
         )
 
     # Merge passthrough bindings
@@ -406,6 +422,7 @@ def _build_dict_hint(
     wired_outputs: list[tuple[str, str, str]],
     ctx: CodeGenContext,
     resolved: ResolvedPrimitive | None,
+    arrayify_ops: bool = False,
 ) -> CodeFragment:
     """Build code from dict-format hint.
 
@@ -438,6 +455,10 @@ def _build_dict_hint(
                 exprs[i], input_map, resolved
             )
             expr_ast = parse_expr(expr_substituted)
+            if arrayify_ops:
+                expr_ast, used = arrayify(expr_ast)
+                if used:
+                    imports.add(LV_IMPORT)
             statements.append(build_assign(var_name, expr_ast))
             bindings[term_id] = var_name
         else:
@@ -455,10 +476,12 @@ def _build_string_hint(
     wired_outputs: list[tuple[str, str, str]],
     ctx: CodeGenContext,
     resolved: ResolvedPrimitive | None,
+    arrayify_ops: bool = False,
 ) -> CodeFragment:
     """Build code from string-format hint."""
     statements: list[ast.stmt] = []
     bindings: dict[str, str] = {}
+    imports: set[str] = set()
 
     # Strip assignment if present in hint
     expr = hint
@@ -475,6 +498,10 @@ def _build_string_hint(
     expr_substituted = _substitute_template(expr, input_map, resolved)
 
     expr_ast = parse_expr(expr_substituted)
+    if arrayify_ops:
+        expr_ast, used = arrayify(expr_ast)
+        if used:
+            imports.add(LV_IMPORT)
 
     # Assign to output variables
     if len(wired_outputs) == 1:
@@ -501,7 +528,7 @@ def _build_string_hint(
         # No outputs - just expression as statement
         statements.append(ast.Expr(value=expr_ast))
 
-    return CodeFragment(statements=statements, bindings=bindings)
+    return CodeFragment(statements=statements, bindings=bindings, imports=imports)
 
 def _substitute_template(
     template: str, input_map: dict[str, str],
