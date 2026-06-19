@@ -5,7 +5,7 @@ from __future__ import annotations
 import ast
 
 from lvkit.codegen.ast_utils import parse_expr, to_var_name
-from lvkit.codegen.elementwise import arrayify
+from lvkit.codegen.elementwise import arrayify, arrayify_module
 from lvkit.runtime import lv
 
 # --- runtime helper: scalar / list / broadcast ---
@@ -20,6 +20,17 @@ def test_scalar_passthrough():
 def test_list_list_elementwise():
     assert lv.sub([3, 5, 7], [1, 2, 3]) == [2, 3, 4]
     assert lv.add([1, 2], [10, 20]) == [11, 22]
+
+
+def test_module_arrayify_broadcasts_over_array_slice():
+    # `5.0 + arr[:3]` is scalar + a *sliced array* — it must broadcast
+    # (_lv.add), not emit a plain `+` (which crashes: float + list). This was
+    # the exact runtime bug exposed by 1050 -> Add. A single index stays scalar.
+    body = ast.parse("x = 5.0 + arr[:3]").body
+    assert arrayify_module(body, frozenset({"arr"}))
+    assert ast.unparse(body[0]) == "x = _lv.add(5.0, arr[:3])"
+    scalar_index = ast.parse("y = 5.0 + arr[2]").body
+    assert not arrayify_module(scalar_index, frozenset({"arr"}))
 
 
 def test_mismatched_arrays_truncate_to_shortest():
