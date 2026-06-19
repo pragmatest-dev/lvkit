@@ -1,15 +1,22 @@
-"""Emit C from a parsed Formula Node script.
+"""Emit Python from a parsed Formula Node script.
 
-Produces a self-contained C translation unit (prelude + one ``formula``
-function) plus an ordered signature spec the ctypes layer uses to marshal.
+The Formula Node language is a small, sandboxed C-like DSL (typed scalar
+locals, arrays that are wired terminals, ``if``/``for``/``while``/``do``,
+operators, and a fixed set of math functions — no pointers, no allocation).
+Every one of its constructs maps cleanly onto Python, so we emit a
+self-contained Python function instead of C. That keeps the original
+"no AI interprets the algorithm" guarantee (the translation is deterministic
+from the parsed AST) while dropping the C compiler / FFI / .so machinery
+entirely — generated code is pure Python and runs anywhere.
 
-The emitter performs only the transformations a C compiler genuinely
-requires (everything else is C already):
-  * ``a ** b``                  -> ``lv_pow(a, b)``
-  * LabVIEW type keywords       -> stdint/C types (``int16`` -> ``int16_t`` …)
-  * formula function spellings  -> ``<math.h>`` / prelude helpers
-  * ``x % y`` with a float side -> ``fmod(x, y)``
-  * assignment into an int var  -> rounded (``lv_round``), matching LabVIEW
+LabVIEW numeric semantics are preserved:
+  * ``int / int``                -> real (float) division (Python ``/``)
+  * float assigned to an int var -> round-to-nearest-even then wrap to the
+                                    declared width (``_lv.i16`` etc.)
+  * ``**``                       -> Python ``**`` (already real for ints)
+  * ``abs``                      -> Python ``abs`` (polymorphic int/float)
+  * ``%`` with a float operand   -> ``math.fmod`` (C/LV sign-of-dividend)
+  * math functions               -> ``math.*`` / small ``_lv`` helpers
 
 Unknown functions or type keywords raise FormulaTranspileError — never a
 silent guess.
@@ -17,7 +24,8 @@ silent guess.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+import ast
+from dataclasses import dataclass, field
 
 from . import FormulaTranspileError
 from .cparser import parse
@@ -44,83 +52,44 @@ from .nodes import (
 
 # --- type maps -------------------------------------------------------------
 
-# LabVIEW numeric type-name (parser's ParsedType.type_name) -> C type / ctype.
-_LV_C_TYPE = {
-    "NumInt8": "int8_t", "NumInt16": "int16_t",
-    "NumInt32": "int32_t", "NumInt64": "int64_t",
-    "NumUInt8": "uint8_t", "NumUInt16": "uint16_t",
-    "NumUInt32": "uint32_t", "NumUInt64": "uint64_t",
-    "NumFloat32": "float", "NumFloat64": "double",
-    "NumComplex64": None, "NumComplex128": None,
+# LabVIEW numeric type-name (parser's ParsedType.type_name) -> (kind, _lv int
+# coercion helper). Float types have no coercion helper.
+_LV_INT_HELPER = {
+    "NumInt8": "i8", "NumInt16": "i16", "NumInt32": "i32", "NumInt64": "i64",
+    "NumUInt8": "u8", "NumUInt16": "u16", "NumUInt32": "u32", "NumUInt64": "u64",
 }
-_LV_CTYPES = {
-    "NumInt8": "c_int8", "NumInt16": "c_int16",
-    "NumInt32": "c_int32", "NumInt64": "c_int64",
-    "NumUInt8": "c_uint8", "NumUInt16": "c_uint16",
-    "NumUInt32": "c_uint32", "NumUInt64": "c_uint64",
-    "NumFloat32": "c_float", "NumFloat64": "c_double",
-}
-# ctypes name -> C element type, for emitting the C function signature.
-_CTYPE_TO_C = {
-    "c_int8": "int8_t", "c_int16": "int16_t", "c_int32": "int32_t",
-    "c_int64": "int64_t", "c_uint8": "uint8_t", "c_uint16": "uint16_t",
-    "c_uint32": "uint32_t", "c_uint64": "uint64_t",
-    "c_float": "float", "c_double": "double",
-}
-# Formula-node declaration keyword -> C type. ``float`` is float64 (double).
-_KW_C_TYPE = {
-    "int8": "int8_t", "int16": "int16_t", "int32": "int32_t", "int64": "int64_t",
-    "uInt8": "uint8_t", "uInt16": "uint16_t",
-    "uInt32": "uint32_t", "uInt64": "uint64_t",
-    "float32": "float", "float64": "double", "float": "double",
-}
-# Formula-node keyword -> abstract kind for type inference.
-_KW_KIND = {k: ("float" if v in ("float", "double") else "int")
-            for k, v in _KW_C_TYPE.items()}
-_LV_KIND = {k: ("float" if v in ("float", "double") else "int")
-            for k, v in _LV_C_TYPE.items() if v}
+_LV_FLOAT = {"NumFloat32", "NumFloat64", "NumFloatExt"}
 
-# Formula-node function spelling -> emitted C callee. Anything not here fails
-# loud. Direct <math.h> names map to themselves.
-_FUNC_MAP = {
-    "abs": "fabs", "sqrt": "sqrt", "exp": "exp", "expm1": "expm1",
-    "ln": "log", "lnp1": "log1p", "log": "log10", "log2": "log2",
-    "ceil": "ceil", "floor": "floor",
-    "sin": "sin", "cos": "cos", "tan": "tan",
-    "asin": "asin", "acos": "acos", "atan": "atan", "atan2": "atan2",
-    "sinh": "sinh", "cosh": "cosh", "tanh": "tanh",
-    "asinh": "asinh", "acosh": "acosh", "atanh": "atanh",
-    "pow": "pow",
-    "int": "lv_int", "intrz": "lv_intrz",
-    "mod": "lv_mod", "rem": "lv_rem", "sign": "lv_sign",
-    "max": "lv_max", "min": "lv_min",
-    "cot": "lv_cot", "csc": "lv_csc", "sec": "lv_sec", "sinc": "lv_sinc",
+# Formula-node declaration keyword -> _lv int coercion helper. ``float`` is a
+# LabVIEW alias for float64.
+_KW_INT_HELPER = {
+    "int8": "i8", "int16": "i16", "int32": "i32", "int64": "i64",
+    "uInt8": "u8", "uInt16": "u16", "uInt32": "u32", "uInt64": "u64",
 }
+_KW_FLOAT = {"float32", "float64", "float"}
+
+# Formula-node function spelling -> emitted Python callee. Anything not here
+# fails loud. ``int`` rounds to nearest (ties to even); ``intrz`` truncates.
+_FUNC_MAP = {
+    "abs": "abs", "sqrt": "math.sqrt", "exp": "math.exp", "expm1": "math.expm1",
+    "ln": "math.log", "lnp1": "math.log1p", "log": "math.log10",
+    "log2": "math.log2", "ceil": "math.ceil", "floor": "math.floor",
+    "sin": "math.sin", "cos": "math.cos", "tan": "math.tan",
+    "asin": "math.asin", "acos": "math.acos", "atan": "math.atan",
+    "atan2": "math.atan2",
+    "sinh": "math.sinh", "cosh": "math.cosh", "tanh": "math.tanh",
+    "asinh": "math.asinh", "acosh": "math.acosh", "atanh": "math.atanh",
+    "pow": "math.pow",
+    "int": "round", "intrz": "math.trunc",
+    "mod": "_lv.fmod", "rem": "_lv.rem", "sign": "_lv.sign",
+    "max": "max", "min": "min",
+    "cot": "_lv.cot", "csc": "_lv.csc", "sec": "_lv.sec", "sinc": "_lv.sinc",
+}
+# Functions whose result is an integer (drives int/float inference).
 _INT_RESULT_FUNCS = {"int", "intrz", "sign"}
 
-# Prelude inlined at the top of every generated .c so the file is
-# self-contained (no separate header to ship alongside it).
-PRELUDE = r"""/* Generated by lvkit from a LabVIEW Formula Node. Do not edit by hand. */
-#include <stdint.h>
-#include <math.h>
-
-/* LabVIEW Formula Node round-to-nearest (ties to even), matching the
-   node's implicit float->int coercion and the int() function. int()/intrz()
-   return an integer type so results feed bitwise operators (& | ^ << >>). */
-static inline double  lv_round(double x) { return rint(x); }
-static inline int64_t lv_int(double x)   { return (int64_t)rint(x); }
-static inline int64_t lv_intrz(double x) { return (int64_t)trunc(x); }
-static inline double lv_pow(double b, double e) { return pow(b, e); }
-static inline double lv_sign(double x)  { return (x > 0) - (x < 0); }
-static inline double lv_mod(double a, double b) { return fmod(a, b); }
-static inline double lv_rem(double a, double b) { return a - b * rint(a / b); }
-static inline double lv_max(double a, double b) { return a > b ? a : b; }
-static inline double lv_min(double a, double b) { return a < b ? a : b; }
-static inline double lv_cot(double x)   { return 1.0 / tan(x); }
-static inline double lv_csc(double x)   { return 1.0 / sin(x); }
-static inline double lv_sec(double x)   { return 1.0 / cos(x); }
-static inline double lv_sinc(double x)  { return x == 0.0 ? 1.0 : sin(x) / x; }
-"""
+# C-style binary operator -> Python spelling. Comparisons/bitwise map 1:1.
+_OP_MAP = {"&&": "and", "||": "or"}
 
 
 @dataclass
@@ -133,19 +102,23 @@ class VarSpec:
 
 
 @dataclass
-class Param:
-    """One C-function parameter, mirrored into the ctypes signature."""
-    name: str          # C parameter identifier
-    ctype: str         # ctypes name, e.g. "c_double"
-    role: str          # array_in | array_inout | scalar_in | scalar_out | array_out
-    var: str           # source VarSpec name (for marshaling)
-
-
-@dataclass
 class TranspileResult:
-    c_source: str
-    params: list[Param]
+    """A generated module-level Python function plus its call contract."""
+    func_def: ast.FunctionDef
     func_name: str
+    input_names: list[str]    # keyword params the function accepts
+    output_names: list[str]   # keys present in the returned dict
+    imports: set[str] = field(default_factory=set)
+    source: str = ""          # the unparsed function (handy for tests)
+
+
+def _kind_and_helper(lv_type: str) -> tuple[str, str | None]:
+    """Return ("int"|"float", int-coercion-helper-or-None) for an LV type."""
+    if lv_type in _LV_INT_HELPER:
+        return "int", _LV_INT_HELPER[lv_type]
+    if lv_type in _LV_FLOAT:
+        return "float", None
+    raise FormulaTranspileError(f"unsupported variable type {lv_type!r}")
 
 
 class _Emitter:
@@ -153,27 +126,30 @@ class _Emitter:
         self.vars = {v.name: v for v in variables}
         self.var_list = variables
         self.func_name = func_name
-        # abstract kind ("int"/"float") per variable name; locals added later.
+        # abstract kind ("int"/"float") and int coercion helper per name.
+        # For arrays these describe the element type (a[i] is an element).
         self.kind: dict[str, str] = {}
+        self.int_helper: dict[str, str] = {}
         for v in variables:
-            k = _LV_KIND.get(v.lv_type)
-            if k is None:
-                raise FormulaTranspileError(
-                    f"unsupported variable type {v.lv_type!r} for {v.name!r}")
+            k, helper = _kind_and_helper(v.lv_type)
             self.kind[v.name] = k
+            if helper:
+                self.int_helper[v.name] = helper
 
     # --- type inference (coarse: int vs float) ---
 
     def _texpr(self, e: Expr) -> str:
         if isinstance(e, Num):
             return "float" if e.is_float else "int"
-        if isinstance(e, Var):
-            return self.kind.get(e.name, "float")
-        if isinstance(e, Index):
+        if isinstance(e, (Var, Index)):
             return self.kind.get(e.name, "float")
         if isinstance(e, Call):
+            if e.name == "abs" and e.args:
+                return self._texpr(e.args[0])
             return "int" if e.name in _INT_RESULT_FUNCS else "float"
         if isinstance(e, Unary):
+            if e.op in ("!", "~"):
+                return "int"
             return self._texpr(e.operand)
         if isinstance(e, Binary):
             if e.op in ("<", "<=", ">", ">=", "==", "!=", "&&", "||"):
@@ -181,8 +157,8 @@ class _Emitter:
             if e.op in ("&", "|", "^", "<<", ">>"):
                 return "int"
             if e.op in ("**", "/"):
-                # Power and division always yield a float in a Formula Node
-                # (int/int is real division).
+                # Power and division always yield a real (float) in a Formula
+                # Node — int/int is real division, not truncating.
                 return "float"
             lt, rt = self._texpr(e.left), self._texpr(e.right)
             return "float" if "float" in (lt, rt) else "int"
@@ -194,50 +170,39 @@ class _Emitter:
         if isinstance(e, Num):
             return e.text
         if isinstance(e, Var):
-            if e.name == "pi":
-                return "M_PI"
-            return e.name
+            return "math.pi" if e.name == "pi" else e.name
         if isinstance(e, Index):
             return f"{e.name}[{self._emit_expr(e.index)}]"
         if isinstance(e, Call):
             callee = _FUNC_MAP.get(e.name)
             if callee is None:
-                raise FormulaTranspileError(
-                    f"unsupported function {e.name!r}")
+                raise FormulaTranspileError(f"unsupported function {e.name!r}")
             args = ", ".join(self._emit_expr(a) for a in e.args)
             return f"{callee}({args})"
         if isinstance(e, Unary):
-            return f"({e.op}{self._emit_expr(e.operand)})"
+            inner = self._emit_expr(e.operand)
+            if e.op == "!":
+                return f"(not {inner})"
+            return f"({e.op}{inner})"
         if isinstance(e, Binary):
             left = self._emit_expr(e.left)
             right = self._emit_expr(e.right)
-            if e.op == "**":
-                return f"lv_pow({left}, {right})"
             if e.op == "%" and "float" in (self._texpr(e.left),
                                            self._texpr(e.right)):
-                return f"fmod({left}, {right})"
-            if e.op == "/":
-                # Formula Node division is real division even for two
-                # integers (int/int -> float); integer truncation only
-                # happens at assignment to an integer variable. Force float
-                # division by promoting the left operand to double.
-                return f"((double)({left}) / ({right}))"
-            # Fully parenthesize so C precedence never reshapes the AST.
-            return f"({left} {e.op} {right})"
+                return f"math.fmod({left}, {right})"
+            op = _OP_MAP.get(e.op, e.op)
+            return f"({left} {op} {right})"
         raise FormulaTranspileError(f"cannot emit expression {e!r}")
 
-    # --- helpers for assignment rounding ---
+    # --- assignment with int rounding/width coercion ---
 
-    def _target_kind(self, target: Var | Index) -> str | None:
-        return self.kind.get(target.name)
-
-    def _emit_rhs(self, target_kind: str | None, value: Expr) -> str:
+    def _emit_store(self, name: str, value: Expr) -> str:
+        """Right-hand side for an assignment to ``name``. An integer target
+        rounds-to-nearest-even and wraps to its declared width (LabVIEW
+        coerces a real into an integer terminal); a float target is direct."""
         rhs = self._emit_expr(value)
-        # LabVIEW rounds when a fractional value lands in an integer variable;
-        # C would truncate. Round to match (skip when RHS is already integral).
-        if target_kind == "int" and self._texpr(value) == "float":
-            return f"lv_round({rhs})"
-        return rhs
+        helper = self.int_helper.get(name)
+        return f"_lv.{helper}({rhs})" if helper else rhs
 
     # --- statement emission ---
 
@@ -246,110 +211,160 @@ class _Emitter:
         if isinstance(s, Empty):
             return
         if isinstance(s, Block):
-            out.append(pad + "{")
             for inner in s.stmts:
-                self._emit_stmt(inner, out, indent + 1)
-            out.append(pad + "}")
+                self._emit_stmt(inner, out, indent)
             return
         if isinstance(s, Decl):
             self._emit_decl(s, out, indent)
             return
         if isinstance(s, Assign):
-            tk = self._target_kind(s.target)
-            tgt = self._emit_expr(s.target)
-            out.append(f"{pad}{tgt} = {self._emit_rhs(tk, s.value)};")
+            out.append(f"{pad}{self._emit_assign(s)}")
             return
         if isinstance(s, IncDec):
-            out.append(f"{pad}{s.name}{s.op};")
+            out.append(f"{pad}{s.name} {'+' if s.op == '++' else '-'}= 1")
             return
         if isinstance(s, ExprStmt):
-            out.append(f"{pad}{self._emit_expr(s.expr)};")
+            out.append(f"{pad}{self._emit_expr(s.expr)}")
             return
         if isinstance(s, If):
-            out.append(f"{pad}if ({self._emit_expr(s.cond)})")
-            self._emit_block_or_stmt(s.then, out, indent)
+            out.append(f"{pad}if {self._emit_expr(s.cond)}:")
+            self._emit_body(s.then, out, indent)
             if s.orelse is not None:
-                out.append(f"{pad}else")
-                self._emit_block_or_stmt(s.orelse, out, indent)
+                out.append(f"{pad}else:")
+                self._emit_body(s.orelse, out, indent)
             return
         if isinstance(s, While):
-            out.append(f"{pad}while ({self._emit_expr(s.cond)})")
-            self._emit_block_or_stmt(s.body, out, indent)
+            out.append(f"{pad}while {self._emit_expr(s.cond)}:")
+            self._emit_body(s.body, out, indent)
             return
         if isinstance(s, DoWhile):
-            out.append(f"{pad}do")
-            self._emit_block_or_stmt(s.body, out, indent)
-            out.append(f"{pad}while ({self._emit_expr(s.cond)});")
+            # Python has no do/while: run the body once, then loop on cond.
+            out.append(f"{pad}while True:")
+            self._emit_body(s.body, out, indent)
+            out.append(f"{pad}    if not ({self._emit_expr(s.cond)}):")
+            out.append(f"{pad}        break")
             return
         if isinstance(s, For):
-            init = self._inline_simple(s.init)
-            cond = self._emit_expr(s.cond) if s.cond else ""
-            post = self._inline_simple(s.post)
-            out.append(f"{pad}for ({init}; {cond}; {post})")
-            self._emit_block_or_stmt(s.body, out, indent)
+            self._emit_for(s, out, indent)
             return
         raise FormulaTranspileError(f"cannot emit statement {s!r}")
 
-    def _emit_block_or_stmt(self, s: Stmt, out: list[str], indent: int) -> None:
-        # Always brace bodies: removes dangling-else ambiguity and keeps the
-        # nearest-if binding the parser already resolved.
-        pad = "    " * indent
-        if isinstance(s, Block):
-            self._emit_stmt(s, out, indent)
-        else:
-            out.append(pad + "{")
-            self._emit_stmt(s, out, indent + 1)
-            out.append(pad + "}")
+    def _emit_assign(self, s: Assign) -> str:
+        if isinstance(s.target, Index):
+            tgt = self._emit_expr(s.target)
+            # element store: an int-element array coerces like a scalar int
+            rhs = self._emit_store(s.target.name, s.value)
+            return f"{tgt} = {rhs}"
+        return f"{s.target.name} = {self._emit_store(s.target.name, s.value)}"
 
-    def _inline_simple(self, s: Stmt | None) -> str:
-        """Render a for-init/post statement inline (no semicolon/indent)."""
-        if s is None or isinstance(s, Empty):
-            return ""
+    def _emit_body(self, s: Stmt, out: list[str], indent: int) -> None:
+        """Emit a control-flow body at indent+1, guaranteeing a non-empty
+        suite (an empty/again-empty block becomes ``pass``)."""
+        start = len(out)
+        self._emit_stmt(s, out, indent + 1)
+        if len(out) == start:
+            out.append("    " * (indent + 1) + "pass")
+
+    def _emit_for(self, s: For, out: list[str], indent: int) -> None:
+        pad = "    " * indent
+        # Idiomatic case: for(i=0; i<N; i++) with i untouched in the body ->
+        # a Python range loop. Everything else becomes init + while + post.
+        rng = self._as_range_loop(s)
+        if rng is not None:
+            var, limit = rng
+            out.append(f"{pad}for {var} in range({limit}):")
+            self._emit_body(s.body, out, indent)
+            return
+        if s.init is not None:
+            self._emit_stmt(s.init, out, indent)
+        cond = self._emit_expr(s.cond) if s.cond else "True"
+        out.append(f"{pad}while {cond}:")
+        start = len(out)
+        self._emit_stmt(s.body, out, indent + 1)
+        if s.post is not None:
+            self._emit_stmt(s.post, out, indent + 1)
+        if len(out) == start:
+            out.append("    " * (indent + 1) + "pass")
+
+    def _as_range_loop(self, s: For) -> tuple[str, str] | None:
+        """Return (index_var, limit_expr) if ``s`` is a simple ascending
+        count loop ``for(i=0; i<N; i++)`` whose index isn't reassigned in the
+        body; otherwise None (caller falls back to a while loop)."""
+        init, cond, post = s.init, s.cond, s.post
+        if not (isinstance(init, Assign) and isinstance(init.target, Var)
+                and isinstance(init.value, Num) and init.value.text == "0"):
+            return None
+        i = init.target.name
+        if not (isinstance(cond, Binary) and cond.op == "<"
+                and isinstance(cond.left, Var) and cond.left.name == i):
+            return None
+        post_ok = (isinstance(post, IncDec) and post.name == i
+                   and post.op == "++")
+        if not post_ok:
+            return None
+        if self._assigns(s.body, i) or _refs(cond.right, i):
+            return None
+        return i, self._emit_expr(cond.right)
+
+    def _assigns(self, s: Stmt, name: str) -> bool:
+        """True if ``name`` is assigned/incremented anywhere within ``s``."""
         if isinstance(s, Assign):
-            tk = self._target_kind(s.target)
-            return f"{self._emit_expr(s.target)} = {self._emit_rhs(tk, s.value)}"
+            return isinstance(s.target, Var) and s.target.name == name
         if isinstance(s, IncDec):
-            return f"{s.name}{s.op}"
-        if isinstance(s, ExprStmt):
-            return self._emit_expr(s.expr)
+            return s.name == name
+        if isinstance(s, Block):
+            return any(self._assigns(i, name) for i in s.stmts)
+        if isinstance(s, If):
+            return (self._assigns(s.then, name)
+                    or (s.orelse is not None and self._assigns(s.orelse, name)))
+        if isinstance(s, (While, DoWhile)):
+            return self._assigns(s.body, name)
+        if isinstance(s, For):
+            return ((s.init is not None and self._assigns(s.init, name))
+                    or (s.post is not None and self._assigns(s.post, name))
+                    or self._assigns(s.body, name))
         if isinstance(s, Decl):
-            # single-item decl inline (for-init); rare
-            buf: list[str] = []
-            self._emit_decl(s, buf, 0)
-            return buf[0].strip().rstrip(";")
-        raise FormulaTranspileError("unsupported for-clause statement")
+            return any(n == name for n, _ in s.items)
+        return False
 
     def _emit_decl(self, s: Decl, out: list[str], indent: int) -> None:
         pad = "    " * indent
         for name, init in s.items:
             if name in self.vars:
                 # Re-declaration of a terminal variable: it is already a
-                # function-scope local. Drop the type; keep the initializer
-                # as a plain assignment so the value is preserved.
+                # function parameter/local. Keep only the initializer as a
+                # plain assignment so the value is preserved.
                 if init is not None:
-                    tk = self.kind.get(name)
-                    out.append(f"{pad}{name} = {self._emit_rhs(tk, init)};")
+                    out.append(f"{pad}{name} = {self._emit_store(name, init)}")
                 continue
-            ctype = _KW_C_TYPE.get(s.type_kw)
-            if ctype is None:
+            if s.type_kw in _KW_INT_HELPER:
+                self.kind[name] = "int"
+                self.int_helper[name] = _KW_INT_HELPER[s.type_kw]
+            elif s.type_kw in _KW_FLOAT:
+                self.kind[name] = "float"
+            else:
                 raise FormulaTranspileError(
                     f"unsupported type keyword {s.type_kw!r}")
-            self.kind[name] = _KW_KIND[s.type_kw]
             if init is not None:
-                rhs = self._emit_rhs(self.kind[name], init)
-                out.append(f"{pad}{ctype} {name} = {rhs};")
+                out.append(f"{pad}{name} = {self._emit_store(name, init)}")
             else:
-                out.append(f"{pad}{ctype} {name};")
+                # Python needs the name to exist; default by kind.
+                default = "0" if self.kind[name] == "int" else "0.0"
+                out.append(f"{pad}{name} = {default}")
 
-    # --- wrapper / signature ---
+    # --- pre-pass: collect script-local declaration kinds for inference ---
 
     def _collect_local_kinds(self, block: Block) -> None:
-        """Pre-pass: record kinds of script-local declarations for inference."""
         def walk(s: Stmt) -> None:
             if isinstance(s, Decl):
                 for name, _ in s.items:
-                    if name not in self.vars:
-                        self.kind.setdefault(name, _KW_KIND.get(s.type_kw, "float"))
+                    if name in self.vars:
+                        continue
+                    if s.type_kw in _KW_INT_HELPER:
+                        self.kind.setdefault(name, "int")
+                        self.int_helper.setdefault(name, _KW_INT_HELPER[s.type_kw])
+                    elif s.type_kw in _KW_FLOAT:
+                        self.kind.setdefault(name, "float")
             elif isinstance(s, Block):
                 for i in s.stmts:
                     walk(i)
@@ -366,67 +381,86 @@ class _Emitter:
         for s in block.stmts:
             walk(s)
 
+    # --- assembly ---
+
     def emit(self, tree: Block) -> TranspileResult:
         self._collect_local_kinds(tree)
 
-        params: list[Param] = []
+        params: list[str] = []
         prologue: list[str] = []
-        epilogue: list[str] = []
+        outputs: list[str] = []
         for v in self.var_list:
-            c_elem = _LV_C_TYPE.get(v.lv_type)
-            ctype = _LV_CTYPES.get(v.lv_type)
-            if c_elem is None or ctype is None:
-                raise FormulaTranspileError(
-                    f"unsupported type {v.lv_type!r} for {v.name!r}")
-            if v.is_array:
-                role = {"in": "array_in", "out": "array_out",
-                        "inout": "array_inout"}[v.direction]
-                params.append(Param(v.name, ctype, role, v.name))
-            elif v.direction == "in":
-                params.append(Param(f"{v.name}_in", ctype, "scalar_in", v.name))
-                prologue.append(f"    {c_elem} {v.name} = {v.name}_in;")
+            if v.direction in ("in", "inout"):
+                params.append(v.name)
             elif v.direction == "out":
-                params.append(Param(f"{v.name}_out", ctype, "scalar_out", v.name))
-                prologue.append(f"    {c_elem} {v.name} = 0;")
-                epilogue.append(f"    *{v.name}_out = {v.name};")
-            else:  # inout scalar
-                params.append(Param(f"{v.name}_in", ctype, "scalar_in", v.name))
-                params.append(Param(f"{v.name}_out", ctype, "scalar_out", v.name))
-                prologue.append(f"    {c_elem} {v.name} = {v.name}_in;")
-                epilogue.append(f"    *{v.name}_out = {v.name};")
+                if v.is_array:
+                    raise FormulaTranspileError(
+                        f"output-only array {v.name!r} has no length source; "
+                        "wire it as in/out so its size is known"
+                    )
+                prologue.append(
+                    f"    {v.name} = {'0' if self.kind[v.name] == 'int' else '0.0'}"
+                )
+            if v.direction in ("out", "inout"):
+                outputs.append(v.name)
 
         body: list[str] = []
         for s in tree.stmts:
             self._emit_stmt(s, body, 1)
 
-        sig = ", ".join(self._c_param(p) for p in params) or "void"
-        lines = [PRELUDE, "", f"void {self.func_name}({sig})", "{"]
+        ret = "{" + ", ".join(f"{n!r}: {n}" for n in outputs) + "}"
+        sig = "*, " + ", ".join(params) if params else ""
+        lines = [f"def {self.func_name}({sig}):"]
         lines.extend(prologue)
-        if prologue:
-            lines.append("")
         lines.extend(body)
-        if epilogue:
-            lines.append("")
-            lines.extend(epilogue)
-        lines.append("}")
-        return TranspileResult("\n".join(lines) + "\n", params, self.func_name)
+        lines.append(f"    return {ret}")
+        if not prologue and not body:
+            lines.insert(1, "    pass")
+        source = "\n".join(lines) + "\n"
 
-    def _c_param(self, p: Param) -> str:
-        ct = _CTYPE_TO_C[p.ctype]
-        if p.role == "scalar_in":
-            return f"{ct} {p.name}"
-        # arrays (any direction) and scalar_out are pointers
-        return f"{ct} *{p.name}"
+        func_def = ast.parse(source).body[0]
+        assert isinstance(func_def, ast.FunctionDef)
+
+        imports: set[str] = set()
+        if "math." in source:
+            imports.add("import math")
+        if "_lv." in source:
+            imports.add("from lvkit.runtime import lv as _lv")
+
+        return TranspileResult(
+            func_def=func_def,
+            func_name=self.func_name,
+            input_names=params,
+            output_names=outputs,
+            imports=imports,
+            source=source,
+        )
+
+
+def _refs(e: Expr, name: str) -> bool:
+    """True if expression ``e`` references variable ``name``."""
+    if isinstance(e, Var):
+        return e.name == name
+    if isinstance(e, Index):
+        return e.name == name or _refs(e.index, name)
+    if isinstance(e, Unary):
+        return _refs(e.operand, name)
+    if isinstance(e, Binary):
+        return _refs(e.left, name) or _refs(e.right, name)
+    if isinstance(e, Call):
+        return any(_refs(a, name) for a in e.args)
+    return False
 
 
 def transpile(
     script: str, variables: list[VarSpec], func_name: str = "formula",
 ) -> TranspileResult:
-    """Transpile a Formula Node script to a self-contained C unit.
+    """Transpile a Formula Node script to a self-contained Python function.
 
     ``variables`` are the node's wired terminals (deduped so a name wired on
-    both sides is one ``inout`` entry). Raises FormulaTranspileError on any
-    unsupported construct.
+    both sides is one ``inout`` entry). The function takes the inputs as
+    keyword arguments and returns a dict of output-name -> value. Raises
+    FormulaTranspileError on any unsupported construct.
     """
     tree = parse(script)
     return _Emitter(variables, func_name).emit(tree)

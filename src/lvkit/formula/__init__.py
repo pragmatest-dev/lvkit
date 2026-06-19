@@ -1,20 +1,19 @@
-"""LabVIEW Formula Node → C compilation.
+"""LabVIEW Formula Node → Python transpilation.
 
 A Formula Node (block-diagram class ``fBox``) holds a script in NI's
-Formula-Node DSL — a restricted language the docs describe as "similar to
-C." It is ~99% C syntax; the deltas that a C compiler cannot accept are:
-
-  * the ``**`` exponent operator (C has no power operator) — maps to ``pow``,
-  * LabVIEW type keywords (``int16``, ``float32``, …) — handled by a typedef
-    prelude,
-  * a handful of function spellings (``int``, ``intrz``, ``ln``, …) — mapped
-    to ``<math.h>`` or one-line helpers in the prelude,
-  * float→int assignment rounding (LabVIEW rounds to nearest; C truncates).
+Formula-Node DSL — a restricted, sandboxed language the docs describe as
+"similar to C": typed scalar locals, arrays that are wired terminals,
+``if``/``for``/``while``/``do``, operators, and a fixed set of math
+functions. There are no pointers and no allocation.
 
 This package tokenizes and parses the script into a small AST (failing loud
-on anything outside the supported grammar) and emits a C translation unit
-that compiles with a stock C compiler. No part of the algorithm is
-interpreted into Python — the original logic runs as compiled C.
+on anything outside the supported grammar) and emits a deterministic,
+self-contained **Python** function. The translation is mechanical — no AI
+interprets the algorithm — and the result needs no C compiler, no FFI, and
+no shared library: the generated module is pure Python that runs anywhere.
+LabVIEW numeric semantics (int/int real division, round-to-nearest-even on
+int assignment, fixed-width wrap) are reproduced via small ``lvkit.runtime.lv``
+helpers. See ``formula.emit`` for the mapping.
 """
 
 from __future__ import annotations

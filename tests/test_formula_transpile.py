@@ -1,14 +1,12 @@
-"""Tests for the LabVIEW Formula Node -> C transpiler.
+"""Tests for the LabVIEW Formula Node -> Python transpiler.
 
-Covers the documented-grammar parser, the specific C transformations, and the
-fail-loud behaviour on unsupported constructs. Where a C compiler is present,
-the emitted C is compiled to verify it is well-formed.
+Covers the documented-grammar parser, the specific Python transformations
+(LabVIEW numeric semantics), and the fail-loud behaviour on unsupported
+constructs. The emitted function is exec'd to confirm it is valid Python and
+computes the right values.
 """
 
 from __future__ import annotations
-
-import shutil
-import subprocess
 
 import pytest
 
@@ -16,18 +14,17 @@ from lvkit.formula import FormulaTranspileError
 from lvkit.formula.cparser import parse
 from lvkit.formula.emit import VarSpec, transpile
 
-CC = shutil.which("cc") or shutil.which("gcc")
+
+def _src(script: str, variables: list[VarSpec]) -> str:
+    return transpile(script, variables).source
 
 
-def _c(script: str, variables: list[VarSpec]) -> str:
-    return transpile(script, variables).c_source
-
-
-def _body(script: str, variables: list[VarSpec]) -> str:
-    """Just the generated function (prelude stripped), so assertions don't
-    match helper definitions like the 'fmod' inside lv_mod."""
-    out = transpile(script, variables).c_source
-    return "void " + out.split("void ", 1)[1]
+def _run(script: str, variables: list[VarSpec], func_name: str = "f", **inputs):
+    """Transpile, exec the emitted function, call it, return its output dict."""
+    res = transpile(script, variables, func_name=func_name)
+    ns: dict = {}
+    exec("import math\nfrom lvkit.runtime import lv as _lv\n" + res.source, ns)
+    return ns[func_name](**inputs)
 
 
 # --- parser ---------------------------------------------------------------
@@ -42,149 +39,139 @@ def test_parses_control_flow_and_ops():
     assert len(tree.stmts) == 3
 
 
-def test_power_is_right_associative_below_unary():
-    # -2**2 must parse as -(2**2); round-trips through emit as lv_pow.
-    out = _c("y = -2**2;", [VarSpec("y", "NumFloat64", "out", False)])
-    assert "(-lv_pow(2, 2))" in out
+# --- numeric semantics ----------------------------------------------------
 
 
-# --- transformations ------------------------------------------------------
+def test_power_emits_python_power_and_computes():
+    out = _src("y = 2**16;", [VarSpec("y", "NumFloat64", "out", False)])
+    assert "2 ** 16" in out
+    assert _run("y = 2**16;", [VarSpec("y", "NumFloat64", "out", False)])["y"] == 65536
 
 
-def test_power_maps_to_lv_pow():
-    out = _c("y = 2**16;", [VarSpec("y", "NumFloat64", "out", False)])
-    assert "lv_pow(2, 16)" in out
-    assert "2**16" not in out
+def test_int_division_is_real_not_floor():
+    # int/int is REAL division in a Formula Node (Python '/' already is).
+    variables = [
+        VarSpec("a", "NumInt32", "in", False),
+        VarSpec("b", "NumInt32", "in", False),
+        VarSpec("y", "NumFloat64", "out", False),
+    ]
+    assert _run("y = a / b;", variables, a=8192, b=32768)["y"] == 0.25
 
 
-def test_int_function_maps_to_lv_int():
-    out = _c("y = int(x);", [
+def test_float_to_int_assignment_rounds_ties_to_even():
+    variables = [
+        VarSpec("a", "NumFloat64", "in", False),
+        VarSpec("b", "NumFloat64", "in", False),
+        VarSpec("k", "NumInt16", "out", False),
+    ]
+    out = _src("k = a / b;", variables)
+    assert "_lv.i16(" in out                      # int target -> width coercion
+    # 7/2 = 3.5 -> round-half-to-even -> 4 (not C's truncate-to-3)
+    assert _run("k = a / b;", variables, a=7.0, b=2.0)["k"] == 4
+
+
+def test_fixed_width_integer_wraps():
+    # uInt8 stores wrap at 256, matching LabVIEW's fixed-width integer.
+    variables = [
+        VarSpec("a", "NumInt32", "in", False),
+        VarSpec("k", "NumUInt8", "out", False),
+    ]
+    assert _run("k = a;", variables, a=300)["k"] == 44     # 300 % 256
+
+
+def test_modulo_float_uses_fmod():
+    variables = [
+        VarSpec("y", "NumFloat64", "out", False),
+        VarSpec("a", "NumFloat64", "in", False),
+        VarSpec("b", "NumFloat64", "in", False),
+    ]
+    assert "math.fmod(a, b)" in _src("y = a % b;", variables)
+    assert _run("y = a % b;", variables, a=7.5, b=2.0)["y"] == 1.5
+
+
+def test_abs_is_polymorphic():
+    # Python abs handles both int and float — no fabs/abs dispatch needed.
+    fout = _run("y = abs(x);", [
+        VarSpec("y", "NumFloat64", "out", False),
+        VarSpec("x", "NumFloat64", "in", False),
+    ], x=-2.5)
+    assert fout["y"] == 2.5
+    iout = _run("y = abs(x);", [
+        VarSpec("y", "NumInt32", "out", False),
+        VarSpec("x", "NumInt32", "in", False),
+    ], x=-7)
+    assert iout["y"] == 7
+
+
+def test_int_function_rounds():
+    out = _src("y = int(x);", [
         VarSpec("y", "NumFloat64", "out", False),
         VarSpec("x", "NumFloat64", "in", False),
     ])
-    assert "lv_int(x)" in out
+    assert "round(x)" in out
 
 
-def test_modulo_float_becomes_fmod_int_stays_percent():
-    fout = _body("y = a % b;", [
-        VarSpec("y", "NumFloat64", "out", False),
-        VarSpec("a", "NumFloat64", "in", False),
-        VarSpec("b", "NumFloat64", "in", False),
-    ])
-    assert "fmod(a, b)" in fout
-    iout = _body("y = a % b;", [
-        VarSpec("y", "NumInt32", "out", False),
-        VarSpec("a", "NumInt32", "in", False),
-        VarSpec("b", "NumInt32", "in", False),
-    ])
-    assert "(a % b)" in iout
-    assert "fmod" not in iout
-
-
-def test_float_to_int_assignment_rounds():
-    # int target, float RHS -> wrapped in lv_round (LabVIEW rounds; C truncates)
-    out = _c("k = a / b;", [
-        VarSpec("k", "NumInt16", "out", False),
-        VarSpec("a", "NumFloat64", "in", False),
-        VarSpec("b", "NumFloat64", "in", False),
-    ])
-    assert "lv_round(" in out
-
-
-def test_int_to_int_assignment_not_rounded():
-    out = _body("k = a + b;", [
-        VarSpec("k", "NumInt32", "out", False),
-        VarSpec("a", "NumInt32", "in", False),
-        VarSpec("b", "NumInt32", "in", False),
-    ])
-    assert "lv_round" not in out
-    assert "k = (a + b);" in out
-
-
-def test_terminal_redeclaration_dropped():
-    # 'r' is a terminal (already a function-scope local); the script's own
-    # `int32 r=0;` must become a plain assignment, not a second declaration.
-    out = _body("int32 r=0;\nr = a;", [
+def test_terminal_redeclaration_becomes_assignment():
+    # 'r' is a terminal (already a parameter/local); the script's own
+    # `int32 r=0;` must become a plain assignment, not a typed declaration.
+    variables = [
         VarSpec("r", "NumInt32", "out", False),
         VarSpec("a", "NumInt32", "in", False),
-    ])
-    # 'r' is declared exactly once (the wrapper prologue), not re-declared
-    # by the script's own `int32 r=0;`, which becomes a plain assignment.
-    assert out.count("int32_t r") == 1
-    assert "r = 0;" in out              # initializer kept as assignment
+    ]
+    out = _src("int32 r=0;\nr = a;", variables)
+    assert "int32" not in out                     # no C-style declaration
+    assert _run("int32 r=0;\nr = a;", variables, a=5)["r"] == 5
 
 
-def test_type_keyword_maps_to_stdint():
-    out = _c("int16 tmp = 3;\ny = tmp;", [
-        VarSpec("y", "NumFloat64", "out", False),
-    ])
-    assert "int16_t tmp = 3;" in out
-
-
-def test_signature_roles():
+def test_signature_inputs_and_outputs():
     res = transpile("a[0] = x;", [
         VarSpec("a", "NumFloat64", "inout", True),
         VarSpec("x", "NumFloat64", "in", False),
         VarSpec("r", "NumInt32", "out", False),
     ])
-    roles = {p.var: p.role for p in res.params}
-    assert roles["a"] == "array_inout"
-    assert roles["x"] == "scalar_in"
-    assert roles["r"] == "scalar_out"
+    assert res.input_names == ["a", "x"]          # in + inout
+    assert res.output_names == ["a", "r"]         # inout + out
 
 
-# --- loops (while / do-while) ---------------------------------------------
-# These are supported by the parser and emitter (switch/case/break are not);
-# lock that behaviour so a future change can't silently drop them.
+# --- loops ----------------------------------------------------------------
 
 
-def test_while_loop_transpiles():
-    out = _body(
+def test_for_loop_becomes_range_and_runs():
+    variables = [
+        VarSpec("n", "NumInt32", "in", False),
+        VarSpec("data", "NumFloat64", "in", True),
+        VarSpec("out", "NumFloat64", "inout", True),
+    ]
+    script = "int32 i=0;\nfor(i=0;i<n;i++) out[i]=data[i]*2;"
+    assert "for i in range(n):" in _src(script, variables)
+    r = _run(script, variables, n=3, data=[1.0, 2.0, 3.0], out=[0.0, 0.0, 0.0])
+    assert r["out"] == [2.0, 4.0, 6.0]
+
+
+def test_while_loop_runs():
+    r = _run(
         "int32 i=0;\nwhile (i < n) { acc = acc + i; i = i + 1; }",
         [
             VarSpec("n", "NumInt32", "in", False),
             VarSpec("acc", "NumFloat64", "out", False),
         ],
+        n=4,
     )
-    assert "while ((i < n))" in out
-    assert "acc = (acc + i);" in out
+    assert r["acc"] == 6.0          # 0+1+2+3
 
 
-def test_do_while_transpiles():
-    out = _body(
-        "int32 i=0;\ndo { acc = acc + i; i = i + 1; } while (i < n);",
+def test_do_while_runs_body_once():
+    # do/while runs the body before testing — so it executes even when the
+    # condition is false at entry.
+    r = _run(
+        "int32 i=0;\ndo { acc = acc + 1; i = i + 1; } while (i < n);",
         [
             VarSpec("n", "NumInt32", "in", False),
             VarSpec("acc", "NumFloat64", "out", False),
         ],
+        n=0,
     )
-    assert "do" in out
-    assert "while ((i < n));" in out
-
-
-@pytest.mark.skipif(CC is None, reason="no C compiler available")
-def test_while_and_do_while_c_compiles(tmp_path):
-    assert CC is not None
-    script = (
-        "int32 i=0;\n"
-        "while (i < n) { acc = acc + data[i]; i = i + 1; }\n"
-        "i = 0;\n"
-        "do { acc = acc - 1; i = i + 1; } while (i < n);\n"
-    )
-    variables = [
-        VarSpec("data", "NumFloat64", "in", True),
-        VarSpec("n", "NumInt32", "in", False),
-        VarSpec("acc", "NumFloat64", "out", False),
-    ]
-    res = transpile(script, variables)
-    src = tmp_path / "loops.c"
-    src.write_text(res.c_source)
-    obj = tmp_path / "loops.o"
-    r = subprocess.run(
-        [CC, "-c", "-O2", "-Wall", "-Werror", str(src), "-o", str(obj)],
-        capture_output=True, text=True,
-    )
-    assert r.returncode == 0, r.stderr
+    assert r["acc"] == 1.0
 
 
 # --- fail loud ------------------------------------------------------------
@@ -192,7 +179,7 @@ def test_while_and_do_while_c_compiles(tmp_path):
 
 def test_unknown_function_fails_loud():
     with pytest.raises(FormulaTranspileError):
-        _c("y = bogus(x);", [VarSpec("y", "NumFloat64", "out", False)])
+        _src("y = bogus(x);", [VarSpec("y", "NumFloat64", "out", False)])
 
 
 def test_unsupported_keyword_fails_loud():
@@ -205,14 +192,18 @@ def test_bad_character_fails_loud():
         parse("y = @x;")
 
 
-# --- emitted C compiles ---------------------------------------------------
+def test_output_only_array_fails_loud():
+    # A pure-output array has no length source — fail loud rather than guess.
+    with pytest.raises(FormulaTranspileError):
+        _src("out[0] = 1;", [VarSpec("out", "NumFloat64", "out", True)])
 
 
-@pytest.mark.skipif(CC is None, reason="no C compiler available")
-def test_emitted_c_compiles(tmp_path):
-    assert CC is not None
+# --- emitted code is valid Python -----------------------------------------
+
+
+def test_emitted_function_is_valid_python_and_self_consistent():
     script = (
-        "int16 i=0;\n"
+        "int32 i=0;\n"
         "float acc=0;\n"
         "for(i=0;i<n;i++){\n"
         "  acc = acc + data[i]*2**1;\n"
@@ -227,11 +218,6 @@ def test_emitted_c_compiles(tmp_path):
         VarSpec("gain", "NumInt16", "out", False),
         VarSpec("out", "NumFloat64", "inout", True),
     ]
-    res = transpile(script, variables)
-    src = tmp_path / "f.c"
-    src.write_text(res.c_source)
-    r = subprocess.run(
-        [CC, "-c", "-O2", "-Wall", "-Werror", str(src), "-o", str(tmp_path / "f.o")],
-        capture_output=True, text=True,
-    )
-    assert r.returncode == 0, r.stderr
+    r = _run(script, variables, data=[10.0, 20.0, 30.0], n=3, out=[0.0])
+    assert isinstance(r["gain"], int)
+    assert r["out"][0] == 120.0     # (10+20+30)*2, none exceed 32767
