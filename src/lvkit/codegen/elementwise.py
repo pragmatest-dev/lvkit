@@ -37,13 +37,17 @@ def _call(fn: str, args: list[ast.expr]) -> ast.Call:
 def _is_array_valued(node: ast.expr, array_vars: frozenset[str]) -> bool:
     """An operator's operand carries an array if it names a known array
     variable or is already an ``_lv.*`` broadcast call (which returns an array
-    when its input was one). A subscript (``a[i]``) is an element — scalar."""
+    when its input was one). A subscript is array-valued only when it's a
+    *slice* of an array (``a[i:j]`` stays an array); a single integer index
+    (``a[i]``) is a scalar element."""
     if isinstance(node, ast.Name):
         return node.id in array_vars
     if (isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
             and isinstance(node.func.value, ast.Name)
             and node.func.value.id == "_lv"):
         return True
+    if isinstance(node, ast.Subscript) and isinstance(node.slice, ast.Slice):
+        return _is_array_valued(node.value, array_vars)
     return False
 
 
