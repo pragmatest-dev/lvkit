@@ -792,43 +792,58 @@ class ConstructionMixin:
         # === 4. Set parent/frame on inner operation nodes ===
         # After all nodes are created, walk parser structures and stamp
         # containment info on the graph nodes they own.
+        #
+        # frame_owner maps each structure inner-node UID (operations AND the
+        # per-frame sRN boundary nodes) to (structure_id, frame_key). It lets
+        # us attribute *constants* to their frame below: a diagram constant
+        # nested inside a frame carries an sRN as its terminal's parent_uid,
+        # and that sRN is one of the frame's inner_node_uids.
+        frame_owner: dict[str, tuple[str, str | int | None]] = {}
+
+        def _stamp(uid: str, struct_id: str, frame_key: str | int | None) -> None:
+            frame_owner[uid] = (struct_id, frame_key)
+            q_uid = self._qid(vi_name, uid)
+            if q_uid in g and "node" in g.nodes[q_uid]:
+                inner_node = g.nodes[q_uid]["node"]
+                inner_node.parent = struct_id
+                inner_node.frame = frame_key
 
         for loop in bd.loops:
             q_loop_uid = self._qid(vi_name, loop.uid)
             for uid in loop.inner_node_uids:
-                q_uid = self._qid(vi_name, uid)
-                if q_uid in g and "node" in g.nodes[q_uid]:
-                    inner_node = g.nodes[q_uid]["node"]
-                    inner_node.parent = q_loop_uid
-                    inner_node.frame = None
+                _stamp(uid, q_loop_uid, None)
 
         for cs in bd.case_structures:
             q_cs_uid = self._qid(vi_name, cs.uid)
             for frame in cs.frames:
                 for uid in frame.inner_node_uids:
-                    q_uid = self._qid(vi_name, uid)
-                    if q_uid in g and "node" in g.nodes[q_uid]:
-                        inner_node = g.nodes[q_uid]["node"]
-                        inner_node.parent = q_cs_uid
-                        inner_node.frame = frame.selector_value
+                    _stamp(uid, q_cs_uid, frame.selector_value)
 
         for fs in bd.flat_sequences:
             q_fs_uid = self._qid(vi_name, fs.uid)
             for idx, frame in enumerate(fs.frames):
                 for uid in frame.inner_node_uids:
-                    q_uid = self._qid(vi_name, uid)
-                    if q_uid in g and "node" in g.nodes[q_uid]:
-                        inner_node = g.nodes[q_uid]["node"]
-                        inner_node.parent = q_fs_uid
-                        inner_node.frame = str(idx)
+                    _stamp(uid, q_fs_uid, str(idx))
 
         for ds in bd.decompose_structures:
             q_ds_uid = self._qid(vi_name, ds.uid)
             for uid in ds.inner_node_uids:
-                q_uid = self._qid(vi_name, uid)
-                if q_uid in g and "node" in g.nodes[q_uid]:
-                    inner_node = g.nodes[q_uid]["node"]
-                    inner_node.parent = q_ds_uid
+                _stamp(uid, q_ds_uid, None)
+
+        # Attribute constants to the frame that contains them. A constant
+        # wired inside a structure is a diagram constant whose output
+        # terminal (keyed by the constant UID) is parented to the frame's
+        # sRN boundary node. Map: constant -> its terminal's parent -> frame.
+        for const in bd.constants:
+            ct = bd.terminal_info.get(const.uid)
+            if ct is None or ct.parent_uid not in frame_owner:
+                continue
+            q_const_uid = self._qid(vi_name, const.uid)
+            if q_const_uid in g and "node" in g.nodes[q_const_uid]:
+                struct_id, frame_key = frame_owner[ct.parent_uid]
+                cnode = g.nodes[q_const_uid]["node"]
+                cnode.parent = struct_id
+                cnode.frame = frame_key
 
         # === 5. Register remaining terminal_info entries in term_lookup ===
         # Most tunnel/sRN terminals are already registered by
