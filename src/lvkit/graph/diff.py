@@ -4,15 +4,18 @@ from __future__ import annotations
 
 import difflib
 from collections import Counter
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 from ..models import (
     CaseOperation,
+    Frame,
     LoopOperation,
     Operation,
     SequenceOperation,
     Terminal,
+    _is_error_cluster,
 )
 from .describe import describe_vi
 from .models import Constant, Wire
@@ -123,7 +126,10 @@ class DiffReport:
             for s in self.structures:
                 if s.category in ("added", "removed"):
                     tag = "+" if s.category == "added" else "-"
-                    lines.append(f"  {tag} {s.name}")
+                    line = f"  {tag} {s.name}"
+                    if s.details:
+                        line += f" ({s.details})"
+                    lines.append(line)
                 else:
                     lines.append(f"  ~ {s.name}: {s.details}")
             sections.append("\n".join(lines))
@@ -247,8 +253,11 @@ def _diff_constants(
     ga: InMemoryVIGraph, gb: InMemoryVIGraph,
     va: str, vb: str,
 ) -> list[ConstantChange]:
-    consts_a = ga.get_constants(va)
-    consts_b = gb.get_constants(vb)
+    # Top-level constants only. Constants nested inside a structure frame
+    # are positioned by the Structures section (mirrors how nested
+    # operations are reported under Structures, not flat Operations).
+    consts_a = [c for c in ga.get_constants(va) if c.parent is None]
+    consts_b = [c for c in gb.get_constants(vb) if c.parent is None]
 
     changes: list[ConstantChange] = []
 
@@ -318,6 +327,8 @@ def _diff_structures(
 ) -> list[StructureChange]:
     structs_a = _collect_structures(ga.get_operations(va))
     structs_b = _collect_structures(gb.get_operations(vb))
+    consts_a = ga.get_constants(va)
+    consts_b = gb.get_constants(vb)
 
     map_a = {(s.name, type(s).__name__): s for s in structs_a}
     map_b = {(s.name, type(s).__name__): s for s in structs_b}
@@ -327,14 +338,43 @@ def _diff_structures(
         name, kind = key
         label = name or kind
         if key not in map_a:
-            changes.append(StructureChange("added", label))
+            changes.append(StructureChange(
+                "added", label, _structure_content_summary(map_b[key], consts_b),
+            ))
         elif key not in map_b:
-            changes.append(StructureChange("removed", label))
+            changes.append(StructureChange(
+                "removed", label, _structure_content_summary(map_a[key], consts_a),
+            ))
         else:
-            detail = _compare_structure(map_a[key], map_b[key])
+            detail = _compare_structure(
+                map_a[key], map_b[key], consts_a, consts_b,
+            )
             if detail:
                 changes.append(StructureChange("changed", label, detail))
     return changes
+
+
+def _structure_content_summary(
+    s: Operation, constants: list[Constant],
+) -> str | None:
+    """Enumerate a structure's per-frame operations + constants, so an
+    added/removed structure shows what's inside it (incl. nested constants
+    that are excluded from the flat Constants section)."""
+    by_frame = _consts_by_frame(constants, s.id)
+    if isinstance(s, CaseOperation):
+        frames = [(str(f.selector_value), f) for f in s.frames]
+    elif isinstance(s, SequenceOperation):
+        frames = [(str(i), f) for i, f in enumerate(s.frames)]
+    else:
+        return None
+
+    parts: list[str] = []
+    for fkey, frame in frames:
+        items = [op.name or op.node_type or "op" for op in frame.operations]
+        items += [_const_label(c) for c in by_frame.get(fkey, [])]
+        if items:
+            parts.append(f"frame {fkey}: {', '.join(items)}")
+    return "; ".join(parts) if parts else None
 
 
 # ── Utility functions ─────────────────────────────────────────────────
@@ -374,14 +414,97 @@ def _collect_structures(ops: list[Operation]) -> list[Operation]:
     ]
 
 
-def _compare_structure(a: Operation, b: Operation) -> str | None:
+def _consts_by_frame(
+    constants: list[Constant], parent_id: str,
+) -> dict[str, list[Constant]]:
+    """Group a structure's nested constants by frame key (as str)."""
+    grouped: dict[str, list[Constant]] = {}
+    for c in constants:
+        if c.parent == parent_id:
+            grouped.setdefault(str(c.frame), []).append(c)
+    return grouped
+
+
+def _const_label(c: Constant) -> str:
+    """Short label for a constant in a frame diff."""
+    if c.lv_type and _is_error_cluster(c.lv_type):
+        return "error cluster"
+    type_str = c.lv_type.to_python() if c.lv_type else "unknown"
+    return f"{type_str} constant"
+
+
+def _frame_content_delta(
+    ops_a: list[Operation], consts_a: list[Constant],
+    ops_b: list[Operation], consts_b: list[Constant],
+) -> list[str]:
+    """Per-frame additions/removals of operations and constants."""
+    parts: list[str] = []
+
+    oa, ob = _op_counts(ops_a), _op_counts(ops_b)
+    for key in sorted(set(oa) | set(ob), key=lambda k: (k[0] or "", k[1] or "")):
+        delta = ob.get(key, 0) - oa.get(key, 0)
+        label = key[0] or f"(unnamed {key[1]})"
+        if delta > 0:
+            parts.append(f"+{delta} {label}")
+        elif delta < 0:
+            parts.append(f"-{-delta} {label}")
+
+    ka = Counter(_const_key(c) for c in consts_a)
+    kb = Counter(_const_key(c) for c in consts_b)
+    label_for = {_const_key(c): _const_label(c) for c in (*consts_a, *consts_b)}
+    for key in sorted(set(ka) | set(kb)):
+        delta = kb.get(key, 0) - ka.get(key, 0)
+        label = label_for[key]
+        if delta > 0:
+            parts.append(f"+{delta} {label}")
+        elif delta < 0:
+            parts.append(f"-{-delta} {label}")
+
+    return parts
+
+
+def _compare_structure(
+    a: Operation, b: Operation,
+    consts_a: list[Constant], consts_b: list[Constant],
+) -> str | None:
     if isinstance(a, CaseOperation) and isinstance(b, CaseOperation):
         if len(a.frames) != len(b.frames):
             return f"{len(a.frames)} frames -> {len(b.frames)} frames"
+        return _compare_frames(
+            {str(f.selector_value): f for f in a.frames},
+            {str(f.selector_value): f for f in b.frames},
+            _consts_by_frame(consts_a, a.id),
+            _consts_by_frame(consts_b, b.id),
+        )
     if isinstance(a, LoopOperation) and isinstance(b, LoopOperation):
         if a.loop_type != b.loop_type:
             return f"{a.loop_type} -> {b.loop_type}"
     if isinstance(a, SequenceOperation) and isinstance(b, SequenceOperation):
         if len(a.frames) != len(b.frames):
             return f"{len(a.frames)} frames -> {len(b.frames)} frames"
+        return _compare_frames(
+            {str(i): f for i, f in enumerate(a.frames)},
+            {str(i): f for i, f in enumerate(b.frames)},
+            _consts_by_frame(consts_a, a.id),
+            _consts_by_frame(consts_b, b.id),
+        )
     return None
+
+
+def _compare_frames(
+    frames_a: Mapping[str, Frame], frames_b: Mapping[str, Frame],
+    consts_a: Mapping[str, list[Constant]], consts_b: Mapping[str, list[Constant]],
+) -> str | None:
+    """Per-frame content diff, attributed to each frame key."""
+    details: list[str] = []
+    for key in sorted(set(frames_a) | set(frames_b)):
+        fa, fb = frames_a.get(key), frames_b.get(key)
+        ops_a = list(fa.operations) if fa is not None else []
+        ops_b = list(fb.operations) if fb is not None else []
+        delta = _frame_content_delta(
+            ops_a, consts_a.get(key, []),
+            ops_b, consts_b.get(key, []),
+        )
+        if delta:
+            details.append(f"frame {key}: {', '.join(delta)}")
+    return "; ".join(details) if details else None

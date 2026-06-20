@@ -275,6 +275,10 @@ class Constant(BaseModel):
     lv_type: LVType | None = None
     raw_value: str | None = None
     name: str | None = None
+    # Structure containment (None = top-level diagram). Mirrors GraphNode:
+    # parent = containing structure's node id, frame = selector value / index.
+    parent: str | None = None
+    frame: str | int | None = None
 
 
 class SubVICall(BaseModel):
