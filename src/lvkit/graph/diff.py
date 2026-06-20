@@ -18,7 +18,7 @@ from ..models import (
     _is_error_cluster,
 )
 from .describe import describe_vi
-from .models import Constant, Wire
+from .models import Constant, Wire, WireEnd
 
 if TYPE_CHECKING:
     from .core import InMemoryVIGraph
@@ -303,15 +303,46 @@ def _diff_wiring(
     ga: InMemoryVIGraph, gb: InMemoryVIGraph,
     va: str, vb: str,
 ) -> list[WiringChange]:
-    wires_a = ga.get_wires(va)
-    wires_b = gb.get_wires(vb)
+    # Relabel unnamed-constant endpoints by type/value (e.g. "error cluster")
+    # instead of an opaque raw UID.
+    const_labels = _const_label_by_id(ga.get_constants(va))
+    const_labels.update(_const_label_by_id(gb.get_constants(vb)))
+    return _wiring_changes(ga.get_wires(va), gb.get_wires(vb), const_labels)
 
-    keys_a = Counter(_wire_key(w) for w in wires_a)
-    keys_b = Counter(_wire_key(w) for w in wires_b)
+
+def _wiring_changes(
+    wires_a: list[Wire], wires_b: list[Wire],
+    const_labels: Mapping[str, str],
+) -> list[WiringChange]:
+    # Drop structure-internal edges (tunnel/selector/sRN plumbing — always
+    # self-loops on the structure node). They're implied by the structure
+    # add/remove and are surfaced in the Structures section instead.
+    wires_a = [w for w in wires_a if not _is_internal_wire(w)]
+    wires_b = [w for w in wires_b if not _is_internal_wire(w)]
+
+    # A wire is only noteworthy if it touches a node present in BOTH
+    # versions (a genuine rewire of unchanged topology — a "splice"). A
+    # wire whose endpoints are all new/removed is dragged along by the
+    # node change that the Operations/Constants/Structures sections already
+    # report, so it's redundant noise here.
+    shared = _endpoint_names(wires_a) & _endpoint_names(wires_b)
+
+    keys_a = Counter(_wire_key(w, const_labels) for w in wires_a)
+    keys_b = Counter(_wire_key(w, const_labels) for w in wires_b)
+    raw_names: dict[tuple[str, str], tuple[str | None, str | None]] = {}
+    for w in (*wires_a, *wires_b):
+        raw_names.setdefault(
+            _wire_key(w, const_labels), (w.source.name, w.dest.name),
+        )
 
     changes: list[WiringChange] = []
     for key in sorted(set(keys_a) | set(keys_b)):
         diff = keys_b.get(key, 0) - keys_a.get(key, 0)
+        if diff == 0:
+            continue
+        src_name, dst_name = raw_names[key]
+        if src_name not in shared and dst_name not in shared:
+            continue  # implied by a node add/remove — suppress
         src, dst = key
         desc = f"{src} -> {dst}"
         for _ in range(max(0, diff)):
@@ -329,6 +360,10 @@ def _diff_structures(
     structs_b = _collect_structures(gb.get_operations(vb))
     consts_a = ga.get_constants(va)
     consts_b = gb.get_constants(vb)
+    wires_a = ga.get_wires(va)
+    wires_b = gb.get_wires(vb)
+    labels = _const_label_by_id(consts_a)
+    labels.update(_const_label_by_id(consts_b))
 
     map_a = {(s.name, type(s).__name__): s for s in structs_a}
     map_b = {(s.name, type(s).__name__): s for s in structs_b}
@@ -339,27 +374,50 @@ def _diff_structures(
         label = name or kind
         if key not in map_a:
             changes.append(StructureChange(
-                "added", label, _structure_content_summary(map_b[key], consts_b),
+                "added",
+                label,
+                _structure_content_summary(map_b[key], consts_b, wires_b, labels),
             ))
         elif key not in map_b:
             changes.append(StructureChange(
-                "removed", label, _structure_content_summary(map_a[key], consts_a),
+                "removed",
+                label,
+                _structure_content_summary(map_a[key], consts_a, wires_a, labels),
             ))
         else:
             detail = _compare_structure(
                 map_a[key], map_b[key], consts_a, consts_b,
+                wires_a, wires_b, labels,
             )
             if detail:
                 changes.append(StructureChange("changed", label, detail))
     return changes
 
 
+def _selector_source(
+    case: CaseOperation, wires: list[Wire], const_labels: Mapping[str, str],
+) -> str | None:
+    """The external node feeding a case structure's selector terminal —
+    the splice that drives which frame runs. Recovered here because that
+    wire (new node -> new case) is suppressed in the Wiring section."""
+    sel = case.selector_terminal
+    if not sel:
+        return None
+    for w in wires:
+        if w.dest.terminal_id == sel and not _is_internal_wire(w):
+            return _endpoint_label(w.source, const_labels)
+    return None
+
+
 def _structure_content_summary(
     s: Operation, constants: list[Constant],
+    wires: list[Wire] | None = None,
+    const_labels: Mapping[str, str] | None = None,
 ) -> str | None:
-    """Enumerate a structure's per-frame operations + constants, so an
-    added/removed structure shows what's inside it (incl. nested constants
-    that are excluded from the flat Constants section)."""
+    """Enumerate a structure's selector source + per-frame operations and
+    constants, so an added/removed structure shows what's inside it (incl.
+    nested constants excluded from the flat Constants section) and what
+    drives it (the selector, whose wire the Wiring section suppresses)."""
     by_frame = _consts_by_frame(constants, s.id)
     if isinstance(s, CaseOperation):
         frames = [(str(f.selector_value), f) for f in s.frames]
@@ -369,6 +427,10 @@ def _structure_content_summary(
         return None
 
     parts: list[str] = []
+    if isinstance(s, CaseOperation):
+        sel = _selector_source(s, wires or [], const_labels or {})
+        if sel:
+            parts.append(f"selector <- {sel}")
     for fkey, frame in frames:
         items = [op.name or op.node_type or "op" for op in frame.operations]
         items += [_const_label(c) for c in by_frame.get(fkey, [])]
@@ -401,10 +463,37 @@ def _const_key(c: Constant) -> tuple[str, str]:
     return (repr(c.value), type_str)
 
 
-def _wire_key(w: Wire) -> tuple[str, str]:
-    src = w.source.name or w.source.node_id.split("::")[-1]
-    dst = w.dest.name or w.dest.node_id.split("::")[-1]
-    return (src, dst)
+def _is_internal_wire(w: Wire) -> bool:
+    """A structure-internal edge (tunnel inner<->outer, selector, sRN
+    in->out pairing) — always a self-loop on the structure node."""
+    return w.source.node_id == w.dest.node_id
+
+
+def _endpoint_names(wires: list[Wire]) -> set[str]:
+    """Named nodes appearing as a wire endpoint (identity across versions)."""
+    names: set[str] = set()
+    for w in wires:
+        if w.source.name:
+            names.add(w.source.name)
+        if w.dest.name:
+            names.add(w.dest.name)
+    return names
+
+
+def _const_label_by_id(constants: list[Constant]) -> dict[str, str]:
+    """Map each unnamed constant's node id to a type/value display label."""
+    return {c.id: _const_label(c) for c in constants if not c.name}
+
+
+def _endpoint_label(end: WireEnd, const_labels: Mapping[str, str]) -> str:
+    return end.name or const_labels.get(end.node_id) or end.node_id.split("::")[-1]
+
+
+def _wire_key(
+    w: Wire, const_labels: Mapping[str, str] | None = None,
+) -> tuple[str, str]:
+    labels = const_labels or {}
+    return (_endpoint_label(w.source, labels), _endpoint_label(w.dest, labels))
 
 
 def _collect_structures(ops: list[Operation]) -> list[Operation]:
@@ -466,16 +555,29 @@ def _frame_content_delta(
 def _compare_structure(
     a: Operation, b: Operation,
     consts_a: list[Constant], consts_b: list[Constant],
+    wires_a: list[Wire] | None = None,
+    wires_b: list[Wire] | None = None,
+    const_labels: Mapping[str, str] | None = None,
 ) -> str | None:
+    wa, wb, labels = wires_a or [], wires_b or [], const_labels or {}
     if isinstance(a, CaseOperation) and isinstance(b, CaseOperation):
+        parts: list[str] = []
+        sel_a = _selector_source(a, wa, labels)
+        sel_b = _selector_source(b, wb, labels)
+        if sel_a != sel_b:
+            parts.append(f"selector {sel_a} -> {sel_b}")
         if len(a.frames) != len(b.frames):
-            return f"{len(a.frames)} frames -> {len(b.frames)} frames"
-        return _compare_frames(
-            {str(f.selector_value): f for f in a.frames},
-            {str(f.selector_value): f for f in b.frames},
-            _consts_by_frame(consts_a, a.id),
-            _consts_by_frame(consts_b, b.id),
-        )
+            parts.append(f"{len(a.frames)} frames -> {len(b.frames)} frames")
+        else:
+            frame_detail = _compare_frames(
+                {str(f.selector_value): f for f in a.frames},
+                {str(f.selector_value): f for f in b.frames},
+                _consts_by_frame(consts_a, a.id),
+                _consts_by_frame(consts_b, b.id),
+            )
+            if frame_detail:
+                parts.append(frame_detail)
+        return "; ".join(parts) if parts else None
     if isinstance(a, LoopOperation) and isinstance(b, LoopOperation):
         if a.loop_type != b.loop_type:
             return f"{a.loop_type} -> {b.loop_type}"
