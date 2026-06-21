@@ -79,13 +79,15 @@ def test_fixed_width_integer_wraps():
     assert _run("k = a;", variables, a=300)["k"] == 44     # 300 % 256
 
 
-def test_modulo_float_uses_fmod():
+def test_modulo_is_truncated_remainder():
     variables = [
         VarSpec("y", "NumFloat64", "out", False),
         VarSpec("a", "NumFloat64", "in", False),
         VarSpec("b", "NumFloat64", "in", False),
     ]
-    assert "math.fmod(a, b)" in _src("y = a % b;", variables)
+    # LV `%` is the truncated remainder (sign of the dividend) for ints and
+    # floats alike, so it always routes through the helper, not Python `%`.
+    assert "_lv.rem(a, b)" in _src("y = a % b;", variables)
     assert _run("y = a % b;", variables, a=7.5, b=2.0)["y"] == 1.5
 
 

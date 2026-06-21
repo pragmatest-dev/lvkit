@@ -76,8 +76,29 @@ def u64(x): return _int_store(x, 64, False)
 
 
 def sign(x):     return (x > 0) - (x < 0)
-def fmod(a, b):  return _math.fmod(a, b)            # C/LV %: sign of dividend
-def rem(a, b):   return a - b * round(a / b)        # remainder after round-div
+
+
+def rem(a, b):
+    """Truncated remainder — LabVIEW ``%`` operator and ``rem()``. Sign
+    follows the dividend (``-7 rem 3 == -1``). Integer-exact for ints."""
+    if isinstance(a, int) and isinstance(b, int):
+        q = abs(a) // abs(b)
+        r = abs(a) - q * abs(b)
+        return -r if a < 0 else r
+    return _math.fmod(a, b)
+
+
+def lvmod(a, b):
+    """Floored modulo — LabVIEW ``mod()``. Sign follows the divisor
+    (``mod(-7, 3) == 2``)."""
+    if isinstance(a, int) and isinstance(b, int):
+        return a % b                            # Python ``%`` is floored
+    return a - b * _math.floor(a / b)
+
+
+def land(a, b):  return 1 if (a and b) else 0       # && yields 1/0, not operand
+def lor(a, b):   return 1 if (a or b) else 0        # || yields 1/0, not operand
+def lnot(a):     return 0 if a else 1
 def cot(x):      return 1.0 / _math.tan(x)
 def csc(x):      return 1.0 / _math.sin(x)
 def sec(x):      return 1.0 / _math.cos(x)

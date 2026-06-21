@@ -81,15 +81,17 @@ _FUNC_MAP = {
     "asinh": "math.asinh", "acosh": "math.acosh", "atanh": "math.atanh",
     "pow": "math.pow",
     "int": "round", "intrz": "math.trunc",
-    "mod": "_lv.fmod", "rem": "_lv.rem", "sign": "_lv.sign",
+    "mod": "_lv.lvmod", "rem": "_lv.rem", "sign": "_lv.sign",
     "max": "max", "min": "min",
     "cot": "_lv.cot", "csc": "_lv.csc", "sec": "_lv.sec", "sinc": "_lv.sinc",
 }
 # Functions whose result is an integer (drives int/float inference).
 _INT_RESULT_FUNCS = {"int", "intrz", "sign"}
 
-# C-style binary operator -> Python spelling. Comparisons/bitwise map 1:1.
-_OP_MAP = {"&&": "and", "||": "or"}
+# Logical operators -> runtime helper. LabVIEW ``&&``/``||`` yield 1/0, not
+# the operand Python ``and``/``or`` would return. Comparisons and bitwise
+# operators map 1:1 onto Python and need no entry here.
+_LOGICAL_OP = {"&&": "_lv.land", "||": "_lv.lor"}
 
 
 @dataclass
@@ -182,16 +184,19 @@ class _Emitter:
         if isinstance(e, Unary):
             inner = self._emit_expr(e.operand)
             if e.op == "!":
-                return f"(not {inner})"
+                return f"_lv.lnot({inner})"
             return f"({e.op}{inner})"
         if isinstance(e, Binary):
             left = self._emit_expr(e.left)
             right = self._emit_expr(e.right)
-            if e.op == "%" and "float" in (self._texpr(e.left),
-                                           self._texpr(e.right)):
-                return f"math.fmod({left}, {right})"
-            op = _OP_MAP.get(e.op, e.op)
-            return f"({left} {op} {right})"
+            # LabVIEW ``%`` is the truncated remainder (sign of dividend) for
+            # both ints and floats — Python ``%`` is floored, so always route
+            # through the helper.
+            if e.op == "%":
+                return f"_lv.rem({left}, {right})"
+            if e.op in _LOGICAL_OP:
+                return f"{_LOGICAL_OP[e.op]}({left}, {right})"
+            return f"({left} {e.op} {right})"
         raise FormulaTranspileError(f"cannot emit expression {e!r}")
 
     # --- assignment with int rounding/width coercion ---
