@@ -70,18 +70,23 @@ _KW_FLOAT = {"float32", "float64", "float"}
 
 # Formula-node function spelling -> emitted Python callee. Anything not here
 # fails loud. ``int`` rounds to nearest (ties to even); ``intrz`` truncates.
+# Domain-prone functions route through the non-raising _lv.* wrappers (a
+# Formula Node has no error terminal — LabVIEW coerces domain/zero errors to
+# IEEE inf/nan rather than trapping). Functions that never raise on real
+# inputs (sin, cos, atan, exp, …) keep their direct math.* mapping.
 _FUNC_MAP = {
-    "abs": "abs", "sqrt": "math.sqrt", "exp": "math.exp", "expm1": "math.expm1",
-    "ln": "math.log", "lnp1": "math.log1p", "log": "math.log10",
-    "log2": "math.log2", "ceil": "math.ceil", "floor": "math.floor",
+    "abs": "abs", "sqrt": "_lv.sqrt", "exp": "math.exp", "expm1": "math.expm1",
+    "ln": "_lv.ln", "lnp1": "math.log1p", "log": "_lv.log10",
+    "log2": "_lv.log2", "ceil": "math.ceil", "floor": "math.floor",
     "sin": "math.sin", "cos": "math.cos", "tan": "math.tan",
-    "asin": "math.asin", "acos": "math.acos", "atan": "math.atan",
+    "asin": "_lv.asin", "acos": "_lv.acos", "atan": "math.atan",
     "atan2": "math.atan2",
     "sinh": "math.sinh", "cosh": "math.cosh", "tanh": "math.tanh",
-    "asinh": "math.asinh", "acosh": "math.acosh", "atanh": "math.atanh",
-    "pow": "math.pow",
+    "asinh": "math.asinh", "acosh": "_lv.acosh", "atanh": "_lv.atanh",
+    "pow": "_lv.powf",
     "int": "round", "intrz": "math.trunc",
     "mod": "_lv.lvmod", "rem": "_lv.rem", "sign": "_lv.sign",
+    "getexp": "_lv.getexp", "getman": "_lv.getman",
     "max": "max", "min": "min",
     "cot": "_lv.cot", "csc": "_lv.csc", "sec": "_lv.sec", "sinc": "_lv.sinc",
 }
@@ -196,6 +201,17 @@ class _Emitter:
                 return f"_lv.rem({left}, {right})"
             if e.op in _LOGICAL_OP:
                 return f"{_LOGICAL_OP[e.op]}({left}, {right})"
+            # `/` yields IEEE inf/nan on a zero divisor (no error terminal to
+            # raise into). A literal nonzero divisor can't trap, so keep the
+            # plain operator there and only wrap the ambiguous cases.
+            if e.op == "/" and not _is_nonzero_literal(e.right):
+                return f"_lv.div({left}, {right})"
+            # `**` with a negative base and non-integer exponent is nan in
+            # LabVIEW, but Python returns a complex. Route through the helper
+            # unless the base is a provably non-negative literal (the common
+            # ``2 ** n`` case, kept as the plain operator).
+            if e.op == "**" and not _is_nonneg_literal(e.left):
+                return f"_lv.powf({left}, {right})"
             return f"({left} {e.op} {right})"
         raise FormulaTranspileError(f"cannot emit expression {e!r}")
 
@@ -440,6 +456,30 @@ class _Emitter:
             imports=imports,
             source=source,
         )
+
+
+def _is_nonzero_literal(e: Expr) -> bool:
+    """True if ``e`` is a numeric literal that is provably nonzero — so a
+    division by it cannot trap and needs no inf/nan wrapper."""
+    if not isinstance(e, Num):
+        return False
+    try:
+        return float(e.text) != 0.0
+    except ValueError:
+        return False
+
+
+def _is_nonneg_literal(e: Expr) -> bool:
+    """True if ``e`` is a provably non-negative numeric literal — so a power
+    with this base can never hit the negative-base complex-result case and
+    needs no helper. A unary-minus literal parses as Unary, not Num, so it
+    is correctly excluded."""
+    if not isinstance(e, Num):
+        return False
+    try:
+        return float(e.text) >= 0.0
+    except ValueError:
+        return False
 
 
 def _refs(e: Expr, name: str) -> bool:
