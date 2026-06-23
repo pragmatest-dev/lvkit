@@ -297,10 +297,14 @@ class Parser:
             if self._is("("):
                 return self._parse_call(t.value)
             if self._is("["):
-                self._next()
-                idx = self.parse_expr()
-                self._expect("]")
-                return Index(t.value, idx)
+                # Chained subscripts for N-dimensional arrays: a[i][j].
+                node: Expr = Var(t.value)
+                while self._is("["):
+                    self._next()
+                    idx = self.parse_expr()
+                    self._expect("]")
+                    node = Index(node, idx)
+                return node
             return Var(t.value)
         raise self._err(f"unexpected token {t.value!r}", t)
 

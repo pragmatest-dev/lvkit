@@ -9,14 +9,22 @@ self-contained Python function instead of C. That keeps the original
 from the parsed AST) while dropping the C compiler / FFI / .so machinery
 entirely — generated code is pure Python and runs anywhere.
 
-LabVIEW numeric semantics are preserved:
-  * ``int / int``                -> real (float) division (Python ``/``)
+LabVIEW numeric semantics (confirmed against a real Formula Node, issue #8)
+are preserved:
+  * ``int / int``                -> real (float) division; a zero divisor
+                                    yields IEEE inf/nan (``_lv.div``) since a
+                                    Formula Node has no error terminal
   * float assigned to an int var -> round-to-nearest-even then wrap to the
                                     declared width (``_lv.i16`` etc.)
-  * ``**``                       -> Python ``**`` (already real for ints)
+  * ``**``                       -> right-assoc, tighter than unary minus; a
+                                    negative base with a non-integer exponent
+                                    is nan (``_lv.powf``), not a complex
+  * ``%`` / ``rem``              -> truncated remainder, sign of dividend;
+                                    ``mod`` is floored, sign of divisor
+  * ``&&`` ``||`` ``!``          -> 1/0 (``_lv.land``/``lor``/``lnot``)
   * ``abs``                      -> Python ``abs`` (polymorphic int/float)
-  * ``%`` with a float operand   -> ``math.fmod`` (C/LV sign-of-dividend)
-  * math functions               -> ``math.*`` / small ``_lv`` helpers
+  * domain funcs (sqrt/ln/...)   -> non-raising ``_lv.*`` (nan/inf on domain)
+  * N-D arrays                   -> nested indexing ``a[i][j]``; ``sizeOfDim``
 
 Unknown functions or type keywords raise FormulaTranspileError — never a
 silent guess.
@@ -89,9 +97,10 @@ _FUNC_MAP = {
     "getexp": "_lv.getexp", "getman": "_lv.getman",
     "max": "max", "min": "min",
     "cot": "_lv.cot", "csc": "_lv.csc", "sec": "_lv.sec", "sinc": "_lv.sinc",
+    "rand": "_lv.rand", "sizeOfDim": "_lv.size_of_dim",
 }
 # Functions whose result is an integer (drives int/float inference).
-_INT_RESULT_FUNCS = {"int", "intrz", "sign"}
+_INT_RESULT_FUNCS = {"int", "intrz", "sign", "sizeOfDim"}
 
 # Logical operators -> runtime helper. LabVIEW ``&&``/``||`` yield 1/0, not
 # the operand Python ``and``/``or`` would return. Comparisons and bitwise
@@ -148,8 +157,12 @@ class _Emitter:
     def _texpr(self, e: Expr) -> str:
         if isinstance(e, Num):
             return "float" if e.is_float else "int"
-        if isinstance(e, (Var, Index)):
+        if isinstance(e, Var):
             return self.kind.get(e.name, "float")
+        if isinstance(e, Index):
+            # An element has the array's (scalar) element kind, found via the
+            # root array variable — works for any nesting depth (a[i][j]).
+            return self.kind.get(_index_root(e), "float")
         if isinstance(e, Call):
             if e.name == "abs" and e.args:
                 return self._texpr(e.args[0])
@@ -179,7 +192,7 @@ class _Emitter:
         if isinstance(e, Var):
             return "math.pi" if e.name == "pi" else e.name
         if isinstance(e, Index):
-            return f"{e.name}[{self._emit_expr(e.index)}]"
+            return f"{self._emit_expr(e.base)}[{self._emit_expr(e.index)}]"
         if isinstance(e, Call):
             callee = _FUNC_MAP.get(e.name)
             if callee is None:
@@ -273,8 +286,9 @@ class _Emitter:
     def _emit_assign(self, s: Assign) -> str:
         if isinstance(s.target, Index):
             tgt = self._emit_expr(s.target)
-            # element store: an int-element array coerces like a scalar int
-            rhs = self._emit_store(s.target.name, s.value)
+            # element store: an int-element array coerces like a scalar int,
+            # keyed by the root array variable (handles a[i] and a[i][j]).
+            rhs = self._emit_store(_index_root(s.target), s.value)
             return f"{tgt} = {rhs}"
         return f"{s.target.name} = {self._emit_store(s.target.name, s.value)}"
 
@@ -458,6 +472,14 @@ class _Emitter:
         )
 
 
+def _index_root(e: Expr) -> str:
+    """The root array variable name of a (possibly nested) subscript, e.g.
+    ``a`` for ``a[i]`` and ``a[i][j]``. Empty string if the base isn't a Var."""
+    while isinstance(e, Index):
+        e = e.base
+    return e.name if isinstance(e, Var) else ""
+
+
 def _is_nonzero_literal(e: Expr) -> bool:
     """True if ``e`` is a numeric literal that is provably nonzero — so a
     division by it cannot trap and needs no inf/nan wrapper."""
@@ -487,7 +509,7 @@ def _refs(e: Expr, name: str) -> bool:
     if isinstance(e, Var):
         return e.name == name
     if isinstance(e, Index):
-        return e.name == name or _refs(e.index, name)
+        return _refs(e.base, name) or _refs(e.index, name)
     if isinstance(e, Unary):
         return _refs(e.operand, name)
     if isinstance(e, Binary):
