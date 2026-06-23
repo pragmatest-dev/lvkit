@@ -56,6 +56,21 @@ _KIND_TO_LABELS: dict[str, list[str]] = {
 # Graph node kinds that represent executable operations
 _OPERATION_KINDS = ("vi", "primitive", "operation", "caseStruct", "loop", "formula")
 
+
+def _node_order_key(uid: str) -> tuple[str, int, str]:
+    """Deterministic ordering key for node UIDs.
+
+    Node UIDs are stored in per-VI sets whose iteration order is
+    hash-randomized between processes. Sorting by this key — VI base, then
+    numeric LabVIEW object id — gives a stable, natural order so codegen and
+    diffs are byte-for-byte reproducible. Independent (parallel) operations
+    left tied by the topological sort are broken by this key rather than by
+    set iteration order.
+    """
+    base, _, tail = uid.rpartition("::")
+    return (base, int(tail), "") if tail.isdigit() else (uid, -1, uid)
+
+
 def _get_operation_labels(kind: str) -> list[str]:
     """Get labels for an operation based on its kind."""
     return _KIND_TO_LABELS.get(kind, ["Operation"])

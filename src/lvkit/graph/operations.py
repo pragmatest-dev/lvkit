@@ -34,6 +34,7 @@ from .core import (
     _OPERATION_KINDS,
     _get_operation_labels,
     _graph_node_to_op_kind,
+    _node_order_key,
 )
 from .models import (
     CaseStructureNode,
@@ -374,11 +375,14 @@ class OperationsMixin:
         if len(op_uid_set) <= 1:
             return list(uids)
 
-        # Build dependency graph among inner operation nodes
+        # Build dependency graph among inner operation nodes. Insert nodes in
+        # a deterministic order (op_uid_set is hash-randomized) and break
+        # topological ties with the same key, so parallel inner ops emit in a
+        # stable order — codegen must be reproducible.
         dep = nx.DiGraph()
-        dep.add_nodes_from(op_uid_set)
+        dep.add_nodes_from(sorted(op_uid_set, key=_node_order_key))
 
-        for uid in op_uid_set:
+        for uid in sorted(op_uid_set, key=_node_order_key):
             if uid not in self._graph:
                 continue
             for _, dest, edata in self._graph.out_edges(uid, data=True):
@@ -386,9 +390,11 @@ class OperationsMixin:
                     dep.add_edge(uid, dest)
 
         try:
-            sorted_ops = list(nx.topological_sort(dep))
+            sorted_ops = list(
+                nx.lexicographical_topological_sort(dep, key=_node_order_key)
+            )
         except nx.NetworkXUnfeasible:
-            sorted_ops = list(op_uid_set)
+            sorted_ops = sorted(op_uid_set, key=_node_order_key)
 
         # Build final list: sorted ops first, then non-op uids
         sorted_set = set(sorted_ops)
@@ -428,7 +434,9 @@ class OperationsMixin:
             gnode = self._graph.nodes[uid].get("node")
             if gnode is not None and gnode.parent == parent_uid:
                 children.append(uid)
-        return children
+        # node_uids is a hash-randomized set — order deterministically so the
+        # structure's inner-node ordering is reproducible.
+        return sorted(children, key=_node_order_key)
 
     def _populate_frame_operations(
         self,
