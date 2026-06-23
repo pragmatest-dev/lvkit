@@ -160,3 +160,39 @@ def test_power_wraps_only_non_literal_base():
     ]).source
     assert "2 ** n" in src
     assert "_lv.powf(b, 0.5)" in src
+
+
+def test_rand_is_uniform_unit_interval():
+    out = _run("RF[0] = rand();", _VARS,
+               RI=[0] * 4, RF=[0.0], A=[1.0], n=1)
+    assert isinstance(out["RF"][0], float) and 0.0 <= out["RF"][0] < 1.0
+
+
+def test_size_of_dim_1d():
+    # Oracle: sizeOfDim(A, 0) == 5 for a 5-element array.
+    out = _run("RI[0] = sizeOfDim(A, 0);", _VARS,
+               RI=[0] * 4, RF=[0.0], A=[10.0, 20, 30, 40, 50], n=5)
+    assert out["RI"][0] == 5
+
+
+def test_size_of_dim_2d_natural_convention():
+    # Dim 0 is the outer length, dim 1 the inner — natural nested convention.
+    variables = [
+        VarSpec("RI", "NumInt32", "inout", True),
+        VarSpec("B", "NumFloat64", "in", True),
+    ]
+    out = _run("RI[0] = sizeOfDim(B, 0); RI[1] = sizeOfDim(B, 1);",
+               variables, RI=[0, 0], B=[[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]])
+    assert out["RI"][0] == 2   # rows
+    assert out["RI"][1] == 3   # columns
+
+
+def test_2d_index_read_and_write():
+    variables = [
+        VarSpec("B", "NumFloat64", "inout", True),
+        VarSpec("y", "NumFloat64", "out", False),
+    ]
+    out = _run("y = B[1][2]; B[0][1] = 99.0;", variables,
+               B=[[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]])
+    assert out["y"] == 6.0              # nested read, row 1 col 2
+    assert out["B"][0][1] == 99.0       # nested write in place

@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import math as _math
 import operator as _op
+import random as _random
 from collections.abc import Callable
 
 
@@ -176,6 +177,24 @@ def getman(x):
         return 0.0
     m, _ = _math.frexp(x)
     return m * 2.0
+
+
+def rand():
+    """Uniform pseudo-random float in [0, 1) — LabVIEW ``rand()``. The value
+    is intentionally non-deterministic at runtime (codegen stays stable)."""
+    return _random.random()
+
+
+def size_of_dim(arr, dim):
+    """Length of array ``arr`` along dimension ``dim`` — LabVIEW
+    ``sizeOfDim``. Dim 0 is the outermost (``len(arr)``); deeper dims descend
+    one nesting level each. Out-of-range / ragged access returns 0."""
+    cur = arr
+    for _ in range(dim):
+        if not isinstance(cur, list) or not cur:
+            return 0
+        cur = cur[0]
+    return len(cur) if isinstance(cur, list) else 0
 
 
 def land(a, b):  return 1 if (a and b) else 0       # && yields 1/0, not operand
