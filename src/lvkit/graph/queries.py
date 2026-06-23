@@ -19,7 +19,7 @@ import networkx as nx
 
 from ..models import FPTerminal, Operation, Terminal
 from ..vilib_resolver import get_resolver as get_vilib_resolver
-from .core import _OPERATION_KINDS, _graph_node_to_op_kind
+from .core import _OPERATION_KINDS, _graph_node_to_op_kind, _node_order_key
 from .models import (
     AnyGraphNode,
     ClusterInfo,
@@ -557,8 +557,9 @@ class QueryMixin:
         ]
         op_set = set(ordered_ids)
 
-        # Add any top-level ops not in the sorted order (disconnected)
-        for uid in top_level_op_uids:
+        # Add any top-level ops not in the sorted order (disconnected) in a
+        # deterministic order — top_level_op_uids is a hash-randomized set.
+        for uid in sorted(top_level_op_uids, key=_node_order_key):
             if uid not in op_set:
                 ordered_ids.append(uid)
 
@@ -600,11 +601,15 @@ class QueryMixin:
         if not op_ids:
             return []
 
-        # Build operation-level dependency graph from edges
+        # Build operation-level dependency graph from edges. Insert nodes in
+        # a deterministic order (op_ids is a hash-randomized set) and break
+        # topological-sort ties with the same key, so independent operations
+        # land in a stable order — codegen output must be reproducible.
+        ordered_ids = sorted(op_ids, key=_node_order_key)
         op_deps = nx.DiGraph()
-        op_deps.add_nodes_from(op_ids)
+        op_deps.add_nodes_from(ordered_ids)
 
-        for uid in op_ids:
+        for uid in ordered_ids:
             if uid not in self._graph:
                 continue
             for _, dest, edata in self._graph.out_edges(uid, data=True):
@@ -612,9 +617,11 @@ class QueryMixin:
                     op_deps.add_edge(uid, dest)
 
         try:
-            return list(nx.topological_sort(op_deps))
+            return list(
+                nx.lexicographical_topological_sort(op_deps, key=_node_order_key)
+            )
         except nx.NetworkXUnfeasible:
-            return list(op_ids)
+            return ordered_ids
 
     def get_predecessors(self, vi_name: str, node_id: str) -> list[str]:
         """Get nodes that feed into this node (direct predecessors)."""
