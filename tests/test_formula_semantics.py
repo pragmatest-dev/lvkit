@@ -108,3 +108,55 @@ def test_integer_semantics(script, expected):
 def test_float_semantics(script, expected):
     out = _run(script, _VARS, RI=[0] * 4, RF=[0.0], A=[10.0, 20, 30, 40, 50], n=5)
     assert out["RF"][0] == pytest.approx(expected, rel=1e-9, abs=1e-9), script
+
+
+# A Formula Node has no error terminal, so domain/zero errors coerce to IEEE
+# inf/nan rather than raising (oracle Script 2). The pure-Python backend
+# routes these through non-raising _lv.* helpers.
+_EDGE_CASES = [
+    ("RF[0] = 1 / 0;", math.inf), ("RF[0] = 1.0 / 0.0;", math.inf),
+    ("RF[0] = -1.0 / 0.0;", -math.inf), ("RF[0] = 0.0 / 0.0;", math.nan),
+    ("RF[0] = sqrt(-1.0);", math.nan), ("RF[0] = ln(0.0);", -math.inf),
+    ("RF[0] = ln(-1.0);", math.nan), ("RF[0] = log(0.0);", -math.inf),
+    ("RF[0] = acos(2.0);", math.nan), ("RF[0] = asin(2.0);", math.nan),
+    ("RF[0] = (-8) ** (1.0 / 3.0);", math.nan), ("RF[0] = 0 ** 0;", 1.0),
+    # getexp/getman: mantissa in [1, 2), x == getman(x) * 2**getexp(x).
+    ("RF[0] = getexp(12.0);", 3.0), ("RF[0] = getman(12.0);", 1.5),
+    ("RF[0] = getexp(0.75);", -1.0), ("RF[0] = getman(0.75);", 1.5),
+]
+
+
+@pytest.mark.parametrize("script, expected", _EDGE_CASES)
+def test_no_error_terminal_coercion(script, expected):
+    out = _run(script, _VARS, RI=[0] * 4, RF=[0.0], A=[10.0, 20, 30, 40, 50], n=5)
+    got = out["RF"][0]
+    if math.isnan(expected):
+        assert isinstance(got, float) and math.isnan(got), script
+    else:
+        assert got == expected, script
+
+
+def test_division_wraps_only_ambiguous_divisors():
+    # A nonzero literal divisor can't trap -> keep the plain operator; a
+    # variable (or expression) divisor routes through the inf/nan helper.
+    src = transpile("y = a / 2; z = a / b;", [
+        VarSpec("y", "NumFloat64", "out", False),
+        VarSpec("z", "NumFloat64", "out", False),
+        VarSpec("a", "NumFloat64", "in", False),
+        VarSpec("b", "NumFloat64", "in", False),
+    ]).source
+    assert "a / 2" in src
+    assert "_lv.div(a, b)" in src
+
+
+def test_power_wraps_only_non_literal_base():
+    # ``2 ** n`` can't produce a complex result -> plain operator; a base that
+    # might be negative routes through _lv.powf.
+    src = transpile("y = 2 ** n; z = b ** 0.5;", [
+        VarSpec("y", "NumFloat64", "out", False),
+        VarSpec("z", "NumFloat64", "out", False),
+        VarSpec("n", "NumInt32", "in", False),
+        VarSpec("b", "NumFloat64", "in", False),
+    ]).source
+    assert "2 ** n" in src
+    assert "_lv.powf(b, 0.5)" in src

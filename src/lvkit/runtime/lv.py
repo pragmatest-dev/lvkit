@@ -81,6 +81,8 @@ def sign(x):     return (x > 0) - (x < 0)
 def rem(a, b):
     """Truncated remainder — LabVIEW ``%`` operator and ``rem()``. Sign
     follows the dividend (``-7 rem 3 == -1``). Integer-exact for ints."""
+    if b == 0:
+        return _math.nan
     if isinstance(a, int) and isinstance(b, int):
         q = abs(a) // abs(b)
         r = abs(a) - q * abs(b)
@@ -91,9 +93,89 @@ def rem(a, b):
 def lvmod(a, b):
     """Floored modulo — LabVIEW ``mod()``. Sign follows the divisor
     (``mod(-7, 3) == 2``)."""
+    if b == 0:
+        return _math.nan
     if isinstance(a, int) and isinstance(b, int):
         return a % b                            # Python ``%`` is floored
     return a - b * _math.floor(a / b)
+
+
+# --- non-raising math (a Formula Node has no error terminal, so LabVIEW
+# coerces domain/zero errors to IEEE inf/nan instead of trapping) -----------
+
+
+def div(a, b):
+    """Real division that yields IEEE inf/nan on a zero divisor instead of
+    raising (``1/0 -> inf``, ``-1/0 -> -inf``, ``0/0 -> nan``)."""
+    if b != 0:
+        return a / b
+    if a == 0:
+        return _math.nan
+    return _math.copysign(_math.inf, a) * _math.copysign(1.0, b)
+
+
+def powf(a, b):
+    """Power with LabVIEW edge semantics: a negative base raised to a
+    non-integer exponent is ``nan`` (not a complex number); ``0**0 == 1``."""
+    if a < 0 and b != _math.floor(b):
+        return _math.nan
+    try:
+        return _math.pow(a, b)
+    except (ValueError, OverflowError):
+        return _math.nan
+
+
+def sqrt(x):  return _math.sqrt(x) if x >= 0 else _math.nan
+
+
+def ln(x):
+    if x > 0:
+        return _math.log(x)
+    return -_math.inf if x == 0 else _math.nan
+
+
+def log10(x):
+    if x > 0:
+        return _math.log10(x)
+    return -_math.inf if x == 0 else _math.nan
+
+
+def log2(x):
+    if x > 0:
+        return _math.log2(x)
+    return -_math.inf if x == 0 else _math.nan
+
+
+def asin(x):  return _math.asin(x) if -1 <= x <= 1 else _math.nan
+def acos(x):  return _math.acos(x) if -1 <= x <= 1 else _math.nan
+def acosh(x): return _math.acosh(x) if x >= 1 else _math.nan
+
+
+def atanh(x):
+    if -1 < x < 1:
+        return _math.atanh(x)
+    if x == 1:
+        return _math.inf
+    if x == -1:
+        return -_math.inf
+    return _math.nan
+
+
+def getexp(x):
+    """Binary exponent e where ``x == getman(x) * 2**e`` and the mantissa is
+    in [1, 2) — LabVIEW ``getexp`` (e.g. ``getexp(12) == 3``)."""
+    if x == 0:
+        return 0.0
+    _, e = _math.frexp(x)                        # frexp mantissa is in [0.5, 1)
+    return float(e - 1)
+
+
+def getman(x):
+    """Binary mantissa in [1, 2) — LabVIEW ``getman`` (``getman(12) == 1.5``)."""
+    if x == 0:
+        return 0.0
+    m, _ = _math.frexp(x)
+    return m * 2.0
 
 
 def land(a, b):  return 1 if (a and b) else 0       # && yields 1/0, not operand
