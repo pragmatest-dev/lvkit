@@ -24,7 +24,7 @@ class Var:
 
 @dataclass
 class Index:
-    name: str
+    base: Expr         # array expression: a Var, or another Index for N-D (a[i][j])
     index: Expr
 
 

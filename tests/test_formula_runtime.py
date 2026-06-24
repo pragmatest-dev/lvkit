@@ -35,13 +35,25 @@ def test_round_ties_to_even_on_store():
     assert lv.i32(-2.5) == -2
 
 
-def test_sign_fmod_rem():
+def test_sign_rem_mod_logical():
     assert lv.sign(-3.2) == -1
     assert lv.sign(0) == 0
     assert lv.sign(5) == 1
-    # C/LV fmod takes the sign of the dividend (Python % takes the divisor's)
-    assert lv.fmod(-7.0, 3.0) == -1.0
-    assert lv.rem(7.5, 2.0) == -0.5       # 7.5 - 2*round(3.75) = 7.5 - 8
+    # `%` / rem(): truncated remainder, sign of the dividend (oracle-confirmed).
+    assert lv.rem(-7, 3) == -1
+    assert lv.rem(7, -3) == 1
+    assert lv.rem(3, 2) == 1
+    assert lv.rem(7.5, 2.0) == 1.5
+    # mod(): floored, sign of the divisor.
+    assert lv.lvmod(-7, 3) == 2
+    assert lv.lvmod(7.5, 2.0) == 1.5
+    # &&/||/! yield 1/0, not the Python operand.
+    assert lv.land(5, 3) == 1
+    assert lv.land(5, 0) == 0
+    assert lv.lor(0, 5) == 1
+    assert lv.lor(0, 0) == 0
+    assert lv.lnot(5) == 0
+    assert lv.lnot(0) == 1
 
 
 # --- emitted function executes (scalar + array marshaling) -----------------

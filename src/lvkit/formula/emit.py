@@ -9,14 +9,22 @@ self-contained Python function instead of C. That keeps the original
 from the parsed AST) while dropping the C compiler / FFI / .so machinery
 entirely — generated code is pure Python and runs anywhere.
 
-LabVIEW numeric semantics are preserved:
-  * ``int / int``                -> real (float) division (Python ``/``)
+LabVIEW numeric semantics (confirmed against a real Formula Node, issue #8)
+are preserved:
+  * ``int / int``                -> real (float) division; a zero divisor
+                                    yields IEEE inf/nan (``_lv.div``) since a
+                                    Formula Node has no error terminal
   * float assigned to an int var -> round-to-nearest-even then wrap to the
                                     declared width (``_lv.i16`` etc.)
-  * ``**``                       -> Python ``**`` (already real for ints)
+  * ``**``                       -> right-assoc, tighter than unary minus; a
+                                    negative base with a non-integer exponent
+                                    is nan (``_lv.powf``), not a complex
+  * ``%`` / ``rem``              -> truncated remainder, sign of dividend;
+                                    ``mod`` is floored, sign of divisor
+  * ``&&`` ``||`` ``!``          -> 1/0 (``_lv.land``/``lor``/``lnot``)
   * ``abs``                      -> Python ``abs`` (polymorphic int/float)
-  * ``%`` with a float operand   -> ``math.fmod`` (C/LV sign-of-dividend)
-  * math functions               -> ``math.*`` / small ``_lv`` helpers
+  * domain funcs (sqrt/ln/...)   -> non-raising ``_lv.*`` (nan/inf on domain)
+  * N-D arrays                   -> nested indexing ``a[i][j]``; ``sizeOfDim``
 
 Unknown functions or type keywords raise FormulaTranspileError — never a
 silent guess.
@@ -70,26 +78,34 @@ _KW_FLOAT = {"float32", "float64", "float"}
 
 # Formula-node function spelling -> emitted Python callee. Anything not here
 # fails loud. ``int`` rounds to nearest (ties to even); ``intrz`` truncates.
+# Domain-prone functions route through the non-raising _lv.* wrappers (a
+# Formula Node has no error terminal — LabVIEW coerces domain/zero errors to
+# IEEE inf/nan rather than trapping). Functions that never raise on real
+# inputs (sin, cos, atan, exp, …) keep their direct math.* mapping.
 _FUNC_MAP = {
-    "abs": "abs", "sqrt": "math.sqrt", "exp": "math.exp", "expm1": "math.expm1",
-    "ln": "math.log", "lnp1": "math.log1p", "log": "math.log10",
-    "log2": "math.log2", "ceil": "math.ceil", "floor": "math.floor",
+    "abs": "abs", "sqrt": "_lv.sqrt", "exp": "math.exp", "expm1": "math.expm1",
+    "ln": "_lv.ln", "lnp1": "math.log1p", "log": "_lv.log10",
+    "log2": "_lv.log2", "ceil": "math.ceil", "floor": "math.floor",
     "sin": "math.sin", "cos": "math.cos", "tan": "math.tan",
-    "asin": "math.asin", "acos": "math.acos", "atan": "math.atan",
+    "asin": "_lv.asin", "acos": "_lv.acos", "atan": "math.atan",
     "atan2": "math.atan2",
     "sinh": "math.sinh", "cosh": "math.cosh", "tanh": "math.tanh",
-    "asinh": "math.asinh", "acosh": "math.acosh", "atanh": "math.atanh",
-    "pow": "math.pow",
+    "asinh": "math.asinh", "acosh": "_lv.acosh", "atanh": "_lv.atanh",
+    "pow": "_lv.powf",
     "int": "round", "intrz": "math.trunc",
-    "mod": "_lv.fmod", "rem": "_lv.rem", "sign": "_lv.sign",
+    "mod": "_lv.lvmod", "rem": "_lv.rem", "sign": "_lv.sign",
+    "getexp": "_lv.getexp", "getman": "_lv.getman",
     "max": "max", "min": "min",
     "cot": "_lv.cot", "csc": "_lv.csc", "sec": "_lv.sec", "sinc": "_lv.sinc",
+    "rand": "_lv.rand", "sizeOfDim": "_lv.size_of_dim",
 }
 # Functions whose result is an integer (drives int/float inference).
-_INT_RESULT_FUNCS = {"int", "intrz", "sign"}
+_INT_RESULT_FUNCS = {"int", "intrz", "sign", "sizeOfDim"}
 
-# C-style binary operator -> Python spelling. Comparisons/bitwise map 1:1.
-_OP_MAP = {"&&": "and", "||": "or"}
+# Logical operators -> runtime helper. LabVIEW ``&&``/``||`` yield 1/0, not
+# the operand Python ``and``/``or`` would return. Comparisons and bitwise
+# operators map 1:1 onto Python and need no entry here.
+_LOGICAL_OP = {"&&": "_lv.land", "||": "_lv.lor"}
 
 
 @dataclass
@@ -141,8 +157,12 @@ class _Emitter:
     def _texpr(self, e: Expr) -> str:
         if isinstance(e, Num):
             return "float" if e.is_float else "int"
-        if isinstance(e, (Var, Index)):
+        if isinstance(e, Var):
             return self.kind.get(e.name, "float")
+        if isinstance(e, Index):
+            # An element has the array's (scalar) element kind, found via the
+            # root array variable — works for any nesting depth (a[i][j]).
+            return self.kind.get(_index_root(e), "float")
         if isinstance(e, Call):
             if e.name == "abs" and e.args:
                 return self._texpr(e.args[0])
@@ -172,7 +192,7 @@ class _Emitter:
         if isinstance(e, Var):
             return "math.pi" if e.name == "pi" else e.name
         if isinstance(e, Index):
-            return f"{e.name}[{self._emit_expr(e.index)}]"
+            return f"{self._emit_expr(e.base)}[{self._emit_expr(e.index)}]"
         if isinstance(e, Call):
             callee = _FUNC_MAP.get(e.name)
             if callee is None:
@@ -182,16 +202,30 @@ class _Emitter:
         if isinstance(e, Unary):
             inner = self._emit_expr(e.operand)
             if e.op == "!":
-                return f"(not {inner})"
+                return f"_lv.lnot({inner})"
             return f"({e.op}{inner})"
         if isinstance(e, Binary):
             left = self._emit_expr(e.left)
             right = self._emit_expr(e.right)
-            if e.op == "%" and "float" in (self._texpr(e.left),
-                                           self._texpr(e.right)):
-                return f"math.fmod({left}, {right})"
-            op = _OP_MAP.get(e.op, e.op)
-            return f"({left} {op} {right})"
+            # LabVIEW ``%`` is the truncated remainder (sign of dividend) for
+            # both ints and floats — Python ``%`` is floored, so always route
+            # through the helper.
+            if e.op == "%":
+                return f"_lv.rem({left}, {right})"
+            if e.op in _LOGICAL_OP:
+                return f"{_LOGICAL_OP[e.op]}({left}, {right})"
+            # `/` yields IEEE inf/nan on a zero divisor (no error terminal to
+            # raise into). A literal nonzero divisor can't trap, so keep the
+            # plain operator there and only wrap the ambiguous cases.
+            if e.op == "/" and not _is_nonzero_literal(e.right):
+                return f"_lv.div({left}, {right})"
+            # `**` with a negative base and non-integer exponent is nan in
+            # LabVIEW, but Python returns a complex. Route through the helper
+            # unless the base is a provably non-negative literal (the common
+            # ``2 ** n`` case, kept as the plain operator).
+            if e.op == "**" and not _is_nonneg_literal(e.left):
+                return f"_lv.powf({left}, {right})"
+            return f"({left} {e.op} {right})"
         raise FormulaTranspileError(f"cannot emit expression {e!r}")
 
     # --- assignment with int rounding/width coercion ---
@@ -252,8 +286,9 @@ class _Emitter:
     def _emit_assign(self, s: Assign) -> str:
         if isinstance(s.target, Index):
             tgt = self._emit_expr(s.target)
-            # element store: an int-element array coerces like a scalar int
-            rhs = self._emit_store(s.target.name, s.value)
+            # element store: an int-element array coerces like a scalar int,
+            # keyed by the root array variable (handles a[i] and a[i][j]).
+            rhs = self._emit_store(_index_root(s.target), s.value)
             return f"{tgt} = {rhs}"
         return f"{s.target.name} = {self._emit_store(s.target.name, s.value)}"
 
@@ -437,12 +472,44 @@ class _Emitter:
         )
 
 
+def _index_root(e: Expr) -> str:
+    """The root array variable name of a (possibly nested) subscript, e.g.
+    ``a`` for ``a[i]`` and ``a[i][j]``. Empty string if the base isn't a Var."""
+    while isinstance(e, Index):
+        e = e.base
+    return e.name if isinstance(e, Var) else ""
+
+
+def _is_nonzero_literal(e: Expr) -> bool:
+    """True if ``e`` is a numeric literal that is provably nonzero — so a
+    division by it cannot trap and needs no inf/nan wrapper."""
+    if not isinstance(e, Num):
+        return False
+    try:
+        return float(e.text) != 0.0
+    except ValueError:
+        return False
+
+
+def _is_nonneg_literal(e: Expr) -> bool:
+    """True if ``e`` is a provably non-negative numeric literal — so a power
+    with this base can never hit the negative-base complex-result case and
+    needs no helper. A unary-minus literal parses as Unary, not Num, so it
+    is correctly excluded."""
+    if not isinstance(e, Num):
+        return False
+    try:
+        return float(e.text) >= 0.0
+    except ValueError:
+        return False
+
+
 def _refs(e: Expr, name: str) -> bool:
     """True if expression ``e`` references variable ``name``."""
     if isinstance(e, Var):
         return e.name == name
     if isinstance(e, Index):
-        return e.name == name or _refs(e.index, name)
+        return _refs(e.base, name) or _refs(e.index, name)
     if isinstance(e, Unary):
         return _refs(e.operand, name)
     if isinstance(e, Binary):
