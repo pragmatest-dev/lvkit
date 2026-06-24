@@ -522,6 +522,8 @@ class QueryMixin:
                 lv_type=gnode.lv_type,
                 raw_value=gnode.raw_value,
                 name=gnode.label,
+                parent=gnode.parent,
+                frame=gnode.frame,
             ))
         return results
 

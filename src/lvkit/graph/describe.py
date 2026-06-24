@@ -6,6 +6,7 @@ Used by the MCP server and CLI ``describe`` command.
 
 from __future__ import annotations
 
+import ast
 from typing import TYPE_CHECKING
 
 from ..models import (
@@ -16,6 +17,7 @@ from ..models import (
     PrimitiveOperation,
     SequenceOperation,
     Terminal,
+    _is_error_cluster,
 )
 from ..vilib_resolver import get_resolver as _get_vilib_resolver
 from .models import Constant, VIContext
@@ -69,13 +71,13 @@ def describe_vi(graph: InMemoryVIGraph, vi_name: str) -> str:
     # Class context: when this VI is a .lvclass method
     lines.extend(_describe_class_context(graph, ctx))
 
-    # Constants: show actual values
-    if ctx.constants:
+    # Constants: show actual values. Constants nested inside a structure
+    # are shown with their frame (in Control Flow below), not here.
+    top_level_constants = [c for c in ctx.constants if c.parent is None]
+    if top_level_constants:
         lines.append("## Constants")
-        for c in ctx.constants:
-            type_str = c.lv_type.to_python() if c.lv_type else "unknown"
-            name = c.name or "(unnamed)"
-            lines.append(f"  {name}: {type_str} = {c.value!r}")
+        for c in top_level_constants:
+            lines.append(f"  {_describe_constant_line(c)}")
         lines.append("")
 
     # Dependencies: SubVI calls with their signatures and descriptions
@@ -185,7 +187,7 @@ def describe_structure(
 
     match op:
         case CaseOperation():
-            _describe_case_structure(op, lines)
+            _describe_case_structure(op, list(ctx.constants), lines)
         case LoopOperation():
             _describe_loop(op, lines)
         case SequenceOperation():
@@ -207,9 +209,10 @@ def describe_constants(
 
     lines = [f"Constants in {vi_name}:", ""]
     for c in constants:
-        type_str = c.lv_type.to_python() if c.lv_type else "unknown"
-        name = c.name or "(unnamed)"
-        lines.append(f"  {name}: {type_str} = {c.value!r}")
+        line = f"  {_describe_constant_line(c)}"
+        if c.parent is not None:
+            line += f"  [{c.parent.split('::')[-1]} frame {c.frame}]"
+        lines.append(line)
 
     if not constants:
         lines.append("  (none)")
@@ -491,6 +494,85 @@ def _count_operations(operations: list[Operation]) -> int:
     return count
 
 
+def _const_type_str(c: Constant) -> str:
+    """Human-readable type label for a constant."""
+    if c.lv_type and _is_error_cluster(c.lv_type):
+        return "error cluster"
+    return c.lv_type.to_python() if c.lv_type else "unknown"
+
+
+def _format_error_cluster(value: object) -> str:
+    """Render an error-cluster value as ``code N: "source"``."""
+    data = value
+    if isinstance(value, str):
+        try:
+            data = ast.literal_eval(value)
+        except (ValueError, SyntaxError):
+            return value
+    if isinstance(data, dict):
+        code = data.get("code", 0)
+        source = data.get("source", "")
+        status = data.get("status", False)
+        if not status and not code:
+            return "no error"
+        if source:
+            return f'code {code}: "{source}"'
+        return f"code {code}"
+    return str(value)
+
+
+def _const_value_str(c: Constant) -> str:
+    """Human-readable value for a constant (no redundant quoting)."""
+    if c.lv_type and _is_error_cluster(c.lv_type):
+        return _format_error_cluster(c.value)
+    return str(c.value)
+
+
+def _describe_constant_line(c: Constant) -> str:
+    """One-line ``name: type = value`` for a constant."""
+    name = c.name or "(unnamed)"
+    return f"{name}: {_const_type_str(c)} = {_const_value_str(c)}"
+
+
+def _frame_constants(
+    constants: list[Constant], parent_id: str, frame_key: object,
+) -> list[Constant]:
+    """Constants attributed to a specific frame of a structure."""
+    return [
+        c for c in constants
+        if c.parent == parent_id and str(c.frame) == str(frame_key)
+    ]
+
+
+def _has_output_tunnel(op: Operation) -> bool:
+    """True if the structure routes any value out (so an empty frame is a
+    pass-through, not truly empty — LV requires output tunnels wired in
+    every frame)."""
+    return any(t.direction == "output" for t in op.terminals)
+
+
+def _describe_frame_body(
+    frame_ops: list[Operation],
+    frame_consts: list[Constant],
+    all_constants: list[Constant],
+    lines: list[str],
+    prefix: str,
+    indent: int,
+    *,
+    passthrough: bool,
+) -> None:
+    """Render a frame's operations + attributed constants, or a placeholder."""
+    if frame_ops or frame_consts:
+        if frame_ops:
+            _describe_op_list(frame_ops, all_constants, lines, indent + 2)
+        for c in frame_consts:
+            lines.append(f"{prefix}    {_describe_constant_line(c)}")
+    elif passthrough:
+        lines.append(f"{prefix}    (pass-through)")
+    else:
+        lines.append(f"{prefix}    (empty)")
+
+
 def _describe_op_list(
     operations: list[Operation],
     constants: list[Constant],
@@ -506,33 +588,34 @@ def _describe_op_list(
 
         match op:
             case CaseOperation():
+                passthrough = _has_output_tunnel(op)
                 for frame in op.frames:
                     default = " (default)" if frame.is_default else ""
                     lines.append(
                         f'{prefix}  Frame "{frame.selector_value}"{default}:'
                     )
-                    if frame.operations:
-                        _describe_op_list(
-                            frame.operations, constants, lines,
-                            indent + 2,
-                        )
-                    else:
-                        lines.append(f"{prefix}    (empty)")
+                    _describe_frame_body(
+                        frame.operations,
+                        _frame_constants(constants, op.id, frame.selector_value),
+                        constants, lines, prefix, indent,
+                        passthrough=passthrough,
+                    )
             case SequenceOperation():
                 for i, frame in enumerate(op.frames):
                     lines.append(f'{prefix}  Frame {i}:')
-                    if frame.operations:
-                        _describe_op_list(
-                            frame.operations, constants, lines,
-                            indent + 2,
-                        )
-                    else:
-                        lines.append(f"{prefix}    (empty)")
+                    _describe_frame_body(
+                        frame.operations,
+                        _frame_constants(constants, op.id, i),
+                        constants, lines, prefix, indent,
+                        passthrough=False,
+                    )
             case _:
                 if op.inner_nodes:
                     _describe_op_list(
                         op.inner_nodes, constants, lines, indent + 1,
                     )
+                for c in (c for c in constants if c.parent == op.id):
+                    lines.append(f"{prefix}  {_describe_constant_line(c)}")
 
 
 def _describe_single_op(op: Operation) -> str:
@@ -594,7 +677,7 @@ def _find_operation(
 
 
 def _describe_case_structure(
-    op: CaseOperation, lines: list[str],
+    op: CaseOperation, constants: list[Constant], lines: list[str],
 ) -> None:
     """Describe a case structure in detail."""
     lines.append(f"Case Structure: {op.id}")
@@ -606,15 +689,22 @@ def _describe_case_structure(
             lines.append(f"  Selector type: {t.lv_type.to_python()}")
             break
 
+    passthrough = _has_output_tunnel(op)
     lines.append(f"  Frames: {len(op.frames)}")
     for frame in op.frames:
         default = " (default)" if frame.is_default else ""
+        frame_consts = _frame_constants(constants, op.id, frame.selector_value)
         lines.append(
             f"  Frame \"{frame.selector_value}\"{default}:"
-            f" {len(frame.operations)} operations"
+            f" {len(frame.operations)} operations,"
+            f" {len(frame_consts)} constants"
         )
         for fop in frame.operations:
             lines.append(f"    - {_describe_single_op(fop)}")
+        for c in frame_consts:
+            lines.append(f"    - constant {_describe_constant_line(c)}")
+        if not frame.operations and not frame_consts and passthrough:
+            lines.append("    - (pass-through)")
 
 
 def _describe_loop(op: LoopOperation, lines: list[str]) -> None:
