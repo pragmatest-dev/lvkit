@@ -1,6 +1,6 @@
 """lvkit - Convert LabVIEW VIs to Python code."""
 
-__version__ = "0.3.0rc1"
+__version__ = "0.3.0"
 
 from .graph.models import Constant as GraphConstant
 from .graph.models import Wire as GraphWire
