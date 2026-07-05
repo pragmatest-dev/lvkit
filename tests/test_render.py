@@ -125,3 +125,59 @@ def test_scene_to_svg_wire_uses_type_color():
 def test_empty_scene_renders():
     svg = scene_to_svg(DiagramScene(bounds=(0.0, 0.0, 10.0, 10.0)))
     assert "<svg" in svg and "</svg>" in svg
+
+
+def test_case_structure_renders_selector_bar_and_terminal():
+    scene = DiagramScene(
+        bounds=(0.0, 0.0, 120.0, 120.0),
+        structures=[
+            SceneStructure(
+                kind="case", bounds=(20.0, 30.0, 100.0, 100.0), label="True",
+                border_terms=[
+                    SceneBorderTerminal(kind="selector",
+                                        bounds=(16.0, 60.0, 28.0, 72.0)),
+                ],
+            )
+        ],
+    )
+    svg = scene_to_svg(scene)
+    assert "True" in svg          # selector label bar
+    assert ">?<" in svg           # case selector terminal glyph
+
+
+def test_subvi_without_icon_is_labeled_box():
+    scene = DiagramScene(
+        bounds=(0.0, 0.0, 100.0, 60.0),
+        nodes=[SceneNode(kind="subvi", bounds=(20.0, 20.0, 90.0, 44.0),
+                         name="Parse XML")],
+    )
+    svg = scene_to_svg(scene)
+    assert "<rect" in svg
+    assert "Parse XML" in svg  # 70px-wide box fits the label
+
+
+def test_generic_node_renders_with_label():
+    scene = DiagramScene(
+        bounds=(0.0, 0.0, 100.0, 60.0),
+        nodes=[SceneNode(kind="node", bounds=(20.0, 20.0, 60.0, 40.0),
+                         name="Property")],
+    )
+    svg = scene_to_svg(scene)
+    assert "Property" in svg
+
+
+def test_long_label_is_truncated():
+    from lvkit.render.svg import _fit_label
+
+    assert _fit_label("VeryLongSubViName", 20.0).endswith("…")
+    assert _fit_label("short", 100.0) == "short"
+
+
+def test_sequence_border_has_filmstrip_lines():
+    scene = DiagramScene(
+        bounds=(0.0, 0.0, 120.0, 120.0),
+        structures=[SceneStructure(kind="flatSequence",
+                                   bounds=(20.0, 20.0, 100.0, 100.0))],
+    )
+    svg = scene_to_svg(scene)
+    assert "<line" in svg

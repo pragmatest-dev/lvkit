@@ -38,7 +38,21 @@ _STRUCT_KINDS = {
     "forLoop": "forLoop",
     "whileLoop": "whileLoop",
     "flatSequence": "flatSequence",
+    "sequence": "flatSequence",
+    "sequenceFrame": "flatSequence",
     "stackedSequence": "stackedSequence",
+    "select": "case",          # LabVIEW Case structure (with a diagramList)
+    "eventStruct": "event",
+}
+
+# SubVI call nodes (static / polymorphic / dynamic-dispatch).
+_SUBVI_CLASSES = {"iUse", "polyIUse", "dynIUse"}
+
+# Classes handled elsewhere or intentionally not drawn as generic nodes.
+_SKIP_NODE_CLASSES = {
+    "prim", "fPTerm", "parm", "overridableParm",
+    "stdNum", "stdBool", "stdString", "stdCString", "stdPath",
+    "label", "commentNode", "attachment", "bd",
 }
 
 
@@ -50,7 +64,7 @@ class SceneTerminal:
 
 @dataclass
 class SceneNode:
-    kind: str  # "primitive" | "subvi" | "constant" | "fpterm" | "unknown"
+    kind: str  # primitive | subvi | node | constant | fpterm | unknown
     bounds: Rect
     name: str
     prim_res_id: str | None = None
@@ -59,15 +73,16 @@ class SceneNode:
 
 @dataclass
 class SceneBorderTerminal:
-    kind: str  # "N" | "i" | "cond" | "sr_down" | "sr_up" | "autoindex"
+    kind: str  # "N" | "i" | "cond" | "sr_down" | "sr_up" | "autoindex" | "selector"
     bounds: Rect
 
 
 @dataclass
 class SceneStructure:
-    kind: str  # forLoop | whileLoop | flatSequence | ...
+    kind: str  # forLoop | whileLoop | flatSequence | case | event | ...
     bounds: Rect
     border_terms: list[SceneBorderTerminal] = field(default_factory=list)
+    label: str = ""  # e.g. the active case label for a Case structure
 
 
 @dataclass
@@ -97,16 +112,44 @@ class DiagramScene:
 
 
 @lru_cache(maxsize=1)
-def _prim_names() -> dict[str, str]:
+def _prim_data() -> tuple[dict[str, str], dict[str, str]]:
+    """(primResID → name, xml-node-class → name) from primitives.json."""
     path = Path(__file__).resolve().parent.parent / "data" / "primitives.json"
     data = json.loads(path.read_text())
-    return {rid: e.get("name", f"prim {rid}") for rid, e in data["primitives"].items()}
+    by_id = {rid: e.get("name", f"prim {rid}") for rid, e in data["primitives"].items()}
+    by_class = {
+        k: e.get("name", k) for k, e in data.get("node_types", {}).items()
+    }
+    return by_id, by_class
 
 
 def _prim_name(rid: str | None) -> str:
     if not rid:
         return "prim"
-    return _prim_names().get(rid, f"prim {rid}")
+    return _prim_data()[0].get(rid, f"prim {rid}")
+
+
+# Friendly labels for common block-diagram node classes without a primResID.
+_CLASS_LABEL = {
+    "propNode": "Property", "select": "Select", "nMux": "Bundle",
+    "concat": "Concatenate", "gRef": "Ref", "scriptNode": "Formula",
+    "eventDataNode": "Event Data", "dynIUse": "SubVI", "polyIUse": "SubVI",
+    "iUse": "SubVI",
+}
+
+
+def _node_label(cls: str, elem: ET.Element) -> str:
+    """Friendly display name for a generic node: its own label, else a name from
+    primitives.json node_types, else a title-cased class."""
+    lbl = (elem.findtext("label") or "").strip()
+    if lbl:
+        return lbl
+    by_class = _prim_data()[1]
+    if cls in by_class:
+        return by_class[cls]
+    if cls in _CLASS_LABEL:
+        return _CLASS_LABEL[cls]
+    return cls
 
 
 def _bounds(elem: ET.Element) -> Rect | None:
@@ -256,13 +299,34 @@ class _SceneBuilder:
             if inner:
                 kind = _STRUCT_KINDS.get(cls, cls)
                 border = self._loop_terms(elem, ax1, ay1) if "Loop" in cls else []
+                if kind == "case":
+                    border += self._case_selector(elem, ax1, ay1)
                 self.structures.append(
-                    SceneStructure(kind=kind, bounds=(ax1, ay1, ax2, ay2),
-                                   border_terms=border)
+                    SceneStructure(
+                        kind=kind, bounds=(ax1, ay1, ax2, ay2), border_terms=border,
+                        label=(elem.findtext("selString") or "").strip()
+                        if kind == "case" else "",
+                    )
                 )
                 for d in inner:
                     self.walk(d, ax1, ay1)
-            elif cls == "prim":
+                continue
+            seqlist = elem.find("sequenceList")
+            if seqlist is not None:
+                # Flat/stacked sequence: frames live under sequenceList, each
+                # with its own diagramList — recurse so their nodes are captured.
+                self.structures.append(
+                    SceneStructure(kind="flatSequence", bounds=(ax1, ay1, ax2, ay2))
+                )
+                for frame in seqlist.findall("SL__arrayElement"):
+                    fdl = frame.find("diagramList")
+                    if fdl is None:
+                        continue
+                    for d in fdl.findall("SL__arrayElement"):
+                        if d.get("class") == "diag":
+                            self.walk(d, ax1, ay1)
+                continue
+            if cls == "prim":
                 self.nodes.append(
                     SceneNode(kind="primitive", bounds=(ax1, ay1, ax2, ay2),
                               name=_prim_name(elem.findtext("primResID")),
@@ -272,6 +336,31 @@ class _SceneBuilder:
                 self.nodes.append(
                     SceneNode(kind="fpterm", bounds=(ax1, ay1, ax2, ay2), name="")
                 )
+            elif cls in _SUBVI_CLASSES:
+                self.nodes.append(
+                    SceneNode(kind="subvi", bounds=(ax1, ay1, ax2, ay2),
+                              name=_node_label(cls, elem))
+                )
+            elif cls not in _SKIP_NODE_CLASSES:
+                # Any other node with geometry — render as a labeled box so the
+                # diagram is complete even without a bespoke glyph.
+                self.nodes.append(
+                    SceneNode(kind="node", bounds=(ax1, ay1, ax2, ay2),
+                              name=_node_label(cls, elem))
+                )
+
+    def _case_selector(
+        self, struct: ET.Element, ox: float, oy: float
+    ) -> list[SceneBorderTerminal]:
+        dco = struct.find("caseSelDCO")
+        if dco is None:
+            return []
+        tb = dco.find(".//termBounds")
+        if tb is None or not tb.text:
+            return []
+        x1, y1, x2, y2 = _term_bounds(tb.text)
+        return [SceneBorderTerminal(kind="selector",
+                                    bounds=(ox + x1, oy + y1, ox + x2, oy + y2))]
 
 
 def _resolve_wires(builder: _SceneBuilder) -> list[SceneWire]:

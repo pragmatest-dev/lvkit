@@ -61,12 +61,37 @@ def _for_loop_border(x1: float, y1: float, x2: float, y2: float) -> list[str]:
 
 
 def _while_loop_border(x1: float, y1: float, x2: float, y2: float) -> list[str]:
-    """While-Loop: rounded border with a wrapped-arrow hint at bottom-left."""
-    out = [
+    """While-Loop: rounded border (distinct from the For-Loop's square cascade)."""
+    return [
         f'<rect x="{x1:.1f}" y="{y1:.1f}" width="{x2-x1:.1f}" height="{y2-y1:.1f}" '
-        f'rx="6" fill="none" stroke="{STRUCT_BORDER}" stroke-width="2"/>',
+        f'rx="7" fill="none" stroke="{STRUCT_BORDER}" stroke-width="2"/>',
+    ]
+
+
+def _case_border(struct: SceneStructure) -> list[str]:
+    """Case: square border + a selector label bar (◄ label ▼ ►) across the top."""
+    x1, y1, x2, y2 = struct.bounds
+    label = struct.label or ""
+    bar_h = 14.0
+    out = [
+        _rect(x1, y1, x2, y2, fill="none", stroke=STRUCT_BORDER, stroke_width="2"),
+        _rect(x1, y1 - bar_h, x2, y1, fill="#e9e6d2", stroke=STRUCT_BORDER,
+              stroke_width="1"),
+        _text((x1 + x2) / 2, y1 - 3.5, f"◄ {label} ▼ ►", 9,
+              fill="#4a4636"),
     ]
     return out
+
+
+def _sequence_border(x1: float, y1: float, x2: float, y2: float) -> list[str]:
+    """Flat Sequence: a filmstrip frame (double top/bottom edge)."""
+    return [
+        _rect(x1, y1, x2, y2, fill="none", stroke=STRUCT_BORDER, stroke_width="2"),
+        f'<line x1="{x1:.1f}" y1="{y1+4:.1f}" x2="{x2:.1f}" y2="{y1+4:.1f}" '
+        f'stroke="{STRUCT_BORDER}" stroke-width="1"/>',
+        f'<line x1="{x1:.1f}" y1="{y2-4:.1f}" x2="{x2:.1f}" y2="{y2-4:.1f}" '
+        f'stroke="{STRUCT_BORDER}" stroke-width="1"/>',
+    ]
 
 
 def _structure(struct: SceneStructure) -> list[str]:
@@ -75,6 +100,10 @@ def _structure(struct: SceneStructure) -> list[str]:
         out = _for_loop_border(x1, y1, x2, y2)
     elif struct.kind == "whileLoop":
         out = _while_loop_border(x1, y1, x2, y2)
+    elif struct.kind == "case":
+        out = _case_border(struct)
+    elif struct.kind == "flatSequence":
+        out = _sequence_border(x1, y1, x2, y2)
     else:
         out = [_rect(x1, y1, x2, y2, fill="none", stroke=STRUCT_BORDER,
                      stroke_width="2")]
@@ -104,6 +133,12 @@ def _border_terminal(bt: SceneBorderTerminal) -> list[str]:
                   stroke_width="1.2"),
             _text(cx, cy + 4, "[ ]", 9),
         ]
+    if bt.kind == "selector":
+        return [
+            _rect(x1, y1, x2, y2, fill="#e6f4d9", stroke="#5a8f3a",
+                  stroke_width="1.2"),
+            _text(cx, cy + 4, "?", 10, fill="#3f6b28"),
+        ]
     # shift register
     arrow = "▼" if bt.kind == "sr_down" else "▲"
     return [
@@ -128,14 +163,33 @@ def _primitive(node: SceneNode) -> list[str]:
     ]
 
 
+def _fit_label(name: str, width: float) -> str:
+    """Truncate a label to roughly fit the node width at ~5px/char."""
+    if not name:
+        return ""
+    maxchars = max(3, int(width / 5))
+    return name if len(name) <= maxchars else name[: maxchars - 1] + "…"
+
+
+def _labeled_box(node: SceneNode, fill: str, stroke: str, sw: str) -> list[str]:
+    x1, y1, x2, y2 = node.bounds
+    return [
+        _rect(x1, y1, x2, y2, rx="2", fill=fill, stroke=stroke, stroke_width=sw),
+        _text((x1 + x2) / 2, (y1 + y2) / 2 + 3, _fit_label(node.name, x2 - x1), 8),
+    ]
+
+
 def _node(node: SceneNode) -> list[str]:
     x1, y1, x2, y2 = node.bounds
     if node.kind == "primitive":
         return _primitive(node)
-    if node.kind == "subvi" and node.icon_png and node.icon_png.exists():
-        data = base64.b64encode(node.icon_png.read_bytes()).decode()
-        return [f'<image href="data:image/png;base64,{data}" x="{x1:.1f}" '
-                f'y="{y1:.1f}" width="{x2-x1:.1f}" height="{y2-y1:.1f}"/>']
+    if node.kind == "subvi":
+        if node.icon_png and node.icon_png.exists():
+            data = base64.b64encode(node.icon_png.read_bytes()).decode()
+            return [f'<image href="data:image/png;base64,{data}" x="{x1:.1f}" '
+                    f'y="{y1:.1f}" width="{x2-x1:.1f}" height="{y2-y1:.1f}"/>']
+        # SubVI without an icon: LabVIEW's raised-panel look.
+        return _labeled_box(node, "#eef0e6", "#7a7d63", "1.5")
     if node.kind == "constant":
         return [
             _rect(x1, y1, x2, y2, rx="2", fill=TERM_FILL, stroke=WIRE_DBL,
@@ -144,6 +198,8 @@ def _node(node: SceneNode) -> list[str]:
     if node.kind == "fpterm":
         return [_rect(x1, y1, x2, y2, rx="2", fill=TERM_FILL, stroke=WIRE_DBL,
                       stroke_width="3")]
+    if node.kind == "node":
+        return _labeled_box(node, PRIM_FILL, PRIM_STROKE, "1")
     return [_rect(x1, y1, x2, y2, fill=PRIM_FILL, stroke=PRIM_STROKE)]
 
 
