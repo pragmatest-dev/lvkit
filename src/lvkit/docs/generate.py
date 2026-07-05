@@ -6,6 +6,7 @@ without reaching into ``scripts/``.
 
 from __future__ import annotations
 
+import logging
 import shutil
 import time
 from pathlib import Path
@@ -14,7 +15,10 @@ from lvkit.docs.html_generator import HTMLDocGenerator
 from lvkit.docs.utils import generate_dependency_description
 from lvkit.graph import InMemoryVIGraph
 from lvkit.models import CaseOperation, SequenceOperation
+from lvkit.render import render_vi
 from lvkit.structure import parse_lvclass, parse_lvlib
+
+logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Collection helpers
@@ -212,6 +216,12 @@ def _prepare_vi_documentation_data(
     if icon_map and vi_name in icon_map:
         icon_path = str(icon_map[vi_name])
 
+    try:
+        diagram_svg = render_vi(graph, vi_name)
+    except Exception:
+        logger.exception("SVG diagram render failed for %s; falling back", vi_name)
+        diagram_svg = None
+
     return {
         "vi_name": vi_name,
         "controls": controls,
@@ -223,6 +233,7 @@ def _prepare_vi_documentation_data(
         "poly_variants": poly_variants,
         "variant_params": variant_params,
         "icon_path": icon_path,
+        "diagram_svg": diagram_svg,
     }
 
 

@@ -35,7 +35,7 @@ def render_vi(graph: InMemoryVIGraph, vi_name: str) -> str | None:
         return None
     backend = SvgBackend()
     draw_scene(scene, backend, DEFAULT_THEME)
-    return backend.render(scene.bounds)
+    return backend.render(scene.bounds, title=vi_name)
 
 
 def render_vi_file(path: Path) -> str | None:

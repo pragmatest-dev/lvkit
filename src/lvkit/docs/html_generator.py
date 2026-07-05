@@ -334,8 +334,15 @@ class HTMLDocGenerator:
             dependencies, relative_link
         )
         callers_html = self._render_callers_section(callers, relative_link)
-        self._mermaid.all_vis = self.all_vis
-        dataflow_html = self._mermaid.render(graph, relative_link)
+        diagram_svg = vi_data.get("diagram_svg")
+        if diagram_svg:
+            dataflow_html = (
+                '<div class="diagram-container" style="overflow:auto">'
+                f"{diagram_svg}</div>"
+            )
+        else:
+            self._mermaid.all_vis = self.all_vis
+            dataflow_html = self._mermaid.render(graph, relative_link)
 
         # Polymorphic section if applicable
         poly_html = ""

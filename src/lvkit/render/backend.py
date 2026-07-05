@@ -172,12 +172,20 @@ class SvgBackend:
     def measure_text(self, text: str, size: float) -> float:
         return _text_width_em(text) * size
 
-    def render(self, bounds: tuple[float, float, float, float]) -> str:
-        """Wrap accumulated ops into a complete SVG document."""
+    def render(
+        self, bounds: tuple[float, float, float, float], *, title: str | None = None,
+    ) -> str:
+        """Wrap accumulated ops into a complete SVG document.
+
+        ``title`` (e.g. the VI name), when given, is emitted as an SVG
+        ``<title>`` element right after the root tag for accessibility.
+        """
         x1, y1, x2, y2 = bounds
         w, h = x2 - x1, y2 - y1
         head = (
             f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="{x1:.0f} '
             f'{y1:.0f} {w:.0f} {h:.0f}" font-family="sans-serif">'
         )
-        return "\n".join([head, *self._elements, "</svg>"])
+        title_el = f"<title>{escape(title)}</title>" if title else None
+        parts = [head, title_el, *self._elements, "</svg>"]
+        return "\n".join(p for p in parts if p is not None)
