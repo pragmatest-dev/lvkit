@@ -34,6 +34,7 @@ from ..graph.describe import (
 from ..graph.describe import (
     describe_vi as describe_vi_text,
 )
+from ..lv_detect import detect_labview
 from ..project_store import find_project_store
 from .tools import generate_documents, generate_python
 
@@ -135,6 +136,15 @@ async def list_tools() -> list[Tool]:
                             "Path to LabVIEW user.lib on disk for <userlib> resolution."
                         ),
                     },
+                    "auto_vilib": {
+                        "type": "boolean",
+                        "description": (
+                            "When vilib_root is not given, best-effort auto-detect a "
+                            "locally installed LabVIEW and use its vi.lib/user.lib. "
+                            "Non-fatal; set false to disable."
+                        ),
+                        "default": True,
+                    },
                 },
                 "required": ["library_path", "output_dir"],
             },
@@ -209,6 +219,15 @@ async def list_tools() -> list[Tool]:
                             "Path to LabVIEW user.lib on disk for <userlib> resolution."
                         ),
                     },
+                    "auto_vilib": {
+                        "type": "boolean",
+                        "description": (
+                            "When vilib_root is not given, best-effort auto-detect a "
+                            "locally installed LabVIEW and use its vi.lib/user.lib. "
+                            "Non-fatal; set false to disable."
+                        ),
+                        "default": True,
+                    },
                 },
                 "required": ["vi_path", "output_dir"],
             },
@@ -253,6 +272,15 @@ async def list_tools() -> list[Tool]:
                         "description": (
                             "Path to LabVIEW user.lib on disk for <userlib> resolution."
                         ),
+                    },
+                    "auto_vilib": {
+                        "type": "boolean",
+                        "description": (
+                            "When vilib_root is not given, best-effort auto-detect a "
+                            "locally installed LabVIEW and use its vi.lib/user.lib. "
+                            "Non-fatal; set false to disable."
+                        ),
+                        "default": True,
                     },
                 },
                 "required": ["vi_path"],
@@ -441,6 +469,7 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
         expand_subvis = arguments.get("expand_subvis", True)
         vilib_root = arguments.get("vilib_root")
         userlib_root = arguments.get("userlib_root")
+        auto_vilib = arguments.get("auto_vilib", True)
 
         if not library_path:
             raise ValueError("library_path is required")
@@ -452,7 +481,7 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
         # Run documentation generation (synchronous function in async context)
         result = await asyncio.to_thread(
             generate_documents, library_path, output_dir, search_paths, expand_subvis,
-            vilib_root=vilib_root, userlib_root=userlib_root,
+            vilib_root=vilib_root, userlib_root=userlib_root, auto_vilib=auto_vilib,
         )
 
         return [TextContent(type="text", text=result)]
@@ -464,6 +493,7 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
         soft_unresolved = arguments.get("soft_unresolved", False)
         vilib_root = arguments.get("vilib_root")
         userlib_root = arguments.get("userlib_root")
+        auto_vilib = arguments.get("auto_vilib", True)
 
         if not vi_path:
             raise ValueError("vi_path is required")
@@ -476,7 +506,7 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
         result = await asyncio.to_thread(
             generate_python, vi_path, output_dir, search_paths,
             include_code=False, soft_unresolved=soft_unresolved,
-            vilib_root=vilib_root, userlib_root=userlib_root,
+            vilib_root=vilib_root, userlib_root=userlib_root, auto_vilib=auto_vilib,
         )
 
         # Return JSON for structured parsing by agent
@@ -491,6 +521,7 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
         expand_subvis = arguments.get("expand_subvis", True)
         vilib_root = arguments.get("vilib_root")
         userlib_root = arguments.get("userlib_root")
+        auto_vilib = arguments.get("auto_vilib", True)
 
         if not vi_path:
             raise ValueError("vi_path is required")
@@ -498,11 +529,20 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
         _configure_resolvers_for_vi(vi_path)
 
         def _load():
+            resolved_vilib = Path(vilib_root) if vilib_root else None
+            resolved_userlib = Path(userlib_root) if userlib_root else None
+            if resolved_vilib is None and auto_vilib:
+                detected = detect_labview()
+                if detected is not None:
+                    resolved_vilib = detected.vilib_root
+                    if resolved_userlib is None:
+                        resolved_userlib = detected.userlib_root
+
             graph = _get_graph()
-            if vilib_root or userlib_root:
+            if resolved_vilib or resolved_userlib:
                 graph.set_library_roots(
-                    vilib_root=Path(vilib_root) if vilib_root else None,
-                    userlib_root=Path(userlib_root) if userlib_root else None,
+                    vilib_root=resolved_vilib,
+                    userlib_root=resolved_userlib,
                 )
             search_path_objs = [Path(p) for p in search_paths] if search_paths else None
             graph.load_vi(

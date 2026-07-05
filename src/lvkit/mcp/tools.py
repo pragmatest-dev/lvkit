@@ -7,7 +7,36 @@ import subprocess
 import sys
 from pathlib import Path
 
+from ..lv_detect import detect_labview
 from .schemas import CodeGenResult
+
+
+def _apply_auto_vilib(
+    cmd: list[str],
+    vilib_root: str | None,
+    userlib_root: str | None,
+    auto_vilib: bool,
+) -> None:
+    """Append --vilib/--userlib to ``cmd``, auto-detecting when unset.
+
+    Explicit ``vilib_root`` always wins. When it is unset and ``auto_vilib`` is
+    on, best-effort detect a local LabVIEW and use its vi.lib/user.lib. Fully
+    non-fatal: a detection failure leaves ``cmd`` unchanged.
+    """
+    if vilib_root:
+        cmd.extend(["--vilib", vilib_root])
+    elif auto_vilib:
+        try:
+            detected = detect_labview()
+        except Exception:
+            detected = None
+        if detected is not None:
+            cmd.extend(["--vilib", str(detected.vilib_root)])
+            if userlib_root is None and detected.userlib_root is not None:
+                userlib_root = str(detected.userlib_root)
+
+    if userlib_root:
+        cmd.extend(["--userlib", userlib_root])
 
 
 def generate_documents(
@@ -17,6 +46,7 @@ def generate_documents(
     expand_subvis: bool = True,
     vilib_root: str | None = None,
     userlib_root: str | None = None,
+    auto_vilib: bool = True,
 ) -> str:
     """Generate HTML documentation for a LabVIEW library, class, directory,
     or single VI.
@@ -47,10 +77,7 @@ def generate_documents(
     if not expand_subvis:
         cmd.append("--no-expand")
 
-    if vilib_root:
-        cmd.extend(["--vilib", vilib_root])
-    if userlib_root:
-        cmd.extend(["--userlib", userlib_root])
+    _apply_auto_vilib(cmd, vilib_root, userlib_root, auto_vilib)
 
     # Run the deterministic script
     result = subprocess.run(cmd, capture_output=True, text=True)
@@ -77,6 +104,7 @@ def generate_python(
     soft_unresolved: bool = False,
     vilib_root: str | None = None,
     userlib_root: str | None = None,
+    auto_vilib: bool = True,
 ) -> CodeGenResult:
     """Generate Python code from a LabVIEW VI using AST-based translation.
 
@@ -112,10 +140,7 @@ def generate_python(
     if soft_unresolved:
         cmd.append("--placeholder-on-unresolved")
 
-    if vilib_root:
-        cmd.extend(["--vilib", vilib_root])
-    if userlib_root:
-        cmd.extend(["--userlib", userlib_root])
+    _apply_auto_vilib(cmd, vilib_root, userlib_root, auto_vilib)
 
     # Run the deterministic script
     result = subprocess.run(cmd, capture_output=True, text=True)

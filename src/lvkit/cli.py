@@ -10,6 +10,7 @@ from pathlib import Path
 
 from . import __version__, primitive_resolver, vilib_resolver
 from .graph import InMemoryVIGraph
+from .lv_detect import detect_labview
 from .project_store import (
     find_project_store,
     init_project_store,
@@ -38,7 +39,7 @@ def _add_project_root_arg(parser: argparse.ArgumentParser) -> None:
 
 
 def _add_library_root_args(parser: argparse.ArgumentParser) -> None:
-    """Add --vilib and --userlib flags to a subparser."""
+    """Add --vilib, --userlib, and --no-auto-vilib flags to a subparser."""
     parser.add_argument(
         "--vilib",
         default=None,
@@ -47,7 +48,10 @@ def _add_library_root_args(parser: argparse.ArgumentParser) -> None:
             "Path to LabVIEW's vi.lib directory on disk. When set, "
             "<vilib> dependency refs resolve to real .vi files, "
             "terminal layouts are captured automatically, and results "
-            "are cached to .lvkit/vilib/ for future runs."
+            "are cached to .lvkit/vilib/ for future runs. When omitted, "
+            "lvkit tries to auto-detect a local LabVIEW install and use its "
+            "vi.lib/user.lib (see `lvkit detect`); pass --no-auto-vilib to "
+            "disable that."
         ),
     )
     parser.add_argument(
@@ -59,14 +63,42 @@ def _add_library_root_args(parser: argparse.ArgumentParser) -> None:
             "<userlib> dependency refs resolve to real .vi files."
         ),
     )
+    parser.add_argument(
+        "--no-auto-vilib",
+        action="store_true",
+        help=(
+            "Disable auto-detection of a locally installed LabVIEW's "
+            "vi.lib/user.lib when --vilib is not given. Use this for "
+            "reproducible/machine-independent runs (e.g. CI)."
+        ),
+    )
 
 
 def _parse_library_roots(
     args: argparse.Namespace,
 ) -> tuple[Path | None, Path | None]:
-    """Extract --vilib / --userlib from parsed args as Path objects."""
+    """Extract --vilib / --userlib from parsed args as Path objects.
+
+    When --vilib is not given (and --no-auto-vilib was not passed), attempt a
+    best-effort auto-detection of a locally installed LabVIEW and use its
+    vi.lib / user.lib. Explicit flags always win; detection is non-fatal.
+    """
     vilib_root = Path(args.vilib) if args.vilib else None
     userlib_root = Path(args.userlib) if args.userlib else None
+
+    if vilib_root is None and not getattr(args, "no_auto_vilib", False):
+        detected = detect_labview()
+        if detected is not None:
+            vilib_root = detected.vilib_root
+            if userlib_root is None:
+                userlib_root = detected.userlib_root
+            version = detected.version or "?"
+            print(
+                f"lvkit: auto-detected LabVIEW {version} vi.lib at "
+                f"{detected.vilib_root} ({detected.source})",
+                file=sys.stderr,
+            )
+
     return vilib_root, userlib_root
 
 
@@ -334,6 +366,15 @@ def main() -> int:
         help="Overwrite existing skill files even if they have local edits",
     )
 
+    # Detect command
+    detect_parser = subparsers.add_parser(
+        "detect",
+        help="Detect a locally installed LabVIEW and its vi.lib/user.lib",
+    )
+    detect_parser.add_argument(
+        "--json", action="store_true", help="Output detection result as JSON"
+    )
+
     args = parser.parse_args()
 
     if args.command == "structure":
@@ -352,6 +393,8 @@ def main() -> int:
         return cmd_diff(args)
     elif args.command == "setup":
         return cmd_setup(args)
+    elif args.command == "detect":
+        return cmd_detect(args)
     else:
         parser.print_help()
         return 0
@@ -597,6 +640,53 @@ def cmd_setup(args: argparse.Namespace) -> int:
         else:
             print("Copilot files already up to date.")
 
+    return 0
+
+
+def cmd_detect(args: argparse.Namespace) -> int:
+    """Handle the detect command — report the local LabVIEW install, if any.
+
+    Diagnostic for confirming auto-vilib detection (especially on machines
+    with LabVIEW that differ from where the code was written). Always exits 0
+    so it can be used in scripts to probe for an install.
+    """
+    detected = detect_labview()
+
+    if getattr(args, "json", False):
+        if detected is None:
+            print(json.dumps({"detected": False}, indent=2))
+        else:
+            print(
+                json.dumps(
+                    {
+                        "detected": True,
+                        "version": detected.version,
+                        "install_dir": str(detected.install_dir),
+                        "vilib_root": str(detected.vilib_root),
+                        "userlib_root": (
+                            str(detected.userlib_root)
+                            if detected.userlib_root
+                            else None
+                        ),
+                        "source": detected.source,
+                    },
+                    indent=2,
+                )
+            )
+        return 0
+
+    if detected is None:
+        print(
+            "No local LabVIEW detected. Pass --vilib <path-to-vi.lib> "
+            "explicitly to resolve <vilib> dependency refs."
+        )
+        return 0
+
+    print(f"Detected LabVIEW {detected.version or '(unknown version)'}")
+    print(f"  install dir : {detected.install_dir}")
+    print(f"  vi.lib      : {detected.vilib_root}")
+    print(f"  user.lib    : {detected.userlib_root or '(not found)'}")
+    print(f"  source      : {detected.source}")
     return 0
 
 
