@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from ..models import LVType
+from ..models import LVType, _is_error_cluster
 
 
 @dataclass(frozen=True)
@@ -33,13 +33,16 @@ class Theme:
     selector_text: str = "#3f6b28"
     sr_fill: str = "#cfcfcf"
     sr_stroke: str = "#555555"
+    coercion_dot: str = "#5a5a5a"         # gray coercion-dot fill
 
     # Wire colors by LabVIEW type family.
-    wire_float: str = "#e8821e"   # orange — DBL/float (also the P0 default)
-    wire_int: str = "#1f3fbf"     # blue — integers, enums, rings
-    wire_bool: str = "#4a9c3e"    # green — boolean
-    wire_string: str = "#e05fa0"  # pink — string
+    wire_float: str = "#e8821e"    # orange — DBL/float (also the P0 default)
+    wire_int: str = "#1f3fbf"      # blue — integers, enums, rings
+    wire_bool: str = "#4a9c3e"     # green — boolean
+    wire_string: str = "#e05fa0"   # pink — string
+    wire_path: str = "#1f8a8a"     # teal — path
     wire_cluster: str = "#8a5a2b"  # brown — clusters / typedefs
+    wire_error: str = "#3a3a3a"    # dark — error clusters
     wire_default: str = "#e8821e"  # anything unrecognized falls back to DBL
 
 
@@ -58,6 +61,48 @@ _INT_TYPES = {
 }
 _FLOAT_TYPES = {"NumFloat32", "NumFloat64"}
 
+# Coarse type-family buckets, shared by wire coloring AND front-panel
+# terminal glyph selection (draw.py) so both stay driven by one table.
+_FAMILY_COLOR = {
+    "float": "wire_float",
+    "int": "wire_int",
+    "enum": "wire_int",
+    "bool": "wire_bool",
+    "string": "wire_string",
+    "path": "wire_path",
+    "cluster": "wire_cluster",
+    "error_cluster": "wire_error",
+}
+
+
+def type_family(lv_type: LVType | None) -> str:
+    """Coarse family bucket for an LVType: "float", "int", "bool",
+    "string", "path", "enum", "cluster", "error_cluster", "array", or
+    "unknown". The single source of truth for both wire color and
+    front-panel terminal glyph choice.
+    """
+    if lv_type is None:
+        return "unknown"
+    if lv_type.kind == "array":
+        return "array"
+    if lv_type.kind in ("enum", "ring"):
+        return "enum"
+    if lv_type.kind in ("cluster", "typedef_ref"):
+        return "error_cluster" if _is_error_cluster(lv_type) else "cluster"
+    if lv_type.kind == "primitive":
+        ut = lv_type.underlying_type or ""
+        if ut in _FLOAT_TYPES:
+            return "float"
+        if ut in _INT_TYPES:
+            return "int"
+        if ut == "Boolean":
+            return "bool"
+        if ut == "String":
+            return "string"
+        if ut == "Path":
+            return "path"
+    return "unknown"
+
 
 def wire_style(
     lv_type: LVType | None, theme: Theme = DEFAULT_THEME,
@@ -65,31 +110,42 @@ def wire_style(
     """Color/width for a wire, from the SOURCE terminal's LVType.
 
     Branches on ``kind`` then ``underlying_type``: DBL orange (default),
-    ints blue, bool green, string pink, cluster/typedef brown, array
-    thicker (color inherited from the element type).
+    ints blue, bool green, string pink, path teal, cluster brown, error
+    cluster dark, array thicker (by ``dimensions``, color inherited from
+    the element type).
     """
     if lv_type is None:
         return WireStyle(theme.wire_default, 2.0)
 
     if lv_type.kind == "array":
         inner = wire_style(lv_type.element_type, theme)
-        return WireStyle(inner.color, inner.width + 1.0)
+        return WireStyle(inner.color, inner.width + (lv_type.dimensions or 1))
 
-    if lv_type.kind in ("enum", "ring"):
-        return WireStyle(theme.wire_int, 2.0)
+    family = type_family(lv_type)
+    color = getattr(theme, _FAMILY_COLOR.get(family, ""), theme.wire_default)
+    return WireStyle(color, 2.0)
 
-    if lv_type.kind in ("cluster", "typedef_ref"):
-        return WireStyle(theme.wire_cluster, 2.0)
 
-    if lv_type.kind == "primitive":
-        ut = lv_type.underlying_type or ""
-        if ut in _FLOAT_TYPES:
-            return WireStyle(theme.wire_float, 2.0)
-        if ut in _INT_TYPES:
-            return WireStyle(theme.wire_int, 2.0)
-        if ut == "Boolean":
-            return WireStyle(theme.wire_bool, 2.0)
-        if ut == "String":
-            return WireStyle(theme.wire_string, 2.0)
+# --------------------------------------------------------------------- #
+# Coercion detection: normalized type key, ignoring provenance-only
+# fields (description/values/fields/typedef_*) that legitimately differ
+# per-side via graph type enrichment (see graph/core.py::_enrich_type).
+# --------------------------------------------------------------------- #
 
-    return WireStyle(theme.wire_default, 2.0)
+CoercionKey = tuple[str, str | None, int | None, "CoercionKey | None"]
+
+
+def coercion_key(lv_type: LVType | None) -> CoercionKey | None:
+    """Normalized type identity for coercion-dot detection.
+
+    ``None`` means "no type info" — callers must treat that as "no dot"
+    on either side, not as a mismatch.
+    """
+    if lv_type is None:
+        return None
+    return (
+        lv_type.kind,
+        lv_type.underlying_type,
+        lv_type.dimensions,
+        coercion_key(lv_type.element_type),
+    )

@@ -16,11 +16,14 @@ from pathlib import Path
 import pytest
 
 from lvkit.graph.core import InMemoryVIGraph
-from lvkit.graph.models import CaseStructureNode, StructureNode
+from lvkit.graph.models import CaseStructureNode, LoopNode, StructureNode
+from lvkit.models import FPTerminal, LVType
 from lvkit.render import render_vi, render_vi_file
 from lvkit.render.backend import SvgBackend
-from lvkit.render.scene import build_scene
-from lvkit.render.style import DEFAULT_THEME
+from lvkit.render.draw import draw_fp_terminal
+from lvkit.render.layout import Layout
+from lvkit.render.scene import _structure_borders, build_scene
+from lvkit.render.style import DEFAULT_THEME, coercion_key, wire_style
 from lvkit.render.wire_router import RouterConfig, WireRouter, _compress, path_d
 
 # --------------------------------------------------------------------------- #
@@ -370,3 +373,176 @@ def test_corpus_renders_without_exceptions(vi_path: Path):
     for net in built.wire_nets:
         for branch in net.branches:
             assert len(branch) >= 2
+
+
+# --------------------------------------------------------------------------- #
+# P1: wire color table + coercion key (pure unit tests, no VI needed)
+# --------------------------------------------------------------------------- #
+
+
+def test_wire_style_covers_full_type_table():
+    dbl = LVType(kind="primitive", underlying_type="NumFloat64")
+    i32 = LVType(kind="primitive", underlying_type="NumInt32")
+    boolean = LVType(kind="primitive", underlying_type="Boolean")
+    string = LVType(kind="primitive", underlying_type="String")
+    path = LVType(kind="primitive", underlying_type="Path")
+    cluster = LVType(kind="cluster", fields=[])
+    error_cluster = LVType(kind="cluster", typedef_name="Error Cluster", fields=[])
+
+    assert wire_style(dbl).color == DEFAULT_THEME.wire_float
+    assert wire_style(i32).color == DEFAULT_THEME.wire_int
+    assert wire_style(boolean).color == DEFAULT_THEME.wire_bool
+    assert wire_style(string).color == DEFAULT_THEME.wire_string
+    assert wire_style(path).color == DEFAULT_THEME.wire_path
+    assert wire_style(cluster).color == DEFAULT_THEME.wire_cluster
+    assert wire_style(error_cluster).color == DEFAULT_THEME.wire_error
+    # Distinct colors, not a table that collapsed onto one fallback.
+    colors = {
+        wire_style(t).color for t in
+        (dbl, i32, boolean, string, path, cluster, error_cluster)
+    }
+    assert len(colors) == 7
+
+
+def test_wire_style_array_width_scales_with_dimensions():
+    scalar = LVType(kind="primitive", underlying_type="NumFloat64")
+    arr_1d = LVType(kind="array", dimensions=1, element_type=scalar)
+    arr_2d = LVType(kind="array", dimensions=2, element_type=scalar)
+
+    base = wire_style(scalar).width
+    assert wire_style(arr_1d).width == base + 1
+    assert wire_style(arr_2d).width == base + 2
+    # Color is inherited from the element type, not a fixed array color.
+    assert wire_style(arr_1d).color == wire_style(scalar).color
+
+
+def test_coercion_key_ignores_provenance_but_catches_type_mismatch():
+    a = LVType(kind="primitive", underlying_type="NumFloat64", description="foo")
+    b = LVType(kind="primitive", underlying_type="NumFloat64", description="bar")
+    c = LVType(kind="primitive", underlying_type="NumInt32")
+
+    assert coercion_key(a) == coercion_key(b)
+    assert coercion_key(a) != coercion_key(c)
+    assert coercion_key(None) is None
+
+    arr_a = LVType(kind="array", dimensions=1, element_type=a)
+    arr_c = LVType(kind="array", dimensions=1, element_type=c)
+    assert coercion_key(arr_a) != coercion_key(arr_c)
+
+
+# --------------------------------------------------------------------------- #
+# P1: front-panel control/indicator glyphs (pure unit tests via SvgBackend)
+# --------------------------------------------------------------------------- #
+
+
+def _render_fp_terminal(lv_type: LVType | None, is_indicator: bool = False) -> str:
+    backend = SvgBackend()
+    terminal = FPTerminal(
+        id="vi::1", index=0, direction="input", name="X",
+        lv_type=lv_type, is_indicator=is_indicator,
+    )
+    draw_fp_terminal(terminal, (0.0, 0.0, 40.0, 40.0), backend)
+    return backend.render((0.0, 0.0, 40.0, 40.0))
+
+
+def test_numeric_control_glyph_present():
+    svg = _render_fp_terminal(LVType(kind="primitive", underlying_type="NumFloat64"))
+    assert "1.23" in svg
+    svg_int = _render_fp_terminal(LVType(kind="primitive", underlying_type="NumInt32"))
+    assert "123" in svg_int
+
+
+def test_boolean_control_glyph_is_a_circle():
+    svg = _render_fp_terminal(LVType(kind="primitive", underlying_type="Boolean"))
+    assert "<circle" in svg
+
+
+def test_string_control_glyph_present():
+    svg = _render_fp_terminal(LVType(kind="primitive", underlying_type="String"))
+    assert "abc" in svg
+
+
+def test_control_border_thicker_than_indicator_border():
+    control_svg = _render_fp_terminal(
+        LVType(kind="primitive", underlying_type="NumFloat64"), is_indicator=False,
+    )
+    indicator_svg = _render_fp_terminal(
+        LVType(kind="primitive", underlying_type="NumFloat64"), is_indicator=True,
+    )
+    assert 'stroke-width="3.0"' in control_svg
+    assert 'stroke-width="1.5"' in indicator_svg
+
+
+# --------------------------------------------------------------------------- #
+# P1: structure border-terminal glyphs (N/i/cond guaranteed by loop_type)
+# --------------------------------------------------------------------------- #
+
+
+def test_for_loop_guarantees_N_and_i_glyphs_from_layout_geometry():
+    node = LoopNode(
+        id="vi::43", vi="vi", node_type="forLoop", loop_type="forLoop", terminals=[],
+    )
+    layout = Layout(
+        border_terminals={"i_uid": (0.0, 0.0, 10.0, 10.0)},
+        border_terminal_kind={"i_uid": "i"},
+        structure_border_uids={"43": ["i_uid"]},
+    )
+    borders = _structure_borders(node, layout, "vi")
+    kinds = {b.glyph_kind for b in borders}
+    assert "i" in kinds
+    # N has no heap geometry in this synthetic layout -> defensively skipped,
+    # not guessed.
+    assert "N" not in kinds
+
+
+def test_while_loop_guarantees_i_and_cond_glyphs():
+    node = LoopNode(
+        id="vi::7", vi="vi", node_type="whileLoop", loop_type="whileLoop",
+        terminals=[],
+    )
+    layout = Layout(
+        border_terminals={
+            "i_uid": (0.0, 0.0, 10.0, 10.0), "cond_uid": (20.0, 0.0, 30.0, 10.0),
+        },
+        border_terminal_kind={"i_uid": "i", "cond_uid": "cond"},
+        structure_border_uids={"7": ["i_uid", "cond_uid"]},
+    )
+    borders = _structure_borders(node, layout, "vi")
+    kinds = {b.glyph_kind for b in borders}
+    assert kinds == {"i", "cond"}
+    assert all(b.terminal is None for b in borders)
+
+
+def test_for_loop_border_glyphs_on_ground_truth_vi():
+    graph, vi = _require_ground_truth()
+    scene = build_scene(graph, vi)
+    assert scene is not None
+    loop = next(
+        s for s in scene.structures
+        if isinstance(s.node, StructureNode) and s.node.node_type == "forLoop"
+    )
+    kinds = {bt.glyph_kind for bt in loop.border_terminals}
+    assert "N" in kinds
+    assert "i" in kinds
+
+
+# --------------------------------------------------------------------------- #
+# P1: coercion dots on the ground-truth VI's own auto-index -> DBL path
+# --------------------------------------------------------------------------- #
+
+
+def test_coercion_dot_appears_on_type_mismatch_not_on_match():
+    graph, vi = _require_ground_truth()
+    scene = build_scene(graph, vi)
+    assert scene is not None
+
+    nets_with_dots = [n for n in scene.wire_nets if n.coercion_dots]
+    nets_without_dots = [
+        n for n in scene.wire_nets if n.branches and not n.coercion_dots
+    ]
+    # The auto-index tunnel (array) feeding a scalar Add input is a real
+    # type mismatch by the graph's own terminal types -> at least one dot.
+    assert nets_with_dots
+    # Same-type wires (e.g. DBL -> DBL) get no dot -> the check actually
+    # discriminates instead of firing on everything.
+    assert nets_without_dots

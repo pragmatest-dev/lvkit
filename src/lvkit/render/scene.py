@@ -16,13 +16,14 @@ from ..graph.core import InMemoryVIGraph
 from ..graph.models import (
     AnyGraphNode,
     CaseStructureNode,
+    LoopNode,
     SequenceNode,
     StructureNode,
     Wire,
 )
 from ..models import CaseFrame, FPTerminal, SequenceFrame, Terminal, TunnelTerminal
 from .layout import Layout, Point, Rect, build_layout
-from .style import WireStyle, wire_style
+from .style import WireStyle, coercion_key, wire_style
 from .wire_router import WireRouter
 
 logger = logging.getLogger(__name__)
@@ -60,14 +61,20 @@ class RenderNode:
 class RenderBorderTerminal:
     """A structure border glyph (loop N/i/cond, case selector, shift reg).
 
-    ``terminal`` is the graph Terminal when one exists (tunnels, case
-    selector); it's None for the loop count/index/test DCOs, which the
-    graph doesn't model as full Terminal objects today (geometry-only —
-    drawn as an undecorated box; see DESIGN.md judgment-call notes).
+    ``terminal`` is the graph Terminal when one exists (N/lMax, shift
+    registers, auto-index tunnels, case selector); it's None for the loop
+    index/test DCOs (i/cond), which the graph doesn't model as full
+    Terminal objects — their existence is instead guaranteed by the
+    structure kind (see ``_LOOP_GUARANTEED_KINDS``).
+
+    ``glyph_kind`` is the fixed decoration to draw: "N", "i", "cond",
+    "sr_down", "sr_up", "autoindex", "selector", or None for an
+    undecorated box (a border DCO the loop-kind table doesn't cover).
     """
 
     terminal: Terminal | None
     bounds: Rect
+    glyph_kind: str | None = None
 
 
 @dataclass(frozen=True)
@@ -88,6 +95,9 @@ class RenderWireNet:
     style: WireStyle
     branches: list[list[Point]] = field(default_factory=list)
     junctions: list[Point] = field(default_factory=list)
+    # Receiving-terminal points where source/dest normalized types differ —
+    # LabVIEW's implicit-conversion coercion dot (see style.coercion_key).
+    coercion_dots: list[Point] = field(default_factory=list)
 
 
 @dataclass(frozen=True)
@@ -203,11 +213,38 @@ def _render_terminals(
     return result
 
 
+# TunnelTerminal.tunnel_type -> fixed glyph kind, for border terminals the
+# graph DOES model (they're real wireable dataflow terminals: N/lMax takes
+# an optional input wire, SR/auto-index carry real data). "selector" also
+# matches by name because the graph tags it that way (construction.py)
+# rather than always setting tunnel_type="caseSel".
+_TUNNEL_GLYPH_KIND = {
+    "lMax": "N", "lSR": "sr_down", "rSR": "sr_up",
+    "lpTun": "autoindex", "caseSel": "selector",
+}
+
+# Border terminals a loop is GUARANTEED to have, purely as a function of
+# ``LoopNode.loop_type`` — a For Loop always has N (top-left) and i
+# (bottom-left); a While Loop always has i (bottom-left) and a stop
+# condition (bottom-right). The graph doesn't model i/cond as Terminal
+# objects (they're not wireable inputs), so their existence comes from
+# this structure-type table, not from finding a graph Terminal or even a
+# successfully-parsed DCO — only their POSITION comes from heap geometry.
+_LOOP_GUARANTEED_KINDS: dict[str, tuple[str, ...]] = {
+    "forLoop": ("N", "i"),
+    "whileLoop": ("i", "cond"),
+}
+
+
 def _structure_borders(
     node: StructureNode, layout: Layout, vi_name: str,
 ) -> list[RenderBorderTerminal]:
     result: list[RenderBorderTerminal] = []
-    seen_raw: set[str] = set()
+    consumed: set[str] = set()
+    kinds_present: set[str] = set()
+
+    # 1. Border terminals the graph models as real Terminals (N/lMax, shift
+    # registers, auto-index tunnels, case selector).
     for t in node.terminals:
         if not (isinstance(t, TunnelTerminal) and t.boundary == "outer"):
             continue
@@ -215,19 +252,57 @@ def _structure_borders(
         rect = layout.node_bounds.get(raw)
         if rect is None:
             continue
-        result.append(RenderBorderTerminal(terminal=t, bounds=rect))
-        seen_raw.add(raw)
+        glyph_kind = _TUNNEL_GLYPH_KIND.get(t.tunnel_type)
+        if glyph_kind is None and t.name == "selector":
+            glyph_kind = "selector"
+        result.append(
+            RenderBorderTerminal(terminal=t, bounds=rect, glyph_kind=glyph_kind)
+        )
+        consumed.add(raw)
+        if glyph_kind:
+            kinds_present.add(glyph_kind)
 
-    # Loop count/index/test DCOs: geometry-only (the graph has no Terminal
-    # for them today — see DESIGN.md judgment-call notes). Drawn as an
-    # undecorated box rather than guessing a glyph/label.
     raw_struct_uid = _strip_prefix(node.id, vi_name)
-    for dco_uid in layout.structure_border_uids.get(raw_struct_uid, []):
-        if dco_uid in seen_raw:
+    border_uids = layout.structure_border_uids.get(raw_struct_uid, [])
+
+    # 2. Border glyphs GUARANTEED by the structure kind (i/cond, and N as a
+    # defensive fallback) but not modeled as graph Terminals — position
+    # only from heap geometry, matched by the DCO's fixed glyph kind.
+    if isinstance(node, LoopNode):
+        for kind in _LOOP_GUARANTEED_KINDS.get(node.loop_type or "", ()):
+            if kind in kinds_present:
+                continue  # already rendered via a real graph Terminal (N)
+            match = next(
+                (u for u in border_uids
+                 if u not in consumed and layout.border_terminal_kind.get(u) == kind),
+                None,
+            )
+            if match is None:
+                logger.debug(
+                    "no heap geometry for guaranteed %r border terminal on "
+                    "%s (%s)", kind, node.id, node.loop_type,
+                )
+                continue
+            result.append(RenderBorderTerminal(
+                terminal=None, bounds=layout.border_terminals[match],
+                glyph_kind=kind,
+            ))
+            consumed.add(match)
+            kinds_present.add(kind)
+
+    # 3. Any leftover border DCO (e.g. a case selector the graph didn't tag,
+    # or a kind this structure's type doesn't guarantee) — geometry-only,
+    # drawn as an undecorated box rather than a guessed glyph.
+    for uid in border_uids:
+        if uid in consumed:
             continue
-        rect = layout.border_terminals.get(dco_uid)
+        rect = layout.border_terminals.get(uid)
         if rect is not None:
-            result.append(RenderBorderTerminal(terminal=None, bounds=rect))
+            result.append(RenderBorderTerminal(
+                terminal=None, bounds=rect,
+                glyph_kind=layout.border_terminal_kind.get(uid),
+            ))
+            consumed.add(uid)
     return result
 
 
@@ -264,7 +339,11 @@ def _build_wire_nets(
             logger.debug("no geometry for source terminal %s; dropping wire(s)", key)
             continue
 
+        source_term = graph.get_terminal(key)
+        src_key = coercion_key(source_term.lv_type if source_term else None)
+
         branches: list[list[Point]] = []
+        coercion_dots: list[Point] = []
         for w in group:
             dst_center = layout.terminal_centers.get(
                 _strip_prefix(w.dest.terminal_id, vi_name)
@@ -277,14 +356,19 @@ def _build_wire_nets(
                 continue
             branches.append(router.route(src_center, dst_center, all_points))
 
+            dest_term = graph.get_terminal(w.dest.terminal_id)
+            dst_key = coercion_key(dest_term.lv_type if dest_term else None)
+            if src_key is not None and dst_key is not None and src_key != dst_key:
+                coercion_dots.append(dst_center)
+
         if not branches:
             continue
 
-        source_term = graph.get_terminal(key)
         style = wire_style(source_term.lv_type if source_term else None)
         junctions = [src_center] if len(branches) > 1 else []
         nets.append(RenderWireNet(
-            source=group[0], style=style, branches=branches, junctions=junctions,
+            source=group[0], style=style, branches=branches,
+            junctions=junctions, coercion_dots=coercion_dots,
         ))
     return nets
 

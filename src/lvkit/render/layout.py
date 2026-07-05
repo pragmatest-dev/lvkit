@@ -33,6 +33,19 @@ Rect = tuple[float, float, float, float]  # x1, y1, x2, y2
 # but the graph doesn't model them as full Terminal objects. Geometry only.
 _BORDER_DCO_TAGS = ("loopIndexDCO", "loopLimitDCO", "loopTestDCO", "caseSelDCO")
 
+# Fixed tag -> glyph-kind mapping. This is geometry-side decoration (same
+# category as the comment/free-label pass DESIGN.md already permits): the
+# DCO's on-diagram glyph meaning is a fixed function of which heap tag it
+# is, never re-derived dataflow semantics. The scene layer separately
+# decides (from the graph) whether/where each kind actually needs drawing
+# -- see render/scene.py's structure-type-guaranteed border glyphs.
+_TAG_TO_GLYPH_KIND = {
+    "loopIndexDCO": "i",
+    "loopLimitDCO": "N",
+    "loopTestDCO": "cond",
+    "caseSelDCO": "selector",
+}
+
 
 @dataclass(frozen=True)
 class Layout:
@@ -47,12 +60,17 @@ class Layout:
     border_terminals: structure border DCO rects (loop N/i/cond, case
         selector) keyed by their own raw heap uid. These aren't modeled as
         full graph Terminals, so they're kept separate from node_bounds.
+    border_terminal_kind: raw border-terminal uid -> fixed glyph kind
+        ("i"/"N"/"cond"/"selector"), a pure function of which heap DCO tag
+        produced the entry. Geometry-side decoration only — see
+        ``_TAG_TO_GLYPH_KIND``.
     icon_png: the VI's extracted connector-pane icon, if present.
     """
 
     node_bounds: dict[str, Rect] = field(default_factory=dict)
     terminal_centers: dict[str, Point] = field(default_factory=dict)
     border_terminals: dict[str, Rect] = field(default_factory=dict)
+    border_terminal_kind: dict[str, str] = field(default_factory=dict)
     # Structure raw uid -> the raw uids of its border_terminals entries
     # (loop N/i/cond, case selector) — pure containment, no glyph semantics.
     structure_border_uids: dict[str, list[str]] = field(default_factory=dict)
@@ -86,6 +104,7 @@ class _LayoutBuilder:
         self.node_bounds: dict[str, Rect] = {}
         self.terminal_centers: dict[str, Point] = {}
         self.border_terminals: dict[str, Rect] = {}
+        self.border_terminal_kind: dict[str, str] = {}
         self.structure_border_uids: dict[str, list[str]] = {}
 
     # -- uid collection -------------------------------------------------
@@ -175,6 +194,7 @@ class _LayoutBuilder:
             self.border_terminals.setdefault(
                 uid, (ox + tb[0], oy + tb[1], ox + tb[2], oy + tb[3]),
             )
+            self.border_terminal_kind.setdefault(uid, _TAG_TO_GLYPH_KIND[tag])
             self.structure_border_uids.setdefault(structure_uid, []).append(uid)
 
     # -- recursive walk -----------------------------------------------------
@@ -258,6 +278,7 @@ def build_layout(vi_or_bd: Path) -> Layout:
         node_bounds=builder.node_bounds,
         terminal_centers=builder.terminal_centers,
         border_terminals=builder.border_terminals,
+        border_terminal_kind=builder.border_terminal_kind,
         structure_border_uids=builder.structure_border_uids,
         icon_png=icon if icon.exists() else None,
     )
