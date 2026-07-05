@@ -72,6 +72,20 @@ obstacle-avoiding A* only when a node blocks — wins on both axes and needs no 
 decode. Outputs: `router_{naive,astar,hybrid}.svg`. This is the router to promote into
 `src/lvkit/render/wire_router.py` in Phase 1.
 
+## Phase 1 — productized (`src/lvkit/render/`)
+
+The experiment above is now a real package:
+
+- `render/heap_scene.py` — geometry-aware heap-XML → `DiagramScene`
+- `render/wire_router.py` — the hybrid router
+- `render/svg.py` — SVG composer (For-Loop cascade border, N/i/shift-register/
+  auto-index terminals, primitive triangles, type-colored wires, embedded icon)
+- CLI: `lvkit render <vi> -o diagram.svg`
+- tests: `tests/test_render.py`
+
+Sample output: `render_phase1.svg`. Next: per-type wire colors, While/Case/Sequence
+borders, the glyph resolver chain, icon transparency, LabVIEW pixel font.
+
 ## How to run the POC
 
 ```bash

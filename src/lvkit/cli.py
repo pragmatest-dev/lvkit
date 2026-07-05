@@ -375,6 +375,17 @@ def main() -> int:
         "--json", action="store_true", help="Output detection result as JSON"
     )
 
+    # Render command - faithful block-diagram SVG
+    render_parser = subparsers.add_parser(
+        "render",
+        help="Render a VI's block diagram to a faithful SVG",
+    )
+    render_parser.add_argument("input_path", help="Path to .vi file or _BDHb.xml heap")
+    render_parser.add_argument(
+        "-o", "--output", default=None, metavar="FILE",
+        help="Output SVG path (default: <vi-stem>.svg next to the input)",
+    )
+
     args = parser.parse_args()
 
     if args.command == "structure":
@@ -395,6 +406,8 @@ def main() -> int:
         return cmd_setup(args)
     elif args.command == "detect":
         return cmd_detect(args)
+    elif args.command == "render":
+        return cmd_render(args)
     else:
         parser.print_help()
         return 0
@@ -687,6 +700,32 @@ def cmd_detect(args: argparse.Namespace) -> int:
     print(f"  vi.lib      : {detected.vilib_root}")
     print(f"  user.lib    : {detected.userlib_root or '(not found)'}")
     print(f"  source      : {detected.source}")
+    return 0
+
+
+def cmd_render(args: argparse.Namespace) -> int:
+    """Handle the render command — faithful block-diagram SVG."""
+    from .render import render_vi_to_svg
+
+    input_path = Path(args.input_path)
+    if not input_path.exists():
+        print(f"Error: Path not found: {input_path}", file=sys.stderr)
+        return 1
+
+    try:
+        svg = render_vi_to_svg(input_path)
+    except Exception as e:
+        print(f"Error: render failed: {e}", file=sys.stderr)
+        traceback.print_exc()
+        return 1
+
+    if args.output:
+        out = Path(args.output)
+    else:
+        stem = input_path.stem.replace("_BDHb", "")
+        out = input_path.with_name(f"{stem}.svg")
+    out.write_text(svg)
+    print(f"Rendered {out}")
     return 0
 
 
