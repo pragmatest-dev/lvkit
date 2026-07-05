@@ -55,6 +55,23 @@ Walking `<root>` → recurse:
   string/ring, …) + absolute `<bounds>` + label + default — enough to map to
   NiceGUI widgets later.
 
+## Experiment 1 — wire routing (`wire_router_demo.py`)
+
+How close can we get to LabVIEW's wires using only exact terminal endpoints (no
+`compressedWireTable` decode)? Three routers on Array Average.vi, metric = **deep
+crossings** (a wire cutting through an *unrelated* node):
+
+| Router | Bends | Deep crossings |
+|---|---|---|
+| naive (midpoint elbow) | 18 | 10 |
+| A* (grid, bend-penalized) | 23 | 3 |
+| **hybrid** (clean route → A* fallback) | **16** | **3** |
+
+**Finding:** the hybrid router — try straight / single-elbow / Z first, fall to
+obstacle-avoiding A* only when a node blocks — wins on both axes and needs no wire-table
+decode. Outputs: `router_{naive,astar,hybrid}.svg`. This is the router to promote into
+`src/lvkit/render/wire_router.py` in Phase 1.
+
 ## How to run the POC
 
 ```bash
