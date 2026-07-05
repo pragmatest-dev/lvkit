@@ -1,25 +1,30 @@
-"""Tests for the faithful block-diagram renderer (lvkit.render).
+"""Tests for the graph-driven block-diagram renderer (lvkit.render).
 
-Unit tests over the pure geometry/SVG functions with synthetic scenes — no VI
-files required (the repo's sample VIs are local-only).
+Wire-router and icon-transparency tests are pure unit tests (no VI files
+needed). The scene-join, single-frame-policy, and corpus/determinism tests
+load real sample VIs — the repo's sample VIs are local-only (gitignored), so
+these skip gracefully when a given file isn't present.
 """
 
 from __future__ import annotations
 
+import os
+import subprocess
+import sys
+from pathlib import Path
+
 import pytest
 
-from lvkit.render.heap_scene import (
-    DiagramScene,
-    SceneBorderTerminal,
-    SceneNode,
-    SceneStructure,
-    SceneWire,
-)
-from lvkit.render.svg import scene_to_svg
+from lvkit.graph.core import InMemoryVIGraph
+from lvkit.graph.models import CaseStructureNode, StructureNode
+from lvkit.render import render_vi, render_vi_file
+from lvkit.render.backend import SvgBackend
+from lvkit.render.scene import build_scene
+from lvkit.render.style import DEFAULT_THEME
 from lvkit.render.wire_router import RouterConfig, WireRouter, _compress, path_d
 
 # --------------------------------------------------------------------------- #
-# Wire router
+# Wire router (pure geometry — unaffected by the graph-driven rewrite)
 # --------------------------------------------------------------------------- #
 
 
@@ -33,7 +38,6 @@ def test_straight_route_when_aligned_and_clear():
     route = r.route(a, b, endpoints=[a, b])
     assert route[0] == (10.0, 50.0)
     assert route[-1] == (100.0, 50.0)
-    # aligned + clear → a single straight segment (no bends)
     assert len(route) == 2
 
 
@@ -43,12 +47,10 @@ def test_elbow_route_when_offset_and_clear():
     route = r.route(a, b, endpoints=[a, b])
     assert route[0] == (10.0, 20.0)
     assert route[-1] == (100.0, 80.0)
-    # endpoints offset in both axes → at least one bend
     assert len(route) >= 3
 
 
 def test_router_avoids_obstacle():
-    # A node squarely between two aligned terminals forces a detour.
     obstacle = (40.0, 40.0, 70.0, 60.0)
     r = WireRouter([obstacle], bounds=(0.0, 0.0, 200.0, 120.0),
                    config=RouterConfig(grid=2))
@@ -81,112 +83,7 @@ def test_path_d_format():
 
 
 # --------------------------------------------------------------------------- #
-# SVG composition
-# --------------------------------------------------------------------------- #
-
-
-def _demo_scene() -> DiagramScene:
-    return DiagramScene(
-        bounds=(0.0, 0.0, 200.0, 150.0),
-        nodes=[
-            SceneNode(kind="primitive", bounds=(80.0, 60.0, 110.0, 90.0), name="Add",
-                      prim_res_id="1050"),
-            SceneNode(kind="fpterm", bounds=(10.0, 65.0, 40.0, 85.0), name=""),
-        ],
-        structures=[
-            SceneStructure(
-                kind="forLoop", bounds=(60.0, 40.0, 160.0, 120.0),
-                border_terms=[
-                    SceneBorderTerminal(kind="N", bounds=(62.0, 42.0, 74.0, 54.0)),
-                    SceneBorderTerminal(kind="i", bounds=(62.0, 106.0, 74.0, 118.0)),
-                ],
-            )
-        ],
-        wires=[SceneWire(endpoints=[(40.0, 75.0), (80.0, 75.0)])],
-    )
-
-
-def test_scene_to_svg_is_valid_and_complete():
-    svg = scene_to_svg(_demo_scene())
-    assert svg.startswith("<svg")
-    assert svg.rstrip().endswith("</svg>")
-    assert 'viewBox="0 0 200 150"' in svg
-    # Add primitive → triangle with the '+' symbol
-    assert "<polygon" in svg
-    assert ">+<" in svg
-    # For-Loop border + N/i terminals
-    assert "<path" in svg  # cascade border edges and/or wires
-    assert ">N<" in svg and ">i<" in svg
-
-
-def test_scene_to_svg_wire_uses_type_color():
-    svg = scene_to_svg(_demo_scene(), wire_color="#123456")
-    assert "#123456" in svg
-
-
-def test_empty_scene_renders():
-    svg = scene_to_svg(DiagramScene(bounds=(0.0, 0.0, 10.0, 10.0)))
-    assert "<svg" in svg and "</svg>" in svg
-
-
-def test_case_structure_renders_selector_bar_and_terminal():
-    scene = DiagramScene(
-        bounds=(0.0, 0.0, 120.0, 120.0),
-        structures=[
-            SceneStructure(
-                kind="case", bounds=(20.0, 30.0, 100.0, 100.0), label="True",
-                border_terms=[
-                    SceneBorderTerminal(kind="selector",
-                                        bounds=(16.0, 60.0, 28.0, 72.0)),
-                ],
-            )
-        ],
-    )
-    svg = scene_to_svg(scene)
-    assert "True" in svg          # selector label bar
-    assert ">?<" in svg           # case selector terminal glyph
-
-
-def test_subvi_without_icon_is_labeled_box():
-    scene = DiagramScene(
-        bounds=(0.0, 0.0, 100.0, 60.0),
-        nodes=[SceneNode(kind="subvi", bounds=(20.0, 20.0, 90.0, 44.0),
-                         name="Parse XML")],
-    )
-    svg = scene_to_svg(scene)
-    assert "<rect" in svg
-    assert "Parse XML" in svg  # 70px-wide box fits the label
-
-
-def test_generic_node_renders_with_label():
-    scene = DiagramScene(
-        bounds=(0.0, 0.0, 100.0, 60.0),
-        nodes=[SceneNode(kind="node", bounds=(20.0, 20.0, 60.0, 40.0),
-                         name="Property")],
-    )
-    svg = scene_to_svg(scene)
-    assert "Property" in svg
-
-
-def test_long_label_is_truncated():
-    from lvkit.render.svg import _fit_label
-
-    assert _fit_label("VeryLongSubViName", 20.0).endswith("…")
-    assert _fit_label("short", 100.0) == "short"
-
-
-def test_sequence_border_has_filmstrip_lines():
-    scene = DiagramScene(
-        bounds=(0.0, 0.0, 120.0, 120.0),
-        structures=[SceneStructure(kind="flatSequence",
-                                   bounds=(20.0, 20.0, 100.0, 100.0))],
-    )
-    svg = scene_to_svg(scene)
-    assert "<line" in svg
-
-
-# --------------------------------------------------------------------------- #
-# Icon transparency (best-effort, Pillow)
+# Icon transparency (best-effort, Pillow) — unaffected by the rewrite
 # --------------------------------------------------------------------------- #
 
 
@@ -204,18 +101,272 @@ def test_knockout_keeps_interior_white_drops_exterior():
 
     from lvkit.render.icons import _knockout_white_border
 
-    # 5x5 white image with a black ring and a single interior white pixel.
     img = Image.new("RGBA", (5, 5), (255, 255, 255, 255))
     for i in range(5):
         img.putpixel((i, 1), (0, 0, 0, 255))
         img.putpixel((i, 3), (0, 0, 0, 255))
         img.putpixel((1, i), (0, 0, 0, 255))
         img.putpixel((3, i), (0, 0, 0, 255))
-    # center (2,2) stays white — enclosed by the ring
     buf = io.BytesIO()
     img.save(buf, format="PNG")
 
     out = Image.open(io.BytesIO(_knockout_white_border(buf.getvalue()))).convert("RGBA")
-    assert out.getpixel((0, 0))[3] == 0    # exterior corner → transparent
-    assert out.getpixel((2, 2))[3] == 255  # interior white → preserved
-    assert out.getpixel((1, 1))[3] == 255  # black ring → opaque
+    assert out.getpixel((0, 0))[3] == 0
+    assert out.getpixel((2, 2))[3] == 255
+    assert out.getpixel((1, 1))[3] == 255
+
+
+# --------------------------------------------------------------------------- #
+# Backend text measurement (used by label-fit truncation, not a px/char guess)
+# --------------------------------------------------------------------------- #
+
+
+def test_measure_text_grows_with_length_and_size():
+    backend = SvgBackend()
+    short = backend.measure_text("hi", 10)
+    long = backend.measure_text("a longer label", 10)
+    assert long > short
+    assert backend.measure_text("hi", 20) > backend.measure_text("hi", 10)
+
+
+# --------------------------------------------------------------------------- #
+# Graph-driven scene join — real sample VIs (skip gracefully if unavailable)
+# --------------------------------------------------------------------------- #
+
+GROUND_TRUTH_VI = Path(".tmp/array average 1.vi")
+
+# Small, pre-verified samples covering: plain leaf VI, SubVI calls, a Case
+# structure, and a Case structure NESTED inside another structure.
+CASE_VI = Path("samples/LabVIEW-DAQ/Fiber Photometry/TrackDroppedFrames_FP.vi")
+NESTED_CASE_VI = Path(
+    "samples/OpenG/extracted/File Group 0/user.lib/_OpenG.lib/variantconfig/"
+    "variantconfig.llb/Write Panel to INI__ogtk.vi"
+)
+CORPUS_VIS = [
+    Path("samples/JKI-VI-Tester/source/Utilities/Get LV Class Members from Path.vi"),
+    Path(
+        "samples/JKI-EasyXML/Source/JKI Reuse Candidates/"
+        "Is an Error__JKI Error Handling.vi"
+    ),
+    Path("samples/JKI-EasyXML/Source/Fast Parser/XML Loop Stack Recursion.vi"),
+    CASE_VI,
+    Path("samples/JKI-VI-Tester/source/Prototype/Test Project/Method1.vi"),
+    Path(
+        "samples/OpenG/extracted/File Group 0/user.lib/_OpenG.lib/array/array.llb/"
+        "Reorder 1D Array2 (LVObject)__ogtk.vi"
+    ),
+    Path(
+        "samples/OpenG/extracted/File Group 0/user.lib/_OpenG.lib/comparison/"
+        "comparison.llb/U16 Changed__ogtk.vi"
+    ),
+    NESTED_CASE_VI,
+]
+
+
+def _load_graph(path: Path) -> tuple[InMemoryVIGraph, str] | None:
+    """Load a sample VI into a fresh graph. Returns None if the file is
+    missing or fails to load (extraction/parsing gaps unrelated to
+    rendering) — corpus tests skip these rather than failing."""
+    if not path.exists():
+        return None
+    graph = InMemoryVIGraph()
+    try:
+        graph.load_vi(path, expand_subvis=False)
+    except Exception:
+        return None
+    return graph, graph.resolve_vi_name(path.name)
+
+
+def _require_ground_truth() -> tuple[InMemoryVIGraph, str]:
+    loaded = _load_graph(GROUND_TRUTH_VI)
+    if loaded is None:
+        pytest.skip(f"sample VI not available: {GROUND_TRUTH_VI}")
+    return loaded
+
+
+def test_iter_nodes_excludes_vi_definition_node():
+    graph, vi = _require_ground_truth()
+    nodes = graph.iter_nodes(vi)
+    assert nodes
+    assert all(n.id != vi for n in nodes)
+
+
+def test_get_terminal_resolves_a_known_terminal():
+    graph, vi = _require_ground_truth()
+    wires = graph.get_wires(vi, include_internal=True)
+    assert wires
+    term = graph.get_terminal(wires[0].source.terminal_id)
+    assert term is not None
+    assert term.id == wires[0].source.terminal_id
+
+
+def test_get_wires_default_excludes_internal_self_loops():
+    graph, vi = _require_ground_truth()
+    external = graph.get_wires(vi)
+    full = graph.get_wires(vi, include_internal=True)
+    assert len(external) <= len(full)
+    assert all(w.source.node_id != w.dest.node_id for w in external)
+    # The ground-truth VI has a For-Loop with tunnels/shift registers, so
+    # there genuinely are internal self-loop edges to exclude.
+    assert len(full) > len(external)
+
+
+def test_build_scene_joins_graph_and_geometry():
+    graph, vi = _require_ground_truth()
+    scene = build_scene(graph, vi)
+    assert scene is not None
+
+    all_nodes = graph.iter_nodes(vi)
+    assert len(scene.nodes) + len(scene.structures) <= len(all_nodes)
+
+    # FP terminal labels come from the graph (Terminal.name), not heap XML.
+    fp_names = {fp.terminal.name for fp in scene.fp_terminals}
+    assert "Array" in fp_names
+    assert any(n and n.startswith("Array average") for n in fp_names)
+
+    # A For-Loop structure is present and joined to real geometry.
+    assert any(
+        isinstance(s.node, StructureNode) and s.node.node_type == "forLoop"
+        for s in scene.structures
+    )
+
+    # Wires are external-only and every branch is a real routed polyline.
+    assert scene.wire_nets
+    for net in scene.wire_nets:
+        assert net.branches
+        for branch in net.branches:
+            assert len(branch) >= 2
+
+
+def test_wire_color_from_source_terminal_type():
+    graph, vi = _require_ground_truth()
+    scene = build_scene(graph, vi)
+    assert scene is not None
+    assert scene.wire_nets
+    colors = {net.style.color for net in scene.wire_nets}
+    # Most wires here carry a DBL (float) array element -> orange.
+    assert DEFAULT_THEME.wire_float in colors
+    # The loop's auto-index tunnel carries an Int32 count -> blue, distinct
+    # from the default. Colors really do come from the source terminal's
+    # LVType, not a single flat wire color.
+    assert DEFAULT_THEME.wire_int in colors
+
+
+def test_render_vi_file_matches_ground_truth_shape():
+    if not GROUND_TRUTH_VI.exists():
+        pytest.skip(f"sample VI not available: {GROUND_TRUTH_VI}")
+    svg = render_vi_file(GROUND_TRUTH_VI)
+    assert svg is not None
+    assert svg.startswith("<svg")
+    assert svg.rstrip().endswith("</svg>")
+    assert "Array" in svg
+    assert "0.0" in svg  # ConstantNode.value
+    assert ">N<" in svg  # loop count border terminal, from the graph tunnel
+    assert ">+<" in svg and ">÷<" in svg  # Add / Divide primitives
+    assert DEFAULT_THEME.wire_float in svg
+
+
+def test_render_vi_file_determinism_same_process():
+    if not GROUND_TRUTH_VI.exists():
+        pytest.skip(f"sample VI not available: {GROUND_TRUTH_VI}")
+    first = render_vi_file(GROUND_TRUTH_VI)
+    second = render_vi_file(GROUND_TRUTH_VI)
+    assert first is not None and second is not None
+    assert first == second
+
+
+def test_render_vi_file_determinism_across_hash_seeds():
+    """Node/wire ordering must not depend on PYTHONHASHSEED — set membership
+    in the graph (_vi_nodes) is hash-randomized between processes, so a
+    real determinism check needs two separate interpreters."""
+    if not GROUND_TRUTH_VI.exists():
+        pytest.skip(f"sample VI not available: {GROUND_TRUTH_VI}")
+
+    script = (
+        "import hashlib\n"
+        "from lvkit.render import render_vi_file\n"
+        f"svg = render_vi_file({str(GROUND_TRUTH_VI)!r})\n"
+        "assert svg is not None\n"
+        "print(hashlib.sha256(svg.encode()).hexdigest())\n"
+    )
+    digests = []
+    for seed in ("0", "1234567"):
+        result = subprocess.run(
+            [sys.executable, "-c", script],
+            cwd=Path(__file__).resolve().parent.parent,
+            env={**os.environ, "PYTHONHASHSEED": seed},
+            capture_output=True, text=True, timeout=60,
+        )
+        assert result.returncode == 0, result.stderr
+        digests.append(result.stdout.strip())
+    assert digests[0] == digests[1]
+
+
+def test_single_frame_policy_hides_other_case_frames():
+    loaded = _load_graph(NESTED_CASE_VI)
+    if loaded is None:
+        pytest.skip(f"sample VI not available: {NESTED_CASE_VI}")
+    graph, vi = loaded
+
+    all_nodes = graph.iter_nodes(vi)
+    case_nodes = [n for n in all_nodes if isinstance(n, CaseStructureNode)]
+    assert case_nodes, "expected sample to contain a Case structure"
+
+    total_frame_children = sum(
+        len(frame.inner_node_uids) for c in case_nodes for frame in c.frames
+    )
+    # Only meaningful when at least one case has >1 non-empty frame.
+    if total_frame_children == 0:
+        pytest.skip("sample's case structure(s) have no frame children")
+
+    scene = build_scene(graph, vi)
+    if scene is None:
+        pytest.skip("sample lacks required diagram geometry")
+
+    visible_ids = {n.node.id for n in scene.nodes} | {
+        s.node.id for s in scene.structures
+    }
+    # Nodes belonging to a non-shown frame must not appear in the scene.
+    for c in case_nodes:
+        if not c.frames:
+            continue
+        shown = next((f for f in c.frames if f.is_default), c.frames[0])
+        for frame in c.frames:
+            if frame is shown:
+                continue
+            for uid in frame.inner_node_uids:
+                qid = f"{vi}::{uid}"
+                assert qid not in visible_ids
+
+
+# --------------------------------------------------------------------------- #
+# Corpus acceptance: render a varied sample of real VIs, no exceptions,
+# scene counts bounded by the graph, wires external-only.
+# --------------------------------------------------------------------------- #
+
+
+@pytest.mark.parametrize("vi_path", CORPUS_VIS, ids=[str(p) for p in CORPUS_VIS])
+def test_corpus_renders_without_exceptions(vi_path: Path):
+    loaded = _load_graph(vi_path)
+    if loaded is None:
+        pytest.skip(f"sample VI not available or failed to load: {vi_path}")
+    graph, vi = loaded
+
+    all_nodes = graph.iter_nodes(vi)
+    external_wires = graph.get_wires(vi, include_internal=False)
+
+    # This is the acceptance bar: render must not raise. A None return
+    # (fail-closed, missing geometry) is an accepted outcome, not a failure.
+    svg = render_vi(graph, vi)
+
+    if svg is None:
+        return
+
+    built = build_scene(graph, vi)
+    assert built is not None
+    assert len(built.nodes) + len(built.structures) <= len(all_nodes)
+    rendered_branches = sum(len(net.branches) for net in built.wire_nets)
+    assert rendered_branches <= len(external_wires)
+    for net in built.wire_nets:
+        for branch in net.branches:
+            assert len(branch) >= 2

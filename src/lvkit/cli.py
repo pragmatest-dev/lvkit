@@ -704,8 +704,8 @@ def cmd_detect(args: argparse.Namespace) -> int:
 
 
 def cmd_render(args: argparse.Namespace) -> int:
-    """Handle the render command — faithful block-diagram SVG."""
-    from .render import render_vi_to_svg
+    """Handle the render command — faithful, graph-driven block-diagram SVG."""
+    from .render import render_vi_file
 
     input_path = Path(args.input_path)
     if not input_path.exists():
@@ -713,10 +713,18 @@ def cmd_render(args: argparse.Namespace) -> int:
         return 1
 
     try:
-        svg = render_vi_to_svg(input_path)
+        svg = render_vi_file(input_path)
     except Exception as e:
         print(f"Error: render failed: {e}", file=sys.stderr)
         traceback.print_exc()
+        return 1
+
+    if svg is None:
+        print(
+            "Error: render declined — required diagram geometry is missing "
+            "(see logs for the missing ids)",
+            file=sys.stderr,
+        )
         return 1
 
     if args.output:

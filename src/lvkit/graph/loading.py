@@ -467,8 +467,23 @@ class LoadingMixin:
 
         visited.add(vi_name)
 
+        # caller_file is the VI file itself (not its directory): each
+        # leading empty in a LinkSavePathRef pops one level from it. It also
+        # doubles as the source-path fallback below: metadata.source_path is
+        # only set when a real ``.vi`` sibling sits next to the extracted
+        # heap XML, which is true for dependencies resolved from an on-disk
+        # search path but NOT for the top-level VI passed to load_vi() (its
+        # heap XML lives in a temp extraction dir with no ``.vi`` sibling).
+        caller_file = (
+            source_dir / unqualified_name
+            if source_dir is not None
+            else bd_xml.parent / unqualified_name
+        )
+
         if metadata.source_path:
             self._source_paths[vi_name] = Path(metadata.source_path)
+        elif caller_file.exists():
+            self._source_paths[vi_name] = caller_file
 
         # Parse wiring rules from main XML
         wiring_rules: dict[int, int] = {}
@@ -506,14 +521,6 @@ class LoadingMixin:
             }
             if main_xml and main_xml.exists()
             else {}
-        )
-
-        # caller_file is the VI file itself (not its directory): each
-        # leading empty in a LinkSavePathRef pops one level from it.
-        caller_file = (
-            source_dir / unqualified_name
-            if source_dir is not None
-            else bd_xml.parent / unqualified_name
         )
 
         # Load all dependencies through the single generic walker.

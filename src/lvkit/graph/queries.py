@@ -661,22 +661,31 @@ class QueryMixin:
         # Fall back to first predecessor
         return preds[0] if preds else None
 
-    def get_wires(self, vi_name: str) -> list[Wire]:
+    def get_wires(
+        self, vi_name: str, include_internal: bool = False,
+    ) -> list[Wire]:
         """Get all wires (edges) in a VI's dataflow graph.
 
         Returns Wire objects with typed WireEnd source/dest.
-        Includes internal edges (self-loops on structure nodes for
-        tunnel outer<->inner and sRN input->output pairings).
+
+        An edge is *internal* when it's a structure self-loop (tunnel
+        outer<->inner or sRN input->output pairing) — detected as
+        ``source.node_id == dest.node_id`` and/or a truthy ``tunnel_type``
+        edge attribute. By default internal edges are excluded (renderers
+        want external wires only); pass ``include_internal=True`` to get
+        the full set, with internal edges first (legacy behavior).
         """
         node_uids = self._vi_nodes.get(vi_name)
         if node_uids is None:
             return []
 
-        # Collect edges: tunnel/internal edges first, then normal edges
+        # Collect edges: tunnel/internal edges first, then normal edges.
+        # node_uids is a hash-randomized set — sort for byte-reproducible
+        # output (codegen and the renderer both depend on stable ordering).
         tunnel_edges: list[Wire] = []
         normal_edges: list[Wire] = []
 
-        for uid in node_uids:
+        for uid in sorted(node_uids, key=_node_order_key):
             if uid not in self._graph:
                 continue
             for _, dest, edata in self._graph.out_edges(uid, data=True):
@@ -687,6 +696,13 @@ class QueryMixin:
                 dst_end = edata.get("dest")
 
                 if src_end is None or dst_end is None:
+                    continue
+
+                is_internal = (
+                    bool(edata.get("tunnel_type"))
+                    or src_end.node_id == dst_end.node_id
+                )
+                if is_internal and not include_internal:
                     continue
 
                 # Look up parent node data for labels and names
@@ -715,12 +731,51 @@ class QueryMixin:
                     ),
                 )
 
-                if edata.get("tunnel_type"):
+                if is_internal:
                     tunnel_edges.append(wire)
                 else:
                     normal_edges.append(wire)
 
         return tunnel_edges + normal_edges
+
+    def iter_nodes(self, vi_name: str) -> list[AnyGraphNode]:
+        """List a VI's graph nodes, excluding the VI-definition node itself.
+
+        The VI-definition node's id equals ``vi_name`` and has no diagram
+        geometry — callers that need per-node rendering/geometry joins want
+        everything else. Sorted by ``_node_order_key`` for deterministic,
+        byte-reproducible output (``_vi_nodes`` is a hash-randomized set).
+        """
+        vi_name = self.resolve_vi_name(vi_name)
+        node_uids = self._vi_nodes.get(vi_name)
+        if not node_uids:
+            return []
+        result: list[AnyGraphNode] = []
+        for uid in sorted(node_uids, key=_node_order_key):
+            if uid == vi_name:
+                continue
+            gnode = self._get_typed_node(uid)
+            if gnode is not None:
+                result.append(gnode)
+        return result
+
+    def get_terminal(self, terminal_id: str) -> Terminal | None:
+        """Look up a single Terminal by its fully qualified id.
+
+        Uses ``_term_to_node`` to find the owning node, then scans its
+        terminal list for the matching id. Returns None if the terminal
+        (or its node) isn't in the graph.
+        """
+        node_id = self._term_to_node.get(terminal_id)
+        if node_id is None:
+            return None
+        gnode = self._get_typed_node(node_id)
+        if gnode is None:
+            return None
+        for t in gnode.terminals:
+            if t.id == terminal_id:
+                return t
+        return None
 
     # === Legacy API ===
 
