@@ -6,6 +6,8 @@ files required (the repo's sample VIs are local-only).
 
 from __future__ import annotations
 
+import pytest
+
 from lvkit.render.heap_scene import (
     DiagramScene,
     SceneBorderTerminal,
@@ -181,3 +183,39 @@ def test_sequence_border_has_filmstrip_lines():
     )
     svg = scene_to_svg(scene)
     assert "<line" in svg
+
+
+# --------------------------------------------------------------------------- #
+# Icon transparency (best-effort, Pillow)
+# --------------------------------------------------------------------------- #
+
+
+def test_icon_data_uri_missing_file_returns_none(tmp_path):
+    from lvkit.render.icons import icon_data_uri
+
+    assert icon_data_uri(tmp_path / "nope.png") is None
+
+
+def test_knockout_keeps_interior_white_drops_exterior():
+    import io
+
+    pytest.importorskip("PIL")
+    from PIL import Image
+
+    from lvkit.render.icons import _knockout_white_border
+
+    # 5x5 white image with a black ring and a single interior white pixel.
+    img = Image.new("RGBA", (5, 5), (255, 255, 255, 255))
+    for i in range(5):
+        img.putpixel((i, 1), (0, 0, 0, 255))
+        img.putpixel((i, 3), (0, 0, 0, 255))
+        img.putpixel((1, i), (0, 0, 0, 255))
+        img.putpixel((3, i), (0, 0, 0, 255))
+    # center (2,2) stays white — enclosed by the ring
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+
+    out = Image.open(io.BytesIO(_knockout_white_border(buf.getvalue()))).convert("RGBA")
+    assert out.getpixel((0, 0))[3] == 0    # exterior corner → transparent
+    assert out.getpixel((2, 2))[3] == 255  # interior white → preserved
+    assert out.getpixel((1, 1))[3] == 255  # black ring → opaque

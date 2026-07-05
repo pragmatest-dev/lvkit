@@ -11,10 +11,10 @@ chain and per-type wire coloring grow on top of it (see the lv-renderer PLAN).
 
 from __future__ import annotations
 
-import base64
 from xml.sax.saxutils import escape
 
 from .heap_scene import DiagramScene, SceneBorderTerminal, SceneNode, SceneStructure
+from .icons import icon_data_uri
 from .wire_router import Point, WireRouter, path_d
 
 # LabVIEW palette
@@ -184,10 +184,10 @@ def _node(node: SceneNode) -> list[str]:
     if node.kind == "primitive":
         return _primitive(node)
     if node.kind == "subvi":
-        if node.icon_png and node.icon_png.exists():
-            data = base64.b64encode(node.icon_png.read_bytes()).decode()
-            return [f'<image href="data:image/png;base64,{data}" x="{x1:.1f}" '
-                    f'y="{y1:.1f}" width="{x2-x1:.1f}" height="{y2-y1:.1f}"/>']
+        uri = icon_data_uri(node.icon_png) if node.icon_png else None
+        if uri:
+            return [f'<image href="{uri}" x="{x1:.1f}" y="{y1:.1f}" '
+                    f'width="{x2-x1:.1f}" height="{y2-y1:.1f}"/>']
         # SubVI without an icon: LabVIEW's raised-panel look.
         return _labeled_box(node, "#eef0e6", "#7a7d63", "1.5")
     if node.kind == "constant":
@@ -224,9 +224,10 @@ def scene_to_svg(scene: DiagramScene, wire_color: str = WIRE_DBL) -> str:
                        f'stroke-width="2.5" stroke-linejoin="round"/>')
     for node in scene.nodes:
         out += _node(node)
-    if scene.icon_png and scene.icon_png.exists():
-        data = base64.b64encode(scene.icon_png.read_bytes()).decode()
-        out.append(f'<image href="data:image/png;base64,{data}" x="{x1+5:.1f}" '
-                   f'y="{y1+5:.1f}" width="32" height="32" opacity="0.9"/>')
+    if scene.icon_png:
+        uri = icon_data_uri(scene.icon_png)
+        if uri:
+            out.append(f'<image href="{uri}" x="{x1+5:.1f}" y="{y1+5:.1f}" '
+                       f'width="32" height="32" opacity="0.9"/>')
     out.append("</svg>")
     return "\n".join(out)
