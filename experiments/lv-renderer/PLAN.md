@@ -76,12 +76,38 @@ code generation.
    ring/enum→`ui.select`, cluster→container, graph→plot), bounds → layout. Combined with lvkit's
    generated Python backend, this could stand up a **running NiceGUI app from a VI**.
 
-## Open decisions (carried from earlier)
+## Resolved decisions
 
-- **Font**: embed a licensed pixel-font approximation (self-contained) vs CSS system-stack only.
-- **Web-search icons**: include (opt-in + cached) vs skip for now (offline/deterministic).
-- **Wire fidelity**: ship auto-router for v1 and spike `compressedWireTable` decoding for v2?
-- **Confirm the Case-structure heap class** + selector DCO before implementing its border.
+- **Font** → embed a **free/OFL pixel font** (data-URI) that reads as the LabVIEW small-font
+  look (candidates: W95FA, Px437, an OFL bitmap face), CSS stack keeps real "Small Fonts" first
+  for Windows. MS Small Fonts itself is not redistributable. Validate the match visually first.
+- **Icon source** → **extract from the local LabVIEW reference PDF**, not web image search. We
+  already have the page map: `pdf_page` on primitives, `page` on vilib entries. Pipeline:
+  render page region → **strip attached wire stubs + terminal labels** (crop to the icon's
+  bordered box / largest bordered component) → cache to `.lvkit/icons/`. NI online reference is
+  a fallback only. Needs an image-processing script (`icon_from_pdf.py`).
+- **Extracted-icon transparency** → make the **exterior** white transparent via corner
+  flood-fill (preserve interior white), small tolerance for anti-aliased halo. Applies to both
+  pylabview `_ICON.png` and PDF-extracted icons. Likely Pillow.
+- **PNG → SVG?** → **No — do NOT vectorize extracted/PDF icons.** Embed the PNG as a `data:` URI
+  with `image-rendering: pixelated`; it is then byte-identical to the source. LabVIEW icons are
+  32×32 pixel art; tracing gains nothing (per-pixel rects = identical+bloated, or smoothed =
+  wrong). **True SVG is authored only** for our own glyph library + structure borders.
+
+## Wire fidelity — findings (from `.tmp/probe_wiretable.py`)
+
+- pylabview does **not** decode wire geometry (`compressedWireTable`/`wireTable` are opaque field
+  IDs only). Blobs are tiny (2–6 bytes): ~half are `0208` (LabVIEW default auto-route, ~no stored
+  geometry), the rest ~6 bytes (one explicit bend). Trailing bytes don't map linearly to endpoint
+  deltas → it's a real compressed encoding.
+- **Plan**: v1 orthogonal **auto-router** using our exact terminal endpoints — matches the common
+  `0208` wires essentially exactly; only hand-dragged bends diverge. v2: optional spike to reverse
+  `compressedWireTable` if pixel-exact wires are ever required (uncertain payoff).
+
+## Still to confirm
+
+- **Case-structure heap class** + selector DCO (the `mux` class is the Select primitive, not a
+  Case) before implementing the Case border.
 
 ## Verification
 
