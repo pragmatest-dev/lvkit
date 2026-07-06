@@ -371,9 +371,22 @@ def _build_wire_nets(
     obstacles: list[Rect],
     scene_bounds: Rect,
 ) -> list[RenderWireNet]:
+    # Exclude ONLY the true internal pass-throughs: a tunnel/shift-register's
+    # own outer<->inner pairing (paired_id). Do NOT exclude every same-structure
+    # wire — real border-to-border dataflow (e.g. the loop count N feeding a
+    # pass-through tunnel to a downstream node) lives between two distinct border
+    # terminals of one structure and MUST stay visible.
+    paired: set[frozenset[str]] = set()
+    for node in graph.iter_nodes(vi_name):
+        for t in node.terminals:
+            pid = getattr(t, "paired_id", None)
+            if pid:
+                paired.add(frozenset((t.id, pid)))
+
     wires = [
-        w for w in graph.get_wires(vi_name, include_internal=False)
+        w for w in graph.get_wires(vi_name, include_internal=True)
         if w.source.node_id not in excluded and w.dest.node_id not in excluded
+        and frozenset((w.source.terminal_id, w.dest.terminal_id)) not in paired
     ]
 
     by_source: dict[str, list[Wire]] = {}

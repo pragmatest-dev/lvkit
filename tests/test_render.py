@@ -356,7 +356,10 @@ def test_corpus_renders_without_exceptions(vi_path: Path):
     graph, vi = loaded
 
     all_nodes = graph.iter_nodes(vi)
-    external_wires = graph.get_wires(vi, include_internal=False)
+    # Upper bound: the renderer draws every wire EXCEPT the paired outer<->inner
+    # tunnel/SR pass-throughs, so all wires (incl. internal) is the ceiling —
+    # real border-to-border dataflow (e.g. loop N -> tunnel) is drawn.
+    all_wires = graph.get_wires(vi, include_internal=True)
 
     # This is the acceptance bar: render must not raise. A None return
     # (fail-closed, missing geometry) is an accepted outcome, not a failure.
@@ -369,7 +372,7 @@ def test_corpus_renders_without_exceptions(vi_path: Path):
     assert built is not None
     assert len(built.nodes) + len(built.structures) <= len(all_nodes)
     rendered_branches = sum(len(net.branches) for net in built.wire_nets)
-    assert rendered_branches <= len(external_wires)
+    assert rendered_branches <= len(all_wires)
     for net in built.wire_nets:
         for branch in net.branches:
             assert len(branch) >= 2
