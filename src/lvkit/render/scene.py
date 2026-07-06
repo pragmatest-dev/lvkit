@@ -398,6 +398,27 @@ def _stub(center: Point, bounds: Rect | None, direction: str | None) -> Point:
     return (center[0] + sx * _STUB, center[1] + sy * _STUB)
 
 
+def _wire_edge_point(
+    center: Point, bounds: Rect | None, direction: str | None
+) -> Point:
+    """The point on a terminal's bounds where its wire attaches — the edge in
+    the wire direction (the router's ``_exit_side`` normal), not a hardcoded
+    side. A coercion dot sits here: on the primitive's border where the wire
+    crosses in, for a terminal of any orientation."""
+    if bounds is None:
+        return center
+    nx, ny = _exit_side(direction, center, bounds)
+    x1, y1, x2, y2 = bounds
+    cx, cy = center
+    if nx < 0:
+        return (x1, cy)
+    if nx > 0:
+        return (x2, cy)
+    if ny < 0:
+        return (cx, y1)
+    return (cx, y2)
+
+
 def _wire_role(term: Terminal | None, fallback: str) -> str | None:
     """The terminal's role for wire-stub purposes: "output" (exits right) or
     "input" (enters from the left).
@@ -570,7 +591,11 @@ def _arith_coercion_dots(render_nodes: list[RenderNode]) -> list[Point]:
         top = max(present)
         for t, r in zip(ins, ranks):
             if r is not None and r < top:
-                dots.append(t.center)
+                # The coercion dot sits on the primitive's BORDER where the wire
+                # crosses in — the terminal's edge on its wire-entry side (same
+                # _exit_side normal the router uses), not a hardcoded side.
+                role = _wire_role(t.terminal, "input")
+                dots.append(_wire_edge_point(t.center, t.bounds, role))
     return dots
 
 
