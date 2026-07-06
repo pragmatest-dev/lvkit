@@ -135,8 +135,9 @@ def draw_structure(
         # or anything else — a plain border (matches the prior renderer).
         backend.rect(x1, y1, x2, y2, fill="none", stroke=theme.struct_border,
                      stroke_width=2)
-    for bt in structure.border_terminals:
-        _draw_border_terminal(bt, backend, theme)
+    # Border terminals (N/i/cond, tunnels, shift registers, selector) are NOT
+    # drawn here — draw_scene paints them AFTER wires so a wire is never drawn
+    # on top of a boundary terminal (it butts against it, like a VI's terminal).
 
 
 # Fallback family lookup when a control's LVType didn't resolve — the raw
@@ -235,6 +236,12 @@ def draw_scene(scene: Scene, backend: Backend, theme: Theme = DEFAULT_THEME) -> 
             backend.path(branch, stroke=net.style.color, stroke_width=net.style.width)
         for jx, jy in net.junctions:
             backend.circle(jx, jy, 2.5, fill=net.style.color)
+
+    # Boundary terminals ON TOP of wires — a tunnel/shift-register/N-i sits on
+    # the structure border and the wire butts against it, never over it.
+    for structure in scene.structures:
+        for bt in structure.border_terminals:
+            _draw_border_terminal(bt, backend, theme)
 
     for node in scene.nodes:
         draw_node(node, backend, theme)
