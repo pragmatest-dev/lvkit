@@ -11,8 +11,7 @@ from __future__ import annotations
 
 from ..models import CaseFrame, FPTerminal
 from .backend import Backend
-from .glyph import fit_label
-from .icons import icon_data_uri
+from .glyph import ArithGlyph, fit_label
 from .scene import RenderBorderTerminal, RenderNode, RenderStructure, Scene
 from .style import DEFAULT_THEME, Theme, type_family, type_repr, wire_style
 
@@ -28,18 +27,38 @@ _STRUCTURE_STYLE = {
     "sequence": "stackedSequence",
 }
 
+# LabVIEW draws arithmetic-primitive triangles (Add/Subtract/Multiply/Divide/
+# Increment/Decrement) at a fixed icon size, smaller than the 32x32 clickable
+# node box, with the triangle's apex sitting on the OUTPUT terminal center (the
+# output wire leaves the apex). Size is fixed, NOT derived from the terminal
+# spread, which is a tight ~10px cluster in the box's upper-left.
+_ARITH_W = 20.0
+_ARITH_H = 20.0
+
 
 def draw_node(node: RenderNode, backend: Backend, theme: Theme = DEFAULT_THEME) -> None:
     """Draw one node's already-resolved ``Glyph`` (see ``nodes.py``'s
     resolver chain — extending node visuals never touches this function).
 
-    Primitives (Add/Divide/…) are drawn at the size of their TERMINAL extent,
-    not the full 32x32 heap bounds: LabVIEW's arithmetic icons are smaller than
-    the node's clickable box, and their terminals sit on the small icon — so
-    filling the whole box makes wires meet mid-icon. Real subVI/prim icons and
+    Arithmetic primitives (``ArithGlyph`` — Add/Subtract/Multiply/Divide/
+    Increment/Decrement) are drawn at a FIXED, smaller-than-the-box size with
+    the triangle's apex pinned to the node's OUTPUT terminal center, matching
+    LabVIEW (the output wire leaves the apex). Other primitives (e.g.
+    bracket/build-array glyphs) are still drawn at the size of their TERMINAL
+    extent, not the full 32x32 heap bounds. Real subVI/prim icons and
     constants keep their own bounds."""
     bounds = node.bounds
-    if getattr(node.node, "kind", None) == "primitive" and len(node.terminals) >= 2:
+    if isinstance(node.glyph, ArithGlyph):
+        out_t = next(
+            (t for t in node.terminals if t.terminal.direction == "output"), None,
+        )
+        if out_t is not None:
+            apex_x, apex_y = out_t.center
+            bounds = (
+                apex_x - _ARITH_W, apex_y - _ARITH_H / 2,
+                apex_x, apex_y + _ARITH_H / 2,
+            )
+    elif getattr(node.node, "kind", None) == "primitive" and len(node.terminals) >= 2:
         xs = [t.center[0] for t in node.terminals]
         ys = [t.center[1] for t in node.terminals]
         m = 3.0
@@ -259,11 +278,10 @@ def draw_fp_terminal(
 
 def draw_scene(scene: Scene, backend: Backend, theme: Theme = DEFAULT_THEME) -> None:
     """Draw an entire scene: canvas, structures, wires, nodes, FP terminals,
-    the VI's own connector-pane icon as a corner decoration, then coercion
-    dots last — they mark a TERMINAL point, which (like a wire stub) can
-    sit inside a node's own bounds, so they must be topmost to stay visible
-    rather than getting covered by the node/FP-terminal fill drawn after
-    wires."""
+    then coercion dots last — they mark a TERMINAL point, which (like a wire
+    stub) can sit inside a node's own bounds, so they must be topmost to stay
+    visible rather than getting covered by the node/FP-terminal fill drawn
+    after wires."""
     x1, y1, x2, y2 = scene.bounds
     backend.rect(x1, y1, x2, y2, fill=theme.canvas)
 
@@ -287,11 +305,6 @@ def draw_scene(scene: Scene, backend: Backend, theme: Theme = DEFAULT_THEME) -> 
 
     for fp in scene.fp_terminals:
         draw_fp_terminal(fp.terminal, fp.bounds, backend, theme)
-
-    if scene.icon_png:
-        uri = icon_data_uri(scene.icon_png)
-        if uri:
-            backend.image(uri, x1 + 5, y1 + 5, 32, 32, opacity=0.9)
 
     for net in scene.wire_nets:
         for dx, dy in net.coercion_dots:
