@@ -99,6 +99,24 @@ class NodeGlyphResolver(Protocol):
     def resolve(self, node: AnyGraphNode, ctx: GlyphContext) -> Glyph | None: ...
 
 
+@functools.lru_cache(maxsize=256)
+def _vectorized_icon(path_str: str, mtime: float) -> CenteredSvgGlyph | None:
+    """Vectorize a SubVI's ``_ICON.png`` into an SVG glyph, cached by path +
+    mtime so repeated renders don't re-vectorize an unchanged icon (and an
+    edited icon re-vectorizes since ``mtime`` is part of the cache key)."""
+    from .icons import png_to_svg  # noqa: PLC0415 - optional dependency, guarded
+
+    try:
+        data = Path(path_str).read_bytes()
+    except OSError:
+        return None
+    result = png_to_svg(data)
+    if result is None:
+        return None
+    fragment, size = result
+    return CenteredSvgGlyph(fragment, size)
+
+
 class ExtractedIconResolver:
     """Best-effort real SubVI ``_ICON.png`` for VINode subVI calls.
 
@@ -150,6 +168,9 @@ class ExtractedIconResolver:
         icon_path = bd_xml.parent / f"{bd_xml.stem.replace('_BDHb', '')}_ICON.png"
         if not icon_path.is_file():
             return None
+        glyph = _vectorized_icon(str(icon_path), icon_path.stat().st_mtime)
+        if glyph is not None:
+            return glyph
         return IconImageGlyph(icon_path)
 
 

@@ -28,63 +28,14 @@ original authorship over the icon artwork itself.
 from __future__ import annotations
 
 import argparse
-import io
 import json
 import sys
 from pathlib import Path
-from typing import TYPE_CHECKING
 
 # Make `lvkit` importable when this script is run directly (not installed).
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
-from lvkit.render.icons import _knockout_white_border  # noqa: E402
-
-if TYPE_CHECKING:
-    from PIL.Image import Image as PILImage
-
-_ALPHA_OPAQUE_CUTOFF = 128
-
-
-def _svg_for_image(img: PILImage) -> tuple[str, int, int]:
-    """Build a pixel-faithful SVG string for an RGBA image.
-
-    Returns (svg_text, width, height).
-    """
-    w, h = img.size
-    px = img.load()
-    if px is None:
-        msg = "image has no accessible pixel data"
-        raise ValueError(msg)
-
-    rects: list[str] = []
-    for y in range(h):
-        x = 0
-        while x < w:
-            r, g, b, a = px[x, y]  # type: ignore[misc]
-            if a < _ALPHA_OPAQUE_CUTOFF:
-                x += 1
-                continue
-            run_start = x
-            run_color = (r, g, b)
-            x += 1
-            while x < w:
-                nr, ng, nb, na = px[x, y]  # type: ignore[misc]
-                if na < _ALPHA_OPAQUE_CUTOFF or (nr, ng, nb) != run_color:
-                    break
-                x += 1
-            run_len = x - run_start
-            cr, cg, cb = run_color
-            rects.append(
-                f'<rect x="{run_start}" y="{y}" width="{run_len}" height="1" '
-                f'fill="#{cr:02x}{cg:02x}{cb:02x}"/>'
-            )
-
-    body = "".join(rects)
-    svg = (
-        '<svg xmlns="http://www.w3.org/2000/svg" '
-        f'viewBox="0 0 {w} {h}" shape-rendering="crispEdges">{body}</svg>'
-    )
-    return svg, w, h
+from lvkit.render.icons import png_to_svg  # noqa: E402
 
 
 def vectorize_glyphs(
@@ -95,8 +46,6 @@ def vectorize_glyphs(
     Returns (sizes, failures, total_bytes_written) where ``sizes`` maps stem
     to (width, height) and ``failures`` is a list of (filename, reason).
     """
-    from PIL import Image  # noqa: PLC0415 - optional/build-time dependency
-
     sizes: dict[str, tuple[int, int]] = {}
     failures: list[tuple[str, str]] = []
     total_bytes = 0
@@ -108,9 +57,11 @@ def vectorize_glyphs(
         stem = png_path.stem
         try:
             raw = png_path.read_bytes()
-            knocked_out = _knockout_white_border(raw)
-            img = Image.open(io.BytesIO(knocked_out)).convert("RGBA")
-            svg_text, w, h = _svg_for_image(img)
+            result = png_to_svg(raw)
+            if result is None:
+                msg = "png_to_svg returned None (empty/degenerate image?)"
+                raise ValueError(msg)
+            svg_text, (w, h) = result
         except Exception as exc:  # noqa: BLE001 - fail-closed per file
             failures.append((png_path.name, f"{type(exc).__name__}: {exc}"))
             continue
