@@ -70,6 +70,11 @@ dev = [
 # the wheel automatically. The resolvers and `lvkit setup` load
 # them via paths relative to the package or via importlib.resources.
 packages = ["src/lvkit"]
+# The extracted primitive-icon PNGs under data/glyphs/ are NI-derived (pulled
+# from the reference PDF by scripts/extract_lv_icons.py) and must NOT ship.
+# We ship only our vectorized `.svg` equivalents (+ _svg_sizes.json); the PNGs
+# stay local-only build intermediates. See scripts/vectorize_icons.py.
+exclude = ["src/lvkit/data/glyphs/*.png"]
 
 [tool.hatch.build.targets.sdist]
 include = [
@@ -86,6 +91,7 @@ exclude = [
     "outputs",
     "docs/labview_ref_manual.txt",
     "docs/*.pdf",
+    "src/lvkit/data/glyphs/*.png",
     ".lvkit",
     ".tmp",
 ]

@@ -102,6 +102,11 @@ docs/*.pdf
 docs/labview_ref_manual.txt
 docs/labview_programming_reference_manual*
 
+# NI-derived extracted primitive-icon PNGs (pulled from the reference PDF by
+# scripts/extract_lv_icons.py) — local-only build intermediates. Only the
+# vectorized .svg equivalents (scripts/vectorize_icons.py) are tracked/shipped.
+src/lvkit/data/glyphs/*.png
+
 # lv-renderer experiment scratch. Keep only the canonical gallery examples;
 # ignore the throwaway per-iteration review renders and icon-extraction probes.
 experiments/lv-renderer/gallery/*
