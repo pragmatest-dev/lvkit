@@ -26,7 +26,7 @@ from .glyph import Glyph
 from .layout import Layout, Point, Rect, build_layout
 from .nodes import GlyphContext, resolve_glyph
 from .style import WireStyle, numeric_repr, wire_style
-from .wire_router import WireRouter
+from .wire_router import WireRouter, _compress
 
 logger = logging.getLogger(__name__)
 
@@ -456,7 +456,10 @@ def _build_wire_nets(
             dst_dir = dest_term.direction if dest_term else "input"
             dst_in = _stub(dst_center, owner.get(raw_dst), dst_dir)  # enter from left
             mid = router.route(src_out, dst_in, all_points)
-            branches.append([src_center, *mid, dst_center])
+            # Drop redundant collinear points (the directional stubs are often
+            # collinear with the first/last leg) so we don't add kinks LabVIEW
+            # wouldn't draw.
+            branches.append(_compress([src_center, *mid, dst_center]))
 
             # Coercion dot ONLY on a numeric-representation change (I32->DBL),
             # never a structural one (array->element at an auto-index tunnel).

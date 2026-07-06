@@ -31,8 +31,25 @@ _STRUCTURE_STYLE = {
 
 def draw_node(node: RenderNode, backend: Backend, theme: Theme = DEFAULT_THEME) -> None:
     """Draw one node's already-resolved ``Glyph`` (see ``nodes.py``'s
-    resolver chain — extending node visuals never touches this function)."""
-    node.glyph.draw(backend, node.bounds, theme)
+    resolver chain — extending node visuals never touches this function).
+
+    Primitives (Add/Divide/…) are drawn at the size of their TERMINAL extent,
+    not the full 32x32 heap bounds: LabVIEW's arithmetic icons are smaller than
+    the node's clickable box, and their terminals sit on the small icon — so
+    filling the whole box makes wires meet mid-icon. Real subVI/prim icons and
+    constants keep their own bounds."""
+    bounds = node.bounds
+    if getattr(node.node, "kind", None) == "primitive" and len(node.terminals) >= 2:
+        xs = [t.center[0] for t in node.terminals]
+        ys = [t.center[1] for t in node.terminals]
+        m = 3.0
+        ib = (
+            max(node.bounds[0], min(xs)), max(node.bounds[1], min(ys) - m),
+            min(node.bounds[2], max(xs)), min(node.bounds[3], max(ys) + m),
+        )
+        if ib[2] - ib[0] > 4 and ib[3] - ib[1] > 4:
+            bounds = ib
+    node.glyph.draw(backend, bounds, theme)
 
 
 def _draw_border_terminal(
@@ -93,22 +110,23 @@ def _draw_border_terminal(
 
 
 def _draw_for_loop_border(x1, y1, x2, y2, backend: Backend, theme: Theme) -> None:
-    """The For-Loop's signature 'stacked sheets' border: three nested rectangles
-    sharing the top-left corner (so the right + bottom edges show three parallel
-    lines), with a folded/dog-eared bottom-right corner on the front sheet."""
-    o = 3.0
+    """The For-Loop's signature border: a cascade of THREE identical rectangles,
+    each offset by (o, o) down-right like a stack of cards. The front card (the
+    loop boundary, top-left) is drawn last and canvas-filled so it masks the
+    back cards' overlap, leaving three parallel lines on the right and bottom."""
+    o = 4.0
     s = theme.struct_border
-    # Back and middle sheets (right + bottom edges peek out below-right).
-    backend.rect(x1, y1, x2, y2, fill="none", stroke=s, stroke_width=2)
-    backend.rect(x1, y1, x2 - o, y2 - o, fill="none", stroke=s, stroke_width=2)
-    # Front sheet (the actual loop boundary) with a dog-eared bottom-right fold.
-    fx, fy = x2 - 2 * o, y2 - 2 * o
-    fold = 7.0
+    for k in (2, 1):  # back cards — plain rects, offset by k*(o, o)
+        dx = dy = k * o
+        backend.rect(x1 + dx, y1 + dy, x2 + dx, y2 + dy,
+                     fill=theme.canvas, stroke=s, stroke_width=2)
+    # Front card (loop boundary) with a dog-eared bottom-right corner.
+    f = 8.0
     backend.path(
-        [(x1, y1), (fx, y1), (fx, fy - fold), (fx - fold, fy), (x1, fy), (x1, y1)],
-        stroke=s, stroke_width=2,
+        [(x1, y1), (x2, y1), (x2, y2 - f), (x2 - f, y2), (x1, y2), (x1, y1)],
+        fill=theme.canvas, stroke=s, stroke_width=2,
     )
-    backend.path([(fx, fy - fold), (fx - fold, fy - fold), (fx - fold, fy)],
+    backend.path([(x2, y2 - f), (x2 - f, y2 - f), (x2 - f, y2)],
                  stroke=s, stroke_width=1.2)
 
 

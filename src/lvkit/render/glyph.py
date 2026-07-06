@@ -105,7 +105,10 @@ class ArithGlyph:
             fill=getattr(theme, self.fill_attr),
             stroke=getattr(theme, self.stroke_attr), stroke_width=1.5,
         )
-        backend.text(x1 + (x2 - x1) * 0.32, (y1 + y2) / 2 + 5, self.symbol, 15)
+        # Scale the operator to the (often small) triangle so it doesn't overflow.
+        size = max(6.0, min(15.0, (y2 - y1) * 0.62, (x2 - x1) * 0.85))
+        cy = (y1 + y2) / 2
+        backend.text(x1 + (x2 - x1) * 0.36, cy + size * 0.34, self.symbol, size)
 
 
 @dataclass(frozen=True)
