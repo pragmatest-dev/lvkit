@@ -60,9 +60,6 @@ def draw_node(node: RenderNode, backend: Backend, theme: Theme = DEFAULT_THEME) 
     guessed size and no leftward drift. Other primitives (e.g. bracket/build-
     array glyphs) are drawn at their terminal-center extent. Real subVI/prim
     icons and constants keep their own bounds."""
-    if node.glyph_bounds is not None:
-        node.glyph.draw(backend, node.glyph_bounds, theme)
-        return
     bounds = node.bounds
     if isinstance(node.glyph, ArithGlyph):
         rects = [t.bounds for t in node.terminals if t.bounds is not None]

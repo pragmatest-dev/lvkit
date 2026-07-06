@@ -162,6 +162,30 @@ class _LayoutBuilder:
         tl = elem.find("termList")
         if tl is None:
             return
+
+        # A primitive's termBounds are relative to its ICON, and the icon is
+        # CENTERED within the node's clickable bounds — not top-left-aligned.
+        # Compute the centering offset that maps termBounds-space into the
+        # node's absolute bounds-space. Only applies to `class="prim"` nodes;
+        # front-panel terminals (fPTerm) and other node kinds are unaffected.
+        off_x = off_y = 0.0
+        if elem.get("class") == "prim":
+            nb = _rect(elem)
+            trects = [
+                r for r in (
+                    _rect(t, ".//termBounds")
+                    for t in tl.findall("SL__arrayElement")
+                    if t.get("class") == "term"
+                ) if r is not None
+            ]
+            if nb is not None and trects:
+                emin_x = min(r[0] for r in trects)
+                emin_y = min(r[1] for r in trects)
+                emax_x = max(r[2] for r in trects)
+                emax_y = max(r[3] for r in trects)
+                off_x = (nb[2] - nb[0] - (emax_x - emin_x)) / 2 - emin_x
+                off_y = (nb[3] - nb[1] - (emax_y - emin_y)) / 2 - emin_y
+
         for term in tl.findall("SL__arrayElement"):
             cls = term.get("class")
             if cls == "fPTerm":
@@ -191,7 +215,10 @@ class _LayoutBuilder:
                 continue
 
             if tb is not None:
-                abs_tb = (ox + tb[0], oy + tb[1], ox + tb[2], oy + tb[3])
+                abs_tb = (
+                    ox + tb[0] + off_x, oy + tb[1] + off_y,
+                    ox + tb[2] + off_x, oy + tb[3] + off_y,
+                )
                 cx, cy = (abs_tb[0] + abs_tb[2]) / 2, (abs_tb[1] + abs_tb[3]) / 2
                 if term_uid:
                     # The terminal's own border-box rect (used for N/SR/
@@ -199,7 +226,10 @@ class _LayoutBuilder:
                     # if present, is more specific and overrides it below.
                     self.node_bounds.setdefault(term_uid, abs_tb)
             if cb is not None:
-                abs_cb = (ox + cb[0], oy + cb[1], ox + cb[2], oy + cb[3])
+                abs_cb = (
+                    ox + cb[0] + off_x, oy + cb[1] + off_y,
+                    ox + cb[2] + off_x, oy + cb[3] + off_y,
+                )
                 if term_uid:
                     self.node_bounds[term_uid] = abs_cb
                 cx = (abs_cb[0] + abs_cb[2]) / 2

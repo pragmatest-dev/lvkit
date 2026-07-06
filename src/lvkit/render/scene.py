@@ -29,7 +29,7 @@ from ..models import (
     Terminal,
     TunnelTerminal,
 )
-from .glyph import ArithGlyph, Glyph
+from .glyph import Glyph
 from .layout import Layout, Point, Rect, build_layout
 from .nodes import GlyphContext, resolve_glyph
 from .style import WireStyle, numeric_repr, wire_style
@@ -82,9 +82,6 @@ class RenderNode:
     # always succeeds), so this is required, not optional.
     glyph: Glyph
     terminals: list[RenderTerminal] = field(default_factory=list)
-    # Optional draw rect that overrides node.bounds for the glyph (used to
-    # center an arith triangle in the node box — see draw.py::draw_node).
-    glyph_bounds: Rect | None = None
 
 
 @dataclass(frozen=True)
@@ -230,61 +227,6 @@ def _excluded_node_ids(nodes: list[AnyGraphNode]) -> set[str]:
                 excluded.add(child_id)
                 frontier.append(child_id)
     return excluded
-
-
-def _arith_triangle_geometry(
-    node_bounds: Rect, term_rects: list[Rect],
-) -> Rect:
-    """Center the arithmetic triangle in the node box.
-
-    LabVIEW draws the arith glyph as a triangle centered in the 32px node box;
-    the heap termBounds are small hotspots clustered in the box's upper-left, so
-    the union has the right SIZE but the wrong POSITION. Returns the centered
-    triangle rect ``(tx1, ty1, tx2, ty2)`` sized from the termBounds union and
-    centered on the node box.
-    """
-    ux1 = min(r[0] for r in term_rects)
-    uy1 = min(r[1] for r in term_rects)
-    ux2 = max(r[2] for r in term_rects)
-    uy2 = max(r[3] for r in term_rects)
-    w, h = ux2 - ux1, uy2 - uy1
-    ncx = (node_bounds[0] + node_bounds[2]) / 2
-    ncy = (node_bounds[1] + node_bounds[3]) / 2
-    return (ncx - w / 2, ncy - h / 2, ncx + w / 2, ncy + h / 2)
-
-
-def _anchor_arith_terminals(
-    terminals: list[RenderTerminal], tri: Rect,
-) -> list[RenderTerminal]:
-    """Rebuild terminal centers anchored to the centered arith triangle's own
-    corners: output -> apex (right point), inputs -> spread along the left
-    base edge (ordered by their original y so multi-input glyphs keep their
-    visual top-to-bottom order)."""
-    tx1, ty1, tx2, ty2 = tri
-    ncy = (ty1 + ty2) / 2
-    h = ty2 - ty1
-
-    inputs = sorted(
-        (t for t in terminals if t.terminal.direction == "input"),
-        key=lambda t: t.center[1],
-    )
-    input_y = {
-        id(t): ty1 + h * (r + 0.5) / len(inputs)
-        for r, t in enumerate(inputs)
-    } if inputs else {}
-
-    result: list[RenderTerminal] = []
-    for t in terminals:
-        if t.terminal.direction == "output":
-            center = (tx2, ncy)
-        elif id(t) in input_y:
-            center = (tx1, input_y[id(t)])
-        else:
-            center = t.center
-        result.append(
-            RenderTerminal(terminal=t.terminal, center=center, bounds=t.bounds)
-        )
-    return result
 
 
 def _render_terminals(
@@ -637,20 +579,8 @@ def build_scene(graph: InMemoryVIGraph, vi_name: str) -> Scene | None:
         else:
             glyph = resolve_glyph(node, glyph_ctx)
             terminals = _render_terminals(node, layout, vi_name)
-            glyph_bounds: Rect | None = None
-            if isinstance(glyph, ArithGlyph) and terminals \
-                    and all(t.bounds is not None for t in terminals):
-                tri = _arith_triangle_geometry(
-                    bounds, [t.bounds for t in terminals if t.bounds is not None],
-                )
-                terminals = _anchor_arith_terminals(terminals, tri)
-                glyph_bounds = tri
             render_nodes.append(RenderNode(
-                node=node,
-                bounds=bounds,
-                glyph=glyph,
-                terminals=terminals,
-                glyph_bounds=glyph_bounds,
+                node=node, bounds=bounds, glyph=glyph, terminals=terminals,
             ))
 
     fp_terminals: list[RenderFPTerminal] = []
@@ -680,6 +610,7 @@ def build_scene(graph: InMemoryVIGraph, vi_name: str) -> Scene | None:
 
     scene_bounds = layout.scene_bounds()
     obstacles = [n.bounds for n in render_nodes]
+
     wire_nets = _build_wire_nets(
         graph, vi_name, layout, excluded, obstacles, scene_bounds,
     )
