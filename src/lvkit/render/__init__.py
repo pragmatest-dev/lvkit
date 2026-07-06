@@ -39,17 +39,40 @@ def render_vi(graph: InMemoryVIGraph, vi_name: str) -> str | None:
     return backend.render(scene.bounds, title=vi_name)
 
 
-def render_vi_file(path: Path) -> str | None:
+def render_vi_file(
+    path: Path,
+    *,
+    search_paths: list[Path] | None = None,
+    vilib_root: Path | None = None,
+    userlib_root: Path | None = None,
+    expand_subvis: bool = True,
+) -> str | None:
     """Render a ``.vi`` file (or ``_BDHb.xml`` heap) straight from disk,
-    building a fresh graph — no SubVI expansion needed since only this VI's
-    own diagram is drawn."""
+    building a fresh graph.
+
+    ``expand_subvis`` defaults to True so SubVI calls resolve to their real
+    ``.vi`` files and their extracted icons appear on the diagram; pass the
+    library roots / search paths so vi.lib / user.lib SubVIs resolve. If
+    expansion fails (unresolvable deps), it degrades to a diagram-only load so
+    the VI still renders (fallback boxes for unresolved SubVIs)."""
     path = Path(path)
-    graph = InMemoryVIGraph()
-    graph.load_vi(path, expand_subvis=False)
-    vi_name = (
+    vi_name_hint = (
         path.name.replace("_BDHb.xml", ".vi")
         if path.name.endswith("_BDHb.xml")
         else path.name
     )
-    vi_name = graph.resolve_vi_name(vi_name)
-    return render_vi(graph, vi_name)
+
+    def _load(expand: bool) -> InMemoryVIGraph:
+        graph = InMemoryVIGraph()
+        if vilib_root or userlib_root:
+            graph.set_library_roots(vilib_root=vilib_root, userlib_root=userlib_root)
+        graph.load_vi(path, expand_subvis=expand, search_paths=search_paths)
+        return graph
+
+    try:
+        graph = _load(expand_subvis)
+    except Exception:
+        if not expand_subvis:
+            raise
+        graph = _load(False)  # degrade: still render this VI's own diagram
+    return render_vi(graph, graph.resolve_vi_name(vi_name_hint))

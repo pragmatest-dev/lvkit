@@ -385,6 +385,17 @@ def main() -> int:
         "-o", "--output", default=None, metavar="FILE",
         help="Output SVG path (default: <vi-stem>.svg next to the input)",
     )
+    render_parser.add_argument(
+        "--search-path", action="append", dest="search_paths", default=[],
+        help="Search paths for SubVI resolution (can be repeated)",
+    )
+    render_parser.add_argument(
+        "--no-expand", action="store_true",
+        help="Don't resolve SubVIs — faster, but SubVIs render as boxes without "
+             "their real icons",
+    )
+    _add_project_root_arg(render_parser)
+    _add_library_root_args(render_parser)
 
     args = parser.parse_args()
 
@@ -712,8 +723,18 @@ def cmd_render(args: argparse.Namespace) -> int:
         print(f"Error: Path not found: {input_path}", file=sys.stderr)
         return 1
 
+    _configure_resolvers(args)
+    vilib_root, userlib_root = _parse_library_roots(args)
+    search_paths = [Path(p) for p in args.search_paths] if args.search_paths else None
+
     try:
-        svg = render_vi_file(input_path)
+        svg = render_vi_file(
+            input_path,
+            search_paths=search_paths,
+            vilib_root=vilib_root,
+            userlib_root=userlib_root,
+            expand_subvis=not args.no_expand,
+        )
     except Exception as e:
         print(f"Error: render failed: {e}", file=sys.stderr)
         traceback.print_exc()
