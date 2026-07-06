@@ -154,9 +154,13 @@ class SvgBackend:
         opacity: float | None = None,
     ) -> None:
         a = self._attrs(opacity=opacity)
+        # LabVIEW icons are small (32x32-ish) pixel art scaled up to a
+        # node's on-diagram bounds — without this, browsers smooth-scale
+        # them and they read as a blurry smudge instead of crisp pixels.
         self._elements.append(
             f'<image href="{href}" x="{x:.1f}" y="{y:.1f}" '
-            f'width="{w:.1f}" height="{h:.1f}" {a}/>'
+            f'width="{w:.1f}" height="{h:.1f}" '
+            f'style="image-rendering: pixelated" {a}/>'
         )
 
     def polygon(

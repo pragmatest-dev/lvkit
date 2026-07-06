@@ -20,6 +20,7 @@ this module IS the registration point).
 
 from __future__ import annotations
 
+import functools
 import logging
 from dataclasses import dataclass
 from pathlib import Path
@@ -192,6 +193,60 @@ class JsonGlyphResolver:
         return None
 
 
+@functools.lru_cache(maxsize=1)
+def _glyph_asset_stems() -> frozenset[str]:
+    """Cached set of extracted PDF-icon asset filename stems under
+    ``data/glyphs/`` (see ``scripts/extract_lv_icons.py``) — avoids
+    re-globbing the directory on every node's glyph resolution."""
+    glyphs_dir = _bundled_data_dir() / "glyphs"
+    if not glyphs_dir.is_dir():
+        return frozenset()
+    return frozenset(p.stem for p in glyphs_dir.glob("*.png"))
+
+
+class PdfIconResolver:
+    """Real, PDF-extracted LabVIEW icons for boxed primitives (built by
+    ``scripts/extract_lv_icons.py`` from the reference manual — see
+    FIDELITY_PLAN.md step 5). Boxed array/cluster/string/variant primitives
+    (Build Array, Index Array, String Length, ...) get their real
+    connector-pane icon here; borderless arithmetic/comparison primitives
+    are never boxed in the manual, so they have no extracted asset and fall
+    through unchanged to ``GeneratedGlyphResolver``'s triangle.
+
+    Lookup mirrors codegen's node_type-before-prim_id precedence
+    (``codegen/nodes/primitive.py``): several array primitives are dispatched
+    by XML class (node_type) rather than primResID, and some of those
+    classes SHARE a primResID with an unrelated "prim"-class primitive (e.g.
+    "Index Array" runs under primResID 1809, which primitives.json
+    separately and correctly labels "Array Size" for the generic "prim"
+    class). Checking the node_type-keyed asset (``prim_nt_<node_type>.png``)
+    before the prim_id-keyed one (``prim_<prim_id>.png``) prevents a
+    node_type-dispatched primitive from ever inheriting a same-numbered but
+    unrelated primitive's icon.
+    """
+
+    def resolve(self, node: AnyGraphNode, ctx: GlyphContext) -> Glyph | None:
+        if not isinstance(node, PrimitiveNode):
+            return None
+        stems = _glyph_asset_stems()
+        if node.node_type and node.node_type != "prim":
+            glyph = self._load(f"prim_nt_{node.node_type}", stems)
+            if glyph is not None:
+                return glyph
+        if node.prim_id is not None:
+            glyph = self._load(f"prim_{node.prim_id}", stems)
+            if glyph is not None:
+                return glyph
+        return None
+
+    @staticmethod
+    def _load(stem: str, stems: frozenset[str]) -> Glyph | None:
+        if stem not in stems:
+            return None
+        path = _bundled_data_dir() / "glyphs" / f"{stem}.png"
+        return IconImageGlyph(path)
+
+
 class GeneratedGlyphResolver:
     """Code-drawn built-ins — migrated from the old ``draw.py`` dispatch
     dict. This is where "adding a visual" still means writing a branch,
@@ -239,6 +294,7 @@ class FallbackBoxResolver:
 _RESOLVERS: list[NodeGlyphResolver] = [
     ExtractedIconResolver(),
     JsonGlyphResolver(),
+    PdfIconResolver(),
     GeneratedGlyphResolver(),
     FallbackBoxResolver(),
 ]
