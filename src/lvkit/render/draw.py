@@ -427,3 +427,7 @@ def draw_scene(scene: Scene, backend: Backend, theme: Theme = DEFAULT_THEME) -> 
         for dx, dy in net.coercion_dots:
             backend.circle(dx, dy, 2.0, fill=theme.coercion_dot,
                             stroke="#ffffff", stroke_width=0.5)
+
+    for dx, dy in scene.coercion_dots:
+        backend.circle(dx, dy, 2.0, fill=theme.coercion_dot,
+                        stroke="#ffffff", stroke_width=0.5)

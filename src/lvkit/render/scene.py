@@ -29,7 +29,7 @@ from ..models import (
     Terminal,
     TunnelTerminal,
 )
-from .glyph import Glyph
+from .glyph import ArithGlyph, Glyph
 from .layout import Layout, Point, Rect, build_layout
 from .nodes import GlyphContext, resolve_glyph
 from .style import WireStyle, numeric_repr, wire_style
@@ -138,6 +138,7 @@ class Scene:
     nodes: list[RenderNode] = field(default_factory=list)
     structures: list[RenderStructure] = field(default_factory=list)
     wire_nets: list[RenderWireNet] = field(default_factory=list)
+    coercion_dots: list[Point] = field(default_factory=list)
     icon_png: Path | None = None
 
     @property
@@ -538,6 +539,41 @@ def _build_wire_nets(
     return nets
 
 
+_NUMERIC_RANK = {
+    "NumInt8": 0, "NumUInt8": 1, "NumInt16": 2, "NumUInt16": 3,
+    "NumInt32": 4, "NumUInt32": 5, "NumInt64": 6, "NumUInt64": 7,
+    "NumFloat32": 8, "NumFloat64": 9, "NumFloatExt": 10,
+    "NumComplex64": 11, "NumComplex128": 12, "NumComplexExt": 13,
+}
+
+
+def _arith_coercion_dots(render_nodes: list[RenderNode]) -> list[Point]:
+    """Center points of coerced inputs on arithmetic primitives.
+
+    An arith primitive unifies its numeric inputs to the widest representation;
+    LabVIEW marks each narrower input with a red coercion dot. Scoped to
+    ``ArithGlyph`` nodes (Add/Subtract/Multiply/Divide/...), where all numeric
+    inputs genuinely coerce to one type — unlike e.g. Index Array, whose I32
+    index meeting a DBL array is structural, not a coercion.
+    """
+    dots: list[Point] = []
+    for rn in render_nodes:
+        if not isinstance(rn.glyph, ArithGlyph):
+            continue
+        ins = [t for t in rn.terminals if t.terminal.direction == "input"]
+        ranks = [
+            _NUMERIC_RANK.get(numeric_repr(t.terminal.lv_type) or "") for t in ins
+        ]
+        present = [r for r in ranks if r is not None]
+        if len(present) < 2 or len(set(present)) < 2:
+            continue  # need >=2 numeric inputs of DIFFERING width
+        top = max(present)
+        for t, r in zip(ins, ranks):
+            if r is not None and r < top:
+                dots.append(t.center)
+    return dots
+
+
 def build_scene(graph: InMemoryVIGraph, vi_name: str) -> Scene | None:
     """Build a ``Scene`` for one VI by joining graph semantics to heap
     geometry. Returns None (fail-closed) if required geometry is missing —
@@ -614,6 +650,7 @@ def build_scene(graph: InMemoryVIGraph, vi_name: str) -> Scene | None:
     wire_nets = _build_wire_nets(
         graph, vi_name, layout, excluded, obstacles, scene_bounds,
     )
+    coercion_dots = _arith_coercion_dots(render_nodes)
 
     return Scene(
         bounds=scene_bounds,
@@ -621,5 +658,6 @@ def build_scene(graph: InMemoryVIGraph, vi_name: str) -> Scene | None:
         nodes=render_nodes,
         structures=structures,
         wire_nets=wire_nets,
+        coercion_dots=coercion_dots,
         icon_png=layout.icon_png,
     )

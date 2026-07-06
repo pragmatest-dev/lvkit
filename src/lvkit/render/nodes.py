@@ -48,17 +48,23 @@ from .glyph import (
     InlineSvgGlyph,
     LabeledBoxGlyph,
 )
-from .style import wire_style
+from .style import numeric_repr, wire_style
 
 logger = logging.getLogger(__name__)
 
 
 def _format_const(value: object) -> str:
-    """LabVIEW-style scalar constant text: a whole-valued float shows with no
-    trailing '.0' (0.0 -> '0', 2.0 -> '2'); non-whole floats and everything
-    else stringify as-is."""
+    """LabVIEW-style scalar constant text: a whole-valued float (or a numeric
+    string like '0.0') shows with no trailing '.0'; non-whole and non-numeric
+    values stringify as-is. Only call this for NUMERIC-typed constants."""
     if isinstance(value, float) and value.is_integer():
         return str(int(value))
+    if isinstance(value, str):
+        try:
+            f = float(value)
+        except ValueError:
+            return value
+        return str(int(f)) if f.is_integer() else value
     return str(value)
 
 # Arithmetic-primitive name/operation -> triangle symbol (moved here from
@@ -271,7 +277,11 @@ class GeneratedGlyphResolver:
             )
         if isinstance(node, ConstantNode):
             color = wire_style(node.lv_type).color
-            value = node.raw_value if node.value is None else _format_const(node.value)
+            raw = node.raw_value if node.value is None else node.value
+            if numeric_repr(node.lv_type) is not None:
+                value = _format_const(raw)
+            else:
+                value = str(raw) if raw is not None else ""
             return ConstantGlyph(value or "", color)
         if isinstance(node, FormulaNode):
             return LabeledBoxGlyph(
