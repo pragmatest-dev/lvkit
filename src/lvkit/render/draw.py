@@ -59,8 +59,8 @@ def draw_node(node: RenderNode, backend: Backend, theme: Theme = DEFAULT_THEME) 
     with the apex on the union's right edge (the output terminal) — so the base
     lands on the input terminals and the apex on the output wire, with no fixed
     guessed size and no leftward drift. Other primitives (e.g. bracket/build-
-    array glyphs) are drawn at their terminal-center extent. Real subVI/prim
-    icons and constants keep their own bounds."""
+    array glyphs) are drawn at their node bounds. Real subVI/prim icons and
+    constants keep their own bounds."""
     bounds = node.bounds
     if isinstance(node.glyph, ArithGlyph):
         rects = [t.bounds for t in node.terminals if t.bounds is not None]
@@ -69,16 +69,6 @@ def draw_node(node: RenderNode, backend: Backend, theme: Theme = DEFAULT_THEME) 
                 min(r[0] for r in rects), min(r[1] for r in rects),
                 max(r[2] for r in rects), max(r[3] for r in rects),
             )
-    elif getattr(node.node, "kind", None) == "primitive" and len(node.terminals) >= 2:
-        xs = [t.center[0] for t in node.terminals]
-        ys = [t.center[1] for t in node.terminals]
-        m = 3.0
-        ib = (
-            max(node.bounds[0], min(xs)), max(node.bounds[1], min(ys) - m),
-            min(node.bounds[2], max(xs)), min(node.bounds[3], max(ys) + m),
-        )
-        if ib[2] - ib[0] > 4 and ib[3] - ib[1] > 4:
-            bounds = ib
     node.glyph.draw(backend, bounds, theme)
 
     if isinstance(node.node, VINode) and node.label_visible:
