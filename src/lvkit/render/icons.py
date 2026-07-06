@@ -13,6 +13,7 @@ goes wrong we embed the original PNG unchanged. Rendering never fails over an ic
 from __future__ import annotations
 
 import base64
+from collections import defaultdict
 from pathlib import Path
 
 _WHITE_CUTOFF = 238  # channel value at/above which a pixel counts as background
@@ -68,9 +69,13 @@ _ALPHA_OPAQUE_CUTOFF = 128
 def png_to_svg(png_bytes: bytes) -> tuple[str, tuple[int, int]] | None:
     """Pixel-faithful PNG -> SVG string + (width, height).
 
-    Knocks out the exterior near-white (``_knockout_white_border``), then emits
-    one ``<rect height="1">`` per maximal horizontal run of identical opaque
-    pixels (alpha>=128), skipping transparent runs; wraps them in an
+    Knocks out the exterior near-white (``_knockout_white_border``), then finds
+    maximal horizontal runs of identical opaque pixels (alpha>=128), merges
+    vertically-adjacent runs of matching ``(x, width, color)`` into rectangles,
+    and emits one ``<path>`` per color whose ``d`` concatenates a compact
+    rectangle subpath (``M{x} {y}h{w}v{h}h-{w}z``) for each of that color's
+    rectangles. This is far more compact than one element per rectangle while
+    remaining pixel-perfect. Wraps the paths in an
     ``<svg viewBox="0 0 W H" shape-rendering="crispEdges">``. Returns None if
     the image is empty/degenerate. This is the shared core used by both the
     build-time vectorizer (scripts/vectorize_icons.py) and render-time SubVI
@@ -92,7 +97,7 @@ def png_to_svg(png_bytes: bytes) -> tuple[str, tuple[int, int]] | None:
         if px is None:
             return None
 
-        rects: list[str] = []
+        runs: list[tuple[int, int, int, tuple[int, int, int]]] = []
         for y in range(h):
             x = 0
             while x < w:
@@ -108,17 +113,38 @@ def png_to_svg(png_bytes: bytes) -> tuple[str, tuple[int, int]] | None:
                     if na < _ALPHA_OPAQUE_CUTOFF or (nr, ng, nb) != run_color:
                         break
                     x += 1
-                run_len = x - run_start
-                cr, cg, cb = run_color
-                rects.append(
-                    f'<rect x="{run_start}" y="{y}" width="{run_len}" height="1" '
-                    f'fill="#{cr:02x}{cg:02x}{cb:02x}"/>'
-                )
+                runs.append((run_start, y, x - run_start, run_color))
 
-        body = "".join(rects)
+        if not runs:
+            return None
+
+        rect_bounds: list[list[int]] = []
+        rect_colors: list[tuple[int, int, int]] = []
+        rect_index: dict[tuple[int, int, tuple[int, int, int]], int] = {}
+        for run_x, run_y, run_w, run_color in runs:
+            key = (run_x, run_w, run_color)
+            existing = rect_index.get(key)
+            if (
+                existing is not None
+                and rect_bounds[existing][1] + rect_bounds[existing][3] == run_y
+            ):
+                rect_bounds[existing][3] += 1
+            else:
+                rect_bounds.append([run_x, run_y, run_w, 1])
+                rect_colors.append(run_color)
+                rect_index[key] = len(rect_bounds) - 1
+
+        by_color: dict[tuple[int, int, int], list[str]] = defaultdict(list)
+        for (rx, ry, rw, rh), color in zip(rect_bounds, rect_colors, strict=True):
+            by_color[color].append(f"M{rx} {ry}h{rw}v{rh}h-{rw}z")
+
+        body = "".join(
+            f"<path fill='#{c[0]:02x}{c[1]:02x}{c[2]:02x}' d='{''.join(p)}'/>"
+            for c, p in by_color.items()
+        )
         svg = (
-            '<svg xmlns="http://www.w3.org/2000/svg" '
-            f'viewBox="0 0 {w} {h}" shape-rendering="crispEdges">{body}</svg>'
+            "<svg xmlns='http://www.w3.org/2000/svg' "
+            f"viewBox='0 0 {w} {h}' shape-rendering='crispEdges'>{body}</svg>"
         )
         return svg, (w, h)
     except Exception:
