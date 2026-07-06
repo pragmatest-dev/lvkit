@@ -126,23 +126,29 @@ def _draw_border_terminal(
 
 
 def _draw_for_loop_border(x1, y1, x2, y2, backend: Backend, theme: Theme) -> None:
-    """The For-Loop's signature border: a cascade of THREE identical rectangles,
-    each offset by (o, o) down-right like a stack of cards. The front card (the
-    loop boundary, top-left) is drawn last and canvas-filled so it masks the
-    back cards' overlap, leaving three parallel lines on the right and bottom."""
-    o = 4.0
+    """The For-Loop's signature border: a cascade of THREE identical rectangles
+    stacked down-right like cards. The heap ``bounds`` (x1..x2, y1..y2) is the
+    OVERALL bbox = the BACKMOST card's bottom-right corner (measured against the
+    ground truth: the three right-edge lines sit at 238/240/242 with 242 = the
+    bbox edge). So the cards are inset INWARD from the bbox — the front card is
+    top-left-aligned and (2o x 2o) smaller — not offset outward past x2/y2 where
+    they would collide with a node just right of the loop. Front card is drawn
+    last, canvas-filled, with a dog-eared bottom-right corner."""
+    o = 2.0
     s = theme.struct_border
-    for k in (2, 1):  # back cards — plain rects, offset by k*(o, o)
-        dx = dy = k * o
-        backend.rect(x1 + dx, y1 + dy, x2 + dx, y2 + dy,
+    w2, h2 = (x2 - x1) - 2 * o, (y2 - y1) - 2 * o
+    for k in (2, 1):  # back + mid cards, top-left at (x1+k*o, y1+k*o)
+        ox, oy = x1 + k * o, y1 + k * o
+        backend.rect(ox, oy, ox + w2, oy + h2,
                      fill=theme.canvas, stroke=s, stroke_width=2)
-    # Front card (loop boundary) with a dog-eared bottom-right corner.
-    f = 8.0
+    # Front card (loop boundary), top-left-aligned, dog-eared bottom-right.
+    fx2, fy2 = x1 + w2, y1 + h2
+    f = 6.0
     backend.path(
-        [(x1, y1), (x2, y1), (x2, y2 - f), (x2 - f, y2), (x1, y2), (x1, y1)],
+        [(x1, y1), (fx2, y1), (fx2, fy2 - f), (fx2 - f, fy2), (x1, fy2), (x1, y1)],
         fill=theme.canvas, stroke=s, stroke_width=2,
     )
-    backend.path([(x2, y2 - f), (x2 - f, y2 - f), (x2 - f, y2)],
+    backend.path([(fx2, fy2 - f), (fx2 - f, fy2 - f), (fx2 - f, fy2)],
                  stroke=s, stroke_width=1.2)
 
 
@@ -325,14 +331,16 @@ def draw_fp_terminal(
 
     tri = 5.5
     cy_mid = (y1 + y2) / 2
+    # The wire-port triangle sits INSIDE the box (LabVIEW draws it within the
+    # control/indicator border, not poking out), always pointing right in the
+    # dataflow direction: an indicator's arrow is tucked against the left inner
+    # edge (data enters), a control's against the right inner edge (data exits).
     if terminal.is_indicator:
-        # Data enters on the left.
-        port = [(x1 - tri, cy_mid - tri * 0.6), (x1 - tri, cy_mid + tri * 0.6),
-                (x1, cy_mid)]
+        port = [(x1, cy_mid - tri * 0.6), (x1, cy_mid + tri * 0.6),
+                (x1 + tri, cy_mid)]
     else:
-        # Data exits on the right.
-        port = [(x2, cy_mid - tri * 0.6), (x2, cy_mid + tri * 0.6),
-                (x2 + tri, cy_mid)]
+        port = [(x2 - tri, cy_mid - tri * 0.6), (x2 - tri, cy_mid + tri * 0.6),
+                (x2, cy_mid)]
     backend.polygon(port, fill="#ffffff", stroke=color, stroke_width=1.0)
 
     margin = 3.0

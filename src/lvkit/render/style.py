@@ -18,7 +18,7 @@ class Theme:
     """The renderer's full color palette."""
 
     canvas: str = "#fbfbf5"
-    struct_border: str = "#9b9b73"       # loop/structure border (muted olive)
+    struct_border: str = "#1e1e1e"       # loop/structure border (near-black, per GT)
     prim_fill: str = "#fff6d8"
     prim_stroke: str = "#b07d10"
     term_fill: str = "#fff3e2"
