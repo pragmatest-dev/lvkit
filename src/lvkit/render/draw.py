@@ -68,9 +68,16 @@ def _draw_border_terminal(
         backend.text(cx, cy + 4, arrow, 10)
         return
     if kind == "autoindex":
+        # Array indexing / accumulation: a white box with array brackets.
         backend.rect(x1 - 2, y1 - 2, x2 + 2, y2 + 2, fill="#ffffff",
                      stroke="#333333", stroke_width=1.2)
         backend.text(cx, cy + 4, "[ ]", 9)
+        return
+    if kind == "tunnel":
+        # Last-value passthrough: a solid block filled in the wire type color.
+        fill = bt.color or theme.wire_default
+        backend.rect(x1, y1, x2, y2, fill=fill, stroke="#333333", stroke_width=0.75)
+        return
         return
     # A border DCO the fixed glyph table doesn't cover — undecorated box
     # rather than a guessed glyph.

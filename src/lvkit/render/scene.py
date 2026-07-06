@@ -84,13 +84,15 @@ class RenderBorderTerminal:
     structure kind (see ``_LOOP_GUARANTEED_KINDS``).
 
     ``glyph_kind`` is the fixed decoration to draw: "N", "i", "cond",
-    "sr_down", "sr_up", "autoindex", "selector", or None for an
-    undecorated box (a border DCO the loop-kind table doesn't cover).
+    "sr_down", "sr_up", "autoindex" (array index/accumulate), "tunnel"
+    (last-value passthrough — a filled type-color block), "selector", or None.
+    ``color`` is the type color for a filled "tunnel" block.
     """
 
     terminal: Terminal | None
     bounds: Rect
     glyph_kind: str | None = None
+    color: str | None = None
 
 
 @dataclass(frozen=True)
@@ -271,8 +273,19 @@ def _structure_borders(
         glyph_kind = _TUNNEL_GLYPH_KIND.get(t.tunnel_type)
         if glyph_kind is None and t.name == "selector":
             glyph_kind = "selector"
+        color: str | None = None
+        if t.tunnel_type == "lpTun":
+            # Auto-indexing (array in/accumulate out) -> [ ] brackets;
+            # last-value passthrough -> a filled block in the wire type color.
+            if raw in layout.indexing_tunnels:
+                glyph_kind = "autoindex"
+            else:
+                glyph_kind = "tunnel"
+                color = wire_style(t.lv_type).color
         result.append(
-            RenderBorderTerminal(terminal=t, bounds=rect, glyph_kind=glyph_kind)
+            RenderBorderTerminal(
+                terminal=t, bounds=rect, glyph_kind=glyph_kind, color=color,
+            )
         )
         consumed.add(raw)
         if glyph_kind:

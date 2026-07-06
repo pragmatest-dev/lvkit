@@ -74,6 +74,8 @@ class Layout:
     # Structure raw uid -> the raw uids of its border_terminals entries
     # (loop N/i/cond, case selector) — pure containment, no glyph semantics.
     structure_border_uids: dict[str, list[str]] = field(default_factory=dict)
+    # raw uids belonging to AUTO-INDEXING tunnels (vs last-value passthroughs).
+    indexing_tunnels: set[str] = field(default_factory=set)
     icon_png: Path | None = None
 
     def scene_bounds(self, pad: float = 30.0) -> Rect:
@@ -106,6 +108,32 @@ class _LayoutBuilder:
         self.border_terminals: dict[str, Rect] = {}
         self.border_terminal_kind: dict[str, str] = {}
         self.structure_border_uids: dict[str, list[str]] = {}
+        # raw uids of AUTO-INDEXING loop tunnels (array index/accumulate); a
+        # last-value passthrough tunnel is absent from this set.
+        self.indexing_tunnels: set[str] = set()
+
+    def _detect_tunnel_modes(self, elem: ET.Element) -> None:
+        """Record which lpTun tunnels are auto-indexing vs last-value.
+
+        LabVIEW marks an auto-indexing tunnel with a ``TunnelType`` (and an
+        ``innerLpTunDCO``); a plain last-value passthrough has neither.
+        """
+        tl = elem.find("termList")
+        if tl is None:
+            return
+        for term in tl.findall("SL__arrayElement"):
+            dco = term.find("dco")
+            src = dco if dco is not None and dco.get("class") == "lpTun" else (
+                term if term.get("class") == "lpTun" else None
+            )
+            if src is None:
+                continue
+            tt = (src.findtext("TunnelType") or "").strip()
+            indexing = src.find("innerLpTunDCO") is not None or (
+                tt not in ("", "00", "0")
+            )
+            if indexing:
+                self.indexing_tunnels.update(self._collect_uids(term))
 
     # -- uid collection -------------------------------------------------
     @staticmethod
@@ -228,6 +256,7 @@ class _LayoutBuilder:
         if uid:
             self.node_bounds.setdefault(uid, (ax1, ay1, ax2, ay2))
         self._map_terms(elem, ax1, ay1)
+        self._detect_tunnel_modes(elem)
         if uid:
             self._border_dcos(elem, ax1, ay1, uid)
 
@@ -280,5 +309,6 @@ def build_layout(vi_or_bd: Path) -> Layout:
         border_terminals=builder.border_terminals,
         border_terminal_kind=builder.border_terminal_kind,
         structure_border_uids=builder.structure_border_uids,
+        indexing_tunnels=builder.indexing_tunnels,
         icon_png=icon if icon.exists() else None,
     )
