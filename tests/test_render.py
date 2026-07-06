@@ -540,18 +540,21 @@ def test_for_loop_border_glyphs_on_ground_truth_vi():
 # --------------------------------------------------------------------------- #
 
 
-def test_coercion_dot_appears_on_type_mismatch_not_on_match():
-    graph, vi = _require_ground_truth()
-    scene = build_scene(graph, vi)
-    assert scene is not None
+def test_coercion_is_numeric_representation_only():
+    # A coercion dot marks a numeric-representation change (I32 -> DBL),
+    # NOT a structural change (array -> element at an auto-index tunnel).
+    from lvkit.render.style import numeric_repr
 
-    nets_with_dots = [n for n in scene.wire_nets if n.coercion_dots]
-    nets_without_dots = [
-        n for n in scene.wire_nets if n.branches and not n.coercion_dots
-    ]
-    # The auto-index tunnel (array) feeding a scalar Add input is a real
-    # type mismatch by the graph's own terminal types -> at least one dot.
-    assert nets_with_dots
-    # Same-type wires (e.g. DBL -> DBL) get no dot -> the check actually
-    # discriminates instead of firing on everything.
-    assert nets_without_dots
+    i32 = LVType(kind="primitive", underlying_type="NumInt32")
+    dbl = LVType(kind="primitive", underlying_type="NumFloat64")
+    arr_dbl = LVType(kind="array", dimensions=1, element_type=dbl)
+    string = LVType(kind="primitive", underlying_type="String")
+
+    def coerces(a, b):
+        ra, rb = numeric_repr(a), numeric_repr(b)
+        return ra is not None and rb is not None and ra != rb
+
+    assert coerces(i32, dbl)          # real coercion
+    assert not coerces(dbl, dbl)      # same type
+    assert not coerces(arr_dbl, dbl)  # auto-index (array->element) is NOT coercion
+    assert not coerces(string, dbl)   # non-numeric, no dot

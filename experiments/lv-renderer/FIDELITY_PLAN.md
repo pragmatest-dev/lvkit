@@ -94,6 +94,30 @@ chrome (while-loop border, stacked-seq `[0..N]` header, flat-seq per-frame separ
 struct); reconsider white-knockout on subVI icons (real LV keeps the white field + border on the
 diagram); accepted-loss entries for expanded-subVI panes and expanded-constant internals.
 
+## Newly reported bugs (fix right after step 5 — touch scene.py/wire_router.py, so
+## don't race the step-5 agent)
+- **Coercion false positive / miss.** `_build_wire_nets` flags a coercion dot on ANY
+  source≠dest normalized-type difference — including array→element at an auto-indexing
+  tunnel (NOT a coercion) — and likely misses the real I32-count→DBL coercion at the
+  Divide. Fix: only flag when both ends are numeric primitives (or numeric arrays) with a
+  DIFFERENT numeric representation; exclude structural changes (array↔element, cluster,
+  array-dim). Validate: real dot at I32→DBL, none at the auto-index tunnel.
+- **N terminal wire not visible to the Divide.** Confirm cause (guaranteed-N glyph vs
+  graph count-terminal geometry mismatch / dropped endpoint / hidden under overlap) by
+  dumping the array-average wires, then fix so the count-terminal wire renders.
+- **Parallel wires overlap.** The router routes each wire independently → collinear
+  segments coincide and read as one wire. Add lane-separation: track occupied channels and
+  offset overlapping parallel segments so every wire is visibly distinct (LabVIEW spacing).
+- **Terminal exit vectors (port sides).** Wires ignore terminal directionality — an output
+  on a node's right (e.g. the Add/Divide triangle apex) escapes upward instead of exiting
+  mid-right. Fix: derive each endpoint's SIDE from its position vs the node bounds (nearest
+  edge → left/right/top/bottom), then force a directional stub along that side's normal
+  before routing (exit-right from a right output, enter-from-left into a left input, up/down
+  for top/bottom). Subsumes the tunnel enter-left/exit-right edge-anchoring from step 2.
+
+These four are one **wire-routing/terminals overhaul** (scene `_build_wire_nets` + `wire_router`),
+done together as the next increment after step 5 — image-validated against the example VI.
+
 ## Validation (per step, not a final phase)
 Rasterize each render (cairosvg via `uv run --with cairosvg`) and diff against the reference +
 `array average 1.png`; spot-check extracted icons against their PDF pages; keep the full suite

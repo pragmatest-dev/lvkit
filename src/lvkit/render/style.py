@@ -75,6 +75,23 @@ _TYPE_REPR = {
 }
 
 
+_NUMERIC_TYPES = _INT_TYPES | _FLOAT_TYPES | _COMPLEX_TYPES
+
+
+def numeric_repr(lv_type: LVType | None) -> str | None:
+    """The numeric representation of a type (recursing into array elements),
+    or None if it isn't numeric. A LabVIEW coercion dot appears ONLY when two
+    wired terminals differ in numeric representation (I32 vs DBL) — NOT for
+    structural differences like array↔element at an auto-indexing tunnel."""
+    if lv_type is None:
+        return None
+    if lv_type.kind == "array":
+        return numeric_repr(lv_type.element_type)
+    if lv_type.kind == "primitive" and lv_type.underlying_type in _NUMERIC_TYPES:
+        return lv_type.underlying_type
+    return None
+
+
 def type_repr(lv_type: LVType | None) -> str:
     """The LabVIEW data-type terminal text for an LVType.
 

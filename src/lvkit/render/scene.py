@@ -25,7 +25,7 @@ from ..models import CaseFrame, FPTerminal, SequenceFrame, Terminal, TunnelTermi
 from .glyph import Glyph
 from .layout import Layout, Point, Rect, build_layout
 from .nodes import GlyphContext, resolve_glyph
-from .style import WireStyle, coercion_key, wire_style
+from .style import WireStyle, numeric_repr, wire_style
 from .wire_router import WireRouter
 
 logger = logging.getLogger(__name__)
@@ -322,6 +322,47 @@ def _structure_borders(
     return result
 
 
+_STUB = 7.0  # length a wire exits/enters a terminal along its edge normal
+
+
+def _exit_side(center: Point, bounds: Rect | None) -> Point:
+    """Unit normal a wire leaves a terminal on, from the nearest node edge:
+    right output → (1,0), left input → (-1,0), top → (0,-1), bottom → (0,1)."""
+    if bounds is None:
+        return (1.0, 0.0)
+    x1, y1, x2, y2 = bounds
+    cx, cy = center
+    d = {(1.0, 0.0): x2 - cx, (-1.0, 0.0): cx - x1,
+         (0.0, 1.0): y2 - cy, (0.0, -1.0): cy - y1}
+    return min(d, key=lambda k: d[k])
+
+
+def _stub(center: Point, bounds: Rect | None) -> Point:
+    sx, sy = _exit_side(center, bounds)
+    return (center[0] + sx * _STUB, center[1] + sy * _STUB)
+
+
+def _term_owner_bounds(
+    graph: InMemoryVIGraph, vi_name: str, layout: Layout,
+) -> dict[str, Rect]:
+    """raw terminal uid -> its owning node's bounds (for exit-side lookup)."""
+    owner: dict[str, Rect] = {}
+    for node in graph.iter_nodes(vi_name):
+        nb = layout.node_bounds.get(_strip_prefix(node.id, vi_name))
+        if nb is None:
+            continue
+        for t in node.terminals:
+            owner[_strip_prefix(t.id, vi_name)] = nb
+    vinode = graph.get_graph_node(vi_name)
+    if vinode is not None:  # FP terminals own their own box
+        for t in vinode.terminals:
+            raw = _strip_prefix(t.id, vi_name)
+            b = layout.node_bounds.get(raw)
+            if b is not None:
+                owner[raw] = b
+    return owner
+
+
 def _build_wire_nets(
     graph: InMemoryVIGraph,
     vi_name: str,
@@ -346,35 +387,41 @@ def _build_wire_nets(
 
     router = WireRouter(obstacles, scene_bounds)
     all_points = list(layout.terminal_centers.values())
+    owner = _term_owner_bounds(graph, vi_name, layout)
 
     nets: list[RenderWireNet] = []
     for key in order:
         group = by_source[key]
-        src_center = layout.terminal_centers.get(_strip_prefix(key, vi_name))
+        raw_src = _strip_prefix(key, vi_name)
+        src_center = layout.terminal_centers.get(raw_src)
         if src_center is None:
             logger.debug("no geometry for source terminal %s; dropping wire(s)", key)
             continue
 
         source_term = graph.get_terminal(key)
-        src_key = coercion_key(source_term.lv_type if source_term else None)
+        src_num = numeric_repr(source_term.lv_type if source_term else None)
+        src_out = _stub(src_center, owner.get(raw_src))  # exit along source edge
 
         branches: list[list[Point]] = []
         coercion_dots: list[Point] = []
         for w in group:
-            dst_center = layout.terminal_centers.get(
-                _strip_prefix(w.dest.terminal_id, vi_name)
-            )
+            raw_dst = _strip_prefix(w.dest.terminal_id, vi_name)
+            dst_center = layout.terminal_centers.get(raw_dst)
             if dst_center is None:
                 logger.debug(
                     "no geometry for dest terminal %s; dropping wire",
                     w.dest.terminal_id,
                 )
                 continue
-            branches.append(router.route(src_center, dst_center, all_points))
+            dst_in = _stub(dst_center, owner.get(raw_dst))  # enter along dest edge
+            mid = router.route(src_out, dst_in, all_points)
+            branches.append([src_center, *mid, dst_center])
 
+            # Coercion dot ONLY on a numeric-representation change (I32->DBL),
+            # never a structural one (array->element at an auto-index tunnel).
             dest_term = graph.get_terminal(w.dest.terminal_id)
-            dst_key = coercion_key(dest_term.lv_type if dest_term else None)
-            if src_key is not None and dst_key is not None and src_key != dst_key:
+            dst_num = numeric_repr(dest_term.lv_type if dest_term else None)
+            if src_num is not None and dst_num is not None and src_num != dst_num:
                 coercion_dots.append(dst_center)
 
         if not branches:
