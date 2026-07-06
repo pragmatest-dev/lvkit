@@ -34,6 +34,10 @@ class Theme:
     sr_fill: str = "#cfcfcf"
     sr_stroke: str = "#555555"
     coercion_dot: str = "#5a5a5a"         # gray coercion-dot fill
+    fp_panel: str = "#d9d9d9"       # grey inner panel of an FP control/indicator
+    fp_value_fill: str = "#ffffff"  # recessed numeric value cell
+    fp_value_text: str = "#333333"
+    fp_index_fill: str = "#c8c8c8"  # array index-display cell
 
     # Wire colors by LabVIEW type family.
     wire_float: str = "#e8821e"    # orange — DBL/float (also the P0 default)
@@ -111,6 +115,26 @@ def type_repr(lv_type: LVType | None) -> str:
     if lv_type.kind == "primitive":
         return _TYPE_REPR.get(lv_type.underlying_type or "", "")
     return ""
+
+def numeric_sample(lv_type: LVType | None) -> str | None:
+    """LabVIEW's type-representative glyph shown inside a front-panel numeric/
+    string terminal in icon view (e.g. a DBL numeric shows "1.23", an integer
+    "123"). This is a deterministic TYPE->glyph mapping (LabVIEW chrome), not
+    per-VI data — analogous to type_repr mapping DBL->"DBL". Returns None for
+    types with no text glyph (e.g. Boolean, which LabVIEW draws as a button)."""
+    if lv_type is None:
+        return None
+    if lv_type.kind == "array":
+        return numeric_sample(lv_type.element_type)
+    ut = lv_type.underlying_type or ""
+    if "Float" in ut or "Ext" in ut or "Complex" in ut:
+        return "1+2i" if "Complex" in ut else "1.23"
+    if "Int" in ut:
+        return "123"
+    if ut == "String":
+        return "abc"
+    return None
+
 
 # Coarse type-family buckets, shared by wire coloring AND front-panel
 # terminal glyph selection (draw.py) so both stay driven by one table.

@@ -456,12 +456,21 @@ def test_numeric_control_glyph_is_type_repr():
     assert ">I32<" in svg_int
 
 
-def test_array_control_glyph_has_brackets():
-    # An array-of-DBL control terminal is [DBL] (brackets = array).
+def test_array_control_glyph_is_icon_view():
+    # An array-of-DBL control terminal shows the ELEMENT type label (DBL,
+    # not "[DBL]" — icon view has no bracket text) plus an index column
+    # cell labelled "i" on the left, matching LabVIEW's icon-view chrome.
     arr = LVType(kind="array", dimensions=1,
                  element_type=LVType(kind="primitive", underlying_type="NumFloat64"))
     svg = _render_fp_terminal(arr)
-    assert "[DBL]" in svg
+    assert "[DBL]" not in svg
+    assert ">DBL<" in svg
+    assert ">i<" in svg
+
+
+def test_numeric_control_shows_value_sample():
+    svg = _render_fp_terminal(LVType(kind="primitive", underlying_type="NumFloat64"))
+    assert "1.23" in svg
 
 
 def test_boolean_control_glyph_is_tf():

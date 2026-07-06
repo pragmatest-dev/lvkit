@@ -9,11 +9,18 @@ node glyphs only — see DESIGN.md's phasing).
 
 from __future__ import annotations
 
-from ..models import CaseFrame, FPTerminal
+from ..models import CaseFrame, FPTerminal, LVType
 from .backend import Backend
 from .glyph import ArithGlyph, fit_label
 from .scene import RenderBorderTerminal, RenderNode, RenderStructure, Scene
-from .style import DEFAULT_THEME, Theme, type_family, type_repr, wire_style
+from .style import (
+    DEFAULT_THEME,
+    Theme,
+    numeric_sample,
+    type_family,
+    type_repr,
+    wire_style,
+)
 
 # Structure node_type -> border style key (graph-sourced; see node_type
 # values assigned in graph/construction.py / graph/core.py::_NODE_TYPE_NAMES).
@@ -218,62 +225,140 @@ _CONTROL_TYPE_FAMILY = {
 }
 
 
-def _fp_glyph_family(terminal: FPTerminal) -> str:
-    family = type_family(terminal.lv_type)
-    if family != "unknown":
-        return family
-    return _CONTROL_TYPE_FAMILY.get(terminal.control_type or "", "unknown")
-
-
 # Fallback terminal text when the LVType didn't resolve (control_type only).
 _FAMILY_REPR = {
     "float": "DBL", "int": "I32", "bool": "TF", "string": "abc",
-    "path": "Path", "enum": "Enum", "array": "[ ]",
+    "path": "Path", "enum": "Enum",
 }
 
 
-def _fp_repr(terminal: FPTerminal) -> str:
-    """The LabVIEW data-type text for a control/indicator terminal —
-    `[DBL]` for a DBL array, `DBL`/`I32`/`TF`/`abc` for scalars — from the
-    resolved LVType, falling back to the control_type family."""
-    r = type_repr(terminal.lv_type)
+_INDEX_LETTERS = "ijklmn"
+
+# Below this size (either dimension) the icon-view internals (index/value
+# cells, wire port) would overflow a box this small — fall back to just the
+# outer rect + type label rather than drawing something illegible.
+_FP_MIN_ICON_SIZE = 20.0
+
+
+def _fp_type_label(terminal: FPTerminal, scalar_type: LVType | None) -> str:
+    """Bottom-center type label: the SCALAR/ELEMENT type repr, e.g. a DBL
+    array terminal is labelled "DBL", never "[DBL]" — LabVIEW's icon view
+    labels the element type, brackets are structural chrome drawn via the
+    index column instead."""
+    r = type_repr(scalar_type)
     if r:
         return r
-    return _FAMILY_REPR.get(_fp_glyph_family(terminal), "")
+    family = type_family(scalar_type)
+    if family == "unknown":
+        family = _CONTROL_TYPE_FAMILY.get(terminal.control_type or "", "unknown")
+        if family == "array":  # already unwrapped to scalar/element above
+            family = "unknown"
+    return _FAMILY_REPR.get(family, "")
 
 
-def _draw_fp_glyph(
-    text: str, bounds: tuple[float, float, float, float],
-    backend: Backend, color: str,
+def _draw_fp_value_cell(
+    bounds: tuple[float, float, float, float], sample: str | None,
+    backend: Backend, theme: Theme,
 ) -> None:
-    """Draw the LabVIEW data-type text (e.g. `[DBL]`) inside the terminal box."""
-    if not text:
-        return  # colored border alone is the signal
+    """The recessed numeric/string value-display cell — skipped entirely
+    (drawn nothing) when the type has no representative glyph (Boolean is
+    a button, Path/cluster have none)."""
+    if not sample:
+        return
     x1, y1, x2, y2 = bounds
+    if x2 - x1 < 4 or y2 - y1 < 4:
+        return
+    backend.rect(x1, y1, x2, y2, fill=theme.fp_value_fill,
+                 stroke="#999999", stroke_width=0.75)
     cx, cy = (x1 + x2) / 2, (y1 + y2) / 2
-    size = 9.0
-    backend.text(cx, cy + 3, fit_label(text, (x2 - x1) - 3, backend, size), size,
-                 fill=color, bold=True)
+    backend.text(cx, cy + 3, fit_label(sample, (x2 - x1) - 2, backend, 9), 9,
+                 fill=theme.fp_value_text)
+
+
+def _draw_array_index_column(
+    x1: float, y1: float, x2: float, y2: float, dims: int,
+    backend: Backend, theme: Theme,
+) -> float:
+    """The array index-display column, one small cell per dimension on the
+    LEFT of the panel, labelled with successive index letters (i, j, k, ...)
+    when a cell is tall enough for text. Returns the column's right edge, so
+    the caller can place the value cell beside it."""
+    width = min(10.0, max(1.0, x2 - x1))
+    height = (y2 - y1) / dims
+    for i in range(dims):
+        cy1 = y1 + i * height
+        cy2 = cy1 + height
+        backend.rect(x1, cy1, x1 + width, cy2, fill=theme.fp_index_fill,
+                     stroke="#333333", stroke_width=0.5)
+        if height >= 8.0:
+            letter = _INDEX_LETTERS[i % len(_INDEX_LETTERS)]
+            backend.text(x1 + width / 2, (cy1 + cy2) / 2 + 3, letter, 7,
+                         fill=theme.fp_value_text)
+    return x1 + width
 
 
 def draw_fp_terminal(
     terminal: FPTerminal, bounds: tuple[float, float, float, float],
     backend: Backend, theme: Theme = DEFAULT_THEME,
 ) -> None:
+    """Draw a control/indicator in LabVIEW's icon view: a grey panel bordered
+    in the SCALAR/ELEMENT type's color (thick border = control, thin =
+    indicator), a wire-port triangle on the dataflow edge (right for a
+    control's output, left for an indicator's input), a bottom-center type
+    label, a recessed value-display cell, and — for arrays — an index column
+    on the left. The name label stays ABOVE the box, as before."""
     x1, y1, x2, y2 = bounds
-    color = wire_style(terminal.lv_type, theme).color
+    lv_type = terminal.lv_type
+    is_array = lv_type is not None and lv_type.kind == "array"
+    scalar_type = lv_type.element_type if lv_type is not None and is_array else lv_type
+    color = wire_style(scalar_type, theme).color
     stroke_width = 1.5 if terminal.is_indicator else 3.0
-    backend.rect(x1, y1, x2, y2, rx=2, fill=theme.term_fill,
+
+    backend.rect(x1, y1, x2, y2, rx=2, fill=theme.fp_panel,
                  stroke=color, stroke_width=stroke_width)
-    _draw_fp_glyph(_fp_repr(terminal), bounds, backend, color)
+
     label = terminal.name or ""
     if label:
         size = 8.0
-        # LabVIEW default: control/indicator label sits ABOVE the terminal.
+        # LabVIEW default: control/indicator name label sits ABOVE the box.
         backend.text(
             (x1 + x2) / 2, y1 - 4,
             fit_label(label, max(x2 - x1, 40.0), backend, size), size,
         )
+
+    type_label = _fp_type_label(terminal, scalar_type)
+    if type_label:
+        backend.text((x1 + x2) / 2, y2 - 2, type_label, 7, fill=color, bold=True)
+
+    if x2 - x1 < _FP_MIN_ICON_SIZE or y2 - y1 < _FP_MIN_ICON_SIZE:
+        return  # too small for the wire port / index / value cells
+
+    tri = 5.5
+    cy_mid = (y1 + y2) / 2
+    if terminal.is_indicator:
+        # Data enters on the left.
+        port = [(x1 - tri, cy_mid - tri * 0.6), (x1 - tri, cy_mid + tri * 0.6),
+                (x1, cy_mid)]
+    else:
+        # Data exits on the right.
+        port = [(x2, cy_mid - tri * 0.6), (x2, cy_mid + tri * 0.6),
+                (x2 + tri, cy_mid)]
+    backend.polygon(port, fill="#ffffff", stroke=color, stroke_width=1.0)
+
+    margin = 3.0
+    bottom_reserve = 9.0  # room for the bottom-center type label
+    value_x1, value_y1 = x1 + margin, y1 + margin
+    value_x2, value_y2 = x2 - margin, y2 - margin - bottom_reserve
+
+    if is_array:
+        dims = (lv_type.dimensions or 1) if lv_type is not None else 1
+        value_x1 = _draw_array_index_column(
+            value_x1, value_y1, value_x1 + 10.0, value_y2, dims, backend, theme,
+        ) + 1.0
+
+    sample = numeric_sample(scalar_type)
+    value_bounds = (value_x1, value_y1, value_x2, value_y2)
+    _draw_fp_value_cell(value_bounds, sample, backend, theme)
 
 
 def draw_scene(scene: Scene, backend: Backend, theme: Theme = DEFAULT_THEME) -> None:
