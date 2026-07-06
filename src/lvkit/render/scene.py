@@ -67,6 +67,7 @@ class RenderFPTerminal:
     terminal: FPTerminal
     bounds: Rect
     center: Point
+    label_visible: bool = True
 
 
 @dataclass(frozen=True)
@@ -658,8 +659,10 @@ def build_scene(graph: InMemoryVIGraph, vi_name: str) -> Scene | None:
             center = layout.terminal_centers.get(raw_uid, (
                 (bounds[0] + bounds[2]) / 2, (bounds[1] + bounds[3]) / 2,
             ))
+            label_visible = raw_uid not in layout.hidden_labels
             fp_terminals.append(RenderFPTerminal(
                 terminal=t, bounds=bounds, center=center,
+                label_visible=label_visible,
             ))
 
     if missing:

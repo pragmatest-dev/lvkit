@@ -328,6 +328,7 @@ def _draw_array_index_column(
 def draw_fp_terminal(
     terminal: FPTerminal, bounds: tuple[float, float, float, float],
     backend: Backend, theme: Theme = DEFAULT_THEME,
+    label_visible: bool = True,
 ) -> None:
     """Draw a control/indicator in LabVIEW's icon view: a grey panel bordered
     in the SCALAR/ELEMENT type's color (thick border = control, thin =
@@ -346,7 +347,7 @@ def draw_fp_terminal(
                  stroke=color, stroke_width=stroke_width)
 
     label = terminal.name or ""
-    if label:
+    if label and label_visible:
         size = 8.0
         # LabVIEW default: the FULL control/indicator name sits ABOVE the box,
         # centered, overflowing the terminal width — never truncated.
@@ -421,7 +422,7 @@ def draw_scene(scene: Scene, backend: Backend, theme: Theme = DEFAULT_THEME) -> 
         draw_node(node, backend, theme)
 
     for fp in scene.fp_terminals:
-        draw_fp_terminal(fp.terminal, fp.bounds, backend, theme)
+        draw_fp_terminal(fp.terminal, fp.bounds, backend, theme, fp.label_visible)
 
     for net in scene.wire_nets:
         for dx, dy in net.coercion_dots:

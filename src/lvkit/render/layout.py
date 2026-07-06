@@ -76,6 +76,9 @@ class Layout:
     structure_border_uids: dict[str, list[str]] = field(default_factory=dict)
     # raw uids belonging to AUTO-INDEXING tunnels (vs last-value passthroughs).
     indexing_tunnels: set[str] = field(default_factory=set)
+    # raw uids whose ``<label>`` child is hidden (objFlags bit 0x8) — i.e.
+    # LabVIEW's "label visible" property is off for that element.
+    hidden_labels: set[str] = field(default_factory=set)
     icon_png: Path | None = None
 
     def scene_bounds(self, pad: float = 30.0) -> Rect:
@@ -111,6 +114,23 @@ class _LayoutBuilder:
         # raw uids of AUTO-INDEXING loop tunnels (array index/accumulate); a
         # last-value passthrough tunnel is absent from this set.
         self.indexing_tunnels: set[str] = set()
+        # raw uids whose direct <label> child is hidden (objFlags bit 0x8).
+        self.hidden_labels: set[str] = set()
+
+    def _record_label_hidden(self, elem: ET.Element, uid: str | None) -> None:
+        """Record uid whose ``<label>`` is hidden (objFlags bit 0x8), so the
+        renderer can honor LabVIEW's 'label visible' property."""
+        if not uid:
+            return
+        lbl = elem.find("label")
+        if lbl is None:
+            return
+        try:
+            flags = int((lbl.findtext("objFlags") or "0").strip())
+        except ValueError:
+            return
+        if flags & 0x8:
+            self.hidden_labels.add(uid)
 
     def _detect_tunnel_modes(self, elem: ET.Element) -> None:
         """Record which lpTun tunnels are auto-indexing vs last-value.
@@ -193,6 +213,7 @@ class _LayoutBuilder:
                 if b is None:
                     continue
                 uid = term.get("uid")
+                self._record_label_hidden(term, uid)
                 abs_rect = (ox + b[0], oy + b[1], ox + b[2], oy + b[3])
                 if uid:
                     self.node_bounds.setdefault(uid, abs_rect)
@@ -283,6 +304,7 @@ class _LayoutBuilder:
         ax2, ay2 = ox + bb[2], oy + bb[3]
 
         uid = elem.get("uid")
+        self._record_label_hidden(elem, uid)
         if uid:
             self.node_bounds.setdefault(uid, (ax1, ay1, ax2, ay2))
         self._map_terms(elem, ax1, ay1)
@@ -340,5 +362,6 @@ def build_layout(vi_or_bd: Path) -> Layout:
         border_terminal_kind=builder.border_terminal_kind,
         structure_border_uids=builder.structure_border_uids,
         indexing_tunnels=builder.indexing_tunnels,
+        hidden_labels=builder.hidden_labels,
         icon_png=icon if icon.exists() else None,
     )
