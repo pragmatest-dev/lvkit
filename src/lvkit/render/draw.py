@@ -38,6 +38,15 @@ _STRUCTURE_STYLE = {
 # (i / j / k) as fixed chrome, independent of the array's real dimensionality.
 _ARRAY_INDEX_ROWS = 3
 
+
+def _inset(bounds, frac: float = 0.075):
+    """Shrink a rect toward its center by ``frac`` on each side. Border-terminal
+    termBounds are the clickable region; LabVIEW draws the visible glyph inset
+    within it (~15% smaller overall)."""
+    x1, y1, x2, y2 = bounds
+    dx, dy = (x2 - x1) * frac, (y2 - y1) * frac
+    return x1 + dx, y1 + dy, x2 - dx, y2 - dy
+
 def draw_node(node: RenderNode, backend: Backend, theme: Theme = DEFAULT_THEME) -> None:
     """Draw one node's already-resolved ``Glyph`` (see ``nodes.py``'s
     resolver chain — extending node visuals never touches this function).
@@ -78,13 +87,14 @@ def _draw_border_terminal(
     """Draw a structure border glyph from its fixed ``glyph_kind`` — a
     geometry-side decoration (see ``scene._structure_borders``), never
     re-derived from heap class strings here."""
-    x1, y1, x2, y2 = bt.bounds
+    x1, y1, x2, y2 = _inset(bt.bounds)
     cx, cy = (x1 + x2) / 2, (y1 + y2) / 2
     kind = bt.glyph_kind
 
     if kind in ("N", "i"):
-        backend.rect(x1, y1, x2, y2, fill=theme.loop_term)
-        backend.text(cx, cy + 4, kind, 11, fill="#ffffff", italic=True)
+        backend.rect(x1, y1, x2, y2, fill=theme.loop_term_fill,
+                     stroke=theme.loop_term, stroke_width=1.5)
+        backend.text(cx, cy + 4, kind, 11, fill=theme.loop_term, italic=True)
         return
     if kind == "cond":
         # Judgment call: LabVIEW distinguishes "Stop if True" (red stop
@@ -111,11 +121,20 @@ def _draw_border_terminal(
         backend.polygon(tri, fill=col)
         return
     if kind == "autoindex":
-        # Array indexing / accumulation: a type-colored box with array brackets.
+        # Array auto-indexing tunnel: a pale box with a dark border and the
+        # element brackets drawn as SHAPES (not text) in the wire type color.
         col = bt.color or "#333333"
-        backend.rect(x1 - 2, y1 - 2, x2 + 2, y2 + 2, fill=theme.term_fill,
-                     stroke=col, stroke_width=1.2)
-        backend.text(cx, cy + 4, "[ ]", 9, fill=col)
+        backend.rect(x1, y1, x2, y2, fill=theme.loop_term_fill,
+                     stroke=theme.tunnel_border, stroke_width=1.2)
+        bx = (x2 - x1) * 0.20   # horizontal padding inside the box
+        by = (y2 - y1) * 0.15   # vertical padding
+        sr = (x2 - x1) * 0.22   # bracket serif length
+        lx, rx = x1 + bx, x2 - bx
+        ty, by2 = y1 + by, y2 - by
+        backend.path([(lx + sr, ty), (lx, ty), (lx, by2), (lx + sr, by2)],
+                     stroke=col, stroke_width=1.3)
+        backend.path([(rx - sr, ty), (rx, ty), (rx, by2), (rx - sr, by2)],
+                     stroke=col, stroke_width=1.3)
         return
     if kind == "tunnel":
         # Last-value passthrough: a solid block filled in the wire type color.
