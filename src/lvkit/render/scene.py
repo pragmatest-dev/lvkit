@@ -365,6 +365,28 @@ def _stub(center: Point, bounds: Rect | None, direction: str | None) -> Point:
     return (center[0] + sx * _STUB, center[1] + sy * _STUB)
 
 
+def _wire_role(term: Terminal | None, fallback: str) -> str | None:
+    """The terminal's role for wire-stub purposes: "output" (exits right) or
+    "input" (enters from the left).
+
+    ``Terminal.direction`` is CONNECTOR-PANE direction (from the VI's own
+    signature), which is inverted from how the terminal behaves as a wire
+    endpoint on THIS VI's own diagram: a control (``direction="input"`` — data
+    flows into the VI through it) is drawn on the block diagram as a box that
+    a wire leaves, i.e. it acts as an "output" stub; an indicator
+    (``direction="output"``) is a box a wire arrives at, i.e. an "input"
+    stub. Only ``FPTerminal`` (the VI's own boundary terminals drawn on its
+    own diagram) needs this inversion — ordinary node terminals (primitives,
+    SubVI calls, structure borders) already use "input"/"output" as their
+    visual wire role.
+    """
+    if term is None:
+        return fallback
+    if isinstance(term, FPTerminal):
+        return "input" if term.is_indicator else "output"
+    return term.direction
+
+
 def _term_owner_bounds(
     graph: InMemoryVIGraph, vi_name: str, layout: Layout,
 ) -> dict[str, Rect]:
@@ -438,7 +460,7 @@ def _build_wire_nets(
         src_num = numeric_repr(source_term.lv_type if source_term else None)
         # An output exits RIGHT (dataflow is left->right), not toward whatever
         # edge its tiny termBounds happens to sit near.
-        src_dir = source_term.direction if source_term else "output"
+        src_dir = _wire_role(source_term, "output")
         src_out = _stub(src_center, owner.get(raw_src), src_dir)
 
         branches: list[list[Point]] = []
@@ -453,7 +475,7 @@ def _build_wire_nets(
                 )
                 continue
             dest_term = graph.get_terminal(w.dest.terminal_id)
-            dst_dir = dest_term.direction if dest_term else "input"
+            dst_dir = _wire_role(dest_term, "input")
             dst_in = _stub(dst_center, owner.get(raw_dst), dst_dir)  # enter from left
             mid = router.route(src_out, dst_in, all_points)
             # Drop redundant collinear points (the directional stubs are often

@@ -29,6 +29,11 @@ class RouterConfig:
     # Ignore obstacle hits within this distance of a wire's own endpoints, since
     # terminals sit on the edge of their node.
     endpoint_ignore: float = 10.0
+    # Endpoints within this many px on one axis are treated as aligned on that
+    # axis — LabVIEW draws a plain straight segment rather than a jog for
+    # sub-pixel/near-pixel offsets (heap terminal centers are rarely exactly
+    # equal even when the diagram clearly intends a straight wire).
+    align_tol: float = 2.0
 
 
 class WireRouter:
@@ -64,14 +69,37 @@ class WireRouter:
 
     # -- clean routes -------------------------------------------------------
     def _clean_candidates(self, p1: Point, p2: Point) -> list[list[Point]]:
+        """Candidate routes, tried in order of ascending bend count.
+
+        Straight (0 bends) beats a single elbow/L (1 bend) beats a Z
+        (2 bends) — the first one that doesn't cross an obstacle wins, so a Z
+        is only ever used when both L orientations are blocked. Endpoints
+        within ``align_tol`` on an axis are treated as aligned, so a wire
+        LabVIEW clearly means to be straight isn't drawn with a jog just
+        because heap-derived centers differ by a sub-pixel amount.
+
+        A "feedback" route (``p2`` to the left of ``p1`` — e.g. a
+        shift-register value wiring back to a terminal on its own left) is
+        handled separately: an elbow anchored at the exit stub's own x
+        clears the source node vertically before heading back left, instead
+        of doubling back through the row the source sits on.
+        """
         (x1, y1), (x2, y2) = p1, p2
-        mx = (x1 + x2) / 2
+        tol = self._cfg.align_tol
         cands: list[list[Point]] = []
-        if y1 == y2 or x1 == x2:
-            cands.append([p1, p2])
-        cands.append([p1, (x2, y1), p2])            # horizontal-first elbow
-        cands.append([p1, (mx, y1), (mx, y2), p2])  # Z with horizontal legs
-        cands.append([p1, (x1, y2), p2])            # vertical-first elbow
+        if abs(y1 - y2) <= tol or abs(x1 - x2) <= tol:
+            cands.append([p1, p2])                      # straight (0 bends)
+        if x2 < x1 - tol:
+            # Feedback wire: go vertical at the source's own exit x (already
+            # clear of the source node via the stub), then straight back
+            # into the destination — never re-crosses the source's row.
+            cands.append([p1, (x1, y2), p2])
+            cands.append([p1, (x2, y1), p2])
+        else:
+            cands.append([p1, (x2, y1), p2])            # horizontal-first L
+            cands.append([p1, (x1, y2), p2])            # vertical-first L
+        mx = (x1 + x2) / 2
+        cands.append([p1, (mx, y1), (mx, y2), p2])       # Z (2 bends)
         return cands
 
     def _crosses(self, pts: list[Point]) -> bool:
@@ -177,8 +205,17 @@ class WireRouter:
         return _compress(pts)
 
 
-def _compress(pts: list[Point]) -> list[Point]:
-    """Drop collinear interior points, keeping only bend vertices."""
+def _compress(pts: list[Point], tol: float = 0.75) -> list[Point]:
+    """Drop collinear (within ``tol`` px) interior points, keeping only real
+    bend vertices.
+
+    ``tol`` absorbs the sub-pixel jogs that appear when a stub point and a
+    real terminal center are meant to read as one straight run but differ by
+    a fraction of a pixel (heap-derived centers are rarely exactly equal even
+    when the diagram clearly intends a straight wire) — real bends in this
+    router are always many pixels apart, so this never merges an intentional
+    turn.
+    """
     if len(pts) <= 2:
         return pts
     out = [pts[0]]
@@ -186,7 +223,9 @@ def _compress(pts: list[Point]) -> list[Point]:
         ax, ay = pts[i - 1]
         bx, by = pts[i]
         cx, cy = pts[i + 1]
-        if (ax == bx == cx) or (ay == by == cy):
+        if (abs(ax - bx) <= tol and abs(bx - cx) <= tol) or (
+            abs(ay - by) <= tol and abs(by - cy) <= tol
+        ):
             continue
         out.append(pts[i])
     out.append(pts[-1])
