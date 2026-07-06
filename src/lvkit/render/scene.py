@@ -32,6 +32,14 @@ logger = logging.getLogger(__name__)
 
 Frame = CaseFrame | SequenceFrame
 
+# LabVIEW-internal nodes that are NOT drawn as visible diagram objects. `nMux`
+# ("Node Multiplexer") is the compiler's data multiplexer at structure
+# boundaries (shift-register / tunnel muxing across frames/iterations) — it
+# spans the structure's inner region in the heap but LabVIEW never draws it as a
+# box. We skip its glyph; its terminals stay in the layout so wires still route
+# to the shift-register / tunnel positions that visually represent it.
+_INTERNAL_NODE_TYPES = {"nMux"}
+
 
 @dataclass(frozen=True)
 class RenderTerminal:
@@ -404,6 +412,8 @@ def build_scene(graph: InMemoryVIGraph, vi_name: str) -> Scene | None:
     for node in all_nodes:
         if node.id in excluded:
             continue
+        if node.node_type in _INTERNAL_NODE_TYPES:
+            continue  # internal mux node — not a visible diagram object
         raw_uid = _strip_prefix(node.id, vi_name)
         bounds = layout.node_bounds.get(raw_uid)
         if bounds is None:
