@@ -98,8 +98,14 @@ class WireRouter:
         else:
             cands.append([p1, (x2, y1), p2])            # horizontal-first L
             cands.append([p1, (x1, y2), p2])            # vertical-first L
-        mx = (x1 + x2) / 2
-        cands.append([p1, (mx, y1), (mx, y2), p2])       # Z (2 bends)
+        # LabVIEW drops the vertical leg right after the source's exit stub,
+        # not at the horizontal midpoint — a short stub out, then straight in.
+        jog = 9.0
+        if x2 >= x1:
+            jx = min(x1 + jog, (x1 + x2) / 2)
+        else:
+            jx = max(x1 - jog, (x1 + x2) / 2)
+        cands.append([p1, (jx, y1), (jx, y2), p2])       # Z (2 bends)
         return cands
 
     def _crosses(self, pts: list[Point]) -> bool:

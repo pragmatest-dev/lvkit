@@ -140,13 +140,13 @@ def _draw_for_loop_border(x1, y1, x2, y2, backend: Backend, theme: Theme) -> Non
     for k in (2, 1):  # back + mid cards, top-left at (x1+k*o, y1+k*o)
         ox, oy = x1 + k * o, y1 + k * o
         backend.rect(ox, oy, ox + w2, oy + h2,
-                     fill=theme.canvas, stroke=s, stroke_width=2)
+                     fill=theme.canvas, stroke=s, stroke_width=1.2)
     # Front card (loop boundary), top-left-aligned, dog-eared bottom-right.
     fx2, fy2 = x1 + w2, y1 + h2
     f = 6.0
     backend.path(
         [(x1, y1), (fx2, y1), (fx2, fy2 - f), (fx2 - f, fy2), (x1, fy2), (x1, y1)],
-        fill=theme.canvas, stroke=s, stroke_width=2,
+        fill=theme.canvas, stroke=s, stroke_width=1.2,
     )
     backend.path([(fx2, fy2 - f), (fx2 - f, fy2 - f), (fx2 - f, fy2)],
                  stroke=s, stroke_width=1.2)
