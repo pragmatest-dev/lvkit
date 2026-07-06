@@ -2145,6 +2145,24 @@
       "verified": true,
       "pdf_page": 1491
     },
+    "1426": {
+      "name": "Current VI's Path",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "path",
+          "type": "Path"
+        }
+      ],
+      "python_code": {
+        "_import": "from pathlib import Path as _Path",
+        "path": "_Path(__file__)"
+      },
+      "inline": true,
+      "verified": false,
+      "pdf_page": 1493
+    },
     "1302": {
       "name": "Wait (ms)",
       "terminals": [
