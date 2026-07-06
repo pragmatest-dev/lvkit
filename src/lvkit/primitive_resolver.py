@@ -163,6 +163,23 @@ class PrimitiveTerminal(BaseModel):
     dco_ref: str | None = None
 
 
+class NodeIcon(BaseModel):
+    """An optional, declarative node glyph for the renderer.
+
+    Backward-compatible: entries without an ``icon`` field simply resolve
+    to ``None`` and the renderer falls through to the next resolver in its
+    chain (see ``render/nodes.py``). Exactly one of ``svg``/``file`` is
+    expected to be set — ``svg`` is an inline fragment (drawn in its own
+    local coordinate space sized by ``size``, then scaled to the node's
+    heap bounds); ``file`` is a path under ``data/glyphs/`` (resolved
+    relative to ``src/lvkit/data/``).
+    """
+
+    svg: str | None = None
+    file: str | None = None
+    size: tuple[int, int] | None = None
+
+
 class PrimitiveEntry(BaseModel):
     """A primitive entry from JSON."""
     name: str = ""
@@ -171,6 +188,7 @@ class PrimitiveEntry(BaseModel):
     terminals: list[PrimitiveTerminal] = Field(default_factory=list)
     guess_reason: str | None = None
     imports: list[str] = Field(default_factory=list)
+    icon: NodeIcon | None = None
 
 
 class ResolvedPrimitive(BaseModel):
@@ -186,6 +204,20 @@ class ResolvedPrimitive(BaseModel):
     # LabVIEW numeric primitives operate element-wise on arrays. When True,
     # codegen broadcasts the operation over list operands.
     elementwise: bool = False
+    # Optional declarative render glyph (render/nodes.py::JsonGlyphResolver).
+    icon: NodeIcon | None = None
+
+
+def _collect_icon(prim: dict) -> NodeIcon | None:
+    """Parse the optional ``icon`` field of a primitive JSON entry.
+
+    Absent on (nearly) every entry today — tolerated, not required, so
+    existing data files never need updating.
+    """
+    icon = prim.get("icon")
+    if not icon:
+        return None
+    return NodeIcon.model_validate(icon)
 
 
 def _collect_imports(prim: dict) -> list[str]:
@@ -415,6 +447,7 @@ class PrimitiveResolver:
                     description=prim.get("guess_reason", ""),
                     imports=_collect_imports(prim),
                     elementwise=prim.get("elementwise", False),
+                    icon=_collect_icon(prim),
                 )
 
         # Strategy 2: Name-based lookup
@@ -467,6 +500,7 @@ class PrimitiveResolver:
                 description=prim.get("guess_reason", prim.get("category", "")),
                 imports=_collect_imports(prim),
                 elementwise=prim.get("elementwise", False),
+                icon=_collect_icon(prim),
             )
         return None
 
@@ -493,6 +527,7 @@ class PrimitiveResolver:
                 description=info.get("description", ""),
                 imports=_collect_imports(info),
                 elementwise=info.get("elementwise", False),
+                icon=_collect_icon(info),
             )
         return None
 

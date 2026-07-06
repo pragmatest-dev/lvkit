@@ -82,6 +82,21 @@ class Backend(Protocol):
         """Approximate rendered width of ``text`` at ``size`` px."""
         ...
 
+    def raw_svg(
+        self, fragment: str, x: float, y: float, w: float, h: float, *,
+        viewbox: tuple[float, float],
+    ) -> None:
+        """Embed a hand-authored SVG fragment (JSON-declared node icons).
+
+        ``fragment`` is written in its own local coordinate space of size
+        ``viewbox`` (width, height); it is scaled into the ``(x, y, w, h)``
+        box the same way an ``<img>`` would be. A non-SVG backend may
+        legitimately no-op this (there is no universal raw-markup
+        equivalent) — callers that need a guaranteed visual should treat
+        this as best-effort, matching every other JSON-declared glyph path.
+        """
+        ...
+
 
 class SvgBackend:
     """Renders block-diagram ops to a self-contained SVG string."""
@@ -171,6 +186,17 @@ class SvgBackend:
 
     def measure_text(self, text: str, size: float) -> float:
         return _text_width_em(text) * size
+
+    def raw_svg(
+        self, fragment: str, x: float, y: float, w: float, h: float, *,
+        viewbox: tuple[float, float],
+    ) -> None:
+        vw, vh = viewbox
+        self._elements.append(
+            f'<svg x="{x:.1f}" y="{y:.1f}" width="{w:.1f}" height="{h:.1f}" '
+            f'viewBox="0 0 {vw} {vh}" preserveAspectRatio="none">'
+            f"{fragment}</svg>"
+        )
 
     def render(
         self, bounds: tuple[float, float, float, float], *, title: str | None = None,

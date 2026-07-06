@@ -11,6 +11,7 @@ from pydantic import BaseModel, Field
 
 from lvkit._data import data_dir as _bundled_data_dir
 from lvkit.models import ClusterField, EnumValue, LVType
+from lvkit.primitive_resolver import NodeIcon
 
 
 @dataclass
@@ -172,6 +173,9 @@ class VIEntry(BaseModel):
     poly_selector_names: list[str] = Field(default_factory=list)
     # Wrapper VI name for polymorphic variants (explicit, not derived)
     base_vi: str | None = None
+    # Optional declarative render glyph (render/nodes.py::JsonGlyphResolver).
+    # Absent on every existing entry — loader tolerates its absence.
+    icon: NodeIcon | None = None
 
 
 class VILibResolver:

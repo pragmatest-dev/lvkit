@@ -1,30 +1,20 @@
-"""Plain dispatch-dict drawer: Scene -> Backend ops.
+"""Scene -> Backend ops.
 
-P0 scope: a flat dispatch table keyed by graph node kind, reproducing the
-prior renderer's look while sourcing every label/glyph choice from the
-GRAPH (never from heap XML class strings — see DESIGN.md's "graph owns
-semantics" principle). This migrates to a resolver chain in P2; until then
-"add a visual" means adding a branch here.
+Node glyphs are resolved once, in the graph-driven join (``scene.py``, via
+``nodes.py``'s resolver chain) — ``draw_node`` here just replays whatever
+``Glyph`` the scene already carries. Structures, FP terminals, wires, and
+coercion dots are still a direct dispatch on graph-sourced kind/type (P2 is
+node glyphs only — see DESIGN.md's phasing).
 """
 
 from __future__ import annotations
 
-from ..graph.models import (
-    ConstantNode,
-    FormulaNode,
-    PrimitiveNode,
-    VINode,
-)
 from ..models import CaseFrame, FPTerminal
 from .backend import Backend
+from .glyph import fit_label
 from .icons import icon_data_uri
 from .scene import RenderBorderTerminal, RenderNode, RenderStructure, Scene
 from .style import DEFAULT_THEME, Theme, type_family, wire_style
-
-_ARITH_SYMBOL = {
-    "Add": "+", "Subtract": "−", "Multiply": "×", "Divide": "÷",
-    "Increment": "+1", "Decrement": "-1",
-}
 
 # Structure node_type -> border style key (graph-sourced; see node_type
 # values assigned in graph/construction.py / graph/core.py::_NODE_TYPE_NAMES).
@@ -39,115 +29,10 @@ _STRUCTURE_STYLE = {
 }
 
 
-def _fit_label(text: str, width: float, backend: Backend, size: float) -> str:
-    """Truncate a label to fit ``width`` px, using the backend's own text
-    measurement (not a fixed px/char heuristic — S7)."""
-    if not text:
-        return ""
-    if backend.measure_text(text, size) <= width:
-        return text
-    lo, hi = 0, len(text)
-    while lo < hi:
-        mid = (lo + hi + 1) // 2
-        candidate = text[:mid] + "…"
-        if backend.measure_text(candidate, size) <= width:
-            lo = mid
-        else:
-            hi = mid - 1
-    return text[:lo] + "…" if lo else "…"
-
-
-def _draw_primitive(
-    node: RenderNode, backend: Backend, theme: Theme,
-) -> None:
-    gnode = node.node
-    assert isinstance(gnode, PrimitiveNode)
-    x1, y1, x2, y2 = node.bounds
-    sym = _ARITH_SYMBOL.get(gnode.operation or gnode.name or "")
-    if sym:
-        backend.polygon(
-            [(x1, y1), (x2, (y1 + y2) / 2), (x1, y2)],
-            fill=theme.prim_fill, stroke=theme.prim_stroke, stroke_width=1.5,
-        )
-        backend.text(x1 + (x2 - x1) * 0.32, (y1 + y2) / 2 + 5, sym, 15)
-        return
-    _draw_labeled_box(
-        x1, y1, x2, y2, gnode.name or "?", backend, theme.prim_fill,
-        theme.prim_stroke, 1.0,
-    )
-
-
-def _draw_labeled_box(
-    x1: float, y1: float, x2: float, y2: float, label: str,
-    backend: Backend, fill: str, stroke: str, stroke_width: float,
-) -> None:
-    backend.rect(x1, y1, x2, y2, rx=2, fill=fill, stroke=stroke,
-                 stroke_width=stroke_width)
-    size = 8.0
-    backend.text(
-        (x1 + x2) / 2, (y1 + y2) / 2 + 3,
-        _fit_label(label, x2 - x1, backend, size), size,
-    )
-
-
-def _draw_subvi(node: RenderNode, backend: Backend, theme: Theme) -> None:
-    gnode = node.node
-    assert isinstance(gnode, VINode)
-    x1, y1, x2, y2 = node.bounds
-    # P0 has no per-call icon source (only the VI's own connector-pane icon
-    # is drawn, as a corner decoration — see draw_scene). SubVI calls always
-    # render as a labeled box; real icon extraction is a P2/P4 item.
-    _draw_labeled_box(
-        x1, y1, x2, y2, gnode.name or "SubVI", backend,
-        theme.subvi_fill, theme.subvi_stroke, 1.5,
-    )
-
-
-def _draw_constant(node: RenderNode, backend: Backend, theme: Theme) -> None:
-    gnode = node.node
-    assert isinstance(gnode, ConstantNode)
-    x1, y1, x2, y2 = node.bounds
-    color = wire_style(gnode.lv_type, theme).color
-    backend.rect(x1, y1, x2, y2, rx=2, fill=theme.term_fill,
-                 stroke=color, stroke_width=2)
-    value = gnode.raw_value if gnode.value is None else str(gnode.value)
-    if value:
-        size = 9.0
-        backend.text(
-            (x1 + x2) / 2, (y1 + y2) / 2 + 3,
-            _fit_label(value, x2 - x1, backend, size), size,
-        )
-
-
-def _draw_formula(node: RenderNode, backend: Backend, theme: Theme) -> None:
-    gnode = node.node
-    assert isinstance(gnode, FormulaNode)
-    x1, y1, x2, y2 = node.bounds
-    _draw_labeled_box(
-        x1, y1, x2, y2, gnode.name or "Formula", backend,
-        theme.prim_fill, theme.prim_stroke, 1.5,
-    )
-
-
-def _draw_generic_node(node: RenderNode, backend: Backend, theme: Theme) -> None:
-    gnode = node.node
-    x1, y1, x2, y2 = node.bounds
-    label = gnode.name or gnode.node_type or "?"
-    _draw_labeled_box(x1, y1, x2, y2, label, backend, theme.prim_fill,
-                       theme.prim_stroke, 1.0)
-
-
-_NODE_DRAWERS = {
-    PrimitiveNode: _draw_primitive,
-    VINode: _draw_subvi,
-    ConstantNode: _draw_constant,
-    FormulaNode: _draw_formula,
-}
-
-
 def draw_node(node: RenderNode, backend: Backend, theme: Theme = DEFAULT_THEME) -> None:
-    drawer = _NODE_DRAWERS.get(type(node.node), _draw_generic_node)
-    drawer(node, backend, theme)
+    """Draw one node's already-resolved ``Glyph`` (see ``nodes.py``'s
+    resolver chain — extending node visuals never touches this function)."""
+    node.glyph.draw(backend, node.bounds, theme)
 
 
 def _draw_border_terminal(
@@ -290,10 +175,10 @@ def _draw_fp_glyph(
     w, h = x2 - x1, y2 - y1
     size = 9.0
     if family == "float":
-        backend.text(cx, cy + 3, _fit_label("1.23", w - 4, backend, size), size,
+        backend.text(cx, cy + 3, fit_label("1.23", w - 4, backend, size), size,
                      fill=color)
     elif family == "int":
-        backend.text(cx, cy + 3, _fit_label("123", w - 4, backend, size), size,
+        backend.text(cx, cy + 3, fit_label("123", w - 4, backend, size), size,
                      fill=color)
     elif family == "bool":
         r = max(2.0, min(w, h) * 0.22)
@@ -301,7 +186,7 @@ def _draw_fp_glyph(
     elif family == "string":
         backend.text(cx, cy + 3, "abc", size, fill=color, italic=True)
     elif family == "path":
-        backend.text(cx, cy + 3, _fit_label("Path", w - 4, backend, 8.0), 8.0,
+        backend.text(cx, cy + 3, fit_label("Path", w - 4, backend, 8.0), 8.0,
                      fill=color)
     elif family == "enum":
         backend.text(cx, cy + 3, "▾", size, fill=color)
@@ -328,7 +213,7 @@ def draw_fp_terminal(
         below_y = y2 + 10
         backend.text(
             (x1 + x2) / 2, below_y,
-            _fit_label(label, max(x2 - x1, 40.0), backend, size), size,
+            fit_label(label, max(x2 - x1, 40.0), backend, size), size,
         )
 
 

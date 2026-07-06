@@ -22,7 +22,9 @@ from ..graph.models import (
     Wire,
 )
 from ..models import CaseFrame, FPTerminal, SequenceFrame, Terminal, TunnelTerminal
+from .glyph import Glyph
 from .layout import Layout, Point, Rect, build_layout
+from .nodes import GlyphContext, resolve_glyph
 from .style import WireStyle, coercion_key, wire_style
 from .wire_router import WireRouter
 
@@ -54,6 +56,12 @@ class RenderNode:
 
     node: AnyGraphNode
     bounds: Rect
+    # Resolved once here (the graph-driven join point) via the P2 resolver
+    # chain (render/nodes.py::resolve_glyph) — draw.py never sees the graph,
+    # only this already-resolved Glyph, per the "backend-agnostic view
+    # model" rule. resolve_glyph() never returns None (FallbackBoxResolver
+    # always succeeds), so this is required, not optional.
+    glyph: Glyph
     terminals: list[RenderTerminal] = field(default_factory=list)
 
 
@@ -387,6 +395,7 @@ def build_scene(graph: InMemoryVIGraph, vi_name: str) -> Scene | None:
     all_nodes = graph.iter_nodes(vi_name)
     excluded = _excluded_node_ids(all_nodes)
     hidden_structures = _hidden_structures(all_nodes)
+    glyph_ctx = GlyphContext(graph=graph, vi_name=vi_name)
 
     render_nodes: list[RenderNode] = []
     structures: list[RenderStructure] = []
@@ -412,6 +421,7 @@ def build_scene(graph: InMemoryVIGraph, vi_name: str) -> Scene | None:
             render_nodes.append(RenderNode(
                 node=node,
                 bounds=bounds,
+                glyph=resolve_glyph(node, glyph_ctx),
                 terminals=_render_terminals(node, layout, vi_name),
             ))
 

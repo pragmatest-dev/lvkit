@@ -1,0 +1,257 @@
+"""Node glyph resolver chain — the scalable node system (P2).
+
+``resolve_glyph(node, ctx)`` tries an ORDERED list of resolvers; the first
+one to return a non-``None`` ``Glyph`` wins. This is the whole extensibility
+story: adding a new node's visual means ONE of —
+
+1. Shipping the SubVI's own ``_ICON.png`` next to its ``.vi`` file — free,
+   no code, no data change (``ExtractedIconResolver``).
+2. Adding an ``icon`` field to a ``primitives.json`` / vilib JSON entry — a
+   declaration, no code (``JsonGlyphResolver``).
+3. Registering a new case in ``GeneratedGlyphResolver`` for a code-drawn
+   built-in (arithmetic triangle, bracket, ...).
+4. Doing nothing — ``FallbackBoxResolver`` always succeeds with a labeled
+   box, so resolution can never fail.
+
+Resolvers are a plain ordered list of instances (not a plugin framework —
+there is nothing here that benefits from dynamic registration; the list in
+this module IS the registration point).
+"""
+
+from __future__ import annotations
+
+import logging
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Protocol
+
+from .._data import data_dir as _bundled_data_dir
+from ..extractor import extract_vi_xml
+from ..graph.core import InMemoryVIGraph
+from ..graph.models import (
+    AnyGraphNode,
+    ConstantNode,
+    FormulaNode,
+    PrimitiveNode,
+    VINode,
+)
+from ..primitive_resolver import NodeIcon
+from ..primitive_resolver import get_resolver as get_prim_resolver
+from ..vilib_resolver import get_resolver as get_vilib_resolver
+from .glyph import (
+    ArithGlyph,
+    BracketGlyph,
+    ConstantGlyph,
+    Glyph,
+    IconImageGlyph,
+    InlineSvgGlyph,
+    LabeledBoxGlyph,
+)
+from .style import wire_style
+
+logger = logging.getLogger(__name__)
+
+# Arithmetic-primitive name/operation -> triangle symbol (moved here from
+# the old draw.py dispatch dict — this IS "add a code-drawn built-in").
+_ARITH_SYMBOL = {
+    "Add": "+", "Subtract": "−", "Multiply": "×", "Divide": "÷",
+    "Increment": "+1", "Decrement": "-1",
+}
+
+_DEFAULT_ICON_SIZE = (24, 24)
+
+
+@dataclass(frozen=True)
+class GlyphContext:
+    """Context available to node glyph resolvers.
+
+    Deliberately small: resolvers work off the graph node itself plus the
+    owning graph/VI (to look up a SubVI's own source path). They never see
+    the ``Scene``/``RenderNode`` or heap geometry — a glyph's shape doesn't
+    depend on where it sits on the diagram.
+    """
+
+    graph: InMemoryVIGraph
+    vi_name: str
+
+
+class NodeGlyphResolver(Protocol):
+    """One link in the resolver chain. Return ``None`` to fall through."""
+
+    def resolve(self, node: AnyGraphNode, ctx: GlyphContext) -> Glyph | None: ...
+
+
+class ExtractedIconResolver:
+    """Best-effort real SubVI ``_ICON.png`` for VINode subVI calls.
+
+    The caller's heap XML only carries the CALLER's own icon (drawn as the
+    corner decoration in ``draw_scene``) — a subVI's icon requires the
+    subVI's own file. This resolver only uses what's cheaply already known:
+
+    - ``graph.get_vi_source_path(name)``, if the subVI happens to already
+      be loaded in the same graph (free — a dict lookup); or
+    - ``node.qualified_path``, if it happens to already be a literal,
+      existing file path (rare: today's ``qualified_path`` values are raw
+      LabVIEW path TOKENS like ``"<vilib>/Utility/error.llb/Foo.vi"``, not
+      resolved filesystem paths — resolving the ``<vilib>``/``<userlib>``
+      tokens would need a library root the graph doesn't expose publicly;
+      see the JUDGMENT CALL note in this module's tests / the P2 report).
+
+    If neither is available, it returns ``None`` (fall through) rather than
+    loading/parsing the subVI's own graph — that would be exactly the
+    "force-load subVIs expensively" this resolver must avoid. Extracting
+    the (cached) heap XML of an already-located file is still a subprocess
+    call on a cache miss, so every failure mode here is wrapped and
+    fail-soft: an icon is a decoration, never a reason to fail rendering.
+    """
+
+    def resolve(self, node: AnyGraphNode, ctx: GlyphContext) -> Glyph | None:
+        if not isinstance(node, VINode):
+            return None
+        name = node.name
+        if not name:
+            return None
+
+        src_path = ctx.graph.get_vi_source_path(name)
+        if src_path is None and node.qualified_path:
+            candidate = Path(node.qualified_path)
+            if candidate.is_file():
+                src_path = candidate
+        if src_path is None:
+            return None
+
+        try:
+            bd_xml, _, _ = extract_vi_xml(src_path)
+        except Exception:
+            logger.debug(
+                "subVI icon extraction failed for %r (%s)", name, src_path,
+                exc_info=True,
+            )
+            return None
+
+        icon_path = bd_xml.parent / f"{bd_xml.stem.replace('_BDHb', '')}_ICON.png"
+        if not icon_path.is_file():
+            return None
+        return IconImageGlyph(icon_path)
+
+
+class JsonGlyphResolver:
+    """The optional, declarative ``icon`` field on a primitive/vilib entry.
+
+    Mirrors the exact lookup order ``graph/construction.py`` already uses
+    to resolve these nodes semantically (prim_id/name, then node_type for
+    primitives; poly-variant then plain name for VI calls) — so "does this
+    node have a declared icon" asks the same question codegen already
+    answers, just adding one optional field to the result.
+    """
+
+    def resolve(self, node: AnyGraphNode, ctx: GlyphContext) -> Glyph | None:
+        icon: NodeIcon | None = None
+        if isinstance(node, PrimitiveNode):
+            icon = self._primitive_icon(node)
+        elif isinstance(node, VINode):
+            icon = self._vi_icon(node)
+        if icon is None:
+            return None
+        return self._glyph_from_icon(icon)
+
+    @staticmethod
+    def _primitive_icon(node: PrimitiveNode) -> NodeIcon | None:
+        resolver = get_prim_resolver()
+        resolved = resolver.resolve(prim_id=node.prim_id, name=node.name)
+        if resolved is not None and resolved.icon is not None:
+            return resolved.icon
+        if node.node_type:
+            nt_resolved = resolver.resolve_by_node_type(node.node_type)
+            if nt_resolved is not None:
+                return nt_resolved.icon
+        return None
+
+    @staticmethod
+    def _vi_icon(node: VINode) -> NodeIcon | None:
+        resolver = get_vilib_resolver()
+        entry = None
+        if node.poly_variant_name and node.name:
+            entry = resolver.resolve_poly_variant(node.name, node.poly_variant_name)
+        if entry is None and node.name:
+            entry = resolver.resolve_by_name(node.name)
+        return entry.icon if entry is not None else None
+
+    @staticmethod
+    def _glyph_from_icon(icon: NodeIcon) -> Glyph | None:
+        if icon.svg is not None:
+            return InlineSvgGlyph(icon.svg, icon.size or _DEFAULT_ICON_SIZE)
+        if icon.file is not None:
+            path = _bundled_data_dir() / "glyphs" / icon.file
+            try:
+                fragment = path.read_text()
+            except OSError:
+                logger.debug("glyph asset not found: %s", path)
+                return None
+            return InlineSvgGlyph(fragment, icon.size or _DEFAULT_ICON_SIZE)
+        return None
+
+
+class GeneratedGlyphResolver:
+    """Code-drawn built-ins — migrated from the old ``draw.py`` dispatch
+    dict. This is where "adding a visual" still means writing a branch,
+    reserved for shapes that are cheap to describe procedurally and don't
+    warrant a hand-authored SVG asset (arithmetic triangles, brackets)."""
+
+    def resolve(self, node: AnyGraphNode, ctx: GlyphContext) -> Glyph | None:
+        if isinstance(node, PrimitiveNode):
+            return self._primitive_glyph(node)
+        if isinstance(node, VINode):
+            return LabeledBoxGlyph(
+                node.name or "SubVI", "subvi_fill", "subvi_stroke", 1.5,
+            )
+        if isinstance(node, ConstantNode):
+            color = wire_style(node.lv_type).color
+            value = node.raw_value if node.value is None else str(node.value)
+            return ConstantGlyph(value or "", color)
+        if isinstance(node, FormulaNode):
+            return LabeledBoxGlyph(
+                node.name or "Formula", "prim_fill", "prim_stroke", 1.5,
+            )
+        return None
+
+    @staticmethod
+    def _primitive_glyph(node: PrimitiveNode) -> Glyph:
+        sym = _ARITH_SYMBOL.get(node.operation or node.name or "")
+        if sym:
+            return ArithGlyph(sym)
+        if node.node_type == "aBuild" or node.name == "Build Array":
+            return BracketGlyph()
+        return LabeledBoxGlyph(node.name or "?", "prim_fill", "prim_stroke", 1.0)
+
+
+class FallbackBoxResolver:
+    """The labeled box. ALWAYS returns a ``Glyph`` — resolution can't fail."""
+
+    def resolve(self, node: AnyGraphNode, ctx: GlyphContext) -> Glyph:
+        label = node.name or node.node_type or "?"
+        return LabeledBoxGlyph(label, "prim_fill", "prim_stroke", 1.0)
+
+
+# The registration point: an ordered list, tried in order, first hit wins.
+# Add a resolver here to extend the mechanism; add an icon/asset/JSON entry
+# to extend WITHOUT touching this list at all.
+_RESOLVERS: list[NodeGlyphResolver] = [
+    ExtractedIconResolver(),
+    JsonGlyphResolver(),
+    GeneratedGlyphResolver(),
+    FallbackBoxResolver(),
+]
+
+
+def resolve_glyph(node: AnyGraphNode, ctx: GlyphContext) -> Glyph:
+    """Resolve ``node``'s visual via the ordered resolver chain.
+
+    Always returns a ``Glyph`` — the last resolver (``FallbackBoxResolver``)
+    never returns ``None``.
+    """
+    for resolver in _RESOLVERS:
+        glyph = resolver.resolve(node, ctx)
+        if glyph is not None:
+            return glyph
+    raise AssertionError("FallbackBoxResolver must always return a Glyph")
