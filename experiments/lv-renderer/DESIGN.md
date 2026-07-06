@@ -161,6 +161,14 @@ Aligns with the pending MCP stateless refactor.
 - **P3 — Docs integration:** SVG in docs pipeline + Mermaid fallback + golden tests; delete-dup done;
   switch `visualize`.
 - **P4 — Extensions:** PDF/subVI icon extraction, more structures, PNG backend, per-frame case tabs.
+  - **Geometry capture during parse (opt-in flag).** Today `render/layout.py` re-parses the heap
+    XML for bounds/termBounds (a second parse of `_BDHb.xml`) and re-derives nested-structure
+    coordinate offsets separately from the parser's existing walk (Fable S11/S14). Optimization:
+    a `capture_geometry=False` flag on the parser/`load_vi` so the ~1% render case can ask the
+    parser — which already walks the tree — to stash a geometry **sidecar** (`dict[uid → bounds]`,
+    keyed by the same UID), NOT bounds fields on every semantic node. Eliminates the double parse
+    + the string-join + duplicated offset logic while keeping semantics/geometry separate. Default
+    off so codegen stays lean.
 
 ## Verification
 - `uv run lvkit render ".tmp/array average 1.vi"` → SVG matching the ground-truth PNG (FP labels,
