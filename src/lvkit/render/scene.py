@@ -322,12 +322,21 @@ def _structure_borders(
     return result
 
 
-_STUB = 7.0  # length a wire exits/enters a terminal along its edge normal
+_STUB = 9.0  # length a wire exits/enters a terminal along its edge normal
 
 
-def _exit_side(center: Point, bounds: Rect | None) -> Point:
-    """Unit normal a wire leaves a terminal on, from the nearest node edge:
-    right output → (1,0), left input → (-1,0), top → (0,-1), bottom → (0,1)."""
+def _exit_side(direction: str | None, center: Point, bounds: Rect | None) -> Point:
+    """Unit normal a wire leaves/enters a terminal on.
+
+    LabVIEW dataflow runs left→right: a node's OUTPUT exits to the RIGHT and an
+    INPUT is entered from the LEFT — regardless of where the tiny clickable
+    termBounds actually sits (a primitive's output termBounds is near the node
+    centre, not its visual apex, so a nearest-edge guess picks the wrong side).
+    Only fall back to nearest-edge for terminals with no clear direction."""
+    if direction == "output":
+        return (1.0, 0.0)
+    if direction == "input":
+        return (-1.0, 0.0)
     if bounds is None:
         return (1.0, 0.0)
     x1, y1, x2, y2 = bounds
@@ -337,8 +346,8 @@ def _exit_side(center: Point, bounds: Rect | None) -> Point:
     return min(d, key=lambda k: d[k])
 
 
-def _stub(center: Point, bounds: Rect | None) -> Point:
-    sx, sy = _exit_side(center, bounds)
+def _stub(center: Point, bounds: Rect | None, direction: str | None) -> Point:
+    sx, sy = _exit_side(direction, center, bounds)
     return (center[0] + sx * _STUB, center[1] + sy * _STUB)
 
 
@@ -413,7 +422,10 @@ def _build_wire_nets(
 
         source_term = graph.get_terminal(key)
         src_num = numeric_repr(source_term.lv_type if source_term else None)
-        src_out = _stub(src_center, owner.get(raw_src))  # exit along source edge
+        # An output exits RIGHT (dataflow is left->right), not toward whatever
+        # edge its tiny termBounds happens to sit near.
+        src_dir = source_term.direction if source_term else "output"
+        src_out = _stub(src_center, owner.get(raw_src), src_dir)
 
         branches: list[list[Point]] = []
         coercion_dots: list[Point] = []
@@ -426,13 +438,14 @@ def _build_wire_nets(
                     w.dest.terminal_id,
                 )
                 continue
-            dst_in = _stub(dst_center, owner.get(raw_dst))  # enter along dest edge
+            dest_term = graph.get_terminal(w.dest.terminal_id)
+            dst_dir = dest_term.direction if dest_term else "input"
+            dst_in = _stub(dst_center, owner.get(raw_dst), dst_dir)  # enter from left
             mid = router.route(src_out, dst_in, all_points)
             branches.append([src_center, *mid, dst_center])
 
             # Coercion dot ONLY on a numeric-representation change (I32->DBL),
             # never a structural one (array->element at an auto-index tunnel).
-            dest_term = graph.get_terminal(w.dest.terminal_id)
             dst_num = numeric_repr(dest_term.lv_type if dest_term else None)
             if src_num is not None and dst_num is not None and src_num != dst_num:
                 coercion_dots.append(dst_center)
