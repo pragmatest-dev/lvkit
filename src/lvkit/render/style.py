@@ -59,7 +59,41 @@ _INT_TYPES = {
     "NumInt8", "NumInt16", "NumInt32", "NumInt64",
     "NumUInt8", "NumUInt16", "NumUInt32", "NumUInt64",
 }
-_FLOAT_TYPES = {"NumFloat32", "NumFloat64"}
+_FLOAT_TYPES = {"NumFloat32", "NumFloat64", "NumFloatExt"}
+# Complex is orange like floats in LabVIEW (was falling through to "unknown").
+_COMPLEX_TYPES = {"NumComplex64", "NumComplex128", "NumComplexExt"}
+
+# LabVIEW data-type terminal text, exactly as the reference manual draws it
+# (e.g. an orange `[DBL]` box for a DBL array — verified against the PDF).
+_TYPE_REPR = {
+    "NumFloat64": "DBL", "NumFloat32": "SGL", "NumFloatExt": "EXT",
+    "NumComplex64": "CSG", "NumComplex128": "CDB", "NumComplexExt": "CXT",
+    "NumInt8": "I8", "NumInt16": "I16", "NumInt32": "I32", "NumInt64": "I64",
+    "NumUInt8": "U8", "NumUInt16": "U16", "NumUInt32": "U32", "NumUInt64": "U64",
+    "Boolean": "TF", "String": "abc", "Path": "Path",
+    "Refnum": "Ref", "Variant": "Var", "LVVariant": "Var",
+}
+
+
+def type_repr(lv_type: LVType | None) -> str:
+    """The LabVIEW data-type terminal text for an LVType.
+
+    Array → the element repr wrapped in one bracket pair per dimension
+    (`[DBL]`, `[[I32]]`); scalars → `DBL`/`I32`/`TF`/`abc`/…; cluster/None → "".
+    """
+    if lv_type is None:
+        return ""
+    if lv_type.kind == "array":
+        dims = lv_type.dimensions or 1
+        inner = type_repr(lv_type.element_type) or "?"
+        return "[" * dims + inner + "]" * dims
+    if lv_type.kind in ("enum", "ring"):
+        return "Enum"
+    if lv_type.kind in ("cluster", "typedef_ref"):
+        return ""  # clusters have no single-token repr
+    if lv_type.kind == "primitive":
+        return _TYPE_REPR.get(lv_type.underlying_type or "", "")
+    return ""
 
 # Coarse type-family buckets, shared by wire coloring AND front-panel
 # terminal glyph selection (draw.py) so both stay driven by one table.
@@ -91,7 +125,7 @@ def type_family(lv_type: LVType | None) -> str:
         return "error_cluster" if _is_error_cluster(lv_type) else "cluster"
     if lv_type.kind == "primitive":
         ut = lv_type.underlying_type or ""
-        if ut in _FLOAT_TYPES:
+        if ut in _FLOAT_TYPES or ut in _COMPLEX_TYPES:
             return "float"
         if ut in _INT_TYPES:
             return "int"

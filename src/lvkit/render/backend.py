@@ -53,7 +53,7 @@ class Backend(Protocol):
 
     def text(
         self, x: float, y: float, s: str, size: float, *,
-        fill: str | None = None, italic: bool = False,
+        fill: str | None = None, italic: bool = False, bold: bool = False,
     ) -> None: ...
 
     def image(
@@ -138,9 +138,12 @@ class SvgBackend:
 
     def text(
         self, x: float, y: float, s: str, size: float, *,
-        fill: str | None = None, italic: bool = False,
+        fill: str | None = None, italic: bool = False, bold: bool = False,
     ) -> None:
-        a = self._attrs(fill=fill, font_style="italic" if italic else None)
+        a = self._attrs(
+            fill=fill, font_style="italic" if italic else None,
+            font_weight="bold" if bold else None,
+        )
         self._elements.append(
             f'<text x="{x:.1f}" y="{y:.1f}" font-size="{size}" '
             f'text-anchor="middle" {a}>{escape(s)}</text>'

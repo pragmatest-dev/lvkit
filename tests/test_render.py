@@ -445,16 +445,25 @@ def _render_fp_terminal(lv_type: LVType | None, is_indicator: bool = False) -> s
     return backend.render((0.0, 0.0, 40.0, 40.0))
 
 
-def test_numeric_control_glyph_present():
+def test_numeric_control_glyph_is_type_repr():
+    # Real LabVIEW data-type terminals show the type name, e.g. DBL / I32.
     svg = _render_fp_terminal(LVType(kind="primitive", underlying_type="NumFloat64"))
-    assert "1.23" in svg
+    assert ">DBL<" in svg
     svg_int = _render_fp_terminal(LVType(kind="primitive", underlying_type="NumInt32"))
-    assert "123" in svg_int
+    assert ">I32<" in svg_int
 
 
-def test_boolean_control_glyph_is_a_circle():
+def test_array_control_glyph_has_brackets():
+    # An array-of-DBL control terminal is [DBL] (brackets = array).
+    arr = LVType(kind="array", dimensions=1,
+                 element_type=LVType(kind="primitive", underlying_type="NumFloat64"))
+    svg = _render_fp_terminal(arr)
+    assert "[DBL]" in svg
+
+
+def test_boolean_control_glyph_is_tf():
     svg = _render_fp_terminal(LVType(kind="primitive", underlying_type="Boolean"))
-    assert "<circle" in svg
+    assert ">TF<" in svg
 
 
 def test_string_control_glyph_present():

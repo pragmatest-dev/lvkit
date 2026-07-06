@@ -14,7 +14,7 @@ from .backend import Backend
 from .glyph import fit_label
 from .icons import icon_data_uri
 from .scene import RenderBorderTerminal, RenderNode, RenderStructure, Scene
-from .style import DEFAULT_THEME, Theme, type_family, wire_style
+from .style import DEFAULT_THEME, Theme, type_family, type_repr, wire_style
 
 # Structure node_type -> border style key (graph-sourced; see node_type
 # values assigned in graph/construction.py / graph/core.py::_NODE_TYPE_NAMES).
@@ -164,38 +164,35 @@ def _fp_glyph_family(terminal: FPTerminal) -> str:
     return _CONTROL_TYPE_FAMILY.get(terminal.control_type or "", "unknown")
 
 
+# Fallback terminal text when the LVType didn't resolve (control_type only).
+_FAMILY_REPR = {
+    "float": "DBL", "int": "I32", "bool": "TF", "string": "abc",
+    "path": "Path", "enum": "Enum", "array": "[ ]",
+}
+
+
+def _fp_repr(terminal: FPTerminal) -> str:
+    """The LabVIEW data-type text for a control/indicator terminal —
+    `[DBL]` for a DBL array, `DBL`/`I32`/`TF`/`abc` for scalars — from the
+    resolved LVType, falling back to the control_type family."""
+    r = type_repr(terminal.lv_type)
+    if r:
+        return r
+    return _FAMILY_REPR.get(_fp_glyph_family(terminal), "")
+
+
 def _draw_fp_glyph(
-    family: str, bounds: tuple[float, float, float, float],
+    text: str, bounds: tuple[float, float, float, float],
     backend: Backend, color: str,
 ) -> None:
-    """Draw the small recognizable LabVIEW terminal glyph INSIDE a
-    control/indicator box — kept tasteful and small, not a full icon set
-    (that's P2's resolver chain)."""
+    """Draw the LabVIEW data-type text (e.g. `[DBL]`) inside the terminal box."""
+    if not text:
+        return  # colored border alone is the signal
     x1, y1, x2, y2 = bounds
     cx, cy = (x1 + x2) / 2, (y1 + y2) / 2
-    w, h = x2 - x1, y2 - y1
     size = 9.0
-    if family == "float":
-        backend.text(cx, cy + 3, fit_label("1.23", w - 4, backend, size), size,
-                     fill=color)
-    elif family == "int":
-        backend.text(cx, cy + 3, fit_label("123", w - 4, backend, size), size,
-                     fill=color)
-    elif family == "bool":
-        r = max(2.0, min(w, h) * 0.22)
-        backend.circle(cx, cy, r, fill=color, stroke="#333333", stroke_width=0.75)
-    elif family == "string":
-        backend.text(cx, cy + 3, "abc", size, fill=color, italic=True)
-    elif family == "path":
-        backend.text(cx, cy + 3, fit_label("Path", w - 4, backend, 8.0), 8.0,
-                     fill=color)
-    elif family == "enum":
-        backend.text(cx, cy + 3, "▾", size, fill=color)
-    elif family in ("cluster", "error_cluster"):
-        backend.text(cx, cy + 3, "{}", size, fill=color)
-    elif family == "array":
-        backend.text(cx, cy + 3, "[ ]", size, fill=color)
-    # "unknown" -> no inner glyph; the colored border alone is the signal.
+    backend.text(cx, cy + 3, fit_label(text, (x2 - x1) - 3, backend, size), size,
+                 fill=color, bold=True)
 
 
 def draw_fp_terminal(
@@ -207,13 +204,13 @@ def draw_fp_terminal(
     stroke_width = 1.5 if terminal.is_indicator else 3.0
     backend.rect(x1, y1, x2, y2, rx=2, fill=theme.term_fill,
                  stroke=color, stroke_width=stroke_width)
-    _draw_fp_glyph(_fp_glyph_family(terminal), bounds, backend, color)
+    _draw_fp_glyph(_fp_repr(terminal), bounds, backend, color)
     label = terminal.name or ""
     if label:
         size = 8.0
-        below_y = y2 + 10
+        # LabVIEW default: control/indicator label sits ABOVE the terminal.
         backend.text(
-            (x1 + x2) / 2, below_y,
+            (x1 + x2) / 2, y1 - 4,
             fit_label(label, max(x2 - x1, 40.0), backend, size), size,
         )
 
