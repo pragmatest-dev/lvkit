@@ -43,10 +43,14 @@ _INTERNAL_NODE_TYPES = {"nMux"}
 
 @dataclass(frozen=True)
 class RenderTerminal:
-    """A terminal joined to its on-diagram center point."""
+    """A terminal joined to its on-diagram center point (and heap rect)."""
 
     terminal: Terminal
     center: Point
+    # The terminal's own heap ``termBounds`` rect (absolute). Kept because some
+    # glyphs (arithmetic triangles) are sized/placed from the union of their
+    # terminal rects, not the 32x32 node box — see draw.py::draw_node.
+    bounds: Rect | None = None
 
 
 @dataclass(frozen=True)
@@ -223,11 +227,14 @@ def _render_terminals(
 ) -> list[RenderTerminal]:
     result: list[RenderTerminal] = []
     for t in node.terminals:
-        center = layout.terminal_centers.get(_strip_prefix(t.id, vi_name))
+        key = _strip_prefix(t.id, vi_name)
+        center = layout.terminal_centers.get(key)
         if center is None:
             logger.debug("no geometry for terminal %s", t.id)
             continue
-        result.append(RenderTerminal(terminal=t, center=center))
+        result.append(RenderTerminal(
+            terminal=t, center=center, bounds=layout.node_bounds.get(key),
+        ))
     return result
 
 

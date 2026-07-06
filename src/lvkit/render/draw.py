@@ -34,36 +34,26 @@ _STRUCTURE_STYLE = {
     "sequence": "stackedSequence",
 }
 
-# LabVIEW draws arithmetic-primitive triangles (Add/Subtract/Multiply/Divide/
-# Increment/Decrement) at a fixed icon size, smaller than the 32x32 clickable
-# node box, with the triangle's apex sitting on the OUTPUT terminal center (the
-# output wire leaves the apex). Size is fixed, NOT derived from the terminal
-# spread, which is a tight ~10px cluster in the box's upper-left.
-_ARITH_W = 20.0
-_ARITH_H = 20.0
-
-
 def draw_node(node: RenderNode, backend: Backend, theme: Theme = DEFAULT_THEME) -> None:
     """Draw one node's already-resolved ``Glyph`` (see ``nodes.py``'s
     resolver chain — extending node visuals never touches this function).
 
     Arithmetic primitives (``ArithGlyph`` — Add/Subtract/Multiply/Divide/
-    Increment/Decrement) are drawn at a FIXED, smaller-than-the-box size with
-    the triangle's apex pinned to the node's OUTPUT terminal center, matching
-    LabVIEW (the output wire leaves the apex). Other primitives (e.g.
-    bracket/build-array glyphs) are still drawn at the size of their TERMINAL
-    extent, not the full 32x32 heap bounds. Real subVI/prim icons and
-    constants keep their own bounds."""
+    Increment/Decrement) are drawn at the exact icon rect LabVIEW stores: the
+    UNION of the node's terminal ``termBounds`` rects. That union is the real
+    triangle — smaller than the 32x32 clickable box and flush to its top-left,
+    with the apex on the union's right edge (the output terminal) — so the base
+    lands on the input terminals and the apex on the output wire, with no fixed
+    guessed size and no leftward drift. Other primitives (e.g. bracket/build-
+    array glyphs) are drawn at their terminal-center extent. Real subVI/prim
+    icons and constants keep their own bounds."""
     bounds = node.bounds
     if isinstance(node.glyph, ArithGlyph):
-        out_t = next(
-            (t for t in node.terminals if t.terminal.direction == "output"), None,
-        )
-        if out_t is not None:
-            apex_x, apex_y = out_t.center
+        rects = [t.bounds for t in node.terminals if t.bounds is not None]
+        if rects:
             bounds = (
-                apex_x - _ARITH_W, apex_y - _ARITH_H / 2,
-                apex_x, apex_y + _ARITH_H / 2,
+                min(r[0] for r in rects), min(r[1] for r in rects),
+                max(r[2] for r in rects), max(r[3] for r in rects),
             )
     elif getattr(node.node, "kind", None) == "primitive" and len(node.terminals) >= 2:
         xs = [t.center[0] for t in node.terminals]
