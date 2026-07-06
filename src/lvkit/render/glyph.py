@@ -77,7 +77,7 @@ class LabeledBoxGlyph:
     def draw(self, backend: Backend, bounds: Rect, theme: Theme) -> None:
         x1, y1, x2, y2 = bounds
         backend.rect(
-            x1, y1, x2, y2, rx=2,
+            x1, y1, x2, y2,
             fill=getattr(theme, self.fill_attr),
             stroke=getattr(theme, self.stroke_attr),
             stroke_width=self.stroke_width,
@@ -125,7 +125,7 @@ class ConstantGlyph:
     def draw(self, backend: Backend, bounds: Rect, theme: Theme) -> None:
         x1, y1, x2, y2 = bounds
         backend.rect(
-            x1, y1, x2, y2, rx=2, fill=getattr(theme, self.fill_attr),
+            x1, y1, x2, y2, fill=theme.const_fill,
             stroke=self.color, stroke_width=1.2,
         )
         if self.value:

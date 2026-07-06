@@ -22,6 +22,7 @@ class Theme:
     prim_fill: str = "#fff6d8"
     prim_stroke: str = "#b07d10"
     term_fill: str = "#fff3e2"
+    const_fill: str = "#ffffff"       # numeric/string constant box background
     loop_term: str = "#1f3fbf"           # N / i border terminal
     loop_term_fill: str = "#ffffcc"      # pale-yellow fill of the N/i box (per GT)
     cond_stop: str = "#c62828"           # while-loop conditional terminal
@@ -36,7 +37,7 @@ class Theme:
     sr_stroke: str = "#555555"
     tunnel_border: str = "#4a4a3a"       # dark-olive border of tunnel/index boxes
     coercion_dot: str = "#5a5a5a"         # gray coercion-dot fill
-    fp_panel: str = "#d9d9d9"       # grey inner panel of an FP control/indicator
+    fp_panel: str = "#e2e2e2"       # grey inner panel of an FP control/indicator
     fp_value_fill: str = "#ffffff"  # recessed numeric value cell
     fp_value_text: str = "#333333"
     fp_index_fill: str = "#c8c8c8"  # array index-display cell

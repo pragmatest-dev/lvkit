@@ -60,6 +60,9 @@ def draw_node(node: RenderNode, backend: Backend, theme: Theme = DEFAULT_THEME) 
     guessed size and no leftward drift. Other primitives (e.g. bracket/build-
     array glyphs) are drawn at their terminal-center extent. Real subVI/prim
     icons and constants keep their own bounds."""
+    if node.glyph_bounds is not None:
+        node.glyph.draw(backend, node.glyph_bounds, theme)
+        return
     bounds = node.bounds
     if isinstance(node.glyph, ArithGlyph):
         rects = [t.bounds for t in node.terminals if t.bounds is not None]
@@ -112,7 +115,7 @@ def _draw_border_terminal(
     if kind in ("sr_down", "sr_up"):
         # Shift register: a type-colored box with a filled triangle glyph.
         col = bt.color or theme.sr_stroke
-        backend.rect(x1, y1, x2, y2, fill=theme.term_fill, stroke=col,
+        backend.rect(x1, y1, x2, y2, fill=theme.loop_term_fill, stroke=col,
                      stroke_width=1.2)
         if kind == "sr_up":
             tri = [(x1 + 2, y2 - 2), (cx, y1 + 2), (x2 - 2, y2 - 2)]
@@ -123,14 +126,17 @@ def _draw_border_terminal(
     if kind == "autoindex":
         # Array auto-indexing tunnel: a pale box with a dark border and the
         # element brackets drawn as SHAPES (not text) in the wire type color.
+        # The brackets sit padded inside the box with LONG serifs so [ and ]
+        # nearly meet top and bottom — reading as a square inside the square.
         col = bt.color or "#333333"
         backend.rect(x1, y1, x2, y2, fill=theme.loop_term_fill,
                      stroke=theme.tunnel_border, stroke_width=1.2)
-        bx = (x2 - x1) * 0.20   # horizontal padding inside the box
-        by = (y2 - y1) * 0.15   # vertical padding
-        sr = (x2 - x1) * 0.22   # bracket serif length
-        lx, rx = x1 + bx, x2 - bx
-        ty, by2 = y1 + by, y2 - by
+        # A centered SQUARE inner region (side = min box dimension), padded.
+        side = min(x2 - x1, y2 - y1) * (1 - 2 * 0.26)
+        mx, my = (x1 + x2) / 2, (y1 + y2) / 2
+        lx, rx = mx - side / 2, mx + side / 2
+        ty, by2 = my - side / 2, my + side / 2
+        sr = side * 0.40   # long serifs: [ and ] nearly close at top/bottom
         backend.path([(lx + sr, ty), (lx, ty), (lx, by2), (lx + sr, by2)],
                      stroke=col, stroke_width=1.3)
         backend.path([(rx - sr, ty), (rx, ty), (rx, by2), (rx - sr, by2)],
@@ -339,17 +345,15 @@ def draw_fp_terminal(
     color = wire_style(scalar_type, theme).color
     stroke_width = 1.5 if terminal.is_indicator else 3.0
 
-    backend.rect(x1, y1, x2, y2, rx=2, fill=theme.fp_panel,
+    backend.rect(x1, y1, x2, y2, fill=theme.fp_panel,
                  stroke=color, stroke_width=stroke_width)
 
     label = terminal.name or ""
     if label:
         size = 8.0
-        # LabVIEW default: control/indicator name label sits ABOVE the box.
-        backend.text(
-            (x1 + x2) / 2, y1 - 4,
-            fit_label(label, max(x2 - x1, 40.0), backend, size), size,
-        )
+        # LabVIEW default: the FULL control/indicator name sits ABOVE the box,
+        # centered, overflowing the terminal width — never truncated.
+        backend.text((x1 + x2) / 2, y1 - 4, label, size)
 
     type_label = _fp_type_label(terminal, scalar_type)
     if type_label:
