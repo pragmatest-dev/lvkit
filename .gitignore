@@ -101,3 +101,13 @@ outputs/
 docs/*.pdf
 docs/labview_ref_manual.txt
 docs/labview_programming_reference_manual*
+
+# lv-renderer experiment scratch. Keep only the canonical gallery examples;
+# ignore the throwaway per-iteration review renders and icon-extraction probes.
+experiments/lv-renderer/gallery/*
+!experiments/lv-renderer/gallery/Build.svg
+!experiments/lv-renderer/gallery/Out.svg
+!experiments/lv-renderer/gallery/XML_Loop_Stack_Recursion.svg
+experiments/lv-renderer/icon_extract/
+experiments/lv-renderer/icon_probe/
+experiments/lv-renderer/icon_probe_reverse1d.png
