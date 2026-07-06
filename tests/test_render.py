@@ -459,12 +459,18 @@ def test_numeric_control_glyph_is_type_repr():
 def test_array_control_glyph_is_icon_view():
     # An array-of-DBL control terminal shows the ELEMENT type label (DBL,
     # not "[DBL]" — icon view has no bracket text) plus an index column
-    # cell labelled "i" on the left, matching LabVIEW's icon-view chrome.
+    # cell on the left, matching LabVIEW's icon-view chrome. The index
+    # cell is now confined to the ground-truth-measured upper strip
+    # (~7px tall for a single dimension), but the small index cell still
+    # shows its letter — matching the ground truth's small grey index
+    # block with a readable letter — so this checks for both the cell
+    # itself (its fill color) and the rendered "i" glyph.
     arr = LVType(kind="array", dimensions=1,
                  element_type=LVType(kind="primitive", underlying_type="NumFloat64"))
     svg = _render_fp_terminal(arr)
     assert "[DBL]" not in svg
     assert ">DBL<" in svg
+    assert DEFAULT_THEME.fp_index_fill in svg
     assert ">i<" in svg
 
 

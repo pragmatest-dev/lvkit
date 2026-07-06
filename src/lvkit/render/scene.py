@@ -21,7 +21,14 @@ from ..graph.models import (
     StructureNode,
     Wire,
 )
-from ..models import CaseFrame, FPTerminal, SequenceFrame, Terminal, TunnelTerminal
+from ..models import (
+    CaseFrame,
+    FPTerminal,
+    LVType,
+    SequenceFrame,
+    Terminal,
+    TunnelTerminal,
+)
 from .glyph import Glyph
 from .layout import Layout, Point, Rect, build_layout
 from .nodes import GlyphContext, resolve_glyph
@@ -343,6 +350,24 @@ def _structure_borders(
     return result
 
 
+def _wire_carrier_type(
+    src_type: LVType | None, dest_types: list[LVType | None],
+) -> LVType | None:
+    """The type a wire visually carries, reconciled from BOTH endpoints.
+
+    An auto-indexing For-Loop tunnel's inner terminal is typed as the ARRAY it
+    indexes, but it emits ONE ELEMENT per iteration. So a wire from an array
+    source into a scalar (non-array) destination — i.e. the array's element
+    type — carries the element (a THIN wire), not the array. Everywhere else
+    the source type already is the carried type.
+    """
+    if src_type is not None and src_type.kind == "array" \
+            and src_type.element_type is not None:
+        if any(dt is not None and dt.kind != "array" for dt in dest_types):
+            return src_type.element_type
+    return src_type
+
+
 _STUB = 9.0  # length a wire exits/enters a terminal along its edge normal
 
 
@@ -472,6 +497,7 @@ def _build_wire_nets(
 
         branches: list[list[Point]] = []
         coercion_dots: list[Point] = []
+        dest_types: list[LVType | None] = []
         for w in group:
             raw_dst = _strip_prefix(w.dest.terminal_id, vi_name)
             dst_center = layout.terminal_centers.get(raw_dst)
@@ -482,6 +508,7 @@ def _build_wire_nets(
                 )
                 continue
             dest_term = graph.get_terminal(w.dest.terminal_id)
+            dest_types.append(dest_term.lv_type if dest_term else None)
             dst_dir = _wire_role(dest_term, "input")
             dst_in = _stub(dst_center, owner.get(raw_dst), dst_dir)  # enter from left
             mid = router.route(src_out, dst_in, all_points)
@@ -499,7 +526,10 @@ def _build_wire_nets(
         if not branches:
             continue
 
-        style = wire_style(source_term.lv_type if source_term else None)
+        carrier = _wire_carrier_type(
+            source_term.lv_type if source_term else None, dest_types,
+        )
+        style = wire_style(carrier)
         junctions = [src_center] if len(branches) > 1 else []
         nets.append(RenderWireNet(
             source=group[0], style=style, branches=branches,

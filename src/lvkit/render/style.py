@@ -52,6 +52,10 @@ class Theme:
 
 DEFAULT_THEME = Theme()
 
+# Unified diagram line width (wires + structure borders), matched to the
+# ground truth's ~1px scalar wire / structure-border weight.
+_LINE_W = 1.2
+
 
 @dataclass(frozen=True)
 class WireStyle:
@@ -190,7 +194,7 @@ def wire_style(
     the element type).
     """
     if lv_type is None:
-        return WireStyle(theme.wire_default, 2.0)
+        return WireStyle(theme.wire_default, _LINE_W)
 
     if lv_type.kind == "array":
         inner = wire_style(lv_type.element_type, theme)
@@ -198,7 +202,7 @@ def wire_style(
 
     family = type_family(lv_type)
     color = getattr(theme, _FAMILY_COLOR.get(family, ""), theme.wire_default)
-    return WireStyle(color, 2.0)
+    return WireStyle(color, _LINE_W)
 
 
 # --------------------------------------------------------------------- #

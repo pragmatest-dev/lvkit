@@ -34,6 +34,10 @@ _STRUCTURE_STYLE = {
     "sequence": "stackedSequence",
 }
 
+# LabVIEW's array-control terminal icon always shows a 3-row index display
+# (i / j / k) as fixed chrome, independent of the array's real dimensionality.
+_ARRAY_INDEX_ROWS = 3
+
 def draw_node(node: RenderNode, backend: Backend, theme: Theme = DEFAULT_THEME) -> None:
     """Draw one node's already-resolved ``Glyph`` (see ``nodes.py``'s
     resolver chain — extending node visuals never touches this function).
@@ -99,7 +103,7 @@ def _draw_border_terminal(
         # Shift register: a type-colored box with a filled triangle glyph.
         col = bt.color or theme.sr_stroke
         backend.rect(x1, y1, x2, y2, fill=theme.term_fill, stroke=col,
-                     stroke_width=1.5)
+                     stroke_width=1.2)
         if kind == "sr_up":
             tri = [(x1 + 2, y2 - 2), (cx, y1 + 2), (x2 - 2, y2 - 2)]
         else:
@@ -154,7 +158,7 @@ def _draw_for_loop_border(x1, y1, x2, y2, backend: Backend, theme: Theme) -> Non
 
 def _draw_while_loop_border(x1, y1, x2, y2, backend: Backend, theme: Theme) -> None:
     backend.rect(x1, y1, x2, y2, rx=7, fill="none", stroke=theme.struct_border,
-                 stroke_width=2)
+                 stroke_width=1.2)
 
 
 def _draw_case_border(
@@ -163,7 +167,7 @@ def _draw_case_border(
     x1, y1, x2, y2 = structure.bounds
     bar_h = 14.0
     backend.rect(x1, y1, x2, y2, fill="none", stroke=theme.struct_border,
-                 stroke_width=2)
+                 stroke_width=1.2)
     backend.rect(x1, y1 - bar_h, x2, y1, fill=theme.case_bar_fill,
                  stroke=theme.struct_border, stroke_width=1)
     shown = structure.shown_frame
@@ -176,7 +180,7 @@ def _draw_case_border(
 
 def _draw_sequence_border(x1, y1, x2, y2, backend: Backend, theme: Theme) -> None:
     backend.rect(x1, y1, x2, y2, fill="none", stroke=theme.struct_border,
-                 stroke_width=2)
+                 stroke_width=1.2)
     backend.line(x1, y1 + 4, x2, y1 + 4, stroke=theme.struct_border, stroke_width=1)
     backend.line(x1, y2 - 4, x2, y2 - 4, stroke=theme.struct_border, stroke_width=1)
 
@@ -198,7 +202,7 @@ def draw_structure(
         # Stacked sequence, In Place Element Structure, event structure,
         # or anything else — a plain border (matches the prior renderer).
         backend.rect(x1, y1, x2, y2, fill="none", stroke=theme.struct_border,
-                     stroke_width=2)
+                     stroke_width=1.2)
     # Border terminals (N/i/cond, tunnels, shift registers, selector) are NOT
     # drawn here — draw_scene paints them AFTER wires so a wire is never drawn
     # on top of a boundary terminal (it butts against it, like a VI's terminal).
@@ -267,8 +271,13 @@ def _draw_fp_value_cell(
     backend.rect(x1, y1, x2, y2, fill=theme.fp_value_fill,
                  stroke="#999999", stroke_width=0.75)
     cx, cy = (x1 + x2) / 2, (y1 + y2) / 2
-    backend.text(cx, cy + 3, fit_label(sample, (x2 - x1) - 2, backend, 9), 9,
-                 fill=theme.fp_value_text)
+    avail = (x2 - x1) - 3
+    fsize = 9.0
+    while fsize > 6.0 and backend.measure_text(sample, fsize) > avail:
+        fsize -= 0.5
+    text = sample if backend.measure_text(sample, fsize) <= avail \
+        else fit_label(sample, avail, backend, fsize)
+    backend.text(cx, cy + fsize / 3, text, fsize, fill=theme.fp_value_text)
 
 
 def _draw_array_index_column(
@@ -286,9 +295,10 @@ def _draw_array_index_column(
         cy2 = cy1 + height
         backend.rect(x1, cy1, x1 + width, cy2, fill=theme.fp_index_fill,
                      stroke="#333333", stroke_width=0.5)
-        if height >= 8.0:
+        if height >= 5.0:
             letter = _INDEX_LETTERS[i % len(_INDEX_LETTERS)]
-            backend.text(x1 + width / 2, (cy1 + cy2) / 2 + 3, letter, 7,
+            fsize = min(7.0, height - 1.0)
+            backend.text(x1 + width / 2, (cy1 + cy2) / 2 + fsize / 3, letter, fsize,
                          fill=theme.fp_value_text)
     return x1 + width
 
@@ -343,16 +353,20 @@ def draw_fp_terminal(
                 (x2, cy_mid)]
     backend.polygon(port, fill="#ffffff", stroke=color, stroke_width=1.0)
 
-    margin = 3.0
-    bottom_reserve = 9.0  # room for the bottom-center type label
+    margin = 5.0       # padding from the box border to the inner cells (per GT)
+    value_h = 10.0     # display cells occupy only the upper strip (GT ~10px)
+    idx_w = 8.0        # index-column width
+    idx_cell_h = 7.0   # per index row
     value_x1, value_y1 = x1 + margin, y1 + margin
-    value_x2, value_y2 = x2 - margin, y2 - margin - bottom_reserve
+    value_x2 = x2 - margin
+    value_y2 = value_y1 + value_h
 
     if is_array:
-        dims = (lv_type.dimensions or 1) if lv_type is not None else 1
+        idx_bottom = value_y1 + idx_cell_h * _ARRAY_INDEX_ROWS
         value_x1 = _draw_array_index_column(
-            value_x1, value_y1, value_x1 + 10.0, value_y2, dims, backend, theme,
-        ) + 1.0
+            value_x1, value_y1, value_x1 + idx_w, idx_bottom,
+            _ARRAY_INDEX_ROWS, backend, theme,
+        ) + 2.0
 
     sample = numeric_sample(scalar_type)
     value_bounds = (value_x1, value_y1, value_x2, value_y2)

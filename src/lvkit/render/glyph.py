@@ -103,7 +103,7 @@ class ArithGlyph:
         backend.polygon(
             [(x1, y1), (x2, (y1 + y2) / 2), (x1, y2)],
             fill=getattr(theme, self.fill_attr),
-            stroke=getattr(theme, self.stroke_attr), stroke_width=1.5,
+            stroke=getattr(theme, self.stroke_attr), stroke_width=1.2,
         )
         # Scale the operator to the (often small) triangle so it doesn't overflow.
         size = max(6.0, min(15.0, (y2 - y1) * 0.62, (x2 - x1) * 0.85))
@@ -126,7 +126,7 @@ class ConstantGlyph:
         x1, y1, x2, y2 = bounds
         backend.rect(
             x1, y1, x2, y2, rx=2, fill=getattr(theme, self.fill_attr),
-            stroke=self.color, stroke_width=2,
+            stroke=self.color, stroke_width=1.2,
         )
         if self.value:
             backend.text(
@@ -170,11 +170,11 @@ class BracketGlyph:
         o = min(6.0, (x2 - x1) / 4)
         backend.path(
             [(x1 + o, y1), (x1, y1), (x1, y2), (x1 + o, y2)],
-            stroke=stroke, stroke_width=1.5,
+            stroke=stroke, stroke_width=1.2,
         )
         backend.path(
             [(x2 - o, y1), (x2, y1), (x2, y2), (x2 - o, y2)],
-            stroke=stroke, stroke_width=1.5,
+            stroke=stroke, stroke_width=1.2,
         )
 
 
