@@ -18,7 +18,7 @@ import pytest
 from lvkit.graph.core import InMemoryVIGraph
 from lvkit.graph.models import PrimitiveNode, VINode
 from lvkit.render.backend import SvgBackend
-from lvkit.render.glyph import ArithGlyph, IconImageGlyph
+from lvkit.render.glyph import ArithGlyph, CenteredSvgGlyph, IconImageGlyph
 from lvkit.render.nodes import (
     _RESOLVERS,
     ExtractedIconResolver,
@@ -92,6 +92,10 @@ def test_pdf_icon_resolver_returns_none_for_unknown_prim_id():
 
 
 def test_pdf_icon_resolver_returns_icon_image_glyph_for_extracted_asset():
+    """PdfIconResolver now prefers the vectorized ``.svg`` asset (pixel-
+    faithful, drawn at natural size) over the raw ``.png`` when both exist
+    for the same stem — only stems without an SVG still fall back to
+    ``IconImageGlyph``."""
     entry = _first_ok_manifest_entry()
     if entry is None:
         pytest.skip("no extracted PDF icons available; run "
@@ -107,8 +111,13 @@ def test_pdf_icon_resolver_returns_icon_image_glyph_for_extracted_asset():
             prim_id=int(entry["prim_id"]), terminals=[],
         )
     glyph = PdfIconResolver().resolve(node, _ctx())
-    assert isinstance(glyph, IconImageGlyph)
-    assert glyph.icon_path.name == entry["asset"]
+    stem = Path(entry["asset"]).stem
+    svg_asset = GLYPHS_DIR / f"{stem}.svg"
+    if svg_asset.is_file():
+        assert isinstance(glyph, CenteredSvgGlyph)
+    else:
+        assert isinstance(glyph, IconImageGlyph)
+        assert glyph.icon_path.name == entry["asset"]
 
 
 def test_borderless_add_has_no_pdf_asset_and_falls_to_arith_triangle():
@@ -139,8 +148,12 @@ def test_index_array_prefers_node_type_asset_over_shared_prim_id():
         prim_id=1809, terminals=[],
     )
     glyph = PdfIconResolver().resolve(node, _ctx())
-    assert isinstance(glyph, IconImageGlyph)
-    assert glyph.icon_path == asset
+    svg_asset = GLYPHS_DIR / "prim_nt_aIndx.svg"
+    if svg_asset.is_file():
+        assert isinstance(glyph, CenteredSvgGlyph)
+    else:
+        assert isinstance(glyph, IconImageGlyph)
+        assert glyph.icon_path == asset
 
 
 @pytest.mark.parametrize("node_type,display_name", [
@@ -157,8 +170,12 @@ def test_boxed_array_primitives_resolve_to_extracted_icons(node_type, display_na
         node_type=node_type, terminals=[],
     )
     glyph = resolve_glyph(node, _ctx())
-    assert isinstance(glyph, IconImageGlyph)
-    assert glyph.icon_path == asset
+    svg_asset = GLYPHS_DIR / f"prim_nt_{node_type}.svg"
+    if svg_asset.is_file():
+        assert isinstance(glyph, CenteredSvgGlyph)
+    else:
+        assert isinstance(glyph, IconImageGlyph)
+        assert glyph.icon_path == asset
 
 
 # --------------------------------------------------------------------------- #

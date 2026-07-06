@@ -154,6 +154,28 @@ class IconImageGlyph:
 
 
 @dataclass(frozen=True)
+class CenteredSvgGlyph:
+    """An SVG icon drawn at its NATURAL pixel size, CENTERED in the node box —
+    LabVIEW draws a primitive's icon at its own size within the (larger)
+    clickable box, not stretched to fill it. Scaled down proportionally only
+    if the natural size is larger than the available bounds."""
+
+    fragment: str
+    natural: tuple[int, int]  # (width, height) in the SVG's own viewBox units
+
+    def draw(self, backend: Backend, bounds: Rect, theme: Theme) -> None:
+        x1, y1, x2, y2 = bounds
+        bw, bh = x2 - x1, y2 - y1
+        nw, nh = self.natural
+        if nw <= 0 or nh <= 0:
+            return
+        scale = min(1.0, bw / nw, bh / nh)
+        w, h = nw * scale, nh * scale
+        ox, oy = x1 + (bw - w) / 2, y1 + (bh - h) / 2
+        backend.raw_svg(self.fragment, ox, oy, w, h, viewbox=(nw, nh))
+
+
+@dataclass(frozen=True)
 class BracketGlyph:
     """A plain bracketed body (``[`` ``]`` ends, no operator symbol) — the
     real LabVIEW look for Build Array and similarly bracket-shaped

@@ -21,6 +21,7 @@ this module IS the registration point).
 from __future__ import annotations
 
 import functools
+import json
 import logging
 from dataclasses import dataclass
 from pathlib import Path
@@ -42,6 +43,7 @@ from ..vilib_resolver import get_resolver as get_vilib_resolver
 from .glyph import (
     ArithGlyph,
     BracketGlyph,
+    CenteredSvgGlyph,
     ConstantGlyph,
     Glyph,
     IconImageGlyph,
@@ -219,6 +221,31 @@ def _glyph_asset_stems() -> frozenset[str]:
     return frozenset(p.stem for p in glyphs_dir.glob("*.png"))
 
 
+@functools.lru_cache(maxsize=1)
+def _svg_asset_stems() -> frozenset[str]:
+    """Cached set of vectorized icon asset filename stems under
+    ``data/glyphs/`` (see ``scripts/vectorize_icons.py``) — mirrors
+    ``_glyph_asset_stems`` but for the pixel-faithful ``.svg`` assets."""
+    glyphs_dir = _bundled_data_dir() / "glyphs"
+    if not glyphs_dir.is_dir():
+        return frozenset()
+    return frozenset(p.stem for p in glyphs_dir.glob("*.svg"))
+
+
+@functools.lru_cache(maxsize=1)
+def _svg_sizes() -> dict[str, tuple[int, int]]:
+    """Natural ``(w, h)`` per SVG icon stem, from
+    ``data/glyphs/_svg_sizes.json`` (see ``scripts/vectorize_icons.py``)."""
+    path = _bundled_data_dir() / "glyphs" / "_svg_sizes.json"
+    if not path.is_file():
+        return {}
+    try:
+        raw = json.loads(path.read_text())
+    except (OSError, ValueError):
+        return {}
+    return {k: (int(v[0]), int(v[1])) for k, v in raw.items()}
+
+
 class PdfIconResolver:
     """Real, PDF-extracted LabVIEW icons for boxed primitives (built by
     ``scripts/extract_lv_icons.py`` from the reference manual — see
@@ -243,23 +270,36 @@ class PdfIconResolver:
     def resolve(self, node: AnyGraphNode, ctx: GlyphContext) -> Glyph | None:
         if not isinstance(node, PrimitiveNode):
             return None
-        stems = _glyph_asset_stems()
+        png_stems = _glyph_asset_stems()
+        svg_stems = _svg_asset_stems()
         if node.node_type and node.node_type != "prim":
-            glyph = self._load(f"prim_nt_{node.node_type}", stems)
+            glyph = self._load(f"prim_nt_{node.node_type}", png_stems, svg_stems)
             if glyph is not None:
                 return glyph
         if node.prim_id is not None:
-            glyph = self._load(f"prim_{node.prim_id}", stems)
+            glyph = self._load(f"prim_{node.prim_id}", png_stems, svg_stems)
             if glyph is not None:
                 return glyph
         return None
 
     @staticmethod
-    def _load(stem: str, stems: frozenset[str]) -> Glyph | None:
-        if stem not in stems:
-            return None
-        path = _bundled_data_dir() / "glyphs" / f"{stem}.png"
-        return IconImageGlyph(path)
+    def _load(
+        stem: str, png_stems: frozenset[str], svg_stems: frozenset[str]
+    ) -> Glyph | None:
+        if stem in svg_stems:
+            natural = _svg_sizes().get(stem)
+            if natural is not None:
+                path = _bundled_data_dir() / "glyphs" / f"{stem}.svg"
+                try:
+                    fragment = path.read_text()
+                except OSError:
+                    logger.debug("svg glyph asset not found: %s", path)
+                else:
+                    return CenteredSvgGlyph(fragment, natural)
+        if stem in png_stems:
+            path = _bundled_data_dir() / "glyphs" / f"{stem}.png"
+            return IconImageGlyph(path)
+        return None
 
 
 class GeneratedGlyphResolver:
