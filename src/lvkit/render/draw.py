@@ -9,6 +9,7 @@ node glyphs only — see DESIGN.md's phasing).
 
 from __future__ import annotations
 
+from ..graph.models import VINode
 from ..models import CaseFrame, FPTerminal, LVType
 from .backend import Backend
 from .glyph import ArithGlyph, fit_label
@@ -79,6 +80,12 @@ def draw_node(node: RenderNode, backend: Backend, theme: Theme = DEFAULT_THEME) 
         if ib[2] - ib[0] > 4 and ib[3] - ib[1] > 4:
             bounds = ib
     node.glyph.draw(backend, bounds, theme)
+
+    if isinstance(node.node, VINode) and node.label_visible:
+        name = node.node.name or ""
+        if name:
+            x1, y1, x2, y2 = node.bounds
+            backend.text((x1 + x2) / 2, y2 + 9, name, 8.0)
 
 
 def _draw_border_terminal(

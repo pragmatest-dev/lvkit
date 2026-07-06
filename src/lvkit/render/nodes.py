@@ -272,9 +272,7 @@ class GeneratedGlyphResolver:
         if isinstance(node, PrimitiveNode):
             return self._primitive_glyph(node)
         if isinstance(node, VINode):
-            return LabeledBoxGlyph(
-                node.name or "SubVI", "subvi_fill", "subvi_stroke", 1.5,
-            )
+            return LabeledBoxGlyph("", "subvi_fill", "subvi_stroke", 1.5)
         if isinstance(node, ConstantNode):
             color = wire_style(node.lv_type).color
             raw = node.raw_value if node.value is None else node.value

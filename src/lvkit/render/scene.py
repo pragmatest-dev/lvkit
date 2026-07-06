@@ -83,6 +83,7 @@ class RenderNode:
     # always succeeds), so this is required, not optional.
     glyph: Glyph
     terminals: list[RenderTerminal] = field(default_factory=list)
+    label_visible: bool = True
 
 
 @dataclass(frozen=True)
@@ -641,8 +642,10 @@ def build_scene(graph: InMemoryVIGraph, vi_name: str) -> Scene | None:
         else:
             glyph = resolve_glyph(node, glyph_ctx)
             terminals = _render_terminals(node, layout, vi_name)
+            label_visible = raw_uid not in layout.hidden_labels
             render_nodes.append(RenderNode(
                 node=node, bounds=bounds, glyph=glyph, terminals=terminals,
+                label_visible=label_visible,
             ))
 
     fp_terminals: list[RenderFPTerminal] = []
