@@ -1,11 +1,81 @@
 {
-  "category": "Cluster",
-  "count": 20,
+  "category": "Cluster, Class, & Variant",
+  "count": 23,
   "entries": [
+    {
+      "name": "Related Information",
+      "page": 455,
+      "category": "Cluster, Class, & Variant",
+      "description": "",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_review",
+      "terminals": []
+    },
+    {
+      "name": "Unbundle By Name",
+      "page": 457,
+      "category": "Cluster, Class, & Variant",
+      "description": "Returns the cluster elements whose names you specify. Functions © National Instruments 457 You do not have to keep track of the order of the elements within the cluster. This function does not require the number of elements to match the number in the cluster. After you wire a cluster to this function, you can select an individual element from the function. The connector pane displays the default data types for this polymorphic function.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "input cluster",
+          "description": "input cluster is the cluster whose elements you want to access.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "input_cluster"
+        },
+        {
+          "name": "element",
+          "description": "element 0..m-1 is the element of input cluster called name 0..m-1. You can access only elements with owned labels. To select a named element, click a name terminal and select a name from the shortcut menu.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "element"
+        }
+      ]
+    },
+    {
+      "name": "Bundle By Name",
+      "page": 458,
+      "category": "Cluster, Class, & Variant",
+      "description": "Replaces one or more cluster elements. This function refers to cluster elements by name instead of by their position in the cluster. After you wire the node to an input cluster, right-click the name terminals to select elements from the shortcut menu. You also can use the Operating tool to click the name terminals and select from a list of cluster elements. The connector pane displays the default data types for this polymorphic function. Functions 458 ni.com",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "input cluster",
+          "description": "input cluster is the cluster whose elements you want to replace. At least one element of input cluster must have an owned label. You must always wire the input cluster terminal.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "input_cluster"
+        },
+        {
+          "name": "element",
+          "description": "element 0..m-1 are the elements of input cluster you want to replace by name. You only can replace elements with owned labels. Select the correct element 0..m-1 by clicking a name terminal and selecting a name from the shortcut menu.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "element"
+        },
+        {
+          "name": "output cluster",
+          "description": "output cluster is the cluster whose value is the resulting cluster. When you use the Bundle by Name function on nested clusters, you can display both the element name and the owning cluster name for elements in the nested cluster by right-clicking the function and selecting Show Full Names. This is useful when element names in nested clusters are identical or similar.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "output_cluster"
+        }
+      ]
+    },
     {
       "name": "Build Cluster Array",
       "page": 462,
-      "category": "Cluster",
+      "category": "Cluster, Class, & Variant",
       "description": "Bundles each element input into a cluster and assembles all element clusters into an array of clusters. The connector pane displays the default data types for this polymorphic function.",
       "vi_path": null,
       "is_polymorphic": false,
@@ -31,7 +101,7 @@
     {
       "name": "Index & Bundle Cluster Array",
       "page": 463,
-      "category": "Cluster",
+      "category": "Cluster, Class, & Variant",
       "description": "Indexes a set of arrays and creates a cluster array in which the ith element contains the ith element of each input array. The connector pane displays the default data types for this polymorphic function.",
       "vi_path": null,
       "is_polymorphic": false,
@@ -40,7 +110,7 @@
       "terminals": [
         {
           "name": "array",
-          "description": "Functions \u00a9 National Instruments 463 array of x..z can be a 1D array of any type. Array inputs do not all have to be the same type.",
+          "description": "Functions © National Instruments 463 array of x..z can be a 1D array of any type. Array inputs do not all have to be the same type.",
           "default_value": null,
           "enum_values": null,
           "python_param": "array"
@@ -57,7 +127,7 @@
     {
       "name": "Cluster To Array Function",
       "page": 464,
-      "category": "Cluster",
+      "category": "Cluster, Class, & Variant",
       "description": "Converts a cluster of elements of the same data type to a 1D array of elements of the same data type. Functions 464 ni.com",
       "vi_path": null,
       "is_polymorphic": false,
@@ -90,8 +160,8 @@
     {
       "name": "Array To Cluster Function",
       "page": 465,
-      "category": "Cluster",
-      "description": "Converts a 1D array to a cluster of elements of the same type as the array elements. Double-click the function to open the Cluster Size dialog box and set the number of elements in the cluster. The default is nine. The maximum cluster size for this function is 256. Use this function when you want to display elements of the same type in a front panel cluster indicator but want to manipulate the elements on the block diagram by their index values. Functions \u00a9 National Instruments 465",
+      "category": "Cluster, Class, & Variant",
+      "description": "Converts a 1D array to a cluster of elements of the same type as the array elements. Double-click the function to open the Cluster Size dialog box and set the number of elements in the cluster. The default is nine. The maximum cluster size for this function is 256. Use this function when you want to display elements of the same type in a front panel cluster indicator but want to manipulate the elements on the block diagram by their index values. Functions © National Instruments 465",
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
@@ -123,7 +193,7 @@
     {
       "name": "Call Parent Class Method",
       "page": 466,
-      "category": "Cluster",
+      "category": "Cluster, Class, & Variant",
       "description": "Calls the nearest ancestor implementation of a class method. You can use the Call Parent Class Method node only on the block diagram of a member VI that belongs to a Functions 466 ni.com class that inherits member VIs from an ancestor class. The child member VI must be a dynamic dispatching member VI and have the same name as the ancestor member VI. You cannot use this node to invoke methods from ancestor interfaces. The parameters, or input and output terminals, of this node depend on the ances",
       "vi_path": null,
       "is_polymorphic": false,
@@ -134,7 +204,7 @@
     {
       "name": "To More Specific Class Function",
       "page": 467,
-      "category": "Cluster",
+      "category": "Cluster, Class, & Variant",
       "description": "Typecasts a reference, such as a control or a type definition, to a more specific class or interface in the inheritance hierarchy. For example, if Class A inherits from Class B, a variable of type B can hold a value of type A. You can use the function to downcast from type B to type A. If the typecast is invalid, this function returns an error at run time. You can use the To More Specific Class function for casting any class hierarchy in LabVIEW, including VI Server refnums, .NET/ActiveX refnums",
       "vi_path": null,
       "is_polymorphic": false,
@@ -188,7 +258,7 @@
     {
       "name": "To More Generic Class Function",
       "page": 469,
-      "category": "Cluster",
+      "category": "Cluster, Class, & Variant",
       "description": "Typecasts a reference, such as a control or a type definition, to a more generic class or interface in the inheritance hierarchy. For example, if Class A inherits from Class B, the function upcasts a variable of type A to a variable of type B. You can use the To More Generic Class function for casting any class hierarchy in LabVIEW, including VI Server refnums, .NET/ActiveX refnums, and LabVIEW classes or interfaces.",
       "vi_path": null,
       "is_polymorphic": false,
@@ -197,7 +267,7 @@
       "terminals": [
         {
           "name": "target class",
-          "description": "target class is the class or interface to which you want to upcast reference. You can wire a class specifier constant or any wire of the target type to this input. Functions \u00a9 National Instruments 469",
+          "description": "target class is the class or interface to which you want to upcast reference. You can wire a class specifier constant or any wire of the target type to this input. Functions © National Instruments 469",
           "default_value": null,
           "enum_values": null,
           "python_param": "target_class"
@@ -221,7 +291,7 @@
     {
       "name": "Preserve Run-Time Class Function",
       "page": 470,
-      "category": "Cluster",
+      "category": "Cluster, Class, & Variant",
       "description": "Checks at run time whether object in is of the same class as, or is a child class of, target object. Use this function on the block diagram of a subVI when you want to guarantee that LabVIEW downcasts a LabVIEW class output of the subVI node to the same class type as a LabVIEW class input when the subVI receives a child class of the expected input type. Functions 470 ni.com",
       "vi_path": null,
       "is_polymorphic": false,
@@ -230,14 +300,14 @@
       "terminals": [
         {
           "name": "target object",
-          "description": "target object\u2014is the object whose class you want to compare to the class of object in.",
+          "description": "target object—is the object whose class you want to compare to the class of object in.",
           "default_value": null,
           "enum_values": null,
           "python_param": "target_object"
         },
         {
           "name": "object in",
-          "description": "object in\u2014is the object you want LabVIEW to downcast automatically.",
+          "description": "object in—is the object you want LabVIEW to downcast automatically.",
           "default_value": null,
           "enum_values": null,
           "python_param": "object_in"
@@ -251,7 +321,7 @@
         },
         {
           "name": "object out",
-          "description": "object out\u2014is the same as object in. If the target object is incompatible with object in, the function returns an error and the data value of object out is of the same wire type as target object.",
+          "description": "object out—is the same as object in. If the target object is incompatible with object in, the function returns an error and the data value of object out is of the same wire type as target object.",
           "default_value": null,
           "enum_values": null,
           "python_param": "object_out"
@@ -289,7 +359,7 @@
     {
       "name": "Get LV Class Default Value",
       "page": 473,
-      "category": "Cluster",
+      "category": "Cluster, Class, & Variant",
       "description": "Returns the class data for the class whose path you wire to the class path input. If the class is not in memory, LabVIEW attempts to load it from disk. If any dependencies are missing, LabVIEW searches for the missing dependencies. If LabVIEW cannot find the dependency, LabVIEW assumes the dependency is missing and does not prompt the user to browse to the needed file. Use this VI to dynamically create class objects, including class objects that are unknown at edit time. Related Information Crea",
       "vi_path": null,
       "is_polymorphic": false,
@@ -315,7 +385,7 @@
     {
       "name": "Get LV Class Path",
       "page": 474,
-      "category": "Cluster",
+      "category": "Cluster, Class, & Variant",
       "description": "Returns the path to the class of the object.",
       "vi_path": null,
       "is_polymorphic": false,
@@ -323,7 +393,9 @@
       "status": "complete",
       "python_code": "{class_path} = Path(type({object}).__module__.replace('.', '/') + '.lvclass')",
       "inline": true,
-      "imports": ["from pathlib import Path"],
+      "imports": [
+        "from pathlib import Path"
+      ],
       "ref_terminals": {
         "error_out": "passthrough_from:error_in_no_error"
       },
@@ -369,7 +441,7 @@
     {
       "name": "Get LV Class Default Value By Name",
       "page": 475,
-      "category": "Cluster",
+      "category": "Cluster, Class, & Variant",
       "description": "Returns the class data for the class whose name you wire to the class name input. If the class is not in memory or is broken, LabVIEW returns an error.",
       "vi_path": null,
       "is_polymorphic": false,
@@ -399,7 +471,7 @@
         },
         {
           "name": "error out",
-          "description": "error out contains error information. This output provides standard error out functionality. Functions \u00a9 National Instruments 475",
+          "description": "error out contains error information. This output provides standard error out functionality. Functions © National Instruments 475",
           "default_value": null,
           "enum_values": null,
           "python_param": "error_out"
@@ -409,7 +481,7 @@
     {
       "name": "Get LV Class Name",
       "page": 476,
-      "category": "Cluster",
+      "category": "Cluster, Class, & Variant",
       "description": "Returns the name of the class of the object.",
       "vi_path": null,
       "is_polymorphic": false,
@@ -449,7 +521,7 @@
     {
       "name": "To Variant Function",
       "page": 477,
-      "category": "Cluster",
+      "category": "Cluster, Class, & Variant",
       "description": "Converts any LabVIEW data to variant data. You also can use this function to convert ActiveX data to variant data.",
       "vi_path": null,
       "is_polymorphic": false,
@@ -458,7 +530,7 @@
       "terminals": [
         {
           "name": "anything",
-          "description": "Functions \u00a9 National Instruments 477 anything is any LabVIEW data you want to convert. This parameter is polymorphic.",
+          "description": "Functions © National Instruments 477 anything is any LabVIEW data you want to convert. This parameter is polymorphic.",
           "default_value": null,
           "enum_values": null,
           "python_param": "anything"
@@ -475,7 +547,7 @@
     {
       "name": "Variant To Data Function",
       "page": 478,
-      "category": "Cluster",
+      "category": "Cluster, Class, & Variant",
       "description": "Converts variant data to a LabVIEW data type so LabVIEW can display or process the data. You also can use this function to convert variant data to ActiveX data.",
       "vi_path": null,
       "is_polymorphic": false,
@@ -522,7 +594,7 @@
     {
       "name": "Flattened String To Variant Function",
       "page": 480,
-      "category": "Cluster",
+      "category": "Cluster, Class, & Variant",
       "description": "Converts flattened data into variant data. Use the Flatten to String function to produce data string and type string.",
       "vi_path": null,
       "is_polymorphic": false,
@@ -569,7 +641,7 @@
     {
       "name": "Variant To Flattened String Function",
       "page": 480,
-      "category": "Cluster",
+      "category": "Cluster, Class, & Variant",
       "description": "Converts variant data into a flattened string and an array of integers that represent the Functions 480 ni.com data type. You cannot flatten ActiveX variant data.",
       "vi_path": null,
       "is_polymorphic": false,
@@ -602,7 +674,7 @@
     {
       "name": "Get Variant Attribute Function",
       "page": 481,
-      "category": "Cluster",
+      "category": "Cluster, Class, & Variant",
       "description": "Retrieves the names and values of all attributes or the value of a single attribute, depending on whether you wire the name parameter. The connector pane displays the default data types for this polymorphic function.",
       "vi_path": null,
       "is_polymorphic": false,
@@ -611,7 +683,7 @@
       "terminals": [
         {
           "name": "variant",
-          "description": "Functions \u00a9 National Instruments 481 variant is the variant data for which you want to retrieve an attribute(s) and value(s).",
+          "description": "Functions © National Instruments 481 variant is the variant data for which you want to retrieve an attribute(s) and value(s).",
           "default_value": null,
           "enum_values": null,
           "python_param": "variant"
@@ -670,7 +742,7 @@
     {
       "name": "Set Variant Attribute Function",
       "page": 483,
-      "category": "Cluster",
+      "category": "Cluster, Class, & Variant",
       "description": "Allows you to change or create an attribute and value for variant data.",
       "vi_path": null,
       "is_polymorphic": false,
@@ -710,7 +782,7 @@
     {
       "name": "Delete Variant Attribute Function",
       "page": 484,
-      "category": "Cluster",
+      "category": "Cluster, Class, & Variant",
       "description": "Deletes an attribute(s) and value(s) in variant data.",
       "vi_path": null,
       "is_polymorphic": false,
@@ -764,7 +836,7 @@
     {
       "name": "Data Type Parsing",
       "page": 485,
-      "category": "Cluster",
+      "category": "Cluster, Class, & Variant",
       "description": "Use the Data Type Parsing VIs to retrieve and compare the data type stored in a variant to other data types. Palette Object Description Get Type Information Retrieves data type information from the data type stored in variant. Get Array Information Retrieves array information from the data type stored in variant. This VI returns an error if variant does not contain an array. Get Cluster Information Retrieves cluster information from the data type stored in variant. This VI returns an error if va",
       "vi_path": null,
       "is_polymorphic": false,

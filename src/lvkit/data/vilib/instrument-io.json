@@ -1,0 +1,2671 @@
+{
+  "category": "Instrument I/O",
+  "count": 61,
+  "entries": [
+    {
+      "name": "VISA Write Function",
+      "page": 2656,
+      "category": "Instrument I/O",
+      "description": "Writes the data from write buffer to the device or interface specified by VISA resource name.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "VISA resource name",
+          "description": "VISA resource name specifies the resource to be opened. The VISA resource name control also specifies the session and class. Functions 2656 ni.com",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "visa_resource_name"
+        },
+        {
+          "name": "write buffer",
+          "description": "write buffer contains the data to be written to the device.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "write_buffer"
+        },
+        {
+          "name": "error in (no error)",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in_no_error"
+        },
+        {
+          "name": "VISA resource name out",
+          "description": "VISA resource name out is a copy of the VISA resource name that VISA functions return.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "visa_resource_name_out"
+        },
+        {
+          "name": "return count",
+          "description": "return count contains the actual number of bytes written.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "return_count"
+        },
+        {
+          "name": "error out",
+          "description": "error out contains error information. This output provides standard error out functionality. Whether the data is transferred synchronously or asynchronously is platform- dependent. Right-click the node and select Synchronous I/O Mode»Synchronous from the shortcut menu to write data synchronously. When you transfer data from or to a hardware driver synchronously, the calling thread is locked for the duration of the data transfer. Depending on the speed of the transfer, this can hinder other proce",
+          "default_value": "asynchronous I/O",
+          "enum_values": null,
+          "python_param": "error_out"
+        }
+      ]
+    },
+    {
+      "name": "VISA Read Function",
+      "page": 2658,
+      "category": "Instrument I/O",
+      "description": "Reads the specified number of bytes from the device or interface specified by VISA resource name and returns the data in read buffer.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "VISA resource name",
+          "description": "VISA resource name specifies the resource to be opened. The VISA resource name control also specifies the session and class.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "visa_resource_name"
+        },
+        {
+          "name": "byte count",
+          "description": "byte count is the number of bytes to be read.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "byte_count"
+        },
+        {
+          "name": "error in (no error)",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in_no_error"
+        },
+        {
+          "name": "VISA resource name out",
+          "description": "VISA resource name out is a copy of the VISA resource name that VISA functions return.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "visa_resource_name_out"
+        },
+        {
+          "name": "read buffer",
+          "description": "read buffer contains the data read from the device.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "read_buffer"
+        },
+        {
+          "name": "return count",
+          "description": "return count contains the number of bytes actually read.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "return_count"
+        },
+        {
+          "name": "error out",
+          "description": "Functions 2658 ni.com error out contains error information. This output provides standard error out functionality. This function might return less than the number of bytes requested if the function reaches the end of the buffer, reaches a termination character, or if a timeout occurs. The output error cluster indicates if a timeout has occurred. Whether the data is read synchronously or asynchronously is platform-dependent. Right-click the node and select Synchronous I/O Mode»Synchronous from th",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        },
+        {
+          "name": "labview\\examples\\Instrument IO\\Serial\\Continuous Serial",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "labview_examples_instrument_io_serial_continuous_serial"
+        },
+        {
+          "name": "labview\\examples\\Instrument IO\\VISA\\USB\\USB RAW - Bulk.vi",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "labview_examples_instrument_io_visa_usb_usb_raw_bulk_vi"
+        },
+        {
+          "name": "labview\\examples\\Instrument IO\\GPIB\\GPIB with VISA",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "labview_examples_instrument_io_gpib_gpib_with_visa"
+        }
+      ]
+    },
+    {
+      "name": "VISA Open Function",
+      "page": 2661,
+      "category": "Instrument I/O",
+      "description": "Opens a session to the device specified by VISA resource name and returns a session identifier that can be used to call any other operations of that device.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "VISA Open timeout (0)",
+          "description": "VISA Open timeout specifies the maximum time period, in milliseconds, that VISA Open waits before returning an error. It does not set the I/O timeout. To specify the timeout used for future operations on the VISA session, use VISA Set Timeout.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "visa_open_timeout_0"
+        },
+        {
+          "name": "VISA resource name",
+          "description": "VISA resource name specifies the resource to be opened. The VISA resource name control also specifies the session and class.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "visa_resource_name"
+        },
+        {
+          "name": "duplicate session (F)",
+          "description": "If duplicate session is TRUE and there is currently a session opened to the resource, another Functions",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "duplicate_session_f"
+        }
+      ]
+    },
+    {
+      "name": "VISA Close Function",
+      "page": 2663,
+      "category": "Instrument I/O",
+      "description": "Closes a device session or event object specified by VISA resource name.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "VISA resource name",
+          "description": "VISA resource name specifies the resource to be opened. The VISA resource name control also specifies the session and class.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "visa_resource_name"
+        },
+        {
+          "name": "error in (no error)",
+          "description": "error in describes error conditions that occur before this node runs. With the following exception, this input provides standard error in functionality. This node runs normally even if an error occurred before this node runs.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in_no_error"
+        },
+        {
+          "name": "error out",
+          "description": "error out contains error information. This output provides standard error out functionality. Error I/O operates uniquely in this function. The function closes the device session regardless of whether an error occurred in a preceding operation. For each VISA Note This function recognizes all resource strings returned by VISA Find Resource. However, VISA Find Resource does not necessarily return all strings that you pass to this function. Functions",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        }
+      ]
+    },
+    {
+      "name": "VISA Find Resource Function",
+      "page": 2664,
+      "category": "Instrument I/O",
+      "description": "Queries the system to locate the devices associated with a specified interface.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "expression (\"?*\")",
+          "description": "expression matches the value specified with the devices available for a particular interface. The description string specified sets the criteria to search an interface—GPIB, GPIB-VXI, VXI, All VXI, Serial, or All—for existing devices. The following table includes valid special characters and Functions 2664 ni.com operators. Special Characters and Operators Meaning ? Matches any one character. \\ Makes the character that follows it an ordinary character instead of special character. For example, w",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "expression"
+        }
+      ]
+    },
+    {
+      "name": "Bus/Interface Specific",
+      "page": 2669,
+      "category": "Instrument I/O",
+      "description": "Use the Bus/Interface Specific functions to program instruments that are interface specific. The functions on this palette can return VISA error codes. Functions © National Instruments 2669 Palette Object Description Serial Use the Serial VIs and functions to access the VISA VIs and functions that communicate with devices connected to a serial port. Additional functions are also available on the VISA palette. VISA USB Use the VISA USB VI and functions to control USB devices. VISA Set I/O Buffer ",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_review",
+      "terminals": []
+    },
+    {
+      "name": "VISA Write From File Function",
+      "page": 2710,
+      "category": "Instrument I/O",
+      "description": "Takes data from the file specified by filename and writes it to the device synchronously. filename opens in binary mode and the function reads the amount of data specified by count. The data is then written to the device. This operation returns only when the transfer terminates.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "VISA resource name",
+          "description": "VISA resource name specifies the resource to be opened. The VISA resource name control also specifies the session and class.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "visa_resource_name"
+        },
+        {
+          "name": "filename",
+          "description": "filename is the name of file from which data will be read.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "filename"
+        },
+        {
+          "name": "count (entire file)",
+          "description": "count is the number of bytes to be written.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "count_entire_file"
+        },
+        {
+          "name": "error in (no error)",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality. Note This function does not accept VISA sessions of class Instr. The VISA session must be of class PXI Backplane or VXI/GPIB-VXI Backplane. Functions 2710 ni.com",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in_no_error"
+        },
+        {
+          "name": "VISA resource name out",
+          "description": "VISA resource name out is a copy of the VISA resource name that VISA functions return.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "visa_resource_name_out"
+        },
+        {
+          "name": "return count",
+          "description": "return count is the number of bytes actually transferred.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "return_count"
+        },
+        {
+          "name": "error out",
+          "description": "error out contains error information. This output provides standard error out functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        }
+      ]
+    },
+    {
+      "name": "VISA Read To File Function",
+      "page": 2711,
+      "category": "Instrument I/O",
+      "description": "Reads byte count synchronously and stores the transferred data in the file specified by filename. filename opens in binary mode. Any existing contents are destroyed if you set the Message Based Settings:File Append Enable property to FALSE. The data is then written to the file. The operation returns only when the transfer terminates.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "VISA resource name",
+          "description": "VISA resource name specifies the resource to be opened. The VISA resource name control also specifies the session and class.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "visa_resource_name"
+        },
+        {
+          "name": "filename",
+          "description": "filename is the name of file to which data will be written.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "filename"
+        },
+        {
+          "name": "byte count",
+          "description": "byte count is the number of bytes to be read.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "byte_count"
+        },
+        {
+          "name": "error in (no error)",
+          "description": "Functions © National Instruments 2711 error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in_no_error"
+        },
+        {
+          "name": "VISA resource name out",
+          "description": "VISA resource name out is a copy of the VISA resource name that VISA functions return.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "visa_resource_name_out"
+        },
+        {
+          "name": "return count",
+          "description": "return count is the number of bytes actually transferred.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "return_count"
+        },
+        {
+          "name": "error out",
+          "description": "error out contains error information. This output provides standard error out functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        }
+      ]
+    },
+    {
+      "name": "Event Handling",
+      "page": 2712,
+      "category": "Instrument I/O",
+      "description": "Use the Event Handling VIs and functions to use VISA events with your instruments. The VIs and functions on this palette can return VISA error codes. You also can access the Select Event Type constant from this palette. Palette Object Description VISA Enable Event Function Enables notification of a specified event type. VISA Wait on Event Function Suspends execution of an application thread and waits for an event type for a time period not to exceed that specified by timeout. VISA Disable Event ",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "VISA resource name",
+          "description": "VISA resource name specifies the resource to be opened. The VISA resource name control also specifies the session and class.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "visa_resource_name"
+        },
+        {
+          "name": "event type",
+          "description": "event type is the logical event identifier. You can select from the following VISA event types. Note You must call the VISA Enable Event function for a session before using the VISA Wait on Event function. Functions © National Instruments 2713 Service Request (default) 0x3FFF200B Trigger 0xBFFF200A Clear 0x3FFF200D VXI Signal 0x3FFF2020 VXI/VME Interrupt 0xBFFF2021 VXI/VME Sysfail 0x3FFF201D VXI/VME Sysreset 0x3FFF201E GPIB CIC 0x3FFF2012 GPIB Talk 0x3FFF2013 GPIB Listen 0x3FFF2014 PXI Interrupt",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "event_type"
+        },
+        {
+          "name": "mechanism (1: VI_QUEUE)",
+          "description": "mechanism specifies the event handling mechanism to be disabled. Currently only accepts VI_QUEUE (1).",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "mechanism_1_vi_queue"
+        },
+        {
+          "name": "error in (no error)",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in_no_error"
+        },
+        {
+          "name": "VISA resource name out",
+          "description": "VISA resource name out is a copy of the VISA resource name that VISA functions return.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "visa_resource_name_out"
+        },
+        {
+          "name": "error out",
+          "description": "error out contains error information. This output provides standard error out functionality. Functions 2714 ni.com",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        }
+      ]
+    },
+    {
+      "name": "VISA Unlock Function",
+      "page": 2725,
+      "category": "Instrument I/O",
+      "description": "Relinquishes the lock previously obtained using the VISA Lock Async function.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "VISA resource name",
+          "description": "VISA resource name specifies the resource to be opened. The VISA resource name control also specifies the session and class.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "visa_resource_name"
+        },
+        {
+          "name": "error in (no error)",
+          "description": "Functions © National Instruments 2725 error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in_no_error"
+        },
+        {
+          "name": "VISA resource name out",
+          "description": "VISA resource name out is a copy of the VISA resource name that VISA functions return.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "visa_resource_name_out"
+        },
+        {
+          "name": "error out",
+          "description": "error out contains error information. This output provides standard error out functionality. Examples Refer to the following example files included with LabVIEW.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        },
+        {
+          "name": "labview\\examples\\Instrument IO\\VISA\\Locking\\VISA",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "labview_examples_instrument_io_visa_locking_visa"
+        }
+      ]
+    },
+    {
+      "name": "Register Access",
+      "page": 2726,
+      "category": "Instrument I/O",
+      "description": "Use the Register Access functions to program in an address space at a high level. The functions on this palette can return VISA error codes. Palette Object Description VISA In 8 Function Reads an 8-bit block of data from the specified address space and offset. VISA In 16 Function Reads a 16-bit block of data from the specified address space and offset. VISA In 32 Function Reads a 32-bit block of data from the specified address space and offset. VISA In 64 Function Reads a 64-bit block of data fr",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "address space (A16: 1)",
+          "description": "address space specifies the address space without requiring VISA Map Address to be called. The following table lists the valid entries for specifying address space. Value Description VXI, VME, and GPIB-VXI VXI/VME A16 (1) VXI/VME A24 (2) VXI/VME A32 (3) VXI/VME A64 (4) PXI PXI Memory Allocations (9) PXI Configuration (10) PXI BAR0 (11) to PXI BAR5 (16)",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "address_space_a16_1"
+        },
+        {
+          "name": "VISA resource name",
+          "description": "Functions 2728 ni.com",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "visa_resource_name"
+        }
+      ]
+    },
+    {
+      "name": "VISA Clear Function",
+      "page": 2777,
+      "category": "Instrument I/O",
+      "description": "Clears the input and output buffers of the device.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "VISA resource name",
+          "description": "VISA resource name specifies the resource to be opened. The VISA resource name control also specifies the session and class.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "visa_resource_name"
+        },
+        {
+          "name": "error in (no error)",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in_no_error"
+        },
+        {
+          "name": "VISA resource name out",
+          "description": "VISA resource name out is a copy of the VISA resource name that VISA functions return.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "visa_resource_name_out"
+        },
+        {
+          "name": "error out",
+          "description": "error out contains error information. This output provides standard error out functionality. Functions",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        }
+      ]
+    },
+    {
+      "name": "VISA Read STB Function",
+      "page": 2778,
+      "category": "Instrument I/O",
+      "description": "Reads a service request status byte byte from the message-based device specified by VISA resource name.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "VISA resource name",
+          "description": "VISA resource name specifies the resource to be opened. The VISA resource name control also specifies the session and class.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "visa_resource_name"
+        },
+        {
+          "name": "error in (no error)",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in_no_error"
+        },
+        {
+          "name": "VISA resource name out",
+          "description": "VISA resource name out is a copy of the VISA resource name that VISA functions return. Functions 2778 ni.com",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "visa_resource_name_out"
+        },
+        {
+          "name": "status byte",
+          "description": "status byte contains the status byte read from the instrument.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "status_byte"
+        },
+        {
+          "name": "error out",
+          "description": "error out contains error information. This output provides standard error out functionality. Status Bytes for 488.2 Instruments (GPIB, VXI, TCP/IP, USB) This function reads a service request from a message-based device. The following details are bus-specific:",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        },
+        {
+          "name": "GPIB",
+          "description": "This function reads the status by serial polling the device.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "gpib"
+        },
+        {
+          "name": "VXI",
+          "description": "This function sends the Word Serial Read STB query to the device.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "vxi"
+        },
+        {
+          "name": "USB",
+          "description": "This function sends the device the Read Status Byte command on the control pipe. Status Bytes for Non-488.2 Instruments (Serial Instr, TCP/IP Socket, USB Raw) This function retrieves status information by sending a message in response to a service request. For a session to a Serial Instr or Ethernet Socket, if the property IO Protocol is Serial-TCPIP/488 (4), the device is sent the string \"*STB?\\n\" and then the device status byte is read; otherwise, this operation is not valid.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "usb"
+        }
+      ]
+    },
+    {
+      "name": "VISA Assert Trigger Function",
+      "page": 2779,
+      "category": "Instrument I/O",
+      "description": "Asserts a software or hardware trigger, depending on the interface type. For software triggers, Default (0) is the only valid protocol. For VXI hardware triggers, Default (0) is equivalent to Sync (5). For PXI triggers, PXI: Reserve (6) and PXI: Unreserve (7) are the only valid protocols. Functions © National Instruments 2779",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "VISA resource name",
+          "description": "VISA resource name specifies the resource to be opened. The VISA resource name control also specifies the session and class.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "visa_resource_name"
+        },
+        {
+          "name": "protocol (default: 0)",
+          "description": "protocol is the trigger protocol to use during assertion. This input accepts the following values. 0 Default 1 On 2 Off 5 Sync 6 PXI: Reserve 7 PXI: Unreserve",
+          "default_value": "1 On 2 Off 5 Sync 6 PXI: Reserve 7 PXI: Unreserve",
+          "enum_values": null,
+          "python_param": "protocol_default_0"
+        },
+        {
+          "name": "error in (no error)",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in_no_error"
+        },
+        {
+          "name": "VISA resource name out",
+          "description": "VISA resource name out is a copy of the VISA resource name that VISA functions return.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "visa_resource_name_out"
+        },
+        {
+          "name": "error out",
+          "description": "error out contains error information. This output provides standard error out functionality. Software Triggers for 488.2 Instruments (GPIB, VXI, TCP/IP, USB) This function sends an IEEE-488.2 software trigger to the addressed device, with the following bus-specific details:",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        },
+        {
+          "name": "GPIB",
+          "description": "VISA addresses the device to listen and sends the GPIB Group Execute Trigger (GET) message.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "gpib"
+        },
+        {
+          "name": "VXI",
+          "description": "VISA sends the Word Serial Trigger command. Functions 2780 ni.com",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "vxi"
+        },
+        {
+          "name": "USB",
+          "description": "VISA sends the trigger message ID on the bulk-out pipe. Software Triggers for Non-488.2 Instruments (Serial Instr, TCP/IP Socket, USB Raw) If the property IO Protocol is set to Serial-TCPIP-USB/488 Strings (4), this function sends the string \"*TRG\\n\" to the device. Otherwise, this operation is not valid. Hardware Triggers for VXI For hardware triggers to VXI instruments, you must first set the property Trigger Identifier to the desired trigger line. This function performs the specified trigger o",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "usb"
+        },
+        {
+          "name": "labview\\examples\\Instrument IO\\VISA\\PXI\\PXI - Reserve",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "labview_examples_instrument_io_visa_pxi_pxi_reserve"
+        }
+      ]
+    },
+    {
+      "name": "Compatible GPIB Hardware",
+      "page": 2782,
+      "category": "Instrument I/O",
+      "description": "",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "timeout ms (488.2 global)",
+          "description": "timeout ms specifies the time, in milliseconds, that the function waits before timing out. The operation aborts if it does not complete within timeout ms. To disable timeouts, set timeout ms to 0. To use the 488.2 global timeout, leave timeout ms unwired or set the input to –1. Then use the SetTimeOut function to change the default value of timeout ms. The default is 10000.",
+          "default_value": "value of timeout ms",
+          "enum_values": null,
+          "python_param": "timeout_ms_488_2_global"
+        },
+        {
+          "name": "address string",
+          "description": "address string contains the address of the GPIB device with which the function communicates. You can input both the primary and secondary addresses in address string by using the form primary+secondary. Both primary and secondary are decimal values, so if primary is 2 and secondary is 3, address string is 2+3. If you do not specify an address, the functions do not perform addressing before they attempt to read and write the string. They assume you have either sent these commands another way or t",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "address_string"
+        }
+      ]
+    },
+    {
+      "name": "GPIB Read Function",
+      "page": 2783,
+      "category": "Instrument I/O",
+      "description": "Reads byte count number of bytes from the GPIB device at address string. Right-click the node and select Synchronous I/O Mode»Synchronous from the shortcut menu to read data synchronously.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "timeout ms (488.2 global)",
+          "description": "timeout ms specifies the time, in milliseconds, that the function waits before timing out. The operation aborts if it does not complete within timeout ms. To disable timeouts, set timeout ms to 0. To use the 488.2 global timeout, leave timeout ms unwired or set the input to –1. Then use the SetTimeOut function to change the default value of timeout ms. The default is 10000.",
+          "default_value": "value of timeout ms",
+          "enum_values": null,
+          "python_param": "timeout_ms_488_2_global"
+        },
+        {
+          "name": "address string",
+          "description": "address string contains the address of the GPIB device with which the function communicates. You can input both the primary and secondary addresses in address string by using the form primary+secondary. Both primary and secondary are decimal values, so if primary is 2 and secondary is 3, address string is 2+3. If you do not specify an address, the functions do not perform addressing before they attempt to read and write the string. They assume you have either sent these commands another way or t",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "address_string"
+        }
+      ]
+    },
+    {
+      "name": "GPIB Write Function",
+      "page": 2786,
+      "category": "Instrument I/O",
+      "description": "Writes data to the GPIB device identified by address string. Right-click the node and select Synchronous I/O Mode»Synchronous from the shortcut menu to write data synchronously.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "timeout ms (488.2 global)",
+          "description": "timeout ms specifies the time, in milliseconds, that the function waits before timing out. The operation aborts if it does not complete within timeout ms. To disable timeouts, set timeout ms to 0. To use the 488.2 global timeout, leave timeout ms unwired or set the input to –1. Then use the SetTimeOut function to change the default value of timeout ms. The default is 10000.",
+          "default_value": "value of timeout ms",
+          "enum_values": null,
+          "python_param": "timeout_ms_488_2_global"
+        },
+        {
+          "name": "address string",
+          "description": "address string contains the address of the GPIB device with which the function communicates. You can input both the primary and secondary addresses in address string by using the form primary+secondary. Both primary and secondary are decimal values, so if primary is 2 and secondary is 3, address string is 2+3. character. Functions 2786 ni.com If you do not specify an address, the functions do not perform addressing before they attempt to read and write the string. They assume you have either sen",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "address_string"
+        },
+        {
+          "name": "data",
+          "description": "data is the data the function writes to the GPIB device.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "data"
+        },
+        {
+          "name": "mode (0)",
+          "description": "mode indicates how to terminate the GPIB Write. This input accepts the following values. 0 Send EOI with the last character of the string. 1 Append CR to the string and send EOI with CR. 2 Append LF to the string and send EOI with LF. 3 Append CR LF to the string and send EOI with LF. 4 Append CR to the string but do not send EOI. 5 Append LF to the string but do not send EOI. 6 Append CR LF to the string but do not send EOI. 7 Do not send EOI.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "mode_0"
+        },
+        {
+          "name": "error in",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in"
+        },
+        {
+          "name": "status",
+          "description": "status is a Boolean array in which each bit describes a state of the GPIB Controller. If an error occurs, the function sets bit 15. GPIB error is valid only if bit 15 of status is set. The following table shows the numeric value and symbolic status of each bit in status. This table Functions",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "status"
+        }
+      ]
+    },
+    {
+      "name": "Wait for GPIB RQS Function",
+      "page": 2789,
+      "category": "Instrument I/O",
+      "description": "Waits for the device indicated by address string to assert RQS. Use the GPIB Wait function to wait for a specified device to assert any state. Refer to GPIB Function Defaults for more information about the timeout and address defaults.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "address string",
+          "description": "address string contains the address of the GPIB device with which the function communicates. You can input both the primary and secondary addresses in address string by using the form primary+secondary. Both primary and secondary are decimal values, so if primary is 2 and secondary is 3, address string is 2+3. If you do not specify an address, the functions do not perform addressing before they attempt to read and write the string. They assume you have either sent these commands another way or t",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "address_string"
+        },
+        {
+          "name": "timeout ms (488.2 global)",
+          "description": "timeout ms specifies the time, in milliseconds, that the function waits before timing out. The operation aborts if it does not complete within timeout ms. To disable timeouts, set timeout ms to 0. Functions",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "timeout_ms_488_2_global"
+        }
+      ]
+    },
+    {
+      "name": "GPIB Trigger Function",
+      "page": 2790,
+      "category": "Instrument I/O",
+      "description": "Sends GET (Group Execute Trigger) to the device indicated by address string.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "address string",
+          "description": "address string contains the address of the GPIB device with which the function communicates. You can input both the primary and secondary addresses in address string by using the form Note The bit definitions for the poll response byte vary among instruments. Functions 2790 ni.com primary+secondary. Both primary and secondary are decimal values, so if primary is 2 and secondary is 3, address string is 2+3. If you do not specify an address, the functions do not perform addressing before they atte",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "address_string"
+        },
+        {
+          "name": "error in",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in"
+        },
+        {
+          "name": "status",
+          "description": "status is a Boolean array in which each bit describes a state of the GPIB Controller. If an error occurs, the function sets bit 15. GPIB error is valid only if bit 15 of status is set. The following table shows the numeric value and symbolic status of each bit in status. This table also includes a description of each bit. Status Bit Numeric Value Symbolic Status Description 0 1 DCAS Device Clear state 1 2 DTAS Device Trigger State 2 4 LACS Listener Active 3 8 TACS Talker Active 4 16 ATN Attentio",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "status"
+        }
+      ]
+    },
+    {
+      "name": "GPIB Clear Function",
+      "page": 2792,
+      "category": "Instrument I/O",
+      "description": "Sends either SDC (Selected Device Clear) or DCL (Device Clear).",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "address string",
+          "description": "address string contains the address of the GPIB device with which the function communicates. You can input both the primary and secondary addresses in address string by using the form primary+secondary. Both primary and secondary are decimal values, so if primary is 2 and secondary is 3, address string is 2+3. If you do not specify an address, the functions do not perform addressing before they attempt to read and write the string. They assume you have either sent these commands another way or t",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "address_string"
+        },
+        {
+          "name": "error in",
+          "description": "Functions 2792 ni.com error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in"
+        },
+        {
+          "name": "status",
+          "description": "status is a Boolean array in which each bit describes a state of the GPIB Controller. If an error occurs, the function sets bit 15. GPIB error is valid only if bit 15 of status is set. The following table shows the numeric value and symbolic status of each bit in status. This table also includes a description of each bit. Status Bit Numeric Value Symbolic Status Description 0 1 DCAS Device Clear state 1 2 DTAS Device Trigger State 2 4 LACS Listener Active 3 8 TACS Talker Active 4 16 ATN Attentio",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "status"
+        },
+        {
+          "name": "error out",
+          "description": "error out contains error information. This output provides standard error out functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        }
+      ]
+    },
+    {
+      "name": "GPIB Serial Poll Function",
+      "page": 2793,
+      "category": "Instrument I/O",
+      "description": "Performs a serial poll of the device indicated by address string. Functions © National Instruments 2793",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "address string",
+          "description": "address string is the address of the device the function polls. address string contains the address of the GPIB device with which the function communicates. You can input both the primary and secondary addresses in address string by using the form primary+secondary. Both primary and secondary are decimal values, so if primary is 2 and secondary is 3, address string is 2+3. If you do not specify an address, the functions do not perform addressing before they attempt to read and write the string. ",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "address_string"
+        },
+        {
+          "name": "error in",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in"
+        },
+        {
+          "name": "serial poll byte",
+          "description": "serial poll byte is the response from the device. If the addressed device does not respond within the timeout limit, serial poll byte is -1.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "serial_poll_byte"
+        },
+        {
+          "name": "status",
+          "description": "status is a Boolean array in which each bit describes a state of the GPIB Controller. If an error occurs, the function sets bit 15. GPIB error is valid only if bit 15 of status is set. The following table shows the numeric value and symbolic status of each bit in status. This table also includes a description of each bit. Functions 2794 ni.com Status Bit Numeric Value Symbolic Status Description 0 1 DCAS Device Clear state 1 2 DTAS Device Trigger State 2 4 LACS Listener Active 3 8 TACS Talker Ac",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "status"
+        },
+        {
+          "name": "error out",
+          "description": "error out contains error information. This output provides standard error out functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        }
+      ]
+    },
+    {
+      "name": "GPIB Initialization Function",
+      "page": 2795,
+      "category": "Instrument I/O",
+      "description": "Configures the GPIB interface at address string. Refer to GPIB Function Defaults for more information about the timeout and address defaults.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "require re-addressing (T)",
+          "description": "If require re-addressing is TRUE, the function addresses the device before every read or write. Functions © National Instruments 2795 If FALSE, the device must be able to retain addressing from one read or write to the next.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "require_re_addressing_t"
+        },
+        {
+          "name": "assert REN with IFC (T)",
+          "description": "If assert REN with IFC is TRUE, and if this Controller (specified by the ID in address string) is the System Controller, the function asserts the Remote Enable line.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "assert_ren_with_ifc_t"
+        },
+        {
+          "name": "system controller (T)",
+          "description": "If system controller is TRUE, this Controller acts as the System Controller.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "system_controller_t"
+        },
+        {
+          "name": "address string",
+          "description": "address string sets the GPIB address of the GPIB controller itself. The default value for address string is the configured address for the primary GPIB controller on your system. The configured address is usually 0. You usually do not need to wire this input. When there are multiple GPIB controllers that LabVIEW can use, a prefix to address string in the form ID:address (or ID: if no address is necessary) determines which controller the function uses. If a controller ID is not present, the funct",
+          "default_value": "value for address string is the configured address for the primary GPIB controller on your system",
+          "enum_values": null,
+          "python_param": "address_string"
+        },
+        {
+          "name": "IST bit sense (T)",
+          "description": "If IST bit sense is TRUE, the Individual Status bit of the device responds TRUE to a parallel poll; if IST bit sense is FALSE, the Individual Status bit of the device responds FALSE to a parallel poll.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "ist_bit_sense_t"
+        },
+        {
+          "name": "error in",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in"
+        },
+        {
+          "name": "disallow DMA (F)",
+          "description": "If disallow DMA is TRUE, this device uses programmed I/O for data transfers.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "disallow_dma_f"
+        },
+        {
+          "name": "error out",
+          "description": "error out contains error information. This output provides standard error out functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        }
+      ]
+    },
+    {
+      "name": "GPIB Status Function",
+      "page": 2796,
+      "category": "Instrument I/O",
+      "description": "Shows the present status of the GPIB Controller indicated by address string. Error I/O operates uniquely in this function. The function gets the status of the GPIB Controller Functions 2796 ni.com regardless of whether an error occurred in a preceding operation.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "address string",
+          "description": "address string contains the address of the GPIB device with which the function communicates. You can input both the primary and secondary addresses in address string by using the form primary+secondary. Both primary and secondary are decimal values, so if primary is 2 and secondary is 3, address string is 2+3. If you do not specify an address, the functions do not perform addressing before they attempt to read and write the string. They assume you have either sent these commands another way or t",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "address_string"
+        },
+        {
+          "name": "error in",
+          "description": "error in describes error conditions that occur before this node runs. With the following exception, this input provides standard error in functionality. This node runs normally even if an error occurred before this node runs.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in"
+        },
+        {
+          "name": "status",
+          "description": "status is a Boolean array in which each bit describes a state of the GPIB Controller. If an error occurs, the function sets bit 15. GPIB error is valid only if bit 15 of status is set. The following table shows the numeric value and symbolic status of each bit in status. This table Functions",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "status"
+        }
+      ]
+    },
+    {
+      "name": "GPIB Wait Function",
+      "page": 2798,
+      "category": "Instrument I/O",
+      "description": "Waits for the state(s) indicated by wait state vector at the device indicated by address string. Use the Wait for GPIB RQS function to wait for a device to assert RQS. Functions 2798 ni.com",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "timeout ms (488.2 global)",
+          "description": "timeout ms specifies the time, in milliseconds, that the function waits before timing out. The operation aborts if it does not complete within timeout ms. To enable timeouts, set bit 14 in the wait state vector input. To disable timeouts, set timeout ms to 0. To use the 488.2 global timeout, leave this input unwired. Then use the SetTimeOut function to change the default value of timeout ms. The default is 10000.",
+          "default_value": "value of timeout ms",
+          "enum_values": null,
+          "python_param": "timeout_ms_488_2_global"
+        },
+        {
+          "name": "address string",
+          "description": "address string contains the address of the GPIB device with which the function communicates. You can input both the primary and secondary addresses in address string by using the form primary+secondary. Both primary and secondary are decimal values, so if primary is 2 and secondary is 3, address string is 2+3. If you do not specify an address, the functions do not perform addressing before they attempt to read and write the string. They assume you have either sent these commands another way or t",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "address_string"
+        },
+        {
+          "name": "wait state vector",
+          "description": "wait state vector indicates the states for which the function waits. Each Boolean element in the array corresponds to a state that the device can wait on. If more than one element is set to TRUE, the function terminates when any one of the states exists. Functions",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "wait_state_vector"
+        }
+      ]
+    },
+    {
+      "name": "GPIB Misc Function",
+      "page": 2801,
+      "category": "Instrument I/O",
+      "description": "Performs the GPIB operation indicated by command string. Use this low-level function when the other high-level, traditional GPIB functions are not suitable.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "command string",
+          "description": "command string is the GPIB operation to perform. The following table shows the functions you can specify in command string. Functions Type Description cac 0/1 Controller Become active controller. cmd string Controller Send IEEE 488 commands. dma 0/1 Controller Set DMA mode or programmed I/O mode. gts 0/1 Controller Go from active controller to standby. ist 0/1 Controller Set individual status bit. llo Controller Local lockout. loc Controller Place controller in local state. loc address Device Go",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "command_string"
+        }
+      ]
+    },
+    {
+      "name": "Send Function",
+      "page": 2805,
+      "category": "Instrument I/O",
+      "description": "Sends data bytes to a single GPIB device. This function is similar to the SendList function, except that the Send function sends data to a single GPIB device. Refer to GPIB Function Defaults for more information about the timeout and address defaults.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "bus",
+          "description": "bus The function addresses the interface indicated by bus as a Talker. Functions © National Instruments 2805 bus refers to the GPIB bus number. If you have only one GPIB interface in your computer, the default bus number is 0. Refer to the software installation instructions included with your GPIB controller for additional GPIB interfaces.",
+          "default_value": "bus number is 0",
+          "enum_values": null,
+          "python_param": "bus"
+        },
+        {
+          "name": "address",
+          "description": "address addresses the device indicated by address as a Listener. If you do not wire address, the function sends data string with no addressing, thereby sending it to all previously addressed Listeners. To send data string to several devices, use the SendList function. If a secondary address is required, use the MakeAddr function to format the primary and secondary addresses properly.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "address"
+        },
+        {
+          "name": "mode",
+          "description": "mode describes how to signal the end of the data to the Listener. This input accepts the following values. 0 Do nothing to mark the end of the transfer (default). 1 Send NL (linefeed) with EOI after the data bytes. 2 Send EOI with the last data byte in the string.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "mode"
+        },
+        {
+          "name": "data string",
+          "description": "data string contains the data bytes that the function sends to the GPIB device.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "data_string"
+        },
+        {
+          "name": "error in",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in"
+        },
+        {
+          "name": "status",
+          "description": "status is a Boolean array in which each bit describes a state of the GPIB Controller. If an error occurs, the function sets bit 15. GPIB error is valid only if bit 15 of status is set. The following table shows the numeric value and symbolic status of each bit in status. This table also includes a description of each bit. Functions 2806 ni.com Status Bit Numeric Value Symbolic Status Description 0 1 DCAS Device Clear state 1 2 DTAS Device Trigger State 2 4 LACS Listener Active 3 8 TACS Talker Ac",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "status"
+        },
+        {
+          "name": "byte count",
+          "description": "byte count refers to the number of bytes that pass over the GPIB.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "byte_count"
+        },
+        {
+          "name": "error out",
+          "description": "error out contains error information. This output provides standard error out functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        }
+      ]
+    },
+    {
+      "name": "Receive Function",
+      "page": 2807,
+      "category": "Instrument I/O",
+      "description": "Reads data bytes from a GPIB device. Refer to GPIB Function Defaults for more information about the timeout and address defaults.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "bus",
+          "description": "Functions © National Instruments 2807 bus The function addresses the interface indicated by bus as a Listener. bus refers to the GPIB bus number. If you have only one GPIB interface in your computer, the default bus number is 0. Refer to the software installation instructions included with your GPIB controller for additional GPIB interfaces.",
+          "default_value": "bus number is 0",
+          "enum_values": null,
+          "python_param": "bus"
+        },
+        {
+          "name": "address",
+          "description": "address contains the primary address of the GPIB device with which the function communicates. If a secondary address is required, use the MakeAddr function to format the primary and secondary addresses.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "address"
+        },
+        {
+          "name": "mode",
+          "description": "mode selects the method that signals the end of the data. The default is 0. If mode is a value from decimal 0 through 255, the ASCII character that corresponds to it is the termination character, and the function stops the read when it detects the character. If mode is not wired, or is decimal 256, the function stops the read when it detects END.",
+          "default_value": "0",
+          "enum_values": null,
+          "python_param": "mode"
+        },
+        {
+          "name": "count",
+          "description": "count is the maximum number of data bytes to return from the device in data string.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "count"
+        },
+        {
+          "name": "error in",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in"
+        },
+        {
+          "name": "data string",
+          "description": "data string contains count data bytes from the GPIB device.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "data_string"
+        },
+        {
+          "name": "status",
+          "description": "status is a Boolean array in which each bit describes a state of the GPIB Controller. If an error occurs, the function sets bit 15. GPIB error is valid only if bit 15 of status is set. The following table shows the numeric value and symbolic status of each bit in status. This table also includes a description of each bit. Functions 2808 ni.com Status Bit Numeric Value Symbolic Status Description 0 1 DCAS Device Clear state 1 2 DTAS Device Trigger State 2 4 LACS Listener Active 3 8 TACS Talker Ac",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "status"
+        },
+        {
+          "name": "byte count",
+          "description": "byte count refers to the number of bytes that pass over the GPIB.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "byte_count"
+        },
+        {
+          "name": "error out",
+          "description": "error out contains error information. This output provides standard error out functionality. Receive terminates when the function does one of the following:",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        },
+        {
+          "name": "Reads the number of bytes requested",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "reads_the_number_of_bytes_requested"
+        },
+        {
+          "name": "Detects an error",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "detects_an_error"
+        },
+        {
+          "name": "Exceeds the time limit",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "exceeds_the_time_limit"
+        },
+        {
+          "name": "Detects the END message (EOI asserted)",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "detects_the_end_message_eoi_asserted"
+        },
+        {
+          "name": "Detects the EOS character (assuming the value supplied to mode has enabled this",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "detects_the_eos_character_assuming_the_value_supplied_to_mode_has_enabled_this"
+        }
+      ]
+    },
+    {
+      "name": "Trigger Function",
+      "page": 2809,
+      "category": "Instrument I/O",
+      "description": "Triggers a single device. Use the TriggerList function to send a single message that triggers several GPIB devices. Functions © National Instruments 2809 Refer to GPIB Function Defaults for more information about the timeout and address defaults.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "bus",
+          "description": "bus refers to the GPIB bus number. If you have only one GPIB interface in your computer, the default bus number is 0. Refer to the software installation instructions included with the GPIB controller for additional GPIB interfaces.",
+          "default_value": "bus number is 0",
+          "enum_values": null,
+          "python_param": "bus"
+        },
+        {
+          "name": "address",
+          "description": "address sends the GPIB Group Execute Trigger message to the device at address. If the address terminal is not wired, the function sends the Group Execute Trigger message with no addressing, and this triggers all previously addressed Listeners. If a secondary address is required, use the MakeAddr function to put the primary and secondary addresses in the proper format.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "address"
+        },
+        {
+          "name": "error in",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in"
+        },
+        {
+          "name": "status",
+          "description": "status is a Boolean array in which each bit describes a state of the GPIB Controller. If an error occurs, the function sets bit 15. GPIB error is valid only if bit 15 of status is set. The following table shows the numeric value and symbolic status of each bit in status. This table also includes a description of each bit. Status Bit Numeric Value Symbolic Status Description 0 1 DCAS Device Clear state 1 2 DTAS Device Trigger State 2 4 LACS Listener Active Functions 2810 ni.com Status Bit Numeric",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "status"
+        },
+        {
+          "name": "error out",
+          "description": "error out contains error information. This output provides standard error out functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        }
+      ]
+    },
+    {
+      "name": "DevClear Function",
+      "page": 2811,
+      "category": "Instrument I/O",
+      "description": "Clears a single device. Use the DevClearList function to send the Selected Device Clear (SDC) message to several GPIB devices. Refer to GPIB Function Defaults for more information about the timeout and address defaults.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "bus",
+          "description": "bus refers to the GPIB bus number. If you have only one GPIB interface in your computer, the default bus number is 0. Refer to the software installation instructions included with the GPIB controller for additional Functions © National Instruments 2811 GPIB interfaces.",
+          "default_value": "bus number is 0",
+          "enum_values": null,
+          "python_param": "bus"
+        },
+        {
+          "name": "address",
+          "description": "address sends the GPIB SDC message to the device at address. If the address terminal is not wired, the function sends the Universal Device Clear message to all devices on the GPIB. If a secondary address is required, use the MakeAddr function to put the primary and secondary addresses in the proper format.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "address"
+        },
+        {
+          "name": "error in",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in"
+        },
+        {
+          "name": "status",
+          "description": "status is a Boolean array in which each bit describes a state of the GPIB Controller. If an error occurs, the function sets bit 15. GPIB error is valid only if bit 15 of status is set. The following table shows the numeric value and symbolic status of each bit in status. This table also includes a description of each bit. Status Bit Numeric Value Symbolic Status Description 0 1 DCAS Device Clear state 1 2 DTAS Device Trigger State 2 4 LACS Listener Active 3 8 TACS Talker Active 4 16 ATN Attentio",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "status"
+        },
+        {
+          "name": "error out",
+          "description": "error out contains error information. This output provides standard error out functionality. Functions 2812 ni.com",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        }
+      ]
+    },
+    {
+      "name": "ReadStatus Function",
+      "page": 2813,
+      "category": "Instrument I/O",
+      "description": "Serial polls a single device to get its status byte. Refer to GPIB Function Defaults for more information about the timeout and address defaults.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "bus",
+          "description": "bus refers to the GPIB bus number. If you have only one GPIB interface in your computer, the default bus number is 0. Refer to the software installation instructions included with the GPIB controller for additional GPIB interfaces.",
+          "default_value": "bus number is 0",
+          "enum_values": null,
+          "python_param": "bus"
+        },
+        {
+          "name": "address",
+          "description": "address contains the primary address of the GPIB device with which the function communicates. If a secondary address is required, use the MakeAddr function to format the primary and secondary addresses.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "address"
+        },
+        {
+          "name": "error in",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in"
+        },
+        {
+          "name": "serial poll response",
+          "description": "serial poll response is the status byte of the device at address. Refer to the documentation supplied with the device to learn how to interpret this byte.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "serial_poll_response"
+        },
+        {
+          "name": "status",
+          "description": "status is a Boolean array in which each bit describes a state of the GPIB Controller. If an error occurs, the function sets bit 15. GPIB error is valid only if bit 15 of status is set. Functions",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "status"
+        }
+      ]
+    },
+    {
+      "name": "PPollConfig Function",
+      "page": 2814,
+      "category": "Instrument I/O",
+      "description": "Configures a device for parallel polls. Refer to GPIB Function Defaults for more information about the timeout and address defaults.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "bus",
+          "description": "Functions 2814 ni.com bus refers to the GPIB bus number. If you have only one GPIB interface in your computer, the default bus number is 0. Refer to the software installation instructions included with the GPIB controller for additional GPIB interfaces.",
+          "default_value": "bus number is 0",
+          "enum_values": null,
+          "python_param": "bus"
+        },
+        {
+          "name": "address",
+          "description": "address configures the GPIB device at address for parallel polls according to the dataline and sense parameters. If a secondary address is required, use the MakeAddr function to put the primary and secondary addresses in the proper format.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "address"
+        },
+        {
+          "name": "dataline",
+          "description": "dataline is the data line, 1 to 8, on which the device responds to the parallel poll.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "dataline"
+        },
+        {
+          "name": "sense",
+          "description": "sense indicates the condition under which the data line is asserted or unasserted. The device compares the sense value, TRUE or FALSE, to its individual status bit and responds accordingly.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "sense"
+        },
+        {
+          "name": "error in",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in"
+        },
+        {
+          "name": "status",
+          "description": "status is a Boolean array in which each bit describes a state of the GPIB Controller. If an error occurs, the function sets bit 15. GPIB error is valid only if bit 15 of status is set. The following table shows the numeric value and symbolic status of each bit in status. This table also includes a description of each bit. Status Bit Numeric Value Symbolic Status Description 0 1 DCAS Device Clear state 1 2 DTAS Device Trigger State 2 4 LACS Listener Active 3 8 TACS Talker Active 4 16 ATN Attentio",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "status"
+        }
+      ]
+    },
+    {
+      "name": "PPollUnconfig Function",
+      "page": 2816,
+      "category": "Instrument I/O",
+      "description": "Unconfigures devices for parallel polls. PPollUnconfig unconfigures the GPIB devices whose addresses are contained in the address list array for parallel polls. These devices no longer participate in polls. Refer to GPIB Function Defaults for more information about the timeout and address defaults.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "bus",
+          "description": "bus refers to the GPIB bus number. If you have only one GPIB interface in your computer, the default bus number is 0. Refer to the software installation instructions included with the GPIB controller for additional GPIB interfaces.",
+          "default_value": "bus number is 0",
+          "enum_values": null,
+          "python_param": "bus"
+        },
+        {
+          "name": "address list",
+          "description": "Functions 2816 ni.com address list contains a list of all of the instruments to which this function sends the Parallel Poll Unconfigure command. Each element of this array contains the primary address of a single instrument. If a secondary address is required, use the MakeAddr function to format the primary and secondary addresses. If you do not wire this input, this function sends the Parallel Poll Unconfigure command to all connected GPIB instruments.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "address_list"
+        },
+        {
+          "name": "error in",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in"
+        },
+        {
+          "name": "status",
+          "description": "status is a Boolean array in which each bit describes a state of the GPIB Controller. If an error occurs, the function sets bit 15. GPIB error is valid only if bit 15 of status is set. The following table shows the numeric value and symbolic status of each bit in status. This table also includes a description of each bit. Status Bit Numeric Value Symbolic Status Description 0 1 DCAS Device Clear state 1 2 DTAS Device Trigger State 2 4 LACS Listener Active 3 8 TACS Talker Active 4 16 ATN Attentio",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "status"
+        },
+        {
+          "name": "error out",
+          "description": "error out contains error information. This output provides standard error out functionality. Functions",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        }
+      ]
+    },
+    {
+      "name": "PassControl Function",
+      "page": 2818,
+      "category": "Instrument I/O",
+      "description": "Passes control to another device with Controller capability. Refer to GPIB Function Defaults for more information about the timeout and address defaults.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "bus",
+          "description": "bus refers to the GPIB bus number. If you have only one GPIB interface in your computer, the default bus number is 0. Refer to the software installation instructions included with the GPIB controller for additional GPIB interfaces.",
+          "default_value": "bus number is 0",
+          "enum_values": null,
+          "python_param": "bus"
+        },
+        {
+          "name": "address",
+          "description": "address sends the GPIB Device Take Control message to the device specified by address. If a secondary address is required, use the MakeAddr function to put the primary and secondary addresses in the proper format.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "address"
+        },
+        {
+          "name": "error in",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in"
+        },
+        {
+          "name": "status",
+          "description": "status is a Boolean array in which each bit describes a state of the GPIB Controller. If an error occurs, the function sets bit 15. GPIB error is valid only if bit 15 of status is set. The following table shows the numeric value and symbolic status of each bit in status. This table also includes a description of each bit. Functions 2818 ni.com Status Bit Numeric Value Symbolic Status Description 0 1 DCAS Device Clear state 1 2 DTAS Device Trigger State 2 4 LACS Listener Active 3 8 TACS Talker Ac",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "status"
+        },
+        {
+          "name": "error out",
+          "description": "error out contains error information. This output provides standard error out functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        }
+      ]
+    },
+    {
+      "name": "SendList Function",
+      "page": 2819,
+      "category": "Instrument I/O",
+      "description": "Sends data bytes to multiple GPIB devices. This function is similar to the Send function, except that SendList sends data to multiple listeners with only one transmission. Refer to GPIB Function Defaults for more information about the timeout and address defaults.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "bus",
+          "description": "Functions © National Instruments 2819 bus refers to the GPIB bus number. If you have only one GPIB interface in your computer, the default bus number is 0. Refer to the software installation instructions included with the GPIB controller for additional GPIB interfaces.",
+          "default_value": "bus number is 0",
+          "enum_values": null,
+          "python_param": "bus"
+        },
+        {
+          "name": "address list",
+          "description": "address list array contains a list of GPIB addresses for devices, which the function addresses as Listeners. If a secondary address is required, use the MakeAddr function to put the primary and secondary addresses in the proper format.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "address_list"
+        },
+        {
+          "name": "mode",
+          "description": "mode describes how to signal the end of the data to the Listener. This input accepts the following values. 0 Do nothing to mark the end of the transfer (default). 1 Send NL (linefeed) with EOI after the data bytes. 2 Send EOI with the last data byte in the string.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "mode"
+        },
+        {
+          "name": "data string",
+          "description": "data string contains the data bytes that the function sends to the addressed devices.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "data_string"
+        },
+        {
+          "name": "error in",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in"
+        },
+        {
+          "name": "status",
+          "description": "status is a Boolean array in which each bit describes a state of the GPIB Controller. If an error occurs, the function sets bit 15. GPIB error is valid only if bit 15 of status is set. The following table shows the numeric value and symbolic status of each bit in status. This table also includes a description of each bit. Functions 2820 ni.com Status Bit Numeric Value Symbolic Status Description 0 1 DCAS Device Clear state 1 2 DTAS Device Trigger State 2 4 LACS Listener Active 3 8 TACS Talker Ac",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "status"
+        },
+        {
+          "name": "byte count",
+          "description": "byte count refers to the number of bytes that pass over the GPIB.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "byte_count"
+        },
+        {
+          "name": "error out",
+          "description": "error out contains error information. This output provides standard error out functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        }
+      ]
+    },
+    {
+      "name": "FindRQS Function",
+      "page": 2821,
+      "category": "Instrument I/O",
+      "description": "Determines which device is requesting service. Refer to GPIB Function Defaults for more information about the timeout and address defaults.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "bus",
+          "description": "Functions © National Instruments 2821 bus refers to the GPIB bus number. If you have only one GPIB interface in your computer, the default bus number is 0. Refer to the software installation instructions included with the GPIB controller for additional GPIB interfaces.",
+          "default_value": "bus number is 0",
+          "enum_values": null,
+          "python_param": "bus"
+        },
+        {
+          "name": "address list",
+          "description": "address list serial polls the GPIB devices listed in address list, starting at the beginning of the address list array, until the function finds the device asserting SRQ. If a secondary address is required, use the MakeAddr function to put the primary and secondary addresses in the proper format.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "address_list"
+        },
+        {
+          "name": "error in",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in"
+        },
+        {
+          "name": "requester status byte",
+          "description": "requester status byte is the status byte for the device asserting SRQ.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "requester_status_byte"
+        },
+        {
+          "name": "status",
+          "description": "status is a Boolean array in which each bit describes a state of the GPIB Controller. If an error occurs, the function sets bit 15. GPIB error is valid only if bit 15 of status is set. The following table shows the numeric value and symbolic status of each bit in status. This table also includes a description of each bit. Status Bit Numeric Value Symbolic Status Description 0 1 DCAS Device Clear state 1 2 DTAS Device Trigger State 2 4 LACS Listener Active 3 8 TACS Talker Active 4 16 ATN Attentio",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "status"
+        },
+        {
+          "name": "requester index",
+          "description": "requester index is the index of the address in address list of the device asserting SRQ.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "requester_index"
+        },
+        {
+          "name": "error out",
+          "description": "error out contains error information. This output provides standard error out functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        }
+      ]
+    },
+    {
+      "name": "TriggerList Function",
+      "page": 2823,
+      "category": "Instrument I/O",
+      "description": "Triggers multiple devices simultaneously. Refer to GPIB Function Defaults for more information about the timeout and address defaults.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "bus",
+          "description": "bus refers to the GPIB bus number. If you have only one GPIB interface in your computer, the default bus number is 0. Refer to the software installation instructions included with the GPIB controller for additional GPIB interfaces.",
+          "default_value": "bus number is 0",
+          "enum_values": null,
+          "python_param": "bus"
+        },
+        {
+          "name": "address list",
+          "description": "address list simultaneously triggers GPIB devices whose addresses appear in address list. If the address list terminal is not wired, the function sends the Group Execute Trigger message without addressing, which triggers all previously addressed Listeners. If a secondary address is required, use the MakeAddr function to put the primary and secondary addresses in the proper format. Functions",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "address_list"
+        }
+      ]
+    },
+    {
+      "name": "DevClearList Function",
+      "page": 2824,
+      "category": "Instrument I/O",
+      "description": "Clears multiple devices simultaneously. Refer to GPIB Function Defaults for more information about the timeout and address defaults. Functions 2824 ni.com",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "bus",
+          "description": "bus refers to the GPIB bus number. If you have only one GPIB interface in your computer, the default bus number is 0. Refer to the software installation instructions included with the GPIB controller for additional GPIB interfaces.",
+          "default_value": "bus number is 0",
+          "enum_values": null,
+          "python_param": "bus"
+        },
+        {
+          "name": "address list",
+          "description": "address list sends the GPIB Selected Device Clear (SDC) message to the devices listed in address list. If the address list terminal is not wired, the function sends the Universal Device Clear message to all devices on the GPIB. If a secondary address is required, use the MakeAddr function to put the primary and secondary addresses in the proper format.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "address_list"
+        },
+        {
+          "name": "error in",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in"
+        },
+        {
+          "name": "status",
+          "description": "status is a Boolean array in which each bit describes a state of the GPIB Controller. If an error occurs, the function sets bit 15. GPIB error is valid only if bit 15 of status is set. The following table shows the numeric value and symbolic status of each bit in status. This table also includes a description of each bit. Status Bit Numeric Value Symbolic Status Description 0 1 DCAS Device Clear state 1 2 DTAS Device Trigger State 2 4 LACS Listener Active 3 8 TACS Talker Active 4 16 ATN Attentio",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "status"
+        }
+      ]
+    },
+    {
+      "name": "AllSpoll Function",
+      "page": 2826,
+      "category": "Instrument I/O",
+      "description": "Serial polls all devices. Although the AllSpoll function is general enough to serial poll any number of GPIB devices, use the ReadStatus function when you serial poll only one GPIB device. Refer to GPIB Function Defaults for more information about the timeout and address defaults.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "bus",
+          "description": "bus refers to the GPIB bus number. If you have only one GPIB interface in your computer, the default bus number is 0. Refer to the software installation instructions included with the GPIB controller for additional GPIB interfaces. Functions 2826 ni.com",
+          "default_value": "bus number is 0",
+          "enum_values": null,
+          "python_param": "bus"
+        },
+        {
+          "name": "address list",
+          "description": "address list serial polls GPIB devices whose addresses appear in address list. If a secondary address is required, use the MakeAddr function to put the primary and secondary addresses in the proper format.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "address_list"
+        },
+        {
+          "name": "error in",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in"
+        },
+        {
+          "name": "serial poll byte list",
+          "description": "serial poll byte list contains the responses of the devices whose addresses are contained in the corresponding elements of address list.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "serial_poll_byte_list"
+        },
+        {
+          "name": "status",
+          "description": "status is a Boolean array in which each bit describes a state of the GPIB Controller. If an error occurs, the function sets bit 15. GPIB error is valid only if bit 15 of status is set. The following table shows the numeric value and symbolic status of each bit instatus. This table also includes a description of each bit. Status Bit Numeric Value Symbolic Status Description 0 1 DCAS Device Clear state 1 2 DTAS Device Trigger State 2 4 LACS Listener Active 3 8 TACS Talker Active 4 16 ATN Attention",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "status"
+        },
+        {
+          "name": "byte count",
+          "description": "Functions",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "byte_count"
+        }
+      ]
+    },
+    {
+      "name": "PPoll Function",
+      "page": 2828,
+      "category": "Instrument I/O",
+      "description": "Performs a parallel poll. Refer to GPIB Function Defaults for more information about the timeout and address defaults.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "bus",
+          "description": "bus refers to the GPIB bus number. If you have only one GPIB interface in your computer, the default bus number is 0. Refer to the software installation instructions included with the GPIB controller for additional GPIB interfaces.",
+          "default_value": "bus number is 0",
+          "enum_values": null,
+          "python_param": "bus"
+        },
+        {
+          "name": "error in",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in"
+        },
+        {
+          "name": "parallel poll byte",
+          "description": "parallel poll byte is the result of the parallel poll. Each bit of the poll result returns one bit of status information from each device configured for parallel polls. The state of each bit, 0 or 1, and the interpretation of these states are based on the Functions 2828 ni.com latest parallel poll configuration sent to the devices and on the individual status of the devices.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "parallel_poll_byte"
+        },
+        {
+          "name": "status",
+          "description": "status is a Boolean array in which each bit describes a state of the GPIB Controller. If an error occurs, the function sets bit 15. GPIB error is valid only if bit 15 of status is set. The following table shows the numeric value and symbolic status of each bit in status. This table also includes a description of each bit. Status Bit Numeric Value Symbolic Status Description 0 1 DCAS Device Clear state 1 2 DTAS Device Trigger State 2 4 LACS Listener Active 3 8 TACS Talker Active 4 16 ATN Attentio",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "status"
+        },
+        {
+          "name": "error out",
+          "description": "error out contains error information. This output provides standard error out functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        }
+      ]
+    },
+    {
+      "name": "EnableRemote Function",
+      "page": 2829,
+      "category": "Instrument I/O",
+      "description": "Enables remote programming of multiple GPIB devices. Refer to GPIB Function Defaults for more information about the timeout and address defaults. Functions © National Instruments 2829",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "bus",
+          "description": "bus refers to the GPIB bus number. If you have only one GPIB interface in your computer, the default bus number is 0. Refer to the software installation instructions included with the GPIB controller for additional GPIB interfaces.",
+          "default_value": "bus number is 0",
+          "enum_values": null,
+          "python_param": "bus"
+        },
+        {
+          "name": "address list",
+          "description": "address list sends the GPIB Remote Enable (REN) command to the devices listed in address list. If the address list terminal is not wired, the function performs no addressing, and the Remote Enable (REN) line asserts. If a secondary address is required, use the MakeAddr function to put the primary and secondary addresses in the proper format.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "address_list"
+        },
+        {
+          "name": "error in",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in"
+        },
+        {
+          "name": "status",
+          "description": "status is a Boolean array in which each bit describes a state of the GPIB Controller. If an error occurs, the function sets bit 15. GPIB error is valid only if bit 15 of status is set. The following table shows the numeric value and symbolic status of each bit in status. This table also includes a description of each bit. Status Bit Numeric Value Symbolic Status Description 0 1 DCAS Device Clear state 1 2 DTAS Device Trigger State 2 4 LACS Listener Active 3 8 TACS Talker Active 4 16 ATN Attentio",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "status"
+        },
+        {
+          "name": "error out",
+          "description": "error out contains error information. This output provides standard error out functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        }
+      ]
+    },
+    {
+      "name": "EnableLocal Function",
+      "page": 2831,
+      "category": "Instrument I/O",
+      "description": "Enables local mode for multiple devices. Refer to GPIB Function Defaults for more information about the timeout and address defaults.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "bus",
+          "description": "bus refers to the GPIB bus number. If you have only one GPIB interface in your computer, the default bus number is 0. Refer to the software installation instructions included with the GPIB controller for additional GPIB interfaces.",
+          "default_value": "bus number is 0",
+          "enum_values": null,
+          "python_param": "bus"
+        },
+        {
+          "name": "address list",
+          "description": "address list sends the GPIB Go To Local (GTL) command to the devices listed in address list.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "address_list"
+        },
+        {
+          "name": "error in",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in"
+        },
+        {
+          "name": "status",
+          "description": "Functions",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "status"
+        }
+      ]
+    },
+    {
+      "name": "FindLstn Function",
+      "page": 2832,
+      "category": "Instrument I/O",
+      "description": "Finds all Listeners on the GPIB. FindLstn detects the presence of devices at particular addresses because most GPIB devices have the ability to listen. When you detect the devices, you can usually interrogate them to determine their identity. Refer to GPIB Function Defaults for more information about the timeout and address defaults. Functions 2832 ni.com",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "bus",
+          "description": "bus refers to the GPIB bus number. If you have only one GPIB interface in your computer, the default bus number is 0. Refer to the software installation instructions included with the GPIB controller for additional GPIB interfaces.",
+          "default_value": "bus number is 0",
+          "enum_values": null,
+          "python_param": "bus"
+        },
+        {
+          "name": "address list",
+          "description": "address list tests for the presence of a Listener for all devices listed in address list. If the function does not detect a listening device at the particular primary address, it tests all the secondary addresses associated with that primary address.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "address_list"
+        },
+        {
+          "name": "limit",
+          "description": "limit If more Listeners are present on the bus than limit specifies, the function truncates listener address list after limit entries.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "limit"
+        },
+        {
+          "name": "error in",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in"
+        },
+        {
+          "name": "listener address list",
+          "description": "listener address list contains the addresses of all the Listeners the function finds.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "listener_address_list"
+        },
+        {
+          "name": "status",
+          "description": "status is a Boolean array in which each bit describes a state of the GPIB Controller. If an error occurs, the function sets bit 15. GPIB error is valid only if bit 15 of status is set. The following table shows the numeric value and symbolic status of each bit in status. This table also includes a description of each bit. Functions",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "status"
+        }
+      ]
+    },
+    {
+      "name": "TestSys Function",
+      "page": 2834,
+      "category": "Instrument I/O",
+      "description": "Directs multiple devices to conduct IEEE 488.2 self-tests. Refer to GPIB Function Defaults for more information about the timeout and address defaults.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "bus",
+          "description": "Functions 2834 ni.com bus refers to the GPIB bus number. If you have only one GPIB interface in your computer, the default bus number is 0. Refer to the software installation instructions included with the GPIB controller for additional GPIB interfaces.",
+          "default_value": "bus number is 0",
+          "enum_values": null,
+          "python_param": "bus"
+        },
+        {
+          "name": "address list",
+          "description": "address list contains a list of GPIB devices which receive instructions from the function to conduct their self-test procedures. If a secondary address is required, use the MakeAddr function to put the primary and secondary addresses in the proper format.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "address_list"
+        },
+        {
+          "name": "error in",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in"
+        },
+        {
+          "name": "result list",
+          "description": "result list Each device returns an integer code signifying the results of its tests. TestSys returns these codes in the corresponding elements of result list. A result code of 0 indicates the device passed its tests. Any other value indicates the tests resulted in an error.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "result_list"
+        },
+        {
+          "name": "status",
+          "description": "status is a Boolean array in which each bit describes a state of the GPIB Controller. If an error occurs, the function sets bit 15. GPIB error is valid only if bit 15 of status is set. The following table shows the numeric value and symbolic status of each bit in status. This table also includes a description of each bit. Status Bit Numeric Value Symbolic Status Description 0 1 DCAS Device Clear state 1 2 DTAS Device Trigger State 2 4 LACS Listener Active 3 8 TACS Talker Active 4 16 ATN Attentio",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "status"
+        }
+      ]
+    },
+    {
+      "name": "ResetSys Function",
+      "page": 2836,
+      "category": "Instrument I/O",
+      "description": "Performs bus initialization, message exchange initialization, and device initialization. Refer to GPIB Function Defaults for more information about the timeout and address defaults.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "bus",
+          "description": "bus refers to the GPIB bus number. If you have only one GPIB interface in your computer, the default bus number is 0. Refer to the software installation instructions included with the GPIB controller for additional GPIB interfaces.",
+          "default_value": "bus number is 0",
+          "enum_values": null,
+          "python_param": "bus"
+        },
+        {
+          "name": "address list",
+          "description": "address list contains the primary address of the GPIB device with which the function communicates. Functions 2836 ni.com If a secondary address is required, use the MakeAddr function to put the primary and secondary addresses in the proper format.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "address_list"
+        },
+        {
+          "name": "error in",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in"
+        },
+        {
+          "name": "status",
+          "description": "status is a Boolean array in which each bit describes a state of the GPIB Controller. If an error occurs, the function sets bit 15. GPIB error is valid only if bit 15 of status is set. The following table shows the numeric value and symbolic status of each bit in status. This table also includes a description of each bit. Status Bit Numeric Value Symbolic Status Description 0 1 DCAS Device Clear state 1 2 DTAS Device Trigger State 2 4 LACS Listener Active 3 8 TACS Talker Active 4 16 ATN Attentio",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "status"
+        },
+        {
+          "name": "error out",
+          "description": "error out contains error information. This output provides standard error out functionality. First, the function asserts Remote Enable (REN), followed by Interface Clear (IFC), unaddressing all devices and making the GPIB controller (the System Controller) the Controller-In-Charge. Second, the function sends the Device Clear (DCL) message to all connected devices. This ensures that all IEEE 488.2-compatible devices can receive the Reset (RST) Functions",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        }
+      ]
+    },
+    {
+      "name": "SendIFC Function",
+      "page": 2838,
+      "category": "Instrument I/O",
+      "description": "Clears the GPIB functions with Interface Clear (IFC). When you issue the GPIB Device IFC message, the interface functions of all connected devices return to their cleared states. Refer to GPIB Function Defaults for more information about the timeout and address defaults.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "bus",
+          "description": "bus refers to the GPIB bus number. If you have only one GPIB interface in your computer, the default bus number is 0. Refer to the software installation instructions included with the GPIB controller for additional GPIB interfaces.",
+          "default_value": "bus number is 0",
+          "enum_values": null,
+          "python_param": "bus"
+        },
+        {
+          "name": "error in",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in"
+        },
+        {
+          "name": "status",
+          "description": "status is a Boolean array in which each bit describes a state of the GPIB Controller. If an error occurs, the function sets bit 15. GPIB error is valid only if bit 15 of status is set. The following table shows the numeric value and symbolic status of each bit in status. This table also includes a description of each bit. Functions 2838 ni.com Status Bit Numeric Value Symbolic Status Description 0 1 DCAS Device Clear state 1 2 DTAS Device Trigger State 2 4 LACS Listener Active 3 8 TACS Talker Ac",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "status"
+        },
+        {
+          "name": "error out",
+          "description": "error out contains error information. This output provides standard error out functionality. Use this function as part of a GPIB initialization. It forces the interface to be Controller of the GPIB and ensures that the connected devices are all unaddressed and that the interface functions of the devices are in their idle states.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        }
+      ]
+    },
+    {
+      "name": "TestSRQ Function",
+      "page": 2839,
+      "category": "Instrument I/O",
+      "description": "Determines the current state of the SRQ line. This function is similar in format to the WaitSRQ function, except that WaitSRQ suspends itself while it waits for an occurrence of SRQ, and TestSRQ immediately returns the current SRQ state. Refer to GPIB Function Defaults for more information about the timeout and address defaults. Functions © National Instruments 2839",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "bus",
+          "description": "bus refers to the GPIB bus number. If you have only one GPIB interface in your computer, the default bus number is 0. Refer to the software installation instructions included with the GPIB controller for additional GPIB interfaces.",
+          "default_value": "bus number is 0",
+          "enum_values": null,
+          "python_param": "bus"
+        },
+        {
+          "name": "error in",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in"
+        },
+        {
+          "name": "SRQ",
+          "description": "SRQ is TRUE if the SRQ line is asserted and FALSE if it is not.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "srq"
+        },
+        {
+          "name": "status",
+          "description": "status is a Boolean array in which each bit describes a state of the GPIB Controller. If an error occurs, the function sets bit 15. GPIB error is valid only if bit 15 of status is set. The following table shows the numeric value and symbolic status of each bit in status. This table also includes a description of each bit. Status Bit Numeric Value Symbolic Status Description 0 1 DCAS Device Clear state 1 2 DTAS Device Trigger State 2 4 LACS Listener Active 3 8 TACS Talker Active 4 16 ATN Attentio",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "status"
+        },
+        {
+          "name": "error out",
+          "description": "Functions 2840 ni.com error out contains error information. This output provides standard error out functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        }
+      ]
+    },
+    {
+      "name": "WaitSRQ Function",
+      "page": 2841,
+      "category": "Instrument I/O",
+      "description": "Waits until a device asserts Service Request. Refer to GPIB Function Defaults for more information about the timeout and address defaults.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "bus",
+          "description": "bus refers to the GPIB bus number. If you have only one GPIB interface in your computer, the default bus number is 0. Refer to the software installation instructions included with the GPIB controller for additional GPIB interfaces.",
+          "default_value": "bus number is 0",
+          "enum_values": null,
+          "python_param": "bus"
+        },
+        {
+          "name": "error in",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in"
+        },
+        {
+          "name": "SRQ",
+          "description": "If the SRQ occurs within the timeout period specified in the GPIB configuration, the function returns TRUE in SRQ. Otherwise, the function returns FALSE.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "srq"
+        },
+        {
+          "name": "status",
+          "description": "status is a Boolean array in which each bit describes a state of the GPIB Controller. If an error occurs, the function sets bit 15. GPIB error is valid only if bit 15 of status is set. The following table shows the numeric value and symbolic status of each bit in status. This table also includes a description of each bit. Functions",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "status"
+        }
+      ]
+    },
+    {
+      "name": "SetRWLS Function",
+      "page": 2842,
+      "category": "Instrument I/O",
+      "description": "Places particular devices in the Remote With Lockout State.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "bus",
+          "description": "Functions 2842 ni.com bus refers to the GPIB bus number. If you have only one GPIB interface in your computer, the default bus number is 0. Refer to the software installation instructions included with the GPIB controller for additional GPIB interfaces.",
+          "default_value": "bus number is 0",
+          "enum_values": null,
+          "python_param": "bus"
+        },
+        {
+          "name": "address list",
+          "description": "address list contains a list of the GPIB devices with which the function communicates.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "address_list"
+        },
+        {
+          "name": "error in",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in"
+        },
+        {
+          "name": "status",
+          "description": "status is a Boolean array in which each bit describes a state of the GPIB Controller. If an error occurs, the function sets bit 15. GPIB error is valid only if bit 15 of status is set. The following table shows the numeric value and symbolic status of each bit in status. This table also includes a description of each bit. Status Bit Numeric Value Symbolic Status Description 0 1 DCAS Device Clear state 1 2 DTAS Device Trigger State 2 4 LACS Listener Active 3 8 TACS Talker Active 4 16 ATN Attentio",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "status"
+        },
+        {
+          "name": "error out",
+          "description": "error out contains error information. This output provides standard error out functionality. Functions",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        }
+      ]
+    },
+    {
+      "name": "SendLLO Function",
+      "page": 2844,
+      "category": "Instrument I/O",
+      "description": "Sends the Local Lockout (LLO) message to all devices. Refer to GPIB Function Defaults for more information about the timeout and address defaults.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "bus",
+          "description": "bus refers to the GPIB bus number. If you have only one GPIB interface in your computer, the default bus number is 0. Refer to the software installation instructions included with the GPIB controller for additional GPIB interfaces.",
+          "default_value": "bus number is 0",
+          "enum_values": null,
+          "python_param": "bus"
+        },
+        {
+          "name": "error in",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in"
+        },
+        {
+          "name": "status",
+          "description": "status is a Boolean array in which each bit describes a state of the GPIB Controller. If an error occurs, the function sets bit 15. GPIB error is valid only if bit 15 of status is set. The following table shows the numeric value and symbolic status of each bit in status. This table also includes a description of each bit. Functions 2844 ni.com Status Bit Numeric Value Symbolic Status Description 0 1 DCAS Device Clear state 1 2 DTAS Device Trigger State 2 4 LACS Listener Active 3 8 TACS Talker Ac",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "status"
+        },
+        {
+          "name": "error out",
+          "description": "error out contains error information. This output provides standard error out functionality. When the function sends the GPIB Local Lockout message, a device cannot independently choose the local or remote state. While Local Lockout is in effect, only the Controller can alter the local or remote state of the devices by sending the appropriate GPIB messages. Use SendLLO only in unusual local/remote situations, particularly those in which you must lock all devices into local programming state. Use",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        }
+      ]
+    },
+    {
+      "name": "SendDataBytes Function",
+      "page": 2845,
+      "category": "Instrument I/O",
+      "description": "Sends data bytes to previously addressed devices. Refer to GPIB Function Defaults for more information about the timeout and address defaults. Functions © National Instruments 2845",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "bus",
+          "description": "bus refers to the GPIB bus number. If you have only one GPIB interface in your computer, the default bus number is 0. Refer to the software installation instructions included with the GPIB controller for additional GPIB interfaces.",
+          "default_value": "bus number is 0",
+          "enum_values": null,
+          "python_param": "bus"
+        },
+        {
+          "name": "mode",
+          "description": "mode describes how to signal the end of the data to the Listener. This input accepts the following values. 0 Do nothing to mark the end of the transfer (default). 1 Send NL (linefeed) with EOI after the data bytes. 2 Send EOI with the last data byte in the string.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "mode"
+        },
+        {
+          "name": "data string",
+          "description": "data string contains the data bytes the function sends over the GPIB.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "data_string"
+        },
+        {
+          "name": "error in",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in"
+        },
+        {
+          "name": "status",
+          "description": "status is a Boolean array in which each bit describes a state of the GPIB Controller. If an error occurs, the function sets bit 15. GPIB error is valid only if bit 15 of status is set. The following table shows the numeric value and symbolic status of each bit in status. This table also includes a description of each bit. Functions 2846 ni.com Status Bit Numeric Value Symbolic Status Description 0 1 DCAS Device Clear state 1 2 DTAS Device Trigger State 2 4 LACS Listener Active 3 8 TACS Talker Ac",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "status"
+        },
+        {
+          "name": "byte count",
+          "description": "byte count refers to the number of bytes that pass over the GPIB.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "byte_count"
+        },
+        {
+          "name": "error out",
+          "description": "error out contains error information. This output provides standard error out functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        }
+      ]
+    },
+    {
+      "name": "SendSetup Function",
+      "page": 2847,
+      "category": "Instrument I/O",
+      "description": "Prepares particular devices to receive data bytes. You normally follow a call to this function with a call to a function such as SendDataBytes to actually transfer the data to the Listeners. This sequence eliminates the need to readdress the devices between blocks of sends. Refer to GPIB Function Defaults for more information about the timeout and address defaults. Functions © National Instruments 2847",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "bus",
+          "description": "bus refers to the GPIB bus number. If you have only one GPIB interface in your computer, the default bus number is 0. Refer to the software installation instructions included with the GPIB controller for additional GPIB interfaces.",
+          "default_value": "bus number is 0",
+          "enum_values": null,
+          "python_param": "bus"
+        },
+        {
+          "name": "address list",
+          "description": "address list addresses GPIB devices whose addresses appear in address list as Listeners. If a secondary address is required, use the MakeAddr function to put the primary and secondary addresses in the proper format.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "address_list"
+        },
+        {
+          "name": "error in",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in"
+        },
+        {
+          "name": "status",
+          "description": "status is a Boolean array in which each bit describes a state of the GPIB Controller. If an error occurs, the function sets bit 15. GPIB error is valid only if bit 15 of status is set. The following table shows the numeric value and symbolic status of each bit in status. This table also includes a description of each bit. Status Bit Numeric Value Symbolic Status Description 0 1 DCAS Device Clear state 1 2 DTAS Device Trigger State 2 4 LACS Listener Active 3 8 TACS Talker Active 4 16 ATN Attentio",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "status"
+        },
+        {
+          "name": "error out",
+          "description": "error out contains error information. This output provides standard error out functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        }
+      ]
+    },
+    {
+      "name": "SendCmds Function",
+      "page": 2849,
+      "category": "Instrument I/O",
+      "description": "Sends GPIB command bytes. You normally do not need to use SendCmds for GPIB operation. Use it when specialized command sequences, not provided for in other functions, must be sent over the GPIB. Refer to GPIB Function Defaults for more information about the timeout and address defaults. Refer to GPIB Multiline Interface Messages for more information about available commands.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "bus",
+          "description": "bus refers to the GPIB bus number. If you have only one GPIB interface in your computer, the default bus number is 0. Refer to the software installation instructions included with the GPIB controller for additional GPIB interfaces.",
+          "default_value": "bus number is 0",
+          "enum_values": null,
+          "python_param": "bus"
+        },
+        {
+          "name": "command string",
+          "description": "command string contains the command bytes the function sends over the GPIB.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "command_string"
+        },
+        {
+          "name": "error in",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality. Functions © National Instruments 2849",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in"
+        },
+        {
+          "name": "status",
+          "description": "status is a Boolean array in which each bit describes a state of the GPIB Controller. If an error occurs, the function sets bit 15. GPIB error is valid only if bit 15 of status is set. The following table shows the numeric value and symbolic status of each bit in status. This table also includes a description of each bit. Status Bit Numeric Value Symbolic Status Description 0 1 DCAS Device Clear state 1 2 DTAS Device Trigger State 2 4 LACS Listener Active 3 8 TACS Talker Active 4 16 ATN Attentio",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "status"
+        },
+        {
+          "name": "byte count",
+          "description": "byte count refers to the number of bytes that pass over the GPIB.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "byte_count"
+        },
+        {
+          "name": "error out",
+          "description": "error out contains error information. This output provides standard error out functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        }
+      ]
+    },
+    {
+      "name": "RcvRespMsg Function",
+      "page": 2850,
+      "category": "Instrument I/O",
+      "description": "Reads data bytes from a previously addressed device. RcvRespMsg assumes that another function, such as ReceiveSetup, Receive, or SendCmds, has already addressed the GPIB Talkers and Listeners. You use RcvRespMsg specifically to skip the addressing step of GPIB management. Use the Receive function to perform the entire sequence of addressing and then to receive the data bytes. Functions 2850 ni.com Refer to GPIB Function Defaults for more information about the timeout and address defaults.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "bus",
+          "description": "bus refers to the GPIB bus number. If you have only one GPIB interface in your computer, the default bus number is 0. Refer to the software installation instructions included with the GPIB controller for additional GPIB interfaces.",
+          "default_value": "bus number is 0",
+          "enum_values": null,
+          "python_param": "bus"
+        },
+        {
+          "name": "mode",
+          "description": "mode determines the data termination method. The default is 0. If mode is from 0 through decimal 255, the ASCII character that corresponds to it is the termination character, and the function stops the read when it detects the character. If mode is not wired or is decimal 256, the read stops when the function detects the END message (EOI).",
+          "default_value": "0",
+          "enum_values": null,
+          "python_param": "mode"
+        },
+        {
+          "name": "count",
+          "description": "count is the maximum number of data bytes to read from the GPIB.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "count"
+        },
+        {
+          "name": "error in",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in"
+        },
+        {
+          "name": "data string",
+          "description": "data string contains the bytes read from the GPIB.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "data_string"
+        },
+        {
+          "name": "status",
+          "description": "status is a Boolean array in which each bit describes a state of the GPIB Controller. If an error occurs, the function sets bit 15. GPIB error is valid only if bit 15 of status is set. Functions",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "status"
+        }
+      ]
+    },
+    {
+      "name": "ReceiveSetup Function",
+      "page": 2852,
+      "category": "Instrument I/O",
+      "description": "Prepares a device to send data bytes and prepares the GPIB controller to read data bytes. After you call this function, you can use a function such as RcvRespMsg to transfer the data from the Talker. In this way, you eliminate the need to readdress the devices between blocks of reads. Refer to GPIB Function Defaults for more information about the timeout and address defaults. Functions 2852 ni.com",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "bus",
+          "description": "bus refers to the GPIB bus number. If you have only one GPIB interface in your computer, the default bus number is 0. Refer to the software installation instructions included with the GPIB controller for additional GPIB interfaces.",
+          "default_value": "bus number is 0",
+          "enum_values": null,
+          "python_param": "bus"
+        },
+        {
+          "name": "address",
+          "description": "address prepares a device to send data bytes by addressing the device as a Talker and prepares the GPIB controller to receive transmitted data bytes. address contains the primary address of the GPIB device with which the function communicates. If a secondary address is required, use the MakeAddr function to format the primary and secondary addresses.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "address"
+        },
+        {
+          "name": "error in",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in"
+        },
+        {
+          "name": "status",
+          "description": "status is a Boolean array in which each bit describes a state of the GPIB Controller. If an error occurs, the function sets bit 15. GPIB error is valid only if bit 15 of status is set. The following table shows the numeric value and symbolic status of each bit in status. This table also includes a description of each bit. Status Bit Numeric Value Symbolic Status Description 0 1 DCAS Device Clear state 1 2 DTAS Device Trigger State 2 4 LACS Listener Active 3 8 TACS Talker Active 4 16 ATN Attentio",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "status"
+        }
+      ]
+    },
+    {
+      "name": "SetTimeOut Function",
+      "page": 2854,
+      "category": "Instrument I/O",
+      "description": "Changes the global timeout period for all GPIB 488.2 functions. This function also sets the default timeout period for all GPIB functions. This function defaults to the next higher ibtmo value. Refer to GPIB Function Defaults for more information about the timeout and address defaults.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "new timeout (10000)",
+          "description": "new timeout defaults to 10,000 ms.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "new_timeout_10000"
+        },
+        {
+          "name": "previous timeout",
+          "description": "previous timeout is the previous timeout period for all GPIB 488.2 functions. The following table lists some sample input values and their resulting timeout values. Functions 2854 ni.com Input Value Resulting Timeout 0-1ms 1ms 1ms 3ms 4-10ms 10ms 11-30ms 30ms 31-100ms 100ms 101-300ms 300ms 301-1000ms 1s 1001-3000ms 3s 3001-10000ms 10s 10001-30000ms 30s 30001-100000ms 100s 100001-300000ms 300s 300001+ ms 1000s",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "previous_timeout"
+        }
+      ]
+    },
+    {
+      "name": "MakeAddr Function",
+      "page": 2855,
+      "category": "Instrument I/O",
+      "description": "Combines primary address and secondary address in a specially formatted packed address for devices that require both a primary and secondary GPIB address. Refer to GPIB Function Defaults for more information about the timeout and address defaults.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "primary address",
+          "description": "primary address is placed in the lower byte of the packed address by MakeAddr.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "primary_address"
+        },
+        {
+          "name": "secondary address",
+          "description": "Functions © National Instruments 2855 secondary address is placed in the upper byte of the packed address by MakeAddr.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "secondary_address"
+        },
+        {
+          "name": "error in",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in"
+        },
+        {
+          "name": "packed address",
+          "description": "packed address contains primary address in its lower byte and secondary address in its upper byte. You can use packed address as the address input to the GPIB 488.2 Functions.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "packed_address"
+        },
+        {
+          "name": "error out",
+          "description": "error out contains error information. This output provides standard error out functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        }
+      ]
+    },
+    {
+      "name": "Controller Functions",
+      "page": 2856,
+      "category": "Instrument I/O",
+      "description": "The controller functions configure the controller or send IEEE 488 commands to which all instruments respond. cac—Become Active Controller cmd—Send IEEE 488 Commands Functions 2856 ni.com dma—Set DMA Mode or Programmed I/O Mode gts—Go from Active Controller to Standby ist—Set Individual Status Bit llo—Local Lockout loc—Place Controller in Local State off—Take Controller Offline ppc—Parallel Poll Configure (Enable and Disable) ppu—Parallel Poll Unconfigure rpp—Conduct Parallel Poll rsc—Release or",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_review",
+      "terminals": []
+    },
+    {
+      "name": "GPIB Device and Controller Functions",
+      "page": 2856,
+      "category": "Instrument I/O",
+      "description": "The GPIB Device and Controller functions listed in the GPIB Misc function description are described here. Notice that there are both device and controller versions of the ppc and loc commands. The syntax and use of the commands are slightly different for each version. You can use these functions with all GPIB Controllers accessible by LabVIEW unless stated otherwise in the function description. An ECMD error (17) results when you execute a function for a GPIB Controller without the specified cap",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_review",
+      "terminals": []
+    },
+    {
+      "name": "Device Functions",
+      "page": 2863,
+      "category": "Instrument I/O",
+      "description": "The device functions send configuration information to a specific instrument or device. loc—Go to local off—Take device offline pct—Pass control ppc—Parallel poll configure loc—Go to local syntax loc address loc temporarily moves devices from a remote program mode to a local mode. address is the GPIB address of the device. This argument indicates both primary and secondary addresses if you use the form primary+secondary, where primary and secondary are the decimal values of the primary and secon",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_review",
+      "terminals": []
+    },
+    {
+      "name": "GPIB Function Defaults",
+      "page": 2865,
+      "category": "Instrument I/O",
+      "description": "When using GPIB functions, the default primary address of the GPIB controller is 0, with no secondary address. It is designated as System Controller. The default timeout value for GPIB functions is 10 seconds. If you want to set the primary address or change the default timeout value, use the configuration utility included with the GPIB controller. You also can use the GPIB Initialization and SetTimeOut functions to set the primary address and to change the default timeout value at run time, but",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_review",
+      "terminals": []
+    },
+    {
+      "name": "Configuring Serial and Parallel Ports with VISA",
+      "page": 2866,
+      "category": "Instrument I/O",
+      "description": "NI-VISA automatically detects ports. You can view the list of ports with a VISA resource name control on the front panel or with the VISA Find Resource function. The maximum number of serial ports that NI-VISA supports on any platform is 256. The Functions 2866 ni.com default numbering of serial ports is system dependent. (Windows) NI-VISA supports interaction with parallel ports as well as with serial ports on your computer. You can use the VISA properties to communicate with parallel ports in ",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_review",
+      "terminals": []
+    }
+  ]
+}

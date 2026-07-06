@@ -1,0 +1,1059 @@
+{
+  "category": "Collection",
+  "count": 23,
+  "entries": [
+    {
+      "name": "Build Map",
+      "page": 1413,
+      "category": "Collection",
+      "description": "Creates a map from the input key-value entries. For entries with duplicate keys, this function includes only the last entry in the resulting map.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "key",
+          "description": "key specifies the key of the entry. This input accepts any data type. All the keys must be unique and of the same data type.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "key"
+        },
+        {
+          "name": "value",
+          "description": "value specifies the value of the entry. This input accepts any data type. All the values must be of the same data type.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "value"
+        },
+        {
+          "name": "map",
+          "description": "Functions © National Instruments 1413 map returns the resulting map. Examples Refer to the following example files included with LabVIEW.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "map"
+        },
+        {
+          "name": "labview\\examples\\Collections\\Map Collection - Comparing",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "labview_examples_collections_map_collection_comparing"
+        }
+      ]
+    },
+    {
+      "name": "Insert Into Map Function",
+      "page": 1414,
+      "category": "Collection",
+      "description": "Inserts a key and its associated value into a map. If the key is already included in the map, this function replaces the original value of the key with the new associated value.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "map in",
+          "description": "map in specifies the map in which you want to insert a key-value entry. This input accepts a map of any data type. The default data type is a map of 32-bit signed integers.",
+          "default_value": "data type is a map of 32-bit signed integers",
+          "enum_values": null,
+          "python_param": "map_in"
+        },
+        {
+          "name": "key",
+          "description": "key specifies the key of the entry to insert into the map. The key must be of the same data type as the existing keys in the map.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "key"
+        },
+        {
+          "name": "value",
+          "description": "value specifies the value of the entry. This input must be of the same data type as the existing values in the map.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "value"
+        },
+        {
+          "name": "map out",
+          "description": "map out returns the map with the inserted entry. Functions 1414 ni.com",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "map_out"
+        },
+        {
+          "name": "key already included?",
+          "description": "key already included? returns whether map in already includes key. If key already included? is TRUE, this function replaces the associated value of key in map in with value and returns the resulting map in map out.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "key_already_included"
+        },
+        {
+          "name": "value unchanged?",
+          "description": "value unchanged? returns whether any values in the input map are updated after the insertion. Examples Refer to the following example files included with LabVIEW.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "value_unchanged"
+        },
+        {
+          "name": "labview\\examples\\Collections\\Map Collection - Comparing",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "labview_examples_collections_map_collection_comparing"
+        }
+      ]
+    },
+    {
+      "name": "Remove From Map Function",
+      "page": 1415,
+      "category": "Collection",
+      "description": "Removes a key and its associated value from a map.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "map in",
+          "description": "map in specifies the map from which you want to remove an entry. This input accepts a map of any data type. The default data type is a map of 32-bit signed integers.",
+          "default_value": "data type is a map of 32-bit signed integers",
+          "enum_values": null,
+          "python_param": "map_in"
+        },
+        {
+          "name": "key",
+          "description": "key specifies the key of the entry to remove. This input must be of the same data type as the existing keys in the map.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "key"
+        },
+        {
+          "name": "map out",
+          "description": "map out returns the map with the entry of the specified key removed. Functions © National Instruments 1415",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "map_out"
+        },
+        {
+          "name": "key not found?",
+          "description": "key not found? returns whether map in includes an entry with the specified key.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "key_not_found"
+        },
+        {
+          "name": "value",
+          "description": "value returns the value of the entry associated with key. Examples Refer to the following example files included with LabVIEW.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "value"
+        },
+        {
+          "name": "labview\\examples\\Collections\\Map Collection - Word",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "labview_examples_collections_map_collection_word"
+        }
+      ]
+    },
+    {
+      "name": "Look In Map Function",
+      "page": 1416,
+      "category": "Collection",
+      "description": "Checks whether a map includes an entry with the specified key and returns the associated value of the key.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "map",
+          "description": "map specifies the map in which you want to look for a key. This input accepts a map of any data type. The default data type is a map of 32-bit signed integers.",
+          "default_value": "data type is a map of 32-bit signed integers",
+          "enum_values": null,
+          "python_param": "map"
+        },
+        {
+          "name": "key",
+          "description": "key specifies the key to look for in the map. The key must be of the same data type as the existing keys in the map.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "key"
+        },
+        {
+          "name": "default value",
+          "description": "default value specifies the value to return in value if the specified key does not exist in the map. This input must be of the same data type as the existing values in the map. Functions 1416 ni.com",
+          "default_value": "value specifies the value to return in value if the specified key does not exist in the map",
+          "enum_values": null,
+          "python_param": "default_value"
+        },
+        {
+          "name": "key not found?",
+          "description": "key not found? returns TRUE if map does not include an entry with the specified key. Otherwise, key not found? returns FALSE.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "key_not_found"
+        },
+        {
+          "name": "value",
+          "description": "value returns the value of the entry with the associated key if key not found? is FALSE. If key not found? is TRUE, this output returns the value in default value. Examples Refer to the following example files included with LabVIEW.",
+          "default_value": "value",
+          "enum_values": null,
+          "python_param": "value"
+        },
+        {
+          "name": "labview\\examples\\Collections\\Map Collection - Comparing",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "labview_examples_collections_map_collection_comparing"
+        },
+        {
+          "name": "labview\\examples\\Design Patterns\\Registration Map\\",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "labview_examples_design_patterns_registration_map"
+        }
+      ]
+    },
+    {
+      "name": "Read Map Max & Min Keys Function",
+      "page": 1417,
+      "category": "Collection",
+      "description": "Returns the maximum and minimum keys in a map.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "map",
+          "description": "map specifies the map in which you want to look for the maximum and minimum keys. This input accepts a map of any data type. The default data type is a map of 32-bit signed integers.",
+          "default_value": "data type is a map of 32-bit signed integers",
+          "enum_values": null,
+          "python_param": "map"
+        },
+        {
+          "name": "maximum",
+          "description": "maximum returns the maximum key in map.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "maximum"
+        },
+        {
+          "name": "minimum",
+          "description": "Functions © National Instruments 1417 minimum returns the minimum key in map.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "minimum"
+        }
+      ]
+    },
+    {
+      "name": "Collection Size Function",
+      "page": 1418,
+      "category": "Collection",
+      "description": "Returns the number of elements or entries in a collection.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "collection",
+          "description": "collection specifies the collection. This input accepts any collection data type.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "collection"
+        },
+        {
+          "name": "size",
+          "description": "size returns the number of elements or entries in collection. Functions 1418 ni.com Empty Collection? Function Empty Collection? Function Returns TRUE if the input collection contains zero elements or entries. Inputs/Outputs",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "size"
+        },
+        {
+          "name": "collection",
+          "description": "collection specifies the collection. This input accepts any collection data type.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "collection"
+        },
+        {
+          "name": "empty?",
+          "description": "empty? returns TRUE if collection is empty. Otherwise, this output returns FALSE. Examples Refer to the following example files included with LabVIEW.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "empty"
+        },
+        {
+          "name": "labview\\examples\\Collections\\Map Collection - Comparing",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "labview_examples_collections_map_collection_comparing"
+        },
+        {
+          "name": "labview\\examples\\Collections\\Set Collection - Word",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "labview_examples_collections_set_collection_word"
+        },
+        {
+          "name": "labview\\examples\\Design Patterns\\Registration Map\\",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "labview_examples_design_patterns_registration_map"
+        }
+      ]
+    },
+    {
+      "name": "Convert Map To Array",
+      "page": 1419,
+      "category": "Collection",
+      "description": "Places the code that you can use to convert a map to an array. When you add this VI to the block diagram, a For Loop displays. Wire a map to the tunnel input and return an array through the tunnel output. Functions © National Instruments 1419 In Place Map Access In Place Map Access Places an In Place Element structure on the block diagram with the Map Get / Replace Value border node added. Registration Map Registration Map Use the Registration Map VIs to create and manipulate registration maps. ",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "map in",
+          "description": "map in specifies the registration map in which you want to insert an entry. This input accepts a map of sets of any data type. The default data type is a map of sets of 32-bit signed integers.",
+          "default_value": "data type is a map of sets of 32-bit signed integers",
+          "enum_values": null,
+          "python_param": "map_in"
+        },
+        {
+          "name": "key",
+          "description": "key specifies the key. This input must be of the same data type as the existing keys in the map.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "key"
+        },
+        {
+          "name": "set element",
+          "description": "set element specifies the set element that may be registered for the specified key. This input must be of the same data type as the elements of the sets in the map.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "set_element"
+        },
+        {
+          "name": "map out",
+          "description": "map out returns the registration map with the inserted entry.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "map_out"
+        },
+        {
+          "name": "element already registered?",
+          "description": "element already registered? returns whether map in already includes set element.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "element_already_registered"
+        },
+        {
+          "name": "first registration for this key?",
+          "description": "first registration for this key? returns whether this is the first time that the key is registered. Examples Refer to the following example files included with LabVIEW. Functions",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "first_registration_for_this_key"
+        }
+      ]
+    },
+    {
+      "name": "Empty Collection? Function",
+      "page": 1419,
+      "category": "Collection",
+      "description": "Returns TRUE if the input collection contains zero elements or entries.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "collection",
+          "description": "collection specifies the collection. This input accepts any collection data type.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "collection"
+        },
+        {
+          "name": "empty?",
+          "description": "empty? returns TRUE if collection is empty. Otherwise, this output returns FALSE. Examples Refer to the following example files included with LabVIEW.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "empty"
+        },
+        {
+          "name": "labview\\examples\\Collections\\Map Collection - Comparing",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "labview_examples_collections_map_collection_comparing"
+        },
+        {
+          "name": "labview\\examples\\Collections\\Set Collection - Word",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "labview_examples_collections_set_collection_word"
+        },
+        {
+          "name": "labview\\examples\\Design Patterns\\Registration Map\\",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "labview_examples_design_patterns_registration_map"
+        }
+      ]
+    },
+    {
+      "name": "In Place Map Access",
+      "page": 1420,
+      "category": "Collection",
+      "description": "Places an In Place Element structure on the block diagram with the Map Get / Replace Value border node added. Registration Map Registration Map Use the Registration Map VIs to create and manipulate registration maps. A registration map is a map between a key and a set of elements with operations to signal when clients register or unregister for one or more services. Palette Object Description Registration Map:Register Adds a set element in a registration map. This VI signals the calling VI if it",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "map in",
+          "description": "map in specifies the registration map in which you want to insert an entry. This input accepts a map of sets of any data type. The default data type is a map of sets of 32-bit signed integers.",
+          "default_value": "data type is a map of sets of 32-bit signed integers",
+          "enum_values": null,
+          "python_param": "map_in"
+        },
+        {
+          "name": "key",
+          "description": "key specifies the key. This input must be of the same data type as the existing keys in the map.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "key"
+        },
+        {
+          "name": "set element",
+          "description": "set element specifies the set element that may be registered for the specified key. This input must be of the same data type as the elements of the sets in the map.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "set_element"
+        },
+        {
+          "name": "map out",
+          "description": "map out returns the registration map with the inserted entry.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "map_out"
+        },
+        {
+          "name": "element already registered?",
+          "description": "element already registered? returns whether map in already includes set element.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "element_already_registered"
+        },
+        {
+          "name": "first registration for this key?",
+          "description": "first registration for this key? returns whether this is the first time that the key is registered. Examples Refer to the following example files included with LabVIEW. Functions",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "first_registration_for_this_key"
+        }
+      ]
+    },
+    {
+      "name": "Registration Map",
+      "page": 1420,
+      "category": "Collection",
+      "description": "Use the Registration Map VIs to create and manipulate registration maps. A registration map is a map between a key and a set of elements with operations to signal when clients register or unregister for one or more services. Palette Object Description Registration Map:Register Adds a set element in a registration map. This VI signals the calling VI if it is the first time any set element has registered for this key. Registration Map:Confirm Registration Checks if a set element is registered for ",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "map in",
+          "description": "map in specifies the registration map in which you want to insert an entry. This input accepts a map of sets of any data type. The default data type is a map of sets of 32-bit signed integers.",
+          "default_value": "data type is a map of sets of 32-bit signed integers",
+          "enum_values": null,
+          "python_param": "map_in"
+        },
+        {
+          "name": "key",
+          "description": "key specifies the key. This input must be of the same data type as the existing keys in the map.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "key"
+        },
+        {
+          "name": "set element",
+          "description": "set element specifies the set element that may be registered for the specified key. This input must be of the same data type as the elements of the sets in the map.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "set_element"
+        },
+        {
+          "name": "map out",
+          "description": "map out returns the registration map with the inserted entry.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "map_out"
+        },
+        {
+          "name": "element already registered?",
+          "description": "element already registered? returns whether map in already includes set element.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "element_already_registered"
+        },
+        {
+          "name": "first registration for this key?",
+          "description": "first registration for this key? returns whether this is the first time that the key is registered. Examples Refer to the following example files included with LabVIEW. Functions",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "first_registration_for_this_key"
+        }
+      ]
+    },
+    {
+      "name": "Build Set",
+      "page": 1425,
+      "category": "Collection",
+      "description": "Creates a set from the input elements. Duplicate elements appear only once in the resulting set.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "element",
+          "description": "element specifies the data you want to include in the set. This input accepts any data type. The default data type is string. All the element inputs must be Functions © National Instruments 1425 of the same data type.",
+          "default_value": "data type is string",
+          "enum_values": null,
+          "python_param": "element"
+        },
+        {
+          "name": "set",
+          "description": "set returns the resulting set.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "set"
+        }
+      ]
+    },
+    {
+      "name": "Insert Into Set Function",
+      "page": 1426,
+      "category": "Collection",
+      "description": "Inserts an element into a set.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "set in",
+          "description": "set in specifies the set in which you want to insert an element. This input accepts a set of any data type. The default data type is a set of strings.",
+          "default_value": "data type is a set of strings",
+          "enum_values": null,
+          "python_param": "set_in"
+        },
+        {
+          "name": "element",
+          "description": "element specifies the data you want to insert into the set. This input must be of the same data type as the existing elements in the set.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "element"
+        },
+        {
+          "name": "set out",
+          "description": "set out returns the set with the inserted element.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "set_out"
+        },
+        {
+          "name": "already included?",
+          "description": "already included? returns whether set in already includes the inserted element. If already included? is TRUE, set out returns the same set as set in. Examples Refer to the following example files included with LabVIEW.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "already_included"
+        },
+        {
+          "name": "labview\\examples\\Collections\\Set Collection - Word",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "labview_examples_collections_set_collection_word"
+        },
+        {
+          "name": "labview\\examples\\Design Patterns\\Registration Map\\",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "labview_examples_design_patterns_registration_map"
+        }
+      ]
+    },
+    {
+      "name": "Remove From Set Function",
+      "page": 1427,
+      "category": "Collection",
+      "description": "Removes an element from a set.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "set in",
+          "description": "set in specifies the set in which you want to remove an element. This input accepts a set of any data type. The default data type is a set of strings.",
+          "default_value": "data type is a set of strings",
+          "enum_values": null,
+          "python_param": "set_in"
+        },
+        {
+          "name": "element",
+          "description": "element specifies the data you want to remove from the set. This input must be of the same data type as the elements in the set.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "element"
+        },
+        {
+          "name": "set out",
+          "description": "set out returns the set with the specified element removed.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "set_out"
+        },
+        {
+          "name": "not included?",
+          "description": "not included? returns whether set in includes element. If not included? is TRUE, set out returns the same set as set in. Examples Refer to the following example files included with LabVIEW.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "not_included"
+        },
+        {
+          "name": "labview\\examples\\Design Patterns\\Registration Map\\",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "labview_examples_design_patterns_registration_map"
+        }
+      ]
+    },
+    {
+      "name": "Element of Set? Function",
+      "page": 1428,
+      "category": "Collection",
+      "description": "Returns whether an element is a member of a set.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "set",
+          "description": "set specifies the set. This input accepts a set of any data type. The default data type is a set of strings.",
+          "default_value": "data type is a set of strings",
+          "enum_values": null,
+          "python_param": "set"
+        },
+        {
+          "name": "element",
+          "description": "element specifies the data to look for in the set. This input must be of the same data type as the elements in set.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "element"
+        },
+        {
+          "name": "found?",
+          "description": "found? returns TRUE if element is included in set. Otherwise, found? returns FALSE.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "found"
+        }
+      ]
+    },
+    {
+      "name": "Read Set Max & Min Function",
+      "page": 1428,
+      "category": "Collection",
+      "description": "Returns the maximum and minimum elements in a set.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "set",
+          "description": "set specifies the set. This input accepts a set of any data type. The default data type is a set of strings.",
+          "default_value": "data type is a set of strings",
+          "enum_values": null,
+          "python_param": "set"
+        },
+        {
+          "name": "maximum",
+          "description": "Functions 1428 ni.com maximum returns the maximum element in set.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "maximum"
+        },
+        {
+          "name": "minimum",
+          "description": "minimum returns the minimum element in set.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "minimum"
+        }
+      ]
+    },
+    {
+      "name": "Collection Size Function",
+      "page": 1429,
+      "category": "Collection",
+      "description": "Returns the number of elements or entries in a collection.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "collection",
+          "description": "collection specifies the collection. This input accepts any collection data type.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "collection"
+        },
+        {
+          "name": "size",
+          "description": "size returns the number of elements or entries in collection. Empty Collection? Function Empty Collection? Function Returns TRUE if the input collection contains zero elements or entries. Functions © National Instruments 1429 Inputs/Outputs",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "size"
+        },
+        {
+          "name": "collection",
+          "description": "collection specifies the collection. This input accepts any collection data type.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "collection"
+        },
+        {
+          "name": "empty?",
+          "description": "empty? returns TRUE if collection is empty. Otherwise, this output returns FALSE. Examples Refer to the following example files included with LabVIEW.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "empty"
+        },
+        {
+          "name": "labview\\examples\\Collections\\Map Collection - Comparing",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "labview_examples_collections_map_collection_comparing"
+        },
+        {
+          "name": "labview\\examples\\Collections\\Set Collection - Word",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "labview_examples_collections_set_collection_word"
+        },
+        {
+          "name": "labview\\examples\\Design Patterns\\Registration Map\\",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "labview_examples_design_patterns_registration_map"
+        }
+      ]
+    },
+    {
+      "name": "Empty Collection? Function",
+      "page": 1429,
+      "category": "Collection",
+      "description": "Returns TRUE if the input collection contains zero elements or entries. Functions © National Instruments 1429",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "collection",
+          "description": "collection specifies the collection. This input accepts any collection data type.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "collection"
+        },
+        {
+          "name": "empty?",
+          "description": "empty? returns TRUE if collection is empty. Otherwise, this output returns FALSE. Examples Refer to the following example files included with LabVIEW.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "empty"
+        },
+        {
+          "name": "labview\\examples\\Collections\\Map Collection - Comparing",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "labview_examples_collections_map_collection_comparing"
+        },
+        {
+          "name": "labview\\examples\\Collections\\Set Collection - Word",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "labview_examples_collections_set_collection_word"
+        },
+        {
+          "name": "labview\\examples\\Design Patterns\\Registration Map\\",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "labview_examples_design_patterns_registration_map"
+        }
+      ]
+    },
+    {
+      "name": "Convert Set To Array",
+      "page": 1430,
+      "category": "Collection",
+      "description": "Places the code that you can use to convert a set to an array. When you add this VI to the block diagram, a For Loop displays. Wire a set to the tunnel input and return an array through the tunnel output. Functions 1430 ni.com Set Union Set Union Computes the union of two sets. The union is all elements that belong to either of the two sets.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "set 1",
+          "description": "set 1 specifies the first set. This input accepts a set of any data type. The default data type is a set of strings.",
+          "default_value": "data type is a set of strings",
+          "enum_values": null,
+          "python_param": "set_1"
+        },
+        {
+          "name": "set 2",
+          "description": "set 2 specifies the second set. This input must be the same data type as set 1. The default data type is a set of strings.",
+          "default_value": "data type is a set of strings",
+          "enum_values": null,
+          "python_param": "set_2"
+        },
+        {
+          "name": "union",
+          "description": "union returns the combined set. The following figure illustrates how this VI computes the union of two sets. The two circles represent the two sets. The green section is the union. Functions © National Instruments 1431 Examples Refer to the following example files included with LabVIEW.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "union"
+        },
+        {
+          "name": "labview\\examples\\Collections\\Set Collection - Word",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "labview_examples_collections_set_collection_word"
+        }
+      ]
+    },
+    {
+      "name": "Set Union",
+      "page": 1431,
+      "category": "Collection",
+      "description": "Computes the union of two sets. The union is all elements that belong to either of the two sets.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "set 1",
+          "description": "set 1 specifies the first set. This input accepts a set of any data type. The default data type is a set of strings.",
+          "default_value": "data type is a set of strings",
+          "enum_values": null,
+          "python_param": "set_1"
+        },
+        {
+          "name": "set 2",
+          "description": "set 2 specifies the second set. This input must be the same data type as set 1. The default data type is a set of strings.",
+          "default_value": "data type is a set of strings",
+          "enum_values": null,
+          "python_param": "set_2"
+        },
+        {
+          "name": "union",
+          "description": "union returns the combined set. The following figure illustrates how this VI computes the union of two sets. The two circles represent the two sets. The green section is the union. Functions © National Instruments 1431 Examples Refer to the following example files included with LabVIEW.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "union"
+        },
+        {
+          "name": "labview\\examples\\Collections\\Set Collection - Word",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "labview_examples_collections_set_collection_word"
+        }
+      ]
+    },
+    {
+      "name": "Set Intersection",
+      "page": 1432,
+      "category": "Collection",
+      "description": "Computes the intersection of two sets. The intersection is all the elements that belong to both sets.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "set 1",
+          "description": "set 1 specifies the first set. This input accepts a set of any data type. The default data type is a set of strings.",
+          "default_value": "data type is a set of strings",
+          "enum_values": null,
+          "python_param": "set_1"
+        },
+        {
+          "name": "set 2",
+          "description": "set 2 specifies the second set. This input must be the same data type as set 1. The default data type is a set of strings.",
+          "default_value": "data type is a set of strings",
+          "enum_values": null,
+          "python_param": "set_2"
+        },
+        {
+          "name": "intersection",
+          "description": "intersection returns a set with the duplicate elements from the two input sets. The following figure illustrates how this VI computes the intersection of two sets. The two circles represent the two sets. The green section is the intersection. Functions 1432 ni.com Examples Refer to the following example files included with LabVIEW.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "intersection"
+        },
+        {
+          "name": "labview\\examples\\Collections\\Set Collection - Word",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "labview_examples_collections_set_collection_word"
+        }
+      ]
+    },
+    {
+      "name": "Set Cartesian Product",
+      "page": 1433,
+      "category": "Collection",
+      "description": "Computes the Cartesian product of two sets. The Cartesian product is a set of 2-element clusters which covers all possible combinations of elements from the two sets.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "set 1",
+          "description": "set 1 specifies the first set. This input accepts a set of any data type. The default data type is a set of strings.",
+          "default_value": "data type is a set of strings",
+          "enum_values": null,
+          "python_param": "set_1"
+        },
+        {
+          "name": "set 2",
+          "description": "set 2 specifies the second set. This input accepts a set of any data type. The default data type is a set of strings.",
+          "default_value": "data type is a set of strings",
+          "enum_values": null,
+          "python_param": "set_2"
+        },
+        {
+          "name": "Cartesian product",
+          "description": "Functions © National Instruments 1433 Cartesian product returns a set of 2-element clusters which covers all possible combinations of elements in set 1 and set 2. For each cluster, the first element is from set 1 and the second element is from set 2.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "cartesian_product"
+        }
+      ]
+    },
+    {
+      "name": "Set Difference",
+      "page": 1434,
+      "category": "Collection",
+      "description": "Computes the difference of two sets. The difference is the elements from the first set that are not included in the second set.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "set 1",
+          "description": "set 1 specifies the first set. This input accepts a set of any data type. The default data type is a set of strings.",
+          "default_value": "data type is a set of strings",
+          "enum_values": null,
+          "python_param": "set_1"
+        },
+        {
+          "name": "set 2",
+          "description": "set 2 specifies the second set. This input must be the same data type as set 1. The default data type is a set of strings.",
+          "default_value": "data type is a set of strings",
+          "enum_values": null,
+          "python_param": "set_2"
+        },
+        {
+          "name": "difference",
+          "description": "difference returns a set of elements from set 1 that are not included in set 2. The following figure illustrates how this VI computes the difference of two sets. The two circles represent the two sets. The green section is the difference. Functions 1434 ni.com Examples Refer to the following example files included with LabVIEW.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "difference"
+        },
+        {
+          "name": "labview\\examples\\Collections\\Set Collection - Word",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "labview_examples_collections_set_collection_word"
+        }
+      ]
+    },
+    {
+      "name": "Set Symmetric Difference",
+      "page": 1435,
+      "category": "Collection",
+      "description": "Computes the symmetric difference of two sets.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "set 1",
+          "description": "set 1 specifies the first set. This input accepts a set of any data type. The default data type is a set of strings.",
+          "default_value": "data type is a set of strings",
+          "enum_values": null,
+          "python_param": "set_1"
+        },
+        {
+          "name": "set 2",
+          "description": "set 2 specifies the second set. This input must be the same data type as set 1. The default data type is a set of strings.",
+          "default_value": "data type is a set of strings",
+          "enum_values": null,
+          "python_param": "set_2"
+        },
+        {
+          "name": "symmetric difference",
+          "description": "symmetric difference returns a set of elements that are included in either set 1 or set 2 but not Functions © National Instruments 1435 both. The following figure illustrates how this VI computes the symmetric difference of two sets. The two circles represent the two sets. The green sections are the symmetric difference. Examples Refer to the following example files included with LabVIEW.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "symmetric_difference"
+        },
+        {
+          "name": "labview\\examples\\Collections\\Set Collection - Word",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "labview_examples_collections_set_collection_word"
+        }
+      ]
+    }
+  ]
+}

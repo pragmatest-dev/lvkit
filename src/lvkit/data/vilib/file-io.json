@@ -1,12 +1,12 @@
 {
   "category": "File I/O",
-  "count": 99,
+  "count": 103,
   "entries": [
     {
       "name": "Write Delimited Spreadsheet",
       "page": 1439,
       "category": "File I/O",
-      "description": "Converts a 2D or 1D array of strings, signed integers, or double-precision numbers to a text string and writes the string to a new byte stream file or appends the string to an existing file. Wire data to the 2D data input or 1D data input to determine the polymorphic instance to use or manually select the instance. Use this VI to transpose or separate data. Note To format with Microsoft Excel, use ActiveX with LabVIEW or the Report Generation Toolkit for Microsoft Office. Functions \u00a9 National In",
+      "description": "Converts a 2D or 1D array of strings, signed integers, or double-precision numbers to a text string and writes the string to a new byte stream file or appends the string to an existing file. Wire data to the 2D data input or 1D data input to determine the polymorphic instance to use or manually select the instance. Use this VI to transpose or separate data. Note To format with Microsoft Excel, use ActiveX with LabVIEW or the Report Generation Toolkit for Microsoft Office. Functions © National In",
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
@@ -300,8 +300,8 @@
         },
         {
           "name": "number of rows (all:-1)",
-          "description": "number of rows is the maximum number of rows or lines the VI reads. For this VI, a row is a character string ending with a carriage return, linefeed, or a carriage return followed by a linefeed; a string ending at the end of file; or a string that has the maximum line length specified by the max characters per row input. If number of rows is <0, the VI reads the entire file. The default is \u20131.",
-          "default_value": "\u20131",
+          "description": "number of rows is the maximum number of rows or lines the VI reads. For this VI, a row is a character string ending with a carriage return, linefeed, or a carriage return followed by a linefeed; a string ending at the end of file; or a string that has the maximum line length specified by the max characters per row input. If number of rows is <0, the VI reads the entire file. The default is –1.",
+          "default_value": "–1",
           "enum_values": null,
           "python_param": "number_of_rows_all_1"
         },
@@ -340,8 +340,8 @@
         },
         {
           "name": "number of rows (all:-1)",
-          "description": "number of rows is the maximum number of rows or lines the VI reads. For this VI, a row is a character string ending with a carriage return, linefeed, or a carriage return followed by a linefeed; a string ending at the end of file; or a string that has the maximum line length specified by the max characters per row input. If number of rows is <0, the VI reads the entire file. The default is \u20131.",
-          "default_value": "\u20131",
+          "description": "number of rows is the maximum number of rows or lines the VI reads. For this VI, a row is a character string ending with a carriage return, linefeed, or a carriage return followed by a linefeed; a string ending at the end of file; or a string that has the maximum line length specified by the max characters per row input. If number of rows is <0, the VI reads the entire file. The default is –1.",
+          "default_value": "–1",
           "enum_values": null,
           "python_param": "number_of_rows_all_1"
         },
@@ -366,7 +366,7 @@
       "terminals": [
         {
           "name": "format (%d)",
-          "description": "format specifies how to convert the numbers to characters. If format is %d (default), the VI converts the data to integer form using as many characters as necessary to contain the entire number. If the format is %.3f, the VI creates a string long enough to contain the number, with three digits to the right of the decimal point. If format is %s, the VI copies the input string. Use the format string syntax. Functions \u00a9 National Instruments 1449",
+          "description": "format specifies how to convert the numbers to characters. If format is %d (default), the VI converts the data to integer form using as many characters as necessary to contain the entire number. If the format is %.3f, the VI creates a string long enough to contain the number, with three digits to the right of the decimal point. If format is %s, the VI copies the input string. Use the format string syntax. Functions © National Instruments 1449",
           "default_value": null,
           "enum_values": null,
           "python_param": "format_d"
@@ -380,8 +380,8 @@
         },
         {
           "name": "number of rows (all:-1)",
-          "description": "number of rows is the maximum number of rows or lines the VI reads. For this VI, a row is a character string ending with a carriage return, linefeed, or a carriage return followed by a linefeed; a string ending at the end of file; or a string that has the maximum line length specified by the max characters per row input. If number of rows is <0, the VI reads the entire file. The default is \u20131.",
-          "default_value": "\u20131",
+          "description": "number of rows is the maximum number of rows or lines the VI reads. For this VI, a row is a character string ending with a carriage return, linefeed, or a carriage return followed by a linefeed; a string ending at the end of file; or a string that has the maximum line length specified by the max characters per row input. If number of rows is <0, the VI reads the entire file. The default is –1.",
+          "default_value": "–1",
           "enum_values": null,
           "python_param": "number_of_rows_all_1"
         },
@@ -490,8 +490,8 @@
         },
         {
           "name": "number of rows (all:-1)",
-          "description": "number of rows is the maximum number of rows or lines the VI reads. For this VI, a row is a character string ending with a carriage return, linefeed, or a carriage return followed by a linefeed; a string ending at the end of file; or a string that has the maximum line length specified by the max characters per row input. If number of rows is <0, the VI reads the entire file. The default is \u20131.",
-          "default_value": "\u20131",
+          "description": "number of rows is the maximum number of rows or lines the VI reads. For this VI, a row is a character string ending with a carriage return, linefeed, or a carriage return followed by a linefeed; a string ending at the end of file; or a string that has the maximum line length specified by the max characters per row input. If number of rows is <0, the VI reads the entire file. The default is –1.",
+          "default_value": "–1",
           "enum_values": null,
           "python_param": "number_of_rows_all_1"
         },
@@ -589,7 +589,7 @@
       "name": "Read From Measurement File",
       "page": 1463,
       "category": "File I/O",
-      "description": "Reads data from a text-based measurement file (.lvm) or binary measurement file (.tdm or .tdms). Dialog Box Options Option Description Filename Displays the full path to the file from which you want to read data. The Express VI reads data from the file that this parameter specifies only if the Filename input is unwired. If you wire the Filename input, the VI reads data from the file that this input specifies instead. Functions \u00a9 National Instruments 1463 Option Description File Format Contains t",
+      "description": "Reads data from a text-based measurement file (.lvm) or binary measurement file (.tdm or .tdms). Dialog Box Options Option Description Filename Displays the full path to the file from which you want to read data. The Express VI reads data from the file that this parameter specifies only if the Filename input is unwired. If you wire the Filename input, the VI reads data from the file that this input specifies instead. Functions © National Instruments 1463 Option Description File Format Contains t",
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
@@ -622,7 +622,7 @@
         },
         {
           "name": "operation (0:open)",
-          "description": "operation is the operation to perform. Error 43 occurs if you cancel the dialog box. 0 open (default)\u2014Opens an existing file. Error 7 occurs if the file cannot be found. 1 replace\u2014Replaces an existing file by opening the file and setting its end of file to 0. 2 create\u2014Creates a new file. Error 10 occurs if the file already exists. 3 open or create\u2014Opens an existing file or creates a new file if one does not exist. 4 replace or create\u2014Creates a new file or replaces a file if it exists. This VI re",
+          "description": "operation is the operation to perform. Error 43 occurs if you cancel the dialog box. 0 open (default)—Opens an existing file. Error 7 occurs if the file cannot be found. 1 replace—Replaces an existing file by opening the file and setting its end of file to 0. 2 create—Creates a new file. Error 10 occurs if the file already exists. 3 open or create—Opens an existing file or creates a new file if one does not exist. 4 replace or create—Creates a new file or replaces a file if it exists. This VI re",
           "default_value": null,
           "enum_values": [
             [
@@ -718,7 +718,7 @@
       "name": "Format Into File",
       "page": 1473,
       "category": "File I/O",
-      "description": "Formats string, numeric, path, or Boolean data as text and writes the text to a file. If you wire a file refnum to the file input, writing begins at the current file position. To append to an existing file, open the file and set the file position to the end of the file by using the Set File Position function. Otherwise, the function will open the file and write to the beginning of the file. This function does not work for files inside an LLB. Functions \u00a9 National Instruments 1473",
+      "description": "Formats string, numeric, path, or Boolean data as text and writes the text to a file. If you wire a file refnum to the file input, writing begins at the current file position. To append to an existing file, open the file and set the file position to the end of the file by using the Set File Position function. Otherwise, the function will open the file and write to the beginning of the file. This function does not work for files inside an LLB. Functions © National Instruments 1473",
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
@@ -1043,7 +1043,7 @@
         },
         {
           "name": "appended path",
-          "description": "appended path is the resulting path. Suppose you want to build the path c:\\dir1\\vis\\first.vi. The following table shows examples of how you can specify base path and name or relative path to build this path. Operation base path name or relative path To specify a name c:\\dir1\\vis first.vi To specify a relative path c:\\dir1 vis\\first.vi To specify an absolute path \u2014 c:\\dir1\\vis\\first.vi Functions 1490 ni.com",
+          "description": "appended path is the resulting path. Suppose you want to build the path c:\\dir1\\vis\\first.vi. The following table shows examples of how you can specify base path and name or relative path to build this path. Operation base path name or relative path To specify a name c:\\dir1\\vis first.vi To specify a relative path c:\\dir1 vis\\first.vi To specify an absolute path — c:\\dir1\\vis\\first.vi Functions 1490 ni.com",
           "default_value": null,
           "enum_values": null,
           "python_param": "appended_path"
@@ -1106,7 +1106,7 @@
       "name": "Get System Directory",
       "page": 1493,
       "category": "File I/O",
-      "description": "Returns the system directory specified in the system directory type input. This VI returns the system directory of the current target, including My Computer. Note To obtain the path to the directory containing the application, use the Application Directory VI. Functions \u00a9 National Instruments 1493 (Real-Time Module) You cannot use this VI in VIs that run on RT targets.",
+      "description": "Returns the system directory specified in the system directory type input. This VI returns the system directory of the current target, including My Computer. Note To obtain the path to the directory containing the application, use the Application Directory VI. Functions © National Instruments 1493 (Real-Time Module) You cannot use this VI in VIs that run on RT targets.",
       "vi_path": "vi.lib/Utility/sysdir.llb/Get System Directory.vi",
       "is_polymorphic": false,
       "python_hint": null,
@@ -1197,7 +1197,7 @@
       "terminals": [
         {
           "name": "path",
-          "description": "path is the path to the VI library directory for the current application instance on the current Functions \u00a9 National Instruments 1497 computer.",
+          "description": "path is the path to the VI library directory for the current application instance on the current Functions © National Instruments 1497 computer.",
           "default_value": null,
           "enum_values": null,
           "python_param": "path"
@@ -1354,7 +1354,7 @@
       "name": "Read Key",
       "page": 1502,
       "category": "File I/O",
-      "description": "Reads a value associated with a key in a specified section from the configuration data identified by refnum. If the key does not exist, the VI returns the default value. This VI supports multibyte characters in strings. Wire data to the default value input to determine the polymorphic instance to use or manually select the instance. \u2022 Read Key (Boolean) VI \u2022 Read Key (Double) VI \u2022 Read Key (I32) VI \u2022 Read Key (Path) VI \u2022 Read Key (String) VI \u2022 Read Key (U32) VI Examples Refer to the following ex",
+      "description": "Reads a value associated with a key in a specified section from the configuration data identified by refnum. If the key does not exist, the VI returns the default value. This VI supports multibyte characters in strings. Wire data to the default value input to determine the polymorphic instance to use or manually select the instance. • Read Key (Boolean) VI • Read Key (Double) VI • Read Key (I32) VI • Read Key (Path) VI • Read Key (String) VI • Read Key (U32) VI Examples Refer to the following ex",
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
@@ -1429,7 +1429,7 @@
       "name": "Write Key",
       "page": 1511,
       "category": "File I/O",
-      "description": "Writes a value to a key in a specified section of the configuration data identified by refnum. This VI modifies data in memory. To write data to disk, use the Close Config Data VI. Wire data to the value input to determine the polymorphic instance to use or manually select the instance. Format the content of an .ini file correctly when you use this VI. Functions \u00a9 National Instruments 1511 \u2022 Write Key (Boolean) VI \u2022 Write Key (Double) VI \u2022 Write Key (I32) VI \u2022 Write Key (Path) VI \u2022 Write Key (St",
+      "description": "Writes a value to a key in a specified section of the configuration data identified by refnum. This VI modifies data in memory. To write data to disk, use the Close Config Data VI. Wire data to the value input to determine the polymorphic instance to use or manually select the instance. Format the content of an .ini file correctly when you use this VI. Functions © National Instruments 1511 • Write Key (Boolean) VI • Write Key (Double) VI • Write Key (I32) VI • Write Key (Path) VI • Write Key (St",
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
@@ -1594,7 +1594,7 @@
         },
         {
           "name": "section exists?",
-          "description": "section exists? is TRUE if the VI found the specified section. Functions \u00a9 National Instruments 1523",
+          "description": "section exists? is TRUE if the VI found the specified section. Functions © National Instruments 1523",
           "default_value": null,
           "enum_values": null,
           "python_param": "section_exists"
@@ -1702,7 +1702,7 @@
         },
         {
           "name": "section exists?",
-          "description": "Functions \u00a9 National Instruments 1525 section exists? is TRUE if the VI found the specified section.",
+          "description": "Functions © National Instruments 1525 section exists? is TRUE if the VI found the specified section.",
           "default_value": null,
           "enum_values": null,
           "python_param": "section_exists"
@@ -1829,7 +1829,7 @@
         },
         {
           "name": "operation (0:open)",
-          "description": "operation specifies the operation to perform. 0 open (default)\u2014Opens a .tdms file to write to. 1 open or create\u2014Creates a new .tdms file or opens an existing .tdms file to configure. 2 create or replace\u2014Creates a new .tdms file or replaces an existing .tdms file. 3 create\u2014Creates a new .tdms file. 4 open (read-only)\u2014Opens a read-only version of the .tdms file.",
+          "description": "operation specifies the operation to perform. 0 open (default)—Opens a .tdms file to write to. 1 open or create—Creates a new .tdms file or opens an existing .tdms file to configure. 2 create or replace—Creates a new .tdms file or replaces an existing .tdms file. 3 create—Creates a new .tdms file. 4 open (read-only)—Opens a read-only version of the .tdms file.",
           "default_value": null,
           "enum_values": [
             [
@@ -1876,7 +1876,7 @@
       "terminals": [
         {
           "name": "data layout (0:decimated)",
-          "description": "data layout specifies the arrangement of the data that you want to stream to a .tdms file. You must use the same data layout for each channel under the same group. 0 decimated (default)\u2014Specifies that the input data prioritizes channels before samples. This arrangement first lists all samples from the first channel, then all samples from the second channel, and so on through the last channel. The following table shows a typical example of the decimated data layout. Channel 0\u2014Sample 1 Channel 0\u2014S",
+          "description": "data layout specifies the arrangement of the data that you want to stream to a .tdms file. You must use the same data layout for each channel under the same group. 0 decimated (default)—Specifies that the input data prioritizes channels before samples. This arrangement first lists all samples from the first channel, then all samples from the second channel, and so on through the last channel. The following table shows a typical example of the decimated data layout. Channel 0—Sample 1 Channel 0—S",
           "default_value": null,
           "enum_values": [
             [
@@ -1908,8 +1908,8 @@
       "terminals": [
         {
           "name": "count (-1: all)",
-          "description": "count specifies the maximum number of data elements to read from the .tdms file for each channel. The default is \u20131, all available elements.",
-          "default_value": "\u20131, all available elements",
+          "description": "count specifies the maximum number of data elements to read from the .tdms file for each channel. The default is –1, all available elements.",
+          "default_value": "–1, all available elements",
           "enum_values": null,
           "python_param": "count_1_all"
         },
@@ -2406,7 +2406,7 @@
       "name": "Write Data",
       "page": 1652,
       "category": "File I/O",
-      "description": "Adds a channel group or channel to a file you specify. You also can use this VI to define properties for the channel group or channel that you want to add. You also can use the Write To Measurement File Express VI to write data to a .tdm, .tdms, or .lvm file. Dialog Box Options Option Description Settings Contains the following options: \u2022 Object type\u2014 Specifies the type of object to add to the file. Contains the following options: \u25e6 Channel group\u2014Adds a channel group to the file. \u25e6 Channel\u2014Adds ",
+      "description": "Adds a channel group or channel to a file you specify. You also can use this VI to define properties for the channel group or channel that you want to add. You also can use the Write To Measurement File Express VI to write data to a .tdm, .tdms, or .lvm file. Dialog Box Options Option Description Settings Contains the following options: • Object type— Specifies the type of object to add to the file. Contains the following options: ◦ Channel group—Adds a channel group to the file. ◦ Channel—Adds ",
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
@@ -2458,7 +2458,7 @@
       "name": "Close Data Storage",
       "page": 1659,
       "category": "File I/O",
-      "description": "Closes a data file. You must use this Express VI to close a data file after you finish reading from or writing to the file. Memory leakage might occur if you do not close the data file. Functions \u00a9 National Instruments 1659 Dialog Box Options",
+      "description": "Closes a data file. You must use this Express VI to close a data file after you finish reading from or writing to the file. Memory leakage might occur if you do not close the data file. Functions © National Instruments 1659 Dialog Box Options",
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
@@ -2520,7 +2520,7 @@
       "name": "Delete Data",
       "page": 1669,
       "category": "File I/O",
-      "description": "Removes a channel group or channel you specify. If you choose to delete a channel group, this VI deletes all channels associated with that channel group. Wire data to the storage refnum input to determine the polymorphic instance to use or manually select the instance. \u2022 Delete Channel VI Note This VI does not delete data in .tdms files. Functions \u00a9 National Instruments 1669 \u2022 Delete Channel Group VI Delete Channel VI Delete Channel VI Removes a channel group or channel you specify. If you choos",
+      "description": "Removes a channel group or channel you specify. If you choose to delete a channel group, this VI deletes all channels associated with that channel group. Wire data to the storage refnum input to determine the polymorphic instance to use or manually select the instance. • Delete Channel VI Note This VI does not delete data in .tdms files. Functions © National Instruments 1669 • Delete Channel Group VI Delete Channel VI Delete Channel VI Removes a channel group or channel you specify. If you choos",
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
@@ -2568,7 +2568,7 @@
         },
         {
           "name": "DataPlugin name",
-          "description": "DataPlugin name specifies the name of the DataPlugin that determines the storage format of Note This VI does not delete data in .tdms files. Functions \u00a9 National Instruments 1671 the data file. Use the List DataPlugins VI to obtain the names of all DataPlugins installed on the local computer. If you do not wire data to this input or if you wire an empty string to this input, this VI automatically detects the storage format of the data file.",
+          "description": "DataPlugin name specifies the name of the DataPlugin that determines the storage format of Note This VI does not delete data in .tdms files. Functions © National Instruments 1671 the data file. Use the List DataPlugins VI to obtain the names of all DataPlugins installed on the local computer. If you do not wire data to this input or if you wire an empty string to this input, this VI automatically detects the storage format of the data file.",
           "default_value": null,
           "enum_values": null,
           "python_param": "dataplugin_name"
@@ -2636,7 +2636,7 @@
         },
         {
           "name": "target file operation (3:create)",
-          "description": "target file operation specifies the operation to perform. 0 open \u2014Opens a file to configure. 1 open or create \u2014Opens an existing file or creates a new file to configure. 2 create or replace \u2014Creates a new file or replaces an existing file. 3 create (Default)\u2014Creates a new file. 4 open (read only) \u2014Opens a read-only version of the file.",
+          "description": "target file operation specifies the operation to perform. 0 open —Opens a file to configure. 1 open or create —Opens an existing file or creates a new file to configure. 2 create or replace —Creates a new file or replaces an existing file. 3 create (Default)—Creates a new file. 4 open (read only) —Opens a read-only version of the file.",
           "default_value": null,
           "enum_values": [
             [
@@ -2664,7 +2664,7 @@
         },
         {
           "name": "target file format (TDMS)",
-          "description": "target file format specifies the target file format to which you want to convert the data file. 0 TDM \u2014Converts the data file to a .tdm file. 1 TDMS (Default)\u2014Converts the data file to a .tdms file.",
+          "description": "target file format specifies the target file format to which you want to convert the data file. 0 TDM —Converts the data file to a .tdm file. 1 TDMS (Default)—Converts the data file to a .tdms file.",
           "default_value": null,
           "enum_values": [
             [
@@ -2706,7 +2706,7 @@
       "terminals": [
         {
           "name": "DataPlugin name",
-          "description": "Note Use the Register DataPlugin VI to register or install DataPlugins on the local computer. Functions \u00a9 National Instruments 1675 DataPlugin name specifies the name of the DataPlugin you want to search for. If you do not wire data to this input or if you wire an empty string to this input, this VI lists all DataPlugins registered on the local computer or exist on the National Instruments website.",
+          "description": "Note Use the Register DataPlugin VI to register or install DataPlugins on the local computer. Functions © National Instruments 1675 DataPlugin name specifies the name of the DataPlugin you want to search for. If you do not wire data to this input or if you wire an empty string to this input, this VI lists all DataPlugins registered on the local computer or exist on the National Instruments website.",
           "default_value": null,
           "enum_values": null,
           "python_param": "dataplugin_name"
@@ -2720,7 +2720,7 @@
         },
         {
           "name": "source",
-          "description": "source specifies the source location where you want to search for the DataPlugins. 0 local machine (default)\u2014Lists or searches DataPlugins installed on the local computer. 1 web\u2014Lists or searches DataPlugins from the National Instruments website at ni.com/ dataplugins.",
+          "description": "source specifies the source location where you want to search for the DataPlugins. 0 local machine (default)—Lists or searches DataPlugins installed on the local computer. 1 web—Lists or searches DataPlugins from the National Instruments website at ni.com/ dataplugins.",
           "default_value": null,
           "enum_values": [
             [
@@ -2804,7 +2804,7 @@
         },
         {
           "name": "storage read-only",
-          "description": "Functions \u00a9 National Instruments 1685 storage read-only specifies if the data storage is read only.",
+          "description": "Functions © National Instruments 1685 storage read-only specifies if the data storage is read only.",
           "default_value": null,
           "enum_values": null,
           "python_param": "storage_read_only"
@@ -2911,7 +2911,7 @@
       "name": "Add File to Zip",
       "page": 1723,
       "category": "File I/O",
-      "description": "Adds the file source file path specifies to a zip file. The destination path in zip control specifies the zipped path information. Functions \u00a9 National Instruments 1723",
+      "description": "Adds the file source file path specifies to a zip file. The destination path in zip control specifies the zipped path information. Functions © National Instruments 1723",
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
@@ -3074,7 +3074,7 @@
       "name": "Get File Position Function",
       "page": 1761,
       "category": "File I/O",
-      "description": "Returns the position of the current file mark of the file identified by refnum relative to the beginning of the file. Functions \u00a9 National Instruments 1761",
+      "description": "Returns the position of the current file mark of the file identified by refnum relative to the beginning of the file. Functions © National Instruments 1761",
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
@@ -3183,7 +3183,7 @@
         },
         {
           "name": "error in",
-          "description": "error in describes error conditions that occur before this node runs. This input provides Functions \u00a9 National Instruments 1763 standard error in functionality.",
+          "description": "error in describes error conditions that occur before this node runs. This input provides Functions © National Instruments 1763 standard error in functionality.",
           "default_value": null,
           "enum_values": null,
           "python_param": "error_in"
@@ -3305,7 +3305,7 @@
         },
         {
           "name": "byte order (0:big-endian, network order)",
-          "description": "byte order sets the endian form of the resulting data. Byte order, or endian form, indicates whether integers are represented in memory from most-significant byte to least-significant byte or vice versa. The function must read the data in the same byte order that the data was written. 0 big-endian, network order (default)\u2014The most-significant byte occupies the lowest memory address. This endian form is used on PowerPC platforms such as VxWorks. This endian-form also is used when reading data wri",
+          "description": "byte order sets the endian form of the resulting data. Byte order, or endian form, indicates whether integers are represented in memory from most-significant byte to least-significant byte or vice versa. The function must read the data in the same byte order that the data was written. 0 big-endian, network order (default)—The most-significant byte occupies the lowest memory address. This endian form is used on PowerPC platforms such as VxWorks. This endian-form also is used when reading data wri",
           "default_value": null,
           "enum_values": [
             [
@@ -3398,7 +3398,7 @@
         },
         {
           "name": "from (0:start)",
-          "description": "from, together with offset (in bytes), specifies where to set the file mark. If you wire offset (in bytes), from defaults to 0, and the offset is relative to the beginning of the file. If you do not wire offset (in bytes), offset (in bytes) defaults to 0, from defaults to 2, and the operation starts at the current file mark. 0 start\u2014Sets the file mark offset (in bytes) bytes from the beginning of the file. If from is 0, offset (in bytes) should be positive or 0, which sets the file mark at the b",
+          "description": "from, together with offset (in bytes), specifies where to set the file mark. If you wire offset (in bytes), from defaults to 0, and the offset is relative to the beginning of the file. If you do not wire offset (in bytes), offset (in bytes) defaults to 0, from defaults to 2, and the operation starts at the current file mark. 0 start—Sets the file mark offset (in bytes) bytes from the beginning of the file. If from is 0, offset (in bytes) should be positive or 0, which sets the file mark at the b",
           "default_value": null,
           "enum_values": [
             [
@@ -3573,7 +3573,7 @@
         },
         {
           "name": "creator (no change)",
-          "description": "Functions \u00a9 National Instruments 1777 creator is the creator of the specified file. If creator is a string other than four characters, an error occurs.",
+          "description": "Functions © National Instruments 1777 creator is the creator of the specified file. If creator is a string other than four characters, an error occurs.",
           "default_value": null,
           "enum_values": null,
           "python_param": "creator_no_change"
@@ -3949,7 +3949,7 @@
         },
         {
           "name": "deny mode (0:deny read/write)",
-          "description": "deny mode specifies what read or write access is denied. 0 deny read/write\u2014Deny both read and write access to the file (default). 1 deny write-only\u2014Permit read access but deny write access to the file. 2 deny none\u2014Permit both read and write access to the file.",
+          "description": "deny mode specifies what read or write access is denied. 0 deny read/write—Deny both read and write access to the file (default). 1 deny write-only—Permit read access but deny write access to the file. 2 deny none—Permit both read and write access to the file.",
           "default_value": null,
           "enum_values": [
             [
@@ -4069,7 +4069,7 @@
       "name": "Get Volume Info Function",
       "page": 1791,
       "category": "File I/O",
-      "description": "Returns information about the volume containing the file or directory specified by path, including the total storage space provided by the volume and the amount free in bytes. Functions \u00a9 National Instruments 1791",
+      "description": "Returns information about the volume containing the file or directory specified by path, including the total storage space provided by the volume and the amount free in bytes. Functions © National Instruments 1791",
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
@@ -4388,39 +4388,6 @@
       ]
     },
     {
-      "name": "Path to Array of Strings Function",
-      "page": 1800,
-      "category": "File I/O",
-      "description": "Converts a path into an array of strings and indicates whether the path is relative.",
-      "vi_path": null,
-      "is_polymorphic": false,
-      "python_hint": null,
-      "status": "needs_terminals",
-      "terminals": [
-        {
-          "name": "path",
-          "description": "path is the path you want to convert to an array of strings. If path is <Not A Path>, the array of strings is empty and relative is FALSE.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "path"
-        },
-        {
-          "name": "relative",
-          "description": "relative indicates whether the path you converted is a relative path or an absolute path. If TRUE, it is a relative path. If FALSE, it is an absolute path.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "relative"
-        },
-        {
-          "name": "array of strings",
-          "description": "array of strings contains the components of the path. The first element is the first step of the path hierarchy. For file systems that support multiple volumes, the first element is the volume name. If path is a network path, the first element of array of strings includes the name of the server in addition to the first step of the path hierarchy. The last element of array of strings is the file or directory specified by the path.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "array_of_strings"
-        }
-      ]
-    },
-    {
       "name": "Array of Strings to Path Function",
       "page": 1800,
       "category": "File I/O",
@@ -4454,28 +4421,35 @@
       ]
     },
     {
-      "name": "Refnum to Path Function",
-      "page": 1802,
+      "name": "Path to Array of Strings Function",
+      "page": 1800,
       "category": "File I/O",
-      "description": "Returns the path associated with the specified refnum.",
+      "description": "Converts a path into an array of strings and indicates whether the path is relative.",
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
       "status": "needs_terminals",
       "terminals": [
         {
-          "name": "refnum",
-          "description": "refnum is the refnum of an open file whose associated path you want to determine. If refnum is not a valid refnum, this function sets path to <Not A Path>, meaning refnum is not associated with any open file. You can wire only file refnums to refnum. You cannot wire configuration file refnums to refnum.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "refnum"
-        },
-        {
           "name": "path",
-          "description": "path is the corresponding path to refnum.",
+          "description": "path is the path you want to convert to an array of strings. If path is <Not A Path>, the array of strings is empty and relative is FALSE.",
           "default_value": null,
           "enum_values": null,
           "python_param": "path"
+        },
+        {
+          "name": "relative",
+          "description": "relative indicates whether the path you converted is a relative path or an absolute path. If TRUE, it is a relative path. If FALSE, it is an absolute path.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "relative"
+        },
+        {
+          "name": "array of strings",
+          "description": "array of strings contains the components of the path. The first element is the first step of the path hierarchy. For file systems that support multiple volumes, the first element is the volume name. If path is a network path, the first element of array of strings includes the name of the server in addition to the first step of the path hierarchy. The last element of array of strings is the file or directory specified by the path.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "array_of_strings"
         }
       ]
     },
@@ -4506,6 +4480,32 @@
       ]
     },
     {
+      "name": "Refnum to Path Function",
+      "page": 1802,
+      "category": "File I/O",
+      "description": "Returns the path associated with the specified refnum.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "refnum",
+          "description": "refnum is the refnum of an open file whose associated path you want to determine. If refnum is not a valid refnum, this function sets path to <Not A Path>, meaning refnum is not associated with any open file. You can wire only file refnums to refnum. You cannot wire configuration file refnums to refnum.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "refnum"
+        },
+        {
+          "name": "path",
+          "description": "path is the corresponding path to refnum.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "path"
+        }
+      ]
+    },
+    {
       "name": "Compare Two Paths",
       "page": 1803,
       "category": "File I/O",
@@ -4531,7 +4531,7 @@
         },
         {
           "name": "error in (no error)",
-          "description": "Functions \u00a9 National Instruments 1803 error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
+          "description": "Functions © National Instruments 1803 error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
           "default_value": null,
           "enum_values": null,
           "python_param": "error_in_no_error"
@@ -4631,7 +4631,7 @@
       "name": "File Checksum",
       "page": 1805,
       "category": "File I/O",
-      "description": "Computes the message digest on the contents of a file. You must manually select the polymorphic instance you want to use. \u2022 SHA-256 File Checksum VI \u2022 SHA-224 File Checksum VI \u2022 SHA-512 File Checksum VI \u2022 SHA-384 File Checksum VI \u2022 SHA-512-256 File Checksum VI \u2022 SHA-512-224 File Checksum VI \u2022 SHA3-224 File Checksum VI Functions \u00a9 National Instruments 1805 \u2022 SHA3-256 File Checksum VI \u2022 SHA3-384 File Checksum VI \u2022 SHA3-512 File Checksum VI SHA-256 File Checksum VI SHA-256 File Checksum VI Computes",
+      "description": "Computes the message digest on the contents of a file. You must manually select the polymorphic instance you want to use. • SHA-256 File Checksum VI • SHA-224 File Checksum VI • SHA-512 File Checksum VI • SHA-384 File Checksum VI • SHA-512-256 File Checksum VI • SHA-512-224 File Checksum VI • SHA3-224 File Checksum VI Functions © National Instruments 1805 • SHA3-256 File Checksum VI • SHA3-384 File Checksum VI • SHA3-512 File Checksum VI SHA-256 File Checksum VI SHA-256 File Checksum VI Computes",
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
@@ -4708,26 +4708,195 @@
       ]
     },
     {
-      "name": "Get File System Separator",
+      "name": "Packed Library",
+      "page": 1824,
       "category": "File I/O",
-      "description": "Returns the platform file path separator character",
+      "description": "Use the Packed Library VIs to get and return data from a packed project library. Palette Object Description Get Exported File List Returns the qualified names and paths of the exported files in a packed project library. Get Exported File Path Returns the path of an exported file in a packed project library. Packed Library Path Returns the path to a packed project library for the VI you specify in vi reference. Get Exported File List Get Exported File List Returns the qualified names and paths of",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
       "terminals": [
         {
-          "name": "separator",
-          "index": 0,
-          "direction": "output",
-          "type": "String",
-          "python_param": "separator"
+          "name": "packed library path",
+          "description": "packed library path specifies the path to the packed library.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "packed_library_path"
+        },
+        {
+          "name": "error in (no error)",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in_no_error"
+        },
+        {
+          "name": "qualified names",
+          "description": "Functions 1824 ni.com qualified names returns an array of strings with the qualified names of the exported files in the packed library.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "qualified_names"
+        },
+        {
+          "name": "paths",
+          "description": "paths returns an array with the paths to the exported files in the packed library.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "paths"
+        },
+        {
+          "name": "error out",
+          "description": "error out contains error information. This output provides standard error out functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_out"
         }
-      ],
-      "python": "",
-      "python_code": "import os; {separator} = os.sep",
-      "inline": true,
-      "imports": [],
+      ]
+    },
+    {
+      "name": "Create Directory Recursive",
+      "page": 1826,
+      "category": "File I/O",
+      "description": "Creates a directory and any parent directories it requires to exist. Functions 1826 ni.com",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "directory",
+          "description": "directory specifies the path to the directory to create. If you specify a directory that already exists, this VI does nothing.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "directory"
+        },
+        {
+          "name": "maximum path length",
+          "description": "maximum path length specifies the maximum number of characters allowed in the path. The default is 252.",
+          "default_value": "252",
+          "enum_values": null,
+          "python_param": "maximum_path_length"
+        },
+        {
+          "name": "permissions",
+          "description": "permissions specifies the permissions setting for the file or directory. The default is 111101101, which is rwx r-x r-x in common file notation, and means the current user has permission to read, write, and execute files in this directory; the current user's group members have permission only to read and execute; all system users have permission only to read and execute. Refer to Setting Permissions for more information about how to define the permissions you want to set.",
+          "default_value": "111101101, which is rwx r-x r-x in common file notation, and means the current user has permission to read, write, and execute files in this directory; the current user's group members have permission only to read and execute; all system users have permission only to read and execute",
+          "enum_values": null,
+          "python_param": "permissions"
+        },
+        {
+          "name": "error in (no error)",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in_no_error"
+        },
+        {
+          "name": "directory copy",
+          "description": "directory copy returns directory unchanged.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "directory_copy"
+        },
+        {
+          "name": "directories created",
+          "description": "directories created returns the path to the directory and paths to any parent directories this VI creates.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "directories_created"
+        },
+        {
+          "name": "error out",
+          "description": "error out contains error information. This output provides standard error out functionality. Functions",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        }
+      ]
+    },
+    {
+      "name": "Create File and Containing Folders",
+      "page": 1828,
+      "category": "File I/O",
+      "description": "Creates a file at a specified path and any folders within that path that do not exist.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "file path",
+          "description": "file path specifies the path to the file you want to create. You must specify an absolute path. If you specify an empty or relative path, this VI returns an error.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "file_path"
+        },
+        {
+          "name": "access",
+          "description": "access specifies how to access the file. The default is write-only. 0 read/write 1 read-only 2 write-only",
+          "default_value": "write-only",
+          "enum_values": null,
+          "python_param": "access"
+        },
+        {
+          "name": "permissions",
+          "description": "permissions specifies the permissions setting for the file or directory. The default is 111101101, which is rwx r-x r-x in common file notation, and means the current user has permission to read, write, and execute files in this directory; the current user's group members have permission only to read and execute; all system users have permission only to read and execute. Refer to Setting Permissions for more information about how to define the permissions you want to set.",
+          "default_value": "111101101, which is rwx r-x r-x in common file notation, and means the current user has permission to read, write, and execute files in this directory; the current user's group members have permission only to read and execute; all system users have permission only to read and execute",
+          "enum_values": null,
+          "python_param": "permissions"
+        },
+        {
+          "name": "error in (no error)",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in_no_error"
+        },
+        {
+          "name": "disable buffering (F)",
+          "description": "Functions 1828 ni.com disable buffering specifies if the file opens without buffering. The default is FALSE. If you want to read or write a data file to a Redundant Array of Independent Disks (RAID), consider opening the file without buffering to speed up data transfers. To disable buffering, wire a TRUE value to the disable buffering input. (macOS and Linux) LabVIEW ignores this input.",
+          "default_value": "FALSE",
+          "enum_values": null,
+          "python_param": "disable_buffering_f"
+        },
+        {
+          "name": "refnum out",
+          "description": "refnum out returns the reference number of the file this VI creates.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "refnum_out"
+        },
+        {
+          "name": "error out",
+          "description": "error out contains error information. This output provides standard error out functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        }
+      ]
+    },
+    {
+      "name": "Contiguous and Noncontiguous Array Slices",
+      "page": 1829,
+      "category": "File I/O",
+      "description": "To optimize performance, LabVIEW sometimes creates array slices from the arrays you wire to certain Array functions. An array slice is an array created from another array, and it contains some of the elements from the original array. LabVIEW expresses an array slice as a (sub)array in the Context Help window when you move the cursor over the wire for the resulting array. For example, (1-D (sub)array of) indicates that the function creates an array slice, while (1-D array of) indicates the result",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
       "status": "needs_review",
-      "is_variant": false,
-      "match_names": [],
-      "poly_selector_names": []
+      "terminals": []
+    },
+    {
+      "name": "Setting Permissions",
+      "page": 1831,
+      "category": "File I/O",
+      "description": "The Set Permissions function includes a permissions input that allows you to control access to files and directories that you create. To define the permissions you want to set, you can wire the permissions output of the Get Permissions function to the permissions input of the Set Permissions function, or you can wire a constant or a control. The following illustration shows the format of the permissions parameter. The 9 bits that the permissions parameter uses are divided into three sets: user, ",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_review",
+      "terminals": []
     }
   ]
 }

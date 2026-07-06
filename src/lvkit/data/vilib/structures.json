@@ -6,7 +6,7 @@
       "name": "For Loop",
       "page": 331,
       "category": "Structures",
-      "description": "Executes its subdiagram n times, where n is the value wired to the count (N) terminal. The iteration (i) terminal provides the current loop iteration count, which ranges from 0 to n-1. Functions \u00a9 National Instruments 331 Terminal Inputs \u2022 \u2014The count terminal specifies the number of times to execute the code inside the For Loop. If you wire 0 or a negative number to the count terminal, the loop does not execute. This terminal is displayed by default. \u2022 \u2014(Optional) The parallel instances terminal",
+      "description": "Executes its subdiagram n times, where n is the value wired to the count (N) terminal. The iteration (i) terminal provides the current loop iteration count, which ranges from 0 to n-1. Functions © National Instruments 331 Terminal Inputs • —The count terminal specifies the number of times to execute the code inside the For Loop. If you wire 0 or a negative number to the count terminal, the loop does not execute. This terminal is displayed by default. • —(Optional) The parallel instances terminal",
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
@@ -17,7 +17,7 @@
       "name": "While Loop",
       "page": 334,
       "category": "Structures",
-      "description": "Repeats the code within its subdiagram until a specific condition occurs. A While Loop always executes at least one time. Components of a While Loop \u2022 \u2014Subdiagram\u2014Contains code that the While Loop executes once per iteration. \u2022 \u2014Iteration Terminal (i)\u2014Provides the current loop iteration count. The loop count always starts at zero for the first iteration. If the iteration count exceeds 2,147,483,647, or 231-1, the iteration terminal remains at 2,147,483,647 for all further iterations. If you need",
+      "description": "Repeats the code within its subdiagram until a specific condition occurs. A While Loop always executes at least one time. Components of a While Loop • —Subdiagram—Contains code that the While Loop executes once per iteration. • —Iteration Terminal (i)—Provides the current loop iteration count. The loop count always starts at zero for the first iteration. If the iteration count exceeds 2,147,483,647, or 231-1, the iteration terminal remains at 2,147,483,647 for all further iterations. If you need",
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
@@ -61,7 +61,7 @@
       "name": "Create Timing Source",
       "page": 350,
       "category": "Structures",
-      "description": "Creates a 1 kHz, 1MHz, or software-triggered timing source you can use to control the execution of a timed structure. Each timing source has its own unit of timing and/or start time and does not start until the first timed structure that uses the timing source starts. You must manually select the polymorphic instance you want to use. \u2022 Create 1kHz Source \u2022 Create 1MHz Source \u2022 Create Software-Triggered Timing Source Create 1kHz Source Create 1kHz Source Creates a 1 kHz, 1MHz, or software-trigger",
+      "description": "Creates a 1 kHz, 1MHz, or software-triggered timing source you can use to control the execution of a timed structure. Each timing source has its own unit of timing and/or start time and does not start until the first timed structure that uses the timing source starts. You must manually select the polymorphic instance you want to use. • Create 1kHz Source • Create 1MHz Source • Create Software-Triggered Timing Source Create 1kHz Source Create 1kHz Source Creates a 1 kHz, 1MHz, or software-trigger",
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
@@ -148,7 +148,7 @@
       "name": "Clear Timing Source",
       "page": 353,
       "category": "Structures",
-      "description": "Stops and deletes the timing source you created or specified for use by another resource. The VI clears the timing source when the current iterations of all active timed structures that reference the timing source complete. Functions \u00a9 National Instruments 353 If the timing source is associated with a DAQmx task, the VI also clears the task.",
+      "description": "Stops and deletes the timing source you created or specified for use by another resource. The VI clears the timing source when the current iterations of all active timed structures that reference the timing source complete. Functions © National Instruments 353 If the timing source is associated with a DAQmx task, the VI also clears the task.",
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
@@ -217,7 +217,7 @@
         },
         {
           "name": "timeout ms (10000)",
-          "description": "timeout ms specifies the time, in milliseconds, that a timed structure waits on other members of the synchronization group to arrive at the synchronization point. If any of the timed structures in the group do not arrive in time, the timed structure returns an error. The default is 10,000 ms. A value of \u20131 indicates to wait indefinitely.",
+          "description": "timeout ms specifies the time, in milliseconds, that a timed structure waits on other members of the synchronization group to arrive at the synchronization point. If any of the timed structures in the group do not arrive in time, the timed structure returns an error. The default is 10,000 ms. A value of –1 indicates to wait indefinitely.",
           "default_value": "10,000 ms",
           "enum_values": null,
           "python_param": "timeout_ms_10000"
@@ -304,7 +304,7 @@
         },
         {
           "name": "hierarchy name",
-          "description": "hierarchy name is the name of the timing source hierarchy you want to create. Functions \u00a9 National Instruments 357",
+          "description": "hierarchy name is the name of the timing source hierarchy you want to create. Functions © National Instruments 357",
           "default_value": null,
           "enum_values": null,
           "python_param": "hierarchy_name"
@@ -343,7 +343,7 @@
       "name": "Case Structure",
       "page": 358,
       "category": "Structures",
-      "description": "Contains one or more subdiagrams, or cases, exactly one of which executes when the structure executes. The value wired to the case selector determines which case to execute. Functions 358 ni.com Components of a Case Structure \u2022 Selector label\u2014Displays the value(s) for which the associated case executes. You can specify a single value or a range of values. You also can use the selector label to specify a default case. \u2022 Subdiagram(case)\u2014Contains the code that executes when the value wired to the ",
+      "description": "Contains one or more subdiagrams, or cases, exactly one of which executes when the structure executes. The value wired to the case selector determines which case to execute. Functions 358 ni.com Components of a Case Structure • Selector label—Displays the value(s) for which the associated case executes. You can specify a single value or a range of values. You also can use the selector label to specify a default case. • Subdiagram(case)—Contains the code that executes when the value wired to the ",
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
@@ -502,7 +502,7 @@
         },
         {
           "name": "output cluster",
-          "description": "output cluster is the resulting cluster. Functions \u00a9 National Instruments 365 Use this border node to perform operations on one or more cluster elements and replace the elements in the same location in the cluster. Each cluster element you unbundle with the border node on the left side of the structure must be bundled back into the cluster with the border node on the right side of the structure. This node allows the LabVIEW compiler to avoid storing a complete value copy of the cluster and clust",
+          "description": "output cluster is the resulting cluster. Functions © National Instruments 365 Use this border node to perform operations on one or more cluster elements and replace the elements in the same location in the cluster. Each cluster element you unbundle with the border node on the left side of the structure must be bundled back into the cluster with the border node on the right side of the structure. This node allows the LabVIEW compiler to avoid storing a complete value copy of the cluster and clust",
           "default_value": null,
           "enum_values": null,
           "python_param": "output_cluster"
@@ -619,7 +619,7 @@
       "terminals": [
         {
           "name": "data value reference",
-          "description": "Functions \u00a9 National Instruments 369 data value reference is the reference that points to the data you want to access.",
+          "description": "Functions © National Instruments 369 data value reference is the reference that points to the data you want to access.",
           "default_value": null,
           "enum_values": null,
           "python_param": "data_value_reference"
@@ -837,7 +837,7 @@
         },
         {
           "name": "action",
-          "description": "action specifies the operation to perform on the map based on the TRUE or FALSE value of key not found?. This input assumes the value 0 if unwired. 2 Delete Entry\u2014If key not found? is FALSE, this node deletes the entry with the specified key from the map. If key not found? is TRUE, this node does nothing. 0 Modify Entry only if found (default)\u2014If key not found? is FALSE, this node replaces the existing associated value with the new value. If key not found? is TRUE, this node does nothing. 1 Add ",
+          "description": "action specifies the operation to perform on the map based on the TRUE or FALSE value of key not found?. This input assumes the value 0 if unwired. 2 Delete Entry—If key not found? is FALSE, this node deletes the entry with the specified key from the map. If key not found? is TRUE, this node does nothing. 0 Modify Entry only if found (default)—If key not found? is FALSE, this node replaces the existing associated value with the new value. If key not found? is TRUE, this node does nothing. 1 Add ",
           "default_value": null,
           "enum_values": [
             [
@@ -890,10 +890,10 @@
       "terminals": []
     },
     {
-      "name": "Formula Node",
+      "name": "Diagram Disable Structure",
       "page": 378,
       "category": "Structures",
-      "description": "Evaluates mathematical formulas and expressions similar to C on the block diagram. The following built-in functions are allowed in formulas: abs, acos, acosh, asin, asinh, atan, atan2, atanh, ceil, cos, cosh, cot, csc, exp, expm1, floor, getexp, getman, int, intrz, ln, lnp1, log, log2, max, min, mod, pow, rand, rem, sec, sign, sin, sinc, sinh, sizeOfDim, sqrt, tan, tanh. There are some differences between the parser in the Mathematics VIs and the Formula Node. Refer to Creating Formula Nodes and",
+      "description": "Has one or more subdiagrams, or cases, of which only the Enabled subdiagram executes. Use the Diagram Disable structure to disable a section of the block diagram. Place a Diagram Disable structure around the code you want to disable. In the Enabled Functions 378 ni.com subdiagram, include any code that you want to enable in place of the code in the Disabled subdiagram. After you create a Diagram Disable structure, you can add, duplicate, rearrange, or delete the subdiagrams. To scroll through th",
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
@@ -901,10 +901,10 @@
       "terminals": []
     },
     {
-      "name": "Diagram Disable Structure",
+      "name": "Formula Node",
       "page": 378,
       "category": "Structures",
-      "description": "Has one or more subdiagrams, or cases, of which only the Enabled subdiagram executes. Use the Diagram Disable structure to disable a section of the block diagram. Place a Diagram Disable structure around the code you want to disable. In the Enabled Functions 378 ni.com subdiagram, include any code that you want to enable in place of the code in the Disabled subdiagram. After you create a Diagram Disable structure, you can add, duplicate, rearrange, or delete the subdiagrams. To scroll through th",
+      "description": "Evaluates mathematical formulas and expressions similar to C on the block diagram. The following built-in functions are allowed in formulas: abs, acos, acosh, asin, asinh, atan, atan2, atanh, ceil, cos, cosh, cot, csc, exp, expm1, floor, getexp, getman, int, intrz, ln, lnp1, log, log2, max, min, mod, pow, rand, rem, sec, sign, sin, sinc, sinh, sizeOfDim, sqrt, tan, tanh. There are some differences between the parser in the Mathematics VIs and the Formula Node. Refer to Creating Formula Nodes and",
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
@@ -996,10 +996,10 @@
       ]
     },
     {
-      "name": "Local Variable",
+      "name": "Global Variable",
       "page": 385,
       "category": "Structures",
-      "description": "Use local variables to read or write to one of the controls or indicators on the front panel of a VI. When you create a local variable, a local variable icon for the object appears on the block diagram. Writing to a local variable is similar to passing data to any other terminal. However, you can write to a local variable even if it is a control or read from a local variable even if it is an indicator. In effect, with a local variable, you can access a front panel object as both an input and an ",
+      "description": "Use global variables to access and pass data among several VIs. When you create a global variable, LabVIEW automatically creates a special global VI, which has a front panel but no block diagram. Note You can right-click a Shared Variable node and select Replace with Programmatic Access from the shortcut menu to switch to programmatic access. By using programmatic shared variable access, you can create clean, scalable block diagrams. Functions © National Instruments 385",
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
@@ -1007,10 +1007,10 @@
       "terminals": []
     },
     {
-      "name": "Global Variable",
+      "name": "Local Variable",
       "page": 385,
       "category": "Structures",
-      "description": "Use global variables to access and pass data among several VIs. When you create a global variable, LabVIEW automatically creates a special global VI, which has a front panel but no block diagram. Note You can right-click a Shared Variable node and select Replace with Programmatic Access from the shortcut menu to switch to programmatic access. By using programmatic shared variable access, you can create clean, scalable block diagrams. Functions \u00a9 National Instruments 385",
+      "description": "Use local variables to read or write to one of the controls or indicators on the front panel of a VI. When you create a local variable, a local variable icon for the object appears on the block diagram. Writing to a local variable is similar to passing data to any other terminal. However, you can write to a local variable even if it is a control or read from a local variable even if it is an indicator. In effect, with a local variable, you can access a front panel object as both an input and an ",
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,

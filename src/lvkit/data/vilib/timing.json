@@ -1,0 +1,693 @@
+{
+  "category": "Timing",
+  "count": 16,
+  "entries": [
+    {
+      "name": "UNC Filename Support of File I/O VIs on Windows",
+      "page": 1832,
+      "category": "Timing",
+      "description": "UNC filenames provide the primary means for specifying the location of a file or directory in a networked environment. In LabVIEW, you can enter and view UNC filenames in path controls, indicators, and constants in a file dialog box. UNC filenames use the following path form. \\\\<machine>\\<share name>\\<dir>\\...\\<file or dir> where <machine> is the name of the computer that you want to access on the network, <share name> is the name of a shared drive on that machine, <dir>\\... consists of the name",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_review",
+      "terminals": []
+    },
+    {
+      "name": "Tick Count (ms) Function",
+      "page": 1834,
+      "category": "Timing",
+      "description": "Returns the value of the millisecond timer. The base reference time (millisecond zero) is undefined. That is, you cannot convert millisecond timer value to a real-world time or date. Be careful when you use this function in comparisons because the value of the millisecond timer wraps from Functions 1834 ni.com (2^32)–1 to 0.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "millisecond timer value",
+          "description": "millisecond timer value returns the value of the millisecond timer.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "millisecond_timer_value"
+        }
+      ]
+    },
+    {
+      "name": "High Resolution Relative Seconds",
+      "page": 1835,
+      "category": "Timing",
+      "description": "Returns the relative current time in seconds. Use the difference between two successive values to measure the elapsed time between the calls. Use this VI to measure time spans with much higher resolution than you can obtain from the Tick Count (ms) function. The time resolution of this VI may vary with different operating systems and CPU types.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "relative seconds",
+          "description": "relative seconds returns the value of the second timer in seconds. Wait (ms) Function Wait (ms) Function Waits the specified number of milliseconds and returns the value of the millisecond Note The operating system clock this VI uses is not tied to any absolute time reference and may drift over time when compared to absolute time sources. Avoid using this VI across long periods of time. Functions © National Instruments 1835 timer. (Windows) The actual wait time may be up to 1 ms shorter than the",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "relative_seconds"
+        },
+        {
+          "name": "milliseconds to wait",
+          "description": "milliseconds to wait specifies the number of milliseconds to wait. This function does not wait longer than 0x7ffffff or 2,147,483,647 ms or about 25 days. To wait for a longer period, execute the function multiple times or use the High Resolution Polling Wait function. Wiring a value of 0 to this parameter forces the current thread to yield control of the CPU.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "milliseconds_to_wait"
+        },
+        {
+          "name": "millisecond timer value",
+          "description": "millisecond timer value returns the value of the millisecond timer after the wait. When LabVIEW calls a VI for example, if millisecond timer value is 112 ms and milliseconds to wait is 10 ms, the VI finishes when millisecond timer value is greater than or equal to 122 ms. Use the Wait For Front Panel Activity function to eliminate the need for continually polling the front panel to determine if the value of a front panel object changes. Timer resolution is system dependent and might be less accu",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "millisecond_timer_value"
+        }
+      ]
+    },
+    {
+      "name": "Wait (ms) Function",
+      "page": 1835,
+      "category": "Timing",
+      "description": "Waits the specified number of milliseconds and returns the value of the millisecond Note The operating system clock this VI uses is not tied to any absolute time reference and may drift over time when compared to absolute time sources. Avoid using this VI across long periods of time. Functions © National Instruments 1835 timer. (Windows) The actual wait time may be up to 1 ms shorter than the requested wait time. This function makes asynchronous system calls, but the nodes on the block diagram e",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "milliseconds to wait",
+          "description": "milliseconds to wait specifies the number of milliseconds to wait. This function does not wait longer than 0x7ffffff or 2,147,483,647 ms or about 25 days. To wait for a longer period, execute the function multiple times or use the High Resolution Polling Wait function. Wiring a value of 0 to this parameter forces the current thread to yield control of the CPU.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "milliseconds_to_wait"
+        },
+        {
+          "name": "millisecond timer value",
+          "description": "millisecond timer value returns the value of the millisecond timer after the wait. When LabVIEW calls a VI for example, if millisecond timer value is 112 ms and milliseconds to wait is 10 ms, the VI finishes when millisecond timer value is greater than or equal to 122 ms. Use the Wait For Front Panel Activity function to eliminate the need for continually polling the front panel to determine if the value of a front panel object changes. Timer resolution is system dependent and might be less accu",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "millisecond_timer_value"
+        }
+      ]
+    },
+    {
+      "name": "Wait Until Next ms Multiple Function",
+      "page": 1837,
+      "category": "Timing",
+      "description": "Waits until the value of the millisecond timer becomes a multiple of the specified millisecond multiple. Use this function to synchronize activities. You can call this function in a loop to control the loop execution rate. However, it is possible that the first loop period might be short. Wiring a value of 0 to the milliseconds multiple input forces the current thread to yield control of the CPU. This function makes asynchronous system calls, but the nodes themselves function synchronously. Ther",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "millisecond multiple",
+          "description": "millisecond multiple is the input that specifies how many milliseconds lapse when the VI runs. Wiring a value of 0 to this parameter forces the current thread to yield control of the CPU.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "millisecond_multiple"
+        },
+        {
+          "name": "millisecond timer value",
+          "description": "millisecond timer value returns the value of the millisecond timer after the wait. When LabVIEW calls a VI for example, if millisecond multiple is 10 ms and millisecond timer value is 112 ms, the VI waits 8 more milliseconds until the millisecond timer value is 120 ms, a multiple of 10. ms. For example, if milliseconds to wait is 3 ms, the Wait (ms) function waits at least 2 ms. If milliseconds to wait is 1 ms, the Wait (ms) function may return without waiting at all. (Real-Time Module) The Wait",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "millisecond_timer_value"
+        }
+      ]
+    },
+    {
+      "name": "Get Date/Time String Function",
+      "page": 1838,
+      "category": "Timing",
+      "description": "Converts a timestamp value or a numeric value to a date and time string in the time zone configured for the computer. The function interprets timestamp and numeric values as the time-zone-independent number of seconds that have elapsed since Functions 1838 ni.com 12:00 a.m., Friday, January 1, 1904, Universal Time.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "date format (0)",
+          "description": "date format selects the appearance of the date string. Date formats vary with your system configuration. To use a different date format, use the Format Date/Time String function. 0 short—1/21/94 1 long—Friday, January 21, 1994 2 abbreviated—Fri, Jan 21, 1994",
+          "default_value": null,
+          "enum_values": [
+            [
+              0,
+              "short"
+            ],
+            [
+              1,
+              "long"
+            ],
+            [
+              2,
+              "abbreviated"
+            ]
+          ],
+          "python_param": "date_format_0"
+        },
+        {
+          "name": "time stamp",
+          "description": "time stamp can be a timestamp or a numeric. If numeric, this number is the time-zone- independent number of seconds that have elapsed since 12:00 a.m., Friday, January 1, 1904, Universal Time [01-01-1904 00:00:00]. The default is the current date and time. If year is before 1904, time stamp is negative.",
+          "default_value": "the current date and time",
+          "enum_values": null,
+          "python_param": "time_stamp"
+        },
+        {
+          "name": "want seconds? (F)",
+          "description": "want seconds? controls the display of seconds in the time string.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "want_seconds_f"
+        },
+        {
+          "name": "date string",
+          "description": "date string is the string returned by the function according to the specified date format.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "date_string"
+        },
+        {
+          "name": "time string",
+          "description": "time string returns the string formatted according to the configured time zone for your computer. want seconds? controls whether the string includes seconds. Functions",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "time_string"
+        }
+      ]
+    },
+    {
+      "name": "Stall Data Flow",
+      "page": 1838,
+      "category": "Timing",
+      "description": "Delays the data flow of the wire for a specified period of time.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "milliseconds to wait",
+          "description": "milliseconds to wait specifies the number of milliseconds that this VI waits to continue the data flow.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "milliseconds_to_wait"
+        },
+        {
+          "name": "value in",
+          "description": "value in specifies the input value before the delay occurs. This input accepts any data type.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "value_in"
+        },
+        {
+          "name": "millisecond timer value",
+          "description": "millisecond timer value returns the LabVIEW system time when the delay finishes.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "millisecond_timer_value"
+        },
+        {
+          "name": "value out",
+          "description": "value out returns the value in value in. Examples Refer to the following example files included with LabVIEW.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "value_out"
+        },
+        {
+          "name": "labview\\examples\\Malleable VIs\\Basics\\Malleable VIs",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "labview_examples_malleable_vis_basics_malleable_vis"
+        }
+      ]
+    },
+    {
+      "name": "Date/Time To Seconds Function",
+      "page": 1840,
+      "category": "Timing",
+      "description": "Creates a timestamp from a set of individual values that specify a date and time. Use the To Double Precision Float function to convert the timestamp value to a lower precision, floating-point number. The number is measured as the number of seconds that have elapsed since 12:00 a.m., Friday, January 1, 1904, Universal Time, assuming DST is set to 1. Functions 1840 ni.com",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "date time rec",
+          "description": "date time rec is the date and time to convert. If is UTC is TRUE, date time rec is in Universal Time. If is UTC is FALSE, date time rec is in the configured time zone for the computer.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "date_time_rec"
+        },
+        {
+          "name": "fractional second",
+          "description": "fractional second must be greater than or equal to 0 and less than 1.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "fractional_second"
+        },
+        {
+          "name": "second",
+          "description": "second can be from 0 to 59.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "second"
+        },
+        {
+          "name": "minute",
+          "description": "minute can be from 0 to 59.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "minute"
+        },
+        {
+          "name": "hour",
+          "description": "hour can be from 0 to 23.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "hour"
+        },
+        {
+          "name": "day of month",
+          "description": "day of month can be from 1 to 31.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "day_of_month"
+        },
+        {
+          "name": "month",
+          "description": "month can be from 1 to 12.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "month"
+        },
+        {
+          "name": "year",
+          "description": "year can be from 1600 to 3000.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "year"
+        },
+        {
+          "name": "day of week",
+          "description": "day of week can be from 1 to 7, which correspond to Sunday and Saturday, respectively.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "day_of_week"
+        },
+        {
+          "name": "day of year",
+          "description": "Note This function ignores day of week when building the timestamp. Functions",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "day_of_year"
+        }
+      ]
+    },
+    {
+      "name": "Get Date/Time In Seconds Function",
+      "page": 1840,
+      "category": "Timing",
+      "description": "Returns a timestamp of the current time. LabVIEW calculates this timestamp using the number of seconds elapsed since 12:00 a.m., Friday, January 1, 1904, Universal Time. Use the To Double Precision Float function to convert the timestamp value to a lower precision, floating-point number.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "current time",
+          "description": "current time returns a timestamp of the LabVIEW system time. LabVIEW calculates this timestamp using the number of seconds elapsed since 12:00 a.m., Friday, January 1, 1904, Universal Time [01-01-1904 00:00:00]. Timer resolution is system dependent and might be less accurate than one millisecond, depending on your platform. When you perform timing, use the Tick Count (ms) function to improve resolution.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "current_time"
+        }
+      ]
+    },
+    {
+      "name": "Seconds To Date/Time Function",
+      "page": 1842,
+      "category": "Timing",
+      "description": "Converts a timestamp value or a numeric value to a cluster of time values. This function loses fractional seconds of precision when converting the timestamp. If you convert date time rec back into a time stamp, the timestamp may not display the exactly correct value.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "time stamp",
+          "description": "Note This function ignores day of year when building the timestamp. Functions 1842 ni.com time stamp can be a timestamp or a numeric. If numeric, this number is the time-zone- independent number of seconds that have elapsed since 12:00 a.m., Friday, January 1, 1904, Universal Time [01-01-1904 00:00:00]. The default is the current date and time. If year is before 1904, time stamp is negative.",
+          "default_value": "the current date and time",
+          "enum_values": null,
+          "python_param": "time_stamp"
+        },
+        {
+          "name": "to UTC (F)",
+          "description": "to UTC specifies if date time rec is in Universal Time or in the configured time zone for the computer. If TRUE, date time rec is in Universal Time. The default is FALSE.",
+          "default_value": "FALSE",
+          "enum_values": null,
+          "python_param": "to_utc_f"
+        },
+        {
+          "name": "date time rec",
+          "description": "date time rec returns the date and time. If to UTC is TRUE, date time rec is in Universal Time. If to UTC is FALSE, date time rec is in the configured time zone for the computer.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "date_time_rec"
+        },
+        {
+          "name": "fractional second",
+          "description": "fractional second is the fractions of a second since the start of the second. Values must be greater than or equal to 0 and less than 1.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "fractional_second"
+        },
+        {
+          "name": "second",
+          "description": "second is the number of complete seconds since the start of the minute. Values can be 0 to 59.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "second"
+        },
+        {
+          "name": "minute",
+          "description": "minute is the number of complete minutes since the start of the hour. Values can be 0 to 59.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "minute"
+        },
+        {
+          "name": "hour",
+          "description": "hour is the number of complete hours since midnight. Values can be 0 to 23.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "hour"
+        },
+        {
+          "name": "day of month",
+          "description": "day of month can be 1 to 31.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "day_of_month"
+        },
+        {
+          "name": "month",
+          "description": "month can be 1 to 12.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "month"
+        },
+        {
+          "name": "year",
+          "description": "Functions",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "year"
+        }
+      ]
+    },
+    {
+      "name": "To Time Stamp Function",
+      "page": 1844,
+      "category": "Timing",
+      "description": "Converts a number to a timestamp.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "number",
+          "description": "number can be a scalar number, array or cluster of numbers, array of clusters of numbers, and so on, that represents the amount of seconds from the epoch time of 12 a.m., January 1, 1904 [01-01-1904 00:00:00].",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "number"
+        },
+        {
+          "name": "time stamp",
+          "description": "time stamp is a time-zone-independent number of seconds that have elapsed since 12:00 a.m., Friday, January 1, 1904, Universal Time [01-01-1904 00:00:00]. Functions 1844 ni.com",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "time_stamp"
+        }
+      ]
+    },
+    {
+      "name": "Tick Count",
+      "page": 1845,
+      "category": "Timing",
+      "description": "Returns the value of a free running counter in the units specified. The output and internal counter are both of the configured width. Functions © National Instruments 1845 If you do not have the FPGA, Real-Time, or DSP modules, you can use the Tick Count (ms) function instead. Dialog Box Options Option Description Counter Units Unit of time the VI uses for the counter. • Ticks—Sets the counter units to a single clock cycle, the length of which is determined by the clock rate for which the VI is ",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "Tick Count(Ticks)",
+          "description": "Returns the value of a free running counter at the time the VI wakes up. A free running counter rolls over when the counter reaches the maximum of Size of Internal Counter specified in the configuration dialog box. Note (Windows) The Windows operating system supports only millisecond resolution. If you select a µSec or Tick resolution under Windows, the VI does not provide exact timing and instead provides an approximation that averages to the requested time over the course of the timing interva",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "tick_countticks"
+        }
+      ]
+    },
+    {
+      "name": "Time Delay",
+      "page": 1845,
+      "category": "Timing",
+      "description": "Inserts a time delay into the calling VI. Dialog Box Options Option Description Time delay (seconds) Specifies how many seconds to delay running the calling VI. The default is 1.000.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "Delay Time (s)",
+          "description": "Specifies how many seconds to wait. The value you wire to this input overrides the value you set in the configuration dialog box.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "delay_time_s"
+        },
+        {
+          "name": "error in (no error)",
+          "description": "Describes error conditions that occur before this node runs.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in_no_error"
+        },
+        {
+          "name": "error out",
+          "description": "Contains error information. This output provides standard error out functionality. Components Specifies how many seconds to delay running the calling VI. The default is 1.000.",
+          "default_value": "1",
+          "enum_values": null,
+          "python_param": "error_out"
+        }
+      ]
+    },
+    {
+      "name": "Elapsed Time",
+      "page": 1848,
+      "category": "Timing",
+      "description": "Indicates the amount of time that has elapsed since the specified start time. Note (Real-Time Module, Windows) When the Wait Express VI runs inside a timed structure or a VI set to time-critical priority, it blocks the execution of all other code in the same timed structure or VI because timed structures and time-critical VIs are single-threaded. In all other cases, the Wait Express VI sleeps while other code in the calling VI runs in parallel on separate threads. Functions 1848 ni.com Dialog Bo",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "Reset",
+          "description": "Controls the initialization of the internal state of the VI. The default is FALSE.",
+          "default_value": "FALSE",
+          "enum_values": null,
+          "python_param": "reset"
+        },
+        {
+          "name": "Time Target (s)",
+          "description": "Specifies how much time must elapse before the Time has Elapsed Boolean is set to TRUE. The default is 1.",
+          "default_value": "1",
+          "enum_values": null,
+          "python_param": "time_target_s"
+        },
+        {
+          "name": "Auto Reset",
+          "description": "Resets the start time to the value in Present (s) when the Express VI reaches the Time Target (s).",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "auto_reset"
+        },
+        {
+          "name": "error in (no error)",
+          "description": "Describes error conditions that occur before this node runs.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in_no_error"
+        },
+        {
+          "name": "Set Start Time (s)",
+          "description": "Functions © National Instruments 1849 Uses the current time or a time offset from 12:00 a.m., Friday, January 1, 1904 [01-01-1904 00:00:00] as the start time instead of the time this VI first ran. If the value is 0, the Express VI uses the current time as the start time. The Express VI uses any other value as the number of seconds offset from 12:00 a.m., Friday, January 1, 1904 [01-01-1904 00:00:00]. For example if the value is 1, the Express VI measures the elapsed time since 12:00:01 a.m., Fri",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "set_start_time_s"
+        },
+        {
+          "name": "Present (s)",
+          "description": "Displays the present time in seconds since 12:00 a.m., Friday, January 1, 1904, Universal Time [01-01-1904 00:00:00].",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "present_s"
+        },
+        {
+          "name": "Start Time Text",
+          "description": "If Automatically reset after time target is FALSE, displays (in text format) the date and time the VI first ran or the time you wire to the Set Start Time (s) input. Otherwise displays the date and time of the last reset.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "start_time_text"
+        },
+        {
+          "name": "Present Text",
+          "description": "Displays the present date and time in text format.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "present_text"
+        },
+        {
+          "name": "Time has Elapsed",
+          "description": "Indicates if the Elapsed Time (s) is greater than the start time plus Time Target (s).",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "time_has_elapsed"
+        },
+        {
+          "name": "Get Start Time (s)",
+          "description": "If Automatically reset after time target is FALSE, displays the date and time the VI first ran or the time you wire to the Set Start Time (s) input. Otherwise displays the date and time of the last reset.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "get_start_time_s"
+        },
+        {
+          "name": "error out",
+          "description": "Contains error information. This output provides standard error out functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        },
+        {
+          "name": "Elapsed Time (s)",
+          "description": "Displays the amount of time in seconds that has elapsed since the start time and the Present (s) time.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "elapsed_time_s"
+        },
+        {
+          "name": "Elapsed Time Text",
+          "description": "Functions 1850 ni.com",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "elapsed_time_text"
+        }
+      ]
+    },
+    {
+      "name": "High Resolution Polling Wait",
+      "page": 1851,
+      "category": "Timing",
+      "description": "Waits the specified number of seconds with higher resolution than you can obtain with the Wait (ms) function. For example, use this VI in applications that require waiting with sub-millisecond resolution between steps. The resolution of the timer this VI uses varies with different operating systems and CPU types. Unlike the Wait (ms) function, if the number of seconds you specify is 0, this VI does not force the current thread to yield control of the CPU. Use this VI with caution if you are conc",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "seconds to wait",
+          "description": "seconds to wait specifies the number of seconds to wait. If seconds to wait is equal to or less than 0, the VI does not wait at all. If seconds to wait is 0, this VI also does not force the current thread to yield control of the CPU.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "seconds_to_wait"
+        },
+        {
+          "name": "error in (no error)",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality. Functions © National Instruments 1851",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in_no_error"
+        },
+        {
+          "name": "error out",
+          "description": "error out contains error information. This output provides standard error out functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        }
+      ]
+    },
+    {
+      "name": "Format Date/Time String Function",
+      "page": 1852,
+      "category": "Timing",
+      "description": "Displays a timestamp value or a numeric value as time in the format you specify using time format codes.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "time format string (%c)",
+          "description": "time format string specifies the format of the output string. Time format codes (beginning with %) not recognized by the function as a format code return the character literally. The default code is %c, which corresponds to the date/time representation appropriate for the configured time zone for the computer. If time format string is an empty string, the function uses the default.",
+          "default_value": "code is %c, which corresponds to the date/time representation appropriate for the configured time zone for the computer",
+          "enum_values": null,
+          "python_param": "time_format_string_c"
+        },
+        {
+          "name": "time stamp",
+          "description": "time stamp can be a timestamp or a numeric. If numeric, this number is the time-zone- independent number of seconds that have elapsed since 12:00 a.m., Friday, January 1, 1904, Universal Time [01-01-1904 00:00:00]. The default is the current date and time. If year is before 1904, time stamp is negative.",
+          "default_value": "the current date and time",
+          "enum_values": null,
+          "python_param": "time_stamp"
+        },
+        {
+          "name": "UTC format",
+          "description": "UTC format specifies if the output string is in Universal Time or in the configured time zone for the computer. If TRUE, date/time string is in Universal Time. The default is FALSE.",
+          "default_value": "FALSE",
+          "enum_values": null,
+          "python_param": "utc_format"
+        },
+        {
+          "name": "date/time string",
+          "description": "date/time string is the formatted date/time string. Functions 1852 ni.com This function calculates date/time string by copying time format string and replacing each of the time format codes with the corresponding values. For example, the time format string %y%m%d displays timestamp in the format yymmdd. The time format string %y%m%d displays the date January 30, 2014 as 140130. The following list describes some of the caveats to consider when you use this function:",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "date_time_string"
+        },
+        {
+          "name": "LabVIEW returns abbreviated weekday and month names as numeric values for",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "labview_returns_abbreviated_weekday_and_month_names_as_numeric_values_for"
+        },
+        {
+          "name": "The %c, %u, %x, %X, %z, and %Z format codes depend on operating system locale",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "the_c_u_x_x_z_and_z_format_codes_depend_on_operating_system_locale"
+        },
+        {
+          "name": "The %p format code only takes effect at locales that use the 12-hour time system.",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "the_p_format_code_only_takes_effect_at_locales_that_use_the_12_hour_time_system"
+        },
+        {
+          "name": "Time format codes have leading zeros as necessary to ensure a constant field",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "time_format_codes_have_leading_zeros_as_necessary_to_ensure_a_constant_field"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,2897 @@
+{
+  "category": "Express",
+  "count": 96,
+  "entries": [
+    {
+      "name": "Instrument Drivers",
+      "page": 5908,
+      "category": "Express",
+      "description": "Use Instrument Drivers VIs to configure, control, and retrieve data from GPIB, serial, modular, PXI, and other types of instruments. Use the NI Instrument Driver Finder to Functions 5908 ni.com search for and install instrument drivers. If an instrument driver is not available, you can use the Create New Instrument Driver Project wizard to create a new instrument driver. The VIs and controls that appear on this palette change depending on the instrument drivers you install. You can add new VIs a",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_review",
+      "terminals": []
+    },
+    {
+      "name": "Simulate Signal",
+      "page": 5909,
+      "category": "Express",
+      "description": "Simulates a sine wave, square wave, triangle wave, sawtooth wave, or noise signal. Dialog Box Options Option Description Signal Contains the following options: • Signal type— Type of waveform to simulate. You can simulate a sine wave, square wave, sawtooth wave, triangle wave, or noise (DC). • Frequency (Hz)— Frequency in hertz of the waveform. The default is 10.1. • Phase (deg)— Initial phase in degrees of the waveform. The default is 0. • Amplitude— Functions © National Instruments 5909 Option",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_review",
+      "terminals": []
+    },
+    {
+      "name": "Simulate Arbitrary Signal",
+      "page": 5917,
+      "category": "Express",
+      "description": "Simulates a signal that you define. Dialog Box Options Option Description Signal Specifications Contains the following options: • Define Signal— Displays the Define Signal dialog box, which you use to generate an arbitrary signal. • Start over when end of signal is reached— Continuously simulates the signal you defined. ◦ X values repeat (0, 1, 2, 0, 1, 2)— Repeats the x values when you select Start over when end of signal is reached. ◦ X values continue (0, 1, 2, 3, 4, 5)— Sequentially incremen",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "Reset",
+          "description": "Controls the initialization of the internal state of the VI. The default is FALSE.",
+          "default_value": "FALSE",
+          "enum_values": null,
+          "python_param": "reset"
+        },
+        {
+          "name": "Next Value",
+          "description": "Specifies the next value of the signal. The default is TRUE. If FALSE, the Express VI outputs the same value for each iteration.",
+          "default_value": "TRUE",
+          "enum_values": null,
+          "python_param": "next_value"
+        },
+        {
+          "name": "error in (no error)",
+          "description": "Describes error conditions that occur before this node runs.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in_no_error"
+        },
+        {
+          "name": "Signal",
+          "description": "Returns the output signal formatted as dynamic data.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "signal"
+        },
+        {
+          "name": "error out",
+          "description": "Functions 5918 ni.com Contains error information. This output provides standard error out functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        },
+        {
+          "name": "Data Valid",
+          "description": "Indicates whether the data is valid.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "data_valid"
+        }
+      ]
+    },
+    {
+      "name": "Acquire Sound",
+      "page": 5919,
+      "category": "Express",
+      "description": "Acquires data from a sound device. This Express VI automatically configures an input task, acquires the data, and clears the task after the acquisition completes. (Windows) You must have DirectX 8.0 or later to use this VI. (Linux) You must have the Open Sound System (OSS) driver to use this VI. Dialog Box Options Option Description Device Lists the sound devices you have connected. #Channels Specifies the number of channels. 1 is Mono, and 2 is Stereo. Resolution (bits) Specifies the quality of",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "Device",
+          "description": "Lists the sound devices you have connected.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "device"
+        },
+        {
+          "name": "Sample rate (Hz)",
+          "description": "Specifies the sample rate in hertz.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "sample_rate_hz"
+        },
+        {
+          "name": "Resolution (bits)",
+          "description": "Specifies the quality of each sample in bits. The default is 16 bits.",
+          "default_value": "16 bits",
+          "enum_values": null,
+          "python_param": "resolution_bits"
+        },
+        {
+          "name": "error in (no error)",
+          "description": "Describes error conditions that occur before this node runs.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in_no_error"
+        },
+        {
+          "name": "Duration (s)",
+          "description": "Sets the number of seconds for which you want to acquire sound.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "duration_s"
+        },
+        {
+          "name": "#Channels",
+          "description": "Specifies the number of channels. 1 is Mono, and 2 is Stereo.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "channels"
+        },
+        {
+          "name": "Data",
+          "description": "Returns the data this Express VI acquires from the selected device using the settings you specify in the configuration dialog box. Functions 5920 ni.com You can convert this output to a waveform or one-dimensional array of waveforms (one per channel) by using the Convert from Dynamic Data function.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "data"
+        },
+        {
+          "name": "error out",
+          "description": "Contains error information. This output provides standard error out functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        }
+      ]
+    },
+    {
+      "name": "Read From Measurement File",
+      "page": 5921,
+      "category": "Express",
+      "description": "Reads data from a text-based measurement file (.lvm) or binary measurement file (.tdm or .tdms). Dialog Box Options Option Description Filename Displays the full path to the file from which you want to read data. The Express VI reads data from the file that this parameter specifies only if the Filename input is unwired. If you wire the Filename input, the VI reads data from the file that this input specifies instead. File Format Contains the following options: • Text (LVM)— Sets the file format ",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_review",
+      "terminals": []
+    },
+    {
+      "name": "Prompt User for Input",
+      "page": 5926,
+      "category": "Express",
+      "description": "Displays a standard dialog box that prompts users to enter information, such as a user name and password. Dialog Box Options Option Description Message to Display Contains the text to display in the dialog box. Buttons to Display Contains the following options: • First button name— Specifies the text that appears on the first button. By default, the text on the first button is OK. Note The behavior of this VI changes depending upon the target. If the current target does not or might not have a h",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "error in (no error)",
+          "description": "Describes error conditions that occur before this node runs.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in_no_error"
+        },
+        {
+          "name": "Enable",
+          "description": "Functions © National Instruments 5927 Enables or disables the Express VI. The default is ON or TRUE.",
+          "default_value": "ON or TRUE",
+          "enum_values": null,
+          "python_param": "enable"
+        },
+        {
+          "name": "OK",
+          "description": "Returns TRUE when you click the first button in the dialog box and FALSE when you click the second button.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "ok"
+        },
+        {
+          "name": "error out",
+          "description": "Contains error information. This output provides standard error out functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        }
+      ]
+    },
+    {
+      "name": "File Dialog",
+      "page": 5928,
+      "category": "Express",
+      "description": "Displays a dialog box with which you can specify the path to a file or directory. You can use this dialog box to select existing files or directories or to select a location and name for a new file or directory. (macOS) This VI does not recognize macOS-specific means of specifying the default application for a file. However, you can use the pattern input to specify a file type for files that include an extension to the filename. Note The behavior of this VI changes depending upon the target. If ",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "button label",
+          "description": "Label to display on the OK or Current Directory button in the file dialog box. If you configure the Express VI to allow the user to select directories, use this input to specify a label for the Current Note To select an LLB or packed library using the File Dialog Express VI, you can remove the checkmark from the Allow selection of files in LLBs and packed project libraries checkbox and select the LLB or packed library from the file dialog box. You also can place a checkmark in the Allow selectio",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "button_label"
+        }
+      ]
+    },
+    {
+      "name": "Spectral Measurements",
+      "page": 5933,
+      "category": "Express",
+      "description": "Performs FFT-based spectral measurements, such as the averaged magnitude spectrum, power spectrum, and phase spectrum on a signal. Functions © National Instruments 5933 Dialog Box Options Option Description Selected Measurement Contains the following options: • Magnitude (peak)— Measures the spectrum and displays the results in terms of peak amplitude. You typically use this measurement with more advanced measurements that require magnitude and phase information. The magnitude of the spectrum is",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_review",
+      "terminals": []
+    },
+    {
+      "name": "Distortion Measurements",
+      "page": 5939,
+      "category": "Express",
+      "description": "Performs distortion measurements on a signal, such as tone analysis, total harmonic distortion (THD), and signal in noise and distortion (SINAD). Dialog Box Options Option Description Distortion Contains the following options: • SINAD (dB)— Calculates the measured signal in noise and distortion (SINAD). SINAD is defined as the dB of the ratio of the RMS energy of Signals to the RMS energy of Signals less the energy in the fundamental. To compute the THD Plus Noise in dB, negate the SINAD. • Tota",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "Signals",
+          "description": "Contains the input signal or signals.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "signals"
+        },
+        {
+          "name": "error in (no error)",
+          "description": "Describes error conditions that occur before this node runs.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in_no_error"
+        },
+        {
+          "name": "error out",
+          "description": "Contains error information. This output provides standard error out functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        },
+        {
+          "name": "SINAD (dB)",
+          "description": "Returns the measured signal in noise and distortion (SINAD). SINAD is defined as the dB of the ratio of the RMS energy of Signals to the RMS energy of Signals less the energy in the Functions © National Instruments 5941",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "sinad_db"
+        }
+      ]
+    },
+    {
+      "name": "Tone Measurements",
+      "page": 5942,
+      "category": "Express",
+      "description": "Finds the single tone with the highest amplitude or searches a specified frequency range to find the single tone with the highest amplitude. You also can find the frequency and phase for a single tone. Dialog Box Options Option Description Single Tone Measurements Contains the following options: • Amplitude— Calculates the amplitude of the detected single tone in volts peak (Vp). • Frequency— Calculates the frequency of the detected single tone in Hertz. • Phase— Calculates the phase of the dete",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "Signals",
+          "description": "Contains the input signal or signals.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "signals"
+        },
+        {
+          "name": "error in (no error)",
+          "description": "Describes error conditions that occur before this node runs.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in_no_error"
+        },
+        {
+          "name": "error out",
+          "description": "Contains error information. This output provides standard error out functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        },
+        {
+          "name": "Phase",
+          "description": "Returns the phase of the detected single tone in degrees.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "phase"
+        },
+        {
+          "name": "Frequency",
+          "description": "Returns the frequency of the detected single tone in Hertz.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "frequency"
+        },
+        {
+          "name": "Amplitude",
+          "description": "Returns the amplitude of the detected single tone in volts peak (Vp). Examples Refer to the following example files included with LabVIEW.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "amplitude"
+        },
+        {
+          "name": "labview\\examples\\Express VIs\\Express VI - Filter.vi",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "labview_examples_express_vis_express_vi_filter_vi"
+        }
+      ]
+    },
+    {
+      "name": "Dual Channel Spectral Measurement",
+      "page": 5944,
+      "category": "Express",
+      "description": "Measures the frequency response of the input signals and the coherence based on the current and previous input signals. This Express VI returns results such as Magnitude, Functions 5944 ni.com Phase, Coherence, Real, and Imaginary. Dialog Box Options Option Description Input Comparison Specifies how to handle multiple signals in each input. • Ordered pairs— Calculates the frequency response of the first channel in Input Signal A against the first channel in Input Signal B, then the second channe",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_review",
+      "terminals": []
+    },
+    {
+      "name": "Amplitude and Level Measurements",
+      "page": 5951,
+      "category": "Express",
+      "description": "Performs voltage measurements on a signal. Dialog Box Options Option Description Amplitude Measurements Contains the following options: Functions © National Instruments 5951 Option Description • Mean (DC)— Acquires a DC measurement of Signals. • RMS— Calculates the root mean square value of Signals. • Apply window— Applies a low side lobe window to Signals. This option is available only when you place a checkmark in the DC or RMS checkbox. Use smoothing windows to taper the sharp transitions in ",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "Restart Averaging",
+          "description": "Specifies whether to restart the selected averaging process. The default is FALSE. When you call this Express VI for the first time, the averaging process starts automatically. This input appears only if you place a checkmark in the Averaging checkbox.",
+          "default_value": "FALSE",
+          "enum_values": null,
+          "python_param": "restart_averaging"
+        },
+        {
+          "name": "error in (no error)",
+          "description": "Describes error conditions that occur before this node runs.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in_no_error"
+        },
+        {
+          "name": "Signals",
+          "description": "Contains the input signal or signals.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "signals"
+        },
+        {
+          "name": "Mean (DC)",
+          "description": "Returns the measured DC value of Signals. Functions © National Instruments 5953",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "mean_dc"
+        }
+      ]
+    },
+    {
+      "name": "Timing and Transition Measurements",
+      "page": 5955,
+      "category": "Express",
+      "description": "Performs timing and transition measurements, such as frequency, period, or duty cycle, on a signal, usually a pulse. Dialog Box Options Option Description Timing and Transition Measurements Contains the following options: • Frequency— Calculates the frequency of Signals in Hertz. Functions © National Instruments 5955 Option Description • Period— Calculates the time in seconds between adjacent middle reference level crossings in the same direction. The reciprocal of this value is the signal frequ",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "Signals",
+          "description": "Contains the input signal or signals.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "signals"
+        },
+        {
+          "name": "error in (no error)",
+          "description": "Describes error conditions that occur before this node runs.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in_no_error"
+        },
+        {
+          "name": "error out",
+          "description": "Contains error information. This output provides standard error out functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        },
+        {
+          "name": "Duration",
+          "description": "Returns the time difference in seconds between the first two middle reference level crossings.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "duration"
+        },
+        {
+          "name": "Preshoot",
+          "description": "Returns the height of the local minimum that precedes a rising transition or the local maximum that precedes a falling transition as a percentage of the histogram-based amplitude of the signal. Functions",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "preshoot"
+        }
+      ]
+    },
+    {
+      "name": "Curve Fitting",
+      "page": 5958,
+      "category": "Express",
+      "description": "Computes the coefficients that best represent the input data based on the chosen model type. Dialog Box Options Option Description Model Type Displays the data and results according to a mathematical model type you specify. Functions 5958 ni.com Option Description The model type can be any of the following options: • Linear— Finds the slope and intercept of the line that best represents the input data set in the least-squares sense. • Quadratic— Finds the polynomial curve of order 2 that best re",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_review",
+      "terminals": []
+    },
+    {
+      "name": "Convolution and Correlation",
+      "page": 5974,
+      "category": "Express",
+      "description": "Performs convolution, deconvolution, or correlation on the input signals. Dialog Box Options Option Description Signal Processing Contains the following options: • Convolution— Computes the convolution of the input signals. • Deconvolution— Computes the deconvolution of the input signals. • Autocorrelation— Computes the autocorrelation of the input signal. • Cross correlation— Computes the cross correlation of the input signals. • Ignore time stamp— Specifies to ignore the time stamp of the inpu",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "Input1",
+          "description": "Contains the input signal X.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "input1"
+        },
+        {
+          "name": "error in (no error)",
+          "description": "Describes error conditions that occur before this node runs.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in_no_error"
+        },
+        {
+          "name": "output signals",
+          "description": "Returns the convolution of X and Y. Functions © National Instruments 5975",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "output_signals"
+        },
+        {
+          "name": "error out",
+          "description": "Contains error information. This output provides standard error out functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        }
+      ]
+    },
+    {
+      "name": "Simulate Signal",
+      "page": 5976,
+      "category": "Express",
+      "description": "Simulates a sine wave, square wave, triangle wave, sawtooth wave, or noise signal. Dialog Box Options Option Description Signal Contains the following options: • Signal type— Type of waveform to simulate. You can simulate a sine wave, square wave, sawtooth wave, triangle wave, or noise (DC). • Frequency (Hz)— Frequency in hertz of the waveform. The default is 10.1. • Phase (deg)— Initial phase in degrees of the waveform. The default is 0. • Amplitude— Amplitude of the waveform. The default is 1.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_review",
+      "terminals": []
+    },
+    {
+      "name": "Mask and Limit Testing",
+      "page": 5983,
+      "category": "Express",
+      "description": "Performs limit testing on Signals. Functions © National Instruments 5983 Dialog Box Options Option Description Upper Limit Contains the following options: • Upper constant— Compares Signals to the value in Upper limit constant. This option is available only when you place a checkmark in the Upper Limit checkbox. ◦ Upper limit constant— Specifies the value of the Upper constant. The default is 0. This option is available only when you place a checkmark in the Upper Limit checkbox and select the U",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "error in",
+          "description": "Functions © National Instruments 5985",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in"
+        }
+      ]
+    },
+    {
+      "name": "Create Histogram",
+      "page": 5987,
+      "category": "Express",
+      "description": "Computes a histogram for Signal. Dialog Box Options Option Description Configuration Contains the following options: • Number of bins— Specifies the number of bins in the histogram. The default is 10. • Maximum value— Specifies the maximum value to include in the histogram. The default is 3. This is best used with floating-point inputs. The maximum value is not included, so values that match it exactly are not included in the histogram. • Minimum value— Specifies the minimum value to include in ",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "Reset",
+          "description": "Controls the initialization of the internal state of the VI. The default is FALSE.",
+          "default_value": "FALSE",
+          "enum_values": null,
+          "python_param": "reset"
+        },
+        {
+          "name": "Signal",
+          "description": "Specifies the input signal. The signal can be a waveform, a real array, or a complex array.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "signal"
+        },
+        {
+          "name": "error in (no error)",
+          "description": "Describes error conditions that occur before this node runs.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in_no_error"
+        },
+        {
+          "name": "Enable",
+          "description": "Functions 5988 ni.com Enables or disables the Express VI. The default is ON or TRUE.",
+          "default_value": "ON or TRUE",
+          "enum_values": null,
+          "python_param": "enable"
+        },
+        {
+          "name": "Histogram",
+          "description": "Returns the resulting histogram.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "histogram"
+        },
+        {
+          "name": "error out",
+          "description": "Contains error information. This output provides standard error out functionality. Examples Refer to the following example files included with LabVIEW.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        },
+        {
+          "name": "labview\\examples\\Express VIs\\Express VI - Statistics.vi",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "labview_examples_express_vis_express_vi_statistics_vi"
+        }
+      ]
+    },
+    {
+      "name": "Instrument Drivers",
+      "page": 5990,
+      "category": "Express",
+      "description": "Use Instrument Drivers VIs to configure, control, and retrieve data from GPIB, serial, modular, PXI, and other types of instruments. Use the NI Instrument Driver Finder to search for and install instrument drivers. If an instrument driver is not available, you Functions 5990 ni.com can use the Create New Instrument Driver Project wizard to create a new instrument driver. The VIs and controls that appear on this palette change depending on the instrument drivers you install. You can add new VIs a",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_review",
+      "terminals": []
+    },
+    {
+      "name": "Build Text",
+      "page": 5991,
+      "category": "Express",
+      "description": "Creates an output string from a combination of text and parameterized inputs. If the input is not a string, this Express VI converts the input into a string based on the configuration of the Express VI. Dialog Box Options Option Description Text with Parameters in Percents (%parameter name%) Specifies the text you want to build. Define parameters by placing text between a pair of percent signs. You can use each parameter only once in the text that you build. To include a percent sign in the outp",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_review",
+      "terminals": []
+    },
+    {
+      "name": "Display Message to User",
+      "page": 5994,
+      "category": "Express",
+      "description": "Displays a standard dialog box that contains an alert or a message for users. Dialog Box Options Option Description Message to Display Contains the text to display in the dialog box. Buttons Contains the following options: Functions 5994 ni.com Option Description to Display • First button name— Specifies the text that appears on the first button. By default, the text on the first button is OK. • Second button name— Specifies the text that appears on the second button. By default, the text on the",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "error in (no error)",
+          "description": "Describes error conditions that occur before this node runs.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in_no_error"
+        },
+        {
+          "name": "Enable",
+          "description": "Enables or disables the Express VI. The default is ON or TRUE.",
+          "default_value": "ON or TRUE",
+          "enum_values": null,
+          "python_param": "enable"
+        },
+        {
+          "name": "Message",
+          "description": "Contains the text to display in the dialog box.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "message"
+        },
+        {
+          "name": "OK?",
+          "description": "Returns TRUE when you click the first button in the dialog box and FALSE when you click the second button.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "ok"
+        },
+        {
+          "name": "error out",
+          "description": "Contains error information. This output provides standard error out functionality. Functions © National Instruments 5995",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        }
+      ]
+    },
+    {
+      "name": "Play Waveform",
+      "page": 5996,
+      "category": "Express",
+      "description": "Plays data from the sound output device using finite sampling. This Express VI automatically configures an output task and clears the task after the output completes. (Windows) You must have DirectX 8.0 or later to use this VI. (Linux) You must have the Open Sound System (OSS) driver to use this VI. Dialog Box Options Option Description Device Lists the sound devices you have connected. Device capabilities Contains the following options: • Min sample rate (Hz)— Returns the minimum output sample ",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "Device",
+          "description": "Lists the sound devices you have connected.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "device"
+        },
+        {
+          "name": "error in",
+          "description": "The error in cluster can accept error information wired from VIs previously called. Use this information to decide if any functionality should be bypassed in the event of errors from other VIs. The pop-up option Explain Error (or Explain Warning) gives more information about the error displayed.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in"
+        },
+        {
+          "name": "Data",
+          "description": "Specifies the data this Express VI plays. You can wire a waveform, an array of waveforms (one waveform per channel), or the Data output of the Acquire Sound Express VI to this input. The Play Waveform Express VI uses the timing information the waveform data type specifies to play back sound.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "data"
+        },
+        {
+          "name": "error out",
+          "description": "The error out cluster passes error or warning information out of a VI to be used by other VIs. The pop-up option Explain Error (or Explain Warning) gives more information about the error displayed.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        }
+      ]
+    },
+    {
+      "name": "Write To Measurement File",
+      "page": 5997,
+      "category": "Express",
+      "description": "Writes data to text-based measurement files (.lvm), binary measurement files (.tdm or .tdms), or Microsoft Excel files (.xlsx). Use the Read From Measurement File Express VI to read data from the generated measurement file. Functions © National Instruments 5997 Dialog Box Options Option Description Filename Displays the full path to the file to which you want to write data. The Express VI writes data to the file that this parameter specifies only if the Filename input is unwired. If you wire the",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_review",
+      "terminals": []
+    },
+    {
+      "name": "Merge Signals",
+      "page": 6010,
+      "category": "Express",
+      "description": "Merges two or more supported signals, such as scalar numerics, 1D or 2D arrays of numerics, scalar Booleans, 1D or 2D arrays of Booleans, waveforms, or 1D arrays of waveforms, into a single output. Resize the function to add inputs. This function automatically appears on the block diagram when you wire a signal output to the wire branch of another signal. Functions 6010 ni.com",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "input signal",
+          "description": "input signal specifies the signal you want to combine with another signal.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "input_signal"
+        },
+        {
+          "name": "input signal",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "input_signal"
+        },
+        {
+          "name": "combined signal",
+          "description": "combined signal returns the combined signals. You can wire the dynamic data type to a graph or numeric indicator. For example, if you wire the combined signal to a graph indicator, LabVIEW represents each signal as an individual plot. This function outputs a single wire with a dynamic data type. Internally, an array of waveforms composes this wire. When you merge signals, each input signal becomes one or more elements in the waveform array.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "combined_signal"
+        }
+      ]
+    },
+    {
+      "name": "Split Signals",
+      "page": 6011,
+      "category": "Express",
+      "description": "Splits two or more signals into component signals. Resize the function to add outputs. Each unit of the original signal contains the time information (t0 and dt) of the waveform. When LabVIEW splits the signal, each resulting signal retains the original information.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "combined signal",
+          "description": "combined signal contains a signal you want to split into component signals.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "combined_signal"
+        },
+        {
+          "name": "output signal",
+          "description": "Functions © National Instruments 6011 output signal returns the component signals.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "output_signal"
+        }
+      ]
+    },
+    {
+      "name": "Select Signals",
+      "page": 6012,
+      "category": "Express",
+      "description": "Accepts multiple signals as inputs and returns only the signals you select. You can specify which signals to include in the output and change the order of the input signals. Dialog Box Options Option Description Select Signals Contains the following options: • Unselected signals— Lists all the input signals. The index number associated with each signal reflects the order of the input signals on the input wire. • Selected signals— Lists the signals in the order in which you selected them. The ori",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "Signals",
+          "description": "Contains the input signal or signals.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "signals"
+        },
+        {
+          "name": "error in (no error)",
+          "description": "Describes error conditions that occur before this node runs.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in_no_error"
+        },
+        {
+          "name": "Selector Input",
+          "description": "Selects which signals to include from the Signals input. This input can be a set of signals with the last point in each signal representing a true or false. When the last point in a signal represents true, the corresponding signal is included. This input also can be one signal, with each data point representing a true or false. Numeric values greater than or equal to 0.5 are true, and values less than 0.5 are false. If Selector Input is not wired, the VI uses the Selected signals specified in th",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "selector_input"
+        },
+        {
+          "name": "Signal Out",
+          "description": "Returns the output signal.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "signal_out"
+        },
+        {
+          "name": "error out",
+          "description": "Contains error information. This output provides standard error out functionality. Components Moves a signal from the Selected signals list to the Unselected signals list. Moves a signal from the Unselected signals list to the Selected signals list. Sorts the signals in the Selected signals list in numerical order based on the index Functions",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        }
+      ]
+    },
+    {
+      "name": "Align and Resample",
+      "page": 6014,
+      "category": "Express",
+      "description": "Performs an alignment of signals by changing the start time or performs a resampling of signals by changing the time delta. This Express VI returns the adjusted signals. Dialog Box Options Option Description Acquisition Type Contains the following options: • Single segment— Aligns and/or resamples each iteration separately. • Continuous— Aligns and/or resamples all iterations as one continuous segment. Align Aligns the signals to have the same start time. Alignment Interval Contains the followin",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_review",
+      "terminals": []
+    },
+    {
+      "name": "Sample Compression",
+      "page": 6019,
+      "category": "Express",
+      "description": "Acquires a large number of data points and compresses the data points into a smaller number of points. Functions © National Instruments 6019 Dialog Box Options Option Description Reduction Specifications Contains the following option: • Reduction factor— Number of points in the Signals input to reduce to one point in the resulting signal. The default is 10. Reduction Methods Contains the following options: • Minimum— Reduces the Signals input by using the lowest value in each segment. ◦ Minimum ",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "error in (no error)",
+          "description": "Functions © National Instruments 6021",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in_no_error"
+        }
+      ]
+    },
+    {
+      "name": "Trigger and Gate",
+      "page": 6024,
+      "category": "Express",
+      "description": "Uses triggering to extract a segment out of a signal. The trigger conditions can be based on a start or stop trigger threshold or can be static. When a trigger condition is static, the trigger occurs immediately and this Express VI returns a predefined number of samples. Dialog Box Options Option Description Start Trigger Contains the following options: • Threshold— Uses a threshold to indicate when to start triggering. ◦ Start sense— Specifies on what edge of the signal to start taking samples.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_review",
+      "terminals": []
+    },
+    {
+      "name": "Append Signals",
+      "page": 6030,
+      "category": "Express",
+      "description": "Appends signals to each other. You can use this Express VI to append a signal to the end of another signal, append signals in a combined signal to each other, append the Functions 6030 ni.com same signal to the end of each signal in a combined signal, or append a combined signal to another combined signal. Dialog Box Options Option Description Input Signal A Displays an input signal. If you wire data to the Express VI and run it, Input Signal A displays real data. If you close and reopen the Exp",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "Input Signal A",
+          "description": "Contains a single or combined signal.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "input_signal_a"
+        },
+        {
+          "name": "Input Signal B",
+          "description": "Contains a single or combined signal.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "input_signal_b"
+        },
+        {
+          "name": "error in (no error)",
+          "description": "Describes error conditions that occur before this node runs.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in_no_error"
+        },
+        {
+          "name": "Appended Signals",
+          "description": "Returns the appended signal(s).",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "appended_signals"
+        },
+        {
+          "name": "error out",
+          "description": "Contains error information. This output provides standard error out functionality. A combined signal is comprised of one or more signals using the Merge Signals function. If you wire only a combined signal to Input Signal A, each signal in the combined signal appends the following signal to create one signal as a result. If you wire a combined signal to Input Signal A and a single signal to Input Signal B, the Express VI appends Input Signal B to the end of each of the signals in Input Signal A.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        }
+      ]
+    },
+    {
+      "name": "Repack Values",
+      "page": 6033,
+      "category": "Express",
+      "description": "Accepts signals with any number of data points and produces packets of signals that use a packet size you specify. Dialog Box Options Option Description Output segment size Specifies the number of samples to include in each output segment. The Functions © National Instruments 6033 Option Description default is 100.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "Signals",
+          "description": "Contains the input signal or signals.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "signals"
+        },
+        {
+          "name": "error in (no error)",
+          "description": "Describes error conditions that occur before this node runs.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in_no_error"
+        },
+        {
+          "name": "Data Index",
+          "description": "Contains the index of the repacked values. When the Express VI is in a While Loop, wire Data Index to the iteration terminal to take a larger array and iteratively generate packets of smaller size. If you do not wire Data Index to the iteration terminal, smaller data segments are collected into one larger packet.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "data_index"
+        },
+        {
+          "name": "Data Available",
+          "description": "Indicates if data is available to make a packet.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "data_available"
+        },
+        {
+          "name": "Result",
+          "description": "Returns the resulting data based on the configuration of the Express VI.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "result"
+        },
+        {
+          "name": "error out",
+          "description": "Contains error information. This output provides standard error out functionality. To take a larger array and iteratively generate packets of smaller size, place the Repack Values Express VI in a While Loop and wire the Data Index input to the iteration terminal. Select the packet size for the Repack Values Express VI. The VI reads the Signals input once into a buffer during the first iteration of the While Loop. LabVIEW ignores this input for subsequent iterations. On each loop iteration, the R",
+          "default_value": "100",
+          "enum_values": null,
+          "python_param": "error_out"
+        }
+      ]
+    },
+    {
+      "name": "Extract Portion of Signal",
+      "page": 6035,
+      "category": "Express",
+      "description": "Extracts portions of data from the input signals and returns the extracted data. You can extract a single point or a range of data, and you can extract data by time or index. You also can find the time and index of the first occurrence of a value. Dialog Box Options Option Description Begin Contains the following options: • Begin at offset (x-axis units)— Starts the extraction when the signal crosses the value you specify in Offset. ◦ Offset— Value that Begin at offset (x-axis units) uses. The d",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "Signals",
+          "description": "Contains the input signal or signals.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "signals"
+        },
+        {
+          "name": "Begin Sample",
+          "description": "Specifies the value that Begin at sample number uses. The value you wire to this input overrides the value you set in the configuration dialog box.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "begin_sample"
+        },
+        {
+          "name": "Length",
+          "description": "Specifies the value that Length (x-axis units) uses. The value you wire to this input overrides the value you set in the configuration dialog box.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "length"
+        },
+        {
+          "name": "error in (no error)",
+          "description": "Describes error conditions that occur before this node runs.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in_no_error"
+        },
+        {
+          "name": "Samples",
+          "description": "Specifies the value that Number of Samples uses. The value you wire to this input overrides the value you set in the configuration dialog box.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "samples"
+        },
+        {
+          "name": "Begin Offset",
+          "description": "Specifies the value that Begin at Offset (x-axis units) uses. The value you wire to this input overrides the value you set in the configuration dialog box.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "begin_offset"
+        },
+        {
+          "name": "Section",
+          "description": "Returns the extracted portion of the input signal.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "section"
+        },
+        {
+          "name": "error out",
+          "description": "Contains error information. This output provides standard error out functionality. Functions",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        }
+      ]
+    },
+    {
+      "name": "Delay Values",
+      "page": 6038,
+      "category": "Express",
+      "description": "Stores data from previous iterations of a loop and passes the data after the specified number of iterations occur. Functions 6038 ni.com Dialog Box Options Option Description History size Contains the number of iterations of the loop to delay the packet of data. The default is 1.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "Signals",
+          "description": "Contains the input signal or signals.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "signals"
+        },
+        {
+          "name": "Enable",
+          "description": "Enables or disables the Express VI. The default is ON or TRUE.",
+          "default_value": "ON or TRUE",
+          "enum_values": null,
+          "python_param": "enable"
+        },
+        {
+          "name": "error in (no error)",
+          "description": "Describes error conditions that occur before this node runs.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in_no_error"
+        },
+        {
+          "name": "Delayed Signals",
+          "description": "Returns the delayed signal(s).",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "delayed_signals"
+        },
+        {
+          "name": "error out",
+          "description": "Contains error information. This output provides standard error out functionality. The value you wire to History Size determines the number of times the loop iterates before the Express VI returns data. For example, if you enter 1 in History size, the Express VI does not return the data wired to the Signals input after the first iteration of the loop. The second time the loop iterates, the Express VI returns the value from the first iteration of the loop. The third time the loop iterates, the Ex",
+          "default_value": "Functions",
+          "enum_values": null,
+          "python_param": "error_out"
+        }
+      ]
+    },
+    {
+      "name": "Convert from Dynamic Data",
+      "page": 6040,
+      "category": "Express",
+      "description": "Converts the dynamic data type to numeric, Boolean, waveform, and array data types for use with other VIs and functions. Dialog Box Options Option Description Conversion Contains the following options: • Floating point numbers (double)— Formats numeric values as double-precision, floating-point numbers, including the values in arrays. • Boolean (TRUE and FALSE)— Formats numeric values as Boolean values, including the values in arrays. • Resulting data type— Specifies the data type that you want ",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "Channel",
+          "description": "Specifies the channel from which you want to retrieve the data. The value you wire to this input overrides the value you set in the configuration dialog box.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "channel"
+        },
+        {
+          "name": "Dynamic Data Type",
+          "description": "Contains the input signal formatted as dynamic data.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "dynamic_data_type"
+        },
+        {
+          "name": "Array",
+          "description": "Returns the output signal converted into an array of numeric values. You also can configure the Convert from Dynamic Data Express VI to return the following outputs:",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "array"
+        },
+        {
+          "name": "Scalar",
+          "description": "Returns the output signal converted into a numeric value.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "scalar"
+        },
+        {
+          "name": "Waveform",
+          "description": "Returns the output signal converted into a waveform.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "waveform"
+        },
+        {
+          "name": "Array of Waveform",
+          "description": "Returns the output signal converted into a 1D array of waveform data. Components Displays a preview of the measurement. The Result Preview plot indicates the value of the selected measurement with a dotted line. Specifies the channel from which you want to retrieve the data. Displays the input signal. Specifies the data type that you want to convert to from the dynamic data type. Formats numeric values as Boolean values, including the values in arrays. Formats numeric values as double-precision,",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "array_of_waveform"
+        }
+      ]
+    },
+    {
+      "name": "Convert to Dynamic Data",
+      "page": 6042,
+      "category": "Express",
+      "description": "Converts numeric, Boolean, waveform and array data types to the dynamic data type for use with Express VIs. Dialog Box Options Option Description Conversion Contains the following option: • Input data type— Specifies the data type that you want to convert to the dynamic data type. Scalar Data Type Contains the following options: • Floating point numbers (double)— Specifies that numeric values are double-precision, floating-point numbers. • Boolean (TRUE and FALSE)— Specifies that numeric values ",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "Array",
+          "description": "Contains the input waveform or array of numbers or Boolean values. You also can configure the Convert to Dynamic Data Express VI to accept the following outputs:",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "array"
+        },
+        {
+          "name": "2D Array",
+          "description": "Contains the input signal formatted as a 2D array of numbers.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "2d_array"
+        },
+        {
+          "name": "Array of Waveforms",
+          "description": "Contains the input signal formatted as a 2D array of waveforms.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "array_of_waveforms"
+        },
+        {
+          "name": "Boolean",
+          "description": "Contains the input signal formatted as a single Boolean value.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "boolean"
+        },
+        {
+          "name": "Double",
+          "description": "Contains the input signal formatted as a double-precision, floating-point number.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "double"
+        },
+        {
+          "name": "Waveform",
+          "description": "Contains the input signal formatted as a waveform.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "waveform"
+        },
+        {
+          "name": "Dynamic Data Type",
+          "description": "Returns a dynamic data type with the values you entered in the Array input. Components Sets the t0 of the input signal to the current system time. Sets the t0 of the input signal to zero. Contains the input signal formatted as a single Boolean value. Returns a dynamic data type with the values you entered in the Array input. Functions",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "dynamic_data_type"
+        }
+      ]
+    },
+    {
+      "name": "Group Digital Signals",
+      "page": 6044,
+      "category": "Express",
+      "description": "Groups digital data into a digital data array and groups digital waveforms into a digital waveform array. LabVIEW treats ungrouped signals as individual groups. Dialog Box Options Option Description Number of signals Specifies the number of signals you want to wire to the Express VI. Configure this option first. This number must match the number of signals you wire to Digital Data In. Otherwise, LabVIEW returns an error. Use incoming waveform names Allows you to retain the original names of the ",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "error in (no error)",
+          "description": "Describes error conditions that occur before this node runs. Functions © National Instruments 6045",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in_no_error"
+        },
+        {
+          "name": "Digital Data In",
+          "description": "Specifies the input signals you want to organize into groups.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "digital_data_in"
+        },
+        {
+          "name": "error out",
+          "description": "Contains error information. This output provides standard error out functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        },
+        {
+          "name": "Digital Data Out",
+          "description": "Returns a digital data array or a digital waveform array, depending on the data type of Digital Data In.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "digital_data_out"
+        }
+      ]
+    },
+    {
+      "name": "Set Dynamic Data Attributes",
+      "page": 6046,
+      "category": "Express",
+      "description": "Sets the attributes of the dynamic data you wire to Signals In. Dialog Box Options Option Description All Signals Contains the following options: • Start timestamp— Specifies whether to set the start timestamp of the signals. Signal Index Specifies the index of the signal whose attributes you want to set. The default is 0. Signal Index contains the following options: • Signal name— Specifies whether to set the name of the signal. ◦ Signal name value— Functions 6046 ni.com Option Description Spec",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "error in",
+          "description": "Describes error conditions that occur before this node runs.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in"
+        },
+        {
+          "name": "Signals In",
+          "description": "Specifies the dynamic data that contains the input signal or signals.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "signals_in"
+        },
+        {
+          "name": "Signal Index",
+          "description": "Specifies the index of the signal whose attributes you want to configure. The value you wire to this input overrides the value you set in the configuration dialog box.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "signal_index"
+        },
+        {
+          "name": "error out",
+          "description": "Contains error information. This output provides standard error out functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        },
+        {
+          "name": "Signals Out",
+          "description": "Returns the dynamic data that contains the signal you set with this Express VI and any unchanged signals from Signals In.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "signals_out"
+        }
+      ]
+    },
+    {
+      "name": "Get Dynamic Data Attributes",
+      "page": 6048,
+      "category": "Express",
+      "description": "Retrieves the attributes of the dynamic data you wire to Signals In. Functions 6048 ni.com Dialog Box Options Option Description Signal Index Specifies the index of the signal whose attributes you want to retrieve. The default is 0. Signal Index contains the following options: • Start timestamp— Specifies whether to return the start timestamp of the signal. • Signal name— Specifies whether to return the name of the signal. • Time mode— Specifies whether to return the time mode of the signal. • T",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "error in",
+          "description": "Functions © National Instruments 6049 Describes error conditions that occur before this node runs.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in"
+        },
+        {
+          "name": "Signals In",
+          "description": "Specifies the dynamic data that contains the input signal or signals.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "signals_in"
+        },
+        {
+          "name": "Signal Index",
+          "description": "Specifies the index of the signal whose attributes you want to retrieve. The value you wire to this input overrides the value you set in the configuration dialog box.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "signal_index"
+        },
+        {
+          "name": "Signals Out",
+          "description": "Returns Signals In unchanged.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "signals_out"
+        },
+        {
+          "name": "Signal Name",
+          "description": "Returns the name of the signal. This output is available only if you place a checkmark in the Signal name checkbox in the configuration dialog box.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "signal_name"
+        },
+        {
+          "name": "Time Mode",
+          "description": "Returns the time mode of the signal. This output is available only if you place a checkmark in the Time mode checkbox in the configuration dialog box.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "time_mode"
+        },
+        {
+          "name": "Timestamp",
+          "description": "Returns the timestamp of the signal. This output is available only if you place a checkmark in the Timestamp checkbox in the configuration dialog box.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "timestamp"
+        },
+        {
+          "name": "Start Timestamp",
+          "description": "Returns the start timestamp of the signal. This output is available only if you place a checkmark in the Start timestamp checkbox in the configuration dialog box.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "start_timestamp"
+        },
+        {
+          "name": "X Dimension",
+          "description": "Returns the X dimension of the signal. This output is available only if you place a checkmark in the X dimension checkbox in the configuration dialog box.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "x_dimension"
+        },
+        {
+          "name": "Unit",
+          "description": "Returns the unit of measurement of the signal. This output is available only if you place a checkmark in the Unit checkbox in the configuration dialog box.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "unit"
+        },
+        {
+          "name": "error out",
+          "description": "Contains error information. This output provides standard error out functionality. Functions 6050 ni.com",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        }
+      ]
+    },
+    {
+      "name": "Flat Sequence Structure",
+      "page": 6052,
+      "category": "Express",
+      "description": "Consists of one or more subdiagrams, or frames, that execute sequentially. Use the Flat Sequence structure to ensure that a subdiagram executes before or after another subdiagram. Data flow for the Flat Sequence structure differs from data flow for other structures. Frames in a Flat Sequence structure execute from left to right and when all data values wired to a frame are available. The data leaves each frame as the frame finishes executing. This means the input of one frame can depend on the o",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_review",
+      "terminals": []
+    },
+    {
+      "name": "While Loop with Button",
+      "page": 6052,
+      "category": "Express",
+      "description": "Repeats the subdiagram inside it until the conditional terminal, an input terminal, receives a particular Boolean value. When you place this While Loop on the block diagram, a stop button also appears on the block diagram and is wired to the conditional terminal. If you select a While Loop on the Structures palette and place it on the block diagram, a stop button does not appear. Flat Sequence Structure Flat Sequence Structure Consists of one or more subdiagrams, or frames, that execute sequenti",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_review",
+      "terminals": []
+    },
+    {
+      "name": "Case Structure",
+      "page": 6054,
+      "category": "Express",
+      "description": "Contains one or more subdiagrams, or cases, exactly one of which executes when the structure executes. The value wired to the case selector determines which case to execute. Components of a Case Structure • Selector label—Displays the value(s) for which the associated case executes. You Functions 6054 ni.com can specify a single value or a range of values. You also can use the selector label to specify a default case. • Subdiagram(case)—Contains the code that executes when the value wired to the",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "Delay Time (s)",
+          "description": "Specifies how many seconds to wait. The value you wire to this input overrides the value you set in the configuration dialog box.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "delay_time_s"
+        },
+        {
+          "name": "error in (no error)",
+          "description": "Describes error conditions that occur before this node runs.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in_no_error"
+        },
+        {
+          "name": "error out",
+          "description": "Contains error information. This output provides standard error out functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        }
+      ]
+    },
+    {
+      "name": "Elapsed Time",
+      "page": 6056,
+      "category": "Express",
+      "description": "Indicates the amount of time that has elapsed since the specified start time. Functions 6056 ni.com Dialog Box Options Option Description Elapsed time (seconds) Specifies how much time must elapse before the Time has Elapsed Boolean is set to TRUE. The default is 1.000. Automatically reset after time target Resets the elapsed time marker.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "Reset",
+          "description": "Controls the initialization of the internal state of the VI. The default is FALSE.",
+          "default_value": "FALSE",
+          "enum_values": null,
+          "python_param": "reset"
+        },
+        {
+          "name": "Time Target (s)",
+          "description": "Specifies how much time must elapse before the Time has Elapsed Boolean is set to TRUE. The default is 1.",
+          "default_value": "1",
+          "enum_values": null,
+          "python_param": "time_target_s"
+        },
+        {
+          "name": "Auto Reset",
+          "description": "Resets the start time to the value in Present (s) when the Express VI reaches the Time Target (s).",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "auto_reset"
+        },
+        {
+          "name": "error in (no error)",
+          "description": "Describes error conditions that occur before this node runs.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in_no_error"
+        },
+        {
+          "name": "Set Start Time (s)",
+          "description": "Uses the current time or a time offset from 12:00 a.m., Friday, January 1, 1904 [01-01-1904 00:00:00] as the start time instead of the time this VI first ran. Functions",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "set_start_time_s"
+        }
+      ]
+    },
+    {
+      "name": "Time Delay",
+      "page": 6056,
+      "category": "Express",
+      "description": "Inserts a time delay into the calling VI. Dialog Box Options Option Description Time delay (seconds) Specifies how many seconds to delay running the calling VI. The default is 1.000.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "Delay Time (s)",
+          "description": "Specifies how many seconds to wait. The value you wire to this input overrides the value you set in the configuration dialog box.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "delay_time_s"
+        },
+        {
+          "name": "error in (no error)",
+          "description": "Describes error conditions that occur before this node runs.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in_no_error"
+        },
+        {
+          "name": "error out",
+          "description": "Contains error information. This output provides standard error out functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        }
+      ]
+    },
+    {
+      "name": "Scaling and Mapping",
+      "page": 6064,
+      "category": "Express",
+      "description": "Changes the amplitude of a signal by scaling or mapping the signal. Dialog Box Options Option Description Scaling or Mapping Type Contains the following options: • Normalize— Determines the scale and offset necessary to transform the signal so that its maximum is Highest peak and its minimum is Lowest peak. ◦ Lowest peak— Specifies the minimum value used to normalize the signal. The default is 0. ◦ Highest peak— Specifies the maximum value used to normalize the signal. The default is 1. • Linear",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "Signals",
+          "description": "Contains the input signal or signals.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "signals"
+        },
+        {
+          "name": "error in (no error)",
+          "description": "Describes error conditions that occur before this node runs.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in_no_error"
+        },
+        {
+          "name": "error out",
+          "description": "Contains error information. This output provides standard error out functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        },
+        {
+          "name": "Scaled Signals",
+          "description": "Returns the scaled signals. Functions © National Instruments 6065 Examples Refer to the following example files included with LabVIEW.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "scaled_signals"
+        },
+        {
+          "name": "labview\\examples\\Express VIs\\Express VI - Scaling and",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "labview_examples_express_vis_express_vi_scaling_and"
+        }
+      ]
+    },
+    {
+      "name": "Time Domain Math",
+      "page": 6066,
+      "category": "Express",
+      "description": "Performs one of several math functions on time domain signals. Dialog Box Options Option Description Mathematical Operation Contains the following options: • Derivative (dX/dt)— Returns the numeric derivative of the signal. LabVIEW computes the output sample of dX/dt at index i as yi=(xi– xi–1)/dt. • Difference (dX)— Returns the numeric difference of the signal. LabVIEW computes the output sample of dX at index i as yi=xi–xi–1. • Integral (Sum[Xdt])— Returns the numeric integral of the signal. L",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "Signals",
+          "description": "Contains the input signal or signals.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "signals"
+        },
+        {
+          "name": "error in (no error)",
+          "description": "Describes error conditions that occur before this node runs.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in_no_error"
+        },
+        {
+          "name": "error out",
+          "description": "Contains error information. This output provides standard error out functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        },
+        {
+          "name": "Result",
+          "description": "Returns the resulting data based on the configuration of the Express VI.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "result"
+        }
+      ]
+    },
+    {
+      "name": "Express Numeric",
+      "page": 6068,
+      "category": "Express",
+      "description": "Use the Express Numeric functions to create and perform arithmetic and complex mathematical operations on numbers and to convert numbers from one data type to another. Use the VIs and functions on the Elementary & Special Functions palette to perform trigonometric and logarithmic functions. You also can access the following constants from this palette: • positive infinity • negative infinity • machine epsilon Functions 6068 ni.com Palette Object Description Add Function Computes the sum of the i",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_review",
+      "terminals": []
+    },
+    {
+      "name": "Add Function",
+      "page": 6071,
+      "category": "Express",
+      "description": "Computes the sum of the inputs.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "x+y",
+          "description": "x+y is the sum of x and y. Matrix Details When you wire matrix data as an input to this function, a VI that includes subVIs that work with the matrix data type replaces the function. The resulting VI has the same icon but contains a matrix-specific algorithm. The node remains a VI if you disconnect the matrix from the inputs. Wire other data types as inputs to restore the original function. If you wire a data type to a function and that data type causes a basic math operation to fail, the functi",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "x_y"
+        }
+      ]
+    },
+    {
+      "name": "Subtract Function",
+      "page": 6072,
+      "category": "Express",
+      "description": "Computes the difference of the inputs. If you wire two waveform values or two dynamic data type values to this function, error in and error out terminals appear on the function. Subtracting two time stamp values yields a numeric value (difference in time), and subtracting a numeric value from a time stamp value yields a time stamp. You cannot subtract a time stamp value from a numeric value. The dimensions of two matrices that you want to subtract must be the same. Otherwise, this function retur",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "Number",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "number"
+        },
+        {
+          "name": "Timestamp",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "timestamp"
+        },
+        {
+          "name": "Analog Waveform",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "analog_waveform"
+        },
+        {
+          "name": "x-y",
+          "description": "x-y is the difference between x and y. When you wire matrix data as an input to this function, a VI that includes subVIs that work with the matrix data type replaces the function. The resulting VI has the same icon but contains a matrix-specific algorithm. The node remains a VI if you disconnect the matrix from the input(s). Wire other data types as inputs to restore the original function. If you wire a data type to a function and that data type causes a basic math operation to fail, the functio",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "x_y"
+        },
+        {
+          "name": "labview\\examples\\Numerics\\Numeric Functions.vi",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "labview_examples_numerics_numeric_functions_vi"
+        }
+      ]
+    },
+    {
+      "name": "Multiply Function",
+      "page": 6074,
+      "category": "Express",
+      "description": "Returns the product of the inputs. If you wire two waveform values or two dynamic data type values to this function, error in and error out terminals appear on the function. The connector pane displays the default data types for this polymorphic function.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "x*y",
+          "description": "x*y is the product of x multiplied by y. You cannot use this function to multiply a matrix and a vector. Use the A x B VI instead. When multiplying two matrices, if the number of rows in the second matrix does not match the number of columns in the first matrix, this function returns an empty matrix. Refer to the A x B VI for more information about matrix multiplication. When you wire matrix data as an input to this function, a VI that includes subVIs that work with the matrix data type replaces",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "x_y"
+        },
+        {
+          "name": "labview\\examples\\Numerics\\Numeric Functions.vi",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "labview_examples_numerics_numeric_functions_vi"
+        }
+      ]
+    },
+    {
+      "name": "Divide Function",
+      "page": 6075,
+      "category": "Express",
+      "description": "Computes the quotient of the inputs.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "x/y",
+          "description": "x/y is a double-precision, floating-point number if both x and y are integers. In general, the output type is the widest representation of the inputs if the inputs are not integers or if their representations differ. Note You can manually configure this function to output data of a type you want. To Functions",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "x_y"
+        }
+      ]
+    },
+    {
+      "name": "Increment Function",
+      "page": 6076,
+      "category": "Express",
+      "description": "Adds 1 to the input value. The connector pane displays the default data types for this polymorphic function.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "Number",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "number"
+        },
+        {
+          "name": "Timestamp",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "timestamp"
+        },
+        {
+          "name": "Analog Waveform",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "analog_waveform"
+        },
+        {
+          "name": "x+1",
+          "description": "specify the output data type, right-click the function and select Properties to display the Object Properties dialog box. On the Output Configuration page, click the Representation icon and select the data type you want. A blue coercion dot appears on the output terminal of the function to indicate that you have configured the output data type. Functions 6076 ni.com x+1 is the result of x+1. If the input is a time stamp value, this function increments the time by one second. If the input is an e",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "x_1"
+        },
+        {
+          "name": "labview\\examples\\Numerics\\Numeric Functions.vi",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "labview_examples_numerics_numeric_functions_vi"
+        }
+      ]
+    },
+    {
+      "name": "Decrement Function",
+      "page": 6077,
+      "category": "Express",
+      "description": "Subtracts 1 from the input value. The connector pane displays the default data types for this polymorphic function.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "Number",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "number"
+        },
+        {
+          "name": "Timestamp",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "timestamp"
+        },
+        {
+          "name": "Analog Waveform",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "analog_waveform"
+        }
+      ]
+    },
+    {
+      "name": "Compound Arithmetic",
+      "page": 6078,
+      "category": "Express",
+      "description": "Performs arithmetic on one or more numeric, array, cluster, or Boolean inputs. To select the operation (Add, Multiply, AND, OR, or XOR), right-click the function and select Change Mode from the shortcut menu. When you select this function from the Numeric palette, the default mode is Add. When you select this function from the Boolean palette, the default mode is OR. The connector pane displays the default data types for this polymorphic function. Note You can manually configure this function to",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "value",
+          "description": "value 0..n-1 can be a number or Boolean value, an array of numbers or Boolean values, a cluster, array of clusters, and so on. You can wire a waveform to only one value input. If an input is a waveform, you can have an unlimited number of scalar inputs of varying sizes. If value is an error cluster, only the status parameter of the error cluster passes to the input terminal.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "value"
+        },
+        {
+          "name": "value",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "value"
+        },
+        {
+          "name": "result",
+          "description": "result returns the result of the selected operation applied to the value 0..n-1. For AND, OR, or XOR, result returns the bitwise operations on numeric inputs and logical operations on Boolean inputs. Add inputs to the node by right-clicking an input and selecting Add Input from the shortcut menu or by resizing the function. You can invert the inputs or the output of this function by right-clicking the individual terminals and selecting Invert from the shortcut menu. For Add, select Invert to neg",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "result"
+        }
+      ]
+    },
+    {
+      "name": "Absolute Value Function",
+      "page": 6080,
+      "category": "Express",
+      "description": "Returns the absolute value of the input. The connector pane displays the default data types for this polymorphic function.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "abs(x)",
+          "description": "abs(x) is the absolute value of x. When x is of the form x = a + bi, that is, when x is complex, the following equation defines abs(x): When you wire matrix data as an input to this function, a VI that includes subVIs that work with the matrix data type replaces the function. The resulting VI has the same icon but contains a matrix-specific algorithm. The node remains a VI if you disconnect the matrix from the inputs. Wire other data types as inputs to restore the original function. If you wire ",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "absx"
+        },
+        {
+          "name": "labview\\examples\\Numerics\\Numeric Functions.vi",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "labview_examples_numerics_numeric_functions_vi"
+        }
+      ]
+    },
+    {
+      "name": "Round To Nearest Function",
+      "page": 6081,
+      "category": "Express",
+      "description": "Rounds the input to the nearest integer. If the value of the input is midway between two integers, the function returns the nearest even integer. For example, if number is 1.5 or 2.5, nearest integer value is 2. The connector pane displays the default data types for this polymorphic function.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "number",
+          "description": "number can be a scalar number, array or cluster of numbers, array of clusters of numbers, and so on.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "number"
+        },
+        {
+          "name": "nearest integer value",
+          "description": "nearest integer value is the resulting nearest integer to number. If the input is a time stamp value, the function rounds to the nearest second. When number is in the form of a + bi, that is, when number is complex, the function returns a complex number defined by the nearest integer to the real and imaginary parts of number. The following equation defines nearest integer value: nearest integer value(x) = nearest integer value(a) + i * nearest integer value(b) Note Note IEEE standards determine ",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "nearest_integer_value"
+        }
+      ]
+    },
+    {
+      "name": "Round Toward +Infinity Function",
+      "page": 6082,
+      "category": "Express",
+      "description": "Rounds the input to the next highest integer. For example, if the input is 3.1, the result is 4. If the input is –3.1, the result is –3. The connector pane displays the default data types for this polymorphic function. Functions 6082 ni.com",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "ceil(x): smallest int >= x",
+          "description": "ceil(x): smallest int >= x is the resulting highest integer, closest to x. If the input is a time stamp value, the function rounds to the next second. When x is of the form x = a + bi, that is, when x is complex, the function returns a complex number defined by the next highest integers to the real and imaginary parts of x. The following equation defines ceil(x): smallest int >= x: ceil(x) = ceil(a) + i ceil(b)",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "ceilx_smallest_int_x"
+        }
+      ]
+    },
+    {
+      "name": "Round Toward -Infinity Function",
+      "page": 6082,
+      "category": "Express",
+      "description": "Truncates the input to the next lowest integer. For example, if the input is 3.8, the result is 3. If the input is –3.8, the result is –4. The connector pane displays the default data types for this polymorphic function.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "floor(x): largest int <= x",
+          "description": "floor(x): largest int ≤ x is the resulting lowest integer, closest to x. If the input is a time stamp value, the function rounds to the previous second. When x is of the form x = a + bi, that is, when x is complex, the function returns a complex number defined by the next lowest integers to the real and imaginary parts of x. The following equation defines floor(x): largest int ≤ x: floor(x) = floor(a) + i floor(b) Round Toward +Infinity Function Round Toward +Infinity Function Rounds the input t",
+          "default_value": "data types for this polymorphic function",
+          "enum_values": null,
+          "python_param": "floorx_largest_int_x"
+        },
+        {
+          "name": "ceil(x): smallest int >= x",
+          "description": "ceil(x): smallest int >= x is the resulting highest integer, closest to x. If the input is a time stamp value, the function rounds to the next second. When x is of the form x = a + bi, that is, when x is complex, the function returns a complex number defined by the next highest integers to the real and imaginary parts of x. The following equation defines ceil(x): smallest int >= x: ceil(x) = ceil(a) + i ceil(b)",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "ceilx_smallest_int_x"
+        }
+      ]
+    },
+    {
+      "name": "Scale By Power Of 2 Function",
+      "page": 6083,
+      "category": "Express",
+      "description": "Multiplies x by 2 raised to the power of n. If x is an integer or fixed-point number, this function is the equivalent of an arithmetic shift. The connector pane displays the default data types for this polymorphic function.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "x*2^n",
+          "description": "Functions © National Instruments 6083 x*2^n is the result of multiplying x by 2, raised to the power of n. If you wire a fixed-point value to this function, the resulting output value retains the fixed-point configuration settings of the input value. However, the value is likely to truncate or wrap. Examples Refer to the following example files included with LabVIEW.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "x_2_n"
+        },
+        {
+          "name": "labview\\examples\\Numerics\\Numeric Functions.vi",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "labview_examples_numerics_numeric_functions_vi"
+        }
+      ]
+    },
+    {
+      "name": "Square Root Function",
+      "page": 6084,
+      "category": "Express",
+      "description": "Computes the square root of the input value. If x is negative, the square root is NaN unless x is complex. If x is a matrix, this function takes the matrix square root of x. The connector pane displays the default data types for this polymorphic function.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "sqrt(x)",
+          "description": "Note If you wire a value that has a unit with an odd exponent to the square root function, the wire breaks because LabVIEW does not support units with fractional exponents. For example, 15m² is an acceptable input value, but 15m3 is not an acceptable input value. Functions 6084 ni.com sqrt(x) is a double-precision, floating-point number if x is an integer. If x is less than 0, sqrt(x) is not a number (NaN), unless x is complex. When x is of the form x = a + bi, that is, when x is complex, the fu",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "sqrtx"
+        }
+      ]
+    },
+    {
+      "name": "Square Function",
+      "page": 6086,
+      "category": "Express",
+      "description": "Computes the square of the input value. The connector pane displays the default data types for this polymorphic function.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "x^2",
+          "description": "x^2 is of the same numeric representation as x. If you wire fixed-point values to Numeric functions such as Add, Subtract, Multiply, and Square, the functions usually return values that do not lose any bits of word length. However, if the operation creates a value that exceeds the maximum word length that LabVIEW accepts, overflow or rounding conditions can occur. LabVIEW accepts a maximum word length of 64 bits. Use the Numeric Node Properties dialog box to configure how LabVIEW handles overflo",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "x_2"
+        },
+        {
+          "name": "labview\\examples\\Numerics\\Numeric Functions.vi",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "labview_examples_numerics_numeric_functions_vi"
+        }
+      ]
+    },
+    {
+      "name": "Negate Function",
+      "page": 6087,
+      "category": "Express",
+      "description": "Negates the input value. The connector pane displays the default data types for this polymorphic function.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "-x",
+          "description": "-x is the negative value of x. Examples Refer to the following example files included with LabVIEW.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "x"
+        },
+        {
+          "name": "labview\\examples\\Numerics\\Numeric Functions.vi",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "labview_examples_numerics_numeric_functions_vi"
+        }
+      ]
+    },
+    {
+      "name": "Reciprocal Function",
+      "page": 6087,
+      "category": "Express",
+      "description": "Divides 1 by the input value. The connector pane displays the default data types for this polymorphic function. Functions © National Instruments 6087",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "1/x",
+          "description": "1/x is infinity if x is 0. If x is an integer, 1/x is a double-precision, floating-point number. Fixed-Point Details If you wire a fixed-point value to this function, by default LabVIEW configures the integer word length of the reciprocal to avoid overflow. However, because the precision of the reciprocal can be infinite, rounding conditions always occur. Use the Numeric Node Properties dialog box to configure how LabVIEW handles rounding of fixed-point data. This function always uses the Satura",
+          "default_value": "LabVIEW configures the integer word length of the reciprocal to avoid overflow",
+          "enum_values": null,
+          "python_param": "1_x"
+        },
+        {
+          "name": "labview\\examples\\Numerics\\Numeric Functions.vi",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "labview_examples_numerics_numeric_functions_vi"
+        }
+      ]
+    },
+    {
+      "name": "Sign Function",
+      "page": 6088,
+      "category": "Express",
+      "description": "Returns the sign of number. Text-based programming languages typically call this function signum or sgn. The connector pane displays the default data types for this polymorphic function. Note For nonzero complex numbers, this function returns a complex value with the same phase as the input and with a magnitude of 1. Functions 6088 ni.com",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "number",
+          "description": "number can be a scalar number, array or cluster of numbers, array of clusters of numbers, and so on.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "number"
+        },
+        {
+          "name": "-1, 0, 1",
+          "description": "–1, 0, 1 returns 1 if the input value is greater than 0, returns 0 if the input value is equal to 0, and returns –1 if the input value is less than 0. When number is in the form of a + bi, that is, when number is complex, the following defines -1, 0, 1: Examples Refer to the following example files included with LabVIEW.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "1_0_1"
+        },
+        {
+          "name": "labview\\examples\\Numerics\\Numeric Functions.vi",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "labview_examples_numerics_numeric_functions_vi"
+        }
+      ]
+    },
+    {
+      "name": "Negative Infinity",
+      "page": 6090,
+      "category": "Express",
+      "description": "Returns the value -Inf (negative infinity). LabVIEW converts -Inf to the lowest value for a data type. For example, converting -Inf to a 16-bit signed integer returns the value -32,768, the lowest possible value for a 16-bit signed integer. Functions 6090 ni.com Machine Epsilon Machine Epsilon Represents the round-off error for a floating-point number with a given precision. Use the machine epsilon constant to compare whether two floating-point numbers are equivalent. Express Math & Scientific C",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_review",
+      "terminals": []
+    },
+    {
+      "name": "Positive Infinity",
+      "page": 6090,
+      "category": "Express",
+      "description": "Returns the value Inf (infinity). LabVIEW converts Inf to the highest value for a data type. For example, converting Inf to a 16-bit signed integer returns the value 32,767, the highest possible value for a 16-bit signed integer. Negative Infinity Negative Infinity Returns the value -Inf (negative infinity). LabVIEW converts -Inf to the lowest value for a data type. For example, converting -Inf to a 16-bit signed integer returns the value -32,768, the lowest possible value for a 16-bit signed in",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_review",
+      "terminals": []
+    },
+    {
+      "name": "Random Number (0-1) Function",
+      "page": 6090,
+      "category": "Express",
+      "description": "Produces a double-precision, floating-point number between 0 and 1. The number generated is greater than or equal to 0, but less than 1. The distribution is uniform. Alternatively, you can use several of the Signal Generation VIs or the Signal Generation PtByPt VIs to regenerate the same random sequence. For example, the Uniform White Noise VI allows you to set a seed number that you can use to initialize the generation of a pseudorandom pattern.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "number (0 to 1)",
+          "description": "number (0 to 1) is a double-precision, floating-point number between 0 and 1.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "number_0_to_1"
+        }
+      ]
+    },
+    {
+      "name": "Machine Epsilon",
+      "page": 6091,
+      "category": "Express",
+      "description": "Represents the round-off error for a floating-point number with a given precision. Use the machine epsilon constant to compare whether two floating-point numbers are equivalent. Express Math & Scientific Constants Express Math & Scientific Constants Use the Express Math & Scientific Constants to create LabVIEW applications. The following constants are Committee on Data for Science and Technology (CODATA) 2006 values. Some of the constants on this palette have units. Palette Object Description Pi",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_review",
+      "terminals": []
+    },
+    {
+      "name": "Express Math",
+      "page": 6095,
+      "category": "Express",
+      "description": "Use the Math functions to create and to perform logarithmic and trigonometric equations and to compute hyperbolic functions and their inverses. Functions © National Instruments 6095 Palette Object Description Express Trigonometric Functions Use the Express Trigonometric functions to create and to perform trigonometric equations. Express Exponential Functions Use the Express Exponential functions to create and perform exponential equations. Express Hyperbolic Functions Use the Express Hyperbolic ",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "sin(x)",
+          "description": "Functions © National Instruments 6097",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "sinx"
+        }
+      ]
+    },
+    {
+      "name": "Express Trigonometric Functions",
+      "page": 6096,
+      "category": "Express",
+      "description": "Use the Express Trigonometric functions to create and to perform trigonometric equations. Palette Object Description Sine Function Computes the sine of x, where x is in radians. Cosine Function Computes the cosine of x, where x is in radians. Tangent Function Computes the tangent of x, where x is in radians. Secant Function Computes the secant of x, where x is in radians. Secant is the reciprocal of cosine. Cosecant Function Computes the cosecant of x, where x is in radians. Cosecant is the reci",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "sin(x)",
+          "description": "Functions © National Instruments 6097 sin(x) is of the same numeric representation as x. When x is of the form x = a + bi, that is, when x is complex, the following equation defines sin(x): sin(x) = sin(a) * cosh(b) + i(cos(a) * sinh(b)) Examples Refer to the following example files included with LabVIEW.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "sinx"
+        },
+        {
+          "name": "labview\\examples\\Mathematics\\Elementary & Special",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "labview_examples_mathematics_elementary_special"
+        }
+      ]
+    },
+    {
+      "name": "Express Exponential Functions",
+      "page": 6109,
+      "category": "Express",
+      "description": "Use the Express Exponential functions to create and perform exponential equations. Palette Object Description Exponential Function Computes the value of e raised to the x power, or the exponential of x. Exponential (Arg) -1 Function Computes 1 less than the value of e raised to the x power. Power Of 10 Function Computes 10 raised to the x power. Power Of 2 Function Computes 2 raised to the x power. Power Of X Function Computes x raised to the y power. Y-th Root of X Function Returns the yth root",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "exp(x)",
+          "description": "exp(x) is of the same numeric representation as x. The following equation defines the exponential exp(x): exp(a+bi) = exp(a)(cos(b)+i sin(b)) when x is of the form x = a + bi, that is, when x is complex. If x is a matrix, this function computes the exponential of x. When you wire matrix data Note For very small values of x, the Exponential (Arg) -1 function is more accurate than using this function then subtracting 1 from the output. Functions 6110 ni.com as an input to this function, a VI that ",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "expx"
+        },
+        {
+          "name": "labview\\examples\\Mathematics\\Elementary & Special",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "labview_examples_mathematics_elementary_special"
+        },
+        {
+          "name": "exp(x) -1",
+          "description": "exp(x)-1 is of the same numeric representation as x. When x is of the form x = a + bi, that is, when x is complex, the following equation defines exp(x)-1:exp(x)-1 = (exp(a) * (cos(b)+i sin(b))) – 1 Functions",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "expx_1"
+        }
+      ]
+    },
+    {
+      "name": "Express Hyperbolic Functions",
+      "page": 6120,
+      "category": "Express",
+      "description": "Use the Express Hyperbolic functions to create and to perform hyperbolic equations. Palette Object Description Hyperbolic Sine Function Computes the hyperbolic sine of x. Hyperbolic Cosine Function Computes the hyperbolic cosine of x. Hyperbolic Tangent Function Computes the hyperbolic tangent of x. Hyperbolic Secant Function Computes the hyperbolic secant of x. Hyperbolic Cosecant Function Computes the hyperbolic cosecant of x. Hyperbolic Cotangent Function Computes the hyperbolic cotangent of ",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "sinh(x)",
+          "description": "sinh(x) is of the same numeric representation as x. Examples Refer to the following example files included with LabVIEW.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "sinhx"
+        },
+        {
+          "name": "labview\\examples\\Mathematics\\Elementary & Special",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "labview_examples_mathematics_elementary_special"
+        }
+      ]
+    },
+    {
+      "name": "Express Boolean",
+      "page": 6129,
+      "category": "Express",
+      "description": "Use the Express Boolean functions to perform logical operations on Boolean values. Functions © National Instruments 6129 Palette Object Description And Function Computes the logical AND of the inputs. Both inputs must be Boolean values, numeric values, or error clusters. If both inputs are TRUE, the function returns TRUE. Otherwise, it returns FALSE. Or Function Computes the logical OR of the inputs. Both inputs must be Boolean values, numeric values, or error clusters. If both inputs are FALSE,",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "x .and. y?",
+          "description": "x .and. y? is the logical AND of x and y. And Truth Table x y x .and. y?",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "x_and_y"
+        }
+      ]
+    },
+    {
+      "name": "And Function",
+      "page": 6131,
+      "category": "Express",
+      "description": "Computes the logical AND of the inputs. Both inputs must be Boolean values, numeric values, or error clusters. If both inputs are TRUE, the function returns TRUE. Otherwise, it returns FALSE. The connector pane displays the default data types for this polymorphic function.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "x .and. y?",
+          "description": "x .and. y? is the logical AND of x and y. And Truth Table x y x .and. y?",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "x_and_y"
+        }
+      ]
+    },
+    {
+      "name": "Or Function",
+      "page": 6132,
+      "category": "Express",
+      "description": "Computes the logical OR of the inputs. Both inputs must be Boolean values, numeric values, or error clusters. If both inputs are FALSE, the function returns FALSE. Otherwise, it returns TRUE. The connector pane displays the default data types for this polymorphic function.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "x .or. y?",
+          "description": "Note This function performs bitwise operations on numeric inputs. Functions 6132 ni.com x .or. y? is the logical Or of x and y. Or Truth Table x y x .or. y?",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "x_or_y"
+        }
+      ]
+    },
+    {
+      "name": "Exclusive Or Function",
+      "page": 6133,
+      "category": "Express",
+      "description": "Computes the logical exclusive or (XOR) of the inputs. Both inputs must be Boolean values, numeric values, or error clusters. If both inputs are TRUE or both inputs are FALSE, the function returns FALSE. Otherwise, it returns TRUE. The connector pane displays the default data types for this polymorphic function.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "x .xor. y?",
+          "description": "x .xor. y? is the logical exclusive or (XOR) of x and y. Exclusive Or Truth Table x y x .xor. y?",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "x_xor_y"
+        }
+      ]
+    },
+    {
+      "name": "Not Function",
+      "page": 6134,
+      "category": "Express",
+      "description": "Computes the logical negation of the input. If x is FALSE, the function returns TRUE. If x is TRUE, the function returns FALSE. Note This function performs bitwise operations on numeric inputs. Functions 6134 ni.com The connector pane displays the default data types for this polymorphic function.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": ".not. x?",
+          "description": ".not. x? is the logical negation of x. Not Truth Table x .not. x? F",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "not_x"
+        }
+      ]
+    },
+    {
+      "name": "Not And Function",
+      "page": 6135,
+      "category": "Express",
+      "description": "Computes the logical NAND of the inputs. Both inputs must be Boolean values, numeric values, or error clusters. If both inputs are TRUE, the function returns FALSE. Otherwise, it returns TRUE. Note This function performs bitwise operations on numeric inputs. Functions © National Instruments 6135 The connector pane displays the default data types for this polymorphic function.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": ".not. (x .and. y)?",
+          "description": ".not. (x .and. y)? is the logical NAND of x and y. Not And Truth Table x y .not. (x .and. y)?",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "not_x_and_y"
+        }
+      ]
+    },
+    {
+      "name": "Not Or Function",
+      "page": 6137,
+      "category": "Express",
+      "description": "Computes the logical NOR of the inputs. Both inputs must be Boolean values, numeric values, or error clusters. If both inputs are FALSE, the function returns TRUE. Otherwise, it returns FALSE. The connector pane displays the default data types for this polymorphic function.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": ".not. (x .or. y)?",
+          "description": ".not. (x .or. y)? is the logical NOR of x and y. Not Or Truth Table x y .not. (x .or. y)?",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "not_x_or_y"
+        }
+      ]
+    },
+    {
+      "name": "Not Exclusive Or Function",
+      "page": 6138,
+      "category": "Express",
+      "description": "Computes the logical negation of the logical exclusive or (XOR) of the inputs. Both inputs must be Boolean values, numeric values, or error clusters. If both inputs are TRUE or both inputs are FALSE, the function returns TRUE. Otherwise, it returns FALSE. The connector pane displays the default data types for this polymorphic function.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": ".not. (x .xor. y)?",
+          "description": "Note This function performs bitwise operations on numeric inputs. Functions 6138 ni.com .not. (x .xor. y)? is the logical negation of the logical exclusive or (XOR) of x and y. Not Exclusive Or Truth Table> x y .not. (x .xor. y)?",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "not_x_xor_y"
+        }
+      ]
+    },
+    {
+      "name": "Implies Function",
+      "page": 6139,
+      "category": "Express",
+      "description": "Negates x and then computes the logical OR of y and the negated x. Both inputs must be Boolean values, numeric values, or error clusters. If x is TRUE and y is FALSE, the function returns FALSE. Otherwise, it returns TRUE. The connector pane displays the default data types for this polymorphic function.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "x .implies. y?",
+          "description": "x .implies. y? is the logical OR of y and of the logical negation of x. Implies Truth Table x y x .implies. y?",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "x_implies_y"
+        }
+      ]
+    },
+    {
+      "name": "Express Comparison",
+      "page": 6141,
+      "category": "Express",
+      "description": "Use the Express Comparison VI and functions to compare Boolean values, strings, numeric values, arrays, and clusters. The Express Comparison VI and functions treat Boolean, string, numeric, array, and cluster values differently. You can change the comparison mode of some Express Comparison VI and functions. You also can use the character Comparison functions to compare characters. Palette Object Description Equal? Function Returns TRUE if x is equal to y. Otherwise, this function returns FALSE. ",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "x = y?",
+          "description": "When you compare arrays, x = y? is a scalar in Compare Aggregates mode and a Boolean array in Compare Elements mode (default). When comparing VI Server references, this function returns TRUE when the two references refer to the same object, regardless of whether the references have the same capability or the same value. For example, one might be a strict reference to a digital numeric control and the other might be a generic reference but if they refer to the same object, they are equal. To comp",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "x_y"
+        }
+      ]
+    },
+    {
+      "name": "Equal? Function",
+      "page": 6143,
+      "category": "Express",
+      "description": "Returns TRUE if x is equal to y. Otherwise, this function returns FALSE. You can change the comparison mode of this function. If you compare two matrices, the default comparison mode is Compare Aggregates, and this function returns a scalar. You can compare an array or cluster of a data type to a scalar of the same data type and produce an array or cluster of Boolean values. The connector pane displays the default data types for this polymorphic function.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "x = y?",
+          "description": "When you compare arrays, x = y? is a scalar in Compare Aggregates mode and a Boolean array in Compare Elements mode (default). When comparing VI Server references, this function returns TRUE when the two references refer to the same object, regardless of whether the references have the same capability or the same value. For example, one might be a strict reference to a digital numeric control and the other might be a generic reference but if they refer to the same object, they are equal. To comp",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "x_y"
+        }
+      ]
+    },
+    {
+      "name": "Not Equal? Function",
+      "page": 6144,
+      "category": "Express",
+      "description": "Returns TRUE if x is not equal to y. Otherwise, this function returns FALSE. You can change the comparison mode of this function. If you compare two matrices, the default comparison mode is Compare Aggregates, and this function returns a scalar. You can compare an array or cluster of a data type to a scalar of the same data type and produce an array or cluster of Booleans. The connector pane displays the default data types for this polymorphic function.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "x != y?",
+          "description": "x!=y? returns the Boolean result of the operation. When you compare arrays, x!=y? is a scalar in Compare Aggregates mode and a Boolean array in Compare Elements mode (default). When comparing VI Server references, this function returns FALSE when the two references refer to the same object, regardless of whether the references have the same capability or the same value. For example, one might be a strict reference to a digital numeric control and the other might be a generic reference but if the",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "x_y"
+        }
+      ]
+    },
+    {
+      "name": "Greater? Function",
+      "page": 6146,
+      "category": "Express",
+      "description": "Returns TRUE if x is greater than y. Otherwise, this function returns FALSE. You can change the comparison mode of this function. You can compare an array or cluster of a data type to a scalar of the same data type and produce an array or cluster of Boolean values. The connector pane displays the default data types for this polymorphic function.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "x > y?",
+          "description": "x > y? returns the Boolean result of the operation. When you compare arrays, x > y? is a scalar in Compare Aggregates mode and a Boolean array in Compare Elements mode (default). Less? Function Less? Function Returns TRUE if x is less than y. Otherwise, this function returns FALSE. You can change the comparison mode of this function. Functions 6146 ni.com You can compare an array or cluster of a data type to a scalar of the same data type and produce an array or cluster of Boolean values. The co",
+          "default_value": "data types for this polymorphic function",
+          "enum_values": null,
+          "python_param": "x_y"
+        },
+        {
+          "name": "x < y?",
+          "description": "x < y? returns the Boolean result of the operation. When you compare arrays, x < y? is a scalar in Compare Aggregates mode and a Boolean array in Compare Elements mode (default). Greater Or Equal? Function Greater Or Equal? Function Returns TRUE if x is greater than or equal to y. Otherwise, this function returns FALSE. You can change the comparison mode of this function. You can compare an array or cluster of a data type to a scalar of the same data type and produce an array or cluster of Boole",
+          "default_value": "data types for this polymorphic function",
+          "enum_values": null,
+          "python_param": "x_y"
+        }
+      ]
+    },
+    {
+      "name": "Less? Function",
+      "page": 6146,
+      "category": "Express",
+      "description": "Returns TRUE if x is less than y. Otherwise, this function returns FALSE. You can change the comparison mode of this function. Functions 6146 ni.com You can compare an array or cluster of a data type to a scalar of the same data type and produce an array or cluster of Boolean values. The connector pane displays the default data types for this polymorphic function.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "x < y?",
+          "description": "x < y? returns the Boolean result of the operation. When you compare arrays, x < y? is a scalar in Compare Aggregates mode and a Boolean array in Compare Elements mode (default). Greater Or Equal? Function Greater Or Equal? Function Returns TRUE if x is greater than or equal to y. Otherwise, this function returns FALSE. You can change the comparison mode of this function. You can compare an array or cluster of a data type to a scalar of the same data type and produce an array or cluster of Boole",
+          "default_value": "data types for this polymorphic function",
+          "enum_values": null,
+          "python_param": "x_y"
+        }
+      ]
+    },
+    {
+      "name": "Greater Or Equal? Function",
+      "page": 6147,
+      "category": "Express",
+      "description": "Returns TRUE if x is greater than or equal to y. Otherwise, this function returns FALSE. You can change the comparison mode of this function. You can compare an array or cluster of a data type to a scalar of the same data type and produce an array or cluster of Boolean values. The connector pane displays the default data types for this polymorphic function.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "x >= y?",
+          "description": "x >= y? returns the Boolean result of the operation. When you compare arrays, x >= y? is a scalar in Compare Aggregates mode and a Boolean array in Compare Elements mode (default). Less Or Equal? Function Less Or Equal? Function Returns TRUE if x is less than or equal to y. Otherwise, this function returns FALSE. You can change the comparison mode of this function. You can compare an array or cluster of a data type to a scalar of the same data type and produce an array or cluster of Boolean valu",
+          "default_value": "data types for this polymorphic function",
+          "enum_values": null,
+          "python_param": "x_y"
+        },
+        {
+          "name": "x <= y?",
+          "description": "x ≤ y? returns the Boolean result of the operation. When you compare arrays, x ≤ y? is a scalar in Compare Aggregates mode and a Boolean array in Compare Elements mode (default). Functions 6148 ni.com Equal To 0? Function Equal To 0? Function Returns TRUE if x is equal to 0. Otherwise, this function returns FALSE. The connector pane displays the default data types for this polymorphic function. Inputs/Outputs",
+          "default_value": "data types for this polymorphic function",
+          "enum_values": null,
+          "python_param": "x_y"
+        },
+        {
+          "name": "x = 0?",
+          "description": "x = 0? is a Boolean value of the same data type structure as x. Not Equal To 0? Function Not Equal To 0? Function Returns TRUE if x is not equal to 0. Otherwise, this function returns FALSE. The connector pane displays the default data types for this polymorphic function. Inputs/Outputs",
+          "default_value": "data types for this polymorphic function",
+          "enum_values": null,
+          "python_param": "x_0"
+        },
+        {
+          "name": "x != 0?",
+          "description": "x!= 0? is a Boolean value of the same data type structure as x. Functions © National Instruments 6149",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "x_0"
+        }
+      ]
+    },
+    {
+      "name": "Less Or Equal? Function",
+      "page": 6148,
+      "category": "Express",
+      "description": "Returns TRUE if x is less than or equal to y. Otherwise, this function returns FALSE. You can change the comparison mode of this function. You can compare an array or cluster of a data type to a scalar of the same data type and produce an array or cluster of Boolean values. The connector pane displays the default data types for this polymorphic function.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "x <= y?",
+          "description": "x ≤ y? returns the Boolean result of the operation. When you compare arrays, x ≤ y? is a scalar in Compare Aggregates mode and a Boolean array in Compare Elements mode (default). Functions 6148 ni.com Equal To 0? Function Equal To 0? Function Returns TRUE if x is equal to 0. Otherwise, this function returns FALSE. The connector pane displays the default data types for this polymorphic function. Inputs/Outputs",
+          "default_value": "data types for this polymorphic function",
+          "enum_values": null,
+          "python_param": "x_y"
+        },
+        {
+          "name": "x = 0?",
+          "description": "x = 0? is a Boolean value of the same data type structure as x. Not Equal To 0? Function Not Equal To 0? Function Returns TRUE if x is not equal to 0. Otherwise, this function returns FALSE. The connector pane displays the default data types for this polymorphic function. Inputs/Outputs",
+          "default_value": "data types for this polymorphic function",
+          "enum_values": null,
+          "python_param": "x_0"
+        },
+        {
+          "name": "x != 0?",
+          "description": "x!= 0? is a Boolean value of the same data type structure as x. Functions",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "x_0"
+        }
+      ]
+    },
+    {
+      "name": "Equal To 0? Function",
+      "page": 6149,
+      "category": "Express",
+      "description": "Returns TRUE if x is equal to 0. Otherwise, this function returns FALSE. The connector pane displays the default data types for this polymorphic function.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "x = 0?",
+          "description": "x = 0? is a Boolean value of the same data type structure as x. Not Equal To 0? Function Not Equal To 0? Function Returns TRUE if x is not equal to 0. Otherwise, this function returns FALSE. The connector pane displays the default data types for this polymorphic function. Inputs/Outputs",
+          "default_value": "data types for this polymorphic function",
+          "enum_values": null,
+          "python_param": "x_0"
+        },
+        {
+          "name": "x != 0?",
+          "description": "x!= 0? is a Boolean value of the same data type structure as x. Functions",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "x_0"
+        }
+      ]
+    },
+    {
+      "name": "Not Equal To 0? Function",
+      "page": 6149,
+      "category": "Express",
+      "description": "Returns TRUE if x is not equal to 0. Otherwise, this function returns FALSE. The connector pane displays the default data types for this polymorphic function.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "x != 0?",
+          "description": "x!= 0? is a Boolean value of the same data type structure as x. Functions © National Instruments 6149 Greater Than 0? Function Greater Than 0? Function Returns TRUE if x is greater than 0. Otherwise, this function returns FALSE. The connector pane displays the default data types for this polymorphic function. Inputs/Outputs",
+          "default_value": "data types for this polymorphic function",
+          "enum_values": null,
+          "python_param": "x_0"
+        },
+        {
+          "name": "x > 0?",
+          "description": "x > 0? is a Boolean value of the same data type structure as x. Less Than 0? Function Less Than 0? Function Returns TRUE if x is less than 0. Otherwise, this function returns FALSE. The connector pane displays the default data types for this polymorphic function. Inputs/Outputs",
+          "default_value": "data types for this polymorphic function",
+          "enum_values": null,
+          "python_param": "x_0"
+        },
+        {
+          "name": "x < 0?",
+          "description": "x < 0? is a Boolean value of the same data type structure as x. Functions 6150 ni.com Greater Or Equal To 0? Function Greater Or Equal To 0? Function Returns TRUE if x is greater than or equal to 0. Otherwise, this function returns FALSE. The connector pane displays the default data types for this polymorphic function. Inputs/Outputs",
+          "default_value": "data types for this polymorphic function",
+          "enum_values": null,
+          "python_param": "x_0"
+        },
+        {
+          "name": "x >= 0?",
+          "description": "x >= 0? is a Boolean value of the same data type structure as x. Less Or Equal To 0? Function Less Or Equal To 0? Function Returns TRUE if x is less than or equal to 0. Otherwise, this function returns FALSE. The connector pane displays the default data types for this polymorphic function. Inputs/Outputs",
+          "default_value": "data types for this polymorphic function",
+          "enum_values": null,
+          "python_param": "x_0"
+        },
+        {
+          "name": "x <= 0?",
+          "description": "x ≤ 0? is a Boolean value of the same data type structure as x. Functions © National Instruments 6151",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "x_0"
+        }
+      ]
+    },
+    {
+      "name": "Greater Than 0? Function",
+      "page": 6150,
+      "category": "Express",
+      "description": "Returns TRUE if x is greater than 0. Otherwise, this function returns FALSE. The connector pane displays the default data types for this polymorphic function.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "x > 0?",
+          "description": "x > 0? is a Boolean value of the same data type structure as x. Less Than 0? Function Less Than 0? Function Returns TRUE if x is less than 0. Otherwise, this function returns FALSE. The connector pane displays the default data types for this polymorphic function. Inputs/Outputs",
+          "default_value": "data types for this polymorphic function",
+          "enum_values": null,
+          "python_param": "x_0"
+        },
+        {
+          "name": "x < 0?",
+          "description": "x < 0? is a Boolean value of the same data type structure as x. Functions 6150 ni.com Greater Or Equal To 0? Function Greater Or Equal To 0? Function Returns TRUE if x is greater than or equal to 0. Otherwise, this function returns FALSE. The connector pane displays the default data types for this polymorphic function. Inputs/Outputs",
+          "default_value": "data types for this polymorphic function",
+          "enum_values": null,
+          "python_param": "x_0"
+        },
+        {
+          "name": "x >= 0?",
+          "description": "x >= 0? is a Boolean value of the same data type structure as x. Less Or Equal To 0? Function Less Or Equal To 0? Function Returns TRUE if x is less than or equal to 0. Otherwise, this function returns FALSE. The connector pane displays the default data types for this polymorphic function. Inputs/Outputs",
+          "default_value": "data types for this polymorphic function",
+          "enum_values": null,
+          "python_param": "x_0"
+        },
+        {
+          "name": "x <= 0?",
+          "description": "x ≤ 0? is a Boolean value of the same data type structure as x. Functions",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "x_0"
+        }
+      ]
+    },
+    {
+      "name": "Less Than 0? Function",
+      "page": 6150,
+      "category": "Express",
+      "description": "Returns TRUE if x is less than 0. Otherwise, this function returns FALSE. The connector pane displays the default data types for this polymorphic function.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "x < 0?",
+          "description": "x < 0? is a Boolean value of the same data type structure as x. Functions 6150 ni.com Greater Or Equal To 0? Function Greater Or Equal To 0? Function Returns TRUE if x is greater than or equal to 0. Otherwise, this function returns FALSE. The connector pane displays the default data types for this polymorphic function. Inputs/Outputs",
+          "default_value": "data types for this polymorphic function",
+          "enum_values": null,
+          "python_param": "x_0"
+        },
+        {
+          "name": "x >= 0?",
+          "description": "x >= 0? is a Boolean value of the same data type structure as x. Less Or Equal To 0? Function Less Or Equal To 0? Function Returns TRUE if x is less than or equal to 0. Otherwise, this function returns FALSE. The connector pane displays the default data types for this polymorphic function. Inputs/Outputs",
+          "default_value": "data types for this polymorphic function",
+          "enum_values": null,
+          "python_param": "x_0"
+        },
+        {
+          "name": "x <= 0?",
+          "description": "x ≤ 0? is a Boolean value of the same data type structure as x. Functions",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "x_0"
+        }
+      ]
+    },
+    {
+      "name": "Greater Or Equal To 0? Function",
+      "page": 6151,
+      "category": "Express",
+      "description": "Returns TRUE if x is greater than or equal to 0. Otherwise, this function returns FALSE. The connector pane displays the default data types for this polymorphic function.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "x >= 0?",
+          "description": "x >= 0? is a Boolean value of the same data type structure as x. Less Or Equal To 0? Function Less Or Equal To 0? Function Returns TRUE if x is less than or equal to 0. Otherwise, this function returns FALSE. The connector pane displays the default data types for this polymorphic function. Inputs/Outputs",
+          "default_value": "data types for this polymorphic function",
+          "enum_values": null,
+          "python_param": "x_0"
+        },
+        {
+          "name": "x <= 0?",
+          "description": "x ≤ 0? is a Boolean value of the same data type structure as x. Functions",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "x_0"
+        }
+      ]
+    },
+    {
+      "name": "Less Or Equal To 0? Function",
+      "page": 6151,
+      "category": "Express",
+      "description": "Returns TRUE if x is less than or equal to 0. Otherwise, this function returns FALSE. The connector pane displays the default data types for this polymorphic function.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "x <= 0?",
+          "description": "x ≤ 0? is a Boolean value of the same data type structure as x. Functions © National Instruments 6151",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "x_0"
+        }
+      ]
+    },
+    {
+      "name": "Select Function",
+      "page": 6152,
+      "category": "Express",
+      "description": "Returns the value wired to the t input or f input, depending on the value of s. If s is TRUE, this function returns the value wired to t. If s is FALSE, this function returns the value wired to f. The connector pane displays the default data types for this polymorphic function.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "s? t:f",
+          "description": "s? t:f is the value wired to t if s is TRUE. s? t:f is the value wired to f if s is FALSE.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "s_t_f"
+        }
+      ]
+    },
+    {
+      "name": "Dialog Box Options",
+      "page": 6158,
+      "category": "Express",
+      "description": "",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "X Input",
+          "description": "Specifies the X input.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "x_input"
+        },
+        {
+          "name": "Y Input",
+          "description": "Specifies the Y input.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "y_input"
+        },
+        {
+          "name": "Enable",
+          "description": "Note This Express VI appears on the block diagram when you add an Express XY graph to the front panel. You can find the Express XY graph on the Graph palette. Functions 6158 ni.com Enables or disables the Express VI. The default is ON or TRUE.",
+          "default_value": "ON or TRUE",
+          "enum_values": null,
+          "python_param": "enable"
+        },
+        {
+          "name": "error in (no error)",
+          "description": "Describes error conditions that occur before this node runs.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in_no_error"
+        },
+        {
+          "name": "Reset",
+          "description": "Controls the initialization of the internal state of the VI. The default is FALSE.",
+          "default_value": "FALSE",
+          "enum_values": null,
+          "python_param": "reset"
+        },
+        {
+          "name": "XY Graph",
+          "description": "Returns the XY graph as the output of the Express VI.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "xy_graph"
+        },
+        {
+          "name": "error out",
+          "description": "Contains error information. This output provides standard error out functionality. Examples Refer to the following example files included with LabVIEW.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        },
+        {
+          "name": "labview\\examples\\Express VIs\\Lissajous with Express",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "labview_examples_express_vis_lissajous_with_express"
+        }
+      ]
+    },
+    {
+      "name": "Dialog Box Options",
+      "page": 6160,
+      "category": "Express",
+      "description": "",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "error in (no error)",
+          "description": "Describes error conditions that occur before this node runs.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in_no_error"
+        },
+        {
+          "name": "Reset",
+          "description": "Functions 6160 ni.com Controls the initialization of the internal state of the VI. The default is FALSE.",
+          "default_value": "FALSE",
+          "enum_values": null,
+          "python_param": "reset"
+        },
+        {
+          "name": "Include time data",
+          "description": "Includes the time data for the signal in the table. The value you wire to this input overrides the value you set in the configuration dialog box.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "include_time_data"
+        },
+        {
+          "name": "Signals",
+          "description": "Contains the input signal or signals.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "signals"
+        },
+        {
+          "name": "Enable",
+          "description": "Enables or disables the Express VI. The default is ON or TRUE.",
+          "default_value": "ON or TRUE",
+          "enum_values": null,
+          "python_param": "enable"
+        },
+        {
+          "name": "Table",
+          "description": "Displays a table formatted according to the specifications you set.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "table"
+        },
+        {
+          "name": "error out",
+          "description": "Contains error information. This output provides standard error out functionality. Components Changes the digits of precision of the numbers in the table. The default is 2. Formats the numbers with the precision you specify in Precision. This option is available only when you select Fractional/Scientific (12.345), Fractional (12.345), or Scientific (1.234E1) from the Format the numbers pull-down menu. Empties the table cells after each iteration. Changes the displayed format of the numbers in th",
+          "default_value": "2",
+          "enum_values": null,
+          "python_param": "error_out"
+        }
+      ]
+    }
+  ]
+}

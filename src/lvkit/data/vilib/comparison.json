@@ -1,2386 +1,1631 @@
 {
   "category": "Comparison",
-  "count": 43,
+  "count": 47,
   "entries": [
     {
-      "name": "Get Waveform Attribute Function",
-      "page": 802,
+      "name": "Equal? Function",
+      "page": 745,
       "category": "Comparison",
-      "description": "Retrieves the names and values of all attributes or the value of a single attribute, depending on whether you wire the name parameter. Attributes can be channel names. The connector pane displays the default data types for this polymorphic function.",
+      "description": "Returns TRUE if x is equal to y. Otherwise, this function returns FALSE. You can change the comparison mode of this function. If you compare two matrices, the default comparison mode is Compare Aggregates, and this function returns a scalar. You can compare an array or cluster of a data type to a scalar of the same data type and produce an array or cluster of Boolean values. The connector pane displays the default data types for this polymorphic function.",
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
       "status": "needs_terminals",
       "terminals": [
         {
-          "name": "waveform",
-          "description": "waveform is the waveform for which you want to retrieve an attribute(s) and value(s).",
+          "name": "x = y?",
+          "description": "When you compare arrays, x = y? is a scalar in Compare Aggregates mode and a Boolean array in Compare Elements mode (default). When comparing VI Server references, this function returns TRUE when the two references refer to the same object, regardless of whether the references have the same capability or the same value. For example, one might be a strict reference to a digital numeric control and the other might be a generic reference but if they refer to the same object, they are equal. To comp",
           "default_value": null,
           "enum_values": null,
-          "python_param": "waveform"
+          "python_param": "x_y"
         },
         {
-          "name": "name",
-          "description": "name is the name of the attribute whose value you want to retrieve. Do not wire this parameter if you want to retrieve all the attributes associated with the specified waveform. If you wire name, the names output changes to a Boolean output found, the array output values changes to an output called value of the same type as default value, and the function searches for only the specified attribute.",
-          "default_value": "value, and the function searches for only the specified attribute",
-          "enum_values": null,
-          "python_param": "name"
-        },
-        {
-          "name": "default value (empty Variant)",
-          "description": "default value is a value and data type that you specify. If the function does not find the attribute specified in name, it returns the default value. If you wire default value, you must wire name.",
-          "default_value": "value is a value and data type that you specify",
-          "enum_values": null,
-          "python_param": "default_value_empty_variant"
-        },
-        {
-          "name": "error in (no error)",
-          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
+          "name": "labview\\examples\\Comparison\\Comparison Functions.vi",
+          "description": "",
           "default_value": null,
           "enum_values": null,
-          "python_param": "error_in_no_error"
+          "python_param": "labview_examples_comparison_comparison_functions_vi"
         },
         {
-          "name": "duplicate waveform",
-          "description": "duplicate waveform is the waveform data you input in waveform.",
+          "name": "x != y?",
+          "description": "x!=y? returns the Boolean result of the operation. When you compare arrays, x!=y? is a scalar in Compare Aggregates mode and a Boolean array in Compare Elements mode (default). When comparing VI Server references, this function returns FALSE when the two references refer to the same object, regardless of whether the references have the same capability or the same value. For example, one might be a strict reference to a digital numeric control and the other might be a generic reference but if the",
           "default_value": null,
           "enum_values": null,
-          "python_param": "duplicate_waveform"
-        },
-        {
-          "name": "names",
-          "description": "Functions 802 ni.com names returns a 1D array containing the names of all attributes associated with the waveform. If you wire the name parameter, this output changes to a Boolean value found. found returns TRUE if the function finds the attribute that you specify in name.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "names"
-        },
-        {
-          "name": "values",
-          "description": "values returns a 1D array containing the values associated with each attribute of the specified waveform in variant format. You must unflatten each attribute value to an appropriate data type. If you wire name, this output changes to a single variant value. If the function does not find the attribute that you specify in name, it returns the value passed to default value.",
-          "default_value": "value",
-          "enum_values": null,
-          "python_param": "values"
-        },
-        {
-          "name": "error out",
-          "description": "error out contains error information. This output provides standard error out functionality. This function has two modes of behavior depending on whether you wire the name parameter. By default, the function returns the names of all attributes and their corresponding values in 1D arrays. If you wire name, the names output changes to a Boolean output found, the values output changes to a variant output value, and the function searches for only the specified attribute. If the function does not fin",
-          "default_value": "value, found is FALSE, and value displays the contents of default value",
-          "enum_values": null,
-          "python_param": "error_out"
+          "python_param": "x_y"
         }
       ]
     },
     {
-      "name": "Analog to Digital",
-      "page": 805,
+      "name": "Not Equal? Function",
+      "page": 747,
       "category": "Comparison",
-      "description": "Converts analog waveform to a digital waveform or digital data. You must manually select the polymorphic instance you want to use. \u2022 DWDT Analog to Digital VI \u2022 DTbl Analog to Digital VI To create digital data from an analog waveform or to graph an analog signal in a digital waveform graph, you must convert the raw analog data into digital data or the digital waveform data type. Use the Analog to Digital VI to convert the data to digital waveform. Use the Get Waveform Components function to extr",
+      "description": "Returns TRUE if x is not equal to y. Otherwise, this function returns FALSE. You can change the comparison mode of this function. If you compare two matrices, the default comparison mode is Compare Aggregates, and this function returns a scalar. You can compare an array or cluster of a data type to a scalar of the same data type and produce an array or cluster of Booleans. The connector pane displays the default data types for this polymorphic function.",
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
       "status": "needs_terminals",
       "terminals": [
         {
-          "name": "compress digital (T)",
-          "description": "compress digital specifies whether to compress the digital waveform or digital data. The default is TRUE.",
-          "default_value": "TRUE",
-          "enum_values": null,
-          "python_param": "compress_digital_t"
-        },
-        {
-          "name": "analog waveform",
-          "description": "analog waveform is the waveform you want to convert to digital waveform or digital data.",
+          "name": "x != y?",
+          "description": "x!=y? returns the Boolean result of the operation. When you compare arrays, x!=y? is a scalar in Compare Aggregates mode and a Boolean array in Compare Elements mode (default). When comparing VI Server references, this function returns FALSE when the two references refer to the same object, regardless of whether the references have the same capability or the same value. For example, one might be a strict reference to a digital numeric control and the other might be a generic reference but if the",
           "default_value": null,
           "enum_values": null,
-          "python_param": "analog_waveform"
-        },
+          "python_param": "x_y"
+        }
+      ]
+    },
+    {
+      "name": "Greater? Function",
+      "page": 748,
+      "category": "Comparison",
+      "description": "Returns TRUE if x is greater than y. Otherwise, this function returns FALSE. You can change the comparison mode of this function. You can compare an array or cluster of a data type to a scalar of the same data type and produce an array or cluster of Boolean values. The connector pane displays the default data types for this polymorphic function. Note If you compare two inputs with the value not a number, NaN, or one input with the value NaN to an input with another value, this function always re",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
         {
-          "name": "resolution (16 bit)",
-          "description": "resolution specifies the number of bits represented in the digital waveform or digital data.",
-          "default_value": null,
+          "name": "x > y?",
+          "description": "x > y? returns the Boolean result of the operation. When you compare arrays, x > y? is a scalar in Compare Aggregates mode and a Boolean array in Compare Elements mode (default). Less? Function Less? Function Returns TRUE if x is less than y. Otherwise, this function returns FALSE. You can change the comparison mode of this function. You can compare an array or cluster of a data type to a scalar of the same data type and produce an array or cluster of Boolean values. The connector pane displays ",
+          "default_value": "data types for this polymorphic function",
           "enum_values": null,
-          "python_param": "resolution_16_bit"
+          "python_param": "x_y"
         },
         {
-          "name": "full-scale range (pk-pk)",
-          "description": "full-scale range (pk-pk) specifies the total peak-to-peak range, or the difference between the minimum and maximum, for the digital waveform or digital data. For example, if the maximum range of a waveform is 1 and the minimum is \u20131, the full-scale range for the waveform is 2. The default is 2.",
-          "default_value": "2",
-          "enum_values": null,
-          "python_param": "full_scale_range_pk_pk"
-        },
-        {
-          "name": "error in (no error)",
-          "description": "error in describes error conditions that occur before this node runs. With the following exception, this input provides standard error in functionality. If an error occurred before this node runs, this node outputs an empty waveform.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "error_in_no_error"
-        },
-        {
-          "name": "data format (offset binary)",
-          "description": "data format specifies which binary representation you want to use for the digital waveform or digital data. 0 unsigned binary\u2014Converts the data to unsigned binary. 1 offset binary (default)\u2014The largest negative full-scale value is represented by all zeros, and the largest positive full-scale value is represented by all ones. Zero-scale is represented by a one (MSB) followed by all zeros, for example, binary 1000. 2 2's complement\u2014Uses two's complement format, which is a common format for represe",
-          "default_value": null,
-          "enum_values": [
-            [
-              0,
-              "unsigned binary"
-            ],
-            [
-              1,
-              "offset binary (default)"
-            ]
-          ],
-          "python_param": "data_format_offset_binary"
-        },
-        {
-          "name": "digital waveform",
+          "name": "x < y?",
           "description": "Functions",
           "default_value": null,
           "enum_values": null,
-          "python_param": "digital_waveform"
+          "python_param": "x_y"
         }
       ]
     },
     {
-      "name": "DWDT Analog to Digital VI",
-      "page": 806,
+      "name": "Less? Function",
+      "page": 749,
       "category": "Comparison",
-      "description": "Converts analog waveform to a digital waveform or digital data. You must manually select the polymorphic instance you want to use. Functions 806 ni.com",
+      "description": "Returns TRUE if x is less than y. Otherwise, this function returns FALSE. You can change the comparison mode of this function. You can compare an array or cluster of a data type to a scalar of the same data type and produce an array or cluster of Boolean values. The connector pane displays the default data types for this polymorphic function.",
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
       "status": "needs_terminals",
       "terminals": [
         {
-          "name": "compress digital (T)",
-          "description": "compress digital specifies whether to compress the digital waveform or digital data. The default is TRUE.",
-          "default_value": "TRUE",
+          "name": "x < y?",
+          "description": "Functions © National Instruments 749 x < y? returns the Boolean result of the operation. When you compare arrays, x < y? is a scalar in Compare Aggregates mode and a Boolean array in Compare Elements mode (default). Greater Or Equal? Function Greater Or Equal? Function Returns TRUE if x is greater than or equal to y. Otherwise, this function returns FALSE. You can change the comparison mode of this function. You can compare an array or cluster of a data type to a scalar of the same data type and",
+          "default_value": "data types for this polymorphic function",
           "enum_values": null,
-          "python_param": "compress_digital_t"
+          "python_param": "x_y"
         },
         {
-          "name": "analog waveform",
-          "description": "analog waveform is the waveform you want to convert to digital waveform or digital data.",
+          "name": "x >= y?",
+          "description": "x >= y? returns the Boolean result of the operation. When you compare arrays, x >= y? is a scalar in Compare Aggregates mode and a Boolean array in Compare Elements mode (default). Less Or Equal? Function Less Or Equal? Function Returns TRUE if x is less than or equal to y. Otherwise, this function returns FALSE. You can change the comparison mode of this function. Functions 750 ni.com You can compare an array or cluster of a data type to a scalar of the same data type and produce an array or cl",
+          "default_value": "data types for this polymorphic function",
+          "enum_values": null,
+          "python_param": "x_y"
+        },
+        {
+          "name": "x <= y?",
+          "description": "x ≤ y? returns the Boolean result of the operation. When you compare arrays, x ≤ y? is a scalar in Compare Aggregates mode and a Boolean array in Compare Elements mode (default). Equal To 0? Function Equal To 0? Function Returns TRUE if x is equal to 0. Otherwise, this function returns FALSE. The connector pane displays the default data types for this polymorphic function. Inputs/Outputs",
+          "default_value": "data types for this polymorphic function",
+          "enum_values": null,
+          "python_param": "x_y"
+        },
+        {
+          "name": "x = 0?",
+          "description": "Functions © National Instruments 751",
           "default_value": null,
           "enum_values": null,
-          "python_param": "analog_waveform"
-        },
+          "python_param": "x_0"
+        }
+      ]
+    },
+    {
+      "name": "Greater Or Equal? Function",
+      "page": 750,
+      "category": "Comparison",
+      "description": "Returns TRUE if x is greater than or equal to y. Otherwise, this function returns FALSE. You can change the comparison mode of this function. You can compare an array or cluster of a data type to a scalar of the same data type and produce an array or cluster of Boolean values. The connector pane displays the default data types for this polymorphic function.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
         {
-          "name": "resolution (16 bit)",
-          "description": "resolution specifies the number of bits represented in the digital waveform or digital data.",
-          "default_value": null,
+          "name": "x >= y?",
+          "description": "x >= y? returns the Boolean result of the operation. When you compare arrays, x >= y? is a scalar in Compare Aggregates mode and a Boolean array in Compare Elements mode (default). Less Or Equal? Function Less Or Equal? Function Returns TRUE if x is less than or equal to y. Otherwise, this function returns FALSE. You can change the comparison mode of this function. Functions 750 ni.com You can compare an array or cluster of a data type to a scalar of the same data type and produce an array or cl",
+          "default_value": "data types for this polymorphic function",
           "enum_values": null,
-          "python_param": "resolution_16_bit"
+          "python_param": "x_y"
         },
         {
-          "name": "full-scale range (pk-pk)",
-          "description": "full-scale range (pk-pk) specifies the total peak-to-peak range, or the difference between the minimum and maximum, for the digital waveform or digital data. For example, if the maximum range of a waveform is 1 and the minimum is \u20131, the full-scale range for the waveform is 2. The default is 2.",
-          "default_value": "2",
+          "name": "x <= y?",
+          "description": "x ≤ y? returns the Boolean result of the operation. When you compare arrays, x ≤ y? is a scalar in Compare Aggregates mode and a Boolean array in Compare Elements mode (default). Equal To 0? Function Equal To 0? Function Returns TRUE if x is equal to 0. Otherwise, this function returns FALSE. The connector pane displays the default data types for this polymorphic function. Inputs/Outputs",
+          "default_value": "data types for this polymorphic function",
           "enum_values": null,
-          "python_param": "full_scale_range_pk_pk"
+          "python_param": "x_y"
         },
         {
-          "name": "error in (no error)",
-          "description": "error in describes error conditions that occur before this node runs. With the following exception, this input provides standard error in functionality. If an error occurred before this node runs, this node outputs an empty waveform.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "error_in_no_error"
-        },
-        {
-          "name": "data format (offset binary)",
-          "description": "data format specifies which binary representation you want to use for the digital waveform or digital data. 0 unsigned binary\u2014Converts the data to unsigned binary. 1 offset binary (default)\u2014The largest negative full-scale value is represented by all zeros, and the largest positive full-scale value is represented by all ones. Zero-scale is represented by a one (MSB) followed by all zeros, for example, binary 1000. 2 2's complement\u2014Uses two's complement format, which is a common format for represe",
-          "default_value": null,
-          "enum_values": [
-            [
-              0,
-              "unsigned binary"
-            ],
-            [
-              1,
-              "offset binary (default)"
-            ]
-          ],
-          "python_param": "data_format_offset_binary"
-        },
-        {
-          "name": "digital waveform",
+          "name": "x = 0?",
           "description": "Functions",
           "default_value": null,
           "enum_values": null,
-          "python_param": "digital_waveform"
+          "python_param": "x_0"
         }
       ]
     },
     {
-      "name": "DTbl Analog to Digital VI",
-      "page": 809,
+      "name": "Less Or Equal? Function",
+      "page": 750,
       "category": "Comparison",
-      "description": "Converts analog waveform to a digital waveform or digital data. You must manually select the polymorphic instance you want to use.",
+      "description": "Returns TRUE if x is less than or equal to y. Otherwise, this function returns FALSE. You can change the comparison mode of this function. Functions 750 ni.com You can compare an array or cluster of a data type to a scalar of the same data type and produce an array or cluster of Boolean values. The connector pane displays the default data types for this polymorphic function.",
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
       "status": "needs_terminals",
       "terminals": [
         {
-          "name": "compress digital (T)",
-          "description": "compress digital specifies whether to compress the digital waveform or digital data. The default is TRUE.",
-          "default_value": "TRUE",
+          "name": "x <= y?",
+          "description": "x ≤ y? returns the Boolean result of the operation. When you compare arrays, x ≤ y? is a scalar in Compare Aggregates mode and a Boolean array in Compare Elements mode (default). Equal To 0? Function Equal To 0? Function Returns TRUE if x is equal to 0. Otherwise, this function returns FALSE. The connector pane displays the default data types for this polymorphic function. Inputs/Outputs",
+          "default_value": "data types for this polymorphic function",
           "enum_values": null,
-          "python_param": "compress_digital_t"
+          "python_param": "x_y"
         },
         {
-          "name": "analog waveform",
-          "description": "analog waveform is the waveform you want to convert to digital waveform or digital data. Functions \u00a9 National Instruments 809",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "analog_waveform"
-        },
-        {
-          "name": "resolution (16 bit)",
-          "description": "resolution specifies the number of bits represented in the digital waveform or digital data.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "resolution_16_bit"
-        },
-        {
-          "name": "full scale range (pk-pk)",
-          "description": "full-scale range (pk-pk) specifies the total peak-to-peak range, or the difference between the minimum and maximum, for the digital waveform or digital data. For example, if the maximum range of a waveform is 1 and the minimum is \u20131, the full-scale range for the waveform is 2. The default is 2.",
-          "default_value": "2",
-          "enum_values": null,
-          "python_param": "full_scale_range_pk_pk"
-        },
-        {
-          "name": "error in (no error)",
-          "description": "error in describes error conditions that occur before this node runs. With the following exception, this input provides standard error in functionality. If an error occurred before this node runs, this node outputs an empty waveform.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "error_in_no_error"
-        },
-        {
-          "name": "data format (offset binary)",
-          "description": "data format specifies which binary representation you want to use for the digital waveform or digital data. 0 unsigned binary\u2014Converts the data to unsigned binary. 1 offset binary (default)\u2014The largest negative full-scale value is represented by all zeros, and the largest positive full-scale value is represented by all ones. Zero-scale is represented by a one (MSB) followed by all zeros, for example, binary 1000. 2 2's complement\u2014Uses two's complement format, which is a common format for represe",
-          "default_value": null,
-          "enum_values": [
-            [
-              0,
-              "unsigned binary"
-            ],
-            [
-              1,
-              "offset binary (default)"
-            ]
-          ],
-          "python_param": "data_format_offset_binary"
-        },
-        {
-          "name": "digital data",
-          "description": "digital data returns the data resulting from the conversion of analog waveform.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "digital_data"
-        },
-        {
-          "name": "resolution (out)",
-          "description": "resolution (out) returns the number of bits represented in the digital waveform or digital data.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "resolution_out"
-        },
-        {
-          "name": "full-scale range (out)",
-          "description": "full-scale range (out) returns the total peak-to-peak range for the digital waveform or digital data.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "full_scale_range_out"
-        },
-        {
-          "name": "error out",
-          "description": "Functions 810 ni.com error out contains error information. This output provides standard error out functionality. To create digital data from an analog waveform or to graph an analog signal in a digital waveform graph, you must convert the raw analog data into digital data or the digital waveform data type. Use the Analog to Digital VI to convert the data to digital waveform. Use the Get Waveform Components function to extract the digital data from the digital waveform. The block diagram below s",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "error_out"
-        }
-      ]
-    },
-    {
-      "name": "Digital to Analog",
-      "page": 811,
-      "category": "Comparison",
-      "description": "Converts a digital waveform or digital data to analog waveform. You must manually select the polymorphic instance you want to use. Functions \u00a9 National Instruments 811 \u2022 DWDT Digital to Analog VI \u2022 DTbl Digital to Analog VI DWDT Digital to Analog VI DWDT Digital to Analog VI Converts a digital waveform or digital data to analog waveform. You must manually select the polymorphic instance you want to use.",
-      "vi_path": null,
-      "is_polymorphic": false,
-      "python_hint": null,
-      "status": "needs_terminals",
-      "terminals": [
-        {
-          "name": "digital waveform",
-          "description": "digital waveform is the waveform you want to convert to analog waveform.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "digital_waveform"
-        },
-        {
-          "name": "full-scale range (pk-pk)",
-          "description": "full-scale range (pk-pk) specifies the total peak-to-peak range, or the difference between the minimum and maximum, for the digital waveform or digital data. For example, if the maximum range of a waveform is 1 and the minimum is \u20131, the full-scale range for the waveform is 2. The default is 2.",
-          "default_value": "2",
-          "enum_values": null,
-          "python_param": "full_scale_range_pk_pk"
-        },
-        {
-          "name": "error in (no error)",
-          "description": "error in describes error conditions that occur before this node runs. With the following exception, this input provides standard error in functionality. If an error occurred before this node runs, this node outputs an empty waveform.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "error_in_no_error"
-        },
-        {
-          "name": "data format (offset binary)",
-          "description": "data format specifies which binary representation you want to use for the digital waveform or digital data. Functions 812 ni.com 0 unsigned binary\u2014Converts the data to unsigned binary. 1 offset binary (default)\u2014The largest negative full-scale value is represented by all zeros, and the largest positive full-scale value is represented by all ones. Zero-scale is represented by a one (MSB) followed by all zeros, for example, binary 1000. 2 2's complement\u2014Uses two's complement format, which is a comm",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "data_format_offset_binary"
-        },
-        {
-          "name": "analog waveform",
-          "description": "analog waveform returns the waveform resulting from the conversion of digital waveform or digital table.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "analog_waveform"
-        },
-        {
-          "name": "resolution (out)",
-          "description": "resolution (out) returns the number of bits represented in the digital waveform or digital data.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "resolution_out"
-        },
-        {
-          "name": "full-scale range (out)",
-          "description": "full-scale range (out) returns the total peak-to-peak range for the digital waveform or digital data.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "full_scale_range_out"
-        },
-        {
-          "name": "error out",
-          "description": "error out contains error information. This output provides standard error out functionality.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "error_out"
-        }
-      ]
-    },
-    {
-      "name": "DWDT Digital to Analog VI",
-      "page": 812,
-      "category": "Comparison",
-      "description": "Converts a digital waveform or digital data to analog waveform. You must manually select the polymorphic instance you want to use.",
-      "vi_path": null,
-      "is_polymorphic": false,
-      "python_hint": null,
-      "status": "needs_terminals",
-      "terminals": [
-        {
-          "name": "digital waveform",
-          "description": "digital waveform is the waveform you want to convert to analog waveform.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "digital_waveform"
-        },
-        {
-          "name": "full-scale range (pk-pk)",
-          "description": "full-scale range (pk-pk) specifies the total peak-to-peak range, or the difference between the minimum and maximum, for the digital waveform or digital data. For example, if the maximum range of a waveform is 1 and the minimum is \u20131, the full-scale range for the waveform is 2. The default is 2.",
-          "default_value": "2",
-          "enum_values": null,
-          "python_param": "full_scale_range_pk_pk"
-        },
-        {
-          "name": "error in (no error)",
-          "description": "error in describes error conditions that occur before this node runs. With the following exception, this input provides standard error in functionality. If an error occurred before this node runs, this node outputs an empty waveform.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "error_in_no_error"
-        },
-        {
-          "name": "data format (offset binary)",
-          "description": "data format specifies which binary representation you want to use for the digital waveform or digital data. Functions 812 ni.com 0 unsigned binary\u2014Converts the data to unsigned binary. 1 offset binary (default)\u2014The largest negative full-scale value is represented by all zeros, and the largest positive full-scale value is represented by all ones. Zero-scale is represented by a one (MSB) followed by all zeros, for example, binary 1000. 2 2's complement\u2014Uses two's complement format, which is a comm",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "data_format_offset_binary"
-        },
-        {
-          "name": "analog waveform",
-          "description": "analog waveform returns the waveform resulting from the conversion of digital waveform or digital table.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "analog_waveform"
-        },
-        {
-          "name": "resolution (out)",
-          "description": "resolution (out) returns the number of bits represented in the digital waveform or digital data.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "resolution_out"
-        },
-        {
-          "name": "full-scale range (out)",
-          "description": "full-scale range (out) returns the total peak-to-peak range for the digital waveform or digital data.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "full_scale_range_out"
-        },
-        {
-          "name": "error out",
-          "description": "error out contains error information. This output provides standard error out functionality.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "error_out"
-        }
-      ]
-    },
-    {
-      "name": "DTbl Digital to Analog VI",
-      "page": 813,
-      "category": "Comparison",
-      "description": "Converts a digital waveform or digital data to analog waveform. You must manually select the polymorphic instance you want to use.",
-      "vi_path": null,
-      "is_polymorphic": false,
-      "python_hint": null,
-      "status": "needs_terminals",
-      "terminals": [
-        {
-          "name": "digital table",
-          "description": "digital table is the digital data you want to convert to analog waveform. Functions \u00a9 National Instruments 813",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "digital_table"
-        },
-        {
-          "name": "full-scale range (pk-pk)",
-          "description": "full-scale range (pk-pk) specifies the total peak-to-peak range, or the difference between the minimum and maximum, for the digital waveform or digital data. For example, if the maximum range of a waveform is 1 and the minimum is \u20131, the full-scale range for the waveform is 2. The default is 2.",
-          "default_value": "2",
-          "enum_values": null,
-          "python_param": "full_scale_range_pk_pk"
-        },
-        {
-          "name": "error in (no error)",
-          "description": "error in describes error conditions that occur before this node runs. With the following exception, this input provides standard error in functionality. If an error occurred before this node runs, this node outputs an empty waveform.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "error_in_no_error"
-        },
-        {
-          "name": "data format (offset binary)",
-          "description": "data format specifies which binary representation you want to use for the digital waveform or digital data. 0 unsigned binary\u2014Converts the data to unsigned binary. 1 offset binary (default)\u2014The largest negative full-scale value is represented by all zeros, and the largest positive full-scale value is represented by all ones. Zero-scale is represented by a one (MSB) followed by all zeros, for example, binary 1000. 2 2's complement\u2014Uses two's complement format, which is a common format for represe",
-          "default_value": null,
-          "enum_values": [
-            [
-              0,
-              "unsigned binary"
-            ],
-            [
-              1,
-              "offset binary (default)"
-            ]
-          ],
-          "python_param": "data_format_offset_binary"
-        },
-        {
-          "name": "analog waveform",
-          "description": "analog waveform returns the waveform resulting from the conversion of digital waveform or digital table.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "analog_waveform"
-        },
-        {
-          "name": "resolution (out)",
-          "description": "resolution (out) returns the number of bits represented in the digital waveform or digital data.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "resolution_out"
-        },
-        {
-          "name": "full-scale range (out)",
-          "description": "full-scale range (out) returns the total peak-to-peak range for the digital waveform or digital data.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "full_scale_range_out"
-        },
-        {
-          "name": "error out",
-          "description": "error out contains error information. This output provides standard error out functionality. Functions 814 ni.com",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "error_out"
-        }
-      ]
-    },
-    {
-      "name": "Index Waveform Array",
-      "page": 815,
-      "category": "Comparison",
-      "description": "Selects one waveform out of an array of analog or digital waveforms by array index or channel name. The data types you wire to the waveform array and index inputs and the data type of the Y component of the analog waveform determine the polymorphic instance to use. \u2022 WDT Index Channel DBL VI \u2022 WDT Index Channel I64 VI \u2022 WDT Index Channel I32 VI \u2022 WDT Index Channel I16 VI \u2022 WDT Index Channel CDB VI \u2022 WDT Index Channel by Name DBL VI \u2022 WDT Index Channel by Name I64 VI \u2022 WDT Index Channel by Name I",
-      "vi_path": null,
-      "is_polymorphic": false,
-      "python_hint": null,
-      "status": "needs_terminals",
-      "terminals": [
-        {
-          "name": "waveform array",
-          "description": "waveform array is an array of analog waveforms from which to extract a single waveform.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "waveform_array"
-        },
-        {
-          "name": "index",
-          "description": "index is the index of the waveform to extract from waveform array.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "index"
-        },
-        {
-          "name": "error in (no error)",
-          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "error_in_no_error"
-        },
-        {
-          "name": "waveform",
-          "description": "waveform is the analog waveform selected from the array of waveforms.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "waveform"
-        },
-        {
-          "name": "error out",
-          "description": "error out contains error information. This output provides standard error out functionality. Examples Refer to the following example files included with LabVIEW.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "error_out"
-        },
-        {
-          "name": "labview\\examples\\Waveform\\Waveform - Index Array.vi",
-          "description": "",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "labview_examples_waveform_waveform_index_array_vi"
-        }
-      ]
-    },
-    {
-      "name": "WDT Index Channel DBL VI",
-      "page": 815,
-      "category": "Comparison",
-      "description": "Selects one waveform out of an array of analog or digital waveforms by array index or channel name. The data types you wire to the waveform array and index inputs and the data type of the Y component of the analog waveform determine the polymorphic instance to use. Functions \u00a9 National Instruments 815",
-      "vi_path": null,
-      "is_polymorphic": false,
-      "python_hint": null,
-      "status": "needs_terminals",
-      "terminals": [
-        {
-          "name": "waveform array",
-          "description": "waveform array is an array of analog waveforms from which to extract a single waveform.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "waveform_array"
-        },
-        {
-          "name": "index",
-          "description": "index is the index of the waveform to extract from waveform array.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "index"
-        },
-        {
-          "name": "error in (no error)",
-          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "error_in_no_error"
-        },
-        {
-          "name": "waveform",
-          "description": "waveform is the analog waveform selected from the array of waveforms.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "waveform"
-        },
-        {
-          "name": "error out",
-          "description": "error out contains error information. This output provides standard error out functionality. Examples Refer to the following example files included with LabVIEW.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "error_out"
-        },
-        {
-          "name": "labview\\examples\\Waveform\\Waveform - Index Array.vi",
-          "description": "",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "labview_examples_waveform_waveform_index_array_vi"
-        }
-      ]
-    },
-    {
-      "name": "WDT Index Channel I64 VI",
-      "page": 816,
-      "category": "Comparison",
-      "description": "Selects one waveform out of an array of analog or digital waveforms by array index or channel name. The data types you wire to the waveform array and index inputs and the data type of the Y component of the analog waveform determine the polymorphic instance to use. Functions 816 ni.com",
-      "vi_path": null,
-      "is_polymorphic": false,
-      "python_hint": null,
-      "status": "needs_terminals",
-      "terminals": [
-        {
-          "name": "waveform array",
-          "description": "waveform array is an array of analog waveforms from which to extract a single waveform.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "waveform_array"
-        },
-        {
-          "name": "index",
-          "description": "index is the index of the waveform to extract from waveform array.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "index"
-        },
-        {
-          "name": "error in (no error)",
-          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "error_in_no_error"
-        },
-        {
-          "name": "waveform",
-          "description": "waveform is the analog waveform selected from the array of waveforms.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "waveform"
-        },
-        {
-          "name": "error out",
-          "description": "error out contains error information. This output provides standard error out functionality. Examples Refer to the following example files included with LabVIEW.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "error_out"
-        },
-        {
-          "name": "labview\\examples\\Waveform\\Waveform - Index Array.vi",
-          "description": "",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "labview_examples_waveform_waveform_index_array_vi"
-        }
-      ]
-    },
-    {
-      "name": "WDT Index Channel I32 VI",
-      "page": 817,
-      "category": "Comparison",
-      "description": "Selects one waveform out of an array of analog or digital waveforms by array index or channel name. The data types you wire to the waveform array and index inputs and the data type of the Y component of the analog waveform determine the polymorphic instance to use. Functions \u00a9 National Instruments 817",
-      "vi_path": null,
-      "is_polymorphic": false,
-      "python_hint": null,
-      "status": "needs_terminals",
-      "terminals": [
-        {
-          "name": "waveform array",
-          "description": "waveform array is an array of analog waveforms from which to extract a single waveform.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "waveform_array"
-        },
-        {
-          "name": "index",
-          "description": "index is the index of the waveform to extract from waveform array.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "index"
-        },
-        {
-          "name": "error in (no error)",
-          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "error_in_no_error"
-        },
-        {
-          "name": "waveform",
-          "description": "waveform is the analog waveform selected from the array of waveforms.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "waveform"
-        },
-        {
-          "name": "error out",
-          "description": "error out contains error information. This output provides standard error out functionality. Examples Refer to the following example files included with LabVIEW.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "error_out"
-        },
-        {
-          "name": "labview\\examples\\Waveform\\Waveform - Index Array.vi",
-          "description": "",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "labview_examples_waveform_waveform_index_array_vi"
-        }
-      ]
-    },
-    {
-      "name": "WDT Index Channel I16 VI",
-      "page": 818,
-      "category": "Comparison",
-      "description": "Selects one waveform out of an array of analog or digital waveforms by array index or channel name. The data types you wire to the waveform array and index inputs and the data type of the Y component of the analog waveform determine the polymorphic instance to use. Functions 818 ni.com",
-      "vi_path": null,
-      "is_polymorphic": false,
-      "python_hint": null,
-      "status": "needs_terminals",
-      "terminals": [
-        {
-          "name": "waveform array",
-          "description": "waveform array is an array of analog waveforms from which to extract a single waveform.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "waveform_array"
-        },
-        {
-          "name": "index",
-          "description": "index is the index of the waveform to extract from waveform array.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "index"
-        },
-        {
-          "name": "error in (no error)",
-          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "error_in_no_error"
-        },
-        {
-          "name": "waveform",
-          "description": "waveform is the analog waveform selected from the array of waveforms.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "waveform"
-        },
-        {
-          "name": "error out",
-          "description": "error out contains error information. This output provides standard error out functionality. Examples Refer to the following example files included with LabVIEW.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "error_out"
-        },
-        {
-          "name": "labview\\examples\\Waveform\\Waveform - Index Array.vi",
-          "description": "",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "labview_examples_waveform_waveform_index_array_vi"
-        }
-      ]
-    },
-    {
-      "name": "WDT Index Channel CDB VI",
-      "page": 819,
-      "category": "Comparison",
-      "description": "Selects one waveform out of an array of analog or digital waveforms by array index or channel name. The data types you wire to the waveform array and index inputs and the data type of the Y component of the analog waveform determine the polymorphic instance to use. Functions \u00a9 National Instruments 819",
-      "vi_path": null,
-      "is_polymorphic": false,
-      "python_hint": null,
-      "status": "needs_terminals",
-      "terminals": [
-        {
-          "name": "waveform array",
-          "description": "waveform array is an array of analog waveforms from which to extract a single waveform.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "waveform_array"
-        },
-        {
-          "name": "index",
-          "description": "index is the index of the waveform to extract from waveform array.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "index"
-        },
-        {
-          "name": "error in (no error)",
-          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "error_in_no_error"
-        },
-        {
-          "name": "waveform",
-          "description": "waveform is the analog waveform selected from the array of waveforms.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "waveform"
-        },
-        {
-          "name": "error out",
-          "description": "error out contains error information. This output provides standard error out functionality. Examples Refer to the following example files included with LabVIEW.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "error_out"
-        },
-        {
-          "name": "labview\\examples\\Waveform\\Waveform - Index Array.vi",
-          "description": "",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "labview_examples_waveform_waveform_index_array_vi"
-        }
-      ]
-    },
-    {
-      "name": "WDT Index Channel by Name DBL VI",
-      "page": 820,
-      "category": "Comparison",
-      "description": "Selects one waveform out of an array of analog or digital waveforms by array index or channel name. The data types you wire to the waveform array and index inputs and the data type of the Y component of the analog waveform determine the polymorphic instance to use. Functions 820 ni.com",
-      "vi_path": null,
-      "is_polymorphic": false,
-      "python_hint": null,
-      "status": "needs_terminals",
-      "terminals": [
-        {
-          "name": "waveform array",
-          "description": "waveform array is an array of analog waveforms from which to extract a single waveform.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "waveform_array"
-        },
-        {
-          "name": "channel name",
-          "description": "channel name is the channel name of the waveform to extract from waveform array. To use this input, the waveform must have a channel name attribute. If you are using a virtual channel, you do not have to set the channel name attribute manually.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "channel_name"
-        },
-        {
-          "name": "error in (no error)",
-          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "error_in_no_error"
-        },
-        {
-          "name": "waveform",
-          "description": "waveform is the analog waveform selected from the array of waveforms.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "waveform"
-        },
-        {
-          "name": "error out",
-          "description": "error out contains error information. This output provides standard error out functionality. Examples Refer to the following example files included with LabVIEW.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "error_out"
-        },
-        {
-          "name": "labview\\examples\\Waveform\\Waveform - Index Array.vi",
-          "description": "",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "labview_examples_waveform_waveform_index_array_vi"
-        }
-      ]
-    },
-    {
-      "name": "WDT Index Channel by Name I64 VI",
-      "page": 821,
-      "category": "Comparison",
-      "description": "Selects one waveform out of an array of analog or digital waveforms by array index or channel name. The data types you wire to the waveform array and index inputs and the data type of the Y component of the analog waveform determine the polymorphic instance to use. Functions \u00a9 National Instruments 821",
-      "vi_path": null,
-      "is_polymorphic": false,
-      "python_hint": null,
-      "status": "needs_terminals",
-      "terminals": [
-        {
-          "name": "waveform array",
-          "description": "waveform array is an array of analog waveforms from which to extract a single waveform.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "waveform_array"
-        },
-        {
-          "name": "channel name",
-          "description": "channel name is the channel name of the waveform to extract from waveform array. To use this input, the waveform must have a channel name attribute. If you are using a virtual channel, you do not have to set the channel name attribute manually.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "channel_name"
-        },
-        {
-          "name": "error in (no error)",
-          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "error_in_no_error"
-        },
-        {
-          "name": "waveform",
-          "description": "waveform is the analog waveform selected from the array of waveforms.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "waveform"
-        },
-        {
-          "name": "error out",
-          "description": "error out contains error information. This output provides standard error out functionality. Examples Refer to the following example files included with LabVIEW.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "error_out"
-        },
-        {
-          "name": "labview\\examples\\Waveform\\Waveform - Index Array.vi",
-          "description": "",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "labview_examples_waveform_waveform_index_array_vi"
-        }
-      ]
-    },
-    {
-      "name": "WDT Index Channel by Name I32 VI",
-      "page": 822,
-      "category": "Comparison",
-      "description": "Selects one waveform out of an array of analog or digital waveforms by array index or channel name. The data types you wire to the waveform array and index inputs and the data type of the Y component of the analog waveform determine the polymorphic Functions 822 ni.com instance to use.",
-      "vi_path": null,
-      "is_polymorphic": false,
-      "python_hint": null,
-      "status": "needs_terminals",
-      "terminals": [
-        {
-          "name": "waveform array",
-          "description": "waveform array is an array of analog waveforms from which to extract a single waveform.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "waveform_array"
-        },
-        {
-          "name": "channel name",
-          "description": "channel name is the channel name of the waveform to extract from waveform array. To use this input, the waveform must have a channel name attribute. If you are using a virtual channel, you do not have to set the channel name attribute manually.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "channel_name"
-        },
-        {
-          "name": "error in (no error)",
-          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "error_in_no_error"
-        },
-        {
-          "name": "waveform",
-          "description": "waveform is the analog waveform selected from the array of waveforms.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "waveform"
-        },
-        {
-          "name": "error out",
-          "description": "error out contains error information. This output provides standard error out functionality. Examples Refer to the following example files included with LabVIEW.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "error_out"
-        },
-        {
-          "name": "labview\\examples\\Waveform\\Waveform - Index Array.vi",
-          "description": "",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "labview_examples_waveform_waveform_index_array_vi"
-        }
-      ]
-    },
-    {
-      "name": "WDT Index Channel by Name I16 VI",
-      "page": 823,
-      "category": "Comparison",
-      "description": "Selects one waveform out of an array of analog or digital waveforms by array index or Functions \u00a9 National Instruments 823 channel name. The data types you wire to the waveform array and index inputs and the data type of the Y component of the analog waveform determine the polymorphic instance to use.",
-      "vi_path": null,
-      "is_polymorphic": false,
-      "python_hint": null,
-      "status": "needs_terminals",
-      "terminals": [
-        {
-          "name": "waveform array",
-          "description": "waveform array is an array of analog waveforms from which to extract a single waveform.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "waveform_array"
-        },
-        {
-          "name": "channel name",
-          "description": "channel name is the channel name of the waveform to extract from waveform array. To use this input, the waveform must have a channel name attribute. If you are using a virtual channel, you do not have to set the channel name attribute manually.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "channel_name"
-        },
-        {
-          "name": "error in (no error)",
-          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "error_in_no_error"
-        },
-        {
-          "name": "waveform",
-          "description": "waveform is the analog waveform selected from the array of waveforms.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "waveform"
-        },
-        {
-          "name": "error out",
-          "description": "error out contains error information. This output provides standard error out functionality. Examples Refer to the following example files included with LabVIEW.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "error_out"
-        },
-        {
-          "name": "labview\\examples\\Waveform\\Waveform - Index Array.vi",
-          "description": "",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "labview_examples_waveform_waveform_index_array_vi"
-        }
-      ]
-    },
-    {
-      "name": "WDT Index Channel by Name CDB VI",
-      "page": 825,
-      "category": "Comparison",
-      "description": "Selects one waveform out of an array of analog or digital waveforms by array index or channel name. The data types you wire to the waveform array and index inputs and the data type of the Y component of the analog waveform determine the polymorphic instance to use.",
-      "vi_path": null,
-      "is_polymorphic": false,
-      "python_hint": null,
-      "status": "needs_terminals",
-      "terminals": [
-        {
-          "name": "waveform array",
-          "description": "waveform array is an array of analog waveforms from which to extract a single waveform.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "waveform_array"
-        },
-        {
-          "name": "channel name",
-          "description": "channel name is the channel name of the waveform to extract from waveform array. To use this input, the waveform must have a channel name attribute. If you are using a virtual channel, you do not have to set the channel name attribute manually.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "channel_name"
-        },
-        {
-          "name": "error in (no error)",
-          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "error_in_no_error"
-        },
-        {
-          "name": "waveform",
-          "description": "waveform is the analog waveform selected from the array of waveforms.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "waveform"
-        },
-        {
-          "name": "error out",
-          "description": "error out contains error information. This output provides standard error out functionality. Examples Refer to the following example files included with LabVIEW. Functions",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "error_out"
-        }
-      ]
-    },
-    {
-      "name": "DWDT Index Channel VI",
-      "page": 826,
-      "category": "Comparison",
-      "description": "Selects one waveform out of an array of analog or digital waveforms by array index or channel name. The data types you wire to the waveform array and index inputs and the data type of the Y component of the analog waveform determine the polymorphic instance to use.",
-      "vi_path": null,
-      "is_polymorphic": false,
-      "python_hint": null,
-      "status": "needs_terminals",
-      "terminals": [
-        {
-          "name": "waveform array",
-          "description": "waveform array is an array of digital waveforms from which to extract a single digital waveform.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "waveform_array"
-        },
-        {
-          "name": "index",
-          "description": "index is the index of the waveform to extract from waveform array.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "index"
-        },
-        {
-          "name": "error in (no error)",
-          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "error_in_no_error"
-        },
-        {
-          "name": "waveform",
-          "description": "waveform is the digital waveform selected from the array of digital waveforms.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "waveform"
-        },
-        {
-          "name": "error out",
-          "description": "error out contains error information. This output provides standard error out functionality. Examples Refer to the following example files included with LabVIEW.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "error_out"
-        },
-        {
-          "name": "labview\\examples\\Waveform\\Waveform - Index Array.vi",
-          "description": "",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "labview_examples_waveform_waveform_index_array_vi"
-        }
-      ]
-    },
-    {
-      "name": "DWDT Index Channel by Name VI",
-      "page": 827,
-      "category": "Comparison",
-      "description": "Selects one waveform out of an array of analog or digital waveforms by array index or channel name. The data types you wire to the waveform array and index inputs and the data type of the Y component of the analog waveform determine the polymorphic instance to use.",
-      "vi_path": null,
-      "is_polymorphic": false,
-      "python_hint": null,
-      "status": "needs_terminals",
-      "terminals": [
-        {
-          "name": "waveform array",
-          "description": "waveform array is an array of digital waveforms from which to extract a single digital waveform.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "waveform_array"
-        },
-        {
-          "name": "channel name",
-          "description": "channel name is the channel name of the waveform to extract from waveform array. To use this input, the waveform must have a channel name attribute. If you are using a virtual channel, you do not have to set the channel name attribute manually.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "channel_name"
-        },
-        {
-          "name": "error in (no error)",
-          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "error_in_no_error"
-        },
-        {
-          "name": "waveform",
-          "description": "waveform is the digital waveform selected from the array of digital waveforms.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "waveform"
-        },
-        {
-          "name": "error out",
-          "description": "error out contains error information. This output provides standard error out functionality. Examples Refer to the following example files included with LabVIEW. Functions",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "error_out"
-        }
-      ]
-    },
-    {
-      "name": "Copy Waveform dt",
-      "page": 828,
-      "category": "Comparison",
-      "description": "Replaces all dt values with the dt value of the waveform at index position in waveforms in. The data type you wire to the waveforms in input and the data type of the Y component of the analog waveform determine the polymorphic instance to use. \u2022 WDT Copy Waveform dt DBL VI \u2022 WDT Copy Waveform dt I64 VI \u2022 WDT Copy Waveform dt I32 VI \u2022 WDT Copy Waveform dt I16 VI \u2022 WDT Copy Waveform dt CDB VI \u2022 WDT Copy Waveform dt EXT VI \u2022 WDT Copy Waveform dt CXT VI \u2022 DWDT Copy Waveform dt VI WDT Copy Waveform d",
-      "vi_path": null,
-      "is_polymorphic": false,
-      "python_hint": null,
-      "status": "needs_terminals",
-      "terminals": [
-        {
-          "name": "waveforms in",
-          "description": "waveforms in contains the analog waveforms for which the time increment values are replaced by the time increment of the analog waveform indicated by index. The default is empty.",
-          "default_value": "empty",
-          "enum_values": null,
-          "python_param": "waveforms_in"
-        },
-        {
-          "name": "index",
-          "description": "Functions 828 ni.com index is the specifier that the waveform in the waveforms in array uses for the dt value. The default is 0.",
-          "default_value": "0",
-          "enum_values": null,
-          "python_param": "index"
-        },
-        {
-          "name": "error in (no error)",
-          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "error_in_no_error"
-        },
-        {
-          "name": "waveforms out",
-          "description": "waveforms out contains analog waveforms for which the dt values are all identical.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "waveforms_out"
-        },
-        {
-          "name": "error out",
-          "description": "error out contains error information. This output provides standard error out functionality.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "error_out"
-        }
-      ]
-    },
-    {
-      "name": "WDT Copy Waveform dt DBL VI",
-      "page": 828,
-      "category": "Comparison",
-      "description": "Replaces all dt values with the dt value of the waveform at index position in waveforms in. The data type you wire to the waveforms in input and the data type of the Y component of the analog waveform determine the polymorphic instance to use.",
-      "vi_path": null,
-      "is_polymorphic": false,
-      "python_hint": null,
-      "status": "needs_terminals",
-      "terminals": [
-        {
-          "name": "waveforms in",
-          "description": "waveforms in contains the analog waveforms for which the time increment values are replaced by the time increment of the analog waveform indicated by index. The default is empty.",
-          "default_value": "empty",
-          "enum_values": null,
-          "python_param": "waveforms_in"
-        },
-        {
-          "name": "index",
-          "description": "Functions 828 ni.com index is the specifier that the waveform in the waveforms in array uses for the dt value. The default is 0.",
-          "default_value": "0",
-          "enum_values": null,
-          "python_param": "index"
-        },
-        {
-          "name": "error in (no error)",
-          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "error_in_no_error"
-        },
-        {
-          "name": "waveforms out",
-          "description": "waveforms out contains analog waveforms for which the dt values are all identical.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "waveforms_out"
-        },
-        {
-          "name": "error out",
-          "description": "error out contains error information. This output provides standard error out functionality.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "error_out"
-        }
-      ]
-    },
-    {
-      "name": "WDT Copy Waveform dt I64 VI",
-      "page": 829,
-      "category": "Comparison",
-      "description": "Replaces all dt values with the dt value of the waveform at index position in waveforms in. The data type you wire to the waveforms in input and the data type of the Y component of the analog waveform determine the polymorphic instance to use.",
-      "vi_path": null,
-      "is_polymorphic": false,
-      "python_hint": null,
-      "status": "needs_terminals",
-      "terminals": [
-        {
-          "name": "waveforms in",
-          "description": "waveforms in contains the analog waveforms for which the time increment values are replaced by the time increment of the analog waveform indicated by index. The default is empty.",
-          "default_value": "empty",
-          "enum_values": null,
-          "python_param": "waveforms_in"
-        },
-        {
-          "name": "index",
-          "description": "index is the specifier that the waveform in the waveforms in array uses for the dt value. The default is 0.",
-          "default_value": "0",
-          "enum_values": null,
-          "python_param": "index"
-        },
-        {
-          "name": "error in (no error)",
-          "description": "Functions \u00a9 National Instruments 829 error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "error_in_no_error"
-        },
-        {
-          "name": "waveforms out",
-          "description": "waveforms out contains analog waveforms for which the dt values are all identical.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "waveforms_out"
-        },
-        {
-          "name": "error out",
-          "description": "error out contains error information. This output provides standard error out functionality.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "error_out"
-        }
-      ]
-    },
-    {
-      "name": "WDT Copy Waveform dt I32 VI",
-      "page": 830,
-      "category": "Comparison",
-      "description": "Replaces all dt values with the dt value of the waveform at index position in waveforms in. The data type you wire to the waveforms in input and the data type of the Y component of the analog waveform determine the polymorphic instance to use.",
-      "vi_path": null,
-      "is_polymorphic": false,
-      "python_hint": null,
-      "status": "needs_terminals",
-      "terminals": [
-        {
-          "name": "waveforms in",
-          "description": "waveforms in contains the analog waveforms for which the time increment values are replaced by the time increment of the analog waveform indicated by index. The default is empty.",
-          "default_value": "empty",
-          "enum_values": null,
-          "python_param": "waveforms_in"
-        },
-        {
-          "name": "index",
-          "description": "index is the specifier that the waveform in the waveforms in array uses for the dt value. The default is 0.",
-          "default_value": "0",
-          "enum_values": null,
-          "python_param": "index"
-        },
-        {
-          "name": "error in (no error)",
-          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "error_in_no_error"
-        },
-        {
-          "name": "waveforms out",
-          "description": "Functions 830 ni.com waveforms out contains analog waveforms for which the dt values are all identical.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "waveforms_out"
-        },
-        {
-          "name": "error out",
-          "description": "error out contains error information. This output provides standard error out functionality.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "error_out"
-        }
-      ]
-    },
-    {
-      "name": "WDT Copy Waveform dt I16 VI",
-      "page": 831,
-      "category": "Comparison",
-      "description": "Replaces all dt values with the dt value of the waveform at index position in waveforms in. The data type you wire to the waveforms in input and the data type of the Y component of the analog waveform determine the polymorphic instance to use.",
-      "vi_path": null,
-      "is_polymorphic": false,
-      "python_hint": null,
-      "status": "needs_terminals",
-      "terminals": [
-        {
-          "name": "waveforms in",
-          "description": "waveforms in contains the analog waveforms for which the time increment values are replaced by the time increment of the analog waveform indicated by index. The default is empty.",
-          "default_value": "empty",
-          "enum_values": null,
-          "python_param": "waveforms_in"
-        },
-        {
-          "name": "index",
-          "description": "index is the specifier that the waveform in the waveforms in array uses for the dt value. The default is 0.",
-          "default_value": "0",
-          "enum_values": null,
-          "python_param": "index"
-        },
-        {
-          "name": "error in (no error)",
-          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "error_in_no_error"
-        },
-        {
-          "name": "waveforms out",
-          "description": "waveforms out contains analog waveforms for which the dt values are all identical.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "waveforms_out"
-        },
-        {
-          "name": "error out",
-          "description": "error out contains error information. This output provides standard error out functionality. Functions",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "error_out"
-        }
-      ]
-    },
-    {
-      "name": "WDT Copy Waveform dt CDB VI",
-      "page": 832,
-      "category": "Comparison",
-      "description": "Replaces all dt values with the dt value of the waveform at index position in waveforms in. The data type you wire to the waveforms in input and the data type of the Y component of the analog waveform determine the polymorphic instance to use.",
-      "vi_path": null,
-      "is_polymorphic": false,
-      "python_hint": null,
-      "status": "needs_terminals",
-      "terminals": [
-        {
-          "name": "waveforms in",
-          "description": "waveforms in contains the analog waveforms for which the time increment values are replaced by the time increment of the analog waveform indicated by index. The default is empty.",
-          "default_value": "empty",
-          "enum_values": null,
-          "python_param": "waveforms_in"
-        },
-        {
-          "name": "index",
-          "description": "index is the specifier that the waveform in the waveforms in array uses for the dt value. The default is 0.",
-          "default_value": "0",
-          "enum_values": null,
-          "python_param": "index"
-        },
-        {
-          "name": "error in (no error)",
-          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "error_in_no_error"
-        },
-        {
-          "name": "waveforms out",
-          "description": "waveforms out contains analog waveforms for which the dt values are all identical.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "waveforms_out"
-        },
-        {
-          "name": "error out",
-          "description": "error out contains error information. This output provides standard error out functionality.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "error_out"
-        }
-      ]
-    },
-    {
-      "name": "WDT Copy Waveform dt EXT VI",
-      "page": 832,
-      "category": "Comparison",
-      "description": "Replaces all dt values with the dt value of the waveform at index position in waveforms in. The data type you wire to the waveforms in input and the data type of the Y component of the analog waveform determine the polymorphic instance to use. Functions 832 ni.com",
-      "vi_path": null,
-      "is_polymorphic": false,
-      "python_hint": null,
-      "status": "needs_terminals",
-      "terminals": [
-        {
-          "name": "waveforms in",
-          "description": "waveforms in contains the analog waveforms for which the time increment values are replaced by the time increment of the analog waveform indicated by index. The default is empty.",
-          "default_value": "empty",
-          "enum_values": null,
-          "python_param": "waveforms_in"
-        },
-        {
-          "name": "index",
-          "description": "index is the specifier that the waveform in the waveforms in array uses for the dt value. The default is 0.",
-          "default_value": "0",
-          "enum_values": null,
-          "python_param": "index"
-        },
-        {
-          "name": "error in (no error)",
-          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "error_in_no_error"
-        },
-        {
-          "name": "waveforms out",
-          "description": "waveforms out contains analog waveforms for which the dt values are all identical.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "waveforms_out"
-        },
-        {
-          "name": "error out",
-          "description": "error out contains error information. This output provides standard error out functionality.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "error_out"
-        }
-      ]
-    },
-    {
-      "name": "WDT Copy Waveform dt CXT VI",
-      "page": 833,
-      "category": "Comparison",
-      "description": "Replaces all dt values with the dt value of the waveform at index position in waveforms in. The data type you wire to the waveforms in input and the data type of the Y component of the analog waveform determine the polymorphic instance to use. Functions \u00a9 National Instruments 833",
-      "vi_path": null,
-      "is_polymorphic": false,
-      "python_hint": null,
-      "status": "needs_terminals",
-      "terminals": [
-        {
-          "name": "waveforms in",
-          "description": "waveforms in contains the analog waveforms for which the time increment values are replaced by the time increment of the analog waveform indicated by index. The default is empty.",
-          "default_value": "empty",
-          "enum_values": null,
-          "python_param": "waveforms_in"
-        },
-        {
-          "name": "index",
-          "description": "index is the specifier that the waveform in the waveforms in array uses for the dt value. The default is 0.",
-          "default_value": "0",
-          "enum_values": null,
-          "python_param": "index"
-        },
-        {
-          "name": "error in (no error)",
-          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "error_in_no_error"
-        },
-        {
-          "name": "waveforms out",
-          "description": "waveforms out contains analog waveforms for which the dt values are all identical.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "waveforms_out"
-        },
-        {
-          "name": "error out",
-          "description": "error out contains error information. This output provides standard error out functionality.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "error_out"
-        }
-      ]
-    },
-    {
-      "name": "DWDT Copy Waveform dt VI",
-      "page": 834,
-      "category": "Comparison",
-      "description": "Replaces all dt values with the dt value of the waveform at index position in waveforms in. The data type you wire to the waveforms in input and the data type of the Y component of the analog waveform determine the polymorphic instance to use.",
-      "vi_path": null,
-      "is_polymorphic": false,
-      "python_hint": null,
-      "status": "needs_terminals",
-      "terminals": [
-        {
-          "name": "waveforms in",
-          "description": "waveforms in contains the digital waveforms for which the time increment values are replaced by the time increment of the digital waveform indicated by index. The default is empty. Functions 834 ni.com",
-          "default_value": "empty",
-          "enum_values": null,
-          "python_param": "waveforms_in"
-        },
-        {
-          "name": "index",
-          "description": "index is the specifier that the waveform in the waveforms in array uses for the dt value. The default is 0.",
-          "default_value": "0",
-          "enum_values": null,
-          "python_param": "index"
-        },
-        {
-          "name": "error in (no error)",
-          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "error_in_no_error"
-        },
-        {
-          "name": "waveforms out",
-          "description": "waveforms out contains digital waveforms for which the dt values are all identical.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "waveforms_out"
-        },
-        {
-          "name": "error out",
-          "description": "error out contains error information. This output provides standard error out functionality.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "error_out"
-        }
-      ]
-    },
-    {
-      "name": "Align Waveform Timestamps",
-      "page": 835,
-      "category": "Comparison",
-      "description": "Replaces all the time stamp values (t0) in waveforms in with the value of the index element in the array. The data type you wire to the waveforms in input and the data type of the Y component of the analog waveform determine the polymorphic instance to use. \u2022 WDT Align Waveform Timestamps DBL VI \u2022 WDT Align Waveform Timestamps I64 VI \u2022 WDT Align Waveform Timestamps I32 VI \u2022 WDT Align Waveform Timestamps I16 VI \u2022 WDT Align Waveform Timestamps CDB VI \u2022 WDT Align Waveform Timestamps EXT VI \u2022 WDT Al",
-      "vi_path": null,
-      "is_polymorphic": false,
-      "python_hint": null,
-      "status": "needs_terminals",
-      "terminals": [
-        {
-          "name": "waveforms in",
-          "description": "waveforms in contains all the analog waveforms for which time stamps (t0) are to be changed.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "waveforms_in"
-        },
-        {
-          "name": "index",
-          "description": "index selects which waveform to extract the time stamp from. The time stamps of all elements of waveforms in are changed to this time stamp.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "index"
-        },
-        {
-          "name": "error in (no error)",
-          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "error_in_no_error"
-        },
-        {
-          "name": "waveforms out",
-          "description": "waveforms out contains the waveforms in array with all time stamps on the elements changed to the time stamp of the element indicated by index.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "waveforms_out"
-        },
-        {
-          "name": "error out",
-          "description": "error out contains error information. This output provides standard error out functionality. Functions 836 ni.com Examples Refer to the following example files included with LabVIEW.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "error_out"
-        },
-        {
-          "name": "labview\\examples\\Waveform\\Waveform - Align Timestamps.vi",
-          "description": "",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "labview_examples_waveform_waveform_align_timestamps_vi"
-        }
-      ]
-    },
-    {
-      "name": "WDT Align Waveform Timestamps DBL VI",
-      "page": 836,
-      "category": "Comparison",
-      "description": "Replaces all the time stamp values (t0) in waveforms in with the value of the index element in the array. The data type you wire to the waveforms in input and the data type of the Y component of the analog waveform determine the polymorphic instance to use.",
-      "vi_path": null,
-      "is_polymorphic": false,
-      "python_hint": null,
-      "status": "needs_terminals",
-      "terminals": [
-        {
-          "name": "waveforms in",
-          "description": "waveforms in contains all the analog waveforms for which time stamps (t0) are to be changed.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "waveforms_in"
-        },
-        {
-          "name": "index",
-          "description": "index selects which waveform to extract the time stamp from. The time stamps of all elements of waveforms in are changed to this time stamp.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "index"
-        },
-        {
-          "name": "error in (no error)",
-          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "error_in_no_error"
-        },
-        {
-          "name": "waveforms out",
-          "description": "waveforms out contains the waveforms in array with all time stamps on the elements changed to the time stamp of the element indicated by index.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "waveforms_out"
-        },
-        {
-          "name": "error out",
-          "description": "error out contains error information. This output provides standard error out functionality. Functions 836 ni.com Examples Refer to the following example files included with LabVIEW.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "error_out"
-        },
-        {
-          "name": "labview\\examples\\Waveform\\Waveform - Align Timestamps.vi",
-          "description": "",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "labview_examples_waveform_waveform_align_timestamps_vi"
-        }
-      ]
-    },
-    {
-      "name": "WDT Align Waveform Timestamps I64 VI",
-      "page": 837,
-      "category": "Comparison",
-      "description": "Replaces all the time stamp values (t0) in waveforms in with the value of the index element in the array. The data type you wire to the waveforms in input and the data type of the Y component of the analog waveform determine the polymorphic instance to use.",
-      "vi_path": null,
-      "is_polymorphic": false,
-      "python_hint": null,
-      "status": "needs_terminals",
-      "terminals": [
-        {
-          "name": "waveforms in",
-          "description": "waveforms in contains all the analog waveforms for which time stamps (t0) are to be changed.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "waveforms_in"
-        },
-        {
-          "name": "index",
-          "description": "index selects which waveform to extract the time stamp from. The time stamps of all elements of waveforms in are changed to this time stamp.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "index"
-        },
-        {
-          "name": "error in (no error)",
-          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "error_in_no_error"
-        },
-        {
-          "name": "waveforms out",
-          "description": "waveforms out contains the waveforms in array with all time stamps on the elements changed to the time stamp of the element indicated by index.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "waveforms_out"
-        },
-        {
-          "name": "error out",
-          "description": "error out contains error information. This output provides standard error out functionality. Functions",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "error_out"
-        }
-      ]
-    },
-    {
-      "name": "WDT Align Waveform Timestamps I32 VI",
-      "page": 838,
-      "category": "Comparison",
-      "description": "Replaces all the time stamp values (t0) in waveforms in with the value of the index element in the array. The data type you wire to the waveforms in input and the data type of the Y component of the analog waveform determine the polymorphic instance to use.",
-      "vi_path": null,
-      "is_polymorphic": false,
-      "python_hint": null,
-      "status": "needs_terminals",
-      "terminals": [
-        {
-          "name": "waveforms in",
-          "description": "waveforms in contains all the analog waveforms for which time stamps (t0) are to be changed.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "waveforms_in"
-        },
-        {
-          "name": "index",
-          "description": "index selects which waveform to extract the time stamp from. The time stamps of all elements of waveforms in are changed to this time stamp.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "index"
-        },
-        {
-          "name": "error in (no error)",
-          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "error_in_no_error"
-        },
-        {
-          "name": "waveforms out",
-          "description": "waveforms out contains the waveforms in array with all time stamps on the elements changed to the time stamp of the element indicated by index.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "waveforms_out"
-        },
-        {
-          "name": "error out",
-          "description": "error out contains error information. This output provides standard error out functionality. Functions 838 ni.com Examples Refer to the following example files included with LabVIEW.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "error_out"
-        },
-        {
-          "name": "labview\\examples\\Waveform\\Waveform - Align Timestamps.vi",
-          "description": "",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "labview_examples_waveform_waveform_align_timestamps_vi"
-        }
-      ]
-    },
-    {
-      "name": "WDT Align Waveform Timestamps I16 VI",
-      "page": 839,
-      "category": "Comparison",
-      "description": "Replaces all the time stamp values (t0) in waveforms in with the value of the index element in the array. The data type you wire to the waveforms in input and the data type of the Y component of the analog waveform determine the polymorphic instance to use.",
-      "vi_path": null,
-      "is_polymorphic": false,
-      "python_hint": null,
-      "status": "needs_terminals",
-      "terminals": [
-        {
-          "name": "waveforms in",
-          "description": "waveforms in contains all the analog waveforms for which time stamps (t0) are to be changed.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "waveforms_in"
-        },
-        {
-          "name": "index",
-          "description": "index selects which waveform to extract the time stamp from. The time stamps of all elements of waveforms in are changed to this time stamp.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "index"
-        },
-        {
-          "name": "error in (no error)",
-          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "error_in_no_error"
-        },
-        {
-          "name": "waveforms out",
-          "description": "waveforms out contains the waveforms in array with all time stamps on the elements changed to the time stamp of the element indicated by index.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "waveforms_out"
-        },
-        {
-          "name": "error out",
-          "description": "error out contains error information. This output provides standard error out functionality. Functions",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "error_out"
-        }
-      ]
-    },
-    {
-      "name": "WDT Align Waveform Timestamps CDB VI",
-      "page": 840,
-      "category": "Comparison",
-      "description": "Replaces all the time stamp values (t0) in waveforms in with the value of the index element in the array. The data type you wire to the waveforms in input and the data type of the Y component of the analog waveform determine the polymorphic instance to use.",
-      "vi_path": null,
-      "is_polymorphic": false,
-      "python_hint": null,
-      "status": "needs_terminals",
-      "terminals": [
-        {
-          "name": "waveforms in",
-          "description": "waveforms in contains all the analog waveforms for which time stamps (t0) are to be changed.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "waveforms_in"
-        },
-        {
-          "name": "index",
-          "description": "index selects which waveform to extract the time stamp from. The time stamps of all elements of waveforms in are changed to this time stamp.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "index"
-        },
-        {
-          "name": "error in (no error)",
-          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "error_in_no_error"
-        },
-        {
-          "name": "waveforms out",
-          "description": "waveforms out contains the waveforms in array with all time stamps on the elements changed to the time stamp of the element indicated by index.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "waveforms_out"
-        },
-        {
-          "name": "error out",
-          "description": "error out contains error information. This output provides standard error out functionality. Functions 840 ni.com Examples Refer to the following example files included with LabVIEW.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "error_out"
-        },
-        {
-          "name": "labview\\examples\\Waveform\\Waveform - Align Timestamps.vi",
-          "description": "",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "labview_examples_waveform_waveform_align_timestamps_vi"
-        }
-      ]
-    },
-    {
-      "name": "WDT Align Waveform Timestamps EXT VI",
-      "page": 841,
-      "category": "Comparison",
-      "description": "Replaces all the time stamp values (t0) in waveforms in with the value of the index element in the array. The data type you wire to the waveforms in input and the data type of the Y component of the analog waveform determine the polymorphic instance to use.",
-      "vi_path": null,
-      "is_polymorphic": false,
-      "python_hint": null,
-      "status": "needs_terminals",
-      "terminals": [
-        {
-          "name": "waveforms in",
-          "description": "waveforms in contains all the analog waveforms for which time stamps (t0) are to be changed.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "waveforms_in"
-        },
-        {
-          "name": "index",
-          "description": "index selects which waveform to extract the time stamp from. The time stamps of all elements of waveforms in are changed to this time stamp.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "index"
-        },
-        {
-          "name": "error in (no error)",
-          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "error_in_no_error"
-        },
-        {
-          "name": "waveforms out",
-          "description": "waveforms out contains the waveforms in array with all time stamps on the elements changed to the time stamp of the element indicated by index.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "waveforms_out"
-        },
-        {
-          "name": "error out",
-          "description": "error out contains error information. This output provides standard error out functionality. Functions",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "error_out"
-        }
-      ]
-    },
-    {
-      "name": "WDT Align Waveform Timestamps CXT VI",
-      "page": 842,
-      "category": "Comparison",
-      "description": "Replaces all the time stamp values (t0) in waveforms in with the value of the index element in the array. The data type you wire to the waveforms in input and the data type of the Y component of the analog waveform determine the polymorphic instance to use.",
-      "vi_path": null,
-      "is_polymorphic": false,
-      "python_hint": null,
-      "status": "needs_terminals",
-      "terminals": [
-        {
-          "name": "waveforms in",
-          "description": "waveforms in contains all the analog waveforms for which time stamps (t0) are to be changed.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "waveforms_in"
-        },
-        {
-          "name": "index",
-          "description": "index selects which waveform to extract the time stamp from. The time stamps of all elements of waveforms in are changed to this time stamp.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "index"
-        },
-        {
-          "name": "error in (no error)",
-          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "error_in_no_error"
-        },
-        {
-          "name": "waveforms out",
-          "description": "waveforms out contains the waveforms in array with all time stamps on the elements changed to the time stamp of the element indicated by index.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "waveforms_out"
-        },
-        {
-          "name": "error out",
-          "description": "error out contains error information. This output provides standard error out functionality. Functions 842 ni.com Examples Refer to the following example files included with LabVIEW.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "error_out"
-        },
-        {
-          "name": "labview\\examples\\Waveform\\Waveform - Align Timestamps.vi",
-          "description": "",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "labview_examples_waveform_waveform_align_timestamps_vi"
-        }
-      ]
-    },
-    {
-      "name": "DWDT Align Waveform Timestamps VI",
-      "page": 843,
-      "category": "Comparison",
-      "description": "Replaces all the time stamp values (t0) in waveforms in with the value of the index element in the array. The data type you wire to the waveforms in input and the data type of the Y component of the analog waveform determine the polymorphic instance to use.",
-      "vi_path": null,
-      "is_polymorphic": false,
-      "python_hint": null,
-      "status": "needs_terminals",
-      "terminals": [
-        {
-          "name": "waveforms in",
-          "description": "waveforms in contains all the digital waveforms for which time stamps (t0) are to be changed.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "waveforms_in"
-        },
-        {
-          "name": "index",
-          "description": "index selects which waveform to extract the time stamp from. The time stamps of all elements of waveforms in are changed to this time stamp.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "index"
-        },
-        {
-          "name": "error in (no error)",
-          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "error_in_no_error"
-        },
-        {
-          "name": "waveforms out",
-          "description": "waveforms out contains the waveforms in array with all time stamps on the elements changed to the time stamp of the element indicated by index.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "waveforms_out"
-        },
-        {
-          "name": "error out",
-          "description": "error out contains error information. This output provides standard error out functionality. Functions",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "error_out"
-        }
-      ]
-    },
-    {
-      "name": "Get Waveform Subset",
-      "page": 844,
-      "category": "Comparison",
-      "description": "Retrieves a subset of a waveform at a specified time or index. You must manually select the polymorphic instance you want to use. \u2022 WDT Get Waveform Subset DBL VI \u2022 WDT Get Waveform Subset CDB VI \u2022 WDT Get Waveform Subset EXT VI \u2022 WDT Get Waveform Subset I16 VI \u2022 WDT Get Waveform Subset I32 VI \u2022 WDT Get Waveform Subset I8 VI \u2022 WDT Get Waveform Subset SGL VI \u2022 DWDT Get Waveform Subset VI \u2022 DTbl Digital Subset VI For example, consider a waveform of 128 scans with a dt of 1.00. If you wire 40.00 to",
-      "vi_path": null,
-      "is_polymorphic": false,
-      "python_hint": null,
-      "status": "needs_terminals",
-      "terminals": [
-        {
-          "name": "open interval? (T)",
-          "description": "open interval? defines whether the waveform subset extracted is an open or closed interval. The default is TRUE, which selects an open interval. For example, if t0 = 0, dt = 1, Y = {0, 1, 2}, start/duration format is Relative Time, start samples/ time is 0, and duration is 2, an open interval returns {0, 1}. A closed interval returns {0, 1, 2}.",
-          "default_value": "TRUE, which selects an open interval",
-          "enum_values": null,
-          "python_param": "open_interval_t"
-        },
-        {
-          "name": "start/duration format",
-          "description": "start/duration format specifies if you want to retrieve the data value of the specified element or at a specified time. 0 Samples (default)\u2014Returns the data value of the specified element in the waveform data. 1 Relative Time\u2014Returns the data value at a specified time relative to the first point in the waveform. In this mode, the dt of the waveform affects actual start samples/time and actual duration.",
-          "default_value": null,
-          "enum_values": [
-            [
-              0,
-              "Samples (default)"
-            ],
-            [
-              1,
-              "Relative Time"
-            ]
-          ],
-          "python_param": "start_duration_format"
-        },
-        {
-          "name": "waveform in",
-          "description": "waveform in is the waveform for which you want to retrieve a subset.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "waveform_in"
-        },
-        {
-          "name": "start samples/time",
-          "description": "start samples/time is the data element or time value where you want to start acquiring a waveform subset.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "start_samples_time"
-        },
-        {
-          "name": "duration",
+          "name": "x = 0?",
           "description": "Functions",
           "default_value": null,
           "enum_values": null,
-          "python_param": "duration"
+          "python_param": "x_0"
         }
       ]
     },
     {
-      "name": "WDT Get Waveform Subset DBL VI",
-      "page": 845,
+      "name": "Equal To 0? Function",
+      "page": 751,
       "category": "Comparison",
-      "description": "Retrieves a subset of a waveform at a specified time or index. You must manually select the polymorphic instance you want to use.",
+      "description": "Returns TRUE if x is equal to 0. Otherwise, this function returns FALSE. The connector pane displays the default data types for this polymorphic function.",
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
       "status": "needs_terminals",
       "terminals": [
         {
-          "name": "open interval? (T)",
-          "description": "open interval? defines whether the waveform subset extracted is an open or closed interval. The default is TRUE, which selects an open interval. For example, if t0 = 0, dt = 1, Y = {0, 1, 2}, start/duration format is Relative Time, start samples/ time is 0, and duration is 2, an open interval returns {0, 1}. A closed interval returns {0, 1, 2}.",
-          "default_value": "TRUE, which selects an open interval",
+          "name": "x = 0?",
+          "description": "Functions © National Instruments 751 x = 0? is a Boolean value of the same data type structure as x. Not Equal To 0? Function Not Equal To 0? Function Returns TRUE if x is not equal to 0. Otherwise, this function returns FALSE. The connector pane displays the default data types for this polymorphic function. Inputs/Outputs",
+          "default_value": "data types for this polymorphic function",
           "enum_values": null,
-          "python_param": "open_interval_t"
+          "python_param": "x_0"
         },
         {
-          "name": "start/duration format",
-          "description": "start/duration format specifies if you want to retrieve the data value of the specified element or at a specified time. 0 Samples (default)\u2014Returns the data value of the specified element in the waveform data. 1 Relative Time\u2014Returns the data value at a specified time relative to the first point in the waveform. In this mode, the dt of the waveform affects actual start samples/time and actual duration.",
-          "default_value": null,
-          "enum_values": [
-            [
-              0,
-              "Samples (default)"
-            ],
-            [
-              1,
-              "Relative Time"
-            ]
-          ],
-          "python_param": "start_duration_format"
-        },
-        {
-          "name": "waveform in",
-          "description": "waveform in is the waveform for which you want to retrieve a subset.",
-          "default_value": null,
+          "name": "x != 0?",
+          "description": "x!= 0? is a Boolean value of the same data type structure as x. Greater Than 0? Function Greater Than 0? Function Returns TRUE if x is greater than 0. Otherwise, this function returns FALSE. The connector pane displays the default data types for this polymorphic function. Inputs/Outputs",
+          "default_value": "data types for this polymorphic function",
           "enum_values": null,
-          "python_param": "waveform_in"
+          "python_param": "x_0"
         },
         {
-          "name": "start samples/time",
-          "description": "start samples/time is the data element or time value where you want to start acquiring a waveform subset.",
+          "name": "x > 0?",
+          "description": "Functions 752 ni.com x > 0? is a Boolean value of the same data type structure as x. Less Than 0? Function Less Than 0? Function Returns TRUE if x is less than 0. Otherwise, this function returns FALSE. The connector pane displays the default data types for this polymorphic function. Inputs/Outputs",
+          "default_value": "data types for this polymorphic function",
+          "enum_values": null,
+          "python_param": "x_0"
+        },
+        {
+          "name": "x < 0?",
+          "description": "x < 0? is a Boolean value of the same data type structure as x. Greater Or Equal To 0? Function Greater Or Equal To 0? Function Returns TRUE if x is greater than or equal to 0. Otherwise, this function returns FALSE. The connector pane displays the default data types for this polymorphic function. Inputs/Outputs",
+          "default_value": "data types for this polymorphic function",
+          "enum_values": null,
+          "python_param": "x_0"
+        },
+        {
+          "name": "x >= 0?",
+          "description": "Functions © National Instruments 753",
           "default_value": null,
           "enum_values": null,
-          "python_param": "start_samples_time"
+          "python_param": "x_0"
+        }
+      ]
+    },
+    {
+      "name": "Greater Than 0? Function",
+      "page": 752,
+      "category": "Comparison",
+      "description": "Returns TRUE if x is greater than 0. Otherwise, this function returns FALSE. The connector pane displays the default data types for this polymorphic function.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "x > 0?",
+          "description": "Functions 752 ni.com x > 0? is a Boolean value of the same data type structure as x. Less Than 0? Function Less Than 0? Function Returns TRUE if x is less than 0. Otherwise, this function returns FALSE. The connector pane displays the default data types for this polymorphic function. Inputs/Outputs",
+          "default_value": "data types for this polymorphic function",
+          "enum_values": null,
+          "python_param": "x_0"
         },
         {
-          "name": "duration",
+          "name": "x < 0?",
+          "description": "x < 0? is a Boolean value of the same data type structure as x. Greater Or Equal To 0? Function Greater Or Equal To 0? Function Returns TRUE if x is greater than or equal to 0. Otherwise, this function returns FALSE. The connector pane displays the default data types for this polymorphic function. Inputs/Outputs",
+          "default_value": "data types for this polymorphic function",
+          "enum_values": null,
+          "python_param": "x_0"
+        },
+        {
+          "name": "x >= 0?",
           "description": "Functions",
           "default_value": null,
           "enum_values": null,
-          "python_param": "duration"
+          "python_param": "x_0"
         }
       ]
     },
     {
-      "name": "WDT Get Waveform Subset CDB VI",
-      "page": 846,
+      "name": "Not Equal To 0? Function",
+      "page": 752,
       "category": "Comparison",
-      "description": "Retrieves a subset of a waveform at a specified time or index. You must manually Functions 846 ni.com select the polymorphic instance you want to use.",
+      "description": "Returns TRUE if x is not equal to 0. Otherwise, this function returns FALSE. The connector pane displays the default data types for this polymorphic function.",
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
       "status": "needs_terminals",
       "terminals": [
         {
-          "name": "open interval? (T)",
-          "description": "open interval? defines whether the waveform subset extracted is an open or closed interval. The default is TRUE, which selects an open interval. For example, if t0 = 0, dt = 1, Y = {0, 1, 2}, start/duration format is Relative Time, start samples/ time is 0, and duration is 2, an open interval returns {0, 1}. A closed interval returns {0, 1, 2}.",
-          "default_value": "TRUE, which selects an open interval",
+          "name": "x != 0?",
+          "description": "x!= 0? is a Boolean value of the same data type structure as x. Greater Than 0? Function Greater Than 0? Function Returns TRUE if x is greater than 0. Otherwise, this function returns FALSE. The connector pane displays the default data types for this polymorphic function. Inputs/Outputs",
+          "default_value": "data types for this polymorphic function",
           "enum_values": null,
-          "python_param": "open_interval_t"
+          "python_param": "x_0"
         },
         {
-          "name": "start/duration format",
-          "description": "start/duration format specifies if you want to retrieve the data value of the specified element or at a specified time. 0 Samples (default)\u2014Returns the data value of the specified element in the waveform data. 1 Relative Time\u2014Returns the data value at a specified time relative to the first point in the waveform. In this mode, the dt of the waveform affects actual start samples/time and actual duration.",
-          "default_value": null,
-          "enum_values": [
-            [
-              0,
-              "Samples (default)"
-            ],
-            [
-              1,
-              "Relative Time"
-            ]
-          ],
-          "python_param": "start_duration_format"
-        },
-        {
-          "name": "waveform in",
-          "description": "waveform in is the waveform for which you want to retrieve a subset.",
-          "default_value": null,
+          "name": "x > 0?",
+          "description": "Functions 752 ni.com x > 0? is a Boolean value of the same data type structure as x. Less Than 0? Function Less Than 0? Function Returns TRUE if x is less than 0. Otherwise, this function returns FALSE. The connector pane displays the default data types for this polymorphic function. Inputs/Outputs",
+          "default_value": "data types for this polymorphic function",
           "enum_values": null,
-          "python_param": "waveform_in"
+          "python_param": "x_0"
         },
         {
-          "name": "start samples/time",
-          "description": "start samples/time is the data element or time value where you want to start acquiring a waveform subset.",
-          "default_value": null,
+          "name": "x < 0?",
+          "description": "x < 0? is a Boolean value of the same data type structure as x. Greater Or Equal To 0? Function Greater Or Equal To 0? Function Returns TRUE if x is greater than or equal to 0. Otherwise, this function returns FALSE. The connector pane displays the default data types for this polymorphic function. Inputs/Outputs",
+          "default_value": "data types for this polymorphic function",
           "enum_values": null,
-          "python_param": "start_samples_time"
+          "python_param": "x_0"
         },
         {
-          "name": "duration",
-          "description": "duration is the amount of time to retrieve data or the number of elements of data you want to retrieve, depending on the start/duration format you select.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "duration"
-        },
-        {
-          "name": "error in (no error)",
+          "name": "x >= 0?",
           "description": "Functions",
           "default_value": null,
           "enum_values": null,
-          "python_param": "error_in_no_error"
+          "python_param": "x_0"
         }
       ]
     },
     {
-      "name": "WDT Get Waveform Subset EXT VI",
-      "page": 848,
+      "name": "Greater Or Equal To 0? Function",
+      "page": 753,
       "category": "Comparison",
-      "description": "Retrieves a subset of a waveform at a specified time or index. You must manually select the polymorphic instance you want to use. Functions 848 ni.com",
+      "description": "Returns TRUE if x is greater than or equal to 0. Otherwise, this function returns FALSE. The connector pane displays the default data types for this polymorphic function.",
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
       "status": "needs_terminals",
       "terminals": [
         {
-          "name": "open interval? (T)",
-          "description": "open interval? defines whether the waveform subset extracted is an open or closed interval. The default is TRUE, which selects an open interval. For example, if t0 = 0, dt = 1, Y = {0, 1, 2}, start/duration format is Relative Time, start samples/ time is 0, and duration is 2, an open interval returns {0, 1}. A closed interval returns {0, 1, 2}.",
-          "default_value": "TRUE, which selects an open interval",
+          "name": "x >= 0?",
+          "description": "Functions © National Instruments 753 x >= 0? is a Boolean value of the same data type structure as x. Less Or Equal To 0? Function Less Or Equal To 0? Function Returns TRUE if x is less than or equal to 0. Otherwise, this function returns FALSE. The connector pane displays the default data types for this polymorphic function. Inputs/Outputs",
+          "default_value": "data types for this polymorphic function",
           "enum_values": null,
-          "python_param": "open_interval_t"
+          "python_param": "x_0"
         },
         {
-          "name": "start/duration format",
-          "description": "start/duration format specifies if you want to retrieve the data value of the specified element or at a specified time. 0 Samples (default)\u2014Returns the data value of the specified element in the waveform data. 1 Relative Time\u2014Returns the data value at a specified time relative to the first point in the waveform. In this mode, the dt of the waveform affects actual start samples/time and actual duration.",
-          "default_value": null,
-          "enum_values": [
-            [
-              0,
-              "Samples (default)"
-            ],
-            [
-              1,
-              "Relative Time"
-            ]
-          ],
-          "python_param": "start_duration_format"
-        },
-        {
-          "name": "waveform in",
-          "description": "waveform in is the waveform for which you want to retrieve a subset.",
+          "name": "x <= 0?",
+          "description": "x ≤ 0? is a Boolean value of the same data type structure as x.",
           "default_value": null,
           "enum_values": null,
-          "python_param": "waveform_in"
-        },
-        {
-          "name": "start samples/time",
-          "description": "start samples/time is the data element or time value where you want to start acquiring a waveform subset.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "start_samples_time"
-        },
-        {
-          "name": "duration",
-          "description": "duration is the amount of time to retrieve data or the number of elements of data you want to retrieve, depending on the start/duration format you select.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "duration"
-        },
-        {
-          "name": "error in (no error)",
-          "description": "error in describes error conditions that occur before this node runs. This input provides Functions",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "error_in_no_error"
+          "python_param": "x_0"
         }
       ]
     },
     {
-      "name": "WDT Get Waveform Subset I16 VI",
-      "page": 850,
+      "name": "Less Than 0? Function",
+      "page": 753,
       "category": "Comparison",
-      "description": "Retrieves a subset of a waveform at a specified time or index. You must manually select the polymorphic instance you want to use. Functions 850 ni.com",
+      "description": "Returns TRUE if x is less than 0. Otherwise, this function returns FALSE. The connector pane displays the default data types for this polymorphic function.",
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
       "status": "needs_terminals",
       "terminals": [
         {
-          "name": "open interval? (T)",
-          "description": "open interval? defines whether the waveform subset extracted is an open or closed interval. The default is TRUE, which selects an open interval. For example, if t0 = 0, dt = 1, Y = {0, 1, 2}, start/duration format is Relative Time, start samples/ time is 0, and duration is 2, an open interval returns {0, 1}. A closed interval returns {0, 1, 2}.",
-          "default_value": "TRUE, which selects an open interval",
+          "name": "x < 0?",
+          "description": "x < 0? is a Boolean value of the same data type structure as x. Greater Or Equal To 0? Function Greater Or Equal To 0? Function Returns TRUE if x is greater than or equal to 0. Otherwise, this function returns FALSE. The connector pane displays the default data types for this polymorphic function. Inputs/Outputs",
+          "default_value": "data types for this polymorphic function",
           "enum_values": null,
-          "python_param": "open_interval_t"
+          "python_param": "x_0"
         },
         {
-          "name": "start/duration format",
-          "description": "start/duration format specifies if you want to retrieve the data value of the specified element or at a specified time. 0 Samples (default)\u2014Returns the data value of the specified element in the waveform data. 1 Relative Time\u2014Returns the data value at a specified time relative to the first point in the waveform. In this mode, the dt of the waveform affects actual start samples/time and actual duration.",
-          "default_value": null,
-          "enum_values": [
-            [
-              0,
-              "Samples (default)"
-            ],
-            [
-              1,
-              "Relative Time"
-            ]
-          ],
-          "python_param": "start_duration_format"
-        },
-        {
-          "name": "waveform in",
-          "description": "waveform in is the waveform for which you want to retrieve a subset.",
+          "name": "x >= 0?",
+          "description": "Functions",
           "default_value": null,
           "enum_values": null,
-          "python_param": "waveform_in"
-        },
+          "python_param": "x_0"
+        }
+      ]
+    },
+    {
+      "name": "Less Or Equal To 0? Function",
+      "page": 754,
+      "category": "Comparison",
+      "description": "Returns TRUE if x is less than or equal to 0. Otherwise, this function returns FALSE. The connector pane displays the default data types for this polymorphic function.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
         {
-          "name": "start samples/time",
-          "description": "start samples/time is the data element or time value where you want to start acquiring a waveform subset.",
+          "name": "x <= 0?",
+          "description": "x ≤ 0? is a Boolean value of the same data type structure as x.",
           "default_value": null,
           "enum_values": null,
-          "python_param": "start_samples_time"
-        },
+          "python_param": "x_0"
+        }
+      ]
+    },
+    {
+      "name": "Select Function",
+      "page": 754,
+      "category": "Comparison",
+      "description": "Returns the value wired to the t input or f input, depending on the value of s. If s is TRUE, this function returns the value wired to t. If s is FALSE, this function returns the value wired to f. The connector pane displays the default data types for this polymorphic function.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
         {
-          "name": "duration",
-          "description": "duration is the amount of time to retrieve data or the number of elements of data you want to retrieve, depending on the start/duration format you select.",
+          "name": "s? t:f",
+          "description": "s? t:f is the value wired to t if s is TRUE. s? t:f is the value wired to f if s is FALSE.",
           "default_value": null,
           "enum_values": null,
-          "python_param": "duration"
-        },
+          "python_param": "s_t_f"
+        }
+      ]
+    },
+    {
+      "name": "Max & Min Function",
+      "page": 755,
+      "category": "Comparison",
+      "description": "Compares x and y and returns the larger value at the top output terminal and the smaller value at the bottom output terminal. This function accepts time stamp values if all inputs are time stamp values. If the inputs are time stamp values, the function returns the later time at the top and the earlier time at the bottom. You can change the comparison mode of this function. The connector pane displays the default data types for this polymorphic function.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
         {
-          "name": "error in (no error)",
-          "description": "error in describes error conditions that occur before this node runs. This input provides Functions",
+          "name": "max(x,y)",
+          "description": "max(x, y) is the larger value. When you compare arrays in Compare Elements mode (default), this function compares corresponding elements in each input array and returns the element with the maximum value. max(x, y) is an array consisting of the maximum value elements. When you compare arrays in Compare Aggregates mode, this function compares corresponding elements in each input array starting at the beginning of the array. When this function reaches a pair of unequal corresponding elements, max(",
           "default_value": null,
           "enum_values": null,
-          "python_param": "error_in_no_error"
+          "python_param": "maxx_y"
+        },
+        {
+          "name": "min(x,y)",
+          "description": "min(x, y) is the smaller value. When you compare arrays in Compare Elements mode (default), this function compares corresponding elements in each input array and returns the element with the minimum value. min(x, y) is an array consisting of the minimum value elements. When you compare arrays in Compare Aggregates mode, this function compares corresponding elements in each input array starting at the beginning of the array. When this function reaches a pair of unequal corresponding elements, min",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "minx_y"
+        },
+        {
+          "name": "Both inputs are NaN",
+          "description": "Both max(x,y) and min(x,y) return NaN",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "both_inputs_are_nan"
+        },
+        {
+          "name": "Only one input is NaN",
+          "description": "Both max(x,y) and min(x,y) return the non-NaN value",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "only_one_input_is_nan"
+        },
+        {
+          "name": "Inputs are arrays",
+          "description": "The function evaluates each pair of elements according to the previous rules In Compare Aggregates mode, when one or both inputs are NaN (Not-a-Number), this function produces the following results:",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "inputs_are_arrays"
+        },
+        {
+          "name": "Both inputs are NaN",
+          "description": "Both max(x,y) and min(x,y) return NaN",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "both_inputs_are_nan"
+        },
+        {
+          "name": "Only one input is NaN",
+          "description": "max(x,y) returns x and min(x,y) returns y",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "only_one_input_is_nan"
+        },
+        {
+          "name": "Inputs are arrays",
+          "description": "If the function encounters a NaN element in either input array, max(x,y) returns x and min(x,y) returns y Functions 756 ni.com",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "inputs_are_arrays"
+        }
+      ]
+    },
+    {
+      "name": "In Range and Coerce Function",
+      "page": 757,
+      "category": "Comparison",
+      "description": "Determines whether x falls within a range specified by the upper limit and lower limit inputs and optionally coerces the value to fall within the range. The function performs the coercion only in Compare Elements mode. This function accepts time stamp values if all inputs are time stamp values. You can change the comparison mode of this function. upper limit, x, and lower limit should usually be of the same data type structure, either arrays or clusters, but they can have different numeric repre",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "upper limit",
+          "description": "upper limit of the range.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "upper_limit"
+        },
+        {
+          "name": "lower limit",
+          "description": "lower limit of the range.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "lower_limit"
+        },
+        {
+          "name": "coerced(x)",
+          "description": "coerced(x) returns the coerced or unchanged value of x. If x is within the range set by the upper limit and lower limit inputs or if the function is in Compare Aggregates mode, the value is Functions © National Instruments 757 unchanged. If x is not in range and the function is in Compare Elements mode, the function converts the value to the same value as upper limit or lower limit. If upper limit, x, or lower limit is NaN, coerced(x) is NaN.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "coercedx"
+        },
+        {
+          "name": "In Range?",
+          "description": "In Range? is a Boolean value in Compare Aggregates mode. In Compare Elements mode, the data type structure of In Range? matches the data type structure of x, with each scalar replaced by a Boolean value. If upper limit, x, or lower limit is NaN, In Range? is FALSE. This function compares the input data values according to the Boolean comparison rules. If the function is in Compare Aggregates mode, it returns the unchanged value of x in coerced(x) rather than a coerced value. The function conside",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "in_range"
+        },
+        {
+          "name": "labview\\examples\\Comparison\\In Range and Coerce.vi",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "labview_examples_comparison_in_range_and_coerce_vi"
+        },
+        {
+          "name": "number/path/refnum",
+          "description": "number/path/refnum can be a scalar number, path, or refnum, or it can be a cluster or array of numbers, paths, or refnums.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "number_path_refnum"
+        },
+        {
+          "name": "NaN/Path/Refnum?",
+          "description": "NaN/Path/Refnum? is a Boolean value of the same data type structure as number/path/refnum. This function works only on references generated by LabVIEW functions. Do not use this function to determine the validity of a rendezvous refnum, semaphore refnum, or any refnum created by the GOOP wizard, LabVIEW Database Connectivity Toolkit, or LabVIEW Internet Toolkit. For rendezvous refnums, use the Not A Rendezvous VI. For semaphore refnums, use the Not A Semaphore VI. For all other GOOP refnums or t",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "nan_path_refnum"
+        },
+        {
+          "name": "Do not use this function to evaluate whether a refnum is invalid before using the",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "do_not_use_this_function_to_evaluate_whether_a_refnum_is_invalid_before_using_the"
+        },
+        {
+          "name": "Use this function in custom probes to get the refnum status.",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "use_this_function_in_custom_probes_to_get_the_refnum_status"
+        },
+        {
+          "name": "Use this function to evaluate the status of an existing invalid refnum before",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "use_this_function_to_evaluate_the_status_of_an_existing_invalid_refnum_before"
+        }
+      ]
+    },
+    {
+      "name": "Not A Number/Path/Refnum? Function",
+      "page": 759,
+      "category": "Comparison",
+      "description": "Returns TRUE if number/path/refnum is not a number (NaN), <Not a Path>, or not a refnum. Otherwise, this function returns FALSE. Use this function to make sure a reference to an object, such as a VI, application, or control, still resides in system memory and was not closed. The connector pane displays the default data types for this polymorphic function.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "number/path/refnum",
+          "description": "number/path/refnum can be a scalar number, path, or refnum, or it can be a cluster or array of numbers, paths, or refnums.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "number_path_refnum"
+        },
+        {
+          "name": "NaN/Path/Refnum?",
+          "description": "NaN/Path/Refnum? is a Boolean value of the same data type structure as number/path/refnum. This function works only on references generated by LabVIEW functions. Do not use this function to determine the validity of a rendezvous refnum, semaphore refnum, or any refnum created by the GOOP wizard, LabVIEW Database Connectivity Toolkit, or LabVIEW Internet Toolkit. For rendezvous refnums, use the Not A Rendezvous VI. For semaphore refnums, use the Not A Semaphore VI. For all other GOOP refnums or t",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "nan_path_refnum"
+        },
+        {
+          "name": "Do not use this function to evaluate whether a refnum is invalid before using the",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "do_not_use_this_function_to_evaluate_whether_a_refnum_is_invalid_before_using_the"
+        },
+        {
+          "name": "Use this function in custom probes to get the refnum status.",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "use_this_function_in_custom_probes_to_get_the_refnum_status"
+        },
+        {
+          "name": "Use this function to evaluate the status of an existing invalid refnum before",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "use_this_function_to_evaluate_the_status_of_an_existing_invalid_refnum_before"
+        }
+      ]
+    },
+    {
+      "name": "Empty Array? Function",
+      "page": 760,
+      "category": "Comparison",
+      "description": "Returns TRUE if the input array is empty. Otherwise, this function returns FALSE.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "array",
+          "description": "array specifies an n-dimensional array of any type.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "array"
+        },
+        {
+          "name": "empty?",
+          "description": "empty? is TRUE if array is empty. Otherwise, empty? is FALSE. Empty String/Path? Function Empty String/Path? Function Returns TRUE if string/path is an empty string or an empty path. Otherwise, this function returns FALSE. This function is also designed to work with variants, pictures, and DSC tags. The connector pane displays the default data types for this polymorphic function. Inputs/Outputs",
+          "default_value": "data types for this polymorphic function",
+          "enum_values": null,
+          "python_param": "empty"
+        },
+        {
+          "name": "string/path",
+          "description": "Functions 760 ni.com string/path can be a string, a path, a variant, a picture string, a DSC tag, or an array or a cluster of these types.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "string_path"
+        },
+        {
+          "name": "empty?",
+          "description": "empty? is a Boolean value of the same data type structure as string/path. Decimal Digit? Function Decimal Digit? Function Returns TRUE if char represents a decimal digit ranging from 0 through 9. If char is a string, this function uses the first character in the string. If char is a number, this function interprets it as the ASCII value of a character. If char is a floating-point number, this function rounds to the nearest integer. Otherwise, this function returns FALSE. The connector pane displ",
+          "default_value": "data types for this polymorphic function",
+          "enum_values": null,
+          "python_param": "empty"
+        },
+        {
+          "name": "char",
+          "description": "char can be a scalar string or number, clusters of strings or numbers, arrays of strings or numbers, and so on.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "char"
+        },
+        {
+          "name": "digit?",
+          "description": "digit? is a Boolean value of the same data type structure as char. Examples Refer to the following example files included with LabVIEW.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "digit"
+        },
+        {
+          "name": "labview\\examples\\Comparison\\Compare Character Types.vi",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "labview_examples_comparison_compare_character_types_vi"
+        }
+      ]
+    },
+    {
+      "name": "Empty String/Path? Function",
+      "page": 760,
+      "category": "Comparison",
+      "description": "Returns TRUE if string/path is an empty string or an empty path. Otherwise, this function returns FALSE. This function is also designed to work with variants, pictures, and DSC tags. The connector pane displays the default data types for this polymorphic function.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "string/path",
+          "description": "Functions 760 ni.com string/path can be a string, a path, a variant, a picture string, a DSC tag, or an array or a cluster of these types.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "string_path"
+        },
+        {
+          "name": "empty?",
+          "description": "empty? is a Boolean value of the same data type structure as string/path. Decimal Digit? Function Decimal Digit? Function Returns TRUE if char represents a decimal digit ranging from 0 through 9. If char is a string, this function uses the first character in the string. If char is a number, this function interprets it as the ASCII value of a character. If char is a floating-point number, this function rounds to the nearest integer. Otherwise, this function returns FALSE. The connector pane displ",
+          "default_value": "data types for this polymorphic function",
+          "enum_values": null,
+          "python_param": "empty"
+        },
+        {
+          "name": "char",
+          "description": "char can be a scalar string or number, clusters of strings or numbers, arrays of strings or numbers, and so on.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "char"
+        },
+        {
+          "name": "digit?",
+          "description": "digit? is a Boolean value of the same data type structure as char. Examples Refer to the following example files included with LabVIEW.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "digit"
+        },
+        {
+          "name": "labview\\examples\\Comparison\\Compare Character Types.vi",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "labview_examples_comparison_compare_character_types_vi"
+        }
+      ]
+    },
+    {
+      "name": "Decimal Digit? Function",
+      "page": 761,
+      "category": "Comparison",
+      "description": "Returns TRUE if char represents a decimal digit ranging from 0 through 9. If char is a string, this function uses the first character in the string. If char is a number, this function interprets it as the ASCII value of a character. If char is a floating-point number, this function rounds to the nearest integer. Otherwise, this function returns FALSE. The connector pane displays the default data types for this polymorphic function.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "char",
+          "description": "char can be a scalar string or number, clusters of strings or numbers, arrays of strings or numbers, and so on.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "char"
+        },
+        {
+          "name": "digit?",
+          "description": "digit? is a Boolean value of the same data type structure as char. Examples Refer to the following example files included with LabVIEW.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "digit"
+        },
+        {
+          "name": "labview\\examples\\Comparison\\Compare Character Types.vi",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "labview_examples_comparison_compare_character_types_vi"
+        },
+        {
+          "name": "char",
+          "description": "char can be a scalar string or number, clusters of strings or numbers, arrays of strings or numbers, and so on.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "char"
+        },
+        {
+          "name": "hex?",
+          "description": "hex? is a Boolean value of the same data type structure as char. Examples Refer to the following example files included with LabVIEW.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "hex"
+        },
+        {
+          "name": "labview\\examples\\Comparison\\Compare Character Types.vi",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "labview_examples_comparison_compare_character_types_vi"
+        },
+        {
+          "name": "char",
+          "description": "char can be a scalar string or number, clusters of strings or numbers, arrays of strings or numbers, and so on.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "char"
+        },
+        {
+          "name": "octal?",
+          "description": "octal? is a Boolean value of the same data type structure as char. Examples Refer to the following example files included with LabVIEW.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "octal"
+        },
+        {
+          "name": "labview\\examples\\Comparison\\Compare Character Types.vi",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "labview_examples_comparison_compare_character_types_vi"
+        },
+        {
+          "name": "char",
+          "description": "Functions © National Instruments 763",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "char"
+        }
+      ]
+    },
+    {
+      "name": "Hex Digit? Function",
+      "page": 762,
+      "category": "Comparison",
+      "description": "Returns TRUE if char represents a hex digit ranging from 0 through 9, A through F, or a through f. If char is a string, this function uses the first character in the string. If char is a number, this function interprets it as the ASCII value of a character. If char is a floating-point number, this function rounds to the nearest integer. Otherwise, this function returns FALSE. The connector pane displays the default data types for this polymorphic function.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "char",
+          "description": "char can be a scalar string or number, clusters of strings or numbers, arrays of strings or numbers, and so on.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "char"
+        },
+        {
+          "name": "hex?",
+          "description": "hex? is a Boolean value of the same data type structure as char. Examples Refer to the following example files included with LabVIEW.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "hex"
+        },
+        {
+          "name": "labview\\examples\\Comparison\\Compare Character Types.vi",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "labview_examples_comparison_compare_character_types_vi"
+        },
+        {
+          "name": "char",
+          "description": "char can be a scalar string or number, clusters of strings or numbers, arrays of strings or numbers, and so on.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "char"
+        },
+        {
+          "name": "octal?",
+          "description": "octal? is a Boolean value of the same data type structure as char. Examples Refer to the following example files included with LabVIEW.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "octal"
+        },
+        {
+          "name": "labview\\examples\\Comparison\\Compare Character Types.vi",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "labview_examples_comparison_compare_character_types_vi"
+        },
+        {
+          "name": "char",
+          "description": "Functions",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "char"
+        }
+      ]
+    },
+    {
+      "name": "Octal Digit? Function",
+      "page": 762,
+      "category": "Comparison",
+      "description": "Returns TRUE if char represents an octal digit ranging from 0 through 7. If char is a string, this function uses the first character in the string. If char is a number, this function interprets it as the ASCII value of a character. If char is a floating-point number, this function rounds to the nearest integer. Otherwise, this function returns FALSE. Functions 762 ni.com The connector pane displays the default data types for this polymorphic function.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "char",
+          "description": "char can be a scalar string or number, clusters of strings or numbers, arrays of strings or numbers, and so on.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "char"
+        },
+        {
+          "name": "octal?",
+          "description": "octal? is a Boolean value of the same data type structure as char. Examples Refer to the following example files included with LabVIEW.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "octal"
+        },
+        {
+          "name": "labview\\examples\\Comparison\\Compare Character Types.vi",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "labview_examples_comparison_compare_character_types_vi"
+        },
+        {
+          "name": "char",
+          "description": "Functions",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "char"
+        }
+      ]
+    },
+    {
+      "name": "Printable? Function",
+      "page": 763,
+      "category": "Comparison",
+      "description": "Returns TRUE if char represents a printable ASCII character. If char is a string, this function uses the first character in the string. If char is a number, this function interprets it as the ASCII value of a character. If char is a floating-point number, this function rounds to the nearest integer. Otherwise, this function returns FALSE. The connector pane displays the default data types for this polymorphic function.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "char",
+          "description": "Functions © National Instruments 763 char can be a scalar string or number, clusters of strings or numbers, arrays of strings or numbers, and so on.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "char"
+        },
+        {
+          "name": "printable ASCII?",
+          "description": "printable ASCII? is a Boolean value of the same data type structure as char. Examples Refer to the following example files included with LabVIEW.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "printable_ascii"
+        },
+        {
+          "name": "labview\\examples\\Comparison\\Compare Character Types.vi",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "labview_examples_comparison_compare_character_types_vi"
+        },
+        {
+          "name": "char",
+          "description": "char can be a scalar string or number, clusters of strings or numbers, arrays of strings or numbers, and so on.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "char"
+        },
+        {
+          "name": "space, h/v tab, cr, lf, ff?",
+          "description": "space, h/v tab, cr, lf, ff? is a Boolean value of the same data type structure as char. Functions 764 ni.com Examples Refer to the following example files included with LabVIEW.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "space_h_v_tab_cr_lf_ff"
+        },
+        {
+          "name": "labview\\examples\\Comparison\\Compare Character Types.vi",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "labview_examples_comparison_compare_character_types_vi"
+        }
+      ]
+    },
+    {
+      "name": "White Space? Function",
+      "page": 764,
+      "category": "Comparison",
+      "description": "Returns TRUE if char represents a white space character, such as Space, Tab, Newline, Carriage Return, Form Feed, or Vertical Tab. If char is a string, this function uses the first character in the string. If char is a number, this function interprets it as the ASCII value of a character. If char is a floating-point number, this function rounds to the nearest integer. Otherwise, the function returns FALSE. The connector pane displays the default data types for this polymorphic function.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "char",
+          "description": "char can be a scalar string or number, clusters of strings or numbers, arrays of strings or numbers, and so on.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "char"
+        },
+        {
+          "name": "space, h/v tab, cr, lf, ff?",
+          "description": "space, h/v tab, cr, lf, ff? is a Boolean value of the same data type structure as char. Functions 764 ni.com Examples Refer to the following example files included with LabVIEW.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "space_h_v_tab_cr_lf_ff"
+        },
+        {
+          "name": "labview\\examples\\Comparison\\Compare Character Types.vi",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "labview_examples_comparison_compare_character_types_vi"
+        }
+      ]
+    },
+    {
+      "name": "Lexical Class Function",
+      "page": 765,
+      "category": "Comparison",
+      "description": "Returns the class number for char. If char is a string, this function uses the first character in the string. If char is a number, this function interprets it as the ASCII value of a character.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "char",
+          "description": "char can be a scalar string or number, clusters of strings or numbers, arrays of strings or numbers, and so on.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "char"
+        },
+        {
+          "name": "class number",
+          "description": "class number is a number that corresponds to the lexical class. Refer to the ASCII Codes table for the numbers that correspond to each character. Class Number Lexical Class 0 Extended characters (codes 128 through 255) 1 Non-displayable ASCII characters (codes 0 to 31 excluding 9 through 13) 2 White space characters: Space, Tab, Carriage Return, Form Feed, Newline, and Vertical Tab (codes 32, 9, 13, 12, 10, and 11, respectively) 3 Digits 0 through 9 4 Uppercase characters A through Z 5 Lowercase",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "class_number"
+        }
+      ]
+    },
+    {
+      "name": "Assert Type",
+      "page": 773,
+      "category": "Comparison",
+      "description": "Use the Assert Type VIs and functions in conjunction with the Type Specialization structure for the following purposes: • Customizing sections of code in a malleable VI (.vim) for specific data types • Forcing a malleable VI to accept only data types that meet certain requirements • Forcing a malleable VI to decline specific data types Palette Object Description Type Specialization Structure Has one or more subdiagrams, exactly one of which LabVIEW compiles and executes, depending on the order a",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_review",
+      "terminals": []
+    },
+    {
+      "name": "Type Specialization Structure",
+      "page": 777,
+      "category": "Comparison",
+      "description": "Has one or more subdiagrams, exactly one of which LabVIEW compiles and executes, depending on the order and the compilation result of the subdiagram. LabVIEW declines subdiagrams in order if they have syntax errors. LabVIEW accepts the first subdiagram that does not have syntax errors and ignores the remaining subdiagrams. Functions © National Instruments 777 If all subdiagrams have syntax errors, this structure accepts the last subdiagram. Syntax errors are errors within the structure, such as ",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "anything",
+          "description": "anything specifies the first input data type. LabVIEW ignores any run-time value on the wire connected to this input.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "anything"
+        },
+        {
+          "name": "reference",
+          "description": "reference specifies the second input data type, which you want to compare against x. To set the data type of this input, wire a constant or control of the desired data type to reference. LabVIEW ignores any run-time value on the wire connected to this input. For data types with subtypes, such as arrays, clusters, and some refnums, this function also checks array dimensions and subtypes, but not the subtype names. For example, this function causes the calling VI to break if one input data type is",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "reference"
+        }
+      ]
+    },
+    {
+      "name": "Assert Structural Type Match Function",
+      "page": 778,
+      "category": "Comparison",
+      "description": "Breaks the calling VI unless the two input data types are identical, ignoring type definitions and type names. Functions 778 ni.com This function does nothing at run time. Use this function in conjunction with the Type Specialization structure to customize sections of code in a malleable VI (.vim) for specific data types or to force a malleable VI to accept only data types that meet certain requirements.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "anything",
+          "description": "anything specifies the first input data type. LabVIEW ignores any run-time value on the wire connected to this input.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "anything"
+        },
+        {
+          "name": "reference",
+          "description": "reference specifies the second input data type, which you want to compare against x. To set the data type of this input, wire a constant or control of the desired data type to reference. LabVIEW ignores any run-time value on the wire connected to this input. For data types with subtypes, such as arrays, clusters, and some refnums, this function also checks array dimensions and subtypes, but not the subtype names. For example, this function causes the calling VI to break if one input data type is",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "reference"
+        }
+      ]
+    },
+    {
+      "name": "Assert Structural Type Mismatch",
+      "page": 779,
+      "category": "Comparison",
+      "description": "Breaks the calling VI if type is the same data type as any of the mismatch inputs, ignoring type definitions and type names. This function does nothing at run time. Use this function in conjunction with the Type Functions © National Instruments 779 Specialization structure to customize sections of code in a malleable VI (.vim) for specific data types or to force a malleable VI to decline specific data types.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "type",
+          "description": "type specifies the input data type. LabVIEW ignores any run-time value on the wire connected to this input.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "type"
+        },
+        {
+          "name": "mismatch",
+          "description": "mismatch specifies the data type that you want to compare against type. To set the data type of this input, wire a constant or control of the desired data type to mismatch. Wire one data type to each mismatch input you want to compare against type. LabVIEW ignores any run-time value on the wire connected to this input. Avoiding Unexpected Behavior in Your Malleable VI To avoid unexpected behavior in your malleable VI, you can use this function to force a specific subdiagram of your Type Speciali",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "mismatch"
+        }
+      ]
+    },
+    {
+      "name": "Assert Error Cluster Type VI",
+      "page": 781,
+      "category": "Comparison",
+      "description": "Breaks the calling VI unless the input data is an error cluster. This VI does nothing at run time. Use this VI in conjunction with the Type Specialization structure to customize sections of code in a malleable VI (.vim) for error clusters or to force a malleable VI to accept error clusters only. This VI does nothing at run time. Use this VI in conjunction with the Type Specialization structure to customize sections of code in a malleable VI (.vim) for error clusters or to force a malleable VI to",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "value in",
+          "description": "value in specifies the input data.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "value_in"
+        },
+        {
+          "name": "value out",
+          "description": "value out returns the input data if value in is an error cluster. Otherwise, this output returns an empty error cluster. Functions © National Instruments 781",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "value_out"
+        }
+      ]
+    },
+    {
+      "name": "Assert Array Dimension Count VI",
+      "page": 782,
+      "category": "Comparison",
+      "description": "Breaks the calling VI unless value in is an array with the same number of dimensions as array type. To check if each dimension has the same size, use the Assert Array Dimension Sizes VI. This VI does nothing at run time. Use this VI in conjunction with the Type Specialization structure to customize sections of code in a malleable VI (.vim) for certain array types or to force a malleable VI to accept certain array types only.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "array type",
+          "description": "array type specifies the input comparison array with the requirements that the input data must meet. This input accepts arrays of any data type. To set the data type of this input, wire a constant or control of the desired data type to array type. LabVIEW ignores any data in the constant or control wired to array type.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "array_type"
+        },
+        {
+          "name": "value in",
+          "description": "value in specifies the input data. This input accepts arrays that meet the requirements of array type.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "value_in"
+        },
+        {
+          "name": "value out",
+          "description": "value out returns the input data if value in is an array that meets the requirements. Otherwise, this output returns an empty array of array type.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "value_out"
+        }
+      ]
+    },
+    {
+      "name": "Assert Array Dimension Sizes VI",
+      "page": 782,
+      "category": "Comparison",
+      "description": "Breaks the calling VI unless value in is an array with the same number of dimensions Functions 782 ni.com as array type and each dimension in value in has the same size requirement (fixed, bounded, or variable-sized) and size (for fixed and bounded) as the corresponding dimension in array type. If you do not need to compare the size of each dimension, use the Assert Array Dimension Count VI. This VI does nothing at run time. Use this VI in conjunction with the Type Specialization structure to cu",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "array type",
+          "description": "array type specifies the input comparison array with the requirements that the input data must meet. This input accepts arrays of any data type. To set the data type of this input, wire a constant or control of the desired data type to array type. LabVIEW ignores any data in the constant or control wired to array type.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "array_type"
+        },
+        {
+          "name": "value in",
+          "description": "value in specifies the input data. This input accepts arrays that meet the requirements of array type.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "value_in"
+        },
+        {
+          "name": "value out",
+          "description": "value out returns the input data if value in is an array that meets the requirements. Otherwise, this output returns an empty array of array type.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "value_out"
+        }
+      ]
+    },
+    {
+      "name": "Assert Same or Descendant Type VI",
+      "page": 783,
+      "category": "Comparison",
+      "description": "Breaks the calling VI unless the input data is the same as or is a descendant of the Functions © National Instruments 783 input class or interface. This VI does nothing at run time. Use this VI in conjunction with the Type Specialization structure to customize sections of code in a malleable VI (.vim) for the specified class or interface or the descendants of the specified class or interface or to force a malleable VI to accept the specified class or interface or the descendants of the specified",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "ancestor type",
+          "description": "ancestor type specifies the input class or interface with the requirements that the input data must meet. This input accepts any class or interface. To set the class or interface of this input, wire a constant or control of the desired class or interface to ancestor type. LabVIEW ignores any data in the constant or control wired to ancestor type.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "ancestor_type"
+        },
+        {
+          "name": "value in",
+          "description": "value in specifies the input data. This input accepts the class or interface of ancestor type or descendants of ancestor type.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "value_in"
+        },
+        {
+          "name": "value out",
+          "description": "value out returns the input data if value in meets the requirements. Otherwise, this output returns the default value of ancestor type.",
+          "default_value": "value of ancestor type",
+          "enum_values": null,
+          "python_param": "value_out"
+        }
+      ]
+    },
+    {
+      "name": "Assert Scalar Numeric Or Waveform Type VI",
+      "page": 784,
+      "category": "Comparison",
+      "description": "Breaks the calling VI unless the input data is a scalar numeric or analog waveform type. This VI does nothing at run time. Use this VI in conjunction with the Type Specialization Functions 784 ni.com structure to customize sections of code in a malleable VI (.vim) for scalar numeric or waveform types or to force a malleable VI to accept scalar numeric or waveform types only.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "value in",
+          "description": "value in specifies the input data. This input accepts any scalar numeric or waveform data type.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "value_in"
+        },
+        {
+          "name": "value out",
+          "description": "value out returns the input data if value in is a scalar numeric or analog waveform type. Otherwise, this output returns a double-precision floating-point number 0.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "value_out"
+        }
+      ]
+    },
+    {
+      "name": "Assert Scalar Numeric Type VI",
+      "page": 785,
+      "category": "Comparison",
+      "description": "Breaks the calling VI unless the input data is a scalar numeric type. This VI does nothing at run time. Use this VI in conjunction with the Type Specialization structure to customize sections of code in a malleable VI (.vim) for scalar numeric types or to force a malleable VI to accept scalar numeric types only.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "value in",
+          "description": "value in specifies the input data. This input accepts any scalar numeric data type. Functions © National Instruments 785",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "value_in"
+        },
+        {
+          "name": "value out",
+          "description": "value out returns the input data if value in is a scalar numeric type. Otherwise, this output returns a double-precision floating-point number 0.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "value_out"
+        }
+      ]
+    },
+    {
+      "name": "Assert Real Numeric Or Waveform Type VI",
+      "page": 786,
+      "category": "Comparison",
+      "description": "Breaks the calling VI unless the input data is a non-complex numeric or analog waveform type. This VI does nothing at run time. Use this VI in conjunction with the Type Specialization structure to customize sections of code in a malleable VI (.vim) for non-complex numeric or waveform types or to force a malleable VI to accept non-complex numeric or analog waveform types only.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "value in",
+          "description": "value in specifies the input data. This input accepts any non-complex numeric or waveform data type.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "value_in"
+        },
+        {
+          "name": "value out",
+          "description": "value out returns the input data if value in is a non-complex numeric or analog waveform type. Otherwise, this output returns a double-precision floating-point number 0.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "value_out"
+        }
+      ]
+    },
+    {
+      "name": "Assert Real Numeric Type VI",
+      "page": 786,
+      "category": "Comparison",
+      "description": "Breaks the calling VI unless the input data is a non-complex numeric type. This VI does nothing at run time. Use this VI in conjunction with the Type Specialization structure to customize sections of code in a malleable VI (.vim) for non-complex numeric types or to force a malleable VI to accept non-complex numeric types only. Functions 786 ni.com",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "value in",
+          "description": "value in specifies the input data. This input accepts any non-complex numeric data type.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "value_in"
+        },
+        {
+          "name": "value out",
+          "description": "value out returns the input data if value in is a non-complex numeric type. Otherwise, this output returns a double-precision floating-point number 0.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "value_out"
+        }
+      ]
+    },
+    {
+      "name": "Assert Fractional Numeric Type VI",
+      "page": 787,
+      "category": "Comparison",
+      "description": "Breaks the calling VI unless the input data is a floating-point, complex floating-point, or fixed-point numeric type. This VI does nothing at run time. Use this VI in conjunction with the Type Specialization structure to customize sections of code in a malleable VI (.vim) for floating-point, complex floating-point, or fixed-point numeric types or to force a malleable VI to accept floating-point, complex floating-point, or fixed-point numeric types only.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "value in",
+          "description": "value in specifies the input data. This input accepts any floating-point, complex floating-point, or fixed-point numeric data type.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "value_in"
+        },
+        {
+          "name": "value out",
+          "description": "Functions © National Instruments 787 value out returns the input data if value in is a floating-point, complex floating-point, or fixed- point numeric type. Otherwise, this output returns a double-precision floating-point number 0.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "value_out"
+        }
+      ]
+    },
+    {
+      "name": "Assert Complex Numeric Type VI",
+      "page": 788,
+      "category": "Comparison",
+      "description": "Breaks the calling VI unless the input data is a complex numeric type. This VI does nothing at run time. Use this VI in conjunction with the Type Specialization structure to customize sections of code in a malleable VI (.vim) for complex numeric types or to force a malleable VI to accept complex numeric types only.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "value in",
+          "description": "value in specifies the input data. This input accepts any complex numeric data type.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "value_in"
+        },
+        {
+          "name": "value out",
+          "description": "value out returns the input data if value in is a complex numeric type. Otherwise, this output returns a complex double-precision number 0 +0 i. This output can return any complex numeric type.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "value_out"
+        }
+      ]
+    },
+    {
+      "name": "Assert Floating-Point Numeric Type VI",
+      "page": 788,
+      "category": "Comparison",
+      "description": "Breaks the calling VI unless the input data is a floating-point or complex floating-point numeric type. This VI does nothing at run time. Use this VI in conjunction with the Type Specialization structure to customize sections of code in a malleable VI (.vim) for floating-point or complex floating-point numeric types or to force a malleable VI to accept floating- Functions 788 ni.com point or complex floating-point numeric types only.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "value in",
+          "description": "value in specifies the input data. This input accepts any floating-point or complex floating-point numeric data type.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "value_in"
+        },
+        {
+          "name": "value out",
+          "description": "value out returns the input data if value in is a floating-point or complex floating-point numeric type. Otherwise, this output returns a double-precision floating-point number 0.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "value_out"
+        }
+      ]
+    },
+    {
+      "name": "Assert Real Floating-Point Numeric Type VI",
+      "page": 789,
+      "category": "Comparison",
+      "description": "Breaks the calling VI unless the input data is a non-complex floating-point numeric type. This VI does nothing at run time. Use this VI in conjunction with the Type Specialization structure to customize sections of code in a malleable VI (.vim) for non-complex floating-point numeric types or to force a malleable VI to accept non-complex floating- point numeric types only.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "value in",
+          "description": "value in specifies the input data. This input accepts any non-complex floating-point numeric data type. Functions © National Instruments 789",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "value_in"
+        },
+        {
+          "name": "value out",
+          "description": "value out returns the input data if value in is a non-complex floating-point numeric type. Otherwise, this output returns a double-precision floating-point number 0.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "value_out"
+        }
+      ]
+    },
+    {
+      "name": "Assert Integer Type VI",
+      "page": 790,
+      "category": "Comparison",
+      "description": "Breaks the calling VI unless the input data is an integer numeric type. This VI does nothing at run time. Use this VI in conjunction with the Type Specialization structure to customize sections of code in a malleable VI (.vim) for integer numeric types or to force a malleable VI to accept integer numeric types only.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "value in",
+          "description": "value in specifies the input data. This input accepts any integer numeric data type.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "value_in"
+        },
+        {
+          "name": "value out",
+          "description": "value out returns the input data if value in is an integer numeric type. Otherwise, this output returns a 32-bit signed integer 0.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "value_out"
+        }
+      ]
+    },
+    {
+      "name": "Assert Signed Integer Type VI",
+      "page": 790,
+      "category": "Comparison",
+      "description": "Breaks the calling VI unless the input data is a signed integer numeric type. This VI does nothing at run time. Use this VI in conjunction with the Type Specialization structure to customize sections of code in a malleable VI (.vim) for signed integer numeric types or to force a malleable VI to accept signed integer numeric types only. Functions 790 ni.com",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "value in",
+          "description": "value in specifies the input data. This input accepts any signed integer numeric data type.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "value_in"
+        },
+        {
+          "name": "value out",
+          "description": "value out returns the input data if value in is a signed integer numeric type. Otherwise, this output returns a 32-bit signed integer 0.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "value_out"
+        }
+      ]
+    },
+    {
+      "name": "Assert Unsigned Integer Type VI",
+      "page": 791,
+      "category": "Comparison",
+      "description": "Breaks the calling VI unless the input data is an unsigned integer numeric type. This VI does nothing at run time. Use this VI in conjunction with the Type Specialization structure to customize sections of code in a malleable VI (.vim) for unsigned integer numeric types or to force a malleable VI to accept unsigned integer numeric types only.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "value in",
+          "description": "value in specifies the input data. This input accepts any unsigned integer numeric data type.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "value_in"
+        },
+        {
+          "name": "value out",
+          "description": "value out returns the input data if value in is an unsigned integer numeric type. Otherwise, this output returns a 32-bit unsigned integer 0. Functions © National Instruments 791",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "value_out"
+        }
+      ]
+    },
+    {
+      "name": "Assert Fixed-Point Numeric Type VI",
+      "page": 792,
+      "category": "Comparison",
+      "description": "Breaks the calling VI unless the input data is a fixed-point numeric type. This VI does nothing at run time. Use this VI in conjunction with the Type Specialization structure to customize sections of code in a malleable VI (.vim) for fixed-point numeric data types or to force a malleable VI to accept fixed-point numeric types only. This VI does nothing at run time. Use this VI in conjunction with the Type Specialization structure to customize sections of code in a malleable VI (.vim) for fixed-p",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "value in",
+          "description": "value in specifies the input data.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "value_in"
+        },
+        {
+          "name": "value out",
+          "description": "value out returns the input data if value in is a fixed-point numeric type. Otherwise, this output returns a fixed-point number 0.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "value_out"
+        }
+      ]
+    },
+    {
+      "name": "Is Value Changed",
+      "page": 792,
+      "category": "Comparison",
+      "description": "Returns TRUE if this is the first call of this VI or if the input value is different from the value when this VI was last called.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "value",
+          "description": "Functions 792 ni.com value specifies the value to check. This input accepts any data type.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "value"
+        },
+        {
+          "name": "changed or first call?",
+          "description": "changed or first call? returns TRUE if this is the first call of this VI or if the value changed since the last time this VI was called. Otherwise, this output returns FALSE. Examples Refer to the following example files included with LabVIEW.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "changed_or_first_call"
+        },
+        {
+          "name": "labview\\examples\\Malleable VIs\\Basics\\Malleable VIs",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "labview_examples_malleable_vis_basics_malleable_vis"
+        },
+        {
+          "name": "path",
+          "description": "path specifies the path you want to check.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "path"
+        },
+        {
+          "name": "Is Path and Not Empty?",
+          "description": "Is Path and Not Empty? returns TRUE if path is any value other than <Not A Path> or an empty path. Otherwise, Is Path and Not Empty? returns FALSE. Fixed-Point Overflow? Function Fixed-Point Overflow? Function Returns TRUE if FXP includes an overflow status and FXP is the result of an operation that overflowed. Otherwise, this function returns FALSE. Functions",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "is_path_and_not_empty"
+        }
+      ]
+    },
+    {
+      "name": "Fixed-Point Overflow? Function",
+      "page": 793,
+      "category": "Comparison",
+      "description": "Returns TRUE if FXP includes an overflow status and FXP is the result of an operation that overflowed. Otherwise, this function returns FALSE. Functions © National Instruments 793",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "FXP",
+          "description": "FXP specifies a fixed-point number.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "fxp"
+        },
+        {
+          "name": "overflow?",
+          "description": "overflow? is TRUE if FXP includes an overflow status and FXP is the result of an operation that overflowed. If FXP does not include an overflow status, or if FXP includes an overflow status but is not the result of an operation that overflowed, overflow? is FALSE.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "overflow"
+        }
+      ]
+    },
+    {
+      "name": "Is Path and Not Empty?",
+      "page": 793,
+      "category": "Comparison",
+      "description": "Returns TRUE if path is any value other than <Not A Path> or an empty path. Otherwise, this VI returns FALSE.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "path",
+          "description": "path specifies the path you want to check.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "path"
+        },
+        {
+          "name": "Is Path and Not Empty?",
+          "description": "Is Path and Not Empty? returns TRUE if path is any value other than <Not A Path> or an empty path. Otherwise, Is Path and Not Empty? returns FALSE. Fixed-Point Overflow? Function Fixed-Point Overflow? Function Returns TRUE if FXP includes an overflow status and FXP is the result of an operation that overflowed. Otherwise, this function returns FALSE. Functions © National Instruments 793 Inputs/Outputs",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "is_path_and_not_empty"
+        },
+        {
+          "name": "FXP",
+          "description": "FXP specifies a fixed-point number.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "fxp"
+        },
+        {
+          "name": "overflow?",
+          "description": "overflow? is TRUE if FXP includes an overflow status and FXP is the result of an operation that overflowed. If FXP does not include an overflow status, or if FXP includes an overflow status but is not the result of an operation that overflowed, overflow? is FALSE.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "overflow"
         }
       ]
     }

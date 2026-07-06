@@ -1,0 +1,3225 @@
+{
+  "category": "Report Generation",
+  "count": 48,
+  "entries": [
+    {
+      "name": "Create Easy Text Report",
+      "page": 2453,
+      "category": "Report Generation",
+      "description": "Allows you to pass in a block of text along with optional formatting information and print the report to a designated printer or publish the report to a specified file path.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "font settings",
+          "description": "font settings indicates the font settings a report uses.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "font_settings"
+        },
+        {
+          "name": "charset (-1)",
+          "description": "charset is the character set to use for report text. The default is -1.",
+          "default_value": "-1",
+          "enum_values": null,
+          "python_param": "charset_1"
+        },
+        {
+          "name": "weight (-1)",
+          "description": "weight is the thickness of the font. The default is -1.",
+          "default_value": "-1",
+          "enum_values": null,
+          "python_param": "weight_1"
+        },
+        {
+          "name": "name",
+          "description": "name is the font name.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "name"
+        },
+        {
+          "name": "size",
+          "description": "size is the font size.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "size"
+        },
+        {
+          "name": "print or save?",
+          "description": "print or save? specifies whether the VI prints or saves the report. The default is print. Set this input to save if you specify a file path in printer name or file path. Functions",
+          "default_value": "print",
+          "enum_values": null,
+          "python_param": "print_or_save"
+        }
+      ]
+    },
+    {
+      "name": "Print VI Panel or Documentation",
+      "page": 2457,
+      "category": "Report Generation",
+      "description": "Prints a front panel or VI documentation or saves the front panel or VI documentation to a report. • Print VI Panel or Documentation (path) VI • Print VI Panel or Documentation (refnum) VI • Print VI Panel or Documentation (string) VI If a front panel is not visible, LabVIEW does not update the values in the objects on the front panel. If you call a VI whose front panel is not visible and you use the Print VI Panel or Documentation VI to create an image of the front panel, the image does not ref",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "layout options",
+          "description": "layout options sets the page layout and printing options for the report, if report type is Quick Print. Otherwise, LabVIEW ignores this input.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "layout_options"
+        },
+        {
+          "name": "orientation (unchanged)",
+          "description": "orientation specifies the page orientation of the report. You also can use the Printing:Page Orientation property to set the page orientation programmatically. 0 Unchanged (default)—Uses the default setting for the VI. 1 Portrait—Prints the report so the short edge of the paper is the top of the page. 2 Landscape—Prints the report so the long edge of the paper is the top of the page.",
+          "default_value": "setting for the VI",
+          "enum_values": [
+            [
+              0,
+              "Unchanged (default)"
+            ],
+            [
+              1,
+              "Portrait"
+            ],
+            [
+              2,
+              "Landscape"
+            ]
+          ],
+          "python_param": "orientation_unchanged"
+        },
+        {
+          "name": "panel scaling for page (unchanged)",
+          "description": "panel scaling for page sets whether to scale the front panel so it fits on the printed page. Functions 2458 ni.com You also can use the Printing:Front Panel Scaling? property to set the scaling option programmatically. 0 Unchanged (default)—Uses the default setting for the VI. 1 No Scaling—Does not scale the front panel to fit on the printed page. 2 Scale front panel to fit—Scales the front panel to fit on the printed page.",
+          "default_value": "setting for the VI",
+          "enum_values": [
+            [
+              1,
+              "No Scaling"
+            ],
+            [
+              2,
+              "Scale front panel to fit"
+            ]
+          ],
+          "python_param": "panel_scaling_for_page_unchanged"
+        },
+        {
+          "name": "margins",
+          "description": "margins sets the page margins of the printed report and the units of measurement for the margins. You also can use the Printing:Margins property to set the page margins programmatically.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "margins"
+        },
+        {
+          "name": "override VI margins (false)",
+          "description": "If override VI margins is TRUE, the VI uses the margins you set in margins. If FALSE (default), the VI uses the default margins for the VI.",
+          "default_value": "margins for the VI",
+          "enum_values": null,
+          "python_param": "override_vi_margins_false"
+        },
+        {
+          "name": "margins (1.00)",
+          "description": "margins sets the size of the page margins. The default is 1.00 for each margin. If the margins are smaller than the minimum margins for the printer, the VI returns an error.",
+          "default_value": "1",
+          "enum_values": null,
+          "python_param": "margins_1_00"
+        },
+        {
+          "name": "top",
+          "description": "top sets the distance in inches or centimeters between the top of the page and the top of the content on the page.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "top"
+        },
+        {
+          "name": "left",
+          "description": "left sets the distance in inches or centimeters between the left edge of the page and the left edge of the content on the page.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "left"
+        },
+        {
+          "name": "right",
+          "description": "Functions",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "right"
+        }
+      ]
+    },
+    {
+      "name": "Print VI Panel or Documentation (path) VI",
+      "page": 2458,
+      "category": "Report Generation",
+      "description": "Prints a front panel or VI documentation or saves the front panel or VI documentation to a report.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "layout options",
+          "description": "layout options sets the page layout and printing options for the report, if report type is Quick Print. Otherwise, LabVIEW ignores this input.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "layout_options"
+        },
+        {
+          "name": "orientation (unchanged)",
+          "description": "orientation specifies the page orientation of the report. You also can use the Printing:Page Orientation property to set the page orientation programmatically. 0 Unchanged (default)—Uses the default setting for the VI. 1 Portrait—Prints the report so the short edge of the paper is the top of the page. 2 Landscape—Prints the report so the long edge of the paper is the top of the page.",
+          "default_value": "setting for the VI",
+          "enum_values": [
+            [
+              0,
+              "Unchanged (default)"
+            ],
+            [
+              1,
+              "Portrait"
+            ],
+            [
+              2,
+              "Landscape"
+            ]
+          ],
+          "python_param": "orientation_unchanged"
+        },
+        {
+          "name": "panel scaling for page (unchanged)",
+          "description": "panel scaling for page sets whether to scale the front panel so it fits on the printed page. Functions 2458 ni.com You also can use the Printing:Front Panel Scaling? property to set the scaling option programmatically. 0 Unchanged (default)—Uses the default setting for the VI. 1 No Scaling—Does not scale the front panel to fit on the printed page. 2 Scale front panel to fit—Scales the front panel to fit on the printed page.",
+          "default_value": "setting for the VI",
+          "enum_values": [
+            [
+              1,
+              "No Scaling"
+            ],
+            [
+              2,
+              "Scale front panel to fit"
+            ]
+          ],
+          "python_param": "panel_scaling_for_page_unchanged"
+        },
+        {
+          "name": "margins",
+          "description": "margins sets the page margins of the printed report and the units of measurement for the margins. You also can use the Printing:Margins property to set the page margins programmatically.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "margins"
+        },
+        {
+          "name": "override VI margins (false)",
+          "description": "If override VI margins is TRUE, the VI uses the margins you set in margins. If FALSE (default), the VI uses the default margins for the VI.",
+          "default_value": "margins for the VI",
+          "enum_values": null,
+          "python_param": "override_vi_margins_false"
+        },
+        {
+          "name": "margins (1.00)",
+          "description": "margins sets the size of the page margins. The default is 1.00 for each margin. If the margins are smaller than the minimum margins for the printer, the VI returns an error.",
+          "default_value": "1",
+          "enum_values": null,
+          "python_param": "margins_1_00"
+        },
+        {
+          "name": "top",
+          "description": "top sets the distance in inches or centimeters between the top of the page and the top of the content on the page.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "top"
+        },
+        {
+          "name": "left",
+          "description": "left sets the distance in inches or centimeters between the left edge of the page and the left edge of the content on the page.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "left"
+        },
+        {
+          "name": "right",
+          "description": "Functions",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "right"
+        }
+      ]
+    },
+    {
+      "name": "Print VI Panel or Documentation (refnum) VI",
+      "page": 2467,
+      "category": "Report Generation",
+      "description": "Prints a front panel or VI documentation or saves the front panel or VI documentation to a report.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "layout options",
+          "description": "layout options sets the page layout and printing options for the report, if report type is Quick Print. Otherwise, LabVIEW ignores this input.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "layout_options"
+        },
+        {
+          "name": "orientation (unchanged)",
+          "description": "Functions © National Instruments 2467 orientation specifies the page orientation of the report. You also can use the Printing:Page Orientation property to set the page orientation programmatically. 0 Unchanged (default)—Uses the default setting for the VI. 1 Portrait—Prints the report so the short edge of the paper is the top of the page. 2 Landscape—Prints the report so the long edge of the paper is the top of the page.",
+          "default_value": "setting for the VI",
+          "enum_values": [
+            [
+              1,
+              "Portrait"
+            ],
+            [
+              2,
+              "Landscape"
+            ]
+          ],
+          "python_param": "orientation_unchanged"
+        },
+        {
+          "name": "panel scaling for page (unchanged)",
+          "description": "panel scaling for page sets whether to scale the front panel so it fits on the printed page. You also can use the Printing:Front Panel Scaling? property to set the scaling option programmatically. 0 Unchanged (default)—Uses the default setting for the VI. 1 No Scaling—Does not scale the front panel to fit on the printed page. 2 Scale front panel to fit—Scales the front panel to fit on the printed page.",
+          "default_value": "setting for the VI",
+          "enum_values": [
+            [
+              0,
+              "Unchanged (default)"
+            ],
+            [
+              1,
+              "No Scaling"
+            ],
+            [
+              2,
+              "Scale front panel to fit"
+            ]
+          ],
+          "python_param": "panel_scaling_for_page_unchanged"
+        },
+        {
+          "name": "margins",
+          "description": "margins sets the page margins of the printed report and the units of measurement for the margins. You also can use the Printing:Margins property to set the page margins programmatically.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "margins"
+        },
+        {
+          "name": "override VI margins (false)",
+          "description": "If override VI margins is TRUE, the VI uses the margins you set in margins. If FALSE (default), the VI uses the default margins for the VI.",
+          "default_value": "margins for the VI",
+          "enum_values": null,
+          "python_param": "override_vi_margins_false"
+        },
+        {
+          "name": "margins (1.00)",
+          "description": "margins sets the size of the page margins. The default is 1.00 for each margin. If the margins are smaller than the minimum margins for the printer, the VI returns an error. Functions 2468 ni.com",
+          "default_value": "1",
+          "enum_values": null,
+          "python_param": "margins_1_00"
+        },
+        {
+          "name": "top",
+          "description": "top sets the distance in inches or centimeters between the top of the page and the top of the content on the page.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "top"
+        },
+        {
+          "name": "left",
+          "description": "left sets the distance in inches or centimeters between the left edge of the page and the left edge of the content on the page.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "left"
+        },
+        {
+          "name": "right",
+          "description": "right sets the distance in inches or centimeters between the right edge of the page and the right edge of the content on the page.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "right"
+        },
+        {
+          "name": "bottom",
+          "description": "bottom sets the distance in inches or centimeters between the bottom of the page and the bottom of the content on the page.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "bottom"
+        },
+        {
+          "name": "measurement system (default)",
+          "description": "measurement system sets the units of measurement for the margins. 0 Default—Sets the margins in inches. 1 US—Sets the margins in inches. 2 Metric—Sets the margins in centimeters.",
+          "default_value": null,
+          "enum_values": [
+            [
+              0,
+              "Default"
+            ],
+            [
+              1,
+              "US"
+            ],
+            [
+              2,
+              "Metric"
+            ]
+          ],
+          "python_param": "measurement_system_default"
+        },
+        {
+          "name": "printer options",
+          "description": "printer options sets the printer to use and the printer options. The VI uses this input only if report type is 0.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "printer_options"
+        },
+        {
+          "name": "destination printer name (current)",
+          "description": "Functions © National Instruments 2469",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "destination_printer_name_current"
+        }
+      ]
+    },
+    {
+      "name": "Print VI Panel or Documentation (string) VI",
+      "page": 2476,
+      "category": "Report Generation",
+      "description": "Prints a front panel or VI documentation or saves the front panel or VI documentation to a report. Functions 2476 ni.com",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "layout options",
+          "description": "layout options sets the page layout and printing options for the report, if report type is Quick Print. Otherwise, LabVIEW ignores this input.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "layout_options"
+        },
+        {
+          "name": "orientation (unchanged)",
+          "description": "orientation specifies the page orientation of the report. You also can use the Printing:Page Orientation property to set the page orientation programmatically. 0 Unchanged (default)—Uses the default setting for the VI. 1 Portrait—Prints the report so the short edge of the paper is the top of the page. 2 Landscape—Prints the report so the long edge of the paper is the top of the page.",
+          "default_value": "setting for the VI",
+          "enum_values": [
+            [
+              0,
+              "Unchanged (default)"
+            ],
+            [
+              1,
+              "Portrait"
+            ],
+            [
+              2,
+              "Landscape"
+            ]
+          ],
+          "python_param": "orientation_unchanged"
+        },
+        {
+          "name": "panel scaling for page (unchanged)",
+          "description": "panel scaling for page sets whether to scale the front panel so it fits on the printed page. You also can use the Printing:Front Panel Scaling? property to set the scaling option programmatically. 0 Unchanged (default)—Uses the default setting for the VI. 1 No Scaling—Does not scale the front panel to fit on the printed page. 2 Scale front panel to fit—Scales the front panel to fit on the printed page.",
+          "default_value": "setting for the VI",
+          "enum_values": [
+            [
+              0,
+              "Unchanged (default)"
+            ],
+            [
+              1,
+              "No Scaling"
+            ],
+            [
+              2,
+              "Scale front panel to fit"
+            ]
+          ],
+          "python_param": "panel_scaling_for_page_unchanged"
+        },
+        {
+          "name": "margins",
+          "description": "margins sets the page margins of the printed report and the units of measurement for the margins. You also can use the Printing:Margins property to set the page margins programmatically.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "margins"
+        },
+        {
+          "name": "override VI margins (false)",
+          "description": "If override VI margins is TRUE, the VI uses the margins you set in margins. If FALSE (default), the VI uses the default margins for the VI. Functions",
+          "default_value": "margins for the VI",
+          "enum_values": null,
+          "python_param": "override_vi_margins_false"
+        }
+      ]
+    },
+    {
+      "name": "Append Front Panel Image to Report",
+      "page": 2487,
+      "category": "Report Generation",
+      "description": "Creates an image of the front panel of the VI you specify in VI and appends it to a report. Wire data to the VI input to determine the polymorphic instance to use or manually select the instance. The VI also includes an instance whose connector pane is compatible with versions of the VI in LabVIEW 6.1 and earlier. • Append Front Panel Image to Report (path) VI • Append Front Panel Image to Report (refnum) VI • Append Front Panel Image to Report (string) VI For an HTML report, the VI saves the im",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "image format (jpeg)",
+          "description": "image format sets the format in which to save the image. 0 PNG 1 JPEG (default) 2 GIF include it in a stand-alone application. Functions 2488 ni.com",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "image_format_jpeg"
+        },
+        {
+          "name": "alignment (default)",
+          "description": "alignment sets the alignment of the image in a report. (Report Generation Toolkit) For Microsoft Word reports, you can use only the LEFT, RIGHT, and MIDDLE options. 0 (default)—The VI does not add an ALIGN attribute to the <IMG> tag. 1 LEFT 2 RIGHT 3 TOP 4 TEXTTOP 5 MIDDLE 6 ABSMIDDLE 7 BASELINE 8 BOTTOM 9 ABSBOTTOM",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "alignment_default"
+        },
+        {
+          "name": "report in",
+          "description": "report in is a reference to the report whose appearance, data, and printing you want to control. Use the Create Report VI to generate this LabVIEW class object.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "report_in"
+        },
+        {
+          "name": "VI",
+          "description": "VI is the path to the VI whose image you want to append to the report. The default is the path to the VI that contains this VI as a subVI.",
+          "default_value": "the path to the VI that contains this VI as a subVI",
+          "enum_values": null,
+          "python_param": "vi"
+        },
+        {
+          "name": "description",
+          "description": "description is the description of the graphic to display if you open the HTML report in a Web browser set to display text only.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "description"
+        },
+        {
+          "name": "error in (no error)",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in_no_error"
+        },
+        {
+          "name": "visible area only?",
+          "description": "If visible area only? is TRUE, the VI creates an image of only the currently visible portion of the front panel. The default is FALSE.",
+          "default_value": "FALSE",
+          "enum_values": null,
+          "python_param": "visible_area_only"
+        },
+        {
+          "name": "MS Office parameters",
+          "description": "Functions",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "ms_office_parameters"
+        }
+      ]
+    },
+    {
+      "name": "Append VI Block Diagram to Report",
+      "page": 2499,
+      "category": "Report Generation",
+      "description": "Creates an image of the block diagram of the VI you specify in VI and appends the image to a report. Wire data to the VI input to determine the polymorphic instance to use or manually select the instance. You also can use the Get Diagram Image Scaled method to return a block diagram image programmatically. Note If you set Image Format to GIF, the VI does not work when you include it in a stand-alone application. Note You cannot include the Append VI Block Diagram to Report VI in a stand-alone ap",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "image format (jpeg)",
+          "description": "image format sets the format in which to save the image. 0 PNG 1 JPEG (default) 2 GIF",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "image_format_jpeg"
+        },
+        {
+          "name": "hidden frames",
+          "description": "Note You cannot include the Append VI Block Diagram to Report VI in a stand-alone application. Functions 2500 ni.com If hidden frames is TRUE, the block diagram image includes all visible subdiagrams of each Case, Event, and Stacked Sequence structure, followed by all hidden subdiagrams for each structure. If FALSE (default), the image includes only visible subdiagrams.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "hidden_frames"
+        },
+        {
+          "name": "report in",
+          "description": "report in is a reference to the report whose appearance, data, and printing you want to control. Use the Create Report VI to generate this LabVIEW class object.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "report_in"
+        },
+        {
+          "name": "VI",
+          "description": "VI is the path to the VI whose image you want to append to the report. The default is the path to the VI that contains this VI as a subVI.",
+          "default_value": "the path to the VI that contains this VI as a subVI",
+          "enum_values": null,
+          "python_param": "vi"
+        },
+        {
+          "name": "alignment (default)",
+          "description": "alignment sets the alignment of the image in a report. (Report Generation Toolkit) For Microsoft Word reports, you can use only the LEFT, RIGHT, and MIDDLE options. 0 (default)—The VI does not add an ALIGN attribute to the <IMG> tag. 1 LEFT 2 RIGHT 3 TOP 4 TEXTTOP 5 MIDDLE 6 ABSMIDDLE 7 BASELINE 8 BOTTOM 9 ABSBOTTOM",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "alignment_default"
+        },
+        {
+          "name": "error in (no error)",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in_no_error"
+        },
+        {
+          "name": "ordered (repeat from higher level if nested)",
+          "description": "If ordered is TRUE, the block diagram image includes all visible subdiagrams of each Case, Event, and Stacked Sequence structure, followed by all subdiagrams for each structure in order, including visible and hidden subdiagrams. If FALSE (default), the image does not repeat visible subdiagrams in the ordered list of subdiagrams. Functions",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "ordered_repeat_from_higher_level_if_nested"
+        }
+      ]
+    },
+    {
+      "name": "Append VI Description to Report",
+      "page": 2510,
+      "category": "Report Generation",
+      "description": "Appends the description of the VI you specify in VI to a report. Wire data to the VI input to determine the polymorphic instance to use or manually select the instance. • Append VI Description to Report (path) VI • Append VI Description to Report (refnum) VI • Append VI Description to Report (string) VI Note You cannot include the Append VI Description to Report VI in a stand- alone application. Functions 2510 ni.com Append VI Description to Report (path) VI Append VI Description to Report (path",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "report in",
+          "description": "report in is a reference to the report whose appearance, data, and printing you want to control. Use the Create Report VI to generate this LabVIEW class object.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "report_in"
+        },
+        {
+          "name": "VI",
+          "description": "VI is the path to the VI whose image you want to append to the report. The default is the path to the VI that contains this VI as a subVI.",
+          "default_value": "the path to the VI that contains this VI as a subVI",
+          "enum_values": null,
+          "python_param": "vi"
+        },
+        {
+          "name": "error in (no error)",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in_no_error"
+        },
+        {
+          "name": "MS Office parameters",
+          "description": "MS Office parameters (Report Generation Toolkit) specifies the point in a Microsoft Word or Excel report where you want an insertion to occur. The VI ignores this input for HTML reports. You can specify a bookmark in Word or a named range or cell coordinates in Excel. If you set the report type to Word but do not specify a bookmark, the insertion occurs at the end of the document. Note You cannot include the Append VI Description to Report VI in a stand- alone application. Functions",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "ms_office_parameters"
+        }
+      ]
+    },
+    {
+      "name": "Append VI Icon to Report",
+      "page": 2517,
+      "category": "Report Generation",
+      "description": "Appends the icon of the VI you specify in VI to a report. Wire data to the VI input to determine the polymorphic instance to use or manually select the instance. Note The Append VI Icon to Report VI does not work when you include it in a stand-alone application. Functions © National Instruments 2517 • Append VI Icon to Report (path) VI • Append VI Icon to Report (refnum) VI • Append VI Icon to Report (string) VI Append VI Icon to Report (path) VI Append VI Icon to Report (path) VI Appends the ic",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "image format (jpeg)",
+          "description": "image format sets the format in which to save the image. 0 PNG 1 JPEG (default) 2 GIF",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "image_format_jpeg"
+        },
+        {
+          "name": "report in",
+          "description": "report in is a reference to the report whose appearance, data, and printing you want to control. Use the Create Report VI to generate this LabVIEW class object.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "report_in"
+        },
+        {
+          "name": "VI",
+          "description": "VI is the path to the VI whose image you want to append to the report. The default is the path to Note The Append VI Icon to Report VI does not work when you include it in a stand-alone application. Functions 2518 ni.com the VI that contains this VI as a subVI.",
+          "default_value": "the path to Note The Append VI Icon to Report VI does not work when you include it in a stand-alone application",
+          "enum_values": null,
+          "python_param": "vi"
+        },
+        {
+          "name": "alignment (default)",
+          "description": "alignment sets the alignment of the image in a report. (Report Generation Toolkit) For Microsoft Word reports, you can use only the LEFT, RIGHT, and MIDDLE options. 0 (default)—The VI does not add an ALIGN attribute to the <IMG> tag. 1 LEFT 2 RIGHT 3 TOP 4 TEXTTOP 5 MIDDLE 6 ABSMIDDLE 7 BASELINE 8 BOTTOM 9 ABSBOTTOM",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "alignment_default"
+        },
+        {
+          "name": "caption or alternative string",
+          "description": "caption or alternative string is the text to display instead of the image if you view the report in a Web browser set to display only text.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "caption_or_alternative_string"
+        },
+        {
+          "name": "error in (no error)",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in_no_error"
+        },
+        {
+          "name": "MS Office parameters",
+          "description": "MS Office parameters (Report Generation Toolkit) specifies the point in a Microsoft Word or Excel report where you want an insertion to occur. The VI ignores this input for HTML reports. You can specify a bookmark in Word or a named range or cell coordinates in Excel. If you set the report type to Word but do not specify a bookmark, the insertion occurs at the end of the document.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "ms_office_parameters"
+        },
+        {
+          "name": "position (Excel)",
+          "description": "position contains the row and column coordinates of the point in an Excel worksheet from Functions",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "position_excel"
+        }
+      ]
+    },
+    {
+      "name": "Append VI Hierarchy to Report",
+      "page": 2527,
+      "category": "Report Generation",
+      "description": "Appends the hierarchy of the VI you specify in VI to a report. Wire data to the VI input to determine the polymorphic instance to use or manually select the instance. • Append VI Hierarchy to Report (path) VI • Append VI Hierarchy to Report (refnum) VI • Append VI Hierarchy to Report (string) VI Append VI Hierarchy to Report (path) VI Append VI Hierarchy to Report (path) VI Appends the hierarchy of the VI you specify in VI to a report. Wire data to the VI input to determine the polymorphic insta",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "image format (jpeg)",
+          "description": "image format sets the format in which to save the image. 0 PNG 1 JPEG (default) 2 GIF",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "image_format_jpeg"
+        },
+        {
+          "name": "report in",
+          "description": "report in is a reference to the report whose appearance, data, and printing you want to control. Use the Create Report VI to generate this LabVIEW class object.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "report_in"
+        },
+        {
+          "name": "VI",
+          "description": "VI is the path to the VI whose image you want to append to the report. The default is the path to the VI that contains this VI as a subVI.",
+          "default_value": "the path to the VI that contains this VI as a subVI",
+          "enum_values": null,
+          "python_param": "vi"
+        },
+        {
+          "name": "alignment (default)",
+          "description": "alignment sets the alignment of the image in a report. (Report Generation Toolkit) For Microsoft Word reports, you can use only the LEFT, RIGHT, and MIDDLE options. 0 (default)—The VI does not add an ALIGN attribute to the <IMG> tag. 1 LEFT 2 RIGHT 3 TOP 4 TEXTTOP 5 MIDDLE 6 ABSMIDDLE 7 BASELINE 8 BOTTOM Functions 2528 ni.com 9 ABSBOTTOM",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "alignment_default"
+        },
+        {
+          "name": "error in (no error)",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in_no_error"
+        },
+        {
+          "name": "MS Office parameters",
+          "description": "MS Office parameters (Report Generation Toolkit) specifies the point in a Microsoft Word or Excel report where you want an insertion to occur. The VI ignores this input for HTML reports. You can specify a bookmark in Word or a named range or cell coordinates in Excel. If you set the report type to Word but do not specify a bookmark, the insertion occurs at the end of the document.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "ms_office_parameters"
+        },
+        {
+          "name": "position (Excel)",
+          "description": "position contains the row and column coordinates of the point in an Excel worksheet from which the insertion occurs. Row and column values in Excel are zero-based, so the row and column coordinates of (0,0) correspond to cell A1.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "position_excel"
+        },
+        {
+          "name": "row",
+          "description": "rows specifies the row index.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "row"
+        },
+        {
+          "name": "column",
+          "description": "columns specifies the column index.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "column"
+        },
+        {
+          "name": "name (Excel)",
+          "description": "name contains the name of the cell in a Microsoft Excel worksheet from which the insertion occurs.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "name_excel"
+        },
+        {
+          "name": "bookmark (Word)",
+          "description": "bookmark contains the name of the bookmark in a Word document from which the Functions",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "bookmark_word"
+        }
+      ]
+    },
+    {
+      "name": "Append VI History to Report",
+      "page": 2536,
+      "category": "Report Generation",
+      "description": "Appends the revision history of the VI you specify in VI to a report. Wire data to the VI input to determine the polymorphic instance to use or manually select the instance. Note You cannot include the Append VI History to Report VI in a stand-alone application. Functions 2536 ni.com • Append VI History to Report (path) VI • Append VI History to Report (refnum) VI • Append VI History to Report (string) VI Append VI History to Report (path) VI Append VI History to Report (path) VI Appends the rev",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "report in",
+          "description": "report in is a reference to the report whose appearance, data, and printing you want to control. Use the Create Report VI to generate this LabVIEW class object.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "report_in"
+        },
+        {
+          "name": "VI",
+          "description": "VI is the path to the VI whose image you want to append to the report. The default is the path to the VI that contains this VI as a subVI.",
+          "default_value": "the path to the VI that contains this VI as a subVI",
+          "enum_values": null,
+          "python_param": "vi"
+        },
+        {
+          "name": "error in (no error)",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in_no_error"
+        },
+        {
+          "name": "MS Office parameters",
+          "description": "MS Office parameters (Report Generation Toolkit) specifies the point in a Microsoft Word or Excel report where you want an insertion to occur. The VI ignores this input for HTML reports. Note You cannot include the Append VI History to Report VI in a stand-alone application. Functions",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "ms_office_parameters"
+        }
+      ]
+    },
+    {
+      "name": "Append VI List of Controls to Report",
+      "page": 2543,
+      "category": "Report Generation",
+      "description": "Appends a list of controls and indicators of the VI you specify in VI to a report. Wire data to the VI input to determine the polymorphic instance to use or manually select the instance. Note You cannot include the Append VI List of Controls to Report VI in a Functions © National Instruments 2543 • Append VI List of Controls to Report (path) VI • Append VI List of Controls to Report (refnum) VI • Append VI List of Controls to Report (string) VI Append VI List of Controls to Report (path) VI Appe",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "image format (jpeg)",
+          "description": "image format sets the format in which to save the image. 0 PNG 1 JPEG stand-alone application. Note You cannot include the Append VI List of Controls to Report VI in a stand-alone application. Functions 2544 ni.com (default) 2 GIF",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "image_format_jpeg"
+        },
+        {
+          "name": "include only controls in con pane?",
+          "description": "If include only controls in con pane? is TRUE, the report includes only connected controls and indicators. If FALSE (default), the report includes all controls and indicators.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "include_only_controls_in_con_pane"
+        },
+        {
+          "name": "report in",
+          "description": "report in is a reference to the report whose appearance, data, and printing you want to control. Use the Create Report VI to generate this LabVIEW class object.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "report_in"
+        },
+        {
+          "name": "VI",
+          "description": "VI is the path to the VI whose image you want to append to the report. The default is the path to the VI that contains this VI as a subVI.",
+          "default_value": "the path to the VI that contains this VI as a subVI",
+          "enum_values": null,
+          "python_param": "vi"
+        },
+        {
+          "name": "alignment (default)",
+          "description": "alignment sets the alignment of the image in a report. (Report Generation Toolkit) For Microsoft Word reports, you can use only the LEFT, RIGHT, and MIDDLE options. 0 (default)—The VI does not add an ALIGN attribute to the <IMG> tag. 1 LEFT 2 RIGHT 3 TOP 4 TEXTTOP 5 MIDDLE 6 ABSMIDDLE 7 BASELINE 8 BOTTOM 9 ABSBOTTOM",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "alignment_default"
+        },
+        {
+          "name": "error in (no error)",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in_no_error"
+        },
+        {
+          "name": "include control descriptions?",
+          "description": "Functions",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "include_control_descriptions"
+        }
+      ]
+    },
+    {
+      "name": "Append VI List of SubVIs to Report",
+      "page": 2554,
+      "category": "Report Generation",
+      "description": "Appends a list of subVIs of the VI you specify in VI to a report. The list includes subVI icons, names, and paths. Wire data to the VI input to determine the polymorphic instance to use or manually select the instance. • Append VI List of SubVIs to Report (path) VI • Append VI List of SubVIs to Report (refnum) VI • Append VI List of SubVIs to Report (string) VI Append VI List of SubVIs to Report (path) VI Append VI List of SubVIs to Report (path) VI Appends a list of subVIs of the VI you specify",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "image format (jpeg)",
+          "description": "image format sets the format in which to save the image. 0 PNG 1 JPEG (default) 2 GIF",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "image_format_jpeg"
+        },
+        {
+          "name": "report in",
+          "description": "report in is a reference to the report whose appearance, data, and printing you want to control. Use the Create Report VI to generate this LabVIEW class object.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "report_in"
+        },
+        {
+          "name": "VI",
+          "description": "VI is the path to the VI whose image you want to append to the report. The default is the path to the VI that contains this VI as a subVI.",
+          "default_value": "the path to the VI that contains this VI as a subVI",
+          "enum_values": null,
+          "python_param": "vi"
+        },
+        {
+          "name": "alignment (default)",
+          "description": "alignment sets the alignment of the image in a report. (Report Generation Toolkit) For Microsoft Word reports, you can use only the LEFT, RIGHT, and MIDDLE options. 0 (default)—The VI does not add an ALIGN attribute to the <IMG> tag. Note You cannot include the Append VI List of SubVIs to Report VI in a stand- alone application. Functions",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "alignment_default"
+        }
+      ]
+    },
+    {
+      "name": "Create Report",
+      "page": 2564,
+      "category": "Report Generation",
+      "description": "Creates a new report. If you do not use the Create Easy Text Report VI, to create a report, you must use this VI.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "window state (normal)",
+          "description": "window state (Report Generation Toolkit) sets the Microsoft Word or Excel window to display as normal, minimized, or maximized. The VI ignores this input for HTML reports. 0 maximized 1 minimized 2 normal (default) 3 no change",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "window_state_normal"
+        },
+        {
+          "name": "display alerts? (F)",
+          "description": "display alerts? (Report Generation Toolkit) determines whether prompts and alerts appear in Microsoft Word or Excel. The default is FALSE, which disables alerts. The VI ignores this input for HTML reports.",
+          "default_value": "FALSE, which disables alerts",
+          "enum_values": null,
+          "python_param": "display_alerts_f"
+        },
+        {
+          "name": "report type",
+          "description": "Functions 2564 ni.com report type is the type of report you want to create. 0 HTML —Creates an HTML report and returns a reference to it in report out so you can use other Report Generation VIs to customize, save, or print the report. 1 Word (Report Generation Toolkit)—Creates a report in Word and returns a reference to it in report out so you can use other Report Generation VIs to customize, save, or print the report. 2 Excel (Report Generation Toolkit)—Creates a report in Excel and returns a r",
+          "default_value": null,
+          "enum_values": [
+            [
+              1,
+              "Word (Report Generation Toolkit)"
+            ],
+            [
+              2,
+              "Excel (Report Generation Toolkit)"
+            ]
+          ],
+          "python_param": "report_type"
+        },
+        {
+          "name": "template (empty)",
+          "description": "template (Report Generation Toolkit) specifies a path to a Word document or Excel worksheet that acts as a report template. Enter the path to an existing Word document or Excel worksheet to open and edit an existing report for a template. The VI ignores this input for HTML reports.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "template_empty"
+        },
+        {
+          "name": "error in (no error)",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in_no_error"
+        },
+        {
+          "name": "machine name (empty)",
+          "description": "machine name (Report Generation Toolkit) specifies a computer from which Microsoft Word or Excel runs remotely. The VI ignores this input for HTML reports.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "machine_name_empty"
+        },
+        {
+          "name": "report out",
+          "description": "report out is a reference to the report whose appearance, data, and printing you want to control. You can wire this output to other Report Generation VIs.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "report_out"
+        },
+        {
+          "name": "error out",
+          "description": "error out contains error information. This output provides standard error out functionality. Functions",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        }
+      ]
+    },
+    {
+      "name": "Print Report",
+      "page": 2566,
+      "category": "Report Generation",
+      "description": "Prints a report to a designated printer or to the default printer on the computer. If you use this VI to print an HTML report, the computer printing the report must have Internet Explorer installed.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "report in",
+          "description": "report in is a reference to the report whose appearance, data, and printing you want to control. Use the Create Report VI to generate this LabVIEW class object.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "report_in"
+        },
+        {
+          "name": "printer name (default)",
+          "description": "printer name is the name of the printer to which you want to print the report. If you wire a printer name, that printer must be configured for use with the computer from which you want to print the report. If you do not wire a printer name, the VI uses the default printer for the computer. The computer from which you want to print must have a default printer. If you print an HTML report, the VI ignores this input and uses the default printer for Internet Explorer.",
+          "default_value": "printer for the computer",
+          "enum_values": null,
+          "python_param": "printer_name_default"
+        },
+        {
+          "name": "number of copies (1)",
+          "description": "number of copies specifies how many copies of the report you want to print. If you do not specify a number, LabVIEW prints one copy. Note If you use this VI to print a Microsoft Word report and you assign a printer to the printer name input other than the default system printer, Microsoft Word resets the default system printer to the printer you assigned to the printer name input. Functions 2566 ni.com",
+          "default_value": "system printer, Microsoft Word resets the default system printer to the printer you assigned to the printer name input",
+          "enum_values": null,
+          "python_param": "number_of_copies_1"
+        },
+        {
+          "name": "error in (no error)",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in_no_error"
+        },
+        {
+          "name": "report out",
+          "description": "report out is a reference to the report whose appearance, data, and printing you want to control. You can wire this output to other Report Generation VIs.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "report_out"
+        },
+        {
+          "name": "error out",
+          "description": "error out contains error information. This output provides standard error out functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        }
+      ]
+    },
+    {
+      "name": "Save Report to File",
+      "page": 2567,
+      "category": "Report Generation",
+      "description": "Saves an HTML report to the file specified in report file path. This VI also saves Microsoft Word and Excel reports.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "report in",
+          "description": "report in is a reference to the report whose appearance, data, and printing you want to control. Use the Create Report VI to generate this LabVIEW class object.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "report_in"
+        },
+        {
+          "name": "report file path",
+          "description": "report file path specifies the path where you want to save the report and the name of the report. If the path is empty or invalid, the VI returns an error.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "report_file_path"
+        },
+        {
+          "name": "prompt to replace? (F)",
+          "description": "Functions © National Instruments 2567 prompt to replace? determines whether the VI displays a dialog box if you specify an existing filename in report file path. The default is FALSE, which overwrites existing files without prompting. This input applies only for HTML reports.",
+          "default_value": "FALSE, which overwrites existing files without prompting",
+          "enum_values": null,
+          "python_param": "prompt_to_replace_f"
+        },
+        {
+          "name": "password (\"\")",
+          "description": "password (Report Generation Toolkit) creates a read-only report with password protection. You must enter the password to modify the report. The VI ignores this input for HTML reports.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "password"
+        },
+        {
+          "name": "error in (no error)",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in_no_error"
+        },
+        {
+          "name": "report out",
+          "description": "report out is a reference to the report whose appearance, data, and printing you want to control. You can wire this output to other Report Generation VIs.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "report_out"
+        },
+        {
+          "name": "error out",
+          "description": "error out contains error information. This output provides standard error out functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        }
+      ]
+    },
+    {
+      "name": "Dispose Report",
+      "page": 2568,
+      "category": "Report Generation",
+      "description": "Closes the report and releases its interface, which saves memory. After the VI runs, you cannot perform further operations on the report. The Dispose Report VI should be the last VI you use when you create a report. Functions 2568 ni.com",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "report in",
+          "description": "report in is a reference to the report whose appearance, data, and printing you want to control. Use the Create Report VI to generate this LabVIEW class object.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "report_in"
+        },
+        {
+          "name": "wait until printing completed? (T)",
+          "description": "wait until printing completed? (Report Generation Toolkit) specifies whether the VI closes the report if printing is still in progress. The default is TRUE, which specifies to wait to close the report until the report prints. The VI ignores this input for HTML, standard, and Excel reports.",
+          "default_value": "TRUE, which specifies to wait to close the report until the report prints",
+          "enum_values": null,
+          "python_param": "wait_until_printing_completed_t"
+        },
+        {
+          "name": "save changes? (F)",
+          "description": "save changes? (Report Generation Toolkit) specifies whether the VI saves changes to the report. The default is FALSE, which specifies to close the report without saving any changes. The VI ignores this input if the Close Report input is FALSE. The VI ignores this input for HTML reports.",
+          "default_value": "FALSE, which specifies to close the report without saving any changes",
+          "enum_values": null,
+          "python_param": "save_changes_f"
+        },
+        {
+          "name": "error in (no error)",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in_no_error"
+        },
+        {
+          "name": "close report? (T)",
+          "description": "close report? (Report Generation Toolkit) specifies whether the VI closes the report. The default is TRUE, which specifies to close the report file. The VI ignores this input for HTML reports.",
+          "default_value": "TRUE, which specifies to close the report file",
+          "enum_values": null,
+          "python_param": "close_report_t"
+        },
+        {
+          "name": "error out",
+          "description": "error out contains error information. This output provides standard error out functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        }
+      ]
+    },
+    {
+      "name": "Append Horizontal Line to Report",
+      "page": 2570,
+      "category": "Report Generation",
+      "description": "Creates a horizontal rule in an HTML report. This VI also creates a horizontal rule in a Microsoft Word or Excel report.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "MS Office parameters",
+          "description": "MS Office parameters (Report Generation Toolkit) specifies the point in a Microsoft Word or Functions 2570 ni.com Excel report where you want an insertion to occur. The VI ignores this input for HTML reports. You can specify a bookmark in Word or a named range or cell coordinates in Excel. If you set the report type to Word but do not specify a bookmark, the insertion occurs at the end of the document.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "ms_office_parameters"
+        },
+        {
+          "name": "position (Excel)",
+          "description": "position contains the row and column coordinates of the point in an Excel worksheet from which the insertion occurs. Row and column values in Excel are zero-based, so the row and column coordinates of (0,0) correspond to cell A1.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "position_excel"
+        },
+        {
+          "name": "row",
+          "description": "rows specifies the row index.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "row"
+        },
+        {
+          "name": "column",
+          "description": "columns specifies the column index.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "column"
+        },
+        {
+          "name": "name (Excel)",
+          "description": "name contains the name of the cell in a Microsoft Excel worksheet from which the insertion occurs.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "name_excel"
+        },
+        {
+          "name": "bookmark (Word)",
+          "description": "bookmark contains the name of the bookmark in a Word document from which the insertion occurs.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "bookmark_word"
+        },
+        {
+          "name": "size (default)",
+          "description": "size sets the height of the horizontal rule. The default is 1.",
+          "default_value": "1",
+          "enum_values": null,
+          "python_param": "size_default"
+        },
+        {
+          "name": "report in",
+          "description": "report in is a reference to the report whose appearance, data, and printing you want to control. Functions",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "report_in"
+        }
+      ]
+    },
+    {
+      "name": "Append Hypertext Link Anchor to Report",
+      "page": 2573,
+      "category": "Report Generation",
+      "description": "Creates and adds a hypertext link anchor to a HTML report. This VI also creates and adds a hypertext link anchor to a Microsoft Word or Excel report.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "MS Office parameters",
+          "description": "MS Office parameters (Report Generation Toolkit) specifies the point in a Microsoft Word or Excel report where you want an insertion to occur. The VI ignores this input for HTML reports. You can specify a bookmark in Word or a named range or cell coordinates in Excel. If you set the report type to Word but do not specify a bookmark, the insertion occurs at the end of the document.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "ms_office_parameters"
+        },
+        {
+          "name": "position (excel)",
+          "description": "Functions © National Instruments 2573 position contains the row and column coordinates of the point in an Excel worksheet from which the insertion occurs. Row and column values in Excel are zero-based, so the row and column coordinates of (0,0) correspond to cell A1.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "position_excel"
+        },
+        {
+          "name": "row",
+          "description": "rows specifies the row index.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "row"
+        },
+        {
+          "name": "column",
+          "description": "columns specifies the column index.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "column"
+        },
+        {
+          "name": "name (excel)",
+          "description": "name contains the name of the cell in a Microsoft Excel worksheet from which the insertion occurs.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "name_excel"
+        },
+        {
+          "name": "bookmark (word)",
+          "description": "bookmark contains the name of the bookmark in a Word document from which the insertion occurs.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "bookmark_word"
+        },
+        {
+          "name": "report in",
+          "description": "report in is a reference to the report whose appearance, data, and printing you want to control. Use the Create Report VI to generate this LabVIEW class object.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "report_in"
+        },
+        {
+          "name": "URL of link - href",
+          "description": "URL of link - href is the URL of the website or document that you want to link to from the HTML report. Use forward slashes (/) to separate directory and filenames in URLs. For example, if you want to link to report.html in the factory directory on the website www.mycompany.com, use a URL of http://www.mycompany.com/factory/report.html. If you link to documents or sites on a local computer, the links might not work if you post the report on the Web. If you use relative paths in the links and the",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "url_of_link_href"
+        },
+        {
+          "name": "link text",
+          "description": "link text is the text you want to appear as a link in the report.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "link_text"
+        },
+        {
+          "name": "error in (no error)",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in_no_error"
+        },
+        {
+          "name": "report out",
+          "description": "report out is a reference to the report whose appearance, data, and printing you want to control. You can wire this output to other Report Generation VIs.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "report_out"
+        },
+        {
+          "name": "start out (Word)",
+          "description": "start out (Report Generation Toolkit) represents the index of the character at the beginning of the text inserted in the Microsoft Word document. The VI ignores this input for HTML reports.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "start_out_word"
+        },
+        {
+          "name": "end out (Word)",
+          "description": "end out (Report Generation Toolkit) represents the index of the character at the end of the text inserted in the Microsoft Word document. The VI ignores this input for HTML reports.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "end_out_word"
+        },
+        {
+          "name": "error out",
+          "description": "error out contains error information. This output provides standard error out functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        }
+      ]
+    },
+    {
+      "name": "Append User Formatted HTML to Report",
+      "page": 2575,
+      "category": "Report Generation",
+      "description": "Inserts text that is not preformatted by LabVIEW in the HTML report. Use this VI to insert tags not currently supplied by the Report Generation VIs. Functions © National Instruments 2575",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "report in",
+          "description": "report in is a reference to the report whose appearance, data, and printing you want to control. Use the Create Report VI to generate this LabVIEW class object.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "report_in"
+        },
+        {
+          "name": "HTML text",
+          "description": "HTML text is the text LabVIEW adds to the HTML document without extra tags. This input allows the use of tags not currently supplied by the Report Generation VIs.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "html_text"
+        },
+        {
+          "name": "error in (no error)",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in_no_error"
+        },
+        {
+          "name": "report out",
+          "description": "report out is a reference to the report whose appearance, data, and printing you want to control. You can wire this output to other Report Generation VIs.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "report_out"
+        },
+        {
+          "name": "error out",
+          "description": "error out contains error information. This output provides standard error out functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        }
+      ]
+    },
+    {
+      "name": "Open HTML Report in Browser",
+      "page": 2576,
+      "category": "Report Generation",
+      "description": "Displays an HTML report in the default Web browser. Wire data to the report in input to determine the polymorphic instance to use or manually select the instance. If you wire a URL or path that contains a space character to this VI, the VI encodes the space as %20 before displaying the URL or HTML file in the Web browser. • Open HTML Report in Browser (Refnum) VI • Open HTML Report in Browser (Path) VI • Open HTML Report in Browser (String) VI Functions 2576 ni.com Examples Refer to the followin",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "report in",
+          "description": "report in is a reference to the report whose appearance, data, and printing you want to control. Use the Create Report VI to generate this LabVIEW class object.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "report_in"
+        },
+        {
+          "name": "error in (no error)",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in_no_error"
+        },
+        {
+          "name": "report out",
+          "description": "report out is a reference to the report whose appearance, data, and printing you want to control. You can wire this output to other Report Generation VIs.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "report_out"
+        },
+        {
+          "name": "temporary HTML file created",
+          "description": "temporary HTML file created is the path in which the VI saved the temporary HTML file Functions",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "temporary_html_file_created"
+        }
+      ]
+    },
+    {
+      "name": "Set Report Font",
+      "page": 2580,
+      "category": "Report Generation",
+      "description": "Sets the font properties of the report, including those in the headers and footers.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "font settings source (VI Inputs)",
+          "description": "font settings source (Report Generation Toolkit) specifies the way in which you want to select font settings. The VI ignores this input for HTML reports. Functions 2580 ni.com 0 VI Inputs (default)—The VI uses the values you set in the font settings input. If you do not wire font settings, the VI uses the default font settings of the report class. 1 Font Dialog Box—A dialog box appears that you can use to select font settings.",
+          "default_value": "font settings of the report class",
+          "enum_values": null,
+          "python_param": "font_settings_source_vi_inputs"
+        },
+        {
+          "name": "text color (unchanged)",
+          "description": "text color is the color of the text in the report. You can wire a color box constant to this input. The default is T, which leaves the text unchanged.",
+          "default_value": "T, which leaves the text unchanged",
+          "enum_values": null,
+          "python_param": "text_color_unchanged"
+        },
+        {
+          "name": "report in",
+          "description": "report in is a reference to the report whose appearance, data, and printing you want to control. Use the Create Report VI to generate this LabVIEW class object.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "report_in"
+        },
+        {
+          "name": "text options",
+          "description": "text options specifies how the text appears in the report.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "text_options"
+        },
+        {
+          "name": "Italic",
+          "description": "Italic determines whether subsequent text appears in italics in the report. The default is Italic Unchanged. 0 Italic Unchanged 1 Italic On 2 Italic Off",
+          "default_value": "Italic Unchanged",
+          "enum_values": null,
+          "python_param": "italic"
+        },
+        {
+          "name": "Strike Through",
+          "description": "Strike Through determines whether subsequent text appears with a strikethrough effect in the report. The default is Strike Through Unchanged. 0 Strike Through Unchanged 1 Strike Through On 2 Strike Through Off",
+          "default_value": "Strike Through Unchanged",
+          "enum_values": null,
+          "python_param": "strike_through"
+        },
+        {
+          "name": "Underline",
+          "description": "Functions",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "underline"
+        }
+      ]
+    },
+    {
+      "name": "Append Report Text",
+      "page": 2584,
+      "category": "Report Generation",
+      "description": "Appends text to the selected report. Wire data to the text input to determine the polymorphic instance to use or manually select the instance. The selected report is the one you wire to report in. You can append the text to the current position of the cursor in the report or on a new line. • Append Report Text (str wrap) VI • Append Report Text (num wrap) VI Append Report Text (str wrap) VI Append Report Text (str wrap) VI Appends text to the selected report. Wire data to the text input to deter",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "format string (%.3f)",
+          "description": "format string specifies the number formatting to use when LabVIEW converts the numbers to characters. Use format string when you wire numeric data to the text input.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "format_string_3f"
+        },
+        {
+          "name": "MS Office parameters",
+          "description": "MS Office parameters (Report Generation Toolkit) specifies the point in a Microsoft Word or Excel report where you want an insertion to occur. The VI ignores this input for HTML reports. You can specify a bookmark in Word or a named range or cell coordinates in Excel. If you set the report type to Word but do not specify a bookmark, the insertion occurs at the end of the document.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "ms_office_parameters"
+        },
+        {
+          "name": "position (excel)",
+          "description": "position contains the row and column coordinates of the point in an Excel worksheet from which the insertion occurs. Row and column values in Excel are zero-based, so the row and column coordinates of (0,0) correspond to cell A1.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "position_excel"
+        },
+        {
+          "name": "row",
+          "description": "rows specifies the row index.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "row"
+        },
+        {
+          "name": "column",
+          "description": "columns specifies the column index.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "column"
+        },
+        {
+          "name": "name (excel)",
+          "description": "Functions",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "name_excel"
+        }
+      ]
+    },
+    {
+      "name": "Append Report Text (str wrap) VI",
+      "page": 2584,
+      "category": "Report Generation",
+      "description": "Appends text to the selected report. Wire data to the text input to determine the polymorphic instance to use or manually select the instance. The selected report is the one you wire to report in. You can append the text to the current position of the cursor in the report or on a new line. Functions 2584 ni.com",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "format string (%.3f)",
+          "description": "format string specifies the number formatting to use when LabVIEW converts the numbers to characters. Use format string when you wire numeric data to the text input.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "format_string_3f"
+        },
+        {
+          "name": "MS Office parameters",
+          "description": "MS Office parameters (Report Generation Toolkit) specifies the point in a Microsoft Word or Excel report where you want an insertion to occur. The VI ignores this input for HTML reports. You can specify a bookmark in Word or a named range or cell coordinates in Excel. If you set the report type to Word but do not specify a bookmark, the insertion occurs at the end of the document.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "ms_office_parameters"
+        },
+        {
+          "name": "position (excel)",
+          "description": "position contains the row and column coordinates of the point in an Excel worksheet from which the insertion occurs. Row and column values in Excel are zero-based, so the row and column coordinates of (0,0) correspond to cell A1.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "position_excel"
+        },
+        {
+          "name": "row",
+          "description": "rows specifies the row index.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "row"
+        },
+        {
+          "name": "column",
+          "description": "columns specifies the column index.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "column"
+        },
+        {
+          "name": "name (excel)",
+          "description": "Functions",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "name_excel"
+        }
+      ]
+    },
+    {
+      "name": "Append Report Text (num wrap) VI",
+      "page": 2587,
+      "category": "Report Generation",
+      "description": "Appends text to the selected report. Wire data to the text input to determine the polymorphic instance to use or manually select the instance. The selected report is the one you wire to report in. You can append the text to the current position of the cursor in the report or on a new line.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "format string (%.3f)",
+          "description": "format string specifies the number formatting to use when LabVIEW converts the numbers to characters. Use format string when you wire numeric data to the text input.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "format_string_3f"
+        },
+        {
+          "name": "MS Office parameters",
+          "description": "MS Office parameters (Report Generation Toolkit) specifies the point in a Microsoft Word or Excel report where you want an insertion to occur. The VI ignores this input for HTML reports. You can specify a bookmark in Word or a named range or cell coordinates in Excel. If you set the report type to Word but do not specify a bookmark, the insertion occurs at the end of the document.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "ms_office_parameters"
+        },
+        {
+          "name": "position (excel)",
+          "description": "Functions",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "position_excel"
+        }
+      ]
+    },
+    {
+      "name": "Append Table to Report",
+      "page": 2589,
+      "category": "Report Generation",
+      "description": "Appends a 2D array to a report as a table with the given column width. Wire data to the text data input to determine the polymorphic instance to use or manually select the instance. • Append Text Table to Report (wrap) VI • Append Numeric Table to Report (wrap) VI Examples Refer to the following example files included with LabVIEW. Functions © National Instruments 2589 • labview\\examples\\reports\\TextReportExample.llb\\Text Report Example.vi Append Text Table to Report (wrap) VI Append Text Table ",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "MS Office parameters",
+          "description": "MS Office parameters (Report Generation Toolkit) specifies the point in a Microsoft Word or Excel report where you want an insertion to occur. The VI ignores this input for HTML reports.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "ms_office_parameters"
+        },
+        {
+          "name": "position (excel)",
+          "description": "position contains the row and column coordinates of the point in an Excel worksheet from which the insertion occurs.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "position_excel"
+        },
+        {
+          "name": "row",
+          "description": "rows specifies the row index.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "row"
+        },
+        {
+          "name": "column",
+          "description": "columns specifies the column index.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "column"
+        },
+        {
+          "name": "name (excel)",
+          "description": "Functions 2590 ni.com name contains the name of the cell in a Microsoft Excel worksheet from which the insertion occurs.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "name_excel"
+        },
+        {
+          "name": "bookmark (word)",
+          "description": "bookmark contains the name of the bookmark in a Word document from which the insertion occurs.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "bookmark_word"
+        },
+        {
+          "name": "measurement system for column width (Default)",
+          "description": "measurement system for column width determines whether the value you enter in column width is in inches or centimeters.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "measurement_system_for_column_width_default"
+        },
+        {
+          "name": "column width (1)",
+          "description": "column width defines the width of each column in the report table.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "column_width_1"
+        },
+        {
+          "name": "report in",
+          "description": "report in is a reference to the report whose appearance, data, and printing you want to control. Use the Create Report VI to generate this LabVIEW class object.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "report_in"
+        },
+        {
+          "name": "column headers",
+          "description": "column headers determines how each column is labeled in the table.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "column_headers"
+        },
+        {
+          "name": "row headers",
+          "description": "row headers determines how each row is labeled in the table.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "row_headers"
+        },
+        {
+          "name": "text data",
+          "description": "text data is the information you want to be printed in tabular form.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "text_data"
+        },
+        {
+          "name": "error in (no error)",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in_no_error"
+        },
+        {
+          "name": "separate page? (NO)",
+          "description": "separate page? specifies whether to place the table on a new page of the report. The default is Functions",
+          "default_value": "Functions",
+          "enum_values": null,
+          "python_param": "separate_page_no"
+        }
+      ]
+    },
+    {
+      "name": "Append Text Table to Report (wrap) VI",
+      "page": 2590,
+      "category": "Report Generation",
+      "description": "Appends a 2D array to a report as a table with the given column width. Wire data to the text data input to determine the polymorphic instance to use or manually select the instance.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "MS Office parameters",
+          "description": "MS Office parameters (Report Generation Toolkit) specifies the point in a Microsoft Word or Excel report where you want an insertion to occur. The VI ignores this input for HTML reports.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "ms_office_parameters"
+        },
+        {
+          "name": "position (excel)",
+          "description": "position contains the row and column coordinates of the point in an Excel worksheet from which the insertion occurs.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "position_excel"
+        },
+        {
+          "name": "row",
+          "description": "rows specifies the row index.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "row"
+        },
+        {
+          "name": "column",
+          "description": "columns specifies the column index.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "column"
+        },
+        {
+          "name": "name (excel)",
+          "description": "Functions 2590 ni.com name contains the name of the cell in a Microsoft Excel worksheet from which the insertion occurs.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "name_excel"
+        },
+        {
+          "name": "bookmark (word)",
+          "description": "bookmark contains the name of the bookmark in a Word document from which the insertion occurs.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "bookmark_word"
+        },
+        {
+          "name": "measurement system for column width (Default)",
+          "description": "measurement system for column width determines whether the value you enter in column width is in inches or centimeters.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "measurement_system_for_column_width_default"
+        },
+        {
+          "name": "column width (1)",
+          "description": "column width defines the width of each column in the report table.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "column_width_1"
+        },
+        {
+          "name": "report in",
+          "description": "report in is a reference to the report whose appearance, data, and printing you want to control. Use the Create Report VI to generate this LabVIEW class object.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "report_in"
+        },
+        {
+          "name": "column headers",
+          "description": "column headers determines how each column is labeled in the table.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "column_headers"
+        },
+        {
+          "name": "row headers",
+          "description": "row headers determines how each row is labeled in the table.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "row_headers"
+        },
+        {
+          "name": "text data",
+          "description": "text data is the information you want to be printed in tabular form.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "text_data"
+        },
+        {
+          "name": "error in (no error)",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in_no_error"
+        },
+        {
+          "name": "separate page? (NO)",
+          "description": "separate page? specifies whether to place the table on a new page of the report. The default is Functions",
+          "default_value": "Functions",
+          "enum_values": null,
+          "python_param": "separate_page_no"
+        }
+      ]
+    },
+    {
+      "name": "Append Numeric Table to Report (wrap) VI",
+      "page": 2593,
+      "category": "Report Generation",
+      "description": "Appends a 2D array to a report as a table with the given column width. Wire data to the text data input to determine the polymorphic instance to use or manually select the instance.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "MS Office parameters",
+          "description": "MS Office parameters (Report Generation Toolkit) specifies the point in a Microsoft Word or Excel report where you want an insertion to occur. The VI ignores this input for HTML reports. You can specify a bookmark in Word or a named range or cell coordinates in Excel. If you set the report type to Word but do not specify a bookmark, the insertion occurs at the end of the document.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "ms_office_parameters"
+        },
+        {
+          "name": "position (excel)",
+          "description": "position contains the row and column coordinates of the point in an Excel worksheet from which the insertion occurs. Functions",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "position_excel"
+        }
+      ]
+    },
+    {
+      "name": "Append List to Report",
+      "page": 2597,
+      "category": "Report Generation",
+      "description": "Adds a list of elements to the report.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "unordered item type (default)",
+          "description": "unordered item type determines the symbol used to denote a list item in an unordered list. You can specify a symbol only if the report is HTML-based. The default for HTML-based reports is a bullet. 0 (default) 1 disc 2 square 3 circle",
+          "default_value": "for HTML-based reports is a bullet",
+          "enum_values": null,
+          "python_param": "unordered_item_type_default"
+        },
+        {
+          "name": "ordered item type (default)",
+          "description": "ordered item type determines how the ordered list appears, numerical or alphabetical. The default is arabic numerals. 0 (default) 1 arabic numerals Functions © National Instruments 2597 2 lower alpha 3 upper alpha",
+          "default_value": "arabic numerals",
+          "enum_values": null,
+          "python_param": "ordered_item_type_default"
+        },
+        {
+          "name": "report in",
+          "description": "report in is a reference to the report whose appearance, data, and printing you want to control. Use the Create Report VI to generate this LabVIEW class object.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "report_in"
+        },
+        {
+          "name": "list elements",
+          "description": "list elements are the items you want to include in the list.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "list_elements"
+        },
+        {
+          "name": "list type (ordered)",
+          "description": "list type specifies whether the list appears ordered or unordered in the report. 0 ordered (default)—Presents the list as numerical or alphabetical. 1 unordered—If the report is HTML-based and you select unordered, you can choose an item indicator.",
+          "default_value": null,
+          "enum_values": [
+            [
+              0,
+              "ordered (default)"
+            ],
+            [
+              1,
+              "unordered"
+            ]
+          ],
+          "python_param": "list_type_ordered"
+        },
+        {
+          "name": "error in (no error)",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in_no_error"
+        },
+        {
+          "name": "ordered start (1)",
+          "description": "ordered start determines the number or letter the list starts with. Enter the number or the letter that corresponds to the number with which you want to start. For example, A equals 1, B equals 2, or a equals 1, b equals 2. The default is 1.",
+          "default_value": "1",
+          "enum_values": null,
+          "python_param": "ordered_start_1"
+        },
+        {
+          "name": "bookmark (Word)",
+          "description": "bookmark (Report Generation Toolkit) contains the name of the bookmark in a Microsoft Word document from which the insertion occurs. The VI ignores this input for HTML reports.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "bookmark_word"
+        },
+        {
+          "name": "report out",
+          "description": "report out is a reference to the report whose appearance, data, and printing you want to control. You can wire this output to other Report Generation VIs.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "report_out"
+        },
+        {
+          "name": "start out (Word)",
+          "description": "Functions 2598 ni.com start out (Report Generation Toolkit) represents the index of the character at the beginning of the text inserted in the Microsoft Word document. The VI ignores this input for HTML reports.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "start_out_word"
+        },
+        {
+          "name": "end out (Word)",
+          "description": "end out (Report Generation Toolkit) represents the index of the character at the end of the text inserted in the Microsoft Word document. The VI ignores this input for HTML reports.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "end_out_word"
+        },
+        {
+          "name": "error out",
+          "description": "error out contains error information. This output provides standard error out functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        }
+      ]
+    },
+    {
+      "name": "Report Layout",
+      "page": 2599,
+      "category": "Report Generation",
+      "description": "Use the Report Layout VIs to manipulate the layout of reports you create in LabVIEW. The VIs on this palette can return report generation error codes. Palette Object Description Set Report Margins Sets the margins of the specified report. Set Report Orientation Determines whether the report is printed in landscape or portrait orientation. New Report Page Creates a page break within the report. New Report Line Starts a new line in the report. Set Report Header Text Sets the text of the report hea",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "report in",
+          "description": "report in is a reference to the report whose appearance, data, and printing you want to control. Use the Create Report VI to generate this LabVIEW class object.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "report_in"
+        },
+        {
+          "name": "margins (1.00)",
+          "description": "margins sets the size of the page margins. The default is 1.00 for each margin. If the margins are smaller than the minimum margins for the printer, the VI returns an error.",
+          "default_value": "1",
+          "enum_values": null,
+          "python_param": "margins_1_00"
+        },
+        {
+          "name": "top",
+          "description": "top sets the distance in inches or centimeters between the top of the page and the top of the content on the page.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "top"
+        },
+        {
+          "name": "left",
+          "description": "left sets the distance in inches or centimeters between the left edge of the page and the left edge of the content on the page.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "left"
+        },
+        {
+          "name": "right",
+          "description": "right sets the distance in inches or centimeters between the right edge of the page and the Functions 2600 ni.com right edge of the content on the page.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "right"
+        },
+        {
+          "name": "bottom",
+          "description": "bottom sets the distance in inches or centimeters between the bottom of the page and the bottom of the content on the page.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "bottom"
+        },
+        {
+          "name": "measurement system (default)",
+          "description": "measurement system sets the units of measurement for the margins. 0 Default—Sets the margins in the measurement system configured on the computer. 1 US—Sets the margins in inches. 2 Metric—Sets the margins in centimeters.",
+          "default_value": null,
+          "enum_values": [
+            [
+              0,
+              "Default"
+            ],
+            [
+              1,
+              "US"
+            ],
+            [
+              2,
+              "Metric"
+            ]
+          ],
+          "python_param": "measurement_system_default"
+        },
+        {
+          "name": "error in (no error)",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in_no_error"
+        },
+        {
+          "name": "report out",
+          "description": "report out is a reference to the report whose appearance, data, and printing you want to control. You can wire this output to other Report Generation VIs.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "report_out"
+        },
+        {
+          "name": "page width (Word)",
+          "description": "page width (Report Generation Toolkit) reports the width of the page after the VI has set the margins. The VI sets the margins in the units of measurement specified in measurement system. The VI ignores this input for HTML, standard, or Excel reports.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "page_width_word"
+        },
+        {
+          "name": "error out",
+          "description": "error out contains error information. This output provides standard error out functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        }
+      ]
+    },
+    {
+      "name": "Set Report Margins",
+      "page": 2600,
+      "category": "Report Generation",
+      "description": "Sets the margins of the specified report.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "report in",
+          "description": "report in is a reference to the report whose appearance, data, and printing you want to control. Use the Create Report VI to generate this LabVIEW class object.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "report_in"
+        },
+        {
+          "name": "margins (1.00)",
+          "description": "margins sets the size of the page margins. The default is 1.00 for each margin. If the margins are smaller than the minimum margins for the printer, the VI returns an error.",
+          "default_value": "1",
+          "enum_values": null,
+          "python_param": "margins_1_00"
+        },
+        {
+          "name": "top",
+          "description": "top sets the distance in inches or centimeters between the top of the page and the top of the content on the page.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "top"
+        },
+        {
+          "name": "left",
+          "description": "left sets the distance in inches or centimeters between the left edge of the page and the left edge of the content on the page.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "left"
+        },
+        {
+          "name": "right",
+          "description": "right sets the distance in inches or centimeters between the right edge of the page and the Functions 2600 ni.com right edge of the content on the page.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "right"
+        },
+        {
+          "name": "bottom",
+          "description": "bottom sets the distance in inches or centimeters between the bottom of the page and the bottom of the content on the page.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "bottom"
+        },
+        {
+          "name": "measurement system (default)",
+          "description": "measurement system sets the units of measurement for the margins. 0 Default—Sets the margins in the measurement system configured on the computer. 1 US—Sets the margins in inches. 2 Metric—Sets the margins in centimeters.",
+          "default_value": null,
+          "enum_values": [
+            [
+              0,
+              "Default"
+            ],
+            [
+              1,
+              "US"
+            ],
+            [
+              2,
+              "Metric"
+            ]
+          ],
+          "python_param": "measurement_system_default"
+        },
+        {
+          "name": "error in (no error)",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in_no_error"
+        },
+        {
+          "name": "report out",
+          "description": "report out is a reference to the report whose appearance, data, and printing you want to control. You can wire this output to other Report Generation VIs.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "report_out"
+        },
+        {
+          "name": "page width (Word)",
+          "description": "page width (Report Generation Toolkit) reports the width of the page after the VI has set the margins. The VI sets the margins in the units of measurement specified in measurement system. The VI ignores this input for HTML, standard, or Excel reports.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "page_width_word"
+        },
+        {
+          "name": "error out",
+          "description": "error out contains error information. This output provides standard error out functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        }
+      ]
+    },
+    {
+      "name": "Set Report Orientation",
+      "page": 2601,
+      "category": "Report Generation",
+      "description": "Determines whether the report is printed in landscape or portrait orientation. Functions © National Instruments 2601 You cannot use this VI with HTML reports.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "report in",
+          "description": "report in is a reference to the report whose appearance, data, and printing you want to control. Use the Create Report VI to generate this LabVIEW class object.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "report_in"
+        },
+        {
+          "name": "orientation (portrait)",
+          "description": "orientation (Windows) specifies how the report appears when it prints. 0 Portrait (default)—Prints the report so the short edge of the paper is the top of the page. 1 Landscape—Prints the report so the long edge of the paper is the top of the page.",
+          "default_value": null,
+          "enum_values": [
+            [
+              0,
+              "Portrait (default)"
+            ],
+            [
+              1,
+              "Landscape"
+            ]
+          ],
+          "python_param": "orientation_portrait"
+        },
+        {
+          "name": "error in (no error)",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in_no_error"
+        },
+        {
+          "name": "report out",
+          "description": "report out is a reference to the report whose appearance, data, and printing you want to control. You can wire this output to other Report Generation VIs.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "report_out"
+        },
+        {
+          "name": "error out",
+          "description": "error out contains error information. This output provides standard error out functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        }
+      ]
+    },
+    {
+      "name": "New Report Page",
+      "page": 2602,
+      "category": "Report Generation",
+      "description": "Creates a page break within the report. Functions 2602 ni.com",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "report in",
+          "description": "report in is a reference to the report whose appearance, data, and printing you want to control. Use the Create Report VI to generate this LabVIEW class object.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "report_in"
+        },
+        {
+          "name": "MS Office parameters",
+          "description": "MS Office parameters (Report Generation Toolkit) specifies the point in a Microsoft Word or Excel report where you want an insertion to occur. The VI ignores this input for HTML reports. You can specify a bookmark in Word or a named range or cell coordinates in Excel. If you set the report type to Word but do not specify a bookmark, the insertion occurs at the end of the document.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "ms_office_parameters"
+        },
+        {
+          "name": "position (Excel)",
+          "description": "position contains the row and column coordinates of the point in an Excel worksheet from which the insertion occurs. Row and column values in Excel are zero-based, so the row and column coordinates of (0,0) correspond to cell A1.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "position_excel"
+        },
+        {
+          "name": "row",
+          "description": "rows specifies the row index.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "row"
+        },
+        {
+          "name": "column",
+          "description": "columns specifies the column index.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "column"
+        },
+        {
+          "name": "name (Excel)",
+          "description": "name contains the name of the cell in a Microsoft Excel worksheet from which the insertion occurs.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "name_excel"
+        },
+        {
+          "name": "bookmark (Word)",
+          "description": "Functions",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "bookmark_word"
+        }
+      ]
+    },
+    {
+      "name": "New Report Line",
+      "page": 2604,
+      "category": "Report Generation",
+      "description": "Starts a new line in the report. This VI has no affect on Excel reports.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "report in",
+          "description": "report in is a reference to the report whose appearance, data, and printing you want to control. Use the Create Report VI to generate this LabVIEW class object.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "report_in"
+        },
+        {
+          "name": "number of lines (1)",
+          "description": "number of lines specifies how many lines the VI adds to the report. The default is 1. Functions 2604 ni.com",
+          "default_value": "1",
+          "enum_values": null,
+          "python_param": "number_of_lines_1"
+        },
+        {
+          "name": "error in (no error)",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in_no_error"
+        },
+        {
+          "name": "report out",
+          "description": "report out is a reference to the report whose appearance, data, and printing you want to control. You can wire this output to other Report Generation VIs.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "report_out"
+        },
+        {
+          "name": "error out",
+          "description": "error out contains error information. This output provides standard error out functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        }
+      ]
+    },
+    {
+      "name": "Set Report Header Text",
+      "page": 2605,
+      "category": "Report Generation",
+      "description": "Sets the text of the report header. Header text for Microsoft Excel reports appears only when you print the report. Use tokens with this VI to generate information in the headers. For example, you can insert a time stamp in the headers of the report. You cannot use tokens with Microsoft Word and Excel reports.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "report in",
+          "description": "report in is a reference to the report whose appearance, data, and printing you want to control. Use the Create Report VI to generate this LabVIEW class object.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "report_in"
+        },
+        {
+          "name": "left header text",
+          "description": "Functions © National Instruments 2605 left header text is the information you want to appear in the left side of the header.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "left_header_text"
+        },
+        {
+          "name": "center header text",
+          "description": "center header text is the information you want to appear in the center portion of the header.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "center_header_text"
+        },
+        {
+          "name": "right header text",
+          "description": "right header text is the information you want to appear in the right side of the header.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "right_header_text"
+        },
+        {
+          "name": "error in (no error)",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in_no_error"
+        },
+        {
+          "name": "HTML header size",
+          "description": "HTML header size is the HTML heading tag to use for the header. Use this parameter only for HTML reports. 0 <H1> 1 <H2> 2 <H3> (default) 3 <H4> 4 <H5> 5 <H6> 6 <H7>",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "html_header_size"
+        },
+        {
+          "name": "header placement",
+          "description": "header placement specifies the location of the header. 0 Top of Document (default) 1 Append to Body (the header is added to the top of each page)",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "header_placement"
+        },
+        {
+          "name": "report out",
+          "description": "Note If you insert a header in a Microsoft Word report, the header is added to all pages regardless of the placement specified. Functions 2606 ni.com report out is a reference to the report whose appearance, data, and printing you want to control. You can wire this output to other Report Generation VIs.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "report_out"
+        },
+        {
+          "name": "error out",
+          "description": "error out contains error information. This output provides standard error out functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        }
+      ]
+    },
+    {
+      "name": "Set Report Footer Text",
+      "page": 2607,
+      "category": "Report Generation",
+      "description": "Sets the text of the report footer. Use tokens with this VI to generate information in the footers. For example, you can insert a time stamp in the footers of the report. You cannot use tokens with Microsoft Word and Excel reports.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "report in",
+          "description": "report in is a reference to the report whose appearance, data, and printing you want to control. Use the Create Report VI to generate this LabVIEW class object.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "report_in"
+        },
+        {
+          "name": "left footer text",
+          "description": "left footer text is the information you want to appear in the left side of the footer.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "left_footer_text"
+        },
+        {
+          "name": "center footer text",
+          "description": "center footer text is the information you want to appear in the center portion of the footer.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "center_footer_text"
+        },
+        {
+          "name": "right footer text",
+          "description": "Functions © National Instruments 2607 right footer text is the information you want to appear in the right side of the footer.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "right_footer_text"
+        },
+        {
+          "name": "error in (no error)",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in_no_error"
+        },
+        {
+          "name": "HTML footer size",
+          "description": "HTML footer size is the HTML heading tag to use for the footer. Use this parameter only for HTML reports. 0 <H1> 1 <H2> 2 <H3> (default) 3 <H4> 4 <H5> 5 <H6> 6 <H7>",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "html_footer_size"
+        },
+        {
+          "name": "report out",
+          "description": "report out is a reference to the report whose appearance, data, and printing you want to control. You can wire this output to other Report Generation VIs.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "report_out"
+        },
+        {
+          "name": "error out",
+          "description": "error out contains error information. This output provides standard error out functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        }
+      ]
+    },
+    {
+      "name": "Append Front Panel Image to Report",
+      "page": 2608,
+      "category": "Report Generation",
+      "description": "Creates an image of the front panel of the VI you specify in VI and appends it to a report. Wire data to the VI input to determine the polymorphic instance to use or manually select the instance. The VI also includes an instance whose connector pane is compatible with versions of the VI in LabVIEW 6.1 and earlier. Functions 2608 ni.com • Append Front Panel Image to Report (path) VI • Append Front Panel Image to Report (refnum) VI • Append Front Panel Image to Report (string) VI For an HTML repor",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "image file type (.jpg)",
+          "description": "image file type indicates the format of the image. 0 .jpg (default) 1 .png",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "image_file_type_jpg"
+        },
+        {
+          "name": "alignment (default)",
+          "description": "alignment sets the alignment of the image in a report. (Report Generation Toolkit) For Microsoft Word reports, you can use only the LEFT, RIGHT, and MIDDLE options. 0 (default)—The VI does not add an ALIGN attribute to the <IMG> tag. 1 LEFT 2 RIGHT 3 TOP 4 TEXTTOP 5 MIDDLE 6 ABSMIDDLE 7 BASELINE 8 BOTTOM 9 ABSBOTTOM",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "alignment_default"
+        },
+        {
+          "name": "report in",
+          "description": "report in is a reference to the report whose appearance, data, and printing you want to control. Use the Create Report VI to generate this LabVIEW class object.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "report_in"
+        },
+        {
+          "name": "image depth",
+          "description": "image depth specifies the color depth of the image, which is the number of bits to use to describe the color of each pixel in the image. Valid values include 1, 4, 8, and 24 bits per pixel. Functions 2610 ni.com",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "image_depth"
+        }
+      ]
+    },
+    {
+      "name": "Append Control Image to Report",
+      "page": 2609,
+      "category": "Report Generation",
+      "description": "Creates an image of the front panel object specified in ctrl reference and appends it to a report. Note If you set Image Format to GIF, the VI does not work when you include it in a stand-alone application. Functions © National Instruments 2609",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "image file type (.jpg)",
+          "description": "image file type indicates the format of the image. 0 .jpg (default) 1 .png",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "image_file_type_jpg"
+        },
+        {
+          "name": "alignment (default)",
+          "description": "alignment sets the alignment of the image in a report. (Report Generation Toolkit) For Microsoft Word reports, you can use only the LEFT, RIGHT, and MIDDLE options. 0 (default)—The VI does not add an ALIGN attribute to the <IMG> tag. 1 LEFT 2 RIGHT 3 TOP 4 TEXTTOP 5 MIDDLE 6 ABSMIDDLE 7 BASELINE 8 BOTTOM 9 ABSBOTTOM",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "alignment_default"
+        },
+        {
+          "name": "report in",
+          "description": "report in is a reference to the report whose appearance, data, and printing you want to control. Use the Create Report VI to generate this LabVIEW class object.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "report_in"
+        },
+        {
+          "name": "image depth",
+          "description": "image depth specifies the color depth of the image, which is the number of bits to use to describe the color of each pixel in the image. Valid values include 1, 4, 8, and 24 bits per pixel. Functions 2610 ni.com image depth affects how LabVIEW interprets the values of image and colors.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "image_depth"
+        },
+        {
+          "name": "ctrl reference",
+          "description": "ctrl reference is a reference to the control whose image you want to append to the report.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "ctrl_reference"
+        },
+        {
+          "name": "description",
+          "description": "description is the description of the graphic to display if you open the HTML report in a Web browser set to display text only.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "description"
+        },
+        {
+          "name": "error in (no error)",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in_no_error"
+        },
+        {
+          "name": "MS Office parameters",
+          "description": "MS Office parameters (Report Generation Toolkit) specifies the point in a Microsoft Word or Excel report where you want an insertion to occur. The VI ignores this input for HTML reports. You can specify a bookmark in Word or a named range or cell coordinates in Excel. If you set the report type to Word but do not specify a bookmark, the insertion occurs at the end of the document.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "ms_office_parameters"
+        },
+        {
+          "name": "position (Excel)",
+          "description": "position contains the row and column coordinates of the point in an Excel worksheet from which the insertion occurs. Row and column values in Excel are zero-based, so the row and column coordinates of (0,0) correspond to cell A1.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "position_excel"
+        },
+        {
+          "name": "row",
+          "description": "rows specifies the row index.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "row"
+        },
+        {
+          "name": "column",
+          "description": "columns specifies the column index.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "column"
+        },
+        {
+          "name": "name (Excel)",
+          "description": "Functions",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "name_excel"
+        }
+      ]
+    },
+    {
+      "name": "Append Image to Report",
+      "page": 2613,
+      "category": "Report Generation",
+      "description": "For an HTML report, the VI embeds a link to an image into the report. You can wire either a path to the image or a string that contains the image URL to this polymorphic VI. Wire data to the path or URL of image input to determine the polymorphic instance to use or manually select the instance. • Append Image to Report (path wrap) VI • Append Image to Report (string wrap) VI Append Image to Report (path wrap) VI Append Image to Report (path wrap) VI For an HTML report, the VI embeds a link to an",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "MS Office parameters",
+          "description": "MS Office parameters (Report Generation Toolkit) specifies the point in a Microsoft Word or Excel report where you want an insertion to occur. The VI ignores this input for HTML reports. You can specify a bookmark in Word or a named range or cell coordinates in Excel. If you set the report type to Word but do not specify a bookmark, the insertion occurs at the end of the document.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "ms_office_parameters"
+        },
+        {
+          "name": "position (Excel)",
+          "description": "position contains the row and column coordinates of the point in an Excel worksheet from which the insertion occurs. Row and column values in Excel are zero-based, so the row and column coordinates of (0,0) correspond to cell A1.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "position_excel"
+        },
+        {
+          "name": "row",
+          "description": "rows specifies the row index.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "row"
+        },
+        {
+          "name": "column",
+          "description": "columns specifies the column index.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "column"
+        },
+        {
+          "name": "name (Excel)",
+          "description": "name contains the name of the cell in a Microsoft Excel worksheet from which the insertion occurs.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "name_excel"
+        },
+        {
+          "name": "bookmark (Word)",
+          "description": "bookmark contains the name of the bookmark in a Word document from which the Functions 2614 ni.com insertion occurs.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "bookmark_word"
+        },
+        {
+          "name": "alignment (default)",
+          "description": "alignment sets the alignment of the image in a report. (Report Generation Toolkit) For Microsoft Word reports, you can use only the LEFT, RIGHT, and MIDDLE options. 0 (default)—The VI does not add an ALIGN attribute to the <IMG> tag. 1 LEFT 2 RIGHT 3 TOP 4 TEXTTOP 5 MIDDLE 6 ABSMIDDLE 7 BASELINE 8 BOTTOM 9 ABSBOTTOM",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "alignment_default"
+        },
+        {
+          "name": "report in",
+          "description": "report in is a reference to the report whose appearance, data, and printing you want to control. Use the Create Report VI to generate this LabVIEW class object.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "report_in"
+        },
+        {
+          "name": "path or URL of image",
+          "description": "path or URL of image designates the path to the linked image. If you move the image, you must update the path.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "path_or_url_of_image"
+        },
+        {
+          "name": "caption or alternative string",
+          "description": "caption or alternative string is the text to display instead of the image if you view the report in a Web browser set to display only text.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "caption_or_alternative_string"
+        },
+        {
+          "name": "error in (no error)",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in_no_error"
+        },
+        {
+          "name": "report out",
+          "description": "Functions",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "report_out"
+        }
+      ]
+    },
+    {
+      "name": "Append Image to Report (path wrap) VI",
+      "page": 2613,
+      "category": "Report Generation",
+      "description": "For an HTML report, the VI embeds a link to an image into the report. You can wire either a path to the image or a string that contains the image URL to this polymorphic VI. Wire data to the path or URL of image input to determine the polymorphic instance to use or manually select the instance. Note When you append an image to an HTML report, using a file that cannot be interpreted by the Web browser could make the image unreadable. Note When you append an image to an HTML report, using a file t",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "MS Office parameters",
+          "description": "MS Office parameters (Report Generation Toolkit) specifies the point in a Microsoft Word or Excel report where you want an insertion to occur. The VI ignores this input for HTML reports. You can specify a bookmark in Word or a named range or cell coordinates in Excel. If you set the report type to Word but do not specify a bookmark, the insertion occurs at the end of the document.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "ms_office_parameters"
+        },
+        {
+          "name": "position (Excel)",
+          "description": "position contains the row and column coordinates of the point in an Excel worksheet from which the insertion occurs. Row and column values in Excel are zero-based, so the row and column coordinates of (0,0) correspond to cell A1.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "position_excel"
+        },
+        {
+          "name": "row",
+          "description": "rows specifies the row index.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "row"
+        },
+        {
+          "name": "column",
+          "description": "columns specifies the column index.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "column"
+        },
+        {
+          "name": "name (Excel)",
+          "description": "name contains the name of the cell in a Microsoft Excel worksheet from which the insertion occurs.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "name_excel"
+        },
+        {
+          "name": "bookmark (Word)",
+          "description": "bookmark contains the name of the bookmark in a Word document from which the Functions 2614 ni.com insertion occurs.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "bookmark_word"
+        },
+        {
+          "name": "alignment (default)",
+          "description": "alignment sets the alignment of the image in a report. (Report Generation Toolkit) For Microsoft Word reports, you can use only the LEFT, RIGHT, and MIDDLE options. 0 (default)—The VI does not add an ALIGN attribute to the <IMG> tag. 1 LEFT 2 RIGHT 3 TOP 4 TEXTTOP 5 MIDDLE 6 ABSMIDDLE 7 BASELINE 8 BOTTOM 9 ABSBOTTOM",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "alignment_default"
+        },
+        {
+          "name": "report in",
+          "description": "report in is a reference to the report whose appearance, data, and printing you want to control. Use the Create Report VI to generate this LabVIEW class object.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "report_in"
+        },
+        {
+          "name": "path or URL of image",
+          "description": "path or URL of image designates the path to the linked image. If you move the image, you must update the path.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "path_or_url_of_image"
+        },
+        {
+          "name": "caption or alternative string",
+          "description": "caption or alternative string is the text to display instead of the image if you view the report in a Web browser set to display only text.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "caption_or_alternative_string"
+        },
+        {
+          "name": "error in (no error)",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in_no_error"
+        },
+        {
+          "name": "report out",
+          "description": "Functions",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "report_out"
+        }
+      ]
+    },
+    {
+      "name": "Append Image to Report (string wrap) VI",
+      "page": 2616,
+      "category": "Report Generation",
+      "description": "For an HTML report, the VI embeds a link to an image into the report. You can wire either a path to the image or a string that contains the image URL to this polymorphic VI. Wire data to the path or URL of image input to determine the polymorphic instance to use or manually select the instance.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "MS Office parameters",
+          "description": "Note When you append an image to an HTML report, using a file that cannot be interpreted by the Web browser could make the image unreadable. Functions 2616 ni.com MS Office parameters (Report Generation Toolkit) specifies the point in a Microsoft Word or Excel report where you want an insertion to occur. The VI ignores this input for HTML reports. You can specify a bookmark in Word or a named range or cell coordinates in Excel. If you set the report type to Word but do not specify a bookmark, th",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "ms_office_parameters"
+        },
+        {
+          "name": "position (Excel)",
+          "description": "position contains the row and column coordinates of the point in an Excel worksheet from which the insertion occurs. Row and column values in Excel are zero-based, so the row and column coordinates of (0,0) correspond to cell A1.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "position_excel"
+        },
+        {
+          "name": "row",
+          "description": "rows specifies the row index.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "row"
+        },
+        {
+          "name": "column",
+          "description": "columns specifies the column index.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "column"
+        },
+        {
+          "name": "name (Excel)",
+          "description": "name contains the name of the cell in a Microsoft Excel worksheet from which the insertion occurs.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "name_excel"
+        },
+        {
+          "name": "bookmark (Word)",
+          "description": "bookmark contains the name of the bookmark in a Word document from which the insertion occurs.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "bookmark_word"
+        },
+        {
+          "name": "alignment (default)",
+          "description": "alignment sets the alignment of the image in a report. (Report Generation Toolkit) For Microsoft Word reports, you can use only the LEFT, RIGHT, and MIDDLE options. 0 (default)—The VI does not add an ALIGN attribute to the <IMG> tag. 1 LEFT Functions",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "alignment_default"
+        }
+      ]
+    },
+    {
+      "name": "Advanced Report Generation",
+      "page": 2619,
+      "category": "Report Generation",
+      "description": "Use the Advanced Report Generation VIs to manipulate reports you create in LabVIEW. The VIs on this palette can return report generation error codes. Palette Object Description Report Type Returns the report type, such as HTML, of a specified report. Get Report Settings Retrieves information about the current font and text settings of a given report. Append File to Report Appends the text from a text file into the current report. Clear Report Clears all text, headers, footers, and formatting inf",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "report in",
+          "description": "report in is a reference to the report whose appearance, data, and printing you want to control. Use the Create Report VI to generate this LabVIEW class object.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "report_in"
+        },
+        {
+          "name": "error in (no error)",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in_no_error"
+        },
+        {
+          "name": "report out",
+          "description": "report out is a reference to the report whose appearance, data, and printing you want to control. You can wire this output to other Report Generation VIs.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "report_out"
+        },
+        {
+          "name": "report type",
+          "description": "report type indicates the report type. 0 HTML 1 Word (Report Generation Toolkit) 2 Excel (Report Generation Toolkit)",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "report_type"
+        },
+        {
+          "name": "error out",
+          "description": "error out contains error information. This output provides standard error out functionality. Functions 2620 ni.com",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        }
+      ]
+    },
+    {
+      "name": "Report Type",
+      "page": 2620,
+      "category": "Report Generation",
+      "description": "Returns the report type, such as HTML, of a specified report. This VI also returns Microsoft Word or Excel report types.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "report in",
+          "description": "report in is a reference to the report whose appearance, data, and printing you want to control. Use the Create Report VI to generate this LabVIEW class object.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "report_in"
+        },
+        {
+          "name": "error in (no error)",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in_no_error"
+        },
+        {
+          "name": "report out",
+          "description": "report out is a reference to the report whose appearance, data, and printing you want to control. You can wire this output to other Report Generation VIs.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "report_out"
+        },
+        {
+          "name": "report type",
+          "description": "report type indicates the report type. 0 HTML 1 Word (Report Generation Toolkit) 2 Excel (Report Generation Toolkit)",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "report_type"
+        },
+        {
+          "name": "error out",
+          "description": "error out contains error information. This output provides standard error out functionality. Functions 2620 ni.com",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        }
+      ]
+    },
+    {
+      "name": "Get Report Settings",
+      "page": 2621,
+      "category": "Report Generation",
+      "description": "Retrieves information about the current font and text settings of a given report.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "report in",
+          "description": "report in is a reference to the report whose appearance, data, and printing you want to control. Use the Create Report VI to generate this LabVIEW class object.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "report_in"
+        },
+        {
+          "name": "error in (no error)",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in_no_error"
+        },
+        {
+          "name": "report out",
+          "description": "report out is a reference to the report whose appearance, data, and printing you want to control. You can wire this output to other Report Generation VIs.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "report_out"
+        },
+        {
+          "name": "text options",
+          "description": "text options indicates how the text appears in the report.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "text_options"
+        },
+        {
+          "name": "Italic",
+          "description": "Italic indicates whether text appears in italics in the report.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "italic"
+        },
+        {
+          "name": "StrikeThrough",
+          "description": "StrikeThrough indicates whether text appears with a strikethrough effect in the report.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "strikethrough"
+        },
+        {
+          "name": "Underline",
+          "description": "Functions",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "underline"
+        }
+      ]
+    },
+    {
+      "name": "Append File to Report",
+      "page": 2622,
+      "category": "Report Generation",
+      "description": "Appends the text from a text file into the current report. The VI appends the text within the report. Functions 2622 ni.com",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "MS Office parameters",
+          "description": "MS Office parameters (Report Generation Toolkit) specifies the point in a Microsoft Word or Excel report where you want an insertion to occur. The VI ignores this input for HTML reports. You can specify a bookmark in Word or a named range or cell coordinates in Excel. If you set the report type to Word but do not specify a bookmark, the insertion occurs at the end of the document.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "ms_office_parameters"
+        },
+        {
+          "name": "position (Excel)",
+          "description": "position contains the row and column coordinates of the point in an Excel worksheet from which the insertion occurs. Row and column values in Excel are zero-based, so the row and column coordinates of (0,0) correspond to cell A1.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "position_excel"
+        },
+        {
+          "name": "row",
+          "description": "rows specifies the row index.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "row"
+        },
+        {
+          "name": "column",
+          "description": "columns specifies the column index.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "column"
+        },
+        {
+          "name": "name (Excel)",
+          "description": "name contains the name of the cell in a Microsoft Excel worksheet from which the insertion occurs.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "name_excel"
+        },
+        {
+          "name": "bookmark (Word)",
+          "description": "bookmark contains the name of the bookmark in a Word document from which the Functions",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "bookmark_word"
+        }
+      ]
+    },
+    {
+      "name": "Clear Report",
+      "page": 2625,
+      "category": "Report Generation",
+      "description": "Clears all text, headers, footers, and formatting information from the report.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "report in",
+          "description": "report in is a reference to the report whose appearance, data, and printing you want to control. Use the Create Report VI to generate this LabVIEW class object.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "report_in"
+        },
+        {
+          "name": "error in (no error)",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in_no_error"
+        },
+        {
+          "name": "report out",
+          "description": "report out is a reference to the report whose appearance, data, and printing you want to control. You can wire this output to other Report Generation VIs.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "report_out"
+        },
+        {
+          "name": "error out",
+          "description": "error out contains error information. This output provides standard error out functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        }
+      ]
+    },
+    {
+      "name": "Clear Report Text",
+      "page": 2625,
+      "category": "Report Generation",
+      "description": "Clears the text and related formatting information from the report. This VI does not affect header and footer information. You cannot use this VI with Microsoft Word and Excel reports. Functions © National Instruments 2625",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "report in",
+          "description": "report in is a reference to the report whose appearance, data, and printing you want to control. Use the Create Report VI to generate this LabVIEW class object.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "report_in"
+        },
+        {
+          "name": "error in (no error)",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in_no_error"
+        },
+        {
+          "name": "report out",
+          "description": "report out is a reference to the report whose appearance, data, and printing you want to control. You can wire this output to other Report Generation VIs.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "report_out"
+        },
+        {
+          "name": "error out",
+          "description": "error out contains error information. This output provides standard error out functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        }
+      ]
+    },
+    {
+      "name": "Query Available Printers",
+      "page": 2626,
+      "category": "Report Generation",
+      "description": "Lists the printers available on the computer, including the default printer in LabVIEW.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "error in (no error)",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in_no_error"
+        },
+        {
+          "name": "system configured printers",
+          "description": "Functions 2626 ni.com system configured printers contains the names of printers available on the computer. The VI returns the printer names in an array in alphabetical order. You also can use the Printing:Available Printers property to obtain a list of printer names programmatically.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "system_configured_printers"
+        },
+        {
+          "name": "default printer",
+          "description": "default printer is the name of the default printer in LabVIEW. When you start LabVIEW, the default printer in LabVIEW is the same as the system default printer. However, any time you print in LabVIEW, the printer you use becomes the default printer in LabVIEW. LabVIEW no longer recognizes changes to the system default printer until you restart LabVIEW. You can use the Printing:Default Printer property to set the default printer in LabVIEW programmatically.",
+          "default_value": "printer is the name of the default printer in LabVIEW",
+          "enum_values": null,
+          "python_param": "default_printer"
+        },
+        {
+          "name": "error out",
+          "description": "error out contains error information. This output provides standard error out functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        }
+      ]
+    }
+  ]
+}

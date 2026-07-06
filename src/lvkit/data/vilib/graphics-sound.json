@@ -1,0 +1,3850 @@
+{
+  "category": "Graphics & Sound",
+  "count": 55,
+  "entries": [
+    {
+      "name": "Basic Properties",
+      "page": 1989,
+      "category": "Graphics & Sound",
+      "description": "Adjusts various properties of the plot, including the transparency, plot style, and coordinate system. Functions © National Instruments 1989",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "3D graph",
+          "description": "3D graph accepts the reference to the 3D control.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "3d_graph"
+        },
+        {
+          "name": "plot style",
+          "description": "plot style changes the way the data is plotted. The default is a surface plot.",
+          "default_value": "a surface plot",
+          "enum_values": null,
+          "python_param": "plot_style"
+        },
+        {
+          "name": "fast draw",
+          "description": "fast draw determines if the surface is redrawn while it is rotated and zoomed or if it is displayed as points of data.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "fast_draw"
+        },
+        {
+          "name": "transparency",
+          "description": "transparency is a value from 0 to 100 that changes the transparency of the plot.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "transparency"
+        },
+        {
+          "name": "error in (no error)",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in_no_error"
+        },
+        {
+          "name": "coordinate system",
+          "description": "coordinate system can be cwCartesian, cwCylindrical, or cwSpherical. The default is cwCartesian.",
+          "default_value": "cwCartesian",
+          "enum_values": null,
+          "python_param": "coordinate_system"
+        },
+        {
+          "name": "plot number (1)",
+          "description": "plot number is the index into the list of plots from the properties of the 3D control. Add new plots by right-clicking the control and adjusting the properties. The default is the first plot from the list.",
+          "default_value": "the first plot from the list",
+          "enum_values": null,
+          "python_param": "plot_number_1"
+        },
+        {
+          "name": "3D graph out",
+          "description": "Functions 1990 ni.com 3D graph out passes the reference to the 3D control out so that you can use it with other VIs.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "3d_graph_out"
+        },
+        {
+          "name": "error out",
+          "description": "error out contains error information. This output provides standard error out functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        }
+      ]
+    },
+    {
+      "name": "Axes Properties",
+      "page": 1991,
+      "category": "Graphics & Sound",
+      "description": "Adjusts the properties of the x-, y-, and z-axes, including scaling and inverting.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "invert x",
+          "description": "invert x reverses the plot along the x plane.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "invert_x"
+        },
+        {
+          "name": "invert y",
+          "description": "invert y reverses the plot along the y plane.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "invert_y"
+        },
+        {
+          "name": "invert z",
+          "description": "invert z reverses the plot along the z plane.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "invert_z"
+        },
+        {
+          "name": "3D graph",
+          "description": "3D graph accepts the reference to the 3D control.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "3d_graph"
+        },
+        {
+          "name": "auto scale x",
+          "description": "auto scale x enables autoscaling for the x plane.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "auto_scale_x"
+        },
+        {
+          "name": "auto scale y",
+          "description": "Functions © National Instruments 1991 auto scale y enables autoscaling for the y plane.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "auto_scale_y"
+        },
+        {
+          "name": "auto scale z",
+          "description": "auto scale z enables autoscaling for the z plane.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "auto_scale_z"
+        },
+        {
+          "name": "error in (no error)",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in_no_error"
+        },
+        {
+          "name": "plot number (1)",
+          "description": "plot number is the index into the list of plots from the properties of the 3D control. Add new plots by right-clicking the control and adjusting the properties. The default is the first plot from the list.",
+          "default_value": "the first plot from the list",
+          "enum_values": null,
+          "python_param": "plot_number_1"
+        },
+        {
+          "name": "3D graph out",
+          "description": "3D graph out passes the reference to the 3D control out so that you can use it with other VIs.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "3d_graph_out"
+        },
+        {
+          "name": "error out",
+          "description": "error out contains error information. This output provides standard error out functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        }
+      ]
+    },
+    {
+      "name": "Grid Properties",
+      "page": 1992,
+      "category": "Graphics & Sound",
+      "description": "Shows or hides the xy, xz, yz grids.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "grid smoothing",
+          "description": "Functions 1992 ni.com grid smoothing allows the grids to be drawn with smooth lines.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "grid_smoothing"
+        },
+        {
+          "name": "3D graph",
+          "description": "3D graph accepts the reference to the 3D control.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "3d_graph"
+        },
+        {
+          "name": "xy grid",
+          "description": "xy grid shows the xy grid.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "xy_grid"
+        },
+        {
+          "name": "xz grid",
+          "description": "xz grid shows the xz grid.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "xz_grid"
+        },
+        {
+          "name": "yz grid",
+          "description": "yz grid shows the yz grid.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "yz_grid"
+        },
+        {
+          "name": "error in (no error)",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in_no_error"
+        },
+        {
+          "name": "3D graph out",
+          "description": "3D graph out passes the reference to the 3D control out so that you can use it with other VIs.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "3d_graph_out"
+        },
+        {
+          "name": "error out",
+          "description": "error out contains error information. This output provides standard error out functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        }
+      ]
+    },
+    {
+      "name": "Projection Properties",
+      "page": 1993,
+      "category": "Graphics & Sound",
+      "description": "Adjusts the types of projections associated with the plot. The plot can be projected onto the xy plane, xz plane, or yz plane. Functions © National Instruments 1993",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "coordinate system",
+          "description": "coordinate system can be cwCartesian, cwCylindrical, or cwSpherical. The default is cwCartesian.",
+          "default_value": "cwCartesian",
+          "enum_values": null,
+          "python_param": "coordinate_system"
+        },
+        {
+          "name": "3D graph",
+          "description": "3D graph accepts the reference to the 3D control.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "3d_graph"
+        },
+        {
+          "name": "xy projection",
+          "description": "xy projection projects an image of the plot onto the xy plane.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "xy_projection"
+        },
+        {
+          "name": "xz projection",
+          "description": "xz projection projects an image of the plot onto the xz plane.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "xz_projection"
+        },
+        {
+          "name": "yz projection",
+          "description": "yz projection projects an image of the plot onto the yz plane.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "yz_projection"
+        },
+        {
+          "name": "error in (no error)",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in_no_error"
+        },
+        {
+          "name": "show projections only",
+          "description": "show projections only allows only the projections to be shown.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "show_projections_only"
+        },
+        {
+          "name": "plot number (1)",
+          "description": "plot number is the index into the list of plots from the properties of the 3D control. Functions 1994 ni.com Add new plots by right-clicking the control and adjusting the properties. The default is the first plot from the list.",
+          "default_value": "the first plot from the list",
+          "enum_values": null,
+          "python_param": "plot_number_1"
+        },
+        {
+          "name": "3D graph out",
+          "description": "3D graph out passes the reference to the 3D control out so that you can use it with other VIs.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "3d_graph_out"
+        },
+        {
+          "name": "error out",
+          "description": "error out contains error information. This output provides standard error out functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        }
+      ]
+    },
+    {
+      "name": "Convert OLE Color",
+      "page": 1995,
+      "category": "Graphics & Sound",
+      "description": "Converts LabVIEW colors to or from colors used by ActiveX. You can use the property page for the 3D graph to set all of the colors. Color conversion is necessary for use with ActiveX Property Nodes.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "color in",
+          "description": "color in is the color you want to convert.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "color_in"
+        },
+        {
+          "name": "color out",
+          "description": "color out is the converted color.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "color_out"
+        }
+      ]
+    },
+    {
+      "name": "Set Plots",
+      "page": 1995,
+      "category": "Graphics & Sound",
+      "description": "Sets the number of plots that are available for a 3D graph control. Functions © National Instruments 1995",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "3D graph",
+          "description": "3D graph accepts the reference to the 3D control.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "3d_graph"
+        },
+        {
+          "name": "# of plots(1)",
+          "description": "# of plots sets the number of plots for a 3D control. It removes all of the plots that are currently in the graph and adds the number of plots. The default is one plot for a control.",
+          "default_value": "one plot for a control",
+          "enum_values": null,
+          "python_param": "of_plots1"
+        },
+        {
+          "name": "error in (no error)",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in_no_error"
+        },
+        {
+          "name": "3D graph out",
+          "description": "3D graph out passes the reference to the 3D control out so that you can use it with other VIs.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "3d_graph_out"
+        },
+        {
+          "name": "error out",
+          "description": "error out contains error information. This output provides standard error out functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        }
+      ]
+    },
+    {
+      "name": "Picture Plots",
+      "page": 1996,
+      "category": "Graphics & Sound",
+      "description": "Use the Picture Plots VIs to create graphical representations of data. Palette Object Description Polar Plot with Point Options Takes a picture and polar data and appends a picture that represents a polar graph of the data. This VI can represent polar data as points or lines between points. Functions 1996 ni.com Palette Object Description Smith Plot Takes a picture and the data for a Smith plot and appends a picture that represents the Smith plot of the data. Smith Multi Plot Takes a picture and",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "[user-specified font]",
+          "description": "[user-specified font] specifies the specific font characteristics for the text to draw. The VI ignores this input unless desired font is User-specified Font.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "user_specified_font"
+        },
+        {
+          "name": "Font Name:",
+          "description": "Functions 1998 ni.com",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "font_name"
+        }
+      ]
+    },
+    {
+      "name": "Polar Plot with Point Options",
+      "page": 1998,
+      "category": "Graphics & Sound",
+      "description": "Takes a picture and polar data and appends a picture that represents a polar graph of the data. This VI can represent polar data as points or lines between points.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "[user-specified font]",
+          "description": "[user-specified font] specifies the specific font characteristics for the text to draw. The VI ignores this input unless desired font is User-specified Font.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "user_specified_font"
+        },
+        {
+          "name": "Font Name:",
+          "description": "Functions 1998 ni.com Font Name specifies the font to use for the text. If you misspell the font name or specify a font that is not installed on the computer, the operating system selects a font.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "font_name"
+        },
+        {
+          "name": "Size",
+          "description": "Size specifies the size of the font in points.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "size"
+        },
+        {
+          "name": "Strikeout?",
+          "description": "Strikeout? specifies if the text appears in strikeout. If Strikeout? is TRUE, the text appears in strikeout.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "strikeout"
+        },
+        {
+          "name": "Italic?",
+          "description": "Italic? specifies if the text appears in italics. If Italic? is TRUE, the text appears in italics.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "italic"
+        },
+        {
+          "name": "Underline?",
+          "description": "Underline? specifies if the text is underlined. If Underline? is TRUE, the text appears underlined.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "underline"
+        },
+        {
+          "name": "Outline?",
+          "description": "Outline? specifies if the text is outlined. If Outline? is TRUE, the text appears outlined.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "outline"
+        },
+        {
+          "name": "Shadow?",
+          "description": "Shadow? specifies if the text has a shadow. If Shadow? is TRUE, the text appears in shadow.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "shadow"
+        },
+        {
+          "name": "Bold?",
+          "description": "Bold? specifies if the text is bold. If Bold? is TRUE, the text appears bold.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "bold"
+        },
+        {
+          "name": "desired font(Application)",
+          "description": "desired font specifies the text font. 0 User-specified Font 1 Application Font Functions",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "desired_fontapplication"
+        }
+      ]
+    },
+    {
+      "name": "Smith Plot",
+      "page": 2003,
+      "category": "Graphics & Sound",
+      "description": "Takes a picture and the data for a Smith plot and appends a picture that represents the Smith plot of the data. Functions © National Instruments 2003",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "[user-specified font]",
+          "description": "[user-specified font] specifies the specific font characteristics for the text to draw. The VI ignores this input unless desired font is User-specified Font.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "user_specified_font"
+        },
+        {
+          "name": "Font Name:",
+          "description": "Font Name specifies the font to use for the text. If you misspell the font name or specify a font that is not installed on the computer, the operating system selects a font.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "font_name"
+        },
+        {
+          "name": "Size",
+          "description": "Size specifies the size of the font in points.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "size"
+        },
+        {
+          "name": "Strikeout?",
+          "description": "Strikeout? specifies if the text appears in strikeout. If Strikeout? is TRUE, the text appears in strikeout.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "strikeout"
+        },
+        {
+          "name": "Italic?",
+          "description": "Italic? specifies if the text appears in italics. If Italic? is TRUE, the text appears in italics.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "italic"
+        },
+        {
+          "name": "Underline?",
+          "description": "Underline? specifies if the text is underlined. If Underline? is TRUE, the text appears underlined.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "underline"
+        },
+        {
+          "name": "Outline?",
+          "description": "Outline? specifies if the text is outlined. If Outline? is TRUE, the text appears outlined.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "outline"
+        },
+        {
+          "name": "Shadow?",
+          "description": "Shadow? specifies if the text has a shadow. If Shadow? is TRUE, the text appears in shadow.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "shadow"
+        },
+        {
+          "name": "Bold?",
+          "description": "Functions 2004 ni.com Bold? specifies if the text is bold. If Bold? is TRUE, the text appears bold.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "bold"
+        },
+        {
+          "name": "desired font(Application)",
+          "description": "desired font specifies the text font. 0 User-specified Font 1 Application Font (default) 2 System Font 3 Dialog Font",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "desired_fontapplication"
+        },
+        {
+          "name": "picture",
+          "description": "picture is the picture to which you want to add the plot. The default is an empty picture.",
+          "default_value": "an empty picture",
+          "enum_values": null,
+          "python_param": "picture"
+        },
+        {
+          "name": "smith plot",
+          "description": "smith plot is an array of points, where each point is a cluster containing the r and x values that make up the complex impedance, z, of r + jx.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "smith_plot"
+        },
+        {
+          "name": "dimensions (w,h)",
+          "description": "dimensions specifies the top left point of the drawn bitmap.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "dimensions_w_h"
+        },
+        {
+          "name": "width",
+          "description": "width specifies the horizontal coordinate that increases to the right.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "width"
+        },
+        {
+          "name": "height",
+          "description": "Functions",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "height"
+        }
+      ]
+    },
+    {
+      "name": "Smith Multi Plot",
+      "page": 2008,
+      "category": "Graphics & Sound",
+      "description": "Takes a picture and an array of Smith plots and appends a picture that represents the superimposed Smith plots of the data. Functions 2008 ni.com",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "[user-specified font]",
+          "description": "[user-specified font] specifies the specific font characteristics for the text to draw. The VI ignores this input unless desired font is User-specified Font.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "user_specified_font"
+        },
+        {
+          "name": "Font Name:",
+          "description": "Font Name specifies the font to use for the text. If you misspell the font name or specify a font that is not installed on the computer, the operating system selects a font.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "font_name"
+        },
+        {
+          "name": "Size",
+          "description": "Size specifies the size of the font in points.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "size"
+        },
+        {
+          "name": "Strikeout?",
+          "description": "Strikeout? specifies if the text appears in strikeout. If Strikeout? is TRUE, the text appears in strikeout.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "strikeout"
+        },
+        {
+          "name": "Italic?",
+          "description": "Italic? specifies if the text appears in italics. If Italic? is TRUE, the text appears in italics.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "italic"
+        },
+        {
+          "name": "Underline?",
+          "description": "Underline? specifies if the text is underlined. If Underline? is TRUE, the text appears underlined.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "underline"
+        },
+        {
+          "name": "Outline?",
+          "description": "Functions",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "outline"
+        }
+      ]
+    },
+    {
+      "name": "Normalize Smith Plot",
+      "page": 2014,
+      "category": "Graphics & Sound",
+      "description": "Takes data for a Smith plot and normalizes it, meaning that the data is scaled relative to a known value.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "Zo (50.0)",
+          "description": "Zo is the characteristic impedance of the system.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "zo_50_0"
+        },
+        {
+          "name": "points {r,x}",
+          "description": "points {r,x} is an array of points, where each point is a cluster containing the r and x values that make up the complex impedance r + jx.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "points_r_x"
+        },
+        {
+          "name": "points complex",
+          "description": "points complex is an array of complex numbers.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "points_complex"
+        },
+        {
+          "name": "normalized smith points {r,x}",
+          "description": "Functions 2014 ni.com normalized smith points {r,x} is an array of clusters of points containing the normalized data. Each cluster contains an r and an x value.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "normalized_smith_points_r_x"
+        },
+        {
+          "name": "labview\\examples\\Graphics and Sound\\Picture Plots\\Smith",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "labview_examples_graphics_and_sound_picture_plots_smith"
+        }
+      ]
+    },
+    {
+      "name": "Plot XY",
+      "page": 2015,
+      "category": "Graphics & Sound",
+      "description": "Takes a picture and an array of points and appends a picture that represents an XY graph of the data. To create controls for the cluster inputs in this VI, right-click the cluster terminal and select Create»Control from the shortcut menu. Functions © National Instruments 2015",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "[user-specified font]",
+          "description": "[user-specified font] specifies the specific font characteristics for the text to draw. The VI ignores this input unless desired font is User-specified Font.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "user_specified_font"
+        },
+        {
+          "name": "Font Name:",
+          "description": "Font Name specifies the font to use for the text. If you misspell the font name or specify a font that is not installed on the computer, the operating system selects a font.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "font_name"
+        },
+        {
+          "name": "Size",
+          "description": "Size specifies the size of the font in points.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "size"
+        },
+        {
+          "name": "Strikeout?",
+          "description": "Strikeout? specifies if the text appears in strikeout. If Strikeout? is TRUE, the text appears in strikeout.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "strikeout"
+        },
+        {
+          "name": "Italic?",
+          "description": "Italic? specifies if the text appears in italics. If Italic? is TRUE, the text appears in italics.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "italic"
+        },
+        {
+          "name": "Underline?",
+          "description": "Underline? specifies if the text is underlined. If Underline? is TRUE, the text appears underlined. Functions 2016 ni.com",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "underline"
+        },
+        {
+          "name": "Outline?",
+          "description": "Outline? specifies if the text is outlined. If Outline? is TRUE, the text appears outlined.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "outline"
+        },
+        {
+          "name": "Shadow?",
+          "description": "Shadow? specifies if the text has a shadow. If Shadow? is TRUE, the text appears in shadow.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "shadow"
+        },
+        {
+          "name": "Bold?",
+          "description": "Bold? specifies if the text is bold. If Bold? is TRUE, the text appears bold.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "bold"
+        },
+        {
+          "name": "desired font(Application)",
+          "description": "desired font specifies the text font. 0 User-specified Font 1 Application Font (default) 2 System Font 3 Dialog Font",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "desired_fontapplication"
+        },
+        {
+          "name": "picture",
+          "description": "picture is the picture to which you want to add the graph. The default is an empty picture.",
+          "default_value": "an empty picture",
+          "enum_values": null,
+          "python_param": "picture"
+        },
+        {
+          "name": "data",
+          "description": "data is an array of points, where each point is a cluster of x and y pixel coordinates.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "data"
+        },
+        {
+          "name": "dimensions (w,h)",
+          "description": "Functions",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "dimensions_w_h"
+        }
+      ]
+    },
+    {
+      "name": "Plot Multi-XY",
+      "page": 2022,
+      "category": "Graphics & Sound",
+      "description": "Takes a picture and an array of plots and appends a picture of an XY graph of the data with the plots overlaid on the same graph. Functions 2022 ni.com Each plot is an array of points.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "[user-specified font]",
+          "description": "[user-specified font] specifies the specific font characteristics for the text to draw. The VI ignores this input unless desired font is User-specified Font.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "user_specified_font"
+        },
+        {
+          "name": "Font Name:",
+          "description": "Font Name specifies the font to use for the text. If you misspell the font name or specify a font that is not installed on the computer, the operating system selects a font.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "font_name"
+        },
+        {
+          "name": "Size",
+          "description": "Size specifies the size of the font in points.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "size"
+        },
+        {
+          "name": "Strikeout?",
+          "description": "Strikeout? specifies if the text appears in strikeout. If Strikeout? is TRUE, the text appears in strikeout.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "strikeout"
+        },
+        {
+          "name": "Italic?",
+          "description": "Italic? specifies if the text appears in italics. If Italic? is TRUE, the text appears in italics.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "italic"
+        },
+        {
+          "name": "Underline?",
+          "description": "Functions",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "underline"
+        }
+      ]
+    },
+    {
+      "name": "Plot Waveform",
+      "page": 2029,
+      "category": "Graphics & Sound",
+      "description": "Takes uniformly distributed data and a picture and creates a new picture that represents a waveform graph of the data. Functions © National Instruments 2029",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "[user-specified font]",
+          "description": "[user-specified font] specifies the specific font characteristics for the text to draw. The VI ignores this input unless desired font is User-specified Font.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "user_specified_font"
+        },
+        {
+          "name": "Font Name:",
+          "description": "Font Name specifies the font to use for the text. If you misspell the font name or specify a font that is not installed on the computer, the operating system selects a font.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "font_name"
+        },
+        {
+          "name": "Size",
+          "description": "Size specifies the size of the font in points.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "size"
+        },
+        {
+          "name": "Strikeout?",
+          "description": "Strikeout? specifies if the text appears in strikeout. If Strikeout? is TRUE, the text appears in strikeout.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "strikeout"
+        },
+        {
+          "name": "Italic?",
+          "description": "Italic? specifies if the text appears in italics. If Italic? is TRUE, the text appears in italics.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "italic"
+        },
+        {
+          "name": "Underline?",
+          "description": "Underline? specifies if the text is underlined. If Underline? is TRUE, the text appears underlined.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "underline"
+        },
+        {
+          "name": "Outline?",
+          "description": "Functions 2030 ni.com Outline? specifies if the text is outlined. If Outline? is TRUE, the text appears outlined.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "outline"
+        },
+        {
+          "name": "Shadow?",
+          "description": "Shadow? specifies if the text has a shadow. If Shadow? is TRUE, the text appears in shadow.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "shadow"
+        },
+        {
+          "name": "Bold?",
+          "description": "Bold? specifies if the text is bold. If Bold? is TRUE, the text appears bold.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "bold"
+        },
+        {
+          "name": "desired font(Application)",
+          "description": "desired font specifies the text font. 0 User-specified Font 1 Application Font (default) 2 System Font 3 Dialog Font",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "desired_fontapplication"
+        },
+        {
+          "name": "picture",
+          "description": "picture is the picture to which you want to add the graph. The default is an empty picture.",
+          "default_value": "an empty picture",
+          "enum_values": null,
+          "python_param": "picture"
+        },
+        {
+          "name": "bounding rect",
+          "description": "bounding rect contains the upper-left and lower-right coordinates that describe a rectangle bounding the plot, including the x- and y-axes. Horizontal coordinates increase to the right, and vertical coordinates increase to the bottom.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "bounding_rect"
+        },
+        {
+          "name": "left",
+          "description": "left is the horizontal coordinate of the left edge of the rectangle.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "left"
+        },
+        {
+          "name": "top",
+          "description": "top is the vertical coordinate of the top edge of the rectangle.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "top"
+        },
+        {
+          "name": "right",
+          "description": "Functions",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "right"
+        }
+      ]
+    },
+    {
+      "name": "Radar Plot",
+      "page": 2036,
+      "category": "Graphics & Sound",
+      "description": "Takes a picture and an array of plots and appends a picture that represents the radar plot of the data. Functions 2036 ni.com You can use a radar plot to compare the performance of one set of data with another set of data. This VI uses the Draw Legend VI as a subVI.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "[user-specified font]",
+          "description": "[user-specified font] specifies the specific font characteristics for the text to draw. The VI ignores this input unless desired font is User-specified Font.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "user_specified_font"
+        },
+        {
+          "name": "Font Name:",
+          "description": "Font Name specifies the font to use for the text. If you misspell the font name or specify a font that is not installed on the computer, the operating system selects a font.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "font_name"
+        },
+        {
+          "name": "Size",
+          "description": "Size specifies the size of the font in points.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "size"
+        },
+        {
+          "name": "Strikeout?",
+          "description": "Strikeout? specifies if the text appears in strikeout. If Strikeout? is TRUE, the text appears in strikeout.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "strikeout"
+        },
+        {
+          "name": "Italic?",
+          "description": "Italic? specifies if the text appears in italics. If Italic? is TRUE, the text appears in italics.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "italic"
+        },
+        {
+          "name": "Underline?",
+          "description": "Functions",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "underline"
+        }
+      ]
+    },
+    {
+      "name": "Draw Legend",
+      "page": 2042,
+      "category": "Graphics & Sound",
+      "description": "Takes a picture and adds a legend to the picture. The Radar Plot VI uses this VI as a subVI.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "[user-specified font]",
+          "description": "[user-specified font] specifies the specific font characteristics for the text to draw. Functions 2042 ni.com The VI ignores this input unless desired font is User-specified Font.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "user_specified_font"
+        },
+        {
+          "name": "Font Name:",
+          "description": "Font Name specifies the font to use for the text. If you misspell the font name or specify a font that is not installed on the computer, the operating system selects a font.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "font_name"
+        },
+        {
+          "name": "Size",
+          "description": "Size specifies the size of the font in points.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "size"
+        },
+        {
+          "name": "Strikeout?",
+          "description": "Strikeout? specifies if the text appears in strikeout. If Strikeout? is TRUE, the text appears in strikeout.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "strikeout"
+        },
+        {
+          "name": "Italic?",
+          "description": "Italic? specifies if the text appears in italics. If Italic? is TRUE, the text appears in italics.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "italic"
+        },
+        {
+          "name": "Underline?",
+          "description": "Underline? specifies if the text is underlined. If Underline? is TRUE, the text appears underlined.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "underline"
+        },
+        {
+          "name": "Outline?",
+          "description": "Outline? specifies if the text is outlined. If Outline? is TRUE, the text appears outlined.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "outline"
+        },
+        {
+          "name": "Shadow?",
+          "description": "Shadow? specifies if the text has a shadow. If Shadow? is TRUE, the text appears in shadow.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "shadow"
+        },
+        {
+          "name": "Bold?",
+          "description": "Bold? specifies if the text is bold. If Bold? is TRUE, the text appears bold.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "bold"
+        },
+        {
+          "name": "desired font(Application)",
+          "description": "desired font specifies the text font. Functions",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "desired_fontapplication"
+        }
+      ]
+    },
+    {
+      "name": "Calc Scale Specs",
+      "page": 2045,
+      "category": "Graphics & Sound",
+      "description": "Takes a specification for a Cartesian style scale and calculates the coordinates and labels to use for the scale.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "[user-specified font]",
+          "description": "[user-specified font] specifies the specific font characteristics for the text to draw. Functions © National Instruments 2045 The VI ignores this input unless desired font is User-specified Font.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "user_specified_font"
+        },
+        {
+          "name": "Font Name:",
+          "description": "Font Name specifies the font to use for the text. If you misspell the font name or specify a font that is not installed on the computer, the operating system selects a font.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "font_name"
+        },
+        {
+          "name": "Size",
+          "description": "Size specifies the size of the font in points.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "size"
+        },
+        {
+          "name": "Strikeout?",
+          "description": "Strikeout? specifies if the text appears in strikeout. If Strikeout? is TRUE, the text appears in strikeout.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "strikeout"
+        },
+        {
+          "name": "Italic?",
+          "description": "Italic? specifies if the text appears in italics. If Italic? is TRUE, the text appears in italics.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "italic"
+        },
+        {
+          "name": "Underline?",
+          "description": "Underline? specifies if the text is underlined. If Underline? is TRUE, the text appears underlined.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "underline"
+        },
+        {
+          "name": "Outline?",
+          "description": "Outline? specifies if the text is outlined. If Outline? is TRUE, the text appears outlined.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "outline"
+        },
+        {
+          "name": "Shadow?",
+          "description": "Shadow? specifies if the text has a shadow. If Shadow? is TRUE, the text appears in shadow.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "shadow"
+        },
+        {
+          "name": "Bold?",
+          "description": "Bold? specifies if the text is bold. If Bold? is TRUE, the text appears bold.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "bold"
+        },
+        {
+          "name": "desired font(Application)",
+          "description": "desired font specifies the text font. Functions 2046 ni.com 0 User-specified Font 1 Application Font (default) 2 System Font 3 Dialog Font",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "desired_fontapplication"
+        },
+        {
+          "name": "scale definition",
+          "description": "scale definition specifies the pixel coordinates and values for both ends of the scale, and the numeric format and precision for the scale numbers.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "scale_definition"
+        },
+        {
+          "name": "coordinate 1",
+          "description": "coordinate 1 contains the pixel coordinates for the left of a vertical scale or the top of a horizontal scale.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "coordinate_1"
+        },
+        {
+          "name": "value 1",
+          "description": "value 1 contains the minimum value for the scale numbers.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "value_1"
+        },
+        {
+          "name": "coordinate 2",
+          "description": "coordinate 2 contains the pixel coordinates for the right of a vertical scale or the bottom of a horizontal scale.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "coordinate_2"
+        },
+        {
+          "name": "value 2",
+          "description": "value 2 contains the maximum value for the scale numbers.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "value_2"
+        },
+        {
+          "name": "log?(F)",
+          "description": "log? specifies if the scale is logarithmic.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "logf"
+        },
+        {
+          "name": "fmt and prec",
+          "description": "fmt and prec specifies the numeric format and precision for the scale numbers.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "fmt_and_prec"
+        },
+        {
+          "name": "format",
+          "description": "format specifies the numeric format for the scale numbers. Functions © National Instruments 2047",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "format"
+        }
+      ]
+    },
+    {
+      "name": "Draw Scale",
+      "page": 2049,
+      "category": "Graphics & Sound",
+      "description": "Draws a scale onto a picture. Functions © National Instruments 2049",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "[user-specified font]",
+          "description": "[user-specified font] specifies the specific font characteristics for the text to draw. The VI ignores this input unless desired font is User-specified Font.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "user_specified_font"
+        },
+        {
+          "name": "Font Name:",
+          "description": "Font Name specifies the font to use for the text. If you misspell the font name or specify a font that is not installed on the computer, the operating system selects a font.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "font_name"
+        },
+        {
+          "name": "Size",
+          "description": "Size specifies the size of the font in points.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "size"
+        },
+        {
+          "name": "Strikeout?",
+          "description": "Strikeout? specifies if the text appears in strikeout. If Strikeout? is TRUE, the text appears in strikeout.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "strikeout"
+        },
+        {
+          "name": "Italic?",
+          "description": "Italic? specifies if the text appears in italics. If Italic? is TRUE, the text appears in italics.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "italic"
+        },
+        {
+          "name": "Underline?",
+          "description": "Underline? specifies if the text is underlined. If Underline? is TRUE, the text appears underlined.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "underline"
+        },
+        {
+          "name": "Outline?",
+          "description": "Outline? specifies if the text is outlined. If Outline? is TRUE, the text appears outlined.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "outline"
+        },
+        {
+          "name": "Shadow?",
+          "description": "Shadow? specifies if the text has a shadow. If Shadow? is TRUE, the text appears in shadow.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "shadow"
+        },
+        {
+          "name": "Bold?",
+          "description": "Functions 2050 ni.com Bold? specifies if the text is bold. If Bold? is TRUE, the text appears bold.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "bold"
+        },
+        {
+          "name": "desired font(Application)",
+          "description": "desired font specifies the text font. 0 User-specified Font 1 Application Font (default) 2 System Font 3 Dialog Font",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "desired_fontapplication"
+        },
+        {
+          "name": "picture",
+          "description": "picture is the picture to which you want to add the scale. The default is an empty picture.",
+          "default_value": "an empty picture",
+          "enum_values": null,
+          "python_param": "picture"
+        },
+        {
+          "name": "scale specs",
+          "description": "scale specs is an array of clusters containing the coordinates and labels you can use in the scale. Use the Calc Scale Specs VI to obtain the values for this input.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "scale_specs"
+        },
+        {
+          "name": "coordinate",
+          "description": "coordinate specifies the coordinates to use in the scale.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "coordinate"
+        },
+        {
+          "name": "label",
+          "description": "label specifies the labels to use in the scale.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "label"
+        },
+        {
+          "name": "constant coordinate",
+          "description": "constant coordinate is the location of the x coordinate in a vertical scale, or the y coordinate in a horizontal scale.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "constant_coordinate"
+        },
+        {
+          "name": "tick length(3)",
+          "description": "tick length specifies the length of the tick marks on the edge of the scale.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "tick_length3"
+        },
+        {
+          "name": "scale attributes",
+          "description": "Functions",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "scale_attributes"
+        }
+      ]
+    },
+    {
+      "name": "Map Setup",
+      "page": 2053,
+      "category": "Graphics & Sound",
+      "description": "Uses pixel and data ranges to determine scale factors such that (a * data value) + b is the pixel value that corresponds to that data value.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "log?(F)",
+          "description": "log? specifies if the scale is logarithmic.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "logf"
+        },
+        {
+          "name": "coordinate 1",
+          "description": "coordinate 1 is the pixel location for the first point.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "coordinate_1"
+        },
+        {
+          "name": "value 1",
+          "description": "value 1 is the actual data value for the first point.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "value_1"
+        },
+        {
+          "name": "coordinate 2",
+          "description": "coordinate 2 is the pixel location for the second point.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "coordinate_2"
+        },
+        {
+          "name": "value 2",
+          "description": "value 2 is the actual data value for the second point.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "value_2"
+        },
+        {
+          "name": "scale factors",
+          "description": "scale factors is the scale factor created from the two points. Use this output as the input for other VIs such as the Map Pixel to Value VI and the Map Value to Pixel VI. Functions",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "scale_factors"
+        }
+      ]
+    },
+    {
+      "name": "Map Value to Pixel",
+      "page": 2054,
+      "category": "Graphics & Sound",
+      "description": "Uses the domain value and the cluster returned by the Map Setup VI to determine a pixel value corresponding to that domain value.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "scale factors",
+          "description": "scale factors is a cluster returned by the Map Setup VI.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "scale_factors"
+        },
+        {
+          "name": "log?(F)",
+          "description": "log? specifies if the scale is logarithmic. Functions 2054 ni.com",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "logf"
+        },
+        {
+          "name": "pixel",
+          "description": "pixel is the pixel value corresponding to the domain value.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "pixel"
+        }
+      ]
+    },
+    {
+      "name": "Map Pixel to Value",
+      "page": 2055,
+      "category": "Graphics & Sound",
+      "description": "Uses the pixel value and the cluster returned by the Map Setup VI to determine the domain value corresponding to that pixel value.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "scale factors",
+          "description": "scale factors is a cluster returned by the Map Setup VI.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "scale_factors"
+        },
+        {
+          "name": "log?(F)",
+          "description": "log? specifies if the scale is logarithmic.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "logf"
+        },
+        {
+          "name": "pixel",
+          "description": "pixel is the pixel value.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "pixel"
+        }
+      ]
+    },
+    {
+      "name": "Picture Functions",
+      "page": 2056,
+      "category": "Graphics & Sound",
+      "description": "Use the Picture Functions VIs to create visual representations of data. Many of these picture VIs use clusters to define points and rectangles. The VIs related to drawing text use clusters and enumerations to describe the font choice and the positioning of the text. Palette Object Description Draw Point Sets a pixel in a picture to a specified color. Move Pen Changes the current pen location of a picture to the specified position or by the specified amount if the position is relative. Draw Line ",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_review",
+      "terminals": []
+    },
+    {
+      "name": "Draw Point",
+      "page": 2058,
+      "category": "Graphics & Sound",
+      "description": "Sets a pixel in a picture to a specified color. Functions 2058 ni.com",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "picture",
+          "description": "picture is the picture to which you want to add a pixel. The default is an empty picture.",
+          "default_value": "an empty picture",
+          "enum_values": null,
+          "python_param": "picture"
+        },
+        {
+          "name": "point(x,y)",
+          "description": "point(x,y) is the coordinate of the pixel to set in the resulting picture relative to the current location of the origin.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "pointx_y"
+        },
+        {
+          "name": "color(black)",
+          "description": "color is the color of the pixel. The default is black. You can wire a color box constant to this input.",
+          "default_value": "black",
+          "enum_values": null,
+          "python_param": "colorblack"
+        },
+        {
+          "name": "pen",
+          "description": "pen sets the width and style of the pen the VI uses to draw the picture.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "pen"
+        },
+        {
+          "name": "Width",
+          "description": "Width sets the width in pixels of the pen the VI uses to draw the picture.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "width"
+        },
+        {
+          "name": "Style",
+          "description": "Style sets the style of the line the VI uses to draw the picture. Functions",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "style"
+        }
+      ]
+    },
+    {
+      "name": "Move Pen",
+      "page": 2060,
+      "category": "Graphics & Sound",
+      "description": "Changes the current pen location of a picture to the specified position or by the specified amount if the position is relative.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "picture",
+          "description": "picture is the picture whose current pen location you want to move. The default is an empty picture.",
+          "default_value": "an empty picture",
+          "enum_values": null,
+          "python_param": "picture"
+        },
+        {
+          "name": "new position",
+          "description": "new position is the point to which the pen moves in the new picture. Functions 2060 ni.com If absolute coordinates? is TRUE, the pen moves to the absolute coordinate specified by new position. If absolute coordinates? is FALSE, the pen moves relative to the current pen location in picture.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "new_position"
+        },
+        {
+          "name": "absolute coordinates?(T)",
+          "description": "absolute coordinates? specifies whether the point new position is in absolute or relative coordinates. The default is absolute (TRUE).",
+          "default_value": "absolute (TRUE)",
+          "enum_values": null,
+          "python_param": "absolute_coordinatest"
+        },
+        {
+          "name": "new picture",
+          "description": "new picture is the picture that contains the new image. You can wire this output to any other picture input to add more drawing instructions to the picture. You also can wire this output to the Picture to Pixmap VI to obtain an image data cluster. You then can use the Graphics Formats VIs to save the image data to a file. You can wire this output to the Concatenate Strings function to concatenate the output from multiple Picture Functions VIs so that they draw on a single picture control. Exampl",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "new_picture"
+        },
+        {
+          "name": "labview\\examples\\Graphics and Sound\\2D Picture Control\\",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "labview_examples_graphics_and_sound_2d_picture_control"
+        }
+      ]
+    },
+    {
+      "name": "Draw Line",
+      "page": 2061,
+      "category": "Graphics & Sound",
+      "description": "Draws a line from the current pen position to the specified location in a picture. Functions © National Instruments 2061 The end point is either absolute or relative to the current position, depending on the value of the absolute coordinates? input.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "picture",
+          "description": "picture is the picture to which you want to add the line. The default is an empty picture.",
+          "default_value": "an empty picture",
+          "enum_values": null,
+          "python_param": "picture"
+        },
+        {
+          "name": "end point",
+          "description": "end point is the end point of the new line. If absolute coordinates? is TRUE, the line draws to the absolute coordinate that end point specifies. If absolute coordinates? is FALSE, the line draws relative to the current pen location in picture.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "end_point"
+        },
+        {
+          "name": "absolute coordinates?(T)",
+          "description": "absolute coordinates? specifies whether the point new position is in absolute or relative coordinates. The default is absolute (TRUE).",
+          "default_value": "absolute (TRUE)",
+          "enum_values": null,
+          "python_param": "absolute_coordinatest"
+        },
+        {
+          "name": "color(black)",
+          "description": "color is the color of the pixel. The default is black. Functions 2062 ni.com You can wire a color box constant to this input.",
+          "default_value": "black",
+          "enum_values": null,
+          "python_param": "colorblack"
+        },
+        {
+          "name": "pen",
+          "description": "pen sets the width and style of the pen the VI uses to draw the picture.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "pen"
+        },
+        {
+          "name": "Width",
+          "description": "Width sets the width in pixels of the pen the VI uses to draw the picture.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "width"
+        },
+        {
+          "name": "Style",
+          "description": "Style sets the style of the line the VI uses to draw the picture. 0 Solid (default) 1 Dash 2 Dot 3 DashDot 4 DashDotDot",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "style"
+        },
+        {
+          "name": "new picture",
+          "description": "new picture is the picture that contains the new image. You can wire this output to any other picture input to add more drawing instructions to the picture. You also can wire this output to the Picture to Pixmap VI to obtain an image data cluster. You then can use the Graphics Formats VIs to save the image data to a file. You can wire this output to the Concatenate Strings function to concatenate the output from multiple Picture Functions VIs so that they draw on a single picture control. Exampl",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "new_picture"
+        },
+        {
+          "name": "labview\\examples\\Graphics and Sound\\2D Picture Control\\",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "labview_examples_graphics_and_sound_2d_picture_control"
+        }
+      ]
+    },
+    {
+      "name": "Draw Multiple Lines",
+      "page": 2064,
+      "category": "Graphics & Sound",
+      "description": "Draws multiple connected lines into a picture. You also can use the VI to draw color-filled polygons by passing TRUE to the fill? input. All points are absolute coordinates.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "picture",
+          "description": "picture is the picture to which you want to add lines. The default is an empty picture.",
+          "default_value": "an empty picture",
+          "enum_values": null,
+          "python_param": "picture"
+        },
+        {
+          "name": "line endpoints",
+          "description": "line endpoints is an array of points describing the lines to draw. The lines are drawn in the specified color, connecting the points in order. All coordinates are absolute.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "line_endpoints"
+        },
+        {
+          "name": "fill?(F)",
+          "description": "fill? specifies whether to fill the interior. If FALSE (default), the VI draws only the outlines.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "fillf"
+        },
+        {
+          "name": "color(black)",
+          "description": "Functions 2064 ni.com color is the color of the lines. If the interior is filled, the VI uses this color for the interior. The default is black. You can wire a color box constant to this input.",
+          "default_value": "black",
+          "enum_values": null,
+          "python_param": "colorblack"
+        },
+        {
+          "name": "pen",
+          "description": "pen sets the width and style of the pen the VI uses to draw the picture.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "pen"
+        },
+        {
+          "name": "Width",
+          "description": "Width sets the width in pixels of the pen the VI uses to draw the picture.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "width"
+        },
+        {
+          "name": "Style",
+          "description": "Style sets the style of the line the VI uses to draw the picture. 0 Solid (default) 1 Dash 2 Dot 3 DashDot 4 DashDotDot",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "style"
+        },
+        {
+          "name": "new picture",
+          "description": "new picture is the picture that contains the new image. You can wire this output to any other picture input to add more drawing instructions to the picture. You also can wire this output to the Picture to Pixmap VI to obtain an image data cluster. You then can use the Graphics Formats VIs to save the image data to a file. You can wire this output to the Concatenate Strings function to concatenate the output from multiple Picture Functions VIs so that they draw on a single picture control.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "new_picture"
+        }
+      ]
+    },
+    {
+      "name": "Draw Rectangle",
+      "page": 2065,
+      "category": "Graphics & Sound",
+      "description": "Draws a rectangle, optionally filling the interior. Functions © National Instruments 2065",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "picture",
+          "description": "picture is the picture to which you want to add the rectangle. The default is an empty picture.",
+          "default_value": "an empty picture",
+          "enum_values": null,
+          "python_param": "picture"
+        },
+        {
+          "name": "rect",
+          "description": "rect is a cluster that contains four numeric controls that describe the left, top, right, and bottom coordinates of the outer edges of the rectangle. Horizontal coordinates increase to the right, and vertical coordinates increase to the bottom.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "rect"
+        },
+        {
+          "name": "left",
+          "description": "left is the horizontal coordinate of the left edge of the rectangle.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "left"
+        },
+        {
+          "name": "top",
+          "description": "top is the vertical coordinate of the top edge of the rectangle.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "top"
+        },
+        {
+          "name": "right",
+          "description": "right is the horizontal coordinate of the right edge of the rectangle.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "right"
+        },
+        {
+          "name": "bottom",
+          "description": "bottom is the vertical coordinate of the bottom edge of the rectangle.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "bottom"
+        },
+        {
+          "name": "fill?(F)",
+          "description": "fill? specifies whether to fill the interior. If FALSE (default), the VI draws only the outlines.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "fillf"
+        },
+        {
+          "name": "color(black)",
+          "description": "color is the color of the lines. Functions 2066 ni.com If the interior is filled, the VI uses this color for the interior. The default is black. You can wire a color box constant to this input.",
+          "default_value": "black",
+          "enum_values": null,
+          "python_param": "colorblack"
+        },
+        {
+          "name": "pen",
+          "description": "pen sets the width and style of the pen the VI uses to draw the picture.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "pen"
+        },
+        {
+          "name": "Width",
+          "description": "Width sets the width in pixels of the pen the VI uses to draw the picture.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "width"
+        },
+        {
+          "name": "Style",
+          "description": "Style sets the style of the line the VI uses to draw the picture. 0 Solid (default) 1 Dash 2 Dot 3 DashDot 4 DashDotDot",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "style"
+        },
+        {
+          "name": "new picture",
+          "description": "new picture is the picture that contains the new image. You can wire this output to any other picture input to add more drawing instructions to the picture. You also can wire this output to the Picture to Pixmap VI to obtain an image data cluster. You then can use the Graphics Formats VIs to save the image data to a file. You can wire this output to the Concatenate Strings function to concatenate the output from multiple Picture Functions VIs so that they draw on a single picture control.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "new_picture"
+        }
+      ]
+    },
+    {
+      "name": "Draw Grayed Out Rect",
+      "page": 2067,
+      "category": "Graphics & Sound",
+      "description": "Draws a patterned rectangle in the specified picture to create the effect of graying-out a section of the picture. An underlying picture shows through the holes in the pattern. The VI does not frame Functions © National Instruments 2067 the rectangle.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "picture",
+          "description": "picture is the picture to which you want to add the rectangle. The default is an empty picture.",
+          "default_value": "an empty picture",
+          "enum_values": null,
+          "python_param": "picture"
+        },
+        {
+          "name": "rect",
+          "description": "rect is a cluster that contains four numeric controls that describe the left, top, right, and bottom coordinates of the outer edges of the rectangle. Horizontal coordinates increase to the right, and vertical coordinates increase to the bottom.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "rect"
+        },
+        {
+          "name": "left",
+          "description": "left is the horizontal coordinate of the left edge of the rectangle.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "left"
+        },
+        {
+          "name": "top",
+          "description": "top is the vertical coordinate of the top edge of the rectangle.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "top"
+        },
+        {
+          "name": "right",
+          "description": "right is the horizontal coordinate of the right edge of the rectangle.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "right"
+        },
+        {
+          "name": "bottom",
+          "description": "bottom is the vertical coordinate of the bottom edge of the rectangle.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "bottom"
+        },
+        {
+          "name": "color(black)",
+          "description": "color is the color of the pattern. In black and white, the VI uses white. You can wire a color box constant to this input.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "colorblack"
+        },
+        {
+          "name": "new picture",
+          "description": "Functions 2068 ni.com new picture is the picture that contains the new image. You can wire this output to any other picture input to add more drawing instructions to the picture. You also can wire this output to the Picture to Pixmap VI to obtain an image data cluster. You then can use the Graphics Formats VIs to save the image data to a file. You can wire this output to the Concatenate Strings function to concatenate the output from multiple Picture Functions VIs so that they draw on a single p",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "new_picture"
+        }
+      ]
+    },
+    {
+      "name": "Draw Round Rect",
+      "page": 2069,
+      "category": "Graphics & Sound",
+      "description": "Draws a rounded rectangle into a picture.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "oval height",
+          "description": "oval height is the height of an oval that defines the amount of curvature for the corners.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "oval_height"
+        },
+        {
+          "name": "oval width",
+          "description": "oval width is the width of an oval that defines the amount of curvature for the corners.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "oval_width"
+        },
+        {
+          "name": "picture",
+          "description": "picture is the picture to which you want to add the rectangle. The default is an empty picture.",
+          "default_value": "an empty picture",
+          "enum_values": null,
+          "python_param": "picture"
+        },
+        {
+          "name": "rect",
+          "description": "rect is a cluster that contains four numeric controls that describe the left, top, right, and bottom coordinates of the outer edges of a rectangle that circumscribes the rounded rectangle. Horizontal coordinates increase to the right, and vertical coordinates increase to the bottom. Functions",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "rect"
+        }
+      ]
+    },
+    {
+      "name": "Draw Oval",
+      "page": 2071,
+      "category": "Graphics & Sound",
+      "description": "Draws an oval in the rectangle you specify, optionally filling the interior. Functions © National Instruments 2071",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "picture",
+          "description": "picture is the picture to which you want to add the oval. The default is an empty picture.",
+          "default_value": "an empty picture",
+          "enum_values": null,
+          "python_param": "picture"
+        },
+        {
+          "name": "rect",
+          "description": "rect is a cluster that contains four numeric controls that describe the left, top, right, and bottom coordinates of the outer edges of the rectangle. Horizontal coordinates increase to the right, and vertical coordinates increase to the bottom.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "rect"
+        },
+        {
+          "name": "left",
+          "description": "left is the horizontal coordinate of the left edge of the rectangle.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "left"
+        },
+        {
+          "name": "top",
+          "description": "top is the vertical coordinate of the top edge of the rectangle.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "top"
+        },
+        {
+          "name": "right",
+          "description": "right is the horizontal coordinate of the right edge of the rectangle.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "right"
+        },
+        {
+          "name": "bottom",
+          "description": "bottom is the vertical coordinate of the bottom edge of the rectangle.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "bottom"
+        },
+        {
+          "name": "fill?(F)",
+          "description": "fill? specifies whether to fill the interior. If FALSE (default), the VI draws only the outlines.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "fillf"
+        },
+        {
+          "name": "color(black)",
+          "description": "color is the color of the lines. Functions 2072 ni.com If the interior is filled, the VI uses this color for the interior. The default is black. You can wire a color box constant to this input.",
+          "default_value": "black",
+          "enum_values": null,
+          "python_param": "colorblack"
+        },
+        {
+          "name": "pen",
+          "description": "pen sets the width and style of the pen the VI uses to draw the picture.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "pen"
+        },
+        {
+          "name": "Width",
+          "description": "Width sets the width in pixels of the pen the VI uses to draw the picture.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "width"
+        },
+        {
+          "name": "Style",
+          "description": "Style sets the style of the line the VI uses to draw the picture. 0 Solid (default) 1 Dash 2 Dot 3 DashDot 4 DashDotDot",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "style"
+        },
+        {
+          "name": "new picture",
+          "description": "new picture is the picture that contains the new image. You can wire this output to any other picture input to add more drawing instructions to the picture. You also can wire this output to the Picture to Pixmap VI to obtain an image data cluster. You then can use the Graphics Formats VIs to save the image data to a file. You can wire this output to the Concatenate Strings function to concatenate the output from multiple Picture Functions VIs so that they draw on a single picture control.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "new_picture"
+        }
+      ]
+    },
+    {
+      "name": "Draw Arc",
+      "page": 2073,
+      "category": "Graphics & Sound",
+      "description": "Draws an arc in a picture. Functions © National Instruments 2073",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "arc size[degrees]",
+          "description": "arc size determines the degree value of the circle you want to draw. This value can range from -360 to 360. For example, a value of 360 creates a complete circle, and a value of 180 creates a semicircle.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "arc_sizedegrees"
+        },
+        {
+          "name": "start angle[degrees]",
+          "description": "start angle determines where the arc begins.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "start_angledegrees"
+        },
+        {
+          "name": "picture",
+          "description": "picture is the picture to which you want to add the arc. The default is an empty picture.",
+          "default_value": "an empty picture",
+          "enum_values": null,
+          "python_param": "picture"
+        },
+        {
+          "name": "rect",
+          "description": "rect is a cluster that contains four numeric controls that describe the left, top, right, and bottom coordinates of the outer edges of the rectangle. Horizontal coordinates increase to the right, and vertical coordinates increase to the bottom.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "rect"
+        },
+        {
+          "name": "left",
+          "description": "left is the horizontal coordinate of the left edge of the rectangle.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "left"
+        },
+        {
+          "name": "top",
+          "description": "top is the vertical coordinate of the top edge of the rectangle.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "top"
+        },
+        {
+          "name": "right",
+          "description": "right is the horizontal coordinate of the right edge of the rectangle.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "right"
+        },
+        {
+          "name": "bottom",
+          "description": "Functions 2074 ni.com bottom is the vertical coordinate of the bottom edge of the rectangle.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "bottom"
+        },
+        {
+          "name": "fill?(F)",
+          "description": "fill? specifies whether to fill the rectangle. If FALSE (default), the VI draws only the arc component and does not draw interior bounds of the wedge.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "fillf"
+        },
+        {
+          "name": "color(black)",
+          "description": "color is the color of the lines. If the interior is filled, the VI uses this color for the interior. The default is black. You can wire a color box constant to this input.",
+          "default_value": "black",
+          "enum_values": null,
+          "python_param": "colorblack"
+        },
+        {
+          "name": "pen",
+          "description": "pen sets the width and style of the pen the VI uses to draw the picture.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "pen"
+        },
+        {
+          "name": "Width",
+          "description": "Width sets the width in pixels of the pen the VI uses to draw the picture.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "width"
+        },
+        {
+          "name": "Style",
+          "description": "Style sets the style of the line the VI uses to draw the picture. 0 Solid (default) 1 Dash 2 Dot 3 DashDot 4 DashDotDot",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "style"
+        },
+        {
+          "name": "new picture",
+          "description": "new picture is the picture that contains the new image. You can wire this output to any other picture input to add more drawing instructions to the picture. Functions",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "new_picture"
+        }
+      ]
+    },
+    {
+      "name": "Draw Text at Point",
+      "page": 2076,
+      "category": "Graphics & Sound",
+      "description": "Draws a string into a picture. This VI automatically calculates the bounding rectangle of the text and positions the text with respect to the point you specify. Functions 2076 ni.com",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "[user-specified font]",
+          "description": "[user-specified font] specifies the specific font characteristics for the text to draw. The VI ignores this input unless desired font is User-specified Font.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "user_specified_font"
+        },
+        {
+          "name": "Font Name:",
+          "description": "Font Name specifies the font to use for the text. If you misspell the font name or specify a font that is not installed on the computer, the operating system selects a font.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "font_name"
+        },
+        {
+          "name": "Size",
+          "description": "Size specifies the size of the font in points.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "size"
+        },
+        {
+          "name": "Strikeout?",
+          "description": "Strikeout? specifies if the text appears in strikeout. If Strikeout? is TRUE, the text appears in strikeout.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "strikeout"
+        },
+        {
+          "name": "Italic?",
+          "description": "Italic? specifies if the text appears in italics. If Italic? is TRUE, the text appears in italics.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "italic"
+        },
+        {
+          "name": "Underline?",
+          "description": "Underline? specifies if the text is underlined. If Underline? is TRUE, the text appears underlined.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "underline"
+        },
+        {
+          "name": "Outline?",
+          "description": "Outline? specifies if the text is outlined. If Outline? is TRUE, the text appears outlined.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "outline"
+        },
+        {
+          "name": "Shadow?",
+          "description": "Shadow? specifies if the text has a shadow. If Shadow? is TRUE, the text appears in shadow.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "shadow"
+        },
+        {
+          "name": "Bold?",
+          "description": "Functions",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "bold"
+        }
+      ]
+    },
+    {
+      "name": "Get Text Rect",
+      "page": 2080,
+      "category": "Graphics & Sound",
+      "description": "Returns a cluster that contains the left, top, right, and bottom dimensions, in pixels, of a string. Functions 2080 ni.com",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "[user-specified font]",
+          "description": "[user-specified font] specifies the specific font characteristics for the text to draw. The VI ignores this input unless desired font is User-specified Font.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "user_specified_font"
+        },
+        {
+          "name": "Font Name:",
+          "description": "Font Name specifies the font to use for the text. If you misspell the font name or specify a font that is not installed on the computer, the operating system selects a font.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "font_name"
+        },
+        {
+          "name": "Size",
+          "description": "Size specifies the size of the font in points.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "size"
+        },
+        {
+          "name": "Strikeout?",
+          "description": "Strikeout? specifies if the text appears in strikeout. If Strikeout? is TRUE, the text appears in strikeout.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "strikeout"
+        },
+        {
+          "name": "Italic?",
+          "description": "Italic? specifies if the text appears in italics. If Italic? is TRUE, the text appears in italics.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "italic"
+        },
+        {
+          "name": "Underline?",
+          "description": "Underline? specifies if the text is underlined. If Underline? is TRUE, the text appears underlined.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "underline"
+        },
+        {
+          "name": "Outline?",
+          "description": "Outline? specifies if the text is outlined. If Outline? is TRUE, the text appears outlined.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "outline"
+        },
+        {
+          "name": "Shadow?",
+          "description": "Functions",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "shadow"
+        }
+      ]
+    },
+    {
+      "name": "Draw Text in Rect",
+      "page": 2084,
+      "category": "Graphics & Sound",
+      "description": "Draws a string into a picture. If the string is larger than the rectangle you specify, the VI clips, or crops, the string to the area of the rectangle.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "[user-specified font]",
+          "description": "[user-specified font] specifies the specific font characteristics for the text to draw. The VI ignores this input unless desired font is User-specified Font.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "user_specified_font"
+        },
+        {
+          "name": "Font Name:",
+          "description": "Font Name specifies the font to use for the text. If you misspell the font name or specify a font that is not installed on the computer, the operating system selects a font.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "font_name"
+        },
+        {
+          "name": "Size",
+          "description": "Functions 2084 ni.com Size specifies the size of the font in points.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "size"
+        },
+        {
+          "name": "Strikeout?",
+          "description": "Strikeout? specifies if the text appears in strikeout. If Strikeout? is TRUE, the text appears in strikeout.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "strikeout"
+        },
+        {
+          "name": "Italic?",
+          "description": "Italic? specifies if the text appears in italics. If Italic? is TRUE, the text appears in italics.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "italic"
+        },
+        {
+          "name": "Underline?",
+          "description": "Underline? specifies if the text is underlined. If Underline? is TRUE, the text appears underlined.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "underline"
+        },
+        {
+          "name": "Outline?",
+          "description": "Outline? specifies if the text is outlined. If Outline? is TRUE, the text appears outlined.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "outline"
+        },
+        {
+          "name": "Shadow?",
+          "description": "Shadow? specifies if the text has a shadow. If Shadow? is TRUE, the text appears in shadow.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "shadow"
+        },
+        {
+          "name": "Bold?",
+          "description": "Bold? specifies if the text is bold. If Bold? is TRUE, the text appears bold.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "bold"
+        },
+        {
+          "name": "desired font(Application)",
+          "description": "desired font specifies the text font. 0 User-specified Font 1 Application Font (default) 2 System Font 3 Dialog Font",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "desired_fontapplication"
+        },
+        {
+          "name": "picture",
+          "description": "picture is the picture to which you want to add the text string. The default is an empty picture. Functions",
+          "default_value": "an empty picture",
+          "enum_values": null,
+          "python_param": "picture"
+        }
+      ]
+    },
+    {
+      "name": "Draw Circle by Radius",
+      "page": 2087,
+      "category": "Graphics & Sound",
+      "description": "Draws a circle based on a specified radius and center point.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "arc size(360)",
+          "description": "arc size determines the degree value of the circle you want to draw. This value can range from -360 to 360. For example, a value of 360 creates a complete circle, and a value of 180 creates a semicircle. Functions © National Instruments 2087",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "arc_size360"
+        },
+        {
+          "name": "start angle(0)",
+          "description": "start angle determines where the arc begins.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "start_angle0"
+        },
+        {
+          "name": "picture",
+          "description": "picture is the picture to which you want to add the circle. The default is an empty picture.",
+          "default_value": "an empty picture",
+          "enum_values": null,
+          "python_param": "picture"
+        },
+        {
+          "name": "radius",
+          "description": "radius determines the size of the circle, in pixels. If, for example, this value is 40, the radius of the resulting circle is 40 pixels.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "radius"
+        },
+        {
+          "name": "pixel center",
+          "description": "pixel center contains the coordinates around which the VI draws the circle.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "pixel_center"
+        },
+        {
+          "name": "horizontal",
+          "description": "horizontal is the pixel center of the circle relative to the x-coordinate of the current origin.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "horizontal"
+        },
+        {
+          "name": "vertical",
+          "description": "vertical is the pixel center of the circle relative to the y-coordinate of the current origin.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "vertical"
+        },
+        {
+          "name": "fill?(F)",
+          "description": "fill? specifies whether to fill the interior. If FALSE (default), the VI draws only the outlines.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "fillf"
+        },
+        {
+          "name": "color(black)",
+          "description": "color sets the pen color to use when drawing the oval. If unwired, the VI uses the last color specified as the pen color. You can wire a color box constant to this input.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "colorblack"
+        },
+        {
+          "name": "pen",
+          "description": "pen sets the width and style of the pen the VI uses to draw the picture. Functions 2088 ni.com",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "pen"
+        },
+        {
+          "name": "Width",
+          "description": "Width sets the width in pixels of the pen the VI uses to draw the picture.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "width"
+        },
+        {
+          "name": "Style",
+          "description": "Style sets the style of the line the VI uses to draw the picture. 0 Solid (default) 1 Dash 2 Dot 3 DashDot 4 DashDotDot",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "style"
+        },
+        {
+          "name": "new picture",
+          "description": "new picture is the picture that contains the new image. You can wire this output to any other picture input to add more drawing instructions to the picture. You also can wire this output to the Picture to Pixmap VI to obtain an image data cluster. You then can use the Graphics Formats VIs to save the image data to a file. You can wire this output to the Concatenate Strings function to concatenate the output from multiple Picture Functions VIs so that they draw on a single picture control. The Dr",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "new_picture"
+        }
+      ]
+    },
+    {
+      "name": "Hilite Color",
+      "page": 2090,
+      "category": "Graphics & Sound",
+      "description": "Returns two new colors well matched to the input color for highlight and shadow coloration, based on the input color and a percentage you specify. You can use the highlight colors to create three-dimensionally shaded objects.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "Color In",
+          "description": "Color In is the input color on which to base the returned highlight and shadow colors. You can wire a color box constant to this input.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "color_in"
+        },
+        {
+          "name": "Percentage(30)",
+          "description": "Percentage determines the degree of highlighting and shadow in the new colors. The default is 30 percent.",
+          "default_value": "30 percent",
+          "enum_values": null,
+          "python_param": "percentage30"
+        },
+        {
+          "name": "Hilite",
+          "description": "Hilite is the new color matched as a highlight to the input color.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "hilite"
+        },
+        {
+          "name": "Shadow",
+          "description": "Shadow is the new color matched as a shadow to the input color. Functions 2090 ni.com",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "shadow"
+        }
+      ]
+    },
+    {
+      "name": "Draw Unflattened Pixmap",
+      "page": 2091,
+      "category": "Graphics & Sound",
+      "description": "Converts a pixmap into a picture so you can use other Picture Functions VIs to append drawing instructions to the image. The data type you wire to the data input determines the polymorphic instance to use. If you want to convert a 4-bit or 8-bit pixmap, you must manually select the polymorphic instance you want to use. • Draw True-Color Pixmap VI • Draw 1-Bit Pixmap VI • Draw 4-Bit Pixmap VI • Draw 8-Bit Pixmap VI Draw True-Color Pixmap VI Draw True-Color Pixmap VI Converts a pixmap into a pictu",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "picture",
+          "description": "picture is the picture to which you want to add the pixmap. The default is an empty picture.",
+          "default_value": "an empty picture",
+          "enum_values": null,
+          "python_param": "picture"
+        },
+        {
+          "name": "top left point(0, 0)",
+          "description": "top left point specifies in coordinates where to place the top-left corner of the image in the new picture. Functions © National Instruments 2091",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "top_left_point0_0"
+        },
+        {
+          "name": "data (RGB format)",
+          "description": "data is a 2D array of 32-bit unsigned integers that describes the color of each pixel in the image in raster order. Each pixel has three bytes to describe its color. The first byte for each pixel describes the red value, the second byte describes the green value, and the third byte describes the blue value.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "data_rgb_format"
+        },
+        {
+          "name": "mask",
+          "description": "mask is an array of bytes in which each bit describes mask information for a pixel. The first byte describes the first eight pixels, the second byte describes the next eight pixels, and so on. If a bit is zero, LabVIEW draws the corresponding pixel as transparent. If the array is empty, LabVIEW draws all pixels without transparency. If the array does not contain a bit for each pixel in the image, LabVIEW draws any pixels missing from the array without transparency.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "mask"
+        },
+        {
+          "name": "new picture",
+          "description": "new picture is the picture that contains the new image. You can wire this output to any other picture input to add more drawing instructions to the picture.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "new_picture"
+        }
+      ]
+    },
+    {
+      "name": "Draw Flattened Pixmap",
+      "page": 2097,
+      "category": "Graphics & Sound",
+      "description": "Draws a 1-, 4-, or 8-bit pixmap or a 24-bit RGB pixmap into a picture. This VI takes a 1D array of bytes as input and assumes the user completes all packing and padding.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "picture",
+          "description": "picture is the picture to which you want to add the array of data. The default is an empty picture.",
+          "default_value": "an empty picture",
+          "enum_values": null,
+          "python_param": "picture"
+        },
+        {
+          "name": "image data",
+          "description": "image data describes the image you want to draw or manipulate.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "image_data"
+        },
+        {
+          "name": "image type",
+          "description": "image type is reserved for future use.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "image_type"
+        },
+        {
+          "name": "image depth",
+          "description": "image depth specifies the color depth of the image, which is the number of bits to use to Functions © National Instruments 2097 describe the color of each pixel in the image. Valid values include 1, 4, 8, and 24 bits per pixel. image depth affects how LabVIEW interprets the values of image and colors.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "image_depth"
+        },
+        {
+          "name": "image",
+          "description": "image is an array of bytes that describes the color of each pixel in the image in raster order. The value of image depth determines how LabVIEW interprets the value of this input. If image depth is 24, each pixel has three bytes to describe its color. The first byte for each pixel describes the red value, the second byte describes the green value, and the third byte describes the blue value. If image depth is 8, each pixel has one byte to describe its color. The value of each byte corresponds to",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "image"
+        },
+        {
+          "name": "mask",
+          "description": "mask is an array of bytes in which each bit describes mask information for a pixel. The first byte describes the first eight pixels, the second byte describes the next eight pixels, and so on. If a bit is zero, LabVIEW draws the corresponding pixel as transparent. If the array is empty, LabVIEW draws all pixels without transparency. If the array does not contain a bit for each pixel in the image, LabVIEW draws any pixels missing from the array without transparency.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "mask"
+        },
+        {
+          "name": "colors",
+          "description": "colors is an array of RGB color values that correspond to the values in image. The value of image depth determines how LabVIEW interprets the value of this input. colors stores 32-bit RGB values where the most-significant byte is zero, followed in order by red, green, and blue values. Valid values include 0 through 255. Functions 2098 ni.com If image depth is 24, LabVIEW ignores this input. If image depth is 8, the array can have 256 elements. If image depth is 4, the array can have 16 elements.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "colors"
+        },
+        {
+          "name": "Rectangle",
+          "description": "Rectangle is a cluster that contains coordinates that describe the bounding rectangle in which you want to draw the image. The VI clips the image to the width and height of the rectangle. The bottom and right edges of the rectangle bounds do not contain image pixels. Horizontal coordinates increase to the right, and vertical coordinates increase to the bottom.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "rectangle"
+        },
+        {
+          "name": "left",
+          "description": "left is the horizontal coordinate of the left edge of the rectangle.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "left"
+        },
+        {
+          "name": "top",
+          "description": "top is the vertical coordinate of the top edge of the rectangle.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "top"
+        },
+        {
+          "name": "right",
+          "description": "right is the horizontal coordinate of the right edge of the rectangle.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "right"
+        },
+        {
+          "name": "bottom",
+          "description": "bottom is the vertical coordinate of the bottom edge of the rectangle.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "bottom"
+        },
+        {
+          "name": "new picture",
+          "description": "new picture is the picture that contains the new image. You can wire this output to any other picture input to add more drawing instructions to the picture. Functions © National Instruments 2099",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "new_picture"
+        }
+      ]
+    },
+    {
+      "name": "Create Mask",
+      "page": 2100,
+      "category": "Graphics & Sound",
+      "description": "Applies a mask to an image and returns the mask information in the mask element of image data. This VI is useful if you want to make a certain color in an image transparent before writing the image to a 2D picture control.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "image data",
+          "description": "image data returns information about the image so you can use the Draw Flattened Pixmap VI to draw it as a picture.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "image_data"
+        },
+        {
+          "name": "image type",
+          "description": "image type is reserved for future use.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "image_type"
+        },
+        {
+          "name": "image depth",
+          "description": "Note This VI interprets 32-bit images as 24-bit images. Functions 2100 ni.com image depth specifies the color depth of the image, which is the number of bits to use to describe the color of each pixel in the image. Valid values include 1, 4, 8, and 24 bits per pixel. image depth affects how LabVIEW interprets the values of image and colors.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "image_depth"
+        },
+        {
+          "name": "image",
+          "description": "image is an array of bytes that describes the color of each pixel in the image in raster order. The value of image depth determines how LabVIEW interprets the value of this output. If image depth is 24, each pixel has three bytes to describe its color. The first byte for each pixel describes the red value, the second byte describes the green value, and the third byte describes the blue value. If image depth is 8, each pixel has one byte to describe its color. The value of each byte corresponds t",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "image"
+        },
+        {
+          "name": "mask",
+          "description": "mask is an array of bytes in which each bit describes mask information for a pixel. The first byte describes the first eight pixels, the second byte describes the next eight pixels, and so on. If a bit is zero, LabVIEW draws the corresponding pixel as transparent. If the array is empty, LabVIEW draws all pixels without transparency. If the array does not contain a bit for each pixel in the image, LabVIEW draws any pixels missing from the array without transparency.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "mask"
+        },
+        {
+          "name": "colors",
+          "description": "colors is an array of RGB color values that correspond to the values in image. The value of image depth determines how LabVIEW interprets the value of this output. Functions",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "colors"
+        }
+      ]
+    },
+    {
+      "name": "Picture to Pixmap",
+      "page": 2105,
+      "category": "Graphics & Sound",
+      "description": "Converts a picture to a cluster of image data you can use to perform certain tasks with the image, such as save it to a file using the Graphics Formats VIs. Functions © National Instruments 2105",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "picture",
+          "description": "picture is the picture you want to convert to a pixmap.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "picture"
+        },
+        {
+          "name": "rect",
+          "description": "rect is a cluster that contains coordinates that describe the bounding rectangle of the image you want to convert. The default is to return the entire image. Horizontal coordinates increase to the right, and vertical coordinates increase to the bottom.",
+          "default_value": "to return the entire image",
+          "enum_values": null,
+          "python_param": "rect"
+        },
+        {
+          "name": "left",
+          "description": "left is the horizontal coordinate of the left edge of the rectangle.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "left"
+        },
+        {
+          "name": "top",
+          "description": "top is the vertical coordinate of the top edge of the rectangle.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "top"
+        },
+        {
+          "name": "right",
+          "description": "right is the horizontal coordinate of the right edge of the rectangle.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "right"
+        },
+        {
+          "name": "bottom",
+          "description": "bottom is the vertical coordinate of the bottom edge of the rectangle.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "bottom"
+        },
+        {
+          "name": "depth",
+          "description": "depth specifies the color depth of the image, which is the number of bits to use to describe the color of each pixel in the image. Valid values include 1, 4, 8, and 24 bits per pixel. The default is 24.",
+          "default_value": "24",
+          "enum_values": null,
+          "python_param": "depth"
+        },
+        {
+          "name": "Background Color",
+          "description": "Functions 2106 ni.com Background Color sets the background color of the image.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "background_color"
+        },
+        {
+          "name": "new picture",
+          "description": "new picture returns picture unchanged.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "new_picture"
+        },
+        {
+          "name": "image data",
+          "description": "image data returns information about the pixmap so you can use the Graphics Formats VIs to save the pixmap to a file.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "image_data"
+        },
+        {
+          "name": "image type",
+          "description": "image type is reserved for future use.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "image_type"
+        },
+        {
+          "name": "image depth",
+          "description": "image depth specifies the color depth of the image, which is the number of bits to use to describe the color of each pixel in the image. Valid values include 1, 4, 8, and 24 bits per pixel. image depth affects how LabVIEW interprets the values of image and colors.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "image_depth"
+        },
+        {
+          "name": "image",
+          "description": "image is an array of bytes that describes the color of each pixel in the image in raster order. The value of image depth determines how LabVIEW interprets the value of this output. If image depth is 24, each pixel has three bytes to describe its color. The first byte for each pixel describes the red value, the second byte describes the green value, and the third byte describes the blue value. If image depth is 8, each pixel has one byte to describe its color. The value of each bit corresponds to",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "image"
+        }
+      ]
+    },
+    {
+      "name": "Get Image Subset",
+      "page": 2109,
+      "category": "Graphics & Sound",
+      "description": "Returns a subset of a source image instead of the entire image. Use the Picture to Pixmap VI to convert a picture to a cluster you can wire to image data. If you wire 32-bit image data to this VI, the VI strips the alpha channel and returns 24-bit image data.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "image data",
+          "description": "image data describes the image you want to draw or manipulate.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "image_data"
+        },
+        {
+          "name": "image type",
+          "description": "image type is reserved for future use.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "image_type"
+        },
+        {
+          "name": "image depth",
+          "description": "image depth specifies the color depth of the image, which is the number of bits to use to Functions © National Instruments 2109 describe the color of each pixel in the image. Valid values include 1, 4, 8, and 24 bits per pixel. image depth affects how LabVIEW interprets the values of image and colors.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "image_depth"
+        },
+        {
+          "name": "image",
+          "description": "image is an array of bytes that describes the color of each pixel in the image in raster order. The value of image depth determines how LabVIEW interprets the value of this input. If image depth is 24, each pixel has three bytes to describe its color. The first byte for each pixel describes the red value, the second byte describes the green value, and the third byte describes the blue value. If image depth is 8, each pixel has one byte to describe its color. The value of each byte corresponds to",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "image"
+        },
+        {
+          "name": "mask",
+          "description": "mask is an array of bytes in which each bit describes mask information for a pixel. The first byte describes the first eight pixels, the second byte describes the next eight pixels, and so on. If a bit is zero, LabVIEW draws the corresponding pixel as transparent. If the array is empty, LabVIEW draws all pixels without transparency. If the array does not contain a bit for each pixel in the image, LabVIEW draws any pixels missing from the array without transparency.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "mask"
+        },
+        {
+          "name": "colors",
+          "description": "colors is an array of RGB color values that correspond to the values in image. The value of image depth determines how LabVIEW interprets the value of this input. colors stores 32-bit RGB values where the most-significant byte is zero, followed in order by red, green, and blue values. Valid values include 0 through 255. Functions 2110 ni.com If image depth is 24, LabVIEW ignores this input. If image depth is 8, the array can have 256 elements. If image depth is 4, the array can have 16 elements.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "colors"
+        },
+        {
+          "name": "Rectangle",
+          "description": "Rectangle is a cluster that contains coordinates that describe the bounding rectangle in which you want to draw the image. The VI clips the image to the width and height of the rectangle. The bottom and right edges of the rectangle bounds do not contain image pixels. Horizontal coordinates increase to the right, and vertical coordinates increase to the bottom.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "rectangle"
+        },
+        {
+          "name": "left",
+          "description": "left is the horizontal coordinate of the left edge of the rectangle.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "left"
+        },
+        {
+          "name": "top",
+          "description": "top is the vertical coordinate of the top edge of the rectangle.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "top"
+        },
+        {
+          "name": "right",
+          "description": "right is the horizontal coordinate of the right edge of the rectangle.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "right"
+        },
+        {
+          "name": "bottom",
+          "description": "bottom is the vertical coordinate of the bottom edge of the rectangle.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "bottom"
+        },
+        {
+          "name": "subset rect",
+          "description": "subset rect is a cluster that contains coordinates that describe the bounding rectangle of the image subset. If the coordinates do not describe a valid rectangle, the VI coerces the coordinates to a valid rectangle and returns the coerced coordinates in true subset rect. Functions © National Instruments 2111",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "subset_rect"
+        }
+      ]
+    },
+    {
+      "name": "Empty Picture VI",
+      "page": 2115,
+      "category": "Graphics & Sound",
+      "description": "Returns an empty picture. The picture input for all Picture VIs is an empty picture by default. You also can create a picture constant for an empty or existing picture and wire the constant to any picture input. You can resize the constant or right-click it and select Visible Items»Scrollbar from the shortcut menu to view the entire picture.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "empty picture",
+          "description": "empty picture is the output.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "empty_picture"
+        }
+      ]
+    },
+    {
+      "name": "Color to RGB",
+      "page": 2116,
+      "category": "Graphics & Sound",
+      "description": "Resolves any color input, including system colors, into its respective red, green, and blue components. To perform a task such as color arithmetic with symbolic colors, you must convert the colors to their red, green, and blue components.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "Color",
+          "description": "Color is the color that you want to convert to its respective red, green, and blue components.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "color"
+        },
+        {
+          "name": "Resolved Color",
+          "description": "resolved color is the resolved color in RGB format.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "resolved_color"
+        }
+      ]
+    },
+    {
+      "name": "Graphics Formats",
+      "page": 2117,
+      "category": "Graphics & Sound",
+      "description": "Use the Graphics Formats VIs to retrieve or store image data in BMP, JPEG, or PNG image files. Palette Object Description Write JPEG File Writes a JPEG file. Functions © National Instruments 2117 Palette Object Description Write PNG File Writes a PNG file. Write BMP File Writes a Windows bitmap file. Read JPEG File Reads a JPEG file and creates the data necessary to display the file in a picture control. Read PNG File Reads a PNG file and creates the data necessary to display the file in a pictu",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "quality (80)",
+          "description": "quality specifies the level of quality you want for the JPEG using the IJG JPEG library scale, which ranges from 0 to 100. The default is 80. The scale balances image quality and file size. A value in the 75–95 range produces a compressed file with a high-quality image, and a value below 50 produces a smaller file size with a low- quality image.",
+          "default_value": "80",
+          "enum_values": null,
+          "python_param": "quality_80"
+        },
+        {
+          "name": "path to JPEG file",
+          "description": "path to JPEG file specifies the path to and name of the JPEG file to write. If you do not specify a path, LabVIEW displays a file dialog box so the user can navigate to the file.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "path_to_jpeg_file"
+        },
+        {
+          "name": "image data",
+          "description": "image data describes the image you want to draw or manipulate. If you wire 32-bit image data to this VI, the VI returns a 24-bit pixmap.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "image_data"
+        },
+        {
+          "name": "image type",
+          "description": "image type is reserved for future use.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "image_type"
+        },
+        {
+          "name": "image depth",
+          "description": "image depth specifies the color depth of the image, which is the number of bits to use to describe the color of each pixel in the image. Valid values include 1, 4, 8, and 24 bits per pixel. image depth affects how LabVIEW interprets the values of image and colors.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "image_depth"
+        },
+        {
+          "name": "image",
+          "description": "image is an array of bytes that describes the color of each pixel in the image in raster order. Functions",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "image"
+        }
+      ]
+    },
+    {
+      "name": "Write JPEG File",
+      "page": 2118,
+      "category": "Graphics & Sound",
+      "description": "Writes a JPEG file. If you want to write a pixmap to a file, use the Flatten Pixmap VI to convert the data to an image data cluster before using this VI. If you want to write a picture to a file, use the Picture to Pixmap VI to convert the data to an image data cluster before using this VI. Functions 2118 ni.com",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "quality (80)",
+          "description": "quality specifies the level of quality you want for the JPEG using the IJG JPEG library scale, which ranges from 0 to 100. The default is 80. The scale balances image quality and file size. A value in the 75–95 range produces a compressed file with a high-quality image, and a value below 50 produces a smaller file size with a low- quality image.",
+          "default_value": "80",
+          "enum_values": null,
+          "python_param": "quality_80"
+        },
+        {
+          "name": "path to JPEG file",
+          "description": "path to JPEG file specifies the path to and name of the JPEG file to write. If you do not specify a path, LabVIEW displays a file dialog box so the user can navigate to the file.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "path_to_jpeg_file"
+        },
+        {
+          "name": "image data",
+          "description": "image data describes the image you want to draw or manipulate. If you wire 32-bit image data to this VI, the VI returns a 24-bit pixmap.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "image_data"
+        },
+        {
+          "name": "image type",
+          "description": "image type is reserved for future use.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "image_type"
+        },
+        {
+          "name": "image depth",
+          "description": "image depth specifies the color depth of the image, which is the number of bits to use to describe the color of each pixel in the image. Valid values include 1, 4, 8, and 24 bits per pixel. image depth affects how LabVIEW interprets the values of image and colors.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "image_depth"
+        },
+        {
+          "name": "image",
+          "description": "image is an array of bytes that describes the color of each pixel in the image in raster order. Functions",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "image"
+        }
+      ]
+    },
+    {
+      "name": "Write PNG File",
+      "page": 2122,
+      "category": "Graphics & Sound",
+      "description": "Writes a PNG file. If you want to write a pixmap to a file, use the Flatten Pixmap VI to convert the data to an image data cluster before using this VI. If you want to write a picture to a file, use the Picture to Pixmap VI to convert the data to an image data cluster before using this VI.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "compression (default)",
+          "description": "compression specifies the level of file compression you want for the PNG file. The quality of the graphic is not affected by the compression, but the graphic file size and speed of compression are affected by this value. Valid values range from –1 to 9 and balance file compression with speed. The following table lists example values for compression. -1 Good compression and speed (default) 0 No compression 1 Best speed with compression 9 Best compression",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "compression_default"
+        },
+        {
+          "name": "path to PNG file",
+          "description": "path to PNG file specifies the path to and name of the PNG file to write. If you do not specify a path, LabVIEW displays a file dialog box so the user can navigate to the file.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "path_to_png_file"
+        },
+        {
+          "name": "image data",
+          "description": "image data describes the image you want to draw or manipulate. If you wire 32-bit image data to this VI, the VI returns a 24-bit pixmap. Functions 2122 ni.com",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "image_data"
+        },
+        {
+          "name": "image type",
+          "description": "image type is reserved for future use.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "image_type"
+        },
+        {
+          "name": "image depth",
+          "description": "image depth specifies the color depth of the image, which is the number of bits to use to describe the color of each pixel in the image. Valid values include 1, 4, 8, and 24 bits per pixel. image depth affects how LabVIEW interprets the values of image and colors.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "image_depth"
+        },
+        {
+          "name": "image",
+          "description": "image is an array of bytes that describes the color of each pixel in the image in raster order. The value of image depth determines how LabVIEW interprets the value of this input. If image depth is 24, each pixel has three bytes to describe its color. The first byte for each pixel describes the red value, the second byte describes the green value, and the third byte describes the blue value. If image depth is 8, each pixel has one byte to describe its color. The value of each byte corresponds to",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "image"
+        },
+        {
+          "name": "mask",
+          "description": "mask is an array of bytes in which each bit describes mask information for a pixel. The first byte describes the first eight pixels, the second byte describes the next eight pixels, and so on. If a bit is zero, LabVIEW draws the corresponding pixel as transparent. If the array is empty, LabVIEW draws all pixels without transparency. If the array does not contain a bit for each pixel in the image, LabVIEW draws any pixels missing from the array without transparency.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "mask"
+        },
+        {
+          "name": "colors",
+          "description": "Functions",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "colors"
+        }
+      ]
+    },
+    {
+      "name": "Write BMP File",
+      "page": 2125,
+      "category": "Graphics & Sound",
+      "description": "Writes a Windows bitmap file. If you want to write a pixmap to a file, use the Flatten Pixmap VI to convert the data to an image data cluster before using this VI. If you want to write a picture to a file, use the Picture to Pixmap VI to convert the data to an image data cluster before using this VI.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "path to BMP file",
+          "description": "path to BMP file specifies the path to and name of the bitmap file to write. If you do not specify a path, LabVIEW displays a file dialog box so the user can navigate to the file.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "path_to_bmp_file"
+        },
+        {
+          "name": "image data",
+          "description": "image data describes the image you want to draw or manipulate. If you wire 32-bit image data to this VI, the VI returns a 24-bit pixmap. Functions © National Instruments 2125",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "image_data"
+        },
+        {
+          "name": "image type",
+          "description": "image type is reserved for future use.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "image_type"
+        },
+        {
+          "name": "image depth",
+          "description": "image depth specifies the color depth of the image, which is the number of bits to use to describe the color of each pixel in the image. Valid values include 1, 4, 8, and 24 bits per pixel. image depth affects how LabVIEW interprets the values of image and colors.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "image_depth"
+        },
+        {
+          "name": "image",
+          "description": "image is an array of bytes that describes the color of each pixel in the image in raster order. The value of image depth determines how LabVIEW interprets the value of this input. If image depth is 24, each pixel has three bytes to describe its color. The first byte for each pixel describes the red value, the second byte describes the green value, and the third byte describes the blue value. If image depth is 8, each pixel has one byte to describe its color. The value of each byte corresponds to",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "image"
+        },
+        {
+          "name": "mask",
+          "description": "mask is an array of bytes in which each bit describes mask information for a pixel. The first byte describes the first eight pixels, the second byte describes the next eight pixels, and so on. If a bit is zero, LabVIEW draws the corresponding pixel as transparent. If the array is empty, LabVIEW draws all pixels without transparency. If the array does not contain a bit for each pixel in the image, LabVIEW draws any pixels missing from the array without transparency.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "mask"
+        },
+        {
+          "name": "colors",
+          "description": "Functions 2126 ni.com colors is an array of RGB color values that correspond to the values in image. The value of image depth determines how LabVIEW interprets the value of this input. colors stores 32-bit RGB values where the most-significant byte is zero, followed in order by red, green, and blue values. Valid values include 0 through 255. In the Write File VIs (BMP, JPEG, and PNG), LabVIEW does not have an automatic color table. Use the colors input even for image depth of lower bit value to ",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "colors"
+        },
+        {
+          "name": "Rectangle",
+          "description": "Rectangle is a cluster that contains coordinates that describe the bounding rectangle of the image. The bottom and right edges of the rectangle bounds do not contain image pixels. Horizontal coordinates increase to the right, and vertical coordinates increase to the bottom.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "rectangle"
+        },
+        {
+          "name": "left",
+          "description": "left is the horizontal coordinate of the left edge of the rectangle.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "left"
+        },
+        {
+          "name": "top",
+          "description": "top is the vertical coordinate of the top edge of the rectangle.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "top"
+        },
+        {
+          "name": "right",
+          "description": "right is the horizontal coordinate of the right edge of the rectangle.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "right"
+        },
+        {
+          "name": "bottom",
+          "description": "bottom is the vertical coordinate of the bottom edge of the rectangle.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "bottom"
+        },
+        {
+          "name": "error in (no error)",
+          "description": "Functions © National Instruments 2127",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in_no_error"
+        }
+      ]
+    },
+    {
+      "name": "Read JPEG File",
+      "page": 2128,
+      "category": "Graphics & Sound",
+      "description": "Reads a JPEG file and creates the data necessary to display the file in a picture control. Use the Draw Flattened Pixmap VI to display the bitmap you acquire with this VI. Use the Unflatten Pixmap VI to work with the data as a 2D array.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "path to JPEG file",
+          "description": "path to JPEG file specifies the path to and name of the JPEG file to read. If you do not specify a path, LabVIEW displays a file dialog box so the user can navigate to the file.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "path_to_jpeg_file"
+        },
+        {
+          "name": "error in (no error)",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in_no_error"
+        },
+        {
+          "name": "use 8 bit color table",
+          "description": "Note This VI automatically reads JPEG files as 24-bit images. Functions 2128 ni.com use 8 bit color table reads the JPEG file at an 8 bit per pixel image depth instead of 24 bit per pixel image depth. The default value is FALSE.",
+          "default_value": "value is FALSE",
+          "enum_values": null,
+          "python_param": "use_8_bit_color_table"
+        },
+        {
+          "name": "path",
+          "description": "path specifies the path of the pixmap.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "path"
+        },
+        {
+          "name": "image data",
+          "description": "image data returns information about the image so you can use the Draw Flattened Pixmap VI to draw it as a picture.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "image_data"
+        },
+        {
+          "name": "image type",
+          "description": "image type is reserved for future use.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "image_type"
+        },
+        {
+          "name": "image depth",
+          "description": "image depth specifies the color depth of the image, which is the number of bits to use to describe the color of each pixel in the image. Valid values include 1, 4, 8, and 24 bits per pixel. image depth affects how LabVIEW interprets the values of image and colors.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "image_depth"
+        },
+        {
+          "name": "image",
+          "description": "image is an array of bytes that describes the color of each pixel in the image in raster order. The value of image depth determines how LabVIEW interprets the value of this output. If image depth is 24, each pixel has three bytes to describe its color. The first byte for each pixel describes the red value, the second byte describes the green value, and the third byte describes the blue value. If image depth is 8, each pixel has one byte to describe its color. The value of each bit corresponds to",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "image"
+        },
+        {
+          "name": "mask",
+          "description": "Functions",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "mask"
+        }
+      ]
+    },
+    {
+      "name": "Read PNG File",
+      "page": 2131,
+      "category": "Graphics & Sound",
+      "description": "Reads a PNG file and creates the data necessary to display the file in a picture control. Use the Draw Flattened Pixmap VI to display the bitmap you acquire with this VI. Use the Unflatten Pixmap VI to work with the data as a 2D array.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "path to PNG file",
+          "description": "path to PNG file specifies the path to and name of the PNG file to read. If you do not specify a path, LabVIEW displays a file dialog box so the user can navigate to the file.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "path_to_png_file"
+        },
+        {
+          "name": "error in (no error)",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in_no_error"
+        },
+        {
+          "name": "Transparency Thresh",
+          "description": "Note This VI can read 32-bit PNG files. Functions © National Instruments 2131 Transparency Thresh incorporates alpha information for a 32-bit PNG image into the mask of the resulting image data. LabVIEW treats as opaque any alpha values equal to or greater than Transparency Thresh. LabVIEW treats all other alpha values as fully transparent. The value of Transparency Thresh must be between 0 and 255.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "transparency_thresh"
+        },
+        {
+          "name": "path",
+          "description": "path specifies the path of the pixmap.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "path"
+        },
+        {
+          "name": "image data",
+          "description": "image data returns information about the image so you can use the Draw Flattened Pixmap VI to draw it as a picture.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "image_data"
+        },
+        {
+          "name": "image type",
+          "description": "image type is reserved for future use.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "image_type"
+        },
+        {
+          "name": "image depth",
+          "description": "image depth specifies the color depth of the image, which is the number of bits to use to describe the color of each pixel in the image. Valid values include 1, 4, 8, 24, and 32 bits per pixel. image depth affects how LabVIEW interprets the values of image and colors.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "image_depth"
+        },
+        {
+          "name": "image",
+          "description": "image is an array of bytes that describes the color of each pixel in the image in raster order. The value of image depth determines how LabVIEW interprets the value of this output. If image depth is 32, each pixel has three bytes to describe its color, and a fourth byte to describe transparency. The fourth byte is known as the 8-bit alpha channel. The first byte for each pixel describes the red value, the second byte describes the green value, and the third byte describes the blue value. If imag",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "image"
+        },
+        {
+          "name": "mask",
+          "description": "mask is an array of bytes in which each bit describes mask information for a pixel. The first byte describes the first eight pixels, the second byte describes the next eight pixels, and so on. In 32-bit cases, the mask is always filled. For all other cases in this VI, the mask array is empty. If the array is empty, LabVIEW draws all pixels without transparency. If the array does not contain a bit for each pixel in the image, LabVIEW draws any pixels missing from the array without transparency.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "mask"
+        },
+        {
+          "name": "colors",
+          "description": "colors is an array of RGB color values that correspond to the values in image. The value of image depth determines how LabVIEW interprets the value of this output. If image depth is 32 or 24, LabVIEW ignores this output. If image depth is 8, the array can have 256 elements. If image depth is 4, the array can have 16 elements. If image depth is 1, the array can have 2 elements. If the array is empty for any depth other than 24 bits per pixel, the image is using the default LabVIEW color palette.",
+          "default_value": "LabVIEW color palette",
+          "enum_values": null,
+          "python_param": "colors"
+        },
+        {
+          "name": "Rectangle",
+          "description": "Rectangle is a cluster that contains coordinates that describe the bounding rectangle of the Functions © National Instruments 2133",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "rectangle"
+        }
+      ]
+    },
+    {
+      "name": "Read BMP File",
+      "page": 2134,
+      "category": "Graphics & Sound",
+      "description": "Reads a Windows bitmap file and creates the data necessary to display the file in a picture control. Use the Draw Flattened Pixmap VI to display the bitmap you acquire with this VI. Use Functions 2134 ni.com the Unflatten Pixmap VI to work with the data as a 2D array.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "path to BMP file",
+          "description": "path to BMP file specifies the path to and name of the bitmap file to read. If you do not specify a path, LabVIEW displays a file dialog box so the user can navigate to the file.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "path_to_bmp_file"
+        },
+        {
+          "name": "error in (no error)",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in_no_error"
+        },
+        {
+          "name": "path",
+          "description": "path specifies the path of the pixmap.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "path"
+        },
+        {
+          "name": "image data",
+          "description": "image data returns information about the image so you can use the Draw Flattened Pixmap VI to draw it as a picture.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "image_data"
+        },
+        {
+          "name": "image type",
+          "description": "image type is reserved for future use.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "image_type"
+        },
+        {
+          "name": "image depth",
+          "description": "image depth specifies the color depth of the image, which is the number of bits to use to describe the color of each pixel in the image. Valid values include 1, 4, 8, and 24 bits per pixel. image depth affects how LabVIEW interprets the values of image and colors.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "image_depth"
+        },
+        {
+          "name": "image",
+          "description": "Functions",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "image"
+        }
+      ]
+    },
+    {
+      "name": "Flatten Pixmap",
+      "page": 2137,
+      "category": "Graphics & Sound",
+      "description": "Converts pixmap data from a 2D array to a 1D array. You can write the resulting 1D array to a file or use the low-level Draw Flattened Pixmap VI to view it. Functions © National Instruments 2137",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "top left",
+          "description": "top left specifies in coordinates where to place the top-left corner of the image.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "top_left"
+        },
+        {
+          "name": "24-bit pixmap",
+          "description": "24-bit pixmap is the 2D array of data to convert to image data. The dimensions of the image data match the dimensions of this array.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "24_bit_pixmap"
+        },
+        {
+          "name": "8-bit pixmap",
+          "description": "8-bit pixmap is the 2D array of data to convert to image data. The dimensions of the image data match the dimensions of this array. The VI uses the data as indexes into the color array.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "8_bit_pixmap"
+        },
+        {
+          "name": "4-bit pixmap",
+          "description": "4-bit pixmap is the 2D array of data to convert to image data. The dimensions of the image data match the dimensions of this array. The VI uses the data as indexes into the color array.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "4_bit_pixmap"
+        },
+        {
+          "name": "1-bit pixmap",
+          "description": "Functions 2138 ni.com 1-bit pixmap is the 2D array of data to convert to image data. The dimensions of the image data match the dimensions of this array. Elements that are FALSE map to element 0 in the color table. Elements that are TRUE map to element 1 in the color table.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "1_bit_pixmap"
+        },
+        {
+          "name": "colors",
+          "description": "colors is an array of RGB color values that correspond to the values in the pixmap input you wire. Which pixmap input you wire determines how LabVIEW interprets the value of this input. If you wire data to 24-bit pixmap, LabVIEW ignores this input. If you wire data to 8-bit pixmap, the array can have 256 elements. If you wire data to 4-bit pixmap, the array can have 16 elements. If you wire data to 1-bit pixmap, the array can have 2 elements. If the colors array is empty for any depth other than",
+          "default_value": "LabVIEW color palette",
+          "enum_values": null,
+          "python_param": "colors"
+        },
+        {
+          "name": "mask",
+          "description": "mask is a 1D array that describes mask information for each pixel. If the mask array is empty, LabVIEW draws all resulting pixels without transparency.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "mask"
+        },
+        {
+          "name": "image data",
+          "description": "image data returns information about the pixmap so you can use the Draw Flattened Pixmap VI to draw the pixmap as a picture or use the Graphics Formats VIs to save the pixmap to a file.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "image_data"
+        },
+        {
+          "name": "image type",
+          "description": "image type is reserved for future use.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "image_type"
+        },
+        {
+          "name": "image depth",
+          "description": "image depth specifies the color depth of the image, which is the number of bits to use to describe the color of each pixel in the image. Valid values include 1, 4, 8, and 24 bits per pixel. image depth affects how LabVIEW interprets the values of image and colors.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "image_depth"
+        },
+        {
+          "name": "image",
+          "description": "image is an array of bytes that describes the color of each pixel in the image in raster order. Functions",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "image"
+        }
+      ]
+    },
+    {
+      "name": "Unflatten Pixmap",
+      "page": 2141,
+      "category": "Graphics & Sound",
+      "description": "Converts a cluster of image data into a 2D array. Functions © National Instruments 2141",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "image data",
+          "description": "image data describes the image you want to draw or manipulate. If you wire 32-bit image data to this VI, the VI returns a 24-bit pixmap.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "image_data"
+        },
+        {
+          "name": "image type",
+          "description": "image type is reserved for future use.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "image_type"
+        },
+        {
+          "name": "image depth",
+          "description": "image depth specifies the color depth of the image, which is the number of bits to use to describe the color of each pixel in the image. Valid values include 1, 4, 8, and 24 bits per pixel. image depth affects how LabVIEW interprets the values of image and colors.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "image_depth"
+        },
+        {
+          "name": "image",
+          "description": "image is an array of bytes that describes the color of each pixel in the image in raster order. The value of image depth determines how LabVIEW interprets the value of this input. If image depth is 24, each pixel has three bytes to describe its color. The first byte for each pixel describes the red value, the second byte describes the green value, and the third byte describes the blue value. If image depth is 8, each pixel has one byte to describe its color. The value of each byte corresponds to",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "image"
+        },
+        {
+          "name": "mask",
+          "description": "mask is an array of bytes in which each bit describes mask information for a pixel. The first Functions 2142 ni.com byte describes the first eight pixels, the second byte describes the next eight pixels, and so on. If a bit is zero, LabVIEW draws the corresponding pixel as transparent. If the array is empty, LabVIEW draws all pixels without transparency. If the array does not contain a bit for each pixel in the image, LabVIEW draws any pixels missing from the array without transparency.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "mask"
+        },
+        {
+          "name": "colors",
+          "description": "colors is an array of RGB color values that correspond to the values in image. The value of image depth determines how LabVIEW interprets the value of this input. colors stores 32-bit RGB values where the most-significant byte is zero, followed in order by red, green, and blue values. Valid values include 0 through 255. If image depth is 24, LabVIEW ignores this input. If image depth is 8, the array can have 256 elements. If image depth is 4, the array can have 16 elements. If image depth is 1, ",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "colors"
+        },
+        {
+          "name": "Rectangle",
+          "description": "Rectangle is a cluster that contains coordinates that describe the bounding rectangle of the image. The bottom and right edges of the rectangle bounds do not contain image pixels. Horizontal coordinates increase to the right, and vertical coordinates increase to the bottom.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "rectangle"
+        },
+        {
+          "name": "left",
+          "description": "left is the horizontal coordinate of the left edge of the rectangle.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "left"
+        },
+        {
+          "name": "top",
+          "description": "top is the vertical coordinate of the top edge of the rectangle.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "top"
+        },
+        {
+          "name": "right",
+          "description": "Functions",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "right"
+        }
+      ]
+    },
+    {
+      "name": "Beep (Windows)",
+      "page": 2145,
+      "category": "Graphics & Sound",
+      "description": "Causes the system to issue an audible tone. (Windows Vista 64-bit) This VI might not work correctly if use system alert? is FALSE. Functions © National Instruments 2145",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "frequency (Hz)",
+          "description": "frequency (Hz) is the frequency of the tone in Hertz. LabVIEW ignores this parameter when use system alert? is TRUE.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "frequency_hz"
+        },
+        {
+          "name": "duration (msec)",
+          "description": "duration (msec) is the duration of the tone in milliseconds. LabVIEW ignores this parameter when use system alert? is TRUE.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "duration_msec"
+        },
+        {
+          "name": "use system alert? (T)",
+          "description": "use system alert? specifies whether LabVIEW uses the default system alert and ignores frequency (Hz) and duration (msec). If FALSE, this VI makes a synchronous beep using the specified frequency and duration. The default is TRUE.",
+          "default_value": "system alert and ignores frequency (Hz) and duration (msec)",
+          "enum_values": null,
+          "python_param": "use_system_alert_t"
+        }
+      ]
+    },
+    {
+      "name": "Math Plot Helpers",
+      "page": 2223,
+      "category": "Graphics & Sound",
+      "description": "This section contains reference information for 2D and 3D Math Plots. The following VIs appear on the block diagram when you add the associated plot to the front panel. You can find plots on the 2D Graph and 3D Graph palette. 2D Compass Plot Helper 2D Compass Plot Helper Graphs vectors that emanate from the center origin in a compass plot. Multiple references to this VI generate multiple plots on the same graph. • Plot Helper (Vector) VI • Plot Helper (Complex) VI Examples Refer to the following",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "2D Plot Class Obj Array in",
+          "description": "2D Plot Class Obj Array in is a reference to the class that stores the data of the 2D plot.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "2d_plot_class_obj_array_in"
+        },
+        {
+          "name": "theta vector",
+          "description": "theta vector specifies the angles on the compass plot you want to graph.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "theta_vector"
+        },
+        {
+          "name": "radius vector",
+          "description": "radius vector specifies the vector length as it extends from the center.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "radius_vector"
+        },
+        {
+          "name": "error in (no error)",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in_no_error"
+        },
+        {
+          "name": "2D Plot Class Obj Array out",
+          "description": "2D Plot Class Obj Array out is the graph of the 2D plot.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "2d_plot_class_obj_array_out"
+        },
+        {
+          "name": "error out",
+          "description": "Note This VI appears on the block diagram when you add a Compass Plot to the front panel. You can find the Compass Plot on the Graph palette. Functions 2224 ni.com error out contains error information. This output provides standard error out functionality. Examples Refer to the following example files included with LabVIEW.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        },
+        {
+          "name": "labview\\examples\\Controls and Indicators\\Graphs and",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "labview_examples_controls_and_indicators_graphs_and"
+        },
+        {
+          "name": "2D Plot Class Obj Array in",
+          "description": "2D Plot Class Obj Array in is a reference to the class that stores the data of the 2D plot.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "2d_plot_class_obj_array_in"
+        },
+        {
+          "name": "z vector",
+          "description": "z vector specifies a vector of complex numbers.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "z_vector"
+        },
+        {
+          "name": "error in (no error)",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in_no_error"
+        },
+        {
+          "name": "2D Plot Class Obj Array out",
+          "description": "Note This VI appears on the block diagram when you add a Compass Plot to the front panel. You can find the Compass Plot on the Graph palette. Functions",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "2d_plot_class_obj_array_out"
+        }
+      ]
+    },
+    {
+      "name": "File Loading",
+      "page": 2331,
+      "category": "Graphics & Sound",
+      "description": "Use the File Loading VIs to load geometries of various model types in a 3D scene graph. Palette Object Description Load VRML File Loads a three-dimensional object model saved in Virtual Reality Modeling Language (VRML) format to display in a 3D scene. VRML files commonly appear with a .wrl file extension. Load ASE Geometry Loads a three-dimensional object model saved in 3D Studio ASCII Exchange (ASE) format to display in a 3D scene. Load STL Geometry Loads a three-dimensional object model saved ",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "Path",
+          "description": "Path is the path to the WRL or VRML file.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "path"
+        },
+        {
+          "name": "error in",
+          "description": "error out contains error information. This output provides standard error out functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in"
+        },
+        {
+          "name": "Scene:Read Scene File",
+          "description": "Scene:Read Scene File returns the reference to the loaded file.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "scene_read_scene_file"
+        },
+        {
+          "name": "error out",
+          "description": "error out contains error information. This output provides standard error out functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        }
+      ]
+    }
+  ]
+}

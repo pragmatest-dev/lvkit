@@ -1,6 +1,6 @@
 {
   "category": "Array",
-  "count": 54,
+  "count": 51,
   "entries": [
     {
       "name": "Array Size Function",
@@ -1408,10 +1408,10 @@
       ]
     },
     {
-      "name": "Sorted Array",
+      "name": "Search Sorted 1D Array",
       "page": 434,
       "category": "Array",
-      "description": "Use the Sorted Array functions to manipulate sorted arrays while maintaining the sorted order. Palette Object Description Search Sorted 1D Array Searches for the first instance of element in sorted 1D array. If the array is not sorted, the results will be incorrect. The connector pane displays the default data types for this polymorphic function. Insert Into Sorted Array Inserts element into sorted array in while maintaining sorted order. If the array is not sorted, the element may be inserted a",
+      "description": "Searches for the first instance of element in sorted 1D array. If the array is not sorted, the results will be incorrect. The connector pane displays the default data types for this polymorphic function.",
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
@@ -1469,10 +1469,10 @@
       ]
     },
     {
-      "name": "Search Sorted 1D Array",
+      "name": "Sorted Array",
       "page": 434,
       "category": "Array",
-      "description": "Searches for the first instance of element in sorted 1D array. If the array is not sorted, the results will be incorrect. The connector pane displays the default data types for this polymorphic function.",
+      "description": "Use the Sorted Array functions to manipulate sorted arrays while maintaining the sorted order. Palette Object Description Search Sorted 1D Array Searches for the first instance of element in sorted 1D array. If the array is not sorted, the results will be incorrect. The connector pane displays the default data types for this polymorphic function. Insert Into Sorted Array Inserts element into sorted array in while maintaining sorted order. If the array is not sorted, the element may be inserted a",
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
@@ -1994,76 +1994,6 @@
           "default_value": "0",
           "enum_values": null,
           "python_param": "new_submatrix_fill_element"
-        }
-      ]
-    },
-    {
-      "name": "Related Information",
-      "page": 455,
-      "category": "Array",
-      "description": "",
-      "vi_path": null,
-      "is_polymorphic": false,
-      "python_hint": null,
-      "status": "needs_review",
-      "terminals": []
-    },
-    {
-      "name": "Unbundle By Name",
-      "page": 457,
-      "category": "Array",
-      "description": "Returns the cluster elements whose names you specify. Functions © National Instruments 457 You do not have to keep track of the order of the elements within the cluster. This function does not require the number of elements to match the number in the cluster. After you wire a cluster to this function, you can select an individual element from the function. The connector pane displays the default data types for this polymorphic function.",
-      "vi_path": null,
-      "is_polymorphic": false,
-      "python_hint": null,
-      "status": "needs_terminals",
-      "terminals": [
-        {
-          "name": "input cluster",
-          "description": "input cluster is the cluster whose elements you want to access.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "input_cluster"
-        },
-        {
-          "name": "element",
-          "description": "element 0..m-1 is the element of input cluster called name 0..m-1. You can access only elements with owned labels. To select a named element, click a name terminal and select a name from the shortcut menu.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "element"
-        }
-      ]
-    },
-    {
-      "name": "Bundle By Name",
-      "page": 458,
-      "category": "Array",
-      "description": "Replaces one or more cluster elements. This function refers to cluster elements by name instead of by their position in the cluster. After you wire the node to an input cluster, right-click the name terminals to select elements from the shortcut menu. You also can use the Operating tool to click the name terminals and select from a list of cluster elements. The connector pane displays the default data types for this polymorphic function. Functions 458 ni.com",
-      "vi_path": null,
-      "is_polymorphic": false,
-      "python_hint": null,
-      "status": "needs_terminals",
-      "terminals": [
-        {
-          "name": "input cluster",
-          "description": "input cluster is the cluster whose elements you want to replace. At least one element of input cluster must have an owned label. You must always wire the input cluster terminal.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "input_cluster"
-        },
-        {
-          "name": "element",
-          "description": "element 0..m-1 are the elements of input cluster you want to replace by name. You only can replace elements with owned labels. Select the correct element 0..m-1 by clicking a name terminal and selecting a name from the shortcut menu.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "element"
-        },
-        {
-          "name": "output cluster",
-          "description": "output cluster is the cluster whose value is the resulting cluster. When you use the Bundle by Name function on nested clusters, you can display both the element name and the owning cluster name for elements in the nested cluster by right-clicking the function and selecting Show Full Names. This is useful when element names in nested clusters are identical or similar.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "output_cluster"
         }
       ]
     }

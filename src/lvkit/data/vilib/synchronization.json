@@ -1,0 +1,1838 @@
+{
+  "category": "Synchronization",
+  "count": 36,
+  "entries": [
+    {
+      "name": "Notifier Operations",
+      "page": 1929,
+      "category": "Synchronization",
+      "description": "Use the Notifier Operations functions to suspend the execution of a block diagram until you receive data from another section of the block diagram or from another VI running in the same application instance. You cannot use notifiers to communicate with VIs on other computers. For example, you cannot use notifiers to communicate across a network or the VI Server. Unlike the Queue Operations functions, the Notifier Operations functions do not buffer sent messages. If no nodes are waiting on a mess",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "name (unnamed)",
+          "description": "name contains the name of the notifier that you want to obtain or create. The default is an empty string to create an unnamed notifier. Functions 1930 ni.com",
+          "default_value": "an empty string to create an unnamed notifier",
+          "enum_values": null,
+          "python_param": "name_unnamed"
+        },
+        {
+          "name": "element data type",
+          "description": "element data type is the type of data that you want the notifier to contain. You can wire any data type to this input.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "element_data_type"
+        },
+        {
+          "name": "create if not found? (T)",
+          "description": "create if not found? specifies whether you want to create a new notifier if one with the same name as name does not exist. If TRUE (default), the function creates a notifier if one with the same name does not exist.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "create_if_not_found_t"
+        },
+        {
+          "name": "error in (no error)",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in_no_error"
+        },
+        {
+          "name": "notifier out",
+          "description": "notifier out is a reference to the existing named notifier or the new notifier created by this function.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "notifier_out"
+        },
+        {
+          "name": "created new?",
+          "description": "created new? is TRUE if the function created a new notifier.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "created_new"
+        },
+        {
+          "name": "error out",
+          "description": "error out contains error information. This output provides standard error out functionality. Use named notifiers to pass data between two sections of a block diagram or between two VIs. If you do not wire name, the function creates a new, unnamed notifier reference. If you wire name, the function first searches for an existing notifier with the same name and returns a new reference to the existing notifier. If a notifier with the same name does not already exist and create if not found? is TRUE,",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        }
+      ]
+    },
+    {
+      "name": "Obtain Notifier Function",
+      "page": 1930,
+      "category": "Synchronization",
+      "description": "Returns a reference to a notifier. Use this reference when calling other Notifier Operations functions.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "name (unnamed)",
+          "description": "name contains the name of the notifier that you want to obtain or create. The default is an empty string to create an unnamed notifier. Functions 1930 ni.com",
+          "default_value": "an empty string to create an unnamed notifier",
+          "enum_values": null,
+          "python_param": "name_unnamed"
+        },
+        {
+          "name": "element data type",
+          "description": "element data type is the type of data that you want the notifier to contain. You can wire any data type to this input.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "element_data_type"
+        },
+        {
+          "name": "create if not found? (T)",
+          "description": "create if not found? specifies whether you want to create a new notifier if one with the same name as name does not exist. If TRUE (default), the function creates a notifier if one with the same name does not exist.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "create_if_not_found_t"
+        },
+        {
+          "name": "error in (no error)",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in_no_error"
+        },
+        {
+          "name": "notifier out",
+          "description": "notifier out is a reference to the existing named notifier or the new notifier created by this function.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "notifier_out"
+        },
+        {
+          "name": "created new?",
+          "description": "created new? is TRUE if the function created a new notifier.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "created_new"
+        },
+        {
+          "name": "error out",
+          "description": "error out contains error information. This output provides standard error out functionality. Use named notifiers to pass data between two sections of a block diagram or between two VIs. If you do not wire name, the function creates a new, unnamed notifier reference. If you wire name, the function first searches for an existing notifier with the same name and returns a new reference to the existing notifier. If a notifier with the same name does not already exist and create if not found? is TRUE,",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        }
+      ]
+    },
+    {
+      "name": "Send Notification Function",
+      "page": 1932,
+      "category": "Synchronization",
+      "description": "Sends a message to all functions waiting on a notifier. All Wait on Notification and Wait on Notification from Multiple functions currently waiting on the notifier stop waiting and continue to execute.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "notifier",
+          "description": "notifier is a reference to a notifier. Use the Obtain Notifier function to obtain a notifier reference.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "notifier"
+        },
+        {
+          "name": "notification",
+          "description": "notification is the message to send. This data type changes to match the subtype of notifier.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "notification"
+        },
+        {
+          "name": "error in (no error)",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in_no_error"
+        },
+        {
+          "name": "notifier out",
+          "description": "Note If you obtain a notifier reference in one application instance, you cannot use that notifier reference in another application instance. If you attempt to use a notifier reference in another application instance, LabVIEW returns error 1492. Functions 1932 ni.com notifier out returns notifier unchanged.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "notifier_out"
+        },
+        {
+          "name": "error out",
+          "description": "error out contains error information. This output provides standard error out functionality. Examples Refer to the following example files included with LabVIEW.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        },
+        {
+          "name": "labview\\examples\\Synchronization\\Notifier\\Simple",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "labview_examples_synchronization_notifier_simple"
+        }
+      ]
+    },
+    {
+      "name": "Cancel Notification Function",
+      "page": 1933,
+      "category": "Synchronization",
+      "description": "Erases any message currently in a notifier and returns the cancelled message.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "notifier",
+          "description": "notifier is a reference to a notifier. Use the Obtain Notifier function to obtain a notifier reference.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "notifier"
+        },
+        {
+          "name": "error in (no error)",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in_no_error"
+        },
+        {
+          "name": "notifier out",
+          "description": "notifier out returns notifier unchanged.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "notifier_out"
+        },
+        {
+          "name": "canceled notification",
+          "description": "Functions © National Instruments 1933 cancelled notification contains the last notification sent to the notifier. This data type changes to match the subtype of notifier.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "canceled_notification"
+        },
+        {
+          "name": "error out",
+          "description": "error out contains error information. This output provides standard error out functionality. If any Wait on Notification or Wait on Notification from Multiple functions received the message before the call to this function, those functions continue to execute. This function does not recall or reset any wait functions. After you cancel a notification, any subsequent wait functions wait until the notifier receives another message. Canceling a notification before the notifier has a message does not",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        }
+      ]
+    },
+    {
+      "name": "Get Notifier Status Function",
+      "page": 1934,
+      "category": "Synchronization",
+      "description": "Returns information about the current state of a notifier, such as the last uncancelled notification sent to the notifier.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "notifier",
+          "description": "notifier is a reference to a notifier. Use the Obtain Notifier function to obtain a notifier reference.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "notifier"
+        },
+        {
+          "name": "error in (no error)",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in_no_error"
+        },
+        {
+          "name": "notifier name",
+          "description": "Functions 1934 ni.com notifier name specifies the name of the notifier.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "notifier_name"
+        },
+        {
+          "name": "notifier out",
+          "description": "notifier out returns notifier unchanged.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "notifier_out"
+        },
+        {
+          "name": "latest notification",
+          "description": "latest notification is the most recent uncancelled notification sent to the notifier. If no notification is available, the function returns the zero value for the element data type you wired in the Obtain Notifier function. This data type changes to match the subtype of notifier.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "latest_notification"
+        },
+        {
+          "name": "# waiting",
+          "description": "# waiting is the number of functions currently waiting on the notifier. These functions include Wait on Notification and Wait on Notification from Multiple.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "waiting"
+        },
+        {
+          "name": "error out",
+          "description": "error out contains error information. This output provides standard error out functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        }
+      ]
+    },
+    {
+      "name": "Release Notifier Function",
+      "page": 1935,
+      "category": "Synchronization",
+      "description": "Releases a reference to a notifier.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "notifier",
+          "description": "notifier is a reference to a notifier. Use the Obtain Notifier function to obtain a notifier reference.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "notifier"
+        },
+        {
+          "name": "force destroy? (F)",
+          "description": "Functions © National Instruments 1935 force destroy? indicates whether to destroy the notifier. If FALSE (default) and you want to destroy the notifier, call the Release Notifier function a number of times equal to the number of times you obtained a reference to the notifier or stop all VIs using the notifier reference. If TRUE, the function destroys the notifier and you do not have to call the function multiple times or stop all VIs using the notifier reference.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "force_destroy_f"
+        },
+        {
+          "name": "error in (no error)",
+          "description": "error in describes error conditions that occur before this node runs. With the following exception, this input provides standard error in functionality. This node runs normally even if an error occurred before this node runs.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in_no_error"
+        },
+        {
+          "name": "notifier name",
+          "description": "notifier name specifies the name of the notifier.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "notifier_name"
+        },
+        {
+          "name": "last notification",
+          "description": "last notification is the last uncancelled notification sent to the notifier. If no notification is available, the function returns the zero value for the element data type you wired in the Obtain Notifier function. This data type changes to match the subtype of notifier.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "last_notification"
+        },
+        {
+          "name": "error out",
+          "description": "error out contains error information. This output provides standard error out functionality. You can use the Obtain Notifier function to obtain a reference to the same notifier with the same name multiple times. To destroy a notifier, call the Release Notifier function a number of times equal to the number of times you obtained a reference to the notifier or stop all VIs using the notifier reference. If force destroy? is TRUE, this function releases all references to the notifier and destroys th",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        }
+      ]
+    },
+    {
+      "name": "Wait on Notification Function",
+      "page": 1937,
+      "category": "Synchronization",
+      "description": "Waits until a notifier receives a message. When the notifier receives a message, this function continues to execute. Use the Send Notification function to send the message. If a notifier reference becomes invalid such as when another function closes it, the function stops waiting and returns error code 1122. If the notifier does not contain a message, this function waits until the notifier receives a message.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "notifier",
+          "description": "notifier is a reference to a notifier. Use the Obtain Notifier function to obtain a notifier reference.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "notifier"
+        },
+        {
+          "name": "ignore previous (F)",
+          "description": "ignore previous indicates whether to ignore messages that LabVIEW sends to the notifier before it calls this function. If TRUE and the notifier contains a message before you call this function, this function waits until the notifier receives another message. If FALSE (default) and the notifier contains a message before you call this function, this function continues to execute.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "ignore_previous_f"
+        },
+        {
+          "name": "timeout in ms (-1)",
+          "description": "timeout in ms specifies the time, in milliseconds, that the function waits for the notifier to receive a message. The default is –1, which indicates never to time out. If the function waits timeout in ms and the notifier does not receive a message, timed out? is TRUE.",
+          "default_value": "–1, which indicates never to time out",
+          "enum_values": null,
+          "python_param": "timeout_in_ms_1"
+        },
+        {
+          "name": "error in (no error)",
+          "description": "Functions",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in_no_error"
+        }
+      ]
+    },
+    {
+      "name": "Wait on Notification from Multiple Function",
+      "page": 1939,
+      "category": "Synchronization",
+      "description": "Waits until at least one of the notifiers you specify receives a message. When one of the notifiers receives a message, this function continues to execute. Use the Send Notification function to send the message. If a notifier reference becomes invalid, such as when another function closes it, this function stops waiting and returns error code 1122. If the notifier does not contain a message, this function waits until the notifier receives a message.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "notifiers",
+          "description": "notifiers is an array of notifier references. Use the Obtain Notifier function to obtain a notifier reference.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "notifiers"
+        },
+        {
+          "name": "ignore previous (F)",
+          "description": "ignore previous indicates whether to ignore messages that LabVIEW sends to the notifier before it calls this function. If TRUE and the notifier contains a message before you call this function, this function waits until the notifier receives another message. If FALSE (default) and the notifier contains a message before you call this function, this function continues to execute.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "ignore_previous_f"
+        },
+        {
+          "name": "timeout in ms (-1)",
+          "description": "timeout in ms specifies the time, in milliseconds, that the function waits for the notifier to receive a message. The default is –1, which indicates never to time out. If the function waits timeout in ms and the notifier does not receive a message, timed out? is TRUE.",
+          "default_value": "–1, which indicates never to time out",
+          "enum_values": null,
+          "python_param": "timeout_in_ms_1"
+        },
+        {
+          "name": "error in (no error)",
+          "description": "Functions",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in_no_error"
+        }
+      ]
+    },
+    {
+      "name": "Advanced Notifier Waiting",
+      "page": 1941,
+      "category": "Synchronization",
+      "description": "Use the Advanced Notifier Waiting functions to prevent dropped messages and other problems when you use the functions repeatedly with different notifiers. Palette Object Description Wait on Notification with Notifier History Function Waits until a notifier receives a message. This function tracks the most recent message and timestamp for each individual notifier when you use this function repeatedly with different notifiers. Wait on Notification from Multiple with Notifier History Function Waits",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "notifier",
+          "description": "notifier is a reference to a notifier. Use the Obtain Notifier function to obtain a notifier reference.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "notifier"
+        },
+        {
+          "name": "ignore previous (F)",
+          "description": "ignore previous indicates whether to ignore messages that LabVIEW sends to the notifier before it calls this function. If TRUE and the notifier contains a message before you call this function, this function waits until the notifier receives another message. If FALSE (default) and the notifier contains a message before you call this function, this function continues to execute.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "ignore_previous_f"
+        },
+        {
+          "name": "timeout in ms (-1)",
+          "description": "timeout in ms specifies the time, in milliseconds, that the function waits for the notifier to receive a message. The default is –1, which indicates never to time out. If the function waits timeout in ms and the notifier does not receive a message, timed out? is TRUE.",
+          "default_value": "–1, which indicates never to time out",
+          "enum_values": null,
+          "python_param": "timeout_in_ms_1"
+        },
+        {
+          "name": "error in (no error)",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in_no_error"
+        },
+        {
+          "name": "notifier out",
+          "description": "notifier out returns notifier unchanged.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "notifier_out"
+        },
+        {
+          "name": "notification",
+          "description": "notification is the last message the notifier receives. This data type changes to match the subtype of notifier.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "notification"
+        },
+        {
+          "name": "timed out?",
+          "description": "Functions 1942 ni.com timed out? is TRUE if the notifier does not receive a message before the function times out or if an error occurs.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "timed_out"
+        },
+        {
+          "name": "error out",
+          "description": "error out contains error information. This output provides standard error out functionality. Each unique instance of this function remembers the timestamp of the most recent message that each individual notifier receives. Maintaining notifier history prevents dropped messages and other problems when you use this function repeatedly with different notifiers. When the notifier receives a message, this function continues to execute. Use the Send Notification function to send the message. If a notif",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        }
+      ]
+    },
+    {
+      "name": "Queue Operations",
+      "page": 1946,
+      "category": "Synchronization",
+      "description": "Use the Queue Operations functions to create a queue for communicating data between sections of a block diagram or from another VI. Unlike the Notifier Operations functions, the Queue Operations functions buffer data. Palette Object Description Obtain Queue Function Returns a reference to a queue. Enqueue Element Function Adds an element to the back of a queue. Preview Queue Element Function Returns the element at the front of the queue without removing the element from the queue. Get Queue Retu",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "max queue size (-1, unlimited)",
+          "description": "max queue size is the maximum number of elements you want the queue to hold. The default is –1, specifying that the queue can hold an unlimited number of elements. If a queue reaches max queue size, the Enqueue Element or Enqueue Element at Opposite End functions wait until the Dequeue Element or Flush Queue functions remove elements from the queue. If a queue with the same name exists, LabVIEW ignores this input and uses the size from the existing queue.",
+          "default_value": "–1, specifying that the queue can hold an unlimited number of elements",
+          "enum_values": null,
+          "python_param": "max_queue_size_1_unlimited"
+        },
+        {
+          "name": "name (unnamed)",
+          "description": "name contains the name of the queue that you want to obtain or create. The default is an empty string to create an unnamed queue.",
+          "default_value": "an empty string to create an unnamed queue",
+          "enum_values": null,
+          "python_param": "name_unnamed"
+        },
+        {
+          "name": "element data type",
+          "description": "element data type is the type of data that you want the queue to contain. You can wire any data type to this input.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "element_data_type"
+        },
+        {
+          "name": "create if not found? (T)",
+          "description": "create if not found? specifies whether you want to create a new queue if one with the same name as name does not exist. If TRUE (default), the function creates a queue if one with the same name does not exist.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "create_if_not_found_t"
+        },
+        {
+          "name": "error in (no error)",
+          "description": "error in describes error conditions that occur before this node runs. This input provides Note (Real-Time Module) max queue size preallocates the specified number of elements in the queue of scalar data types when running on an RT target. Note When not running on an RT target, max queue size only limits the number of elements in the queue and does not preallocate the queue. To preallocate memory for a queue, enqueue that number of elements and then flush the queue. The space remains allocated fo",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in_no_error"
+        }
+      ]
+    },
+    {
+      "name": "Obtain Queue Function",
+      "page": 1947,
+      "category": "Synchronization",
+      "description": "Returns a reference to a queue. Use this reference when calling other Queue Operations functions. Functions © National Instruments 1947",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "max queue size (-1, unlimited)",
+          "description": "max queue size is the maximum number of elements you want the queue to hold. The default is –1, specifying that the queue can hold an unlimited number of elements. If a queue reaches max queue size, the Enqueue Element or Enqueue Element at Opposite End functions wait until the Dequeue Element or Flush Queue functions remove elements from the queue. If a queue with the same name exists, LabVIEW ignores this input and uses the size from the existing queue.",
+          "default_value": "–1, specifying that the queue can hold an unlimited number of elements",
+          "enum_values": null,
+          "python_param": "max_queue_size_1_unlimited"
+        },
+        {
+          "name": "name (unnamed)",
+          "description": "name contains the name of the queue that you want to obtain or create. The default is an empty string to create an unnamed queue.",
+          "default_value": "an empty string to create an unnamed queue",
+          "enum_values": null,
+          "python_param": "name_unnamed"
+        },
+        {
+          "name": "element data type",
+          "description": "element data type is the type of data that you want the queue to contain. You can wire any data type to this input.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "element_data_type"
+        },
+        {
+          "name": "create if not found? (T)",
+          "description": "create if not found? specifies whether you want to create a new queue if one with the same name as name does not exist. If TRUE (default), the function creates a queue if one with the same name does not exist.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "create_if_not_found_t"
+        },
+        {
+          "name": "error in (no error)",
+          "description": "error in describes error conditions that occur before this node runs. This input provides Note (Real-Time Module) max queue size preallocates the specified number of elements in the queue of scalar data types when running on an RT target. Note When not running on an RT target, max queue size only limits the number of elements in the queue and does not preallocate the queue. To preallocate memory for a queue, enqueue that number of elements and then flush the queue. The space remains allocated fo",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in_no_error"
+        },
+        {
+          "name": "queue out",
+          "description": "queue out is a reference to the existing queue or the new queue created by this function.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "queue_out"
+        },
+        {
+          "name": "created new?",
+          "description": "created new? is TRUE if the function created a new queue.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "created_new"
+        },
+        {
+          "name": "error out",
+          "description": "error out contains error information. This output provides standard error out functionality. When you enqueue and dequeue resizable data types, such as paths, strings and arrays, you do not affect the memory used by queues. Queues transfer data, but do not generate copies of the data. Use the Lossy Enqueue Element function if you are concerned that elements waiting to enter an already-full queue might cause jitter in a deterministic loop. Use named queues to pass data between two sections of a b",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        }
+      ]
+    },
+    {
+      "name": "Enqueue Element Function",
+      "page": 1950,
+      "category": "Synchronization",
+      "description": "Adds an element to the back of a queue.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "queue",
+          "description": "queue is a reference to a queue. Use the Obtain Queue function to obtain a queue reference.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "queue"
+        },
+        {
+          "name": "element",
+          "description": "element is the element you want to add to the back of the queue. This data type changes to match the subtype of queue. Note You cannot use queues or named queues to communicate across application instances. If you attempt to communicate with a named queue in another application instance, LabVIEW does not return an error but you might not receive the expected results. If you obtain a queue reference in one application instance, you cannot use that queue reference in another application instance. ",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "element"
+        },
+        {
+          "name": "timeout in ms (-1)",
+          "description": "timeout in ms specifies the time, in milliseconds, that the function waits for available space in the queue if the queue is full. The default is –1, indicating never to time out. If the function waits timeout in ms and the queue remains full, timed out? is TRUE.",
+          "default_value": "–1, indicating never to time out",
+          "enum_values": null,
+          "python_param": "timeout_in_ms_1"
+        },
+        {
+          "name": "error in (no error)",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in_no_error"
+        },
+        {
+          "name": "queue out",
+          "description": "queue out returns the reference to the queue unchanged.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "queue_out"
+        },
+        {
+          "name": "timed out?",
+          "description": "timed out? returns TRUE if space in the queue did not become available before the function times out. timed out? also returns TRUE if this function encounters an error.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "timed_out"
+        },
+        {
+          "name": "error out",
+          "description": "error out contains error information. This output provides standard error out functionality. If the queue is full, the function waits timeout in ms before timing out. If space becomes available in the queue during the wait, the function inserts the element and timed out? is FALSE. If queue becomes invalid such as when you release the queue reference, the function stops waiting and returns error code 1122. Use the Obtain Queue function to set the maximum size of the queue. Examples Refer to the f",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        },
+        {
+          "name": "labview\\examples\\Synchronization\\Queue\\Queue Overflow and",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "labview_examples_synchronization_queue_queue_overflow_and"
+        }
+      ]
+    },
+    {
+      "name": "Preview Queue Element Function",
+      "page": 1952,
+      "category": "Synchronization",
+      "description": "Returns the element at the front of the queue without removing the element from the queue.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "queue",
+          "description": "queue is a reference to a queue. Use the Obtain Queue function to obtain a queue reference.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "queue"
+        },
+        {
+          "name": "timeout in ms (-1)",
+          "description": "timeout in ms specifies the time, in milliseconds, that the function waits for an element to become available in the queue if the queue is empty. The default is –1, indicating never to time out. If the function waits timeout in ms and the queue remains empty, timed out? is TRUE.",
+          "default_value": "–1, indicating never to time out",
+          "enum_values": null,
+          "python_param": "timeout_in_ms_1"
+        },
+        {
+          "name": "error in (no error)",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in_no_error"
+        },
+        {
+          "name": "queue out",
+          "description": "queue out returns the reference to the queue unchanged.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "queue_out"
+        },
+        {
+          "name": "element",
+          "description": "element is the element at the front of the queue. This data type changes to match the subtype of queue.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "element"
+        },
+        {
+          "name": "timed out?",
+          "description": "timed out? returns TRUE if an element did not become available in the queue before the Functions 1952 ni.com function timed out. timed out? also returns TRUE if this function encounters an error.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "timed_out"
+        },
+        {
+          "name": "error out",
+          "description": "error out contains error information. This output provides standard error out functionality. Use the Dequeue Element function to return the element at the front of the queue and remove it from the queue. If the queue is empty, the function waits timeout in ms before timing out. If an element becomes available in the queue during the wait, the function returns the element and timed out? is FALSE. If queue becomes invalid (for example, the queue reference is released), the function stops waiting a",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        }
+      ]
+    },
+    {
+      "name": "Get Queue Status Function",
+      "page": 1953,
+      "category": "Synchronization",
+      "description": "Returns information about the current state of a queue, such as the number of elements currently in the queue. You also can use this function to verify that queue is a valid queue refnum. If queue is not a valid queue refnum, the function returns error code 1.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "queue",
+          "description": "queue is a reference to a queue. Use the Obtain Queue function to obtain a queue reference.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "queue"
+        },
+        {
+          "name": "return elements? (F)",
+          "description": "Functions © National Instruments 1953 return elements? indicates whether to return the elements in the queue. If FALSE (default), the function does not return the elements in the queue.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "return_elements_f"
+        },
+        {
+          "name": "error in (no error)",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in_no_error"
+        },
+        {
+          "name": "max queue size",
+          "description": "max queue size is the maximum number of elements the queue can contain. If max queue size is –1, the queue can contain any number of elements.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "max_queue_size"
+        },
+        {
+          "name": "queue name",
+          "description": "queue name is the name of the queue.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "queue_name"
+        },
+        {
+          "name": "queue out",
+          "description": "queue out returns the reference to the queue unchanged.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "queue_out"
+        },
+        {
+          "name": "# pending remove",
+          "description": "# pending remove is the number of Dequeue Element or Preview Queue Element functions currently waiting to remove an element from the queue. Refer to the Dequeue Element and Preview Queue Element functions for more information.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "pending_remove"
+        },
+        {
+          "name": "# pending insert",
+          "description": "# pending insert is the number of functions currently waiting to insert an element in the queue. Use the Enqueue Element or Enqueue Element at Opposite End functions to insert an element in the queue. If the max queue size is –1, # pending insert is 0.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "pending_insert"
+        },
+        {
+          "name": "error out",
+          "description": "error out contains error information. This output provides standard error out functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        },
+        {
+          "name": "# elements in queue",
+          "description": "Note max queue size only limits the number of elements in the queue. It does not preallocate that number of elements in the queue. Functions 1954 ni.com # elements in queue returns the current number of elements in the queue.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "elements_in_queue"
+        },
+        {
+          "name": "elements",
+          "description": "elements returns all the elements currently in the queue, but does not remove them from the queue. If return elements? is FALSE, this array is empty. This data type changes to match the subtype of queue.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "elements"
+        }
+      ]
+    },
+    {
+      "name": "Release Queue Function",
+      "page": 1955,
+      "category": "Synchronization",
+      "description": "Releases a reference to a queue.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "queue",
+          "description": "queue is a reference to a queue. Use the Obtain Queue function to obtain a queue reference.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "queue"
+        },
+        {
+          "name": "force destroy? (F)",
+          "description": "force destroy? indicates whether to destroy the queue. If FALSE (default) and you want to destroy the queue, either call the Release Queue function a number of times equal to the number of times you obtained a reference to the queue or stop all VIs using the queue reference. If TRUE, the function destroys the queue and you do not have to call the function multiple times or stop all VIs using the queue reference. Destroying the queue invalidates all references to the queue.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "force_destroy_f"
+        },
+        {
+          "name": "error in (no error)",
+          "description": "error in describes error conditions that occur before this node runs. With the following exception, this input provides standard error in functionality. This node runs normally even if an error occurred before this node runs.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in_no_error"
+        },
+        {
+          "name": "queue name",
+          "description": "Functions",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "queue_name"
+        }
+      ]
+    },
+    {
+      "name": "Lossy Enqueue Element Function",
+      "page": 1956,
+      "category": "Synchronization",
+      "description": "Adds an element to a queue. If no space is available in the queue, this function removes an element from the front of the queue and discards the element to make Functions 1956 ni.com space. Unlike the Enqueue Element function, this function does not wait for room in the queue to become available. Use the Obtain Queue function to set the maximum size of the queue.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "queue",
+          "description": "queue is a reference to a queue. Use the Obtain Queue function to obtain a queue reference.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "queue"
+        },
+        {
+          "name": "element",
+          "description": "element is the element you want to add to the back of the queue. This data type changes to match the subtype of queue.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "element"
+        },
+        {
+          "name": "error in (no error)",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in_no_error"
+        },
+        {
+          "name": "queue out",
+          "description": "queue out is a reference to the existing queue.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "queue_out"
+        },
+        {
+          "name": "overflow element",
+          "description": "overflow element is the element LabVIEW removed from the front of the queue if the queue was full.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "overflow_element"
+        },
+        {
+          "name": "overflow?",
+          "description": "overflow? returns TRUE if the queue was full and LabVIEW removed an element to create space. overflow? returns FALSE if the queue accepted the element and did not remove an element to make space.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "overflow"
+        },
+        {
+          "name": "error out",
+          "description": "error out contains error information. This output provides standard error out functionality. Functions",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        }
+      ]
+    },
+    {
+      "name": "Enqueue Element At Opposite End Function",
+      "page": 1958,
+      "category": "Synchronization",
+      "description": "Adds an element to the front of a queue.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "queue",
+          "description": "queue is a reference to a queue. Use the Obtain Queue function to obtain a queue reference.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "queue"
+        },
+        {
+          "name": "element",
+          "description": "element is the element you want to add to the front of the queue. This data type changes to match the subtype of queue.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "element"
+        },
+        {
+          "name": "timeout in ms (-1)",
+          "description": "timeout in ms specifies the time, in milliseconds, that the function waits for available space in the queue if the queue is full. The default is –1, indicating never to time out. If the function waits timeout in ms and the queue remains full, timed out? is TRUE.",
+          "default_value": "–1, indicating never to time out",
+          "enum_values": null,
+          "python_param": "timeout_in_ms_1"
+        },
+        {
+          "name": "error in (no error)",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in_no_error"
+        },
+        {
+          "name": "queue out",
+          "description": "queue out returns the reference to the queue unchanged.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "queue_out"
+        },
+        {
+          "name": "timed out?",
+          "description": "timed out? returns TRUE if space in the queue did not become available before the function times out. timed out? also returns TRUE if this function encounters an error. Functions 1958 ni.com",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "timed_out"
+        },
+        {
+          "name": "error out",
+          "description": "error out contains error information. This output provides standard error out functionality. This function is similar to the Enqueue Element function. If the queue is full, the function waits timeout in ms before continuing. If queue becomes invalid (for example, the queue reference is released), the function stops waiting and returns error code 1122. Queues typically use a first-in-first-out flow of data. In rare situations, you might want to interrupt this normal flow of data by adding an elem",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        },
+        {
+          "name": "labview\\examples\\Synchronization\\Queue\\Queue Stack Maze",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "labview_examples_synchronization_queue_queue_stack_maze"
+        }
+      ]
+    },
+    {
+      "name": "Dequeue Element Function",
+      "page": 1959,
+      "category": "Synchronization",
+      "description": "Removes an element from the front of a queue and returns the element. If the queue is empty, the function waits timeout in ms before timing out. If an element becomes available in the queue during the wait, the function removes and returns the element and timed out? is FALSE. If queue becomes invalid (for example, the queue reference is released), the function stops waiting and returns error code 1122. Functions © National Instruments 1959",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "queue",
+          "description": "queue is a reference to a queue. Use the Obtain Queue function to obtain a queue reference.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "queue"
+        },
+        {
+          "name": "timeout in ms (-1)",
+          "description": "timeout in ms specifies the time, in milliseconds, that the function waits for an element to become available in the queue if the queue is empty. The default is –1, indicating never to time out. If the function waits timeout in ms and the queue remains empty, timed out? is TRUE.",
+          "default_value": "–1, indicating never to time out",
+          "enum_values": null,
+          "python_param": "timeout_in_ms_1"
+        },
+        {
+          "name": "error in (no error)",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in_no_error"
+        },
+        {
+          "name": "queue out",
+          "description": "queue out returns the reference to the queue unchanged.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "queue_out"
+        },
+        {
+          "name": "element",
+          "description": "element is the element at the front of the queue. This data type changes to match the subtype of queue.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "element"
+        },
+        {
+          "name": "timed out?",
+          "description": "timed out? returns TRUE if an element did not become available in the queue before the function timed out. timed out? also returns TRUE if this function encounters an error.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "timed_out"
+        },
+        {
+          "name": "error out",
+          "description": "error out contains error information. This output provides standard error out functionality. Examples Refer to the following example files included with LabVIEW. Functions 1960 ni.com",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        },
+        {
+          "name": "labview\\examples\\Synchronization\\Queue\\Queue Overflow and",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "labview_examples_synchronization_queue_queue_overflow_and"
+        }
+      ]
+    },
+    {
+      "name": "Flush Queue Function",
+      "page": 1961,
+      "category": "Synchronization",
+      "description": "Removes all elements from a queue and returns the elements as an array. This function does not release the queue reference. Use the Release Queue function to release the reference.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "queue",
+          "description": "queue is a reference to a queue. Use the Obtain Queue function to obtain a queue reference.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "queue"
+        },
+        {
+          "name": "error in (no error)",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in_no_error"
+        },
+        {
+          "name": "queue out",
+          "description": "queue out returns the reference to the queue unchanged.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "queue_out"
+        },
+        {
+          "name": "remaining elements",
+          "description": "remaining elements is an array of elements removed from the queue. The first element in the array is the element from the front of the queue and the last element in the array is the element from the back of the queue. This data type changes to match the subtype of queue.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "remaining_elements"
+        },
+        {
+          "name": "error out",
+          "description": "error out contains error information. This output provides standard error out functionality. Functions",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        }
+      ]
+    },
+    {
+      "name": "Obtain Semaphore Reference",
+      "page": 1963,
+      "category": "Synchronization",
+      "description": "Obtains a reference to an existing semaphore or creates a new semaphore and returns a reference to that semaphore. Use this VI in conjunction with the other Semaphore VIs to implement a semaphore in LabVIEW.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "name (unnamed)",
+          "description": "name contains the name of the semaphore you want to look up or create. The default is an empty string to create an unnamed semaphore. If you wire name, LabVIEW searches for an existing semaphore with the same name and returns a unique reference to the existing semaphore. If a semaphore with the same name does not already exist and create if not found is TRUE, LabVIEW creates a new, named semaphore and returns a unique reference to that semaphore.",
+          "default_value": "an empty string to create an unnamed semaphore",
+          "enum_values": null,
+          "python_param": "name_unnamed"
+        },
+        {
+          "name": "size (1)",
+          "description": "size specifies how many tasks can acquire the semaphore at the same time. If a named semaphore already exists, wiring a value to this parameter does not resize the semaphore. size must be greater than or equal to 1. The default is 1.",
+          "default_value": "1",
+          "enum_values": null,
+          "python_param": "size_1"
+        },
+        {
+          "name": "create if not found (T)",
+          "description": "create if not found specifies whether you want to create a new semaphore if one with that name does not exist. The default is TRUE, which specifies that LabVIEW creates a semaphore if the semaphore does not exist. If create if not found is FALSE and LabVIEW cannot find a semaphore with the name you specify, LabVIEW returns error code 1534.",
+          "default_value": "TRUE, which specifies that LabVIEW creates a semaphore if the semaphore does not exist",
+          "enum_values": null,
+          "python_param": "create_if_not_found_t"
+        },
+        {
+          "name": "error in (no error)",
+          "description": "Functions",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in_no_error"
+        }
+      ]
+    },
+    {
+      "name": "Acquire Semaphore",
+      "page": 1964,
+      "category": "Synchronization",
+      "description": "Acquires access to a semaphore. Use this VI in conjunction with the other Semaphore VIs to implement a semaphore in LabVIEW. Functions 1964 ni.com",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "semaphore",
+          "description": "semaphore is a reference to a semaphore.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "semaphore"
+        },
+        {
+          "name": "ms timeout (-1)",
+          "description": "ms timeout specifies how many milliseconds the function should wait for the semaphore to become available. The default is -1, indicating never to time out.",
+          "default_value": "-1, indicating never to time out",
+          "enum_values": null,
+          "python_param": "ms_timeout_1"
+        },
+        {
+          "name": "error in (no error)",
+          "description": "error in describes error conditions that occur before this node runs. With the following exception, this input provides standard error in functionality. This node runs normally even if an error occurred before this node runs.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in_no_error"
+        },
+        {
+          "name": "semaphore out",
+          "description": "semaphore out has the same value as semaphore.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "semaphore_out"
+        },
+        {
+          "name": "timed out",
+          "description": "timed out is TRUE if the semaphore did not become available before the function timed out or if an error occurred.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "timed_out"
+        },
+        {
+          "name": "error out",
+          "description": "error out contains error information. This output provides standard error out functionality. If the semaphore is already acquired by the maximum number of tasks, the VI waits ms timeout milliseconds before timing out. If the semaphore becomes available during the wait, timed out is FALSE. If the semaphore does not become available or semaphore is not valid, timed out is TRUE. The count on a semaphore is incremented each time Acquire Semaphore executes, even if the task acquiring the semaphore ha",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        }
+      ]
+    },
+    {
+      "name": "Release Semaphore",
+      "page": 1966,
+      "category": "Synchronization",
+      "description": "Releases access to a semaphore. If the Acquire Semaphore VI is waiting for the semaphore this VI releases, it stops waiting and continues execution. Use this VI in conjunction with the other Semaphore VIs to implement a semaphore in LabVIEW.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "semaphore",
+          "description": "semaphore is a reference to a semaphore.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "semaphore"
+        },
+        {
+          "name": "error in (no error)",
+          "description": "error in describes error conditions that occur before this node runs. With the following exception, this input provides standard error in functionality. This node runs normally even if an error occurred before this node runs.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in_no_error"
+        },
+        {
+          "name": "semaphore out",
+          "description": "semaphore out has the same value as semaphore.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "semaphore_out"
+        },
+        {
+          "name": "error out",
+          "description": "error out contains error information. This output provides standard error out functionality. Functions 1966 ni.com If the semaphore is currently unacquired, this VI returns error code 1111. Examples Refer to the following example files included with LabVIEW.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        },
+        {
+          "name": "labview\\examples\\Synchronization\\Semaphore\\Simple",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "labview_examples_synchronization_semaphore_simple"
+        }
+      ]
+    },
+    {
+      "name": "Release Semaphore Reference",
+      "page": 1967,
+      "category": "Synchronization",
+      "description": "Releases a reference to a semaphore. Use this VI in conjunction with the other Semaphore VIs to implement a semaphore in LabVIEW.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "semaphore",
+          "description": "semaphore is a reference to a semaphore.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "semaphore"
+        },
+        {
+          "name": "force destroy? (F)",
+          "description": "force destroy? specifies whether to destroy the semaphore. If FALSE (default), LabVIEW destroys the semaphore only if no other references to the semaphore exist. If TRUE, LabVIEW releases all references to the semaphore and destroys the semaphore.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "force_destroy_f"
+        },
+        {
+          "name": "error in (no error)",
+          "description": "error in describes error conditions that occur before this node runs. With the following exception, this input provides standard error in functionality. This node runs normally even if an error occurred before this node runs.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in_no_error"
+        },
+        {
+          "name": "semaphore name",
+          "description": "Functions",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "semaphore_name"
+        }
+      ]
+    },
+    {
+      "name": "Get Semaphore Status",
+      "page": 1968,
+      "category": "Synchronization",
+      "description": "Returns current status information of a semaphore. Use this VI in conjunction with the other Semaphore VIs to implement a semaphore in LabVIEW.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "semaphore",
+          "description": "Functions 1968 ni.com semaphore is a reference to a semaphore.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "semaphore"
+        },
+        {
+          "name": "error in (no error)",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in_no_error"
+        },
+        {
+          "name": "name",
+          "description": "name contains the name of the semaphore.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "name"
+        },
+        {
+          "name": "semaphore out",
+          "description": "semaphore out has the same value as semaphore.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "semaphore_out"
+        },
+        {
+          "name": "# available",
+          "description": "# available contains the number of tasks that can acquire the semaphore at the current time. This number is always less than or equal to size.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "available"
+        },
+        {
+          "name": "# waiting",
+          "description": "# waiting is the number of Acquire Semaphore functions currently waiting to acquire the semaphore.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "waiting"
+        },
+        {
+          "name": "error out",
+          "description": "error out contains error information. This output provides standard error out functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        },
+        {
+          "name": "size",
+          "description": "size contains the maximum number of tasks that can acquire the semaphore at a time.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "size"
+        }
+      ]
+    },
+    {
+      "name": "Not A Semaphore",
+      "page": 1969,
+      "category": "Synchronization",
+      "description": "Returns TRUE if semaphore is not a valid semaphore refnum. Use this VI in conjunction with the other Semaphore VIs to implement a semaphore in LabVIEW. Functions © National Instruments 1969",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "semaphore",
+          "description": "semaphore is a reference to a semaphore.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "semaphore"
+        },
+        {
+          "name": "not a semaphore",
+          "description": "not a semaphore is TRUE if semaphore is not a valid semaphore reference.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "not_a_semaphore"
+        }
+      ]
+    },
+    {
+      "name": "Create Rendezvous",
+      "page": 1971,
+      "category": "Synchronization",
+      "description": "Looks up an existing rendezvous or creates a new rendezvous and returns a refnum. You can use this refnum when calling other Rendezvous VIs.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "name (unnamed)",
+          "description": "name contains the name of the rendezvous that you are looking up or creating. The default is an empty string to create an unnamed rendezvous. LabVIEW does not automatically release named rendezvous.",
+          "default_value": "an empty string to create an unnamed rendezvous",
+          "enum_values": null,
+          "python_param": "name_unnamed"
+        },
+        {
+          "name": "size (2)",
+          "description": "size specifies how many tasks initially meet at the rendezvous to continue execution. The default is 2. If a named rendezvous already exists, wiring a value to size does not resize the rendezvous. Use the Resize Rendezvous to resize a named rendezvous.",
+          "default_value": "2",
+          "enum_values": null,
+          "python_param": "size_2"
+        },
+        {
+          "name": "return existing (F)",
+          "description": "return existing (F) specifies whether the rendezvous must already exist for this function to succeed. The default is FALSE, specifying that a rendezvous should be created if it does not exist. If return existing (F) is TRUE and a rendezvous with that name does not exist, the function returns an error. Note A named rendezvous exists only as long as the top-level VI that first created the named rendezvous continues running. For example, if Application.vi has a subVI Subtask.vi, any named rendezvou",
+          "default_value": "FALSE, specifying that a rendezvous should be created if it does not exist",
+          "enum_values": null,
+          "python_param": "return_existing_f"
+        }
+      ]
+    },
+    {
+      "name": "Wait at Rendezvous",
+      "page": 1972,
+      "category": "Synchronization",
+      "description": "Waits until a sufficient number of tasks have arrived at the rendezvous. Note You cannot use a rendezvous to communicate between LabVIEW application instance. If you create a rendezvous reference in one application instance, you cannot use that rendezvous reference in another application instance. Functions 1972 ni.com",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "rendezvous",
+          "description": "rendezvous is a reference associated with a rendezvous.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "rendezvous"
+        },
+        {
+          "name": "ms timeout (-1)",
+          "description": "ms timeout specifies how many milliseconds the function should wait for other tasks to arrive at the rendezvous. The default is –1, indicating never to time out.",
+          "default_value": "–1, indicating never to time out",
+          "enum_values": null,
+          "python_param": "ms_timeout_1"
+        },
+        {
+          "name": "error in (no error)",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in_no_error"
+        },
+        {
+          "name": "rendezvous out",
+          "description": "rendezvous out has the same value as rendezvous.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "rendezvous_out"
+        },
+        {
+          "name": "timed out",
+          "description": "timed out is TRUE if not enough tasks arrived before the function timed out or if an error occurred.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "timed_out"
+        },
+        {
+          "name": "error out",
+          "description": "error out contains error information. This output provides standard error out functionality. If the number of tasks, including the new one, waiting at rendezvous is less than the rendezvous size, the VI waits ms timeout milliseconds before timing out. If enough tasks arrive at the rendezvous during the wait, timed out is FALSE. If enough tasks do not arrive or rendezvous is not valid, timed out is TRUE.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        }
+      ]
+    },
+    {
+      "name": "Resize Rendezvous",
+      "page": 1973,
+      "category": "Synchronization",
+      "description": "Changes the size of rendezvous by size change and returns new size. Functions © National Instruments 1973",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "rendezvous",
+          "description": "rendezvous is a reference associated with a rendezvous.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "rendezvous"
+        },
+        {
+          "name": "size change (0)",
+          "description": "size change specifies how many more tasks want to meet at the rendezvous. A negative size decreases the number of tasks. The default is 0 for no change in size.",
+          "default_value": "0 for no change in size",
+          "enum_values": null,
+          "python_param": "size_change_0"
+        },
+        {
+          "name": "error in (no error)",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in_no_error"
+        },
+        {
+          "name": "rendezvous out",
+          "description": "rendezvous out has the same value as rendezvous.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "rendezvous_out"
+        },
+        {
+          "name": "new size",
+          "description": "new size is the new number of tasks meeting at the rendezvous.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "new_size"
+        },
+        {
+          "name": "error out",
+          "description": "error out contains error information. This output provides standard error out functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        }
+      ]
+    },
+    {
+      "name": "Destroy Rendezvous",
+      "page": 1974,
+      "category": "Synchronization",
+      "description": "Destroys the specified rendezvous. All Wait at Rendezvous VIs that are currently waiting on this rendezvous time out immediately and return an error. Functions 1974 ni.com",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "rendezvous",
+          "description": "rendezvous is a reference associated with a rendezvous.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "rendezvous"
+        },
+        {
+          "name": "error in (no error)",
+          "description": "error in describes error conditions that occur before this node runs. With the following exception, this input provides standard error in functionality. This node runs normally even if an error occurred before this node runs.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in_no_error"
+        },
+        {
+          "name": "rendezvous name",
+          "description": "rendezvous name is the name of rendezvous.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "rendezvous_name"
+        },
+        {
+          "name": "error out",
+          "description": "error out contains error information. This output provides standard error out functionality. Examples Refer to the following example files included with LabVIEW.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        },
+        {
+          "name": "labview\\examples\\Synchronization\\Rendezvous\\Simple",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "labview_examples_synchronization_rendezvous_simple"
+        }
+      ]
+    },
+    {
+      "name": "Get Rendezvous Status",
+      "page": 1975,
+      "category": "Synchronization",
+      "description": "Returns current status information of a rendezvous. Functions © National Instruments 1975",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "rendezvous",
+          "description": "rendezvous is a reference associated with a rendezvous.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "rendezvous"
+        },
+        {
+          "name": "error in (no error)",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in_no_error"
+        },
+        {
+          "name": "name",
+          "description": "name contains the name of the rendezvous.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "name"
+        },
+        {
+          "name": "rendezvous out",
+          "description": "rendezvous out has the same value as rendezvous.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "rendezvous_out"
+        },
+        {
+          "name": "# waiting",
+          "description": "# waiting is the number of Wait at Rendezvous functions currently waiting at the rendezvous.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "waiting"
+        },
+        {
+          "name": "size",
+          "description": "size is the number of tasks meeting at the rendezvous.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "size"
+        },
+        {
+          "name": "error out",
+          "description": "error out contains error information. This output provides standard error out functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        }
+      ]
+    },
+    {
+      "name": "Not A Rendezvous",
+      "page": 1976,
+      "category": "Synchronization",
+      "description": "Returns TRUE if rendezvous is not a valid rendezvous refnum.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "rendezvous",
+          "description": "Functions 1976 ni.com rendezvous is a reference associated with a rendezvous.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "rendezvous"
+        },
+        {
+          "name": "not a rendezvous",
+          "description": "not a rendezvous is TRUE if rendezvous is not a valid rendezvous reference.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "not_a_rendezvous"
+        }
+      ]
+    },
+    {
+      "name": "Generate Occurrence Function",
+      "page": 1978,
+      "category": "Synchronization",
+      "description": "Generates an occurrence that you can pass to the Wait on Occurrence and Set Occurrence functions.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "occurrence",
+          "description": "occurrence is the occurrence refnum that links Wait on Occurrence and Set Occurrence. Ordinarily, only one Generate Occurrence function is wired to any set of Wait on Occurrence and Set Occurrence functions. You can wire a Generate Occurrence function to any number of Wait on Occurrence and Set Occurrence functions. You do not have to have the same number of Wait on Occurrence and Set Occurrence functions. Unlike other Synchronization VIs, each Generate Occurrence function on a block diagram rep",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "occurrence"
+        },
+        {
+          "name": "labview\\examples\\Synchronization\\Occurrence\\Simple",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "labview_examples_synchronization_occurrence_simple"
+        }
+      ]
+    },
+    {
+      "name": "Wait on Occurrence Function",
+      "page": 1979,
+      "category": "Synchronization",
+      "description": "Waits for the Set Occurrence function to set the given occurrence.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "ms timeout (-1)",
+          "description": "ms timeout is the specified amount of time, in milliseconds, for occurrence to occur. If occurrence does not occur within the specified ms timeout, the function returns a value of TRUE. If ms timeout is –1 (default), the function does not time out unless the occurrence wired to this function is invalid. If occurrence is invalid, the function immediately returns TRUE for timed out, even if ms timeout is equal to –1 (default).",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "ms_timeout_1"
+        },
+        {
+          "name": "occurrence",
+          "description": "occurrence is the occurrence refnum that links Wait on Occurrence and Set Occurrence.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "occurrence"
+        },
+        {
+          "name": "ignore previous (T)",
+          "description": "If ignore previous is TRUE (default) and another node has set the occurrence before this function began executing, the function ignores the previous occurrence and waits for another one. Note National Instruments encourages you to use the Notifier Operations functions in place of occurrences for most operations. Functions",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "ignore_previous_t"
+        }
+      ]
+    },
+    {
+      "name": "Set Occurrence Function",
+      "page": 1980,
+      "category": "Synchronization",
+      "description": "Sets the specified occurrence. All nodes that are waiting for this occurrence stop waiting.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "occurrence",
+          "description": "occurrence is the occurrence refnum that links Wait on Occurrence and Set Occurrence. Note National Instruments encourages you to use the Notifier Operations functions in place of occurrences for most operations. Functions 1980 ni.com Examples Refer to the following example files included with LabVIEW.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "occurrence"
+        },
+        {
+          "name": "labview\\examples\\Synchronization\\Occurrence\\Simple",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "labview_examples_synchronization_occurrence_simple"
+        },
+        {
+          "name": "First Call?: T/F",
+          "description": "First Call? is TRUE if the subVI is running for the first time since you ran the entire VI. This function is useful if you want to run a subVI or a section of a block diagram within a loop or Case structure only once when the VI runs. First Call? returns TRUE the first time the VI runs after the first top-level caller starts running, such as when the Run button is clicked or the Run VI method executes. If a second top-level caller calls the VI while the first top-level caller is still running, F",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "first_call_t_f"
+        }
+      ]
+    },
+    {
+      "name": "First Call? Function",
+      "page": 1981,
+      "category": "Synchronization",
+      "description": "Indicates that a subVI or section of a block diagram is running for the first time. The First Call? function returns TRUE only the first time you call it after you click the Run button. You can place the First Call? function in multiple locations within a VI. The function returns TRUE the first time the section of the block diagram in which it is placed runs.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "First Call?: T/F",
+          "description": "First Call? is TRUE if the subVI is running for the first time since you ran the entire VI. This function is useful if you want to run a subVI or a section of a block diagram within a loop or Case structure only once when the VI runs. First Call? returns TRUE the first time the VI runs after the first top-level caller starts running, such as when the Run button is clicked or the Run VI method executes. If a second top-level caller calls the VI while the first top-level caller is still running, F",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "first_call_t_f"
+        }
+      ]
+    },
+    {
+      "name": "Synchronize Data Flow",
+      "page": 1982,
+      "category": "Synchronization",
+      "description": "Passes through the values of the input wires after the upstream code executes. Use this VI to synchronize multiple parallel code paths at a single point of data flow to ensure a certain execution order.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "input 1",
+          "description": "input 1 specifies the value of the first wire. This input accepts any data type. The default data type is a variant.",
+          "default_value": "data type is a variant",
+          "enum_values": null,
+          "python_param": "input_1"
+        },
+        {
+          "name": "input 2",
+          "description": "input 2 specifies the value of the second wire. This input accepts any data type. The default data type is a variant.",
+          "default_value": "data type is a variant",
+          "enum_values": null,
+          "python_param": "input_2"
+        },
+        {
+          "name": "input 3",
+          "description": "input 3 specifies the value of the third wire. This input accepts any data type. The default data type is a variant.",
+          "default_value": "data type is a variant",
+          "enum_values": null,
+          "python_param": "input_3"
+        },
+        {
+          "name": "input 4",
+          "description": "input 4 specifies the value of the fourth wire. This input accepts any data type. The default data type is a variant.",
+          "default_value": "data type is a variant",
+          "enum_values": null,
+          "python_param": "input_4"
+        },
+        {
+          "name": "output 1",
+          "description": "output 1 returns the value of input 1.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "output_1"
+        },
+        {
+          "name": "output 2",
+          "description": "Functions 1982 ni.com output 2 returns the value of input 2.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "output_2"
+        },
+        {
+          "name": "output 3",
+          "description": "output 3 returns the value of input 3.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "output_3"
+        },
+        {
+          "name": "output 4",
+          "description": "output 4 returns the value of input 4.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "output_4"
+        }
+      ]
+    }
+  ]
+}

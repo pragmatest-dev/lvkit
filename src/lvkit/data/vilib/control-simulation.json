@@ -1,0 +1,3273 @@
+{
+  "category": "Control & Simulation",
+  "count": 41,
+  "entries": [
+    {
+      "name": "PID (DBL) VI",
+      "page": 5716,
+      "category": "Control & Simulation",
+      "description": "Implements a PID controller using a PID algorithm for simple PID applications or high speed control applications that require an efficient algorithm. The PID algorithm features control output range limiting with integrator anti-windup and bumpless controller output for PID gain changes. Use the DBL instance of this VI to implement a single control loop. Use the DBL Array instance to implement parallel multi-loop control. Functions 5716 ni.com",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "output range",
+          "description": "output range specifies the range to which to coerce the control output. The default range is –100 to 100, which corresponds to values specified in terms of percentage of full scale. You can change this range to something that is appropriate for your control system. For example, you can relate engineering units to engineering units instead of percentage to percentage. This VI implements integrator anti-windup when the controller output is saturated at the specified minimum or maximum values.",
+          "default_value": "range is –100 to 100, which corresponds to values specified in terms of percentage of full scale",
+          "enum_values": null,
+          "python_param": "output_range"
+        },
+        {
+          "name": "output high",
+          "description": "output high specifies the maximum value of the controller output. The default is 100.",
+          "default_value": "100",
+          "enum_values": null,
+          "python_param": "output_high"
+        },
+        {
+          "name": "output low",
+          "description": "output low specifies the minimum value of the controller output. The default is –100.",
+          "default_value": "–100",
+          "enum_values": null,
+          "python_param": "output_low"
+        },
+        {
+          "name": "setpoint",
+          "description": "setpoint specifies the setpoint value, or desired value, of the process variable being controlled.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "setpoint"
+        },
+        {
+          "name": "process variable",
+          "description": "process variable specifies the measured value of the process variable being controlled. This value is equal to the feedback value of the feedback control loop.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "process_variable"
+        },
+        {
+          "name": "PID gains",
+          "description": "PID gains specifies the proportional gain, integral time, and derivative time parameters of the controller.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "pid_gains"
+        },
+        {
+          "name": "proportional gain (Kc)",
+          "description": "Functions",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "proportional_gain_kc"
+        }
+      ]
+    },
+    {
+      "name": "PID (DBL Array) VI",
+      "page": 5719,
+      "category": "Control & Simulation",
+      "description": "Implements a PID controller using a PID algorithm for simple PID applications or high speed control applications that require an efficient algorithm. The PID algorithm features control output range limiting with integrator anti-windup and bumpless controller output for PID gain changes. Use the DBL instance of this VI to implement a single control loop. Use the DBL Array instance to implement parallel multi-loop control.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "output range",
+          "description": "output range specifies the range to which to coerce the control output. The default range is -100 to 100, which corresponds to values specified in terms of percentage of full scale. Functions © National Instruments 5719 You can change this range to something that is appropriate for your control system. For example, you can relate engineering units to engineering units instead of percentage to percentage. This VI implements integrator anti-windup when the controller output is saturated at the spe",
+          "default_value": "range is -100 to 100, which corresponds to values specified in terms of percentage of full scale",
+          "enum_values": null,
+          "python_param": "output_range"
+        },
+        {
+          "name": "output high",
+          "description": "output high specifies the maximum value of the controller output. The default is 100.",
+          "default_value": "100",
+          "enum_values": null,
+          "python_param": "output_high"
+        },
+        {
+          "name": "output low",
+          "description": "output low specifies the minimum value of the controller output. The default is -100.",
+          "default_value": "-100",
+          "enum_values": null,
+          "python_param": "output_low"
+        },
+        {
+          "name": "setpoint",
+          "description": "setpoint specifies the setpoint value, or desired value, of the process variable being controlled. This VI resizes the setpoint input array to match the size of the process variable input array.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "setpoint"
+        },
+        {
+          "name": "process variable",
+          "description": "process variable specifies the measured value of the process variable being controlled. This value is equal to the feedback value of the feedback control loop.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "process_variable"
+        },
+        {
+          "name": "PID gains",
+          "description": "PID gains is an array of clusters of the following elements.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "pid_gains"
+        },
+        {
+          "name": "proportional gain (Kc)",
+          "description": "proportional gain (Kc) specifies the proportional gain of the controller. The default is 1. In the equation that defines the PID controller, KC represents the proportional gain.",
+          "default_value": "1",
+          "enum_values": null,
+          "python_param": "proportional_gain_kc"
+        },
+        {
+          "name": "integral time (Ti, min)",
+          "description": "integral time (Ti, min) specifies the integral time in minutes. The default is 0.01.",
+          "default_value": "0",
+          "enum_values": null,
+          "python_param": "integral_time_ti_min"
+        },
+        {
+          "name": "derivative time (Td, min)",
+          "description": "Functions 5720 ni.com derivative time (Td, min) specifies the derivative time in minutes. The default is 0.",
+          "default_value": "0",
+          "enum_values": null,
+          "python_param": "derivative_time_td_min"
+        },
+        {
+          "name": "dt (s)",
+          "description": "dt (s) specifies the loop-cycle time, or interval in seconds, at which this VI is called. If dt (s) is less than or equal to zero, this VI calculates the time since it was last called using an internal timer with 1 ms resolution. If dt (s) must be less than 1 ms, specify the value explicitly. The default is -1.",
+          "default_value": "-1",
+          "enum_values": null,
+          "python_param": "dt_s"
+        },
+        {
+          "name": "reinitialize? (F)",
+          "description": "reinitialize? specifies whether to reinitialize the internal parameters, such as the integrated error, of the controller. Set reinitialize? to TRUE if your application must stop and restart the control loop without restarting the entire application. The default is FALSE.",
+          "default_value": "FALSE",
+          "enum_values": null,
+          "python_param": "reinitialize_f"
+        },
+        {
+          "name": "output",
+          "description": "output returns the control output of the PID algorithm that is applied to the controlled process. This VI determines the length of the output array from the size of the process variable input array.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "output"
+        },
+        {
+          "name": "dt out (s)",
+          "description": "dt out (s) returns the actual time interval in seconds. dt out (s) returns either the value of dt (s) or the computed interval if you set dt (s) to –1. You can use the DBL Array instance of this polymorphic VI in multi-loop PID control applications. In this case, the length of the process variable input determines the length of the output array. Other input arrays do not necessarily need to be the same length as the process variable input. This VI resizes other input arrays to the same length as",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "dt_out_s"
+        },
+        {
+          "name": "If the input array is longer than the process variable input, the input array is",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "if_the_input_array_is_longer_than_the_process_variable_input_the_input_array_is"
+        },
+        {
+          "name": "If the input array is shorter than the process variable input, the last value of the",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "if_the_input_array_is_shorter_than_the_process_variable_input_the_last_value_of_the"
+        }
+      ]
+    },
+    {
+      "name": "PID (Compatibility) VI",
+      "page": 5722,
+      "category": "Control & Simulation",
+      "description": "Implements a PID controller using a PID algorithm for simple PID applications or high speed control applications that require an efficient algorithm. The PID algorithm features control output range limiting with integrator anti-windup and bumpless controller output for PID gain changes. Use the DBL instance of this VI to implement a single control loop. Use the DBL Array instance to implement parallel multi-loop control.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "setpoint",
+          "description": "setpoint specifies the setpoint value, or desired value, of the process variable being controlled.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "setpoint"
+        },
+        {
+          "name": "process variable",
+          "description": "process variable specifies the measured value of the process variable being controlled. This value is equal to the feedback value of the feedback control loop.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "process_variable"
+        },
+        {
+          "name": "PID parameters",
+          "description": "PID parameters is a cluster containing the updated PID gains parameters for each controller. You Functions 5722 ni.com can use the updated values with other PID VIs.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "pid_parameters"
+        },
+        {
+          "name": "Kp",
+          "description": "In the equation that defines the PID controller, KC represents the proportional gain.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "kp"
+        },
+        {
+          "name": "Ti",
+          "description": "integral time (Ti, min) specifies the integral time in minutes. The default is 0.01.",
+          "default_value": "0",
+          "enum_values": null,
+          "python_param": "ti"
+        },
+        {
+          "name": "Td",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "td"
+        },
+        {
+          "name": "manual control",
+          "description": "manual control specifies the value of the control output when auto? is FALSE.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "manual_control"
+        },
+        {
+          "name": "options",
+          "description": "options specifies the settings for the PID control.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "options"
+        },
+        {
+          "name": "sp low",
+          "description": "sp low specifies the lower bound of the setpoint range in terms of percentage points or engineering units.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "sp_low"
+        },
+        {
+          "name": "sp high",
+          "description": "sp high specifies the upper bound of the setpoint range in terms of percentage points or engineering units.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "sp_high"
+        },
+        {
+          "name": "out low",
+          "description": "out low specifies the lower bound of the output range in terms of percentage points or engineering units.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "out_low"
+        },
+        {
+          "name": "out high",
+          "description": "out high specifies the upper bound of the output range in terms of percentage points or engineering units.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "out_high"
+        },
+        {
+          "name": "hold (F)",
+          "description": "Functions",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "hold_f"
+        }
+      ]
+    },
+    {
+      "name": "PID Advanced (DBL) VI",
+      "page": 5727,
+      "category": "Control & Simulation",
+      "description": "Implements a PID controller using a PID algorithm with advanced optional features. The advanced PID algorithm includes the features of the algorithm the PID VI uses, as well as manual mode control with bumpless manual-to-automatic transitions, nonlinear integral action, two degree-of-freedom control, and error-squared control. Use the DBL instance of this VI to implement a single control loop. Use the DBL Array instance to implement parallel multi-loop control. Functions © National Instruments 5",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "alpha",
+          "description": "alpha specifies the derivative filter time constant. Increasing this value increases damping of derivative action. alpha can be a value between 0 and 1 or NaN, which specifies that no derivative filter is applied.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "alpha"
+        },
+        {
+          "name": "gamma",
+          "description": "gamma specifies an amount by which to weight the error applied to derivative action. The default value is 0, which avoids the derivative kick, or sudden change in controller output, that can occur after a change in the setpoint value. In certain cascade control operations where derivative kick is not a concern, increasing gamma might improve the speed of the first PID controller.",
+          "default_value": "value is 0, which avoids the derivative kick, or sudden change in controller output, that can occur after a change in the setpoint value",
+          "enum_values": null,
+          "python_param": "gamma"
+        },
+        {
+          "name": "manual control",
+          "description": "manual control specifies the value of the control output when auto? is FALSE.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "manual_control"
+        },
+        {
+          "name": "auto? (T)",
+          "description": "auto? specifies whether to use automatic or manual control. In some situations, you might need to switch off the PID controller and operate the system in manual, or open-loop, mode. The default is TRUE. When auto? is TRUE, this VI uses automatic control. When auto? is FALSE, this VI uses manual control. This VI uses bumpless transfer from manual control to automatic control.",
+          "default_value": "TRUE",
+          "enum_values": null,
+          "python_param": "auto_t"
+        },
+        {
+          "name": "output range",
+          "description": "Functions 5728 ni.com output range specifies the range to which to coerce the control output. The default range is –100 to 100, which corresponds to values specified in terms of percentage of full scale. You can change this range to something that is appropriate for your control system. For example, you can relate engineering units to engineering units instead of percentage to percentage. This VI implements integrator anti-windup when the controller output is saturated at the specified minimum o",
+          "default_value": "range is –100 to 100, which corresponds to values specified in terms of percentage of full scale",
+          "enum_values": null,
+          "python_param": "output_range"
+        },
+        {
+          "name": "output high",
+          "description": "output high specifies the maximum value of the controller output. The default is 100.",
+          "default_value": "100",
+          "enum_values": null,
+          "python_param": "output_high"
+        },
+        {
+          "name": "output low",
+          "description": "output low specifies the minimum value of the controller output. The default is –100.",
+          "default_value": "–100",
+          "enum_values": null,
+          "python_param": "output_low"
+        },
+        {
+          "name": "setpoint",
+          "description": "setpoint specifies the setpoint value, or desired value, of the process variable being controlled.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "setpoint"
+        },
+        {
+          "name": "process variable",
+          "description": "process variable specifies the measured value of the process variable being controlled. This value is equal to the feedback value of the feedback control loop.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "process_variable"
+        },
+        {
+          "name": "setpoint range",
+          "description": "setpoint range specifies the maximum and minimum values for the setpoint/process variable range. This VI uses the setpoint range to calculate nonlinear integral action. The default range is 0 to 100, which corresponds to values specified in terms of percentage of full scale. You can change this range to something that is appropriate for your control system. For example, you can relate engineering units to engineering units instead of percentage to percentage. This VI uses the setpoint range in t",
+          "default_value": "range is 0 to 100, which corresponds to values specified in terms of percentage of full scale",
+          "enum_values": null,
+          "python_param": "setpoint_range"
+        },
+        {
+          "name": "setpoint high",
+          "description": "setpoint high specifies the maximum value of the setpoint/process variable range.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "setpoint_high"
+        },
+        {
+          "name": "setpoint low",
+          "description": "Functions",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "setpoint_low"
+        }
+      ]
+    },
+    {
+      "name": "PID Advanced (DBL Array) VI",
+      "page": 5732,
+      "category": "Control & Simulation",
+      "description": "Implements a PID controller using a PID algorithm with advanced optional features. The advanced PID algorithm includes the features of the algorithm the PID VI uses, as well as manual mode control with bumpless manual-to-automatic transitions, nonlinear integral action, two degree-of-freedom control, and error-squared control. Use the DBL instance of this VI to implement a single control loop. Use the DBL Array instance to implement parallel multi-loop control. Functions 5732 ni.com",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "gamma",
+          "description": "gamma specifies an amount by which to weight the error applied to derivative action. The default value is 0, which avoids the derivative kick, or sudden change in controller output, that can occur after a change in the setpoint value. In certain cascade control operations where derivative kick is not a concern, increasing gamma might improve the speed of the first PID controller. This VI resizes the gamma input array to match the size of the process variable input array.",
+          "default_value": "value is 0, which avoids the derivative kick, or sudden change in controller output, that can occur after a change in the setpoint value",
+          "enum_values": null,
+          "python_param": "gamma"
+        },
+        {
+          "name": "manual control",
+          "description": "manual control specifies the value of the control output when auto? is FALSE. This VI resizes the manual control input array to match the size of the process variable input array.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "manual_control"
+        },
+        {
+          "name": "auto? (T)",
+          "description": "auto? specifies whether to use automatic or manual control. When auto? is TRUE, this VI uses automatic control. When auto? is FALSE, this VI uses manual control. This VI uses bumpless transfer from manual control to automatic control. The default is TRUE. This VI resizes the auto? input array to match the size of the process variable input array.",
+          "default_value": "TRUE",
+          "enum_values": null,
+          "python_param": "auto_t"
+        },
+        {
+          "name": "output range",
+          "description": "output range specifies the range to which to coerce the control output. The default range is -100 to 100, which corresponds to values specified in terms of percentage of full scale. You can change this range to something that is appropriate for your control system. For example, you can relate engineering units to engineering units instead of percentage to percentage. This Functions",
+          "default_value": "range is -100 to 100, which corresponds to values specified in terms of percentage of full scale",
+          "enum_values": null,
+          "python_param": "output_range"
+        }
+      ]
+    },
+    {
+      "name": "PID Gain Schedule (DBL) VI",
+      "page": 5753,
+      "category": "Control & Simulation",
+      "description": "Selects a set of PID gains from a gain schedule for the control of processes that require different sets of gains for different regions of operation, such as highly nonlinear processes. Use the DBL instance of this VI to implement a single control loop. Use the DBL Array instance to implement parallel multi-loop control.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "gain scheduling value",
+          "description": "gain scheduling value specifies the current input value to use to select PID gains from the gain schedule.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "gain_scheduling_value"
+        },
+        {
+          "name": "PID gain schedule",
+          "description": "PID gain schedule specifies the gain schedule for the proportional, integral, and derivative gain parameters. Specify the maximum values for the PID gain schedule in ascending order. This VI uses the first set of PID gains in the array for all gain scheduling values less than the corresponding maximum value. If you define a maximum setpoint value and the actual setpoint rises above that value, this VI continues to behave as if the maximum setpoint value were still in effect.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "pid_gain_schedule"
+        },
+        {
+          "name": "PID gains",
+          "description": "PID gains specifies the proportional gain, integral time, and derivative time parameters of the controller.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "pid_gains"
+        },
+        {
+          "name": "proportional gain (Kc)",
+          "description": "proportional gain (Kc) specifies the proportional gain of the controller. The default is 1. In the equation that defines the PID controller, KC represents the proportional gain.",
+          "default_value": "1",
+          "enum_values": null,
+          "python_param": "proportional_gain_kc"
+        },
+        {
+          "name": "integral time (Ti, min)",
+          "description": "Functions",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "integral_time_ti_min"
+        }
+      ]
+    },
+    {
+      "name": "PID Gain Schedule (DBL Array) VI",
+      "page": 5755,
+      "category": "Control & Simulation",
+      "description": "Selects a set of PID gains from a gain schedule for the control of processes that require different sets of gains for different regions of operation, such as highly nonlinear processes. Use the DBL instance of this VI to implement a single control loop. Use the DBL Array instance to implement parallel multi-loop control.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "gain scheduling value",
+          "description": "gain scheduling value specifies the current input value to use to select PID gains from the gain schedule.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "gain_scheduling_value"
+        },
+        {
+          "name": "PID gain schedule",
+          "description": "PID gain schedule specifies the gain schedule for the proportional, integral, and derivative gain parameters. Specify the maximum values for the PID gain schedule in ascending order. This VI Functions © National Instruments 5755 uses the first set of PID gains in the array for all gain scheduling values less than the corresponding maximum value. If you define a maximum setpoint value and the actual setpoint rises above that value, this VI continues to behave as if the maximum setpoint value were",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "pid_gain_schedule"
+        },
+        {
+          "name": "PID gains",
+          "description": "PID gains specifies the proportional gain, integral time, and derivative time parameters of the controller.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "pid_gains"
+        },
+        {
+          "name": "proportional gain (Kc)",
+          "description": "proportional gain (Kc) specifies the proportional gain of the controller. The default is 1. In the equation that defines the PID controller, KC represents the proportional gain.",
+          "default_value": "1",
+          "enum_values": null,
+          "python_param": "proportional_gain_kc"
+        },
+        {
+          "name": "integral time (Ti, min)",
+          "description": "integral time (Ti, min) specifies the integral time in minutes. The default is 0.01.",
+          "default_value": "0",
+          "enum_values": null,
+          "python_param": "integral_time_ti_min"
+        },
+        {
+          "name": "derivative time (Td, min)",
+          "description": "derivative time (Td, min) specifies the derivative time in minutes. The default is 0.",
+          "default_value": "0",
+          "enum_values": null,
+          "python_param": "derivative_time_td_min"
+        },
+        {
+          "name": "max value",
+          "description": "max value specifies the maximum value of the range of the gain scheduling value.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "max_value"
+        },
+        {
+          "name": "index out",
+          "description": "index out returns the indexes of the elements in the PID gain schedule array corresponding to each element of the PID gains out output array.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "index_out"
+        },
+        {
+          "name": "PID gains out",
+          "description": "PID gains out returns the current PID gains from the gain schedule.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "pid_gains_out"
+        },
+        {
+          "name": "proportional gain (Kc)",
+          "description": "Functions 5756 ni.com proportional gain (Kc) returns the proportional gain of the controller.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "proportional_gain_kc"
+        },
+        {
+          "name": "integral time (Ti, min)",
+          "description": "integral time (Ti, min) returns the integral time in minutes.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "integral_time_ti_min"
+        },
+        {
+          "name": "derivative time (Td, min)",
+          "description": "derivative time (Td, min) returns the derivative time in minutes. You can use the DBL Array instance of this polymorphic VI in multi-loop PID control applications. In this case, the length of the gain scheduling value input determines the length of the output array. Other input arrays do not necessarily need to be the same length as the gain scheduling value input. This VI resizes other input arrays to the same length as the gain scheduling value input as follows:",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "derivative_time_td_min"
+        },
+        {
+          "name": "If the input array is longer than the gain scheduling value input, the input array is",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "if_the_input_array_is_longer_than_the_gain_scheduling_value_input_the_input_array_is"
+        },
+        {
+          "name": "If the input array is shorter than the gain scheduling value input, the last value of",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "if_the_input_array_is_shorter_than_the_gain_scheduling_value_input_the_last_value_of"
+        },
+        {
+          "name": "labview\\examples\\control\\PID\\Gain Scheduling Simulator.vi",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "labview_examples_control_pid_gain_scheduling_simulator_vi"
+        }
+      ]
+    },
+    {
+      "name": "PID Structure Conversion (DBL) VI",
+      "page": 5759,
+      "category": "Control & Simulation",
+      "description": "Converts a PID controller or controllers in Academic, Parallel, or Series form into the form (Academic) and PID gains units that the PID VIs expect. Wire data to the proportional, integral, or derivative input to determine the polymorphic instance to use, or manually select the instance.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "proportional unit",
+          "description": "proportional unit specifies the units associated with the proportional (P) component of the PID controller to convert. The relationship between the available units is Kc = 100 / PB. 0 Gain (Kc) (default)—Specifies that the proportional component is expressed in terms of proportional gain (Kc). 1 Band (PB) —Specifies that the proportional component is expressed in terms of proportional band (PB).",
+          "default_value": null,
+          "enum_values": [
+            [
+              0,
+              "Gain (Kc) (default)"
+            ],
+            [
+              1,
+              "Band (PB)"
+            ]
+          ],
+          "python_param": "proportional_unit"
+        },
+        {
+          "name": "PID structure",
+          "description": "PID structure specifies the initial form of the PID controller. Refer to the Details section of this topic for the equations that represent each form. 0 Academic (Standard) (default)—Specifies that the controller is in PID Academic form. 1 Parallel —Specifies that the controller is in PID Parallel form. Functions",
+          "default_value": null,
+          "enum_values": [
+            [
+              0,
+              "Academic (Standard) (default)"
+            ],
+            [
+              1,
+              "Parallel"
+            ]
+          ],
+          "python_param": "pid_structure"
+        }
+      ]
+    },
+    {
+      "name": "PID Structure Conversion (DBL Array) VI",
+      "page": 5762,
+      "category": "Control & Simulation",
+      "description": "Converts a PID controller or controllers in Academic, Parallel, or Series form into the form (Academic) and PID gains units that the PID VIs expect. Wire data to the proportional, integral, or derivative input to determine the polymorphic instance to use, or manually select the instance.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "proportional unit",
+          "description": "proportional unit specifies the units associated with the proportional (P) component of the PID controller to convert. The relationship between the available units is Kc = 100 / PB. 0 Gain (Kc) (default)—Specifies that the proportional component is expressed in terms of proportional gain (Kc). 1 Band (PB) —Specifies that the proportional component is expressed in terms of proportional band (PB).",
+          "default_value": null,
+          "enum_values": [
+            [
+              0,
+              "Gain (Kc) (default)"
+            ],
+            [
+              1,
+              "Band (PB)"
+            ]
+          ],
+          "python_param": "proportional_unit"
+        },
+        {
+          "name": "PID structure",
+          "description": "PID structure specifies the initial form of the PID controller. Refer to the Details section of this topic for the equations that represent each form. 0 Academic (Standard) (default)—Specifies that the controller is in PID Academic form. Functions 5762 ni.com 1 Parallel —Specifies that the controller is in PID Parallel form. 2 Series —Specifies that the controller is in PID Series form.",
+          "default_value": null,
+          "enum_values": [
+            [
+              0,
+              "Academic (Standard) (default)"
+            ],
+            [
+              2,
+              "Series"
+            ]
+          ],
+          "python_param": "pid_structure"
+        },
+        {
+          "name": "proportional",
+          "description": "proportional specifies the values of the proportional (P) components of the PID controllers to convert.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "proportional"
+        },
+        {
+          "name": "integral",
+          "description": "integral specifies the values of the integral (I) components of the PID controllers to convert.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "integral"
+        },
+        {
+          "name": "derivative",
+          "description": "derivative specifies the values of the derivative (D) components of the PID controllers to convert.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "derivative"
+        },
+        {
+          "name": "integral unit",
+          "description": "integral unit specifies the units associated with the integral (I) component of the PID controller to convert. 0 min (default)—Specifies that the integral component is expressed in minutes. 1 s —Specifies that the integral component is expressed in seconds.",
+          "default_value": null,
+          "enum_values": [
+            [
+              0,
+              "min (default)"
+            ],
+            [
+              1,
+              "s"
+            ]
+          ],
+          "python_param": "integral_unit"
+        },
+        {
+          "name": "derivative unit",
+          "description": "derivative unit specifies the units associated with the derivative (D) component of the PID controller to convert. 0 min (default)—Specifies that the derivative component is expressed in minutes. 1 s —Specifies that the derivative component is expressed in seconds.",
+          "default_value": null,
+          "enum_values": [
+            [
+              0,
+              "min (default)"
+            ],
+            [
+              1,
+              "s"
+            ]
+          ],
+          "python_param": "derivative_unit"
+        },
+        {
+          "name": "PID parameters",
+          "description": "PID parameters returns an array containing the updated PID gains parameters for each Functions",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "pid_parameters"
+        }
+      ]
+    },
+    {
+      "name": "PID Autotuning Design (Auto) VI",
+      "page": 5765,
+      "category": "Control & Simulation",
+      "description": "Implements autotuning using the tuning method associated with the polymorphic instance you select. This VI generates PID parameters based on the Stimulus signal and Response signal you specify. You can use this VI to generate initial parameters when you do not have sufficient information about the system you want to tune. You must manually select the polymorphic instance to use. Functions © National Instruments 5765",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "Ziegler-Nichols Speed",
+          "description": "Ziegler-Nichols Speed specifies the desired response performance of the PID parameters. 0 Fast—(Default) Specifies a fast response performance. Faster response generally results in a smaller rise time. 1 Normal—Specifies a normal response performance. 2 Slow—Specifies a slow response performance. Slower response generally results in less overshoot.",
+          "default_value": null,
+          "enum_values": [
+            [
+              0,
+              "Fast"
+            ],
+            [
+              1,
+              "Normal"
+            ],
+            [
+              2,
+              "Slow"
+            ]
+          ],
+          "python_param": "ziegler_nichols_speed"
+        },
+        {
+          "name": "Type of Controller",
+          "description": "Type of Controller specifies which parameters to return as the PID gains. 0 P—(Default) Specifies to return only the proportional parameters. 1 PI—Specifies to return the proportional and integral parameters. 2 PID—Specifies to return the proportional, integral, and derivative parameters.",
+          "default_value": null,
+          "enum_values": [
+            [
+              1,
+              "PI"
+            ],
+            [
+              2,
+              "PID"
+            ]
+          ],
+          "python_param": "type_of_controller"
+        },
+        {
+          "name": "Stimulus signal",
+          "description": "Stimulus signal specifies an array that represents the stimulus signal.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "stimulus_signal"
+        },
+        {
+          "name": "Response signal",
+          "description": "Response signal specifies an array that represents the response signal.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "response_signal"
+        },
+        {
+          "name": "closed-loop?",
+          "description": "closed-loop? specifies whether the system is a closed-loop system. If you set closed-loop? to TRUE, this VI estimates open-loop parameter values based on the closed-loop values it identifies from the input signals.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "closed_loop"
+        },
+        {
+          "name": "dt (s)",
+          "description": "Functions 5766 ni.com dt (s) specifies the interval, in seconds, at which this VI is called. If dt (s) is less than or equal to zero, this VI uses an internal timer with a one millisecond resolution. The default is 0.",
+          "default_value": "0",
+          "enum_values": null,
+          "python_param": "dt_s"
+        },
+        {
+          "name": "Controller Gain (K)",
+          "description": "Controller Gain (K) specifies an initial value for the controller gain, which this VI uses to calculate the integral time (Ti, min) component of PID gains. The default is 0.",
+          "default_value": "0",
+          "enum_values": null,
+          "python_param": "controller_gain_k"
+        },
+        {
+          "name": "stimulus operating point",
+          "description": "stimulus operating point returns the calculated stimulus offset for the plant.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "stimulus_operating_point"
+        },
+        {
+          "name": "response operating point",
+          "description": "response operating point returns the calculated response offset for the plant.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "response_operating_point"
+        },
+        {
+          "name": "PID gains",
+          "description": "PID gains returns the calculated PID gains values for the plant.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "pid_gains"
+        },
+        {
+          "name": "proportional gain (Kc)",
+          "description": "proportional gain (Kc) returns the proportional gain of the controller.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "proportional_gain_kc"
+        },
+        {
+          "name": "integral time (Ti, min)",
+          "description": "integral time (Ti, min) returns the integral time in minutes.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "integral_time_ti_min"
+        },
+        {
+          "name": "derivative time (Td, min)",
+          "description": "derivative time (Td, min) returns the derivative time in minutes.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "derivative_time_td_min"
+        },
+        {
+          "name": "Plant Parameters",
+          "description": "Plant Parameters returns the calculated gain, time constant, and dead time of the plant.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "plant_parameters"
+        },
+        {
+          "name": "Plant Gain (K)",
+          "description": "Plant Gain (K) returns the calculated process gain (K).",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "plant_gain_k"
+        },
+        {
+          "name": "Time Constant (T)",
+          "description": "Functions",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "time_constant_t"
+        }
+      ]
+    },
+    {
+      "name": "PID Autotuning Design (Ziegler-Nichols) VI",
+      "page": 5768,
+      "category": "Control & Simulation",
+      "description": "Implements autotuning using the tuning method associated with the polymorphic instance you select. This VI generates PID parameters based on the Stimulus signal and Response signal you specify. You can use this VI to generate initial parameters when you do not have sufficient information about the system you want to tune. You must manually select the polymorphic instance to use.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "Ziegler-Nichols Speed",
+          "description": "Ziegler-Nichols Speed specifies the desired response performance of the PID parameters. Note This instance uses the Ziegler-Nichols tuning method. Functions 5768 ni.com 0 Fast—(Default) Specifies a fast response performance. Faster response generally results in a smaller rise time. 1 Normal—Specifies a normal response performance. 2 Slow—Specifies a slow response performance. Slower response generally results in less overshoot.",
+          "default_value": null,
+          "enum_values": [
+            [
+              1,
+              "Normal"
+            ],
+            [
+              2,
+              "Slow"
+            ]
+          ],
+          "python_param": "ziegler_nichols_speed"
+        },
+        {
+          "name": "Type of Controller",
+          "description": "Type of Controller specifies which parameters to return as the PID gains. 0 P—(Default) Specifies to return only the proportional parameters. 1 PI—Specifies to return the proportional and integral parameters. 2 PID—Specifies to return the proportional, integral, and derivative parameters.",
+          "default_value": null,
+          "enum_values": [
+            [
+              1,
+              "PI"
+            ],
+            [
+              2,
+              "PID"
+            ]
+          ],
+          "python_param": "type_of_controller"
+        },
+        {
+          "name": "Stimulus signal",
+          "description": "Stimulus signal specifies an array that represents the stimulus signal.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "stimulus_signal"
+        },
+        {
+          "name": "Response signal",
+          "description": "Response signal specifies an array that represents the response signal.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "response_signal"
+        },
+        {
+          "name": "closed-loop?",
+          "description": "closed-loop? specifies whether the system is a closed-loop system. If you set closed-loop? to TRUE, this VI estimates open-loop parameter values based on the closed-loop values it identifies from the input signals.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "closed_loop"
+        },
+        {
+          "name": "dt (s)",
+          "description": "dt (s) specifies the interval, in seconds, at which this VI is called. If dt (s) is less than or equal to zero, this VI uses an internal timer with a one millisecond resolution. The default is 0.",
+          "default_value": "0",
+          "enum_values": null,
+          "python_param": "dt_s"
+        },
+        {
+          "name": "Controller Gain (K)",
+          "description": "Controller Gain (K) specifies an initial value for the controller gain, which this VI uses to calculate the integral time (Ti, min) component of PID gains. The default is 0.",
+          "default_value": "0",
+          "enum_values": null,
+          "python_param": "controller_gain_k"
+        },
+        {
+          "name": "stimulus operating point",
+          "description": "stimulus operating point returns the calculated stimulus offset for the plant.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "stimulus_operating_point"
+        },
+        {
+          "name": "response operating point",
+          "description": "Functions",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "response_operating_point"
+        }
+      ]
+    },
+    {
+      "name": "PID Autotuning Design (Cohen-Coon) VI",
+      "page": 5771,
+      "category": "Control & Simulation",
+      "description": "Implements autotuning using the tuning method associated with the polymorphic instance you select. This VI generates PID parameters based on the Stimulus signal and Response signal you specify. You can use this VI to generate initial parameters when you do not have sufficient information about the system you want to tune. You must manually select the polymorphic instance to use.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "Type of Controller",
+          "description": "Type of Controller specifies which parameters to return as the PID gains. 0 P—(Default) Specifies to return only the proportional parameters. 1 PI—Specifies to return the proportional and integral parameters. 2 PID—Specifies to return the proportional, integral, and derivative parameters.",
+          "default_value": null,
+          "enum_values": [
+            [
+              1,
+              "PI"
+            ],
+            [
+              2,
+              "PID"
+            ]
+          ],
+          "python_param": "type_of_controller"
+        },
+        {
+          "name": "Stimulus signal",
+          "description": "Stimulus signal specifies an array that represents the stimulus signal.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "stimulus_signal"
+        },
+        {
+          "name": "Response signal",
+          "description": "Response signal specifies an array that represents the response signal.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "response_signal"
+        },
+        {
+          "name": "closed-loop?",
+          "description": "closed-loop? specifies whether the system is a closed-loop system. If you set closed-loop? to TRUE, this VI estimates open-loop parameter values based on the closed-loop values it identifies from the input signals. Note This instance uses the Cohen-Coon tuning method. Functions",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "closed_loop"
+        }
+      ]
+    },
+    {
+      "name": "PID Autotuning Design (Chien-Hrones-Reswick) VI",
+      "page": 5773,
+      "category": "Control & Simulation",
+      "description": "Implements autotuning using the tuning method associated with the polymorphic instance you select. This VI generates PID parameters based on the Stimulus signal and Response signal you specify. You can use this VI to generate initial parameters when you do not have sufficient information about the system you want to tune. You must manually select the polymorphic instance to use.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "Tuning specifications",
+          "description": "Tuning specifications specifies which formula to use to convert the model to PID parameters. Note This instance uses the Chien-Hrones-Reswick tuning method. Functions © National Instruments 5773 This input provides formulas for 0% and 20% overshoot. 0 Regulator - 0% 1 Regulator - 20% 2 Servo - 0% 3 Servo - 20%",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "tuning_specifications"
+        },
+        {
+          "name": "Type of Controller",
+          "description": "Type of Controller specifies which parameters to return as the PID gains. 0 P—(Default) Specifies to return only the proportional parameters. 1 PI—Specifies to return the proportional and integral parameters. 2 PID—Specifies to return the proportional, integral, and derivative parameters.",
+          "default_value": null,
+          "enum_values": [
+            [
+              1,
+              "PI"
+            ],
+            [
+              2,
+              "PID"
+            ]
+          ],
+          "python_param": "type_of_controller"
+        },
+        {
+          "name": "Stimulus signal",
+          "description": "Stimulus signal specifies an array that represents the stimulus signal.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "stimulus_signal"
+        },
+        {
+          "name": "Response signal",
+          "description": "Response signal specifies an array that represents the response signal.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "response_signal"
+        },
+        {
+          "name": "closed-loop?",
+          "description": "closed-loop? specifies whether the system is a closed-loop system. If you set closed-loop? to TRUE, this VI estimates open-loop parameter values based on the closed-loop values it identifies from the input signals.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "closed_loop"
+        },
+        {
+          "name": "dt (s)",
+          "description": "dt (s) specifies the interval, in seconds, at which this VI is called. If dt (s) is less than or equal to zero, this VI uses an internal timer with a one millisecond resolution. The default is 0.",
+          "default_value": "0",
+          "enum_values": null,
+          "python_param": "dt_s"
+        },
+        {
+          "name": "Controller Gain (K)",
+          "description": "Controller Gain (K) specifies an initial value for the controller gain, which this VI uses to calculate the integral time (Ti, min) component of PID gains. The default is 0.",
+          "default_value": "0",
+          "enum_values": null,
+          "python_param": "controller_gain_k"
+        },
+        {
+          "name": "stimulus offset",
+          "description": "stimulus offset returns the calculated stimulus offset for the plant. Functions 5774 ni.com",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "stimulus_offset"
+        },
+        {
+          "name": "response offset",
+          "description": "response offset returns the calculated response offset for the plant.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "response_offset"
+        },
+        {
+          "name": "PID gains",
+          "description": "PID gains returns the calculated PID gains values for the plant.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "pid_gains"
+        },
+        {
+          "name": "proportional gain (Kc)",
+          "description": "proportional gain (Kc) returns the proportional gain of the controller.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "proportional_gain_kc"
+        },
+        {
+          "name": "integral time (Ti, min)",
+          "description": "integral time (Ti, min) returns the integral time in minutes.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "integral_time_ti_min"
+        },
+        {
+          "name": "derivative time (Td, min)",
+          "description": "derivative time (Td, min) returns the derivative time in minutes.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "derivative_time_td_min"
+        },
+        {
+          "name": "Plant Parameters",
+          "description": "Plant Parameters returns the calculated gain, time constant, and dead time of the plant.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "plant_parameters"
+        },
+        {
+          "name": "Plant Gain (K)",
+          "description": "Plant Gain (K) returns the calculated process gain (K).",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "plant_gain_k"
+        },
+        {
+          "name": "Time Constant (T)",
+          "description": "Time Constant (T) returns the calculated time constant (T), in seconds.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "time_constant_t"
+        },
+        {
+          "name": "Dead Time (L)",
+          "description": "Dead Time (L) returns the calculated dead time (L), in seconds. Examples Refer to the following example files included with LabVIEW. Functions © National Instruments 5775",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "dead_time_l"
+        }
+      ]
+    },
+    {
+      "name": "PID Autotuning Design (Internal Model Control) VI",
+      "page": 5776,
+      "category": "Control & Simulation",
+      "description": "Implements autotuning using the tuning method associated with the polymorphic instance you select. This VI generates PID parameters based on the Stimulus signal and Response signal you specify. You can use this VI to generate initial parameters when you do not have sufficient information about the system you want to tune. You must manually select the polymorphic instance to use.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "Desired Time Constant (tau_c)",
+          "description": "Desired Time Constant (tau_c) specifies a time constant value at which you want the system to perform after you close the loop. This VI uses this value to adjust the PID gains according to the internal model control method and as appropriate for a first-order model with delay.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "desired_time_constant_tau_c"
+        },
+        {
+          "name": "Type of Controller",
+          "description": "Type of Controller specifies which parameters to return as the PID gains. 0 P—(Default) Specifies to return only the proportional parameters. 1 PI—Specifies to return the proportional and integral parameters. 2 PID—Specifies to return the proportional, integral, and derivative parameters.",
+          "default_value": null,
+          "enum_values": [
+            [
+              1,
+              "PI"
+            ],
+            [
+              2,
+              "PID"
+            ]
+          ],
+          "python_param": "type_of_controller"
+        },
+        {
+          "name": "Stimulus signal",
+          "description": "Stimulus signal specifies an array that represents the stimulus signal.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "stimulus_signal"
+        },
+        {
+          "name": "Response signal",
+          "description": "Note This instances uses internal model control to estimate the response. Functions 5776 ni.com Response signal specifies an array that represents the response signal.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "response_signal"
+        },
+        {
+          "name": "closed-loop?",
+          "description": "closed-loop? specifies whether the system is a closed-loop system. If you set closed-loop? to TRUE, this VI estimates open-loop parameter values based on the closed-loop values it identifies from the input signals.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "closed_loop"
+        },
+        {
+          "name": "dt (s)",
+          "description": "dt (s) specifies the interval, in seconds, at which this VI is called. If dt (s) is less than or equal to zero, this VI uses an internal timer with a one millisecond resolution. The default is 0.",
+          "default_value": "0",
+          "enum_values": null,
+          "python_param": "dt_s"
+        },
+        {
+          "name": "Controller Gain (K)",
+          "description": "Controller Gain (K) specifies an initial value for the controller gain, which this VI uses to calculate the integral time (Ti, min) component of PID gains. The default is 0.",
+          "default_value": "0",
+          "enum_values": null,
+          "python_param": "controller_gain_k"
+        },
+        {
+          "name": "stimulus offset",
+          "description": "stimulus offset returns the calculated stimulus offset for the plant.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "stimulus_offset"
+        },
+        {
+          "name": "response offset",
+          "description": "response offset returns the calculated response offset for the plant.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "response_offset"
+        },
+        {
+          "name": "PID gains",
+          "description": "PID gains returns the calculated PID gains values for the plant.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "pid_gains"
+        },
+        {
+          "name": "proportional gain (Kc)",
+          "description": "proportional gain (Kc) returns the proportional gain of the controller.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "proportional_gain_kc"
+        },
+        {
+          "name": "integral time (Ti, min)",
+          "description": "integral time (Ti, min) returns the integral time in minutes.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "integral_time_ti_min"
+        },
+        {
+          "name": "derivative time (Td, min)",
+          "description": "derivative time (Td, min) returns the derivative time in minutes.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "derivative_time_td_min"
+        },
+        {
+          "name": "Plant Parameters",
+          "description": "Functions",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "plant_parameters"
+        }
+      ]
+    },
+    {
+      "name": "PID Online Autotuning (Step Open Loop) VI",
+      "page": 5779,
+      "category": "Control & Simulation",
+      "description": "Controls the parameters of a PID controller based on the autotuning technique of the polymorphic instance you select. You can use this VI in applications with other PID VIs, such as PID or PID Advanced, to construct and tune a PID controller. You must manually select the polymorphic instance to use.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "autotuning parameters",
+          "description": "autotuning parameters specifies various parameters used for the autotuning process.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "autotuning_parameters"
+        },
+        {
+          "name": "type of controller",
+          "description": "type of controller specifies which parameters to return as the output of the tuning process. 0 P—Specifies to return only the proportional parameters. 1 PI—Specifies to return the proportional and integral parameters. 2 PID—Specifies to return the proportional, integral, and derivative parameters.",
+          "default_value": null,
+          "enum_values": [
+            [
+              1,
+              "PI"
+            ],
+            [
+              2,
+              "PID"
+            ]
+          ],
+          "python_param": "type_of_controller"
+        },
+        {
+          "name": "relay cycles",
+          "description": "Functions © National Instruments 5779 relay cycles specifies the number of setpoint relay cycles to use to determine the ultimate gain and period. More cycles result in more accurate parameter estimation; however, slower systems might require more time for numerous cycles.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "relay_cycles"
+        },
+        {
+          "name": "relay amplitude",
+          "description": "relay amplitude specifies the amplitude of the setpoint relay action. The setpoint relay is between setpoint – relay amplitude and setpoint + relay amplitude.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "relay_amplitude"
+        },
+        {
+          "name": "control specifications",
+          "description": "control specification specifies the desired response performance of the PID parameters determined by the autotuning process. 0 normal—Specifies a normal response performance. 1 fast—Specifies a fast response performance. Faster response generally results in a smaller rise time. 2 slow—(Default) Specifies a slow response performance. Slower response generally results in less overshoot.",
+          "default_value": null,
+          "enum_values": [
+            [
+              0,
+              "normal"
+            ],
+            [
+              1,
+              "fast"
+            ],
+            [
+              2,
+              "slow"
+            ]
+          ],
+          "python_param": "control_specifications"
+        },
+        {
+          "name": "PV noise level",
+          "description": "PV noise level specifies an estimation of the noise level of the process variable. This value is used as the hysteresis for the setpoint relay action.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "pv_noise_level"
+        },
+        {
+          "name": "manipulated variable",
+          "description": "manipulated variable specifies a quantity or condition to vary as a function of the actuating error signal so as to change the value of the directly controlled variable. The manipulated variable also can be referred to as the controller output.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "manipulated_variable"
+        },
+        {
+          "name": "setpoint",
+          "description": "setpoint specifies the setpoint value, or desired value, of the process variable being controlled.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "setpoint"
+        },
+        {
+          "name": "process variable",
+          "description": "process variable specifies the measured value of the process variable being controlled. This value is equal to the feedback value of the feedback control loop.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "process_variable"
+        },
+        {
+          "name": "PID gains in",
+          "description": "Functions 5780 ni.com PID gains in specifies the proportional gain, integral time, and derivative time parameters of the controller.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "pid_gains_in"
+        },
+        {
+          "name": "proportional gain (Kc)",
+          "description": "proportional gain (Kc) specifies the proportional gain of the controller. The default is 1. In the equation that defines the PID controller, KC represents the proportional gain.",
+          "default_value": "1",
+          "enum_values": null,
+          "python_param": "proportional_gain_kc"
+        },
+        {
+          "name": "integral time (Ti, min)",
+          "description": "integral time (Ti, min) specifies the integral time in minutes. The default is 0.01.",
+          "default_value": "0",
+          "enum_values": null,
+          "python_param": "integral_time_ti_min"
+        },
+        {
+          "name": "derivative time (Td, min)",
+          "description": "derivative time (Td, min) specifies the derivative time in minutes. The default is 0.",
+          "default_value": "0",
+          "enum_values": null,
+          "python_param": "derivative_time_td_min"
+        },
+        {
+          "name": "dt (s)",
+          "description": "dt (s) specifies the interval, in seconds, at which this VI is called. If dt (s) is less than or equal to zero, this VI uses an internal timer with a one millisecond resolution. The default is –1. Use the same dt (s) value as you use for the PID or PID Advanced VI.",
+          "default_value": "–1",
+          "enum_values": null,
+          "python_param": "dt_s"
+        },
+        {
+          "name": "reinitialize? (F)",
+          "description": "reinitialize? specifies whether to reinitialize the internal parameters, such as the integrated error, of the controller. Set reinitialize? to TRUE if your application must stop and restart the control loop without restarting the entire application. The default is FALSE.",
+          "default_value": "FALSE",
+          "enum_values": null,
+          "python_param": "reinitialize_f"
+        },
+        {
+          "name": "autotune? (F)",
+          "description": "autotune? specifies to begin autotuning. Wire this input from a Boolean control with latched mechanical action and a default value of FALSE. The default is FALSE.",
+          "default_value": "value of FALSE",
+          "enum_values": null,
+          "python_param": "autotune_f"
+        },
+        {
+          "name": "setpoint out",
+          "description": "setpoint out returns the updated setpoint value.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "setpoint_out"
+        },
+        {
+          "name": "process variable out",
+          "description": "process variable out returns the value of the process variable. If autotune? is TRUE, this output returns 0. Functions © National Instruments 5781",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "process_variable_out"
+        }
+      ]
+    },
+    {
+      "name": "PID Online Autotuning (Step Closed Loop) VI",
+      "page": 5783,
+      "category": "Control & Simulation",
+      "description": "Controls the parameters of a PID controller based on the autotuning technique of the polymorphic instance you select. You can use this VI in applications with other PID VIs, such as PID or PID Advanced, to construct and tune a PID controller. You must manually select the polymorphic instance to use.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "autotuning parameters",
+          "description": "autotuning parameters specifies various parameters used for the autotuning process.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "autotuning_parameters"
+        },
+        {
+          "name": "type of controller",
+          "description": "type of controller specifies which parameters to return as the output of the tuning process. 0 P—Specifies to return only the proportional parameters. 1 PI—Specifies to return the proportional and integral parameters. 2 PID—Specifies to return the proportional, integral, and derivative parameters. Note Use this instance for closed-loop tuning. Functions",
+          "default_value": null,
+          "enum_values": [
+            [
+              1,
+              "PI"
+            ],
+            [
+              2,
+              "PID"
+            ]
+          ],
+          "python_param": "type_of_controller"
+        }
+      ]
+    },
+    {
+      "name": "PID Online Autotuning (Relay Feedback) VI",
+      "page": 5787,
+      "category": "Control & Simulation",
+      "description": "Controls the parameters of a PID controller based on the autotuning technique of the polymorphic instance you select. You can use this VI in applications with other PID VIs, such as PID or PID Advanced, to construct and tune a PID controller. You must manually select the polymorphic instance to use.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "autotuning parameters",
+          "description": "autotuning parameters specifies various parameters used for the autotuning process.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "autotuning_parameters"
+        },
+        {
+          "name": "type of controller",
+          "description": "type of controller specifies which parameters to return as the output of the tuning process. Note Use this instance for relay feedback tuning, which applies an on-off relay in a closed-loop test in order to obtain controlled oscillations and extract values for ultimate gain and ultimate frequency. This technique also incorporates hysteresis to reduce noise. Functions",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "type_of_controller"
+        }
+      ]
+    },
+    {
+      "name": "PID Online Autotuning (PID on the loop) VI",
+      "page": 5791,
+      "category": "Control & Simulation",
+      "description": "Controls the parameters of a PID controller based on the autotuning technique of the polymorphic instance you select. You can use this VI in applications with other PID VIs, such as PID or PID Advanced, to construct and tune a PID controller. You must manually select the polymorphic instance to use.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "autotuning parameters",
+          "description": "Note Use this instance for PID relay tuning, which connects a relay and an extra feedback signal with the setpoint and keeps the PID controller in the loop with the relay. Functions © National Instruments 5791 autotuning parameters specifies various parameters used for the autotuning process.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "autotuning_parameters"
+        },
+        {
+          "name": "type of controller",
+          "description": "type of controller specifies which parameters to return as the output of the tuning process. 0 P—Specifies to return only the proportional parameters. 1 PI—Specifies to return the proportional and integral parameters. 2 PID—Specifies to return the proportional, integral, and derivative parameters.",
+          "default_value": null,
+          "enum_values": [
+            [
+              1,
+              "PI"
+            ],
+            [
+              2,
+              "PID"
+            ]
+          ],
+          "python_param": "type_of_controller"
+        },
+        {
+          "name": "relay cycles",
+          "description": "relay cycles specifies the number of setpoint relay cycles to use to determine the ultimate gain and period. More cycles result in more accurate parameter estimation; however, slower systems might require more time for numerous cycles.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "relay_cycles"
+        },
+        {
+          "name": "relay amplitude",
+          "description": "relay amplitude specifies the amplitude of the setpoint relay action. The setpoint relay is between setpoint – relay amplitude and setpoint + relay amplitude.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "relay_amplitude"
+        },
+        {
+          "name": "control specifications",
+          "description": "control specification specifies the desired response performance of the PID parameters determined by the autotuning process. 0 normal—Specifies a normal response performance. 1 fast—Specifies a fast response performance. Faster response generally results in a smaller rise time. 2 slow—(Default) Specifies a slow response performance. Slower response generally results in less overshoot.",
+          "default_value": null,
+          "enum_values": [
+            [
+              0,
+              "normal"
+            ],
+            [
+              1,
+              "fast"
+            ],
+            [
+              2,
+              "slow"
+            ]
+          ],
+          "python_param": "control_specifications"
+        },
+        {
+          "name": "PV noise level",
+          "description": "PV noise level specifies an estimation of the noise level of the process variable. This value is used as the hysteresis for the setpoint relay action.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "pv_noise_level"
+        },
+        {
+          "name": "manipulated variable",
+          "description": "manipulated variable specifies a quantity or condition to vary as a function of the actuating Functions 5792 ni.com error signal so as to change the value of the directly controlled variable. The manipulated variable also can be referred to as the controller output.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "manipulated_variable"
+        },
+        {
+          "name": "setpoint",
+          "description": "setpoint specifies the setpoint value, or desired value, of the process variable being controlled.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "setpoint"
+        },
+        {
+          "name": "process variable",
+          "description": "process variable specifies the measured value of the process variable being controlled. This value is equal to the feedback value of the feedback control loop.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "process_variable"
+        },
+        {
+          "name": "PID gains in",
+          "description": "PID gains in specifies the proportional gain, integral time, and derivative time parameters of the controller.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "pid_gains_in"
+        },
+        {
+          "name": "proportional gain (Kc)",
+          "description": "proportional gain (Kc) specifies the proportional gain of the controller. The default is 1. In the equation that defines the PID controller, KC represents the proportional gain.",
+          "default_value": "1",
+          "enum_values": null,
+          "python_param": "proportional_gain_kc"
+        },
+        {
+          "name": "integral time (Ti, min)",
+          "description": "integral time (Ti, min) specifies the integral time in minutes. The default is 0.01.",
+          "default_value": "0",
+          "enum_values": null,
+          "python_param": "integral_time_ti_min"
+        },
+        {
+          "name": "derivative time (Td, min)",
+          "description": "derivative time (Td, min) specifies the derivative time in minutes. The default is 0.",
+          "default_value": "0",
+          "enum_values": null,
+          "python_param": "derivative_time_td_min"
+        },
+        {
+          "name": "dt (s)",
+          "description": "dt (s) specifies the interval, in seconds, at which this VI is called. If dt (s) is less than or equal to zero, this VI uses an internal timer with a one millisecond resolution. The default is –1. Use the same dt (s) value as you use for the PID or PID Advanced VI.",
+          "default_value": "–1",
+          "enum_values": null,
+          "python_param": "dt_s"
+        },
+        {
+          "name": "reinitialize? (F)",
+          "description": "reinitialize? specifies whether to reinitialize the internal parameters, such as the integrated error, of the controller. Set reinitialize? to TRUE if your application must stop and restart the control loop without restarting the entire application. The default is FALSE. Functions © National Instruments 5793",
+          "default_value": "FALSE",
+          "enum_values": null,
+          "python_param": "reinitialize_f"
+        }
+      ]
+    },
+    {
+      "name": "PID Lead-Lag (DBL) VI",
+      "page": 5796,
+      "category": "Control & Simulation",
+      "description": "Implements a PID controller with a lead/lag function, which is generally used as a dynamic compensator in feedforward control schemes. This VI uses a positional algorithm and is an approximation of a true exponential lead/lag. Use the DBL instance of this VI to implement a single control loop. Use the DBL Array instance to implement parallel multi-loop control.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "time unit",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "time_unit"
+        },
+        {
+          "name": "input",
+          "description": "input specifies the input value.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "input"
+        },
+        {
+          "name": "tuning parameters",
+          "description": "Functions 5796 ni.com tuning parameters specifies the tuning parameters.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "tuning_parameters"
+        },
+        {
+          "name": "gain",
+          "description": "gain specifies the DC gain. The default is 1. Setting gain to a negative value produces an inverting amplifier with an additional 180-degree phase shift.",
+          "default_value": "1",
+          "enum_values": null,
+          "python_param": "gain"
+        },
+        {
+          "name": "lag time",
+          "description": "lag time specifies the phase lag in minutes. A value of zero turns off the lag.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "lag_time"
+        },
+        {
+          "name": "lead time",
+          "description": "lead time specifies the phase lead in minutes. A value of zero turns off the lead. Large lead time values might result in a wild oscillation of the output.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "lead_time"
+        },
+        {
+          "name": "output range",
+          "description": "output range specifies the range to which to coerce the control output. The default range is –100 to 100, which corresponds to values specified in terms of percentage of full scale. You can change this range to something that is appropriate for your control system. For example, you can relate engineering units to engineering units instead of percentage to percentage. This VI implements integrator anti-windup when the controller output is saturated at the specified minimum or maximum values.",
+          "default_value": "range is –100 to 100, which corresponds to values specified in terms of percentage of full scale",
+          "enum_values": null,
+          "python_param": "output_range"
+        },
+        {
+          "name": "output high",
+          "description": "output high specifies the maximum value of the controller output. The default is 100.",
+          "default_value": "100",
+          "enum_values": null,
+          "python_param": "output_high"
+        },
+        {
+          "name": "output low",
+          "description": "output low specifies the minimum value of the controller output. The default is –100.",
+          "default_value": "–100",
+          "enum_values": null,
+          "python_param": "output_low"
+        },
+        {
+          "name": "dt (s)",
+          "description": "dt (s) specifies the loop-cycle time, or interval in seconds, at which this VI is called. If dt (s) is less than or equal to zero, this VI calculates the time since it was last called using an internal timer with 1 ms resolution. If dt (s) must be less than 1 ms, specify the value explicitly. The default is -1.",
+          "default_value": "-1",
+          "enum_values": null,
+          "python_param": "dt_s"
+        },
+        {
+          "name": "reinitialize? (F)",
+          "description": "Functions",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "reinitialize_f"
+        }
+      ]
+    },
+    {
+      "name": "PID Lead-Lag (DBL Array) VI",
+      "page": 5798,
+      "category": "Control & Simulation",
+      "description": "Implements a PID controller with a lead/lag function, which is generally used as a dynamic compensator in feedforward control schemes. This VI uses a positional algorithm and is an approximation of a true exponential lead/lag. Use the DBL instance of this VI to implement a single control loop. Use the DBL Array instance to implement Functions 5798 ni.com parallel multi-loop control.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "time unit",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "time_unit"
+        },
+        {
+          "name": "input",
+          "description": "input specifies the input value.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "input"
+        },
+        {
+          "name": "tuning parameters",
+          "description": "tuning parameters specifies the tuning parameters.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "tuning_parameters"
+        },
+        {
+          "name": "gain",
+          "description": "gain specifies the DC gain. The default is 1. Setting gain to a negative value produces an inverting amplifier with an additional 180-degree phase shift.",
+          "default_value": "1",
+          "enum_values": null,
+          "python_param": "gain"
+        },
+        {
+          "name": "lag time",
+          "description": "lag time specifies the phase lag in minutes. A value of zero turns off the lag.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "lag_time"
+        },
+        {
+          "name": "lead time",
+          "description": "lead time specifies the phase lead in minutes. A value of zero turns off the lead. Large lead time values might result in a wild oscillation of the output.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "lead_time"
+        },
+        {
+          "name": "output range",
+          "description": "output range specifies the range to which to coerce the control output. The default range is –100 to 100, which corresponds to values specified in terms of percentage of full scale. You can change this range to something that is appropriate for your control system. For example, you can relate engineering units to engineering units instead of percentage to percentage. This Functions",
+          "default_value": "range is –100 to 100, which corresponds to values specified in terms of percentage of full scale",
+          "enum_values": null,
+          "python_param": "output_range"
+        }
+      ]
+    },
+    {
+      "name": "PID Control Input Filter (DBL) VI",
+      "page": 5804,
+      "category": "Control & Simulation",
+      "description": "Applies a fifth-order lowpass finite impulse response (FIR) filter to the input value. Filter cut-off frequency is designed to be 1/10 of the sample frequency of the input value. Use this VI to filter measured values, such as the process variable, in control applications. Use the DBL instance of this VI to implement a single control loop. Use the DBL Array instance to implement parallel multi-loop control. To ensure that the filter does not attenuate useful measurement information, set the sampl",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "input",
+          "description": "input specifies the unfiltered measured input value.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "input"
+        },
+        {
+          "name": "reinitialize? (F)",
+          "description": "reinitialize? specifies whether to reinitialize the output to the current input value.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "reinitialize_f"
+        },
+        {
+          "name": "output",
+          "description": "output returns the filtered input value. You can use the DBL Array instance of this polymorphic VI in multi-loop PID control applications. In this case, the length of input determines the length of the output array. Other input arrays do not necessarily need to be the same length as input. This VI resizes other input arrays to the same length as input as follows:",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "output"
+        },
+        {
+          "name": "If the input array is longer than input, the input array is truncated to the length of",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "if_the_input_array_is_longer_than_input_the_input_array_is_truncated_to_the_length_of"
+        },
+        {
+          "name": "If the input array is shorter than input, the last value of the input array is repeated",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "if_the_input_array_is_shorter_than_input_the_last_value_of_the_input_array_is_repeated"
+        },
+        {
+          "name": "labview\\examples\\control\\PID\\PID with Noise Plant.vi",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "labview_examples_control_pid_pid_with_noise_plant_vi"
+        },
+        {
+          "name": "input",
+          "description": "input specifies the unfiltered measured input value.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "input"
+        },
+        {
+          "name": "reinitialize? (F)",
+          "description": "Note You also can use Filters PtByPt VIs if the application requires more flexible filtering options. Refer to the example VI linked in the following section for more information about using these VIs. Functions",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "reinitialize_f"
+        }
+      ]
+    },
+    {
+      "name": "PID Control Input Filter (DBL Array) VI",
+      "page": 5805,
+      "category": "Control & Simulation",
+      "description": "Applies a fifth-order lowpass finite impulse response (FIR) filter to the input value. Filter cut-off frequency is designed to be 1/10 of the sample frequency of the input value. Use this VI to filter measured values, such as the process variable, in control applications. Use the DBL instance of this VI to implement a single control loop. Use the DBL Array instance to implement parallel multi-loop control. To ensure that the filter does not attenuate useful measurement information, set the sampl",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "input",
+          "description": "input specifies the unfiltered measured input value.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "input"
+        },
+        {
+          "name": "reinitialize? (F)",
+          "description": "Note You also can use Filters PtByPt VIs if the application requires more flexible filtering options. Refer to the example VI linked in the following section for more information about using these VIs. Functions © National Instruments 5805 reinitialize? specifies whether to reinitialize the output to the current input value.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "reinitialize_f"
+        },
+        {
+          "name": "output",
+          "description": "output returns the filtered input value. This VI determines the length of the output array from the size of the input array. You can use the DBL Array instance of this polymorphic VI in multi-loop PID control applications. In this case, the length of input determines the length of the output array. Other input arrays do not necessarily need to be the same length as input. This VI resizes other input arrays to the same length as input as follows:",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "output"
+        },
+        {
+          "name": "If the input array is longer than input, the input array is truncated to the length of",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "if_the_input_array_is_longer_than_input_the_input_array_is_truncated_to_the_length_of"
+        },
+        {
+          "name": "If the input array is shorter than input, the last value of the input array is repeated",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "if_the_input_array_is_shorter_than_input_the_last_value_of_the_input_array_is_repeated"
+        },
+        {
+          "name": "labview\\examples\\control\\PID\\PID with Noise Plant.vi",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "labview_examples_control_pid_pid_with_noise_plant_vi"
+        }
+      ]
+    },
+    {
+      "name": "PID Output Rate Limiter (DBL) VI",
+      "page": 5807,
+      "category": "Control & Simulation",
+      "description": "Limits the rate of change of the controller output. Place this VI immediately after the PID VI in your control application. Use the DBL instance of this VI to implement a single control loop. Use the DBL Array instance to implement parallel multi-loop control. Functions © National Instruments 5807",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "input (controller output)",
+          "description": "input (controller output) specifies the current control output value from the PID VI.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "input_controller_output"
+        },
+        {
+          "name": "initial output",
+          "description": "initial output specifies the output value on the first call or reinitialization of this VI.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "initial_output"
+        },
+        {
+          "name": "output rate (EGU/min)",
+          "description": "output rate (EGU/min) specifies the maximum rate of change of the controller output.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "output_rate_egu_min"
+        },
+        {
+          "name": "dt (s)",
+          "description": "dt (s) specifies the interval, in seconds, at which this VI is called. If dt (s) is less than or equal to zero, this VI uses an internal timer with a one millisecond resolution. The default is –1. Use the same dt (s) value as you use for the PID or PID Advanced VI.",
+          "default_value": "–1",
+          "enum_values": null,
+          "python_param": "dt_s"
+        },
+        {
+          "name": "reinitialize? (F)",
+          "description": "reinitialize? specifies whether to reinitialize the output to the initial output value.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "reinitialize_f"
+        },
+        {
+          "name": "output",
+          "description": "output returns the current control output with a limited rate change.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "output"
+        },
+        {
+          "name": "dt out (s)",
+          "description": "dt out (s) returns the actual time interval in seconds. dt out (s) returns either the value of dt (s) or the computed interval if you set dt (s) to –1. Use the DBL Array instance of this polymorphic VI in multi-loop PID control applications. In this case, the length of the input (controller output) input determines the length of the output array. Other input arrays do not necessarily need to be the same length as the input (controller output) input. This VI resizes other input arrays to the same",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "dt_out_s"
+        },
+        {
+          "name": "If the input array is longer than the input (controller output) input, the input array",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "if_the_input_array_is_longer_than_the_input_controller_output_input_the_input_array"
+        },
+        {
+          "name": "If the input array is shorter than the input (controller output) input, the last value",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "if_the_input_array_is_shorter_than_the_input_controller_output_input_the_last_value"
+        },
+        {
+          "name": "labview\\examples\\control\\PID\\PID with Noise Plant.vi",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "labview_examples_control_pid_pid_with_noise_plant_vi"
+        },
+        {
+          "name": "input (controller output)",
+          "description": "input (controller output) specifies the current control output value from the PID VI.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "input_controller_output"
+        },
+        {
+          "name": "initial output",
+          "description": "initial output specifies the output value on the first call or reinitialization of this VI. This VI resizes the initial output input array to match the size of the input (controller output) input Functions",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "initial_output"
+        }
+      ]
+    },
+    {
+      "name": "PID Output Rate Limiter (DBL Array) VI",
+      "page": 5809,
+      "category": "Control & Simulation",
+      "description": "Limits the rate of change of the controller output. Place this VI immediately after the PID VI in your control application. Use the DBL instance of this VI to implement a single control loop. Use the DBL Array instance to implement parallel multi-loop control.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "input (controller output)",
+          "description": "input (controller output) specifies the current control output value from the PID VI.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "input_controller_output"
+        },
+        {
+          "name": "initial output",
+          "description": "initial output specifies the output value on the first call or reinitialization of this VI. This VI resizes the initial output input array to match the size of the input (controller output) input Functions © National Instruments 5809 array.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "initial_output"
+        },
+        {
+          "name": "output rate (EGU/min)",
+          "description": "output rate (EGU/min) specifies the maximum rate of change of the controller output. This VI resizes the output rate (EGU/min) input array to match the size of the input (controller output) input array.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "output_rate_egu_min"
+        },
+        {
+          "name": "dt (s)",
+          "description": "dt (s) specifies the interval, in seconds, at which this VI is called. If dt (s) is less than or equal to zero, this VI uses an internal timer with a one millisecond resolution. The default is –1. Use the same dt (s) value as you use for the PID or PID Advanced VI.",
+          "default_value": "–1",
+          "enum_values": null,
+          "python_param": "dt_s"
+        },
+        {
+          "name": "reinitialize? (F)",
+          "description": "reinitialize? specifies whether to reinitialize the output to the initial output value.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "reinitialize_f"
+        },
+        {
+          "name": "output",
+          "description": "output returns the current control output with a limited rate change. This VI determines the length of the output array from the size of the input (controller output) input array.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "output"
+        },
+        {
+          "name": "dt out (s)",
+          "description": "dt out (s) returns the actual time interval in seconds. dt out (s) returns either the value of dt (s) or the computed interval if you set dt (s) to –1. Use the DBL Array instance of this polymorphic VI in multi-loop PID control applications. In this case, the length of the input (controller output) input determines the length of the output array. Other input arrays do not necessarily need to be the same length as the input (controller output) input. This VI resizes other input arrays to the same",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "dt_out_s"
+        },
+        {
+          "name": "If the input array is longer than the input (controller output) input, the input array",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "if_the_input_array_is_longer_than_the_input_controller_output_input_the_input_array"
+        },
+        {
+          "name": "If the input array is shorter than the input (controller output) input, the last value",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "if_the_input_array_is_shorter_than_the_input_controller_output_input_the_last_value"
+        },
+        {
+          "name": "labview\\examples\\control\\PID\\PID with Noise Plant.vi",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "labview_examples_control_pid_pid_with_noise_plant_vi"
+        }
+      ]
+    },
+    {
+      "name": "PID EGU to Percentage (DBL) VI",
+      "page": 5812,
+      "category": "Control & Simulation",
+      "description": "Converts an engineering-units input to a percent-of-range output based on the minimum and maximum range settings. Use the DBL instance of this VI to implement a single control loop. Use the DBL Array instance to implement parallel multi-loop control.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "maximum (EGU)",
+          "description": "maximum (EGU) specifies the input value, in engineering units, corresponding to 100% of the full scale.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "maximum_egu"
+        },
+        {
+          "name": "input (EGU)",
+          "description": "input (EGU) specifies the input value in engineering units.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "input_egu"
+        },
+        {
+          "name": "minimum (EGU)",
+          "description": "minimum (EGU) specifies the input value, in engineering units, corresponding to 0% of the full scale.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "minimum_egu"
+        },
+        {
+          "name": "% span",
+          "description": "% span returns the output value in percentage of full scale. You can use the DBL Array instance of this polymorphic VI in multi-loop PID control applications. In this case, the length of the input (EGU) input determines the length of Functions 5812 ni.com the output array. Other input arrays do not necessarily need to be the same length as the input (EGU) input. This VI resizes other input arrays to the same length as the input (EGU) input as follows:",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "span"
+        },
+        {
+          "name": "If the input array is longer than the input (EGU) input, the input array is truncated",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "if_the_input_array_is_longer_than_the_input_egu_input_the_input_array_is_truncated"
+        },
+        {
+          "name": "If the input array is shorter than the input (EGU) input, the last value of the input",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "if_the_input_array_is_shorter_than_the_input_egu_input_the_last_value_of_the_input"
+        },
+        {
+          "name": "labview\\examples\\control\\PID\\Manual-Automatic Control",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "labview_examples_control_pid_manual_automatic_control"
+        },
+        {
+          "name": "maximum (EGU)",
+          "description": "maximum (EGU) specifies the input value, in engineering units, corresponding to 100% of the full scale. This VI resizes the maximum (EGU) input array to match the % span input array.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "maximum_egu"
+        },
+        {
+          "name": "input (EGU)",
+          "description": "Functions",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "input_egu"
+        }
+      ]
+    },
+    {
+      "name": "PID EGU to Percentage (DBL Array) VI",
+      "page": 5813,
+      "category": "Control & Simulation",
+      "description": "Converts an engineering-units input to a percent-of-range output based on the minimum and maximum range settings. Use the DBL instance of this VI to implement a single control loop. Use the DBL Array instance to implement parallel multi-loop control.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "maximum (EGU)",
+          "description": "maximum (EGU) specifies the input value, in engineering units, corresponding to 100% of the full scale. This VI resizes the maximum (EGU) input array to match the % span input array.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "maximum_egu"
+        },
+        {
+          "name": "input (EGU)",
+          "description": "Functions © National Instruments 5813 input (EGU) specifies the input value in engineering units.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "input_egu"
+        },
+        {
+          "name": "minimum (EGU)",
+          "description": "minimum (EGU) specifies the input value, in engineering units, corresponding to 0% of the full scale. This VI resizes the minimum (EGU) input array to match the size of the input (EGU) array.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "minimum_egu"
+        },
+        {
+          "name": "% span",
+          "description": "% span returns the output value in percentage of full scale. This VI determines the length of the % span array from the size of the input (EGU) array. You can use the DBL Array instance of this polymorphic VI in multi-loop PID control applications. In this case, the length of the input (EGU) input determines the length of the output array. Other input arrays do not necessarily need to be the same length as the input (EGU) input. This VI resizes other input arrays to the same length as the input ",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "span"
+        },
+        {
+          "name": "If the input array is longer than the input (EGU) input, the input array is truncated",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "if_the_input_array_is_longer_than_the_input_egu_input_the_input_array_is_truncated"
+        },
+        {
+          "name": "If the input array is shorter than the input (EGU) input, the last value of the input",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "if_the_input_array_is_shorter_than_the_input_egu_input_the_last_value_of_the_input"
+        },
+        {
+          "name": "labview\\examples\\control\\PID\\Manual-Automatic Control",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "labview_examples_control_pid_manual_automatic_control"
+        }
+      ]
+    },
+    {
+      "name": "PID Percentage to EGU (DBL) VI",
+      "page": 5815,
+      "category": "Control & Simulation",
+      "description": "Converts a percent-of-range input to an engineering-units output based on the minimum and maximum range settings. The output is normally limited to the range [max...min]. Values outside of the range [max..min] are allowed when coerce output to range? is FALSE. Use the DBL instance of this VI to implement a single control loop. Use Functions © National Instruments 5815 the DBL Array instance to implement parallel multi-loop control.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "coerce output to range? (T)",
+          "description": "coerce output to range? specifies whether to coerce the output to the specified range when % span is greater than 100% or less than 0%.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "coerce_output_to_range_t"
+        },
+        {
+          "name": "maximum (EGU)",
+          "description": "maximum (EGU) specifies the input value, in engineering units, corresponding to 100% of the full scale.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "maximum_egu"
+        },
+        {
+          "name": "% span",
+          "description": "% span specifies the input value in percentage of full scale.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "span"
+        },
+        {
+          "name": "minimum (EGU)",
+          "description": "minimum (EGU) specifies the input value, in engineering units, corresponding to 0% of the full scale.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "minimum_egu"
+        },
+        {
+          "name": "output (EGU)",
+          "description": "output (EGU) returns the output value in engineering units. The DBL Array instance of this polymorphic VI can be used in multi-loop PID control applications. In this case, the length of the % span input determines the length of the output array. Other input arrays do not necessarily need to be the same length as the % span input. This VI resizes other input arrays to the same length as the % span input as follows:",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "output_egu"
+        },
+        {
+          "name": "If the input array is longer than the % span input, the input array is truncated to",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "if_the_input_array_is_longer_than_the_span_input_the_input_array_is_truncated_to"
+        },
+        {
+          "name": "If the input array is shorter than the % span input, the last value of the input array",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "if_the_input_array_is_shorter_than_the_span_input_the_last_value_of_the_input_array"
+        },
+        {
+          "name": "labview\\examples\\control\\PID\\Manual-Automatic Control",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "labview_examples_control_pid_manual_automatic_control"
+        },
+        {
+          "name": "coerce output to range? (T)",
+          "description": "coerce output to range? specifies whether to coerce the output to the specified range when % span is greater than 100% or less than 0%.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "coerce_output_to_range_t"
+        },
+        {
+          "name": "maximum (EGU)",
+          "description": "maximum (EGU) specifies the input value, in engineering units, corresponding to 100% of the full scale. This VI resizes the maximum (EGU) input array to match the % span input array.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "maximum_egu"
+        },
+        {
+          "name": "% span",
+          "description": "Functions",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "span"
+        }
+      ]
+    },
+    {
+      "name": "PID Percentage to EGU (DBL Array) VI",
+      "page": 5817,
+      "category": "Control & Simulation",
+      "description": "Converts a percent-of-range input to an engineering-units output based on the minimum and maximum range settings. The output is normally limited to the range [max...min]. Values outside of the range [max..min] are allowed when coerce output to range? is FALSE. Use the DBL instance of this VI to implement a single control loop. Use the DBL Array instance to implement parallel multi-loop control.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "coerce output to range? (T)",
+          "description": "coerce output to range? specifies whether to coerce the output to the specified range when % span is greater than 100% or less than 0%.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "coerce_output_to_range_t"
+        },
+        {
+          "name": "maximum (EGU)",
+          "description": "maximum (EGU) specifies the input value, in engineering units, corresponding to 100% of the full scale. This VI resizes the maximum (EGU) input array to match the % span input array.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "maximum_egu"
+        },
+        {
+          "name": "% span",
+          "description": "Functions © National Instruments 5817 % span specifies the input value in percentage of full scale.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "span"
+        },
+        {
+          "name": "minimum (EGU)",
+          "description": "minimum (EGU) specifies the input value, in engineering units, corresponding to 0% of the full scale. This VI resizes the minimum (EGU) input array to match the % span input array.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "minimum_egu"
+        },
+        {
+          "name": "output (EGU)",
+          "description": "output (EGU) returns the output value in engineering units. This VI determines the length of the output (EGU) array from the size of the % span input array. The DBL Array instance of this polymorphic VI can be used in multi-loop PID control applications. In this case, the length of the % span input determines the length of the output array. Other input arrays do not necessarily need to be the same length as the % span input. This VI resizes other input arrays to the same length as the % span inp",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "output_egu"
+        },
+        {
+          "name": "If the input array is longer than the % span input, the input array is truncated to",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "if_the_input_array_is_longer_than_the_span_input_the_input_array_is_truncated_to"
+        },
+        {
+          "name": "If the input array is shorter than the % span input, the last value of the input array",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "if_the_input_array_is_shorter_than_the_span_input_the_last_value_of_the_input_array"
+        },
+        {
+          "name": "labview\\examples\\control\\PID\\Manual-Automatic Control",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "labview_examples_control_pid_manual_automatic_control"
+        }
+      ]
+    },
+    {
+      "name": "FL Fuzzy Controller (SISO) VI",
+      "page": 5820,
+      "category": "Control & Simulation",
+      "description": "Implements a fuzzy logic controller for the fuzzy system you specify. By default, this VI implements a fuzzy logic controller for a single-input single-output (SISO) fuzzy system. You must manually select the polymorphic instance you want to use. Functions 5820 ni.com",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "fuzzy system in",
+          "description": "fuzzy system in specifies the complete information for a fuzzy system. Wire the fuzzy system out output from another VI to the fuzzy system in input of this VI.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "fuzzy_system_in"
+        },
+        {
+          "name": "input value",
+          "description": "input value specifies the value of the input variable in the fuzzy system. The fuzzy logic controller evaluates the output value(s) according to the input value and the rules of the fuzzy system.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "input_value"
+        },
+        {
+          "name": "error in (no error)",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in_no_error"
+        },
+        {
+          "name": "rule-invoked value?",
+          "description": "rule-invoked value? indicates whether the fuzzy logic controller invoked a rule to evaluate the corresponding output value. output value is zero either if the fuzzy controller evaluates the output variable to zero based on the input value(s) and the rules of the fuzzy system or if the fuzzy logic controller does not invoke any rule to evaluate the output variable. rule-invoked value? indicates, when FALSE, that the rule base is incomplete.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "rule_invoked_value"
+        },
+        {
+          "name": "fuzzy system out",
+          "description": "fuzzy system out returns the complete information for a fuzzy system. Wire this output to the fuzzy system in input of another VI.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "fuzzy_system_out"
+        },
+        {
+          "name": "output value",
+          "description": "output value returns the value of the output variable in the fuzzy system. The fuzzy logic controller evaluates the output value according to the input value(s) and the rules of the fuzzy system. If output value is zero, use the rule-invoked value? indicator to determine whether the fuzzy controller evaluated the corresponding output variable to zero or if the fuzzy logic controller did not invoke any rule to evaluate the output variable.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "output_value"
+        },
+        {
+          "name": "rule weights",
+          "description": "rule weights returns the rule weights that the fuzzy logic controller uses to scale the membership functions of the output linguistic variables. The implication method specifies how the fuzzy logic controller performs this scaling. For each rule, the rule weight is the truth value of Functions",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "rule_weights"
+        }
+      ]
+    },
+    {
+      "name": "FL Fuzzy Controller (SIMO) VI",
+      "page": 5822,
+      "category": "Control & Simulation",
+      "description": "Implements a fuzzy logic controller for the fuzzy system you specify. By default, this VI implements a fuzzy logic controller for a single-input single-output (SISO) fuzzy system. You must manually select the polymorphic instance you want to use.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "fuzzy system in",
+          "description": "fuzzy system in specifies the complete information for a fuzzy system. Wire the fuzzy system out output from another VI to the fuzzy system in input of this VI.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "fuzzy_system_in"
+        },
+        {
+          "name": "input value",
+          "description": "input value specifies the value of the input variable in the fuzzy system. The fuzzy logic controller evaluates the output value(s) according to the input value and the rules of the fuzzy system.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "input_value"
+        },
+        {
+          "name": "error in (no error)",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in_no_error"
+        },
+        {
+          "name": "rule-invoked values?",
+          "description": "Functions 5822 ni.com rule-invoked values? indicates whether the fuzzy logic controller invoked a rule to evaluate the corresponding output values. An element of the output values array is zero either if the fuzzy controller evaluates the corresponding output variable to zero based on the input value(s) and the rules of the fuzzy system or if the fuzzy logic controller does not invoke any rule to evaluate the output variable. rule-invoked values? indicates, when FALSE, that the rule base is inco",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "rule_invoked_values"
+        },
+        {
+          "name": "fuzzy system out",
+          "description": "fuzzy system out returns the complete information for a fuzzy system. Wire this output to the fuzzy system in input of another VI.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "fuzzy_system_out"
+        },
+        {
+          "name": "output values",
+          "description": "output values returns the values of the output variables in the fuzzy system. The fuzzy logic controller evaluates the output values according to the input value(s) and the rules of the fuzzy system. If an element of the output values array is zero, use the rule-invoked values? indicator to determine whether the fuzzy controller evaluated the corresponding output variable to zero or if the fuzzy logic controller did not invoke any rule to evaluate the output variable.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "output_values"
+        },
+        {
+          "name": "rule weights",
+          "description": "rule weights returns the rule weights that the fuzzy logic controller uses to scale the membership functions of the output linguistic variables. The implication method specifies how the fuzzy logic controller performs this scaling. For each rule, the rule weight is the truth value of the aggregated antecedent multiplied by the degree of support you specify for the rule.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "rule_weights"
+        },
+        {
+          "name": "error out",
+          "description": "error out contains error information. This output provides standard error out functionality. FL Fuzzy Controller (MISO) VI FL Fuzzy Controller (MISO) VI Implements a fuzzy logic controller for the fuzzy system you specify. By default, this VI implements a fuzzy logic controller for a single-input single-output (SISO) fuzzy system. You must manually select the polymorphic instance you want to use. Functions",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        }
+      ]
+    },
+    {
+      "name": "FL Fuzzy Controller (MISO) VI",
+      "page": 5823,
+      "category": "Control & Simulation",
+      "description": "Implements a fuzzy logic controller for the fuzzy system you specify. By default, this VI implements a fuzzy logic controller for a single-input single-output (SISO) fuzzy system. You must manually select the polymorphic instance you want to use. Functions © National Instruments 5823",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "fuzzy system in",
+          "description": "fuzzy system in specifies the complete information for a fuzzy system. Wire the fuzzy system out output from another VI to the fuzzy system in input of this VI.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "fuzzy_system_in"
+        },
+        {
+          "name": "input values",
+          "description": "input values specifies the values of the input variables in the fuzzy system. The fuzzy logic controller evaluates the output value(s) according to the input values and the rules of the fuzzy system.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "input_values"
+        },
+        {
+          "name": "error in (no error)",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in_no_error"
+        },
+        {
+          "name": "rule-invoked value?",
+          "description": "rule-invoked value? indicates whether the fuzzy logic controller invoked a rule to evaluate the corresponding output value. output value is zero either if the fuzzy controller evaluates the output variable to zero based on the input value(s) and the rules of the fuzzy system or if the fuzzy logic controller does not invoke any rule to evaluate the output variable. rule-invoked value? indicates, when FALSE, that the rule base is incomplete.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "rule_invoked_value"
+        },
+        {
+          "name": "fuzzy system out",
+          "description": "fuzzy system out returns the complete information for a fuzzy system. Wire this output to the fuzzy system in input of another VI.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "fuzzy_system_out"
+        },
+        {
+          "name": "output value",
+          "description": "output value returns the value of the output variable in the fuzzy system. The fuzzy logic controller evaluates the output value according to the input value(s) and the rules of the fuzzy system. If output value is zero, use the rule-invoked value? indicator to determine whether the fuzzy controller evaluated the corresponding output variable to zero or if the fuzzy logic controller did not invoke any rule to evaluate the output variable.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "output_value"
+        },
+        {
+          "name": "rule weights",
+          "description": "Functions 5824 ni.com rule weights returns the rule weights that the fuzzy logic controller uses to scale the membership functions of the output linguistic variables. The implication method specifies how the fuzzy logic controller performs this scaling. For each rule, the rule weight is the truth value of the aggregated antecedent multiplied by the degree of support you specify for the rule.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "rule_weights"
+        },
+        {
+          "name": "error out",
+          "description": "error out contains error information. This output provides standard error out functionality. FL Fuzzy Controller (MIMO) VI FL Fuzzy Controller (MIMO) VI Implements a fuzzy logic controller for the fuzzy system you specify. By default, this VI implements a fuzzy logic controller for a single-input single-output (SISO) fuzzy system. You must manually select the polymorphic instance you want to use. Inputs/Outputs",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        },
+        {
+          "name": "fuzzy system in",
+          "description": "fuzzy system in specifies the complete information for a fuzzy system. Wire the fuzzy system out output from another VI to the fuzzy system in input of this VI.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "fuzzy_system_in"
+        },
+        {
+          "name": "input values",
+          "description": "input values specifies the values of the input variables in the fuzzy system. The fuzzy logic controller evaluates the output value(s) according to the input values and the rules of the fuzzy system.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "input_values"
+        },
+        {
+          "name": "error in (no error)",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality. Functions",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in_no_error"
+        }
+      ]
+    },
+    {
+      "name": "FL Fuzzy Controller (MIMO) VI",
+      "page": 5825,
+      "category": "Control & Simulation",
+      "description": "Implements a fuzzy logic controller for the fuzzy system you specify. By default, this VI implements a fuzzy logic controller for a single-input single-output (SISO) fuzzy system. You must manually select the polymorphic instance you want to use.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "fuzzy system in",
+          "description": "fuzzy system in specifies the complete information for a fuzzy system. Wire the fuzzy system out output from another VI to the fuzzy system in input of this VI.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "fuzzy_system_in"
+        },
+        {
+          "name": "input values",
+          "description": "input values specifies the values of the input variables in the fuzzy system. The fuzzy logic controller evaluates the output value(s) according to the input values and the rules of the fuzzy system.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "input_values"
+        },
+        {
+          "name": "error in (no error)",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality. Functions",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in_no_error"
+        }
+      ]
+    },
+    {
+      "name": "FL Get Variable VI",
+      "page": 5838,
+      "category": "Control & Simulation",
+      "description": "Returns the name, range, and membership functions for a linguistic variable in a fuzzy system.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "variable index",
+          "description": "variable index specifies the index of the linguistic variable whose information you want to return. variable index corresponds to the order in which the linguistic variable was created.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "variable_index"
+        },
+        {
+          "name": "input/output",
+          "description": "input/output specifies whether the linguistic variable corresponding to variable index is an input or output variable. 0 Input—Specifies that the linguistic variable corresponding to variable index is an input Functions 5838 ni.com variable. 1 Output—Specifies that the linguistic variable corresponding to variable index is an output variable.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "input_output"
+        },
+        {
+          "name": "fuzzy system in",
+          "description": "fuzzy system in specifies the complete information for a fuzzy system. Wire the fuzzy system out output from another VI to the fuzzy system in input of this VI.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "fuzzy_system_in"
+        },
+        {
+          "name": "error in (no error)",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in_no_error"
+        },
+        {
+          "name": "fuzzy system out",
+          "description": "fuzzy system out returns the complete information for a fuzzy system. Wire the fuzzy system out output of this VI to the fuzzy system in input of another VI.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "fuzzy_system_out"
+        },
+        {
+          "name": "name",
+          "description": "name returns the name of the linguistic variable.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "name"
+        },
+        {
+          "name": "minimum",
+          "description": "minimum returns the minimum value of the linguistic variable.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "minimum"
+        },
+        {
+          "name": "maximum",
+          "description": "maximum returns the maximum value of the linguistic variable.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "maximum"
+        },
+        {
+          "name": "error out",
+          "description": "error out contains error information. This output provides standard error out functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        },
+        {
+          "name": "membership functions",
+          "description": "membership functions returns the membership functions for the linguistic variable.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "membership_functions"
+        },
+        {
+          "name": "name",
+          "description": "name specifies the name of the membership function, or linguistic term, you want to Functions",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "name"
+        }
+      ]
+    },
+    {
+      "name": "FL Set Variable VI",
+      "page": 5840,
+      "category": "Control & Simulation",
+      "description": "Modifies the name, range, or membership functions of a linguistic variable in a fuzzy system. Functions 5840 ni.com",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "variable index",
+          "description": "variable index specifies the index of the linguistic variable whose information you want to modify. variable index corresponds to the order in which the linguistic variable was created.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "variable_index"
+        },
+        {
+          "name": "input/output",
+          "description": "input/output specifies whether the linguistic variable corresponding to variable index is an input or output variable. 0 Input—Specifies that the linguistic variable corresponding to variable index is an input variable. 1 Output—Specifies that the linguistic variable corresponding to variable index is an output variable.",
+          "default_value": null,
+          "enum_values": [
+            [
+              0,
+              "Input"
+            ],
+            [
+              1,
+              "Output"
+            ]
+          ],
+          "python_param": "input_output"
+        },
+        {
+          "name": "fuzzy system in",
+          "description": "fuzzy system in specifies the complete information for a fuzzy system. Wire the fuzzy system out output from another VI to the fuzzy system in input of this VI.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "fuzzy_system_in"
+        },
+        {
+          "name": "name",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "name"
+        },
+        {
+          "name": "minimum",
+          "description": "minimum specifies the minimum value of the linguistic variable.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "minimum"
+        },
+        {
+          "name": "maximum",
+          "description": "maximum specifies the maximum value of the linguistic variable.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "maximum"
+        },
+        {
+          "name": "error in (no error)",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality. Functions",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in_no_error"
+        }
+      ]
+    },
+    {
+      "name": "FL Plot Variable VI",
+      "page": 5844,
+      "category": "Control & Simulation",
+      "description": "Plots a specific input or output variable that is in a fuzzy system with the membership functions of that variable. Functions 5844 ni.com",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "variable index",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "variable_index"
+        },
+        {
+          "name": "input/output",
+          "description": "input/output specifies whether the linguistic variable corresponding to variable index is an input or output variable. 0 Input—Specifies that the linguistic variable corresponding to variable index is an input variable. 1 Output—Specifies that the linguistic variable corresponding to variable index is an output variable.",
+          "default_value": null,
+          "enum_values": [
+            [
+              0,
+              "Input"
+            ],
+            [
+              1,
+              "Output"
+            ]
+          ],
+          "python_param": "input_output"
+        },
+        {
+          "name": "fuzzy system in",
+          "description": "The Fuzzy Set datatype contains all information related to the Fuzzy controller here specified.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "fuzzy_system_in"
+        },
+        {
+          "name": "graph refnum",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "graph_refnum"
+        },
+        {
+          "name": "error in (no error)",
+          "description": "error in can accept error information wired from VIs previously called. Use this information to decide if any functionality should be bypassed in the event of errors from other VIs. Right-click the error in control on the front panel and select Explain Error or Explain Warning from the shortcut menu for more information about the error.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in_no_error"
+        },
+        {
+          "name": "fuzzy system out",
+          "description": "The Fuzzy Set datatype contains all information related to the Fuzzy controller here specified.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "fuzzy_system_out"
+        },
+        {
+          "name": "membership functions plot",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "membership_functions_plot"
+        },
+        {
+          "name": "error out",
+          "description": "error out passes error or warning information out of a VI to be used by other VIs. Right-click the error out indicator on the front panel and select Explain Error or Explain Warning from the Functions",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        }
+      ]
+    },
+    {
+      "name": "FL Create Membership Function",
+      "page": 5847,
+      "category": "Control & Simulation",
+      "description": "Creates a membership function for a linguistic variable. You also can use the Define Variable dialog box to create membership functions interactively. By default, this VI uses a triangle function to determine the degrees of membership for the linguistic variable. You must manually select the polymorphic instance you want to use. • FL Create Membership Function (Triangle) VI • FL Create Membership Function (Trapezoid) VI • FL Create Membership Function (Singleton) VI • FL Create Membership Functi",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "name",
+          "description": "name specifies the name of the membership function, or linguistic term, you want to create.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "name"
+        },
+        {
+          "name": "left base",
+          "description": "left base specifies the numerical value of the linguistic variable corresponding to the left base point of the membership function. The degree of membership of the linguistic variable within the linguistic term name is 0 at the left base value.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "left_base"
+        },
+        {
+          "name": "top",
+          "description": "top specifies the numerical value of the linguistic variable corresponding to the top of the triangle membership function. The degree of membership of the linguistic variable within the linguistic term name is 1 at the top value.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "top"
+        },
+        {
+          "name": "right base",
+          "description": "right base specifies the numerical value of the linguistic variable corresponding to the right base point of the membership function. The degree of membership of the linguistic variable within the linguistic term name is 0 at the right base value.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "right_base"
+        },
+        {
+          "name": "error in (no error)",
+          "description": "Functions 5848 ni.com error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in_no_error"
+        },
+        {
+          "name": "color",
+          "description": "color specifies the color of the membership function when you view the membership function in the Fuzzy System Designer. You can wire a color box constant to this input.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "color"
+        },
+        {
+          "name": "membership function",
+          "description": "membership function returns the membership function with the shape, points, and color you specify.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "membership_function"
+        },
+        {
+          "name": "name",
+          "description": "name specifies the name of the membership function, or linguistic term, you want to modify.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "name"
+        },
+        {
+          "name": "shape",
+          "description": "shape specifies the shape of the function that determines the degrees of membership for the linguistic variable.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "shape"
+        },
+        {
+          "name": "points",
+          "description": "points specifies the values of the linguistic variable corresponding to the base and top points, in order from left to right and base to top, of the membership function. The degree of membership of the linguistic variable within the linguistic term name is 0 at the base points and 1 at the top points. Specify one point for a singleton function, three points for a triangle function, and four points for trapezoid, sigmoid, Gaussian, or user-defined functions.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "points"
+        },
+        {
+          "name": "color",
+          "description": "color specifies the color of the membership function when you view the membership function in the Fuzzy System Designer. You can wire a color box constant to this input.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "color"
+        },
+        {
+          "name": "user-defined shape index",
+          "description": "user-defined shape index specifies the index of the user-defined shape that determines the degrees of membership for the linguistic variable. This parameter is applicable only if you set shape to User-Defined. Define the user-defined shapes in the user-defined membership Functions",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "user_defined_shape_index"
+        }
+      ]
+    },
+    {
+      "name": "FL Get Membership Function VI",
+      "page": 5862,
+      "category": "Control & Simulation",
+      "description": "Returns the shape, color, and points of a membership function for a linguistic variable. You can return a membership function from a fuzzy system or from an array of membership functions. The data type you wire to the fuzzy system in input determines the polymorphic instance to use. Functions 5862 ni.com • FL Get Membership Function (Fuzzy System) VI • FL Get Membership Function (MF Array) VI FL Get Membership Function (Fuzzy System) FL Get Membership Function (Fuzzy System) VI VI Returns the sh",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "membership function index",
+          "description": "membership function index specifies the index of the membership function whose information you want to return. membership function index corresponds to the order in which the membership function was created.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "membership_function_index"
+        },
+        {
+          "name": "variable index",
+          "description": "variable index specifies the index of the linguistic variable whose information you want to return. variable index corresponds to the order in which the linguistic variable was created.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "variable_index"
+        },
+        {
+          "name": "input/output",
+          "description": "input/output specifies whether the linguistic variable corresponding to variable index is an input or output variable. Functions",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "input_output"
+        }
+      ]
+    },
+    {
+      "name": "FL Set Membership Function VI",
+      "page": 5869,
+      "category": "Control & Simulation",
+      "description": "Modifies the shape, color, or points of a membership function for a linguistic variable. You can modify a membership function from a fuzzy system or from an array of membership functions. The data type you wire to the fuzzy system in input determines the polymorphic instance to use. • FL Set Membership Function (Fuzzy System) VI • FL Set Membership Function (MF array) VI FL Set Membership Function (Fuzzy System) FL Set Membership Function (Fuzzy System) VI VI Modifies the shape, color, or points",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "membership function index",
+          "description": "membership function index specifies the index of the membership function you want to modify. membership function index corresponds to the order in which the membership function was created.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "membership_function_index"
+        },
+        {
+          "name": "variable index",
+          "description": "variable index specifies the index of the linguistic variable you want to modify. variable index corresponds to the order in which the linguistic variable was created.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "variable_index"
+        },
+        {
+          "name": "input/output",
+          "description": "input/output specifies whether the linguistic variable corresponding to variable index is an input or output variable. 0 Input—Specifies that the linguistic variable corresponding to variable index is an input variable. 1 Output—Specifies that the linguistic variable corresponding to variable index is an output variable.",
+          "default_value": null,
+          "enum_values": [
+            [
+              0,
+              "Input"
+            ],
+            [
+              1,
+              "Output"
+            ]
+          ],
+          "python_param": "input_output"
+        },
+        {
+          "name": "fuzzy system in",
+          "description": "fuzzy system in specifies the complete information for a fuzzy system. Wire the fuzzy system out output from another VI to the fuzzy system in input of this VI.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "fuzzy_system_in"
+        },
+        {
+          "name": "name",
+          "description": "Functions 5870 ni.com name specifies the name of the membership function, or linguistic term, you want to modify.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "name"
+        },
+        {
+          "name": "shape",
+          "description": "shape specifies the shape of the function that determines the degrees of membership for the linguistic variable. 0 Triangle—Specifies that a triangle function determines the degrees of membership for the linguistic variable. 1 Trapezoid—Specifies that a trapezoid function determines the degrees of membership for the linguistic variable. 2 Singleton—Specifies that a singleton function determines the degrees of membership for the linguistic variable. A singleton function has only one point. Theref",
+          "default_value": null,
+          "enum_values": [
+            [
+              0,
+              "Triangle"
+            ],
+            [
+              1,
+              "Trapezoid"
+            ],
+            [
+              2,
+              "Singleton"
+            ],
+            [
+              3,
+              "Sigmoid"
+            ],
+            [
+              4,
+              "Gaussian"
+            ],
+            [
+              5,
+              "User-Defined"
+            ]
+          ],
+          "python_param": "shape"
+        },
+        {
+          "name": "points",
+          "description": "points specifies the values of the linguistic variable corresponding to the base and top points, in order from left to right and base to top, of the membership function. The degree of membership of the linguistic variable within the linguistic term name is 0 at the base points and 1 at the top points. Specify one point for a singleton function, three points for a triangle function, and four points for trapezoid, sigmoid, Gaussian, or user-defined functions.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "points"
+        },
+        {
+          "name": "error in (no error)",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in_no_error"
+        },
+        {
+          "name": "color",
+          "description": "color specifies the color of the membership function when you view the membership function in the Fuzzy System Designer. You can wire a color box constant to this input.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "color"
+        },
+        {
+          "name": "user-defined shape index",
+          "description": "user-defined shape index specifies the index of the user-defined shape that determines the Functions",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "user_defined_shape_index"
+        }
+      ]
+    },
+    {
+      "name": "FL Get Number of Membership Functions",
+      "page": 5876,
+      "category": "Control & Simulation",
+      "description": "Returns the number of membership functions for all input and output variables in the fuzzy system you specify.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "fuzzy system in",
+          "description": "fuzzy system in specifies the complete information for a fuzzy system. Wire the fuzzy system out output from another VI to the fuzzy system in input of this VI.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "fuzzy_system_in"
+        },
+        {
+          "name": "error in (no error)",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in_no_error"
+        },
+        {
+          "name": "fuzzy system out",
+          "description": "fuzzy system out returns the complete information for a fuzzy system. Wire this output to the fuzzy system in input of another VI.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "fuzzy_system_out"
+        },
+        {
+          "name": "number of input membership functions",
+          "description": "Functions 5876 ni.com number of input membership functions returns the number of membership functions, or linguistic terms, for each input variable in the fuzzy system. Each element in the number of input membership functions array represents the number of membership functions for the input variable that corresponds, in order of creation, to the index of the array element.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "number_of_input_membership_functions"
+        },
+        {
+          "name": "number of output membership functions",
+          "description": "number of output membership functions returns the number of membership functions, or linguistic terms, for each output variable in the fuzzy system. Each element in the number of output membership functions array represents the number of membership functions for the output variable that corresponds, in order of creation, to the index of the array element.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "number_of_output_membership_functions"
+        },
+        {
+          "name": "error out",
+          "description": "error out contains error information. This output provides standard error out functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        }
+      ]
+    },
+    {
+      "name": "FL Get Membership Function Names VI",
+      "page": 5877,
+      "category": "Control & Simulation",
+      "description": "Returns the names of the linguistic terms for a linguistic variable. Membership functions represent the degree of membership of linguistic variables within their linguistic terms. You can return the names of the membership functions from a fuzzy system or from an array of membership functions. The data type you wire to the fuzzy system in input determines the polymorphic instance to use. • FL Get Membership Function Names (Fuzzy System) VI • FL Get Membership Function Names (MF Array) VI FL Get ",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "variable index",
+          "description": "variable index specifies the index of the linguistic variable whose information you want to return. variable index corresponds to the order in which the linguistic variable was created.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "variable_index"
+        },
+        {
+          "name": "input/output",
+          "description": "input/output specifies whether the linguistic variable corresponding to variable index is an input or output variable. 0 Input—Specifies that the linguistic variable corresponding to variable index is an input variable. 1 Output—Specifies that the linguistic variable corresponding to variable index is an output variable.",
+          "default_value": null,
+          "enum_values": [
+            [
+              0,
+              "Input"
+            ],
+            [
+              1,
+              "Output"
+            ]
+          ],
+          "python_param": "input_output"
+        },
+        {
+          "name": "fuzzy system in",
+          "description": "fuzzy system in specifies the complete information for a fuzzy system. Wire the fuzzy system out output from another VI to the fuzzy system in input of this VI.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "fuzzy_system_in"
+        },
+        {
+          "name": "error in (no error)",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in_no_error"
+        },
+        {
+          "name": "fuzzy system out",
+          "description": "fuzzy system out returns the complete information for a fuzzy system. Wire the fuzzy system out output of this VI to the fuzzy system in input of another VI.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "fuzzy_system_out"
+        },
+        {
+          "name": "membership function names",
+          "description": "Functions 5878 ni.com membership function names returns the names of the membership functions, or linguistic terms, for the linguistic variable.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "membership_function_names"
+        },
+        {
+          "name": "error out",
+          "description": "error out contains error information. This output provides standard error out functionality. FL Get Membership Function Names (MF FL Get Membership Function Names (MF Array) VI Array) VI Returns the names of the linguistic terms for a linguistic variable. Membership functions represent the degree of membership of linguistic variables within their linguistic terms. You can return the names of the membership functions from a fuzzy system or from an array of membership functions. The data type you ",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        },
+        {
+          "name": "membership functions in",
+          "description": "membership functions in specifies an array of membership functions. Wire the membership functions out output from another VI to the membership functions in input of this VI.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "membership_functions_in"
+        },
+        {
+          "name": "name",
+          "description": "name specifies the name of the membership function, or linguistic term, you want to modify.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "name"
+        },
+        {
+          "name": "shape",
+          "description": "shape specifies the shape of the function that determines the degrees of membership for Functions",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "shape"
+        }
+      ]
+    },
+    {
+      "name": "FL System VI",
+      "page": 5901,
+      "category": "Control & Simulation",
+      "description": "Many Fuzzy Logic VIs contain a fuzzy system in or fuzzy system out parameter that contains the complete information for a fuzzy system. Wire the fuzzy system out output from one VI to the fuzzy system in input of another VI. Data type • fuzzy system — Specifies the complete information for a fuzzy system. Wire the fuzzy system out output from one VI to the fuzzy system in input of another VI. • input variables — input variables specifies the input linguistic variables for the fuzzy system. • nam",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_review",
+      "terminals": []
+    }
+  ]
+}

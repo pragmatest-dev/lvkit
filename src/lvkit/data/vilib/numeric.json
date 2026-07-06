@@ -1,7 +1,1344 @@
 {
   "category": "Numeric",
-  "count": 57,
+  "count": 88,
   "entries": [
+    {
+      "name": "Add Function",
+      "page": 515,
+      "category": "Numeric",
+      "description": "Computes the sum of the inputs.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "x+y",
+          "description": "Functions © National Instruments 515 x+y is the sum of x and y. Matrix Details When you wire matrix data as an input to this function, a VI that includes subVIs that work with the matrix data type replaces the function. The resulting VI has the same icon but contains a matrix-specific algorithm. The node remains a VI if you disconnect the matrix from the inputs. Wire other data types as inputs to restore the original function. If you wire a data type to a function and that data type causes a bas",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "x_y"
+        },
+        {
+          "name": "labview\\examples\\Numerics\\Numeric Functions.vi",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "labview_examples_numerics_numeric_functions_vi"
+        }
+      ]
+    },
+    {
+      "name": "Subtract Function",
+      "page": 517,
+      "category": "Numeric",
+      "description": "Computes the difference of the inputs. If you wire two waveform values or two dynamic data type values to this function, error in and error out terminals appear on the function. Subtracting two time stamp values yields a numeric value (difference in time), and subtracting a numeric value from a time stamp value yields a time stamp. You cannot subtract a time stamp value from a numeric value. The dimensions of two matrices that you want to subtract must be the same. Otherwise, this function retur",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "Number",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "number"
+        },
+        {
+          "name": "Timestamp",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "timestamp"
+        },
+        {
+          "name": "Analog Waveform",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "analog_waveform"
+        },
+        {
+          "name": "x-y",
+          "description": "x-y is the difference between x and y. Note You can manually configure this function to output data of a type you want. To specify the output data type, right-click the function and select Properties to display the Object Properties dialog box. On the Output Configuration page, click the Representation icon and select the data type you want. A blue coercion dot appears Functions",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "x_y"
+        }
+      ]
+    },
+    {
+      "name": "Multiply Function",
+      "page": 518,
+      "category": "Numeric",
+      "description": "Returns the product of the inputs. If you wire two waveform values or two dynamic data type values to this function, error in and error out terminals appear on the function. The connector pane displays the default data types for this polymorphic function. on the output terminal of the function to indicate that you have configured the output data type. Functions 518 ni.com",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "x*y",
+          "description": "x*y is the product of x multiplied by y. You cannot use this function to multiply a matrix and a vector. Use the A x B VI instead. When multiplying two matrices, if the number of rows in the second matrix does not match the number of columns in the first matrix, this function returns an empty matrix. Refer to the A x B VI for more information about matrix multiplication. When you wire matrix data as an input to this function, a VI that includes subVIs that work with the matrix data type replaces",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "x_y"
+        }
+      ]
+    },
+    {
+      "name": "Divide Function",
+      "page": 520,
+      "category": "Numeric",
+      "description": "Computes the quotient of the inputs.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "x/y",
+          "description": "x/y is a double-precision, floating-point number if both x and y are integers. In general, the output type is the widest representation of the inputs if the inputs are not integers or if their representations differ. Fixed-Point Details If you wire fixed-point values to this function, by default LabVIEW configures the integer word length of the quotient to avoid overflow for nonzero values of y. However, because the precision of the quotient can be infinite, rounding conditions always occur. Use",
+          "default_value": "LabVIEW configures the integer word length of the quotient to avoid overflow for nonzero values of y",
+          "enum_values": null,
+          "python_param": "x_y"
+        }
+      ]
+    },
+    {
+      "name": "Quotient & Remainder Function",
+      "page": 521,
+      "category": "Numeric",
+      "description": "Computes the integer quotient and the remainder of the inputs. This function rounds floor(x/y) to the nearest integer towards -inf. The connector pane displays the default data types for this polymorphic function.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "x-y*floor(x/y)",
+          "description": "x-y*floor(x/y) is the remainder. This corresponds to the modulo function of text-based programming languages. When y is 1, the remainder is the fractional part of x.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "x_y_floorx_y"
+        },
+        {
+          "name": "floor(x/y)",
+          "description": "floor(x/y) is the integer quotient. If either input is a floating-point number, the quotient is a floating-point number with an integer value. When y is 1, the quotient is the integer part of x. If the integer input value of y is zero, the quotient is zero and remainder is dividend x. For floating-point inputs, if y is zero, the quotient is infinity and the remainder defaults to NaN. Functions",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "floorx_y"
+        }
+      ]
+    },
+    {
+      "name": "To Extended Precision Float Function",
+      "page": 525,
+      "category": "Numeric",
+      "description": "Converts a number to an extended-precision, floating-point number. The connector pane displays the default data types for this polymorphic function. Functions © National Instruments 525",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "number",
+          "description": "number can be a scalar number, array or cluster of numbers, array of clusters of numbers, and so on.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "number"
+        },
+        {
+          "name": "extended precision float",
+          "description": "extended precision float is of the same data type structure as number.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "extended_precision_float"
+        }
+      ]
+    },
+    {
+      "name": "To Double Precision Float Function",
+      "page": 526,
+      "category": "Numeric",
+      "description": "Converts a number to a double-precision, floating-point number. The connector pane displays the default data types for this polymorphic function.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "number",
+          "description": "number can be a scalar number, array or cluster of numbers, array of clusters of numbers, a time stamp, and so on.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "number"
+        },
+        {
+          "name": "double precision float",
+          "description": "double precision float is of the same data type structure as number.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "double_precision_float"
+        }
+      ]
+    },
+    {
+      "name": "To Single Precision Float Function",
+      "page": 526,
+      "category": "Numeric",
+      "description": "Converts a number to a single-precision, floating-point number. The connector pane displays the default data types for this polymorphic function. Functions 526 ni.com",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "number",
+          "description": "number can be a scalar number, array or cluster of numbers, array of clusters of numbers, and so on.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "number"
+        },
+        {
+          "name": "single precision float",
+          "description": "single precision float is of the same data type structure as number.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "single_precision_float"
+        }
+      ]
+    },
+    {
+      "name": "To Fixed-Point Function",
+      "page": 527,
+      "category": "Numeric",
+      "description": "Converts any non-complex number to fixed-point representation. If you do not wire a value to the fixed-point type input or configure the output settings of this function, the data type of the fixed-point output adapts to the data you wire to the number input. For example, if you wire an 8-bit unsigned integer to the number input, LabVIEW returns an 8-bit unsigned fixed-point number with 8 integer bits. This function saturates the number by default if overflow occurs.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "fixed-point type",
+          "description": "fixed-point type is the fixed-point data type to which you want to convert the integer data. You can configure the fixed-point data type in the Data Type page of the Properties dialog box. LabVIEW ignores any data in the constant or control that you wire to fixed-point type. You also can leave this input unwired and configure the output data type in the Output Configuration page of the Properties dialog box.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "fixed_point_type"
+        },
+        {
+          "name": "number",
+          "description": "Functions © National Instruments 527 number can be any non-complex number.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "number"
+        },
+        {
+          "name": "fixed-point",
+          "description": "fixed-point is the input data scaled to the requested fixed-point data type. To override the default behavior of this function, right-click the function and select Properties from the shortcut menu to display the Output Configuration page of the Properties dialog box. You can use this dialog box to configure the output settings of this function.",
+          "default_value": "behavior of this function, right-click the function and select Properties from the shortcut menu to display the Output Configuration page of the Properties dialog box",
+          "enum_values": null,
+          "python_param": "fixed_point"
+        }
+      ]
+    },
+    {
+      "name": "To Quad Integer Function",
+      "page": 528,
+      "category": "Numeric",
+      "description": "Converts a number to a 64-bit integer in the range -(2^63) to (2^63)-1. The connector pane displays the default data types for this polymorphic function.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "number",
+          "description": "number can be a scalar number, array or cluster of numbers, array of clusters of numbers, a time stamp, and so on.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "number"
+        },
+        {
+          "name": "64bit integer",
+          "description": "64bit integer is of the same data type structure as number. This function rounds all floating-point and fixed-point numeric values to the nearest integer. If the fractional part of the value is .5, the function rounds the value to the nearest even integer. For example, the function rounds 13.5 to 14 and rounds 14.5 to 14. Functions 528 ni.com",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "64bit_integer"
+        }
+      ]
+    },
+    {
+      "name": "To Long Integer Function",
+      "page": 529,
+      "category": "Numeric",
+      "description": "Converts a number to a 32-bit integer in the range -(2^ 31) to (2^ 31)-1. This function rounds all floating-point and fixed-point numeric values to the nearest integer. The connector pane displays the default data types for this polymorphic function.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "number",
+          "description": "number can be a scalar number, array or cluster of numbers, array of clusters of numbers, and so on.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "number"
+        },
+        {
+          "name": "32bit integer",
+          "description": "32bit integer is of the same data type structure as number. If the fractional part of the floating-point or fixed-point value is .5, the function rounds the value to the nearest even integer. For example, the function rounds 13.5 to 14 and rounds 14.5 to 14.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "32bit_integer"
+        }
+      ]
+    },
+    {
+      "name": "To Word Integer Function",
+      "page": 529,
+      "category": "Numeric",
+      "description": "Converts a number to a 16-bit integer in the range -32,768 to 32,767. The connector pane displays the default data types for this polymorphic function.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "number",
+          "description": "Functions © National Instruments 529 number can be a scalar number, array or cluster of numbers, array of clusters of numbers, and so on.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "number"
+        },
+        {
+          "name": "16bit integer",
+          "description": "16bit integer is of the same data type structure as number. This function rounds all floating-point and fixed-point numeric values to the nearest integer. If the fractional part of the value is .5, the function rounds the value to the nearest even integer. For example, the function rounds 13.5 to 14 and rounds 14.5 to 14.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "16bit_integer"
+        }
+      ]
+    },
+    {
+      "name": "To Byte Integer Function",
+      "page": 530,
+      "category": "Numeric",
+      "description": "Converts a number to an 8-bit integer in the range -128 to 127. The connector pane displays the default data types for this polymorphic function.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "number",
+          "description": "number can be a scalar number, array or cluster of numbers, array of clusters of numbers, and so on.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "number"
+        },
+        {
+          "name": "8bit integer",
+          "description": "8bit integer is of the same data type structure as number. This function rounds all floating-point numeric values to the nearest integer. If the fractional part of the floating-point value is .5, the function rounds the value to the nearest even integer. For example, the function rounds 13.5 to 14 and rounds 14.5 to 14. Functions 530 ni.com",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "8bit_integer"
+        }
+      ]
+    },
+    {
+      "name": "To Unsigned Long Integer Function",
+      "page": 531,
+      "category": "Numeric",
+      "description": "Converts a number to a 32-bit unsigned integer in the range 0 to (2^32)-1. The connector pane displays the default data types for this polymorphic function.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "number",
+          "description": "Functions © National Instruments 531 number can be a scalar number, array or cluster of numbers, array of clusters of numbers, a time stamp, and so on.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "number"
+        },
+        {
+          "name": "unsigned 32bit integer",
+          "description": "unsigned 32bit integer is of the same data type structure as number. This function rounds all floating-point and fixed-point numeric values to the nearest integer. If the fractional part of the value is .5, the function rounds the value to the nearest even integer. For example, the function rounds 13.5 to 14 and rounds 14.5 to 14.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "unsigned_32bit_integer"
+        }
+      ]
+    },
+    {
+      "name": "To Unsigned Quad Integer Function",
+      "page": 531,
+      "category": "Numeric",
+      "description": "Converts a number to a 64-bit unsigned integer in the range 0 to (2^64)-1. The connector pane displays the default data types for this polymorphic function.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "number",
+          "description": "number can be a scalar number, array or cluster of numbers, array of clusters of numbers, a time stamp, and so on.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "number"
+        },
+        {
+          "name": "unsigned 64bit integer",
+          "description": "unsigned 64bit integer is of the same data type structure as number. This function rounds all floating-point and fixed-point numeric values to the nearest integer. If the fractional part of the value is .5, the function rounds the value to the nearest even integer. For example, the function rounds 13.5 to 14 and rounds 14.5 to 14.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "unsigned_64bit_integer"
+        }
+      ]
+    },
+    {
+      "name": "To Unsigned Word Integer Function",
+      "page": 532,
+      "category": "Numeric",
+      "description": "Converts a number to a 16-bit unsigned integer in the range 0 to 65,535. The connector pane displays the default data types for this polymorphic function.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "number",
+          "description": "number can be a scalar number, array or cluster of numbers, array of clusters of numbers, and so on.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "number"
+        },
+        {
+          "name": "unsigned 16bit integer",
+          "description": "unsigned 16bit integer is of the same data type structure as number. This function rounds all floating-point and fixed-point numeric values to the nearest integer. If the fractional part of the value is .5, the function rounds the value to the nearest even integer. For example, the function rounds 13.5 to 14 and rounds 14.5 to 14. Functions 532 ni.com",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "unsigned_16bit_integer"
+        }
+      ]
+    },
+    {
+      "name": "To Extended Precision Complex Function",
+      "page": 533,
+      "category": "Numeric",
+      "description": "Converts a number to an extended-precision, complex number. The connector pane displays the default data types for this polymorphic function.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "number",
+          "description": "Functions © National Instruments 533 number can be a scalar number, array or cluster of numbers, array of clusters of numbers, and so on.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "number"
+        },
+        {
+          "name": "extended precision complex",
+          "description": "extended precision complex is of the same data type structure as number.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "extended_precision_complex"
+        }
+      ]
+    },
+    {
+      "name": "To Unsigned Byte Integer Function",
+      "page": 533,
+      "category": "Numeric",
+      "description": "Converts a number to an 8-bit unsigned integer in the range 0 to 255. The connector pane displays the default data types for this polymorphic function.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "number",
+          "description": "number can be a scalar number, array or cluster of numbers, array of clusters of numbers, and so on.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "number"
+        },
+        {
+          "name": "unsigned 8bit integer",
+          "description": "unsigned 8bit integer is of the same data type structure as number. This function rounds all floating-point and fixed-point numeric values to the nearest integer. If the fractional part of the value is .5, the function rounds the value to the nearest even integer. For example, the function rounds 13.5 to 14 and rounds 14.5 to 14.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "unsigned_8bit_integer"
+        }
+      ]
+    },
+    {
+      "name": "To Double Precision Complex Function",
+      "page": 534,
+      "category": "Numeric",
+      "description": "Converts a number to a double-precision, complex number. The connector pane displays the default data types for this polymorphic function.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "number",
+          "description": "number can be a scalar number, array or cluster of numbers, array of clusters of numbers, and so on.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "number"
+        },
+        {
+          "name": "double precision complex",
+          "description": "double precision complex is of the same data type structure as number.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "double_precision_complex"
+        }
+      ]
+    },
+    {
+      "name": "To Single Precision Complex Function",
+      "page": 534,
+      "category": "Numeric",
+      "description": "Converts a number to a single-precision, complex number. The connector pane displays the default data types for this polymorphic function. Functions 534 ni.com",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "number",
+          "description": "number can be a scalar number, array or cluster of numbers, array of clusters of numbers, and so on.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "number"
+        },
+        {
+          "name": "single precision complex",
+          "description": "single precision complex is of the same data type structure as number.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "single_precision_complex"
+        }
+      ]
+    },
+    {
+      "name": "Coerce To Type Function",
+      "page": 535,
+      "category": "Numeric",
+      "description": "Converts the input data to a compatible data type while preserving the data value. Unlike the Type Cast function, this function does not reinterpret the input data. Use this function in the following cases: • To eliminate a coercion dot • To convert data without a type definition to a compatible type definition or vice versa • To rename data on the wire, such as a user event refnum",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "type",
+          "description": "type specifies the data type to which you want to convert the input data x. To set the data type to which you want to convert the input data, wire a constant or control of the desired data type to type. LabVIEW ignores any data in the constant or control wired to type.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "type"
+        },
+        {
+          "name": "coerced x",
+          "description": "coerced x returns the value of the input data x after the conversion. The Type Cast function also converts data to a desired data type. Unlike the Type Cast function, the Coerce To Type function allows only conversion between compatible data types to preserve the value of the input data, similar to what a coercion dot does. The Type Cast function allows conversion between incompatible data types by flattening and unflattening the input data, which allows for radical reinterpretation of the data.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "coerced_x"
+        }
+      ]
+    },
+    {
+      "name": "Number To Boolean Array Function",
+      "page": 536,
+      "category": "Numeric",
+      "description": "Converts an integer or fixed-point number to a Boolean array. If you wire an integer to number, Boolean array returns an array of 8, 16, 32, or 64 elements, depending on the number of bits in the integer. If you wire a fixed-point number to number, the size of the array that Boolean array returns equals the word length of the fixed-point number. The 0th element of the array corresponds to the least significant bit of the two's complement representation of the integer.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "number",
+          "description": "number can be a number.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "number"
+        },
+        {
+          "name": "Boolean array",
+          "description": "Boolean array can have 8, 16, 32, or 64 elements if number is an integer. If number is a fixed- Functions 536 ni.com point number, Boolean array can have between 1 and 64 elements. If you wire a fixed-point number that includes an overflow status to number, this function ignores the overflow status and converts only the number to a Boolean array.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "boolean_array"
+        }
+      ]
+    },
+    {
+      "name": "Boolean Array To Number Function",
+      "page": 537,
+      "category": "Numeric",
+      "description": "Converts a Boolean array to an integer or a fixed-point number by interpreting the array as the binary representation of the number. The first element of the array corresponds to the least significant bit in the number.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "Boolean array",
+          "description": "Boolean array is a one-dimensional array of Boolean values. This function truncates Boolean array if it is too long. If Boolean array is too short, this function pads Boolean array according to the Sign Extension Mode you can select by right-clicking the function.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "boolean_array"
+        },
+        {
+          "name": "Never",
+          "description": "This function pads Boolean array with Boolean FALSE bits.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "never"
+        },
+        {
+          "name": "If Output Is Signed",
+          "description": "(default) For an output with an unsigned representation, this function pads Boolean array with Boolean FALSE bits. For an output with a signed representation, this function pads Boolean array with the last element of the array.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "if_output_is_signed"
+        },
+        {
+          "name": "Always",
+          "description": "This function pads Boolean array with the last element of the array.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "always"
+        },
+        {
+          "name": "number",
+          "description": "number is an integer or a fixed-point number. You can change the numeric representation of number on the Output Configuration page of the Properties dialog box. Right-click the function and select Properties to display the Properties dialog box. The following table shows the relationship between Boolean array and number. Functions",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "number"
+        }
+      ]
+    },
+    {
+      "name": "Boolean To (0,1) Function",
+      "page": 538,
+      "category": "Numeric",
+      "description": "Converts a Boolean FALSE or TRUE value to a 16-bit integer with a value of 0 or 1, respectively.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "Boolean",
+          "description": "Boolean can be a scalar, an array, a cluster of Boolean values, an array of clusters of Boolean values, and so on. If Boolean is an error cluster, only the status parameter of the error cluster passes to the input terminal.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "boolean"
+        },
+        {
+          "name": "0, 1",
+          "description": "0, 1 is 0 if Boolean is FALSE and 1 if Boolean is TRUE.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "0_1"
+        }
+      ]
+    },
+    {
+      "name": "To Time Stamp Function",
+      "page": 538,
+      "category": "Numeric",
+      "description": "Converts a number to a timestamp. Functions 538 ni.com",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "number",
+          "description": "number can be a scalar number, array or cluster of numbers, array of clusters of numbers, and so on, that represents the amount of seconds from the epoch time of 12 a.m., January 1, 1904 [01-01-1904 00:00:00].",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "number"
+        },
+        {
+          "name": "time stamp",
+          "description": "time stamp is a time-zone-independent number of seconds that have elapsed since 12:00 a.m., Friday, January 1, 1904, Universal Time [01-01-1904 00:00:00].",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "time_stamp"
+        }
+      ]
+    },
+    {
+      "name": "Byte Array To String Function",
+      "page": 539,
+      "category": "Numeric",
+      "description": "Converts an array of unsigned bytes representing ASCII characters into a string. Functions © National Instruments 539",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "unsigned byte array",
+          "description": "unsigned byte array is the array of ASCII values you want to convert.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "unsigned_byte_array"
+        },
+        {
+          "name": "string",
+          "description": "string is the result of interpreting each array element as an ASCII value and forming a string out of the corresponding characters. Refer to ASCII Codes for the numbers that correspond to each character.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "string"
+        }
+      ]
+    },
+    {
+      "name": "String To Byte Array Function",
+      "page": 539,
+      "category": "Numeric",
+      "description": "Converts a string into an array of unsigned bytes. Each byte in the array has the ASCII value of the corresponding character in the string.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "string",
+          "description": "string is the input string the function converts.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "string"
+        },
+        {
+          "name": "unsigned byte array",
+          "description": "unsigned byte array is the output array. The first byte in the array has the ASCII value of the first character in string, the second byte has the second value, and so on.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "unsigned_byte_array"
+        }
+      ]
+    },
+    {
+      "name": "Convert Unit",
+      "page": 540,
+      "category": "Numeric",
+      "description": "Converts a physical number (a number that has a unit) to a pure number (a number with no units) or a pure number to a physical number. Right-click the function and select Build Unit String from the shortcut menu to build and edit a string of units.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_review",
+      "terminals": []
+    },
+    {
+      "name": "Cast Unit Bases Function",
+      "page": 541,
+      "category": "Numeric",
+      "description": "Changes the base units associated with the input to the base units associated with unit and returns the results at the output terminal. Functions © National Instruments 541",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "unit (none)",
+          "description": "unit associates input with output results. The default is none, which does not associate any units.",
+          "default_value": "none, which does not associate any units",
+          "enum_values": null,
+          "python_param": "unit_none"
+        }
+      ]
+    },
+    {
+      "name": "Color to RGB",
+      "page": 542,
+      "category": "Numeric",
+      "description": "Resolves any color input, including system colors, into its respective red, green, and blue components. To perform a task such as color arithmetic with symbolic colors, you must convert the colors to their red, green, and blue components. Caution Use this function with extreme caution. Because this function works with bases, you must understand the conversion from an arbitrary unit to its bases before you can effectively use this function. This function can change base units, such as changing me",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "Color",
+          "description": "Color is the color that you want to convert to its respective red, green, and blue components.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "color"
+        },
+        {
+          "name": "Resolved Color",
+          "description": "resolved color is the resolved color in RGB format.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "resolved_color"
+        }
+      ]
+    },
+    {
+      "name": "Enum to Array of Enums",
+      "page": 544,
+      "category": "Numeric",
+      "description": "Creates an array of enums with the same number of elements as values in the enum.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "enum",
+          "description": "enum specifies the input enum.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "enum"
+        },
+        {
+          "name": "array of enums",
+          "description": "array of enums returns an array containing each enum value in order. For example, if enum has values {cat, dog, bird}, array of enums returns a three-element array with values cat, dog, and bird, respectively.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "array_of_enums"
+        }
+      ]
+    },
+    {
+      "name": "Increment Function",
+      "page": 544,
+      "category": "Numeric",
+      "description": "Adds 1 to the input value. The connector pane displays the default data types for this polymorphic function. Functions 544 ni.com",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "Number",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "number"
+        },
+        {
+          "name": "Timestamp",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "timestamp"
+        },
+        {
+          "name": "Analog Waveform",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "analog_waveform"
+        },
+        {
+          "name": "x+1",
+          "description": "x+1 is the result of x+1. If the input is a time stamp value, this function increments the time by one second. If the input is an enumerated type value, this function increments the last enumerated value to the first. Examples Refer to the following example files included with LabVIEW.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "x_1"
+        },
+        {
+          "name": "labview\\examples\\Numerics\\Numeric Functions.vi",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "labview_examples_numerics_numeric_functions_vi"
+        }
+      ]
+    },
+    {
+      "name": "Decrement Function",
+      "page": 545,
+      "category": "Numeric",
+      "description": "Subtracts 1 from the input value. The connector pane displays the default data types for this polymorphic function. Note You can manually configure this function to output data of a type you want. To specify the output data type, right-click the function and select Properties to display the Object Properties dialog box. On the Output Configuration page, click the Representation icon and select the data type you want. A blue coercion dot appears on the output terminal of the function to indicate ",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "Number",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "number"
+        },
+        {
+          "name": "Timestamp",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "timestamp"
+        },
+        {
+          "name": "Analog Waveform",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "analog_waveform"
+        },
+        {
+          "name": "x-1",
+          "description": "x-1 is the result of x-1. If the input is a time stamp value, this function decrements the time by one second. If the input is an enumerated type value, this function decrements the first enumerated value to the last. Examples Refer to the following example files included with LabVIEW.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "x_1"
+        },
+        {
+          "name": "labview\\examples\\Numerics\\Numeric Functions.vi",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "labview_examples_numerics_numeric_functions_vi"
+        }
+      ]
+    },
+    {
+      "name": "Add Array Elements Function",
+      "page": 546,
+      "category": "Numeric",
+      "description": "Returns the sum of all the elements in numeric array. Note You can manually configure this function to output data of a type you want. To specify the output data type, right-click the function and select Properties to display the Object Properties dialog box. On the Output Configuration page, click the Representation icon and select the data type you want. A blue coercion dot appears on the output terminal of the function to indicate that you have configured the output data type. Functions 546 n",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "numeric array",
+          "description": "numeric array can have any number of dimensions.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "numeric_array"
+        },
+        {
+          "name": "sum",
+          "description": "sum is of the same data type and structure as the elements in numeric array. Examples Refer to the following example files included with LabVIEW.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "sum"
+        },
+        {
+          "name": "labview\\examples\\Numerics\\Numeric Functions.vi",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "labview_examples_numerics_numeric_functions_vi"
+        }
+      ]
+    },
+    {
+      "name": "Multiply Array Elements Function",
+      "page": 547,
+      "category": "Numeric",
+      "description": "Returns the product of all the elements in numeric array. If numeric array is an empty array, the function returns a value of 1. If numeric array contains only one element, the function returns that element. The connector pane displays the default data types for this polymorphic function. Note You cannot use this function with fixed-point numbers. If you wire fixed-point numbers to this function, the VI appears with a broken Run button. Functions © National Instruments 547",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "numeric array",
+          "description": "numeric array can have any number of dimensions.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "numeric_array"
+        },
+        {
+          "name": "product",
+          "description": "product is of the same data type and structure as the elements in numeric array. Examples Refer to the following example files included with LabVIEW.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "product"
+        },
+        {
+          "name": "labview\\examples\\Numerics\\Numeric Functions.vi",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "labview_examples_numerics_numeric_functions_vi"
+        }
+      ]
+    },
+    {
+      "name": "Compound Arithmetic",
+      "page": 548,
+      "category": "Numeric",
+      "description": "Performs arithmetic on one or more numeric, array, cluster, or Boolean inputs. To select the operation (Add, Multiply, AND, OR, or XOR), right-click the function and select Change Mode from the shortcut menu. When you select this function from the Numeric palette, the default mode is Add. When you select this function from the Boolean palette, the default mode is OR. The connector pane displays the default data types for this polymorphic function.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "value",
+          "description": "Note You cannot use this function with fixed-point numbers. If you wire fixed-point numbers to this function, the VI appears with a broken Run button. Functions 548 ni.com value 0..n-1 can be a number or Boolean value, an array of numbers or Boolean values, a cluster, array of clusters, and so on. You can wire a waveform to only one value input. If an input is a waveform, you can have an unlimited number of scalar inputs of varying sizes. If value is an error cluster, only the status parameter o",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "value"
+        },
+        {
+          "name": "value",
+          "description": "",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "value"
+        },
+        {
+          "name": "result",
+          "description": "result returns the result of the selected operation applied to the value 0..n-1. For AND, OR, or XOR, result returns the bitwise operations on numeric inputs and logical operations on Boolean inputs. Add inputs to the node by right-clicking an input and selecting Add Input from the shortcut menu or by resizing the function. You can invert the inputs or the output of this function by right-clicking the individual terminals and selecting Invert from the shortcut menu. For Add, select Invert to neg",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "result"
+        }
+      ]
+    },
+    {
+      "name": "Data Manipulation",
+      "page": 549,
+      "category": "Numeric",
+      "description": "Use the Data Manipulation functions to modify the data types used in LabVIEW. Note You cannot use this function with fixed-point numbers. If you wire fixed-point numbers to this function, the VI appears with a broken Run button. Functions © National Instruments 549 Palette Object Description Type Cast Function Casts x to the data type, type, by flattening it and unflattening it using the new data type. If the function must reinterpret data instead of transforming it, LabVIEW uses a temporary buf",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "type",
+          "description": "type is the data type to which you want to convert the data. Wire any constant or control to type to set the data type to which you want to convert the data. LabVIEW ignores any data in the constant or control you wire to type.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "type"
+        }
+      ]
+    },
+    {
+      "name": "Type Cast Function",
+      "page": 551,
+      "category": "Numeric",
+      "description": "Casts x to the data type, type, by flattening it and unflattening it using the new data type. If the function must reinterpret data instead of transforming it, LabVIEW uses a temporary buffer. This function has the risk of reinterpreting data. To preserve the data value while converting the data, use the Coerce To Type function instead.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "type",
+          "description": "type is the data type to which you want to convert the data. Wire any constant or control to type to set the data type to which you want to convert the data. LabVIEW ignores any data in the constant or control you wire to type.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "type"
+        },
+        {
+          "name": "*(type *) &x",
+          "description": "*(type *) &x is the value provided in x and converted to the same data type as type. Choosing between the Type Cast Function and the Coerce To Type Function The Coerce To Type function also converts data to a desired data type. Unlike the Coerce To Type function, the Type Cast function allows conversion between incompatible data types by flattening and unflattening the input data, which allows for radical reinterpretation of the data. When the desired data type requires a different memory size t",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "type_x"
+        }
+      ]
+    },
+    {
+      "name": "Flatten To String Function",
+      "page": 553,
+      "category": "Numeric",
+      "description": "Converts the anything input to a flattened data string of binary values. You also can use this function to convert the byte order, or endian format, of the data in the flattened data string.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "anything",
+          "description": "Functions © National Instruments 553 anything contains the data you want to convert to a UTF-8 JSON string. This input accepts arrays and clusters of Booleans, floating-point numbers, and strings. anything can also accept an array of clusters, or a cluster of arrays, of these data types. This input does not support other data types, such as enums, refnums, file paths, and fixed-point numbers. Cluster elements may be named or unnamed, but not a combination of both. If cluster elements are named, ",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "anything"
+        },
+        {
+          "name": "prepend array or string size? (T)",
+          "description": "prepend array or string size? specifies whether LabVIEW includes data size information at the beginning of data string when anything is an array or string. If prepend array or string size? is FALSE, LabVIEW does not include the size information. The default is TRUE. The string created by the Flatten To String function is a LabVIEW string. If prepend array or string size? is TRUE, the LabVIEW string has a 4-byte (I32) number at the beginning of the string that tells how long the string is. This e",
+          "default_value": "TRUE",
+          "enum_values": null,
+          "python_param": "prepend_array_or_string_size_t"
+        },
+        {
+          "name": "byte order (0:big-endian, network order)",
+          "description": "byte order sets the endian format of the data in the resulting flattened string. Byte order, or endian form, indicates whether integers are represented in memory from most significant byte to least significant byte or vice versa. 0 big-endian, network order (default)—The most significant byte occupies the lowest memory address. 1 native, host order—Uses the byte-ordering format of the host computer. 2 little-endian—The least significant byte occupies the lowest memory address.",
+          "default_value": null,
+          "enum_values": [
+            [
+              0,
+              "big-endian, network order (default)"
+            ],
+            [
+              1,
+              "native, host order"
+            ],
+            [
+              2,
+              "little-endian"
+            ]
+          ],
+          "python_param": "byte_order_0_big_endian_network_order"
+        },
+        {
+          "name": "error in (no error)",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in_no_error"
+        },
+        {
+          "name": "data string",
+          "description": "Functions 554 ni.com data string is the flattened data generated by the function. data string might contain header information before each non-scalar component describing its size. Such a string can be stored in a file or sent over a network. If you send the string over a network, the receiver must be able to interpret it. Usually, LabVIEW stores data as noncontiguous, indirectly referenced pieces. This function copies the data in LabVIEW form into a contiguous buffer data string. Use the Unflat",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "data_string"
+        },
+        {
+          "name": "type string (7.x only)",
+          "description": "type string (7.x only) is visible only if the terminal is already wired from a previous version of LabVIEW or if you right-click the function and select Convert 7.x Data from the shortcut menu. type string (7.x only) is an encoded binary description of data string. type string (7.x only) is not the same as the type input in the Unflatten From String function. If type string (7.x only) cannot represent the data type wired to anything, this function returns an error.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "type_string_7_x_only"
+        },
+        {
+          "name": "error out",
+          "description": "error out contains error information. This output provides standard error out functionality. Use the Type Cast function for conversion of data types that does not result in flattened data. If you need to flatten type descriptor data to a string that is readable by LabVIEW 7.x or earlier, right-click this function and select Convert 7.x Data from the shortcut menu. In Convert 7.x Data mode, this function shows the type string (7.x only) output and displays the icon for this function with a red 7.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        }
+      ]
+    },
+    {
+      "name": "Unflatten From String Function",
+      "page": 556,
+      "category": "Numeric",
+      "description": "Converts binary string to the type wired to type. binary string should contain flattened data of the type wired to type. You also can use this function to specify the byte order, or endian format, of the data in the binary string.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "type",
+          "description": "type is a normally constructed LabVIEW type. type is not the type string output in the Flatten To String function.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "type"
+        },
+        {
+          "name": "binary string",
+          "description": "binary string is a flattened string that is typically generated by the Flatten To String function. Functions 556 ni.com If data includes array or string size? is TRUE, binary string contains header information describing its size.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "binary_string"
+        },
+        {
+          "name": "data includes array or string size? (T)",
+          "description": "data includes array or string size? indicates whether LabVIEW reads data size information from the beginning of an incoming array or string. If data includes array or string size? is TRUE, LabVIEW reads the size information from the beginning of binary string. If data includes array or string size? is FALSE, LabVIEW detects the size information from the memory size of binary string. The default is TRUE. data includes array or string size? only accesses the top-level data size information. Arrays",
+          "default_value": "TRUE",
+          "enum_values": null,
+          "python_param": "data_includes_array_or_string_size_t"
+        },
+        {
+          "name": "byte order (0:big-endian, network order)",
+          "description": "byte order indicates the endian format of the data in the incoming flattened string. Byte order, or endian form, indicates whether integers are represented in memory from most-significant byte to least-significant byte or vice versa. 0 big-endian, network order (default)—The most-significant byte occupies the lowest memory address. 1 native, host order—Uses the byte-ordering format of the host computer. 2 little-endian—The least-significant byte occupies the lowest memory address.",
+          "default_value": null,
+          "enum_values": [
+            [
+              0,
+              "big-endian, network order (default)"
+            ],
+            [
+              1,
+              "native, host order"
+            ],
+            [
+              2,
+              "little-endian"
+            ]
+          ],
+          "python_param": "byte_order_0_big_endian_network_order"
+        },
+        {
+          "name": "error in (no error)",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_in_no_error"
+        },
+        {
+          "name": "rest of the binary string",
+          "description": "rest of the binary string contains any leftover bytes that this function did not convert. This function does not convert all the bytes if the size of binary string is not a multiple of the size of type.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "rest_of_the_binary_string"
+        },
+        {
+          "name": "value",
+          "description": "value returns binary string as unflattened data of the same data type and structure as type.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "value"
+        },
+        {
+          "name": "error out",
+          "description": "Functions",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        }
+      ]
+    },
+    {
+      "name": "Mantissa & Exponent Function",
+      "page": 558,
+      "category": "Numeric",
+      "description": "Returns the mantissa and exponent of the input numeric value such that number = mantissa * 2^exponent. If number is 0, both mantissa and exponent are 0. Otherwise, the absolute value of mantissa is greater than or equal to 1 and less than 2, and the value of exponent is an integer. The connector pane displays the default data types for this polymorphic function. Functions 558 ni.com",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "number",
+          "description": "number can be any decimal representation.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "number"
+        },
+        {
+          "name": "mantissa",
+          "description": "mantissa has the same decimal representation as number.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "mantissa"
+        },
+        {
+          "name": "exponent",
+          "description": "exponent has the same decimal representation as number.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "exponent"
+        }
+      ]
+    },
+    {
+      "name": "Rotate Left With Carry Function",
+      "page": 559,
+      "category": "Numeric",
+      "description": "Rotates each bit in the input value one bit to the left (from least significant to most significant bit), inserts carry in the low-order bit, and returns the most significant bit. The connector pane displays the default data types for this polymorphic function.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "carry",
+          "description": "carry is the new low-order bit of value.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "carry"
+        },
+        {
+          "name": "value",
+          "description": "value must be an integer. It cannot be an array or a cluster.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "value"
+        },
+        {
+          "name": "msb carry out",
+          "description": "msb carry out is the former high-order bit of value.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "msb_carry_out"
+        },
+        {
+          "name": "value",
+          "description": "Functions © National Instruments 559 value is the new value. The data type of the output value is determined by the data type of the input value.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "value"
+        }
+      ]
+    },
+    {
+      "name": "Logical Shift Function",
+      "page": 560,
+      "category": "Numeric",
+      "description": "Shifts x the number of bits specified by y. The connector pane displays the default data types for this polymorphic function. Functions 560 ni.com",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "x << y",
+          "description": "x << y is the result of the shift and has the same numeric representation as x.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "x_y"
+        }
+      ]
+    },
+    {
+      "name": "Rotate Right With Carry Function",
+      "page": 560,
+      "category": "Numeric",
+      "description": "Rotates each bit in value one bit to the right (from most significant to least significant), inserts carry in the high-order bit, and returns the least significant bit. The connector pane displays the default data types for this polymorphic function.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "carry",
+          "description": "carry is the new high-order bit of value.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "carry"
+        },
+        {
+          "name": "value",
+          "description": "value must be an integer. It cannot be an array or a cluster.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "value"
+        },
+        {
+          "name": "lsb carry out",
+          "description": "lsb carry out is the former low-order bit of value.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "lsb_carry_out"
+        },
+        {
+          "name": "value",
+          "description": "value is the new value. The data type of the output value is determined by the data type of the input value.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "value"
+        }
+      ]
+    },
     {
       "name": "Rotate Function",
       "page": 561,
@@ -14,7 +1351,7 @@
       "terminals": [
         {
           "name": "x rotated left by y",
-          "description": "x rotated left by y is the result of the rotation. The data type of x rotated left by y is determined by the data type of the x input. The following table illustrates how x and y affect x rotated left by y: y x x rotated left by y Comments 1 3 (00000011) 6 (00000110) This function shifts the first one bit on the left, 0, to the right end. 2 3 (00000011) 12 (00001100) This function shifts the first two bits on the left, 00, to the right end. \u20133 3 (00000011) 96 (01100000) This function shifts the ",
+          "description": "x rotated left by y is the result of the rotation. The data type of x rotated left by y is determined by the data type of the x input. The following table illustrates how x and y affect x rotated left by y: y x x rotated left by y Comments 1 3 (00000011) 6 (00000110) This function shifts the first one bit on the left, 0, to the right end. 2 3 (00000011) 12 (00001100) This function shifts the first two bits on the left, 00, to the right end. –3 3 (00000011) 96 (01100000) This function shifts the ",
           "default_value": null,
           "enum_values": null,
           "python_param": "x_rotated_left_by_y"
@@ -84,7 +1421,7 @@
       "name": "Swap Bytes Function",
       "page": 563,
       "category": "Numeric",
-      "description": "Swaps the high-order 8 bits and the low-order 8 bits for every word in data. Functions \u00a9 National Instruments 563 If you want to byte-swap floating-point or fixed-point numbers, use the Type Cast function to cast the value to a 1D array of bytes by wiring an array of numeric controls to the type input and the floating-point or fixed-point numbers to the x input. Then use the Reverse 1D Array function to convert the array to a floating-point number with the elements reversed. The connector pane d",
+      "description": "Swaps the high-order 8 bits and the low-order 8 bits for every word in data. Functions © National Instruments 563 If you want to byte-swap floating-point or fixed-point numbers, use the Type Cast function to cast the value to a 1D array of bytes by wiring an array of numeric controls to the type input and the floating-point or fixed-point numbers to the x input. Then use the Reverse 1D Array function to convert the array to a floating-point number with the elements reversed. The connector pane d",
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
@@ -136,7 +1473,7 @@
       "name": "Byte Array Checksum",
       "page": 565,
       "category": "Numeric",
-      "description": "Computes the message digest on a byte array. You must manually select the polymorphic instance you want to use. \u2022 SHA-256 Byte Array Checksum VI \u2022 SHA-224 Byte Array Checksum VI \u2022 SHA-384 Byte Array Checksum VI \u2022 SHA-512 Byte Array Checksum VI \u2022 SHA-512-256 Byte Array Checksum VI \u2022 SHA-512-224 Byte Array Checksum VI \u2022 SHA3-224 Byte Array Checksum VI \u2022 SHA3-256 Byte Array Checksum VI \u2022 SHA3-384 Byte Array Checksum VI \u2022 SHA3-512 Byte Array Checksum VI SHA-256 Byte Array Checksum VI SHA-256 Byte Ar",
+      "description": "Computes the message digest on a byte array. You must manually select the polymorphic instance you want to use. • SHA-256 Byte Array Checksum VI • SHA-224 Byte Array Checksum VI • SHA-384 Byte Array Checksum VI • SHA-512 Byte Array Checksum VI • SHA-512-256 Byte Array Checksum VI • SHA-512-224 Byte Array Checksum VI • SHA3-224 Byte Array Checksum VI • SHA3-256 Byte Array Checksum VI • SHA3-384 Byte Array Checksum VI • SHA3-512 Byte Array Checksum VI SHA-256 Byte Array Checksum VI SHA-256 Byte Ar",
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
@@ -218,29 +1555,10 @@
       ]
     },
     {
-      "name": "Round Toward -Infinity Function",
-      "page": 573,
-      "category": "Numeric",
-      "description": "Truncates the input to the next lowest integer. For example, if the input is 3.8, the result is 3. If the input is \u20133.8, the result is \u20134. The connector pane displays the default data types for this polymorphic function.",
-      "vi_path": null,
-      "is_polymorphic": false,
-      "python_hint": null,
-      "status": "needs_terminals",
-      "terminals": [
-        {
-          "name": "floor(x): largest int <= x",
-          "description": "floor(x): largest int \u2264 x is the resulting lowest integer, closest to x. If the input is a time stamp value, the function rounds to the previous second. When x is of the form x = a + bi, that is, when x is complex, the function returns a complex number defined by the next lowest integers to the real and imaginary parts of x. The following equation defines floor(x): largest int \u2264 x: floor(x) = floor(a) + i floor(b) Round Toward +Infinity Function Round Toward +Infinity Function Rounds the input t",
-          "default_value": "data types for this polymorphic function",
-          "enum_values": null,
-          "python_param": "floorx_largest_int_x"
-        }
-      ]
-    },
-    {
       "name": "Round Toward +Infinity Function",
       "page": 573,
       "category": "Numeric",
-      "description": "Rounds the input to the next highest integer. For example, if the input is 3.1, the result is 4. If the input is \u20133.1, the result is \u20133. The connector pane displays the default data types for this polymorphic function.",
+      "description": "Rounds the input to the next highest integer. For example, if the input is 3.1, the result is 4. If the input is –3.1, the result is –3. The connector pane displays the default data types for this polymorphic function.",
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
@@ -252,6 +1570,25 @@
           "default_value": null,
           "enum_values": null,
           "python_param": "ceilx_smallest_int_x"
+        }
+      ]
+    },
+    {
+      "name": "Round Toward -Infinity Function",
+      "page": 573,
+      "category": "Numeric",
+      "description": "Truncates the input to the next lowest integer. For example, if the input is 3.8, the result is 3. If the input is –3.8, the result is –4. The connector pane displays the default data types for this polymorphic function.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "floor(x): largest int <= x",
+          "description": "floor(x): largest int ≤ x is the resulting lowest integer, closest to x. If the input is a time stamp value, the function rounds to the previous second. When x is of the form x = a + bi, that is, when x is complex, the function returns a complex number defined by the next lowest integers to the real and imaginary parts of x. The following equation defines floor(x): largest int ≤ x: floor(x) = floor(a) + i floor(b) Round Toward +Infinity Function Round Toward +Infinity Function Rounds the input t",
+          "default_value": "data types for this polymorphic function",
+          "enum_values": null,
+          "python_param": "floorx_largest_int_x"
         }
       ]
     },
@@ -352,7 +1689,7 @@
         },
         {
           "name": "theta",
-          "description": "theta is of the same data type structure as r * e^(i*theta), with scalar representation instead of complex. theta is in radians. Given z in rectangular form z = a + bi, this function converts the polar components of z = r * e^(i*theta) according to the following equations: r = |z| = sqrt(a\u00b2 + b\u00b2) theta = arg(z) = arctan2(b,a) When you wire matrix data as an input to this function, a VI that includes subVIs that work with the matrix data type replaces the function. The resulting VI has the same i",
+          "description": "theta is of the same data type structure as r * e^(i*theta), with scalar representation instead of complex. theta is in radians. Given z in rectangular form z = a + bi, this function converts the polar components of z = r * e^(i*theta) according to the following equations: r = |z| = sqrt(a² + b²) theta = arg(z) = arctan2(b,a) When you wire matrix data as an input to this function, a VI that includes subVIs that work with the matrix data type replaces the function. The resulting VI has the same i",
           "default_value": null,
           "enum_values": null,
           "python_param": "theta"
@@ -409,7 +1746,7 @@
       "terminals": [
         {
           "name": "theta",
-          "description": "theta is of the same data type structure as x and y. theta is in radians. This function converts the rectangular components to polar components using the following equations: r = sqrt(x\u00b2 + y\u00b2) theta = arctan2(y,x) radians Functions 580 ni.com",
+          "description": "theta is of the same data type structure as x and y. theta is in radians. This function converts the rectangular components to polar components using the following equations: r = sqrt(x² + y²) theta = arctan2(y,x) radians Functions 580 ni.com",
           "default_value": null,
           "enum_values": null,
           "python_param": "theta"
@@ -439,7 +1776,7 @@
       "name": "Square Root Function",
       "page": 581,
       "category": "Numeric",
-      "description": "Computes the square root of the input value. If x is negative, the square root is NaN unless x is complex. If x is a matrix, this function takes the matrix square root of x. The connector pane displays the default data types for this polymorphic function. Functions \u00a9 National Instruments 581",
+      "description": "Computes the square root of the input value. If x is negative, the square root is NaN unless x is complex. If x is a matrix, this function takes the matrix square root of x. The connector pane displays the default data types for this polymorphic function. Functions © National Instruments 581",
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
@@ -473,7 +1810,7 @@
       "terminals": [
         {
           "name": "x^2",
-          "description": "x^2 is of the same numeric representation as x. Note You can manually configure this function to output data of a type you want. To specify the output data type, right-click the function and select Properties to display Functions \u00a9 National Instruments 583 If you wire fixed-point values to Numeric functions such as Add, Subtract, Multiply, and Square, the functions usually return values that do not lose any bits of word length. However, if the operation creates a value that exceeds the maximum w",
+          "description": "x^2 is of the same numeric representation as x. Note You can manually configure this function to output data of a type you want. To specify the output data type, right-click the function and select Properties to display Functions © National Instruments 583 If you wire fixed-point values to Numeric functions such as Add, Subtract, Multiply, and Square, the functions usually return values that do not lose any bits of word length. However, if the operation creates a value that exceeds the maximum w",
           "default_value": null,
           "enum_values": null,
           "python_param": "x_2"
@@ -551,7 +1888,7 @@
         },
         {
           "name": "-1, 0, 1",
-          "description": "\u20131, 0, 1 returns 1 if the input value is greater than 0, returns 0 if the input value is equal to 0, and returns \u20131 if the input value is less than 0. When number is in the form of a + bi, that is, when number is complex, the following defines -1, 0, 1: Examples Refer to the following example files included with LabVIEW. Note For nonzero complex numbers, this function returns a complex value with the same phase as the input and with a magnitude of 1. Functions 586 ni.com",
+          "description": "–1, 0, 1 returns 1 if the input value is greater than 0, returns 0 if the input value is equal to 0, and returns –1 if the input value is less than 0. When number is in the form of a + bi, that is, when number is complex, the following defines -1, 0, 1: Examples Refer to the following example files included with LabVIEW. Note For nonzero complex numbers, this function returns a complex value with the same phase as the input and with a magnitude of 1. Functions 586 ni.com",
           "default_value": null,
           "enum_values": null,
           "python_param": "1_0_1"
@@ -569,7 +1906,7 @@
       "name": "Convert RTD Reading",
       "page": 588,
       "category": "Numeric",
-      "description": "Converts a voltage you read from an RTD into temperature in Celsius. Wire data to the RTDvolts input to determine the polymorphic instance to use or manually select the instance. \u2022 Convert RTD Reading (waveform) VI \u2022 Convert RTD Reading (scaler) VI Convert RTD Reading (waveform) VI Convert RTD Reading (waveform) VI Converts a voltage you read from an RTD into temperature in Celsius. Wire data to the RTDvolts input to determine the polymorphic instance to use or manually select the instance.",
+      "description": "Converts a voltage you read from an RTD into temperature in Celsius. Wire data to the RTDvolts input to determine the polymorphic instance to use or manually select the instance. • Convert RTD Reading (waveform) VI • Convert RTD Reading (scaler) VI Convert RTD Reading (waveform) VI Convert RTD Reading (waveform) VI Converts a voltage you read from an RTD into temperature in Celsius. Wire data to the RTDvolts input to determine the polymorphic instance to use or manually select the instance.",
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
@@ -577,8 +1914,8 @@
       "terminals": [
         {
           "name": "Ro",
-          "description": "Functions 588 ni.com Ro is the RTD resistance at 0\u00b0 C. The default is 100 \u03a9.",
-          "default_value": "100 \u03a9",
+          "description": "Functions 588 ni.com Ro is the RTD resistance at 0° C. The default is 100 Ω.",
+          "default_value": "100 Ω",
           "enum_values": null,
           "python_param": "ro"
         },
@@ -616,7 +1953,7 @@
       "name": "Convert Strain Gauge Reading",
       "page": 590,
       "category": "Numeric",
-      "description": "Converts a voltage read from a strain gauge to units of strain. Wire data to the Vsg input to determine the polymorphic instance to use or manually select the instance. \u2022 Convert Strain Gauge Reading (waveform) VI \u2022 Convert Strain Gauge Reading (scaler) VI The conversion formula the VI uses is based solely on the bridge configuration. The following illustrations show the seven bridge configurations you can use and the corresponding formulas. For all bridge configurations, the VI uses the followi",
+      "description": "Converts a voltage read from a strain gauge to units of strain. Wire data to the Vsg input to determine the polymorphic instance to use or manually select the instance. • Convert Strain Gauge Reading (waveform) VI • Convert Strain Gauge Reading (scaler) VI The conversion formula the VI uses is based solely on the bridge configuration. The following illustrations show the seven bridge configurations you can use and the corresponding formulas. For all bridge configurations, the VI uses the followi",
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
@@ -627,7 +1964,7 @@
       "name": "Convert Thermistor Reading",
       "page": 601,
       "category": "Numeric",
-      "description": "Converts a thermistor voltage into a temperature. This VI has different modes of operation for voltage-excited and current-excited thermistors. Wire data to the Voltage input to determine the polymorphic instance to use or manually select the instance. \u2022 Convert Thermistor Reading (waveform) VI \u2022 Convert Thermistor Reading (scaler) VI The Convert Thermistor Reading VI has two modes of operation for use with different types of thermistor circuits. The following illustration shows how the thermist",
+      "description": "Converts a thermistor voltage into a temperature. This VI has different modes of operation for voltage-excited and current-excited thermistors. Wire data to the Voltage input to determine the polymorphic instance to use or manually select the instance. • Convert Thermistor Reading (waveform) VI • Convert Thermistor Reading (scaler) VI The Convert Thermistor Reading VI has two modes of operation for use with different types of thermistor circuits. The following illustration shows how the thermist",
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
@@ -656,15 +1993,15 @@
         },
         {
           "name": "R1",
-          "description": "R1 is the value of the resistor in series with your thermistor expressed in Ohms. The default is 5 k\u03a9. Use this input only when you set Type of Excitation to Voltage Reference.",
-          "default_value": "5 k\u03a9",
+          "description": "R1 is the value of the resistor in series with your thermistor expressed in Ohms. The default is 5 kΩ. Use this input only when you set Type of Excitation to Voltage Reference.",
+          "default_value": "5 kΩ",
           "enum_values": null,
           "python_param": "r1"
         },
         {
           "name": "Excitation Current",
-          "description": "Excitation Current (IEX) is the current excitation applied to the thermistor. The default is 100 \u00b5A. Use this input only when you set Type of Excitation to Current Reference.",
-          "default_value": "100 \u00b5A",
+          "description": "Excitation Current (IEX) is the current excitation applied to the thermistor. The default is 100 µA. Use this input only when you set Type of Excitation to Current Reference.",
+          "default_value": "100 µA",
           "enum_values": null,
           "python_param": "excitation_current"
         },
@@ -681,7 +2018,7 @@
       "name": "Convert Thermocouple Reading",
       "page": 608,
       "category": "Numeric",
-      "description": "Converts a voltage reading from a thermocouple into a temperature value. Wire data to the Voltage Waveform (waveform), Voltage Array (array), or Thermocouple Voltage (scalar) input to determine the polymorphic instance to use or manually select the instance. \u2022 Convert Thermocouple Reading (waveform) VI \u2022 Convert Thermocouple Reading (array) VI \u2022 Convert Thermocouple Reading (scaler) VI Convert Thermocouple Reading (waveform) Convert Thermocouple Reading (waveform) VI VI Converts a voltage readin",
+      "description": "Converts a voltage reading from a thermocouple into a temperature value. Wire data to the Voltage Waveform (waveform), Voltage Array (array), or Thermocouple Voltage (scalar) input to determine the polymorphic instance to use or manually select the instance. • Convert Thermocouple Reading (waveform) VI • Convert Thermocouple Reading (array) VI • Convert Thermocouple Reading (scaler) VI Convert Thermocouple Reading (waveform) Convert Thermocouple Reading (waveform) VI VI Converts a voltage readin",
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
@@ -808,7 +2145,40 @@
       "name": "Random Number (Range)",
       "page": 618,
       "category": "Numeric",
-      "description": "Generates a random value from a specified range. Wire data to the upper bound or lower bound input to determine the polymorphic instance to use or manually select the instance. Functions 618 ni.com \u2022 Random Number (Range) U64 VI \u2022 Random Number (Range) I64 VI \u2022 Random Number (Range) DBL VI Random Number (Range) U64 VI Random Number (Range) U64 VI Generates a random value from a specified range. Wire data to the upper bound or lower bound input to determine the polymorphic instance to use or manu",
+      "description": "Generates a random value from a specified range. Wire data to the upper bound or lower bound input to determine the polymorphic instance to use or manually select the instance. Functions 618 ni.com • Random Number (Range) U64 VI • Random Number (Range) I64 VI • Random Number (Range) DBL VI Random Number (Range) U64 VI Random Number (Range) U64 VI Generates a random value from a specified range. Wire data to the upper bound or lower bound input to determine the polymorphic instance to use or manu",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "upper bound (100)",
+          "description": "upper bound specifies the upper limit of the range. The default is 100.",
+          "default_value": "100",
+          "enum_values": null,
+          "python_param": "upper_bound_100"
+        },
+        {
+          "name": "lower bound (0)",
+          "description": "lower bound specifies the lower limit of the range. The default is 0.",
+          "default_value": "0",
+          "enum_values": null,
+          "python_param": "lower_bound_0"
+        },
+        {
+          "name": "number",
+          "description": "number returns a random number greater than or equal to lower bound and less than or equal to upper bound. If upper bound is less than or equal to lower bound, this output returns lower bound. Random Number (Range) I64 VI Random Number (Range) I64 VI Generates a random value from a specified range. Wire data to the upper bound or lower bound input to determine the polymorphic instance to use or manually select the instance. Functions",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "number"
+        }
+      ]
+    },
+    {
+      "name": "Random Number (Range) I64 VI",
+      "page": 619,
+      "category": "Numeric",
+      "description": "Generates a random value from a specified range. Wire data to the upper bound or lower bound input to determine the polymorphic instance to use or manually select the instance. Functions © National Instruments 619",
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
@@ -842,39 +2212,6 @@
       "page": 619,
       "category": "Numeric",
       "description": "Generates a random value from a specified range. Wire data to the upper bound or lower bound input to determine the polymorphic instance to use or manually select the instance.",
-      "vi_path": null,
-      "is_polymorphic": false,
-      "python_hint": null,
-      "status": "needs_terminals",
-      "terminals": [
-        {
-          "name": "upper bound (100)",
-          "description": "upper bound specifies the upper limit of the range. The default is 100.",
-          "default_value": "100",
-          "enum_values": null,
-          "python_param": "upper_bound_100"
-        },
-        {
-          "name": "lower bound (0)",
-          "description": "lower bound specifies the lower limit of the range. The default is 0.",
-          "default_value": "0",
-          "enum_values": null,
-          "python_param": "lower_bound_0"
-        },
-        {
-          "name": "number",
-          "description": "number returns a random number greater than or equal to lower bound and less than or equal to upper bound. If upper bound is less than or equal to lower bound, this output returns lower bound. Random Number (Range) I64 VI Random Number (Range) I64 VI Generates a random value from a specified range. Wire data to the upper bound or lower bound input to determine the polymorphic instance to use or manually select the instance. Functions",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "number"
-        }
-      ]
-    },
-    {
-      "name": "Random Number (Range) I64 VI",
-      "page": 619,
-      "category": "Numeric",
-      "description": "Generates a random value from a specified range. Wire data to the upper bound or lower bound input to determine the polymorphic instance to use or manually select the instance. Functions \u00a9 National Instruments 619",
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
@@ -1036,6 +2373,39 @@
       ]
     },
     {
+      "name": "Include Fixed-Point Overflow Status Function",
+      "page": 625,
+      "category": "Numeric",
+      "description": "Includes an overflow status with FXP. The value of the overflow status equals the value specified in overflow.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "needs_terminals",
+      "terminals": [
+        {
+          "name": "FXP",
+          "description": "Functions © National Instruments 625 FXP specifies a fixed-point number.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "fxp"
+        },
+        {
+          "name": "overflow",
+          "description": "overflow specifies whether the overflow status of FXP with overflow included is TRUE or FALSE.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "overflow"
+        },
+        {
+          "name": "FXP with overflow included",
+          "description": "FXP with overflow included returns FXP with an overflow status set to the value specified in overflow.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "fxp_with_overflow_included"
+        }
+      ]
+    },
+    {
       "name": "Remove Fixed-Point Overflow Status Function",
       "page": 625,
       "category": "Numeric",
@@ -1065,39 +2435,6 @@
           "default_value": null,
           "enum_values": null,
           "python_param": "overflow"
-        }
-      ]
-    },
-    {
-      "name": "Include Fixed-Point Overflow Status Function",
-      "page": 625,
-      "category": "Numeric",
-      "description": "Includes an overflow status with FXP. The value of the overflow status equals the value specified in overflow.",
-      "vi_path": null,
-      "is_polymorphic": false,
-      "python_hint": null,
-      "status": "needs_terminals",
-      "terminals": [
-        {
-          "name": "FXP",
-          "description": "Functions \u00a9 National Instruments 625 FXP specifies a fixed-point number.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "fxp"
-        },
-        {
-          "name": "overflow",
-          "description": "overflow specifies whether the overflow status of FXP with overflow included is TRUE or FALSE.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "overflow"
-        },
-        {
-          "name": "FXP with overflow included",
-          "description": "FXP with overflow included returns FXP with an overflow status set to the value specified in overflow.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "fxp_with_overflow_included"
         }
       ]
     },
@@ -1230,307 +2567,6 @@
           "default_value": null,
           "enum_values": null,
           "python_param": "you_cannot_add_expression_nodes_to_a_vi_on_which_you_enable_inlining"
-        }
-      ]
-    },
-    {
-      "name": "And Function",
-      "page": 632,
-      "category": "Numeric",
-      "description": "Computes the logical AND of the inputs. Both inputs must be Boolean values, numeric values, or error clusters. If both inputs are TRUE, the function returns TRUE. Otherwise, it returns FALSE. The connector pane displays the default data types for this polymorphic function.",
-      "vi_path": null,
-      "is_polymorphic": false,
-      "python_hint": null,
-      "status": "needs_terminals",
-      "terminals": [
-        {
-          "name": "x .and. y?",
-          "description": "x .and. y? is the logical AND of x and y. And Truth Table x y x .and. y?",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "x_and_y"
-        }
-      ]
-    },
-    {
-      "name": "Or Function",
-      "page": 633,
-      "category": "Numeric",
-      "description": "Computes the logical OR of the inputs. Both inputs must be Boolean values, numeric values, or error clusters. If both inputs are FALSE, the function returns FALSE. Otherwise, it returns TRUE. The connector pane displays the default data types for this polymorphic function.",
-      "vi_path": null,
-      "is_polymorphic": false,
-      "python_hint": null,
-      "status": "needs_review",
-      "terminals": []
-    },
-    {
-      "name": "Exclusive Or Function",
-      "page": 634,
-      "category": "Numeric",
-      "description": "Computes the logical exclusive or (XOR) of the inputs. Both inputs must be Boolean values, numeric values, or error clusters. If both inputs are TRUE or both inputs are FALSE, the function returns FALSE. Otherwise, it returns TRUE. The connector pane displays the default data types for this polymorphic function.",
-      "vi_path": null,
-      "is_polymorphic": false,
-      "python_hint": null,
-      "status": "needs_terminals",
-      "terminals": [
-        {
-          "name": "x .xor. y?",
-          "description": "x .xor. y? is the logical exclusive or (XOR) of x and y. Exclusive Or Truth Table x y x .xor. y?",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "x_xor_y"
-        }
-      ]
-    },
-    {
-      "name": "Not Function",
-      "page": 635,
-      "category": "Numeric",
-      "description": "Computes the logical negation of the input. If x is FALSE, the function returns TRUE. If x is TRUE, the function returns FALSE. Note This function performs bitwise operations on numeric inputs. Functions \u00a9 National Instruments 635 The connector pane displays the default data types for this polymorphic function.",
-      "vi_path": null,
-      "is_polymorphic": false,
-      "python_hint": null,
-      "status": "needs_terminals",
-      "terminals": [
-        {
-          "name": ".not. x?",
-          "description": ".not. x? is the logical negation of x. Not Truth Table x .not. x? F",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "not_x"
-        }
-      ]
-    },
-    {
-      "name": "Not And Function",
-      "page": 636,
-      "category": "Numeric",
-      "description": "Computes the logical NAND of the inputs. Both inputs must be Boolean values, numeric values, or error clusters. If both inputs are TRUE, the function returns FALSE. Otherwise, it returns TRUE. Note This function performs bitwise operations on numeric inputs. Functions 636 ni.com The connector pane displays the default data types for this polymorphic function.",
-      "vi_path": null,
-      "is_polymorphic": false,
-      "python_hint": null,
-      "status": "needs_terminals",
-      "terminals": [
-        {
-          "name": ".not. (x .and. y)?",
-          "description": ".not. (x .and. y)? is the logical NAND of x and y. Not And Truth Table x y .not. (x .and. y)?",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "not_x_and_y"
-        }
-      ]
-    },
-    {
-      "name": "Not Or Function",
-      "page": 638,
-      "category": "Numeric",
-      "description": "Computes the logical NOR of the inputs. Both inputs must be Boolean values, numeric values, or error clusters. If both inputs are FALSE, the function returns TRUE. Otherwise, it returns FALSE. The connector pane displays the default data types for this polymorphic function.",
-      "vi_path": null,
-      "is_polymorphic": false,
-      "python_hint": null,
-      "status": "needs_terminals",
-      "terminals": [
-        {
-          "name": ".not. (x .or. y)?",
-          "description": ".not. (x .or. y)? is the logical NOR of x and y. Not Or Truth Table x y .not. (x .or. y)?",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "not_x_or_y"
-        }
-      ]
-    },
-    {
-      "name": "Not Exclusive Or Function",
-      "page": 639,
-      "category": "Numeric",
-      "description": "Computes the logical negation of the logical exclusive or (XOR) of the inputs. Both inputs must be Boolean values, numeric values, or error clusters. If both inputs are TRUE or both inputs are FALSE, the function returns TRUE. Otherwise, it returns FALSE. The connector pane displays the default data types for this polymorphic function.",
-      "vi_path": null,
-      "is_polymorphic": false,
-      "python_hint": null,
-      "status": "needs_review",
-      "terminals": []
-    },
-    {
-      "name": "Implies Function",
-      "page": 640,
-      "category": "Numeric",
-      "description": "Negates x and then computes the logical OR of y and the negated x. Both inputs must be Boolean values, numeric values, or error clusters. If x is TRUE and y is FALSE, the function returns FALSE. Otherwise, it returns TRUE. The connector pane displays the default data types for this polymorphic function.",
-      "vi_path": null,
-      "is_polymorphic": false,
-      "python_hint": null,
-      "status": "needs_terminals",
-      "terminals": [
-        {
-          "name": "x .implies. y?",
-          "description": "x .implies. y? is the logical OR of y and of the logical negation of x. Implies Truth Table x y x .implies. y?",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "x_implies_y"
-        }
-      ]
-    },
-    {
-      "name": "And Array Elements Function",
-      "page": 641,
-      "category": "Numeric",
-      "description": "Returns TRUE if all the elements in Boolean array are TRUE or if Boolean array is empty. Otherwise, the function returns FALSE. This function accepts an array of any size but returns only a single value based on all values in Boolean array. The connector pane displays the default data types for this polymorphic function. Functions \u00a9 National Instruments 641",
-      "vi_path": null,
-      "is_polymorphic": false,
-      "python_hint": null,
-      "status": "needs_terminals",
-      "terminals": [
-        {
-          "name": "Boolean array",
-          "description": "Boolean array can have any number of dimensions.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "boolean_array"
-        },
-        {
-          "name": "logical AND",
-          "description": "logical AND indicates if all elements in Boolean array are TRUE.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "logical_and"
-        }
-      ]
-    },
-    {
-      "name": "Or Array Elements Function",
-      "page": 642,
-      "category": "Numeric",
-      "description": "Returns FALSE if all the elements in Boolean array are FALSE or if Boolean array is empty. Otherwise, the function returns TRUE. This function accepts an array of any size but returns only a single value based on all values in Boolean array. The connector pane displays the default data types for this polymorphic function.",
-      "vi_path": null,
-      "is_polymorphic": false,
-      "python_hint": null,
-      "status": "needs_terminals",
-      "terminals": [
-        {
-          "name": "Boolean array",
-          "description": "Boolean array can have any number of dimensions.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "boolean_array"
-        },
-        {
-          "name": "logical OR",
-          "description": "logical OR indicates if all of the elements in Boolean array are false.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "logical_or"
-        }
-      ]
-    },
-    {
-      "name": "Number To Boolean Array Function",
-      "page": 642,
-      "category": "Numeric",
-      "description": "Converts an integer or fixed-point number to a Boolean array. If you wire an integer to number, Boolean array returns an array of 8, 16, 32, or 64 elements, depending on the Functions 642 ni.com number of bits in the integer. If you wire a fixed-point number to number, the size of the array that Boolean array returns equals the word length of the fixed-point number. The 0th element of the array corresponds to the least significant bit of the two's complement representation of the integer.",
-      "vi_path": null,
-      "is_polymorphic": false,
-      "python_hint": null,
-      "status": "needs_terminals",
-      "terminals": [
-        {
-          "name": "number",
-          "description": "number can be a number.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "number"
-        },
-        {
-          "name": "Boolean array",
-          "description": "Boolean array can have 8, 16, 32, or 64 elements if number is an integer. If number is a fixed- point number, Boolean array can have between 1 and 64 elements. If you wire a fixed-point number that includes an overflow status to number, this function ignores the overflow status and converts only the number to a Boolean array.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "boolean_array"
-        }
-      ]
-    },
-    {
-      "name": "Boolean Array To Number Function",
-      "page": 643,
-      "category": "Numeric",
-      "description": "Converts a Boolean array to an integer or a fixed-point number by interpreting the array as the binary representation of the number. The first element of the array corresponds to the least significant bit in the number.",
-      "vi_path": null,
-      "is_polymorphic": false,
-      "python_hint": null,
-      "status": "needs_terminals",
-      "terminals": [
-        {
-          "name": "Boolean array",
-          "description": "Boolean array is a one-dimensional array of Boolean values. This function truncates Boolean array if it is too long. If Boolean array is too short, this function Functions \u00a9 National Instruments 643 pads Boolean array according to the Sign Extension Mode you can select by right-clicking the function.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "boolean_array"
-        },
-        {
-          "name": "Never",
-          "description": "This function pads Boolean array with Boolean FALSE bits.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "never"
-        },
-        {
-          "name": "If Output Is Signed",
-          "description": "(default) For an output with an unsigned representation, this function pads Boolean array with Boolean FALSE bits. For an output with a signed representation, this function pads Boolean array with the last element of the array.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "if_output_is_signed"
-        },
-        {
-          "name": "Always",
-          "description": "This function pads Boolean array with the last element of the array.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "always"
-        },
-        {
-          "name": "number",
-          "description": "number is an integer or a fixed-point number. You can change the numeric representation of number on the Output Configuration page of the Properties dialog box. Right-click the function and select Properties to display the Properties dialog box. The following table shows the relationship between Boolean array and number. Boolean array Output Representation Sign Extension Mode Binary Value number {FALSE, TRUE} I8 If Output Is Signed 11111110 -2 {FALSE, TRUE} U8 If Output Is Signed 00000010 2 {FAL",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "number"
-        },
-        {
-          "name": "Boolean",
-          "description": "Boolean can be a scalar, an array, a cluster of Boolean values, an array of clusters of Boolean values, and so on. If Boolean is an error cluster, only the status parameter of the error cluster passes to the input terminal.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "boolean"
-        },
-        {
-          "name": "0, 1",
-          "description": "0, 1 is 0 if Boolean is FALSE and 1 if Boolean is TRUE.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "0_1"
-        }
-      ]
-    },
-    {
-      "name": "Boolean To (0,1) Function",
-      "page": 644,
-      "category": "Numeric",
-      "description": "Converts a Boolean FALSE or TRUE value to a 16-bit integer with a value of 0 or 1, respectively. Functions 644 ni.com",
-      "vi_path": null,
-      "is_polymorphic": false,
-      "python_hint": null,
-      "status": "needs_terminals",
-      "terminals": [
-        {
-          "name": "Boolean",
-          "description": "Boolean can be a scalar, an array, a cluster of Boolean values, an array of clusters of Boolean values, and so on. If Boolean is an error cluster, only the status parameter of the error cluster passes to the input terminal.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "boolean"
-        },
-        {
-          "name": "0, 1",
-          "description": "0, 1 is 0 if Boolean is FALSE and 1 if Boolean is TRUE.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "0_1"
         }
       ]
     }
