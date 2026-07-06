@@ -112,7 +112,7 @@ def test_constant_node_resolves_via_generated_glyph():
     )
     glyph = resolve_glyph(node, _ctx())
     assert isinstance(glyph, ConstantGlyph)
-    assert glyph.value == "0.0"
+    assert glyph.value == "0"  # LabVIEW omits trailing ".0" for whole floats
     assert glyph.color == DEFAULT_THEME.wire_float
 
 

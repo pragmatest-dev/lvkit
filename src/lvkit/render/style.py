@@ -36,7 +36,7 @@ class Theme:
     sr_fill: str = "#cfcfcf"
     sr_stroke: str = "#555555"
     tunnel_border: str = "#4a4a3a"       # dark-olive border of tunnel/index boxes
-    coercion_dot: str = "#5a5a5a"         # gray coercion-dot fill
+    coercion_dot: str = "#e01f1f"         # red coercion-dot fill (per LabVIEW)
     fp_panel: str = "#e2e2e2"       # grey inner panel of an FP control/indicator
     fp_value_fill: str = "#ffffff"  # recessed numeric value cell
     fp_value_text: str = "#333333"

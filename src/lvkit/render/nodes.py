@@ -52,6 +52,15 @@ from .style import wire_style
 
 logger = logging.getLogger(__name__)
 
+
+def _format_const(value: object) -> str:
+    """LabVIEW-style scalar constant text: a whole-valued float shows with no
+    trailing '.0' (0.0 -> '0', 2.0 -> '2'); non-whole floats and everything
+    else stringify as-is."""
+    if isinstance(value, float) and value.is_integer():
+        return str(int(value))
+    return str(value)
+
 # Arithmetic-primitive name/operation -> triangle symbol (moved here from
 # the old draw.py dispatch dict — this IS "add a code-drawn built-in").
 _ARITH_SYMBOL = {
@@ -262,7 +271,7 @@ class GeneratedGlyphResolver:
             )
         if isinstance(node, ConstantNode):
             color = wire_style(node.lv_type).color
-            value = node.raw_value if node.value is None else str(node.value)
+            value = node.raw_value if node.value is None else _format_const(node.value)
             return ConstantGlyph(value or "", color)
         if isinstance(node, FormulaNode):
             return LabeledBoxGlyph(

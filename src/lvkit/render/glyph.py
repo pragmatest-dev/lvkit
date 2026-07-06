@@ -84,7 +84,7 @@ class LabeledBoxGlyph:
         )
         backend.text(
             (x1 + x2) / 2, (y1 + y2) / 2 + 3,
-            fit_label(self.label, x2 - x1, backend, self.text_size),
+            self.label,
             self.text_size,
         )
 
