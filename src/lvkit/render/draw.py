@@ -63,15 +63,22 @@ def _draw_border_terminal(
         backend.text(cx, cy + 4, "?", 10, fill=theme.selector_text)
         return
     if kind in ("sr_down", "sr_up"):
-        arrow = "▼" if kind == "sr_down" else "▲"
-        backend.rect(x1, y1, x2, y2, fill=theme.sr_fill, stroke=theme.sr_stroke)
-        backend.text(cx, cy + 4, arrow, 10)
+        # Shift register: a type-colored box with a filled triangle glyph.
+        col = bt.color or theme.sr_stroke
+        backend.rect(x1, y1, x2, y2, fill=theme.term_fill, stroke=col,
+                     stroke_width=1.5)
+        if kind == "sr_up":
+            tri = [(x1 + 2, y2 - 2), (cx, y1 + 2), (x2 - 2, y2 - 2)]
+        else:
+            tri = [(x1 + 2, y1 + 2), (cx, y2 - 2), (x2 - 2, y1 + 2)]
+        backend.polygon(tri, fill=col)
         return
     if kind == "autoindex":
-        # Array indexing / accumulation: a white box with array brackets.
-        backend.rect(x1 - 2, y1 - 2, x2 + 2, y2 + 2, fill="#ffffff",
-                     stroke="#333333", stroke_width=1.2)
-        backend.text(cx, cy + 4, "[ ]", 9)
+        # Array indexing / accumulation: a type-colored box with array brackets.
+        col = bt.color or "#333333"
+        backend.rect(x1 - 2, y1 - 2, x2 + 2, y2 + 2, fill=theme.term_fill,
+                     stroke=col, stroke_width=1.2)
+        backend.text(cx, cy + 4, "[ ]", 9, fill=col)
         return
     if kind == "tunnel":
         # Last-value passthrough: a solid block filled in the wire type color.
@@ -86,13 +93,23 @@ def _draw_border_terminal(
 
 
 def _draw_for_loop_border(x1, y1, x2, y2, backend: Backend, theme: Theme) -> None:
+    """The For-Loop's signature 'stacked sheets' border: three nested rectangles
+    sharing the top-left corner (so the right + bottom edges show three parallel
+    lines), with a folded/dog-eared bottom-right corner on the front sheet."""
     o = 3.0
-    backend.rect(x1, y1, x2, y2, fill="none", stroke=theme.struct_border,
-                 stroke_width=2)
-    backend.path([(x1 - o, y1 + 8), (x1 - o, y1 - o), (x1 + 8, y1 - o)],
-                 stroke=theme.struct_border, stroke_width=2)
-    backend.path([(x2 + o, y2 - 8), (x2 + o, y2 + o), (x2 - 8, y2 + o)],
-                 stroke=theme.struct_border, stroke_width=2)
+    s = theme.struct_border
+    # Back and middle sheets (right + bottom edges peek out below-right).
+    backend.rect(x1, y1, x2, y2, fill="none", stroke=s, stroke_width=2)
+    backend.rect(x1, y1, x2 - o, y2 - o, fill="none", stroke=s, stroke_width=2)
+    # Front sheet (the actual loop boundary) with a dog-eared bottom-right fold.
+    fx, fy = x2 - 2 * o, y2 - 2 * o
+    fold = 7.0
+    backend.path(
+        [(x1, y1), (fx, y1), (fx, fy - fold), (fx - fold, fy), (x1, fy), (x1, y1)],
+        stroke=s, stroke_width=2,
+    )
+    backend.path([(fx, fy - fold), (fx - fold, fy - fold), (fx - fold, fy)],
+                 stroke=s, stroke_width=1.2)
 
 
 def _draw_while_loop_border(x1, y1, x2, y2, backend: Backend, theme: Theme) -> None:

@@ -273,15 +273,16 @@ def _structure_borders(
         glyph_kind = _TUNNEL_GLYPH_KIND.get(t.tunnel_type)
         if glyph_kind is None and t.name == "selector":
             glyph_kind = "selector"
-        color: str | None = None
         if t.tunnel_type == "lpTun":
             # Auto-indexing (array in/accumulate out) -> [ ] brackets;
             # last-value passthrough -> a filled block in the wire type color.
-            if raw in layout.indexing_tunnels:
-                glyph_kind = "autoindex"
-            else:
-                glyph_kind = "tunnel"
-                color = wire_style(t.lv_type).color
+            glyph_kind = ("autoindex" if raw in layout.indexing_tunnels
+                          else "tunnel")
+        # Tunnels and shift registers carry the WIRE TYPE COLOR in LabVIEW
+        # (orange DBL, blue I32, ...) — not a flat gray/white.
+        color = (wire_style(t.lv_type).color
+                 if glyph_kind in ("autoindex", "tunnel", "sr_down", "sr_up")
+                 else None)
         result.append(
             RenderBorderTerminal(
                 terminal=t, bounds=rect, glyph_kind=glyph_kind, color=color,
