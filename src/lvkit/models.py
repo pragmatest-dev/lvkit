@@ -201,6 +201,9 @@ class TunnelTerminal(Terminal):
     tunnel_type: str = ""  # "lSR", "rSR", "lpTun", "lMax", "caseSel"
     boundary: str = ""  # "outer" or "inner"
     paired_id: str | None = None  # matching terminal on other side
+    # For case-structure inner tunnels: the owning CaseFrame's selector_value.
+    # None for outer tunnels and for non-case-structure tunnels (loop/sequence).
+    frame: str | int | None = None
 
 
 class Tunnel(BaseModel):

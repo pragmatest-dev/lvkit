@@ -611,6 +611,7 @@ class ConstructionMixin:
                 # Build terminals from tunnels + sRN terminals
                 structure_terminals = self._build_structure_terminals(
                     bd, parser_tunnels, q_node_uid, term_lookup, vi_name,
+                    case_frames=case_frames,
                 )
 
                 # Mark the selector terminal. The caseSel tunnel already
@@ -1185,6 +1186,7 @@ class ConstructionMixin:
         structure_uid: str,
         term_lookup: dict[str, WireEnd],
         vi_name: str = "",
+        case_frames: list[CaseFrame] | None = None,
     ) -> list[Terminal]:
         """Build Terminal list for a StructureNode from its tunnels and sRN nodes.
 
@@ -1197,11 +1199,23 @@ class ConstructionMixin:
         - Tunnel outer<->inner connections
         - sRN input->output pairings
 
+        For case structures, a single outer tunnel has one inner tunnel
+        PER FRAME (parser_tunnels lists them grouped by outer_terminal_uid,
+        in frame order — see case.py::_extract_case_tunnels). When
+        case_frames is provided, each inner TunnelTerminal is stamped with
+        the selector_value of the frame it belongs to, correlated
+        positionally: the Nth tunnel entry sharing an outer_terminal_uid
+        belongs to case_frames[N]. This lets renderers exclude tunnel wires
+        belonging to hidden frames.
+
         Returns the complete terminal list for the StructureNode.
         """
         g = self._graph
         structure_terminals: list[Terminal] = []
         seen_uids: set[str] = set()
+        # Per-outer-tunnel-uid occurrence counter, used to correlate each
+        # case-structure inner tunnel to its owning frame by position.
+        outer_tunnel_position: dict[str, int] = {}
 
         # Collect known parser node UIDs for sRN detection
         known_node_uids = {n.uid for n in bd.nodes}
@@ -1254,6 +1268,16 @@ class ConstructionMixin:
             if inner_ti and inner_ti.parsed_type:
                 inner_lv_type = self._enrich_type(inner_ti.parsed_type)
 
+            # Correlate this inner tunnel to its owning case frame by
+            # position: the Nth inner tunnel for a given outer_uid belongs
+            # to case_frames[N] (see docstring above).
+            inner_frame: str | int | None = None
+            if case_frames is not None:
+                position = outer_tunnel_position.get(outer_uid, 0)
+                outer_tunnel_position[outer_uid] = position + 1
+                if position < len(case_frames):
+                    inner_frame = case_frames[position].selector_value
+
             # Inner direction is opposite of outer for data flow
             inner_terminal = TunnelTerminal(
                 id=q_inner_uid,
@@ -1264,6 +1288,7 @@ class ConstructionMixin:
                 tunnel_type=ttype,
                 boundary="inner",
                 paired_id=q_outer_uid,
+                frame=inner_frame,
             )
             if inner_uid not in seen_uids:
                 structure_terminals.append(inner_terminal)

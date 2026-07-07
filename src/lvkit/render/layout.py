@@ -270,11 +270,20 @@ class _LayoutBuilder:
             tb = _rect(dco, "termBounds")
             if not uid or tb is None:
                 continue
-            self.border_terminals.setdefault(
-                uid, (ox + tb[0], oy + tb[1], ox + tb[2], oy + tb[3]),
-            )
+            abs_rect = (ox + tb[0], oy + tb[1], ox + tb[2], oy + tb[3])
+            self.border_terminals.setdefault(uid, abs_rect)
             self.border_terminal_kind.setdefault(uid, _TAG_TO_GLYPH_KIND[tag])
             self.structure_border_uids.setdefault(structure_uid, []).append(uid)
+            # A border DCO's WIREABLE terminal uid (its nested dco/term uids)
+            # differs from the DCO's own uid; register the glyph center under
+            # all of them — exactly as _map_terms does for ordinary terminals —
+            # so a wire to e.g. the While-loop conditional (stop) or the case
+            # selector anchors to the glyph instead of being dropped for want
+            # of geometry.
+            center = ((abs_rect[0] + abs_rect[2]) / 2,
+                      (abs_rect[1] + abs_rect[3]) / 2)
+            for u in self._collect_uids(dco):
+                self.terminal_centers.setdefault(u, center)
 
     # -- recursive walk -----------------------------------------------------
     def walk(self, diag: ET.Element, ox: float, oy: float) -> None:
@@ -307,7 +316,13 @@ class _LayoutBuilder:
         self._record_label_hidden(elem, uid)
         if uid:
             self.node_bounds.setdefault(uid, (ax1, ay1, ax2, ay2))
-        self._map_terms(elem, ax1, ay1)
+        # An sRN's own ``bounds`` is a translation for out-of-diagram terminal
+        # REFERENCES, but its ``termList`` holds fPTerm/constants that are
+        # diagram-level objects — each already carries diagram-relative bounds,
+        # so map them from the diagram origin, not the sRN's translated corner
+        # (otherwise a control inside a loop lands far to the upper-left).
+        term_ox, term_oy = (ox, oy) if elem.get("class") == "sRN" else (ax1, ay1)
+        self._map_terms(elem, term_ox, term_oy)
         self._detect_tunnel_modes(elem)
         if uid:
             self._border_dcos(elem, ax1, ay1, uid)

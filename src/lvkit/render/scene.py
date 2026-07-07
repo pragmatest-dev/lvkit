@@ -232,6 +232,32 @@ def _excluded_node_ids(nodes: list[AnyGraphNode]) -> set[str]:
     return excluded
 
 
+def _excluded_terminal_ids(nodes: list[AnyGraphNode]) -> set[str]:
+    """Inner tunnel terminals of a case structure's HIDDEN frames.
+
+    A case structure has one inner tunnel terminal PER FRAME, all attached
+    to the SAME outer tunnel terminal on the structure node itself (so the
+    node-level exclusion in ``_excluded_node_ids`` can't distinguish them —
+    both the shown and hidden frames' wires touch the structure's own node
+    id). Each inner tunnel is stamped with its owning frame's
+    selector_value (construction.py::_build_structure_terminals), so we can
+    exclude the ones belonging to hidden frames directly by terminal id.
+    """
+    excluded: set[str] = set()
+    for struct_id, (_shown, hidden) in _hidden_structures(nodes).items():
+        node = next((n for n in nodes if n.id == struct_id), None)
+        if node is None:
+            continue
+        for t in node.terminals:
+            if (
+                isinstance(t, TunnelTerminal)
+                and t.boundary == "inner"
+                and str(t.frame) in hidden
+            ):
+                excluded.add(t.id)
+    return excluded
+
+
 def _render_terminals(
     node: AnyGraphNode, layout: Layout, vi_name: str,
 ) -> list[RenderTerminal]:
@@ -476,6 +502,7 @@ def _build_wire_nets(
     vi_name: str,
     layout: Layout,
     excluded: set[str],
+    excluded_terminal_ids: set[str],
     obstacles: list[Rect],
     scene_bounds: Rect,
 ) -> list[RenderWireNet]:
@@ -494,6 +521,8 @@ def _build_wire_nets(
     wires = [
         w for w in graph.get_wires(vi_name, include_internal=True)
         if w.source.node_id not in excluded and w.dest.node_id not in excluded
+        and w.source.terminal_id not in excluded_terminal_ids
+        and w.dest.terminal_id not in excluded_terminal_ids
         and frozenset((w.source.terminal_id, w.dest.terminal_id)) not in paired
     ]
 
@@ -621,6 +650,7 @@ def build_scene(graph: InMemoryVIGraph, vi_name: str) -> Scene | None:
     layout = build_layout(src_path)
     all_nodes = graph.iter_nodes(vi_name)
     excluded = _excluded_node_ids(all_nodes)
+    excluded_terminal_ids = _excluded_terminal_ids(all_nodes)
     hidden_structures = _hidden_structures(all_nodes)
     glyph_ctx = GlyphContext(graph=graph, vi_name=vi_name)
 
@@ -686,7 +716,8 @@ def build_scene(graph: InMemoryVIGraph, vi_name: str) -> Scene | None:
     obstacles = [n.bounds for n in render_nodes]
 
     wire_nets = _build_wire_nets(
-        graph, vi_name, layout, excluded, obstacles, scene_bounds,
+        graph, vi_name, layout, excluded, excluded_terminal_ids,
+        obstacles, scene_bounds,
     )
     coercion_dots = _arith_coercion_dots(render_nodes)
 
