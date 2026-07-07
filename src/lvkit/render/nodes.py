@@ -45,12 +45,14 @@ from .glyph import (
     BracketGlyph,
     CenteredSvgGlyph,
     ConstantGlyph,
+    ErrorClusterGlyph,
     Glyph,
     IconImageGlyph,
     InlineSvgGlyph,
     LabeledBoxGlyph,
+    VariantGlyph,
 )
-from .style import numeric_repr, wire_style
+from .style import numeric_repr, type_family, wire_style
 
 logger = logging.getLogger(__name__)
 
@@ -335,6 +337,11 @@ class GeneratedGlyphResolver:
         if isinstance(node, VINode):
             return LabeledBoxGlyph("", "subvi_fill", "subvi_stroke", 1.5)
         if isinstance(node, ConstantNode):
+            fam = type_family(node.lv_type)
+            if fam == "error_cluster":
+                return ErrorClusterGlyph()
+            if fam == "variant":
+                return VariantGlyph()
             color = wire_style(node.lv_type).color
             raw = node.raw_value if node.value is None else node.value
             if numeric_repr(node.lv_type) is not None:

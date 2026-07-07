@@ -44,10 +44,15 @@ local-only/cleanroom (see below).
   frame-tagging. (Was DESIGN P4; never built.)
 
 ### B. Error-handling visuals
-- **[#7] Error-cluster wires = mustard/dark-yellow** (not the current dark gray
-  `theme.wire_error #3a3a3a`).
-- **[#8] Error-cluster icons** — error constants + error in/out FP terminals
-  get the real error-cluster glyph instead of blank/labeled boxes.
+- **[#7] DONE** Error-cluster wires = mustard/dark-yellow (`theme.wire_error
+  #a88d1e`, LV 8.2+). Variant added too: `wire_variant #840984` (NI
+  rgb(132,9,132)) + a `variant` `type_family` bucket.
+- **[#8] DONE** Schematic, shippable glyphs (generic, like brackets/triangles —
+  cleanroom-safe): `ErrorClusterGlyph` (mustard shell + green status LED + two
+  code/source bars) and `VariantGlyph` (solid opaque purple box), wired into
+  both constants (`GeneratedGlyphResolver`) and FP terminals (`draw_fp_terminal`,
+  ≥ `_FP_MIN_ICON_SIZE`). The exact NI terminal-icon *art* remains user-side
+  (icon pipeline, #14) — only the generic schematic ships.
 - (#9 error-case belongs here too — see batch A.)
 
 ### C. Structures

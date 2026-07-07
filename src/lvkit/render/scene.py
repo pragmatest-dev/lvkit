@@ -295,10 +295,17 @@ def _structure_borders(
             # last-value passthrough -> a filled block in the wire type color.
             glyph_kind = ("autoindex" if raw in layout.indexing_tunnels
                           else "tunnel")
-        # Tunnels and shift registers carry the WIRE TYPE COLOR in LabVIEW
-        # (orange DBL, blue I32, ...) — not a flat gray/white.
+        if glyph_kind is None:
+            # A plain data tunnel (case/sequence border passthrough): LabVIEW
+            # draws it as a solid block in the WIRE TYPE COLOR, never a flat
+            # gray/white box. Anything else the graph models on the border is
+            # already a real, wireable dataflow terminal, so default to tunnel.
+            glyph_kind = "tunnel"
+        # Tunnels, shift registers, and the selector carry the WIRE TYPE COLOR
+        # in LabVIEW (orange DBL, blue I32, mustard error, ...) — not gray/white.
         color = (wire_style(t.lv_type).color
-                 if glyph_kind in ("autoindex", "tunnel", "sr_down", "sr_up")
+                 if glyph_kind in ("autoindex", "tunnel", "sr_down", "sr_up",
+                                   "selector")
                  else None)
         result.append(
             RenderBorderTerminal(

@@ -49,7 +49,8 @@ class Theme:
     wire_string: str = "#e05fa0"   # pink — string
     wire_path: str = "#1f8a8a"     # teal — path
     wire_cluster: str = "#8a5a2b"  # brown — clusters / typedefs
-    wire_error: str = "#3a3a3a"    # dark — error clusters
+    wire_error: str = "#a88d1e"    # mustard/dark-yellow — error clusters (LV 8.2+)
+    wire_variant: str = "#840984"  # purple — Variant (NI rgb(132,9,132))
     wire_default: str = "#e8821e"  # anything unrecognized falls back to DBL
 
 
@@ -154,13 +155,14 @@ _FAMILY_COLOR = {
     "path": "wire_path",
     "cluster": "wire_cluster",
     "error_cluster": "wire_error",
+    "variant": "wire_variant",
 }
 
 
 def type_family(lv_type: LVType | None) -> str:
     """Coarse family bucket for an LVType: "float", "int", "bool",
-    "string", "path", "enum", "cluster", "error_cluster", "array", or
-    "unknown". The single source of truth for both wire color and
+    "string", "path", "enum", "cluster", "error_cluster", "variant",
+    "array", or "unknown". The single source of truth for wire color and
     front-panel terminal glyph choice.
     """
     if lv_type is None:
@@ -183,6 +185,8 @@ def type_family(lv_type: LVType | None) -> str:
             return "string"
         if ut == "Path":
             return "path"
+        if ut in ("Variant", "LVVariant"):
+            return "variant"
     return "unknown"
 
 

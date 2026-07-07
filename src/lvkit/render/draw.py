@@ -12,7 +12,7 @@ from __future__ import annotations
 from ..graph.models import VINode
 from ..models import CaseFrame, FPTerminal, LVType
 from .backend import Backend
-from .glyph import ArithGlyph, fit_label
+from .glyph import ArithGlyph, ErrorClusterGlyph, VariantGlyph, fit_label
 from .scene import RenderBorderTerminal, RenderNode, RenderStructure, Scene
 from .style import (
     DEFAULT_THEME,
@@ -102,9 +102,13 @@ def _draw_border_terminal(
         backend.circle(cx, cy, r, fill=theme.cond_stop)
         return
     if kind == "selector":
-        backend.rect(x1, y1, x2, y2, fill=theme.selector_fill,
-                     stroke=theme.selector_stroke, stroke_width=1.2)
-        backend.text(cx, cy + 4, "?", 10, fill=theme.selector_text)
+        # The selector terminal takes the WIRE TYPE COLOR of whatever feeds it
+        # (bool -> green, enum -> blue, error cluster -> mustard, ...), not a
+        # flat hardcoded green. Neutral pale fill so the "?" stays legible.
+        col = bt.color or theme.selector_stroke
+        backend.rect(x1, y1, x2, y2, fill=theme.loop_term_fill,
+                     stroke=col, stroke_width=1.2)
+        backend.text(cx, cy + 4, "?", 10, fill=col)
         return
     if kind in ("sr_down", "sr_up"):
         # Shift register: a type-colored box with a filled triangle glyph.
@@ -248,6 +252,7 @@ _CONTROL_TYPE_FAMILY = {
 _FAMILY_REPR = {
     "float": "DBL", "int": "I32", "bool": "TF", "string": "abc",
     "path": "Path", "enum": "Enum",
+    "error_cluster": "err", "variant": "Var",
 }
 
 
@@ -386,9 +391,15 @@ def draw_fp_terminal(
             _ARRAY_INDEX_ROWS, backend, theme,
         ) + 2.0
 
-    sample = numeric_sample(scalar_type)
     value_bounds = (value_x1, value_y1, value_x2, value_y2)
-    _draw_fp_value_cell(value_bounds, sample, backend, theme)
+    fam = type_family(scalar_type)
+    if fam == "error_cluster":
+        ErrorClusterGlyph().draw(backend, value_bounds, theme)
+    elif fam == "variant":
+        VariantGlyph().draw(backend, value_bounds, theme)
+    else:
+        sample = numeric_sample(scalar_type)
+        _draw_fp_value_cell(value_bounds, sample, backend, theme)
 
 
 def draw_scene(scene: Scene, backend: Backend, theme: Theme = DEFAULT_THEME) -> None:
