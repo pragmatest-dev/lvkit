@@ -151,10 +151,31 @@ class ConstantNode(GraphNode):
     label: str | None = None
 
 
+class LocalVariableNode(GraphNode):
+    """A Local Variable (class="gRef") — reads or writes an FP control's
+    value from a POSITION on the diagram, not a passthrough alias.
+
+    One terminal: direction "output" when reading the control's current
+    value, "input" when writing a new value to it (``is_write``).
+
+    ``control_terminal_id`` is the referenced control's own FP terminal id
+    (qualified), when the local variable's paramIdx resolved to a known
+    front-panel control. It may be None if resolution failed (e.g. a
+    global VI's local var, or an out-of-range index) — the node is still
+    created (name falls back to "Local Variable") so its position/wires
+    are never silently dropped.
+    """
+
+    kind: Literal["local_variable"] = "local_variable"
+    control_name: str | None = None
+    control_terminal_id: str | None = None
+    is_write: bool = False
+
+
 # Discriminated union of all node types
 AnyGraphNode = (
     VINode | PrimitiveNode | StructureNode | ConstantNode | InPlaceNode
-    | FormulaNode
+    | FormulaNode | LocalVariableNode
 )
 
 

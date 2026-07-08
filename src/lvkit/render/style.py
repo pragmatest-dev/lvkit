@@ -41,6 +41,8 @@ class Theme:
     fp_value_fill: str = "#ffffff"  # recessed numeric value cell
     fp_value_text: str = "#333333"
     fp_index_fill: str = "#c8c8c8"  # array index-display cell
+    localvar_fill: str = "#ffffff"       # local-variable box background
+    localvar_stroke: str = "#4a4a3a"     # local-variable box border
 
     # Wire colors by LabVIEW type family.
     wire_float: str = "#e8821e"    # orange — DBL/float (also the P0 default)

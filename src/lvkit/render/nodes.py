@@ -34,6 +34,7 @@ from ..graph.models import (
     AnyGraphNode,
     ConstantNode,
     FormulaNode,
+    LocalVariableNode,
     PrimitiveNode,
     VINode,
 )
@@ -370,6 +371,14 @@ class GeneratedGlyphResolver:
         if isinstance(node, FormulaNode):
             return LabeledBoxGlyph(
                 node.name or "Formula", "prim_fill", "prim_stroke", 1.5,
+            )
+        if isinstance(node, LocalVariableNode):
+            # LabVIEW's Local Variable glyph: a plain box with the
+            # referenced control's NAME inside — no icon, unlike a subVI.
+            return WrappedBoxGlyph(
+                node.control_name or node.name or "Local Variable",
+                "localvar_fill", "localvar_stroke", 1.0,
+                max_lines=2, text_size=7.0,
             )
         return None
 

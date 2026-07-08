@@ -19,6 +19,7 @@ import pytest
 from lvkit.graph.core import InMemoryVIGraph
 from lvkit.graph.models import (
     CaseStructureNode,
+    LocalVariableNode,
     LoopNode,
     SequenceNode,
     StructureNode,
@@ -964,30 +965,47 @@ LOCALVAR_VI = Path(
 
 
 def test_gref_local_variable_wires_to_correct_control():
-    """gRef (Local Variable) nodes must wire to the control their paramIdx
+    """gRef (Local Variable) nodes must be POSITIONED graph nodes (their own
+    icon, their own heap bounds) that wire to the control their paramIdx
     names — which indexes the VI's FULL front-panel control list, not the
-    connector-pane slots. Regression: two case selectors fed by local
-    variables of non-conpane boolean indicators were unwired (parser dropped
-    gRef), and a conpane-slot resolution mis-wired them to the wrong control."""
+    connector-pane slots. A local variable is NOT a passthrough alias to the
+    referenced control's FP terminal: aliasing produced wires that appeared
+    to originate at the (possibly cross-frame, hidden) FP terminal instead of
+    the local variable's own diagram position.
+
+    Regression: two case selectors fed by local variables of non-conpane
+    boolean indicators were unwired (parser dropped gRef entirely), then
+    later mis-wired to the wrong control (conpane-slot resolution) or to the
+    wrong SOURCE terminal (FP-terminal aliasing instead of the gRef's own
+    node)."""
     loaded = _load_graph(LOCALVAR_VI)
     if loaded is None:
         pytest.skip(f"sample VI not available: {LOCALVAR_VI}")
     graph, vi = loaded
-    name = {}
+    by_id: dict[str, tuple[object, object]] = {}
     for n in graph.iter_nodes(vi):
         for t in n.terminals:
-            name[t.id] = t.name
+            by_id[t.id] = (n, t)
     vinode = graph.get_graph_node(vi)
     for t in vinode.terminals:
-        name[t.id] = t.name
+        by_id[t.id] = (vinode, t)
 
-    def source_name(sel_raw: str) -> str | None:
+    def source(sel_raw: str) -> tuple[object, object] | tuple[None, None]:
         for w in graph.get_wires(vi, include_internal=True):
             if w.dest.terminal_id == f"{vi}::{sel_raw}":
-                return name.get(w.source.terminal_id)
-        return None
+                return by_id.get(w.source.terminal_id, (None, None))
+        return None, None
 
-    # These two selectors were unwired before gRef support; now they resolve to
-    # the boolean indicators their local variables reference (paramIdx 3 / 1).
-    assert source_name("284") == "hasTensPlace"
-    assert source_name("834") == "hasOnesPlace"
+    # These two selectors were unwired before gRef support; now they resolve
+    # to a real LocalVariableNode (their OWN diagram position), which in turn
+    # references the boolean indicators their local variables name (paramIdx
+    # 3 / 1) — NOT the indicators' own FP terminal directly.
+    for sel_raw, expected_control in (("284", "hasTensPlace"), ("834", "hasOnesPlace")):
+        node, term = source(sel_raw)
+        assert isinstance(node, LocalVariableNode), (
+            f"selector {sel_raw} source is {type(node).__name__}, expected "
+            f"LocalVariableNode (a positioned diagram node, not an FP-terminal "
+            f"alias)"
+        )
+        assert node.control_name == expected_control
+        assert term.name == expected_control

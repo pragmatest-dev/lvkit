@@ -17,6 +17,7 @@ from ..vilib_resolver import get_resolver as get_vilib_resolver
 from .models import (
     AnyGraphNode,
     ConstantNode,
+    LocalVariableNode,
     PolyInfo,
     StructureNode,
     VIMetadata,
@@ -51,6 +52,7 @@ _KIND_TO_LABELS: dict[str, list[str]] = {
     "operation": ["Operation"],
     "constant": ["Constant"],
     "formula": ["FormulaNode"],
+    "local_variable": ["LocalVariable"],
 }
 
 # Graph node kinds that represent executable operations
@@ -92,6 +94,8 @@ def _graph_node_to_op_kind(node: AnyGraphNode) -> str:
         return "operation"
     if isinstance(node, ConstantNode):
         return "constant"
+    if isinstance(node, LocalVariableNode):
+        return "local_variable"
     return "operation"
 
 

@@ -53,6 +53,7 @@ from .models import (
     CaseStructureNode,
     ConstantNode,
     InPlaceNode,
+    LocalVariableNode,
     LoopNode,
     SequenceNode,
     StructureNode,
@@ -436,30 +437,109 @@ class ConstructionMixin:
                                     break
                 continue  # No graph node for ctlRefConst
 
-            # gRef: Local Variable reference. Reads/writes an FP control by its
-            # paramIdx — the control's position in the VI's front-panel control
-            # list (covers non-conpane controls too). Same aliasing pattern as
-            # ctlRefConst: alias the (single) terminal to that control's FP
-            # terminal WireEnd, no graph node created. Unresolvable param_idx
-            # (a global VI's local var, or an out-of-range index) is deferred.
+            # gRef: Local Variable reference. Unlike ctlRefConst, a local
+            # variable is a POSITIONED diagram node (its own icon, its own
+            # heap bounds) — NOT a passthrough. It gets a real graph node so
+            # wires to/from it originate at ITS position, not the referenced
+            # control's (possibly cross-frame, hidden) FP terminal.
+            #
+            # The referenced control is resolved via paramIdx — the control's
+            # position in the VI's FULL front-panel control list (covers
+            # non-conpane controls too; see param_wire_ends above). A synthetic
+            # dataflow edge to/from the control's FP terminal WireEnd (mirrors
+            # _connect_subvi_calls's cross-VI enrichment edges) lets
+            # ctx.resolve() walk through the local variable to the control's
+            # bound value exactly as the old aliasing did, while the node
+            # itself still owns its own terminal for real wire connections.
             if isinstance(node, GRefNode):
                 fp_wire_end = (
                     param_wire_ends.get(node.param_idx)
                     if node.param_idx is not None
                     else None
                 )
-                if fp_wire_end:
-                    for term_uid, t_info in bd.terminal_info.items():
-                        if t_info.parent_uid == node.uid:
-                            term_lookup[term_uid] = fp_wire_end
-                            break
-                else:
+                control_name: str | None = None
+                if (
+                    fp is not None
+                    and node.param_idx is not None
+                    and 0 <= node.param_idx < len(fp.controls)
+                ):
+                    control_name = fp.controls[node.param_idx].name
+
+                if fp_wire_end is None:
                     logger.debug(
                         "VI %s: gRef %s param_idx=%s did not resolve to a "
-                        "front-panel control — deferring",
+                        "front-panel control — creating with fallback name",
                         vi_name, node.uid, node.param_idx,
                     )
-                continue  # No graph node for gRef
+
+                gref_term_uid: str | None = None
+                gref_t_info = None
+                for term_uid, t_info in bd.terminal_info.items():
+                    if t_info.parent_uid == node.uid:
+                        gref_term_uid = term_uid
+                        gref_t_info = t_info
+                        break
+
+                is_write = bool(gref_t_info) and not gref_t_info.is_output
+                direction = "input" if is_write else "output"
+                lv_type = None
+                if gref_t_info and gref_t_info.parsed_type:
+                    lv_type = self._enrich_type(gref_t_info.parsed_type)
+
+                q_gref_term_uid = (
+                    self._qid(vi_name, gref_term_uid)
+                    if gref_term_uid
+                    else q_node_uid
+                )
+                gref_terminal = Terminal(
+                    id=q_gref_term_uid,
+                    index=0,
+                    direction=direction,
+                    name=control_name,
+                    lv_type=lv_type,
+                )
+
+                local_var_node = LocalVariableNode(
+                    id=q_node_uid,
+                    vi=vi_name,
+                    name=control_name or node.name or "Local Variable",
+                    node_type=node.node_type,
+                    terminals=[gref_terminal],
+                    control_name=control_name,
+                    control_terminal_id=(
+                        fp_wire_end.terminal_id if fp_wire_end else None
+                    ),
+                    is_write=is_write,
+                )
+                g.add_node(q_node_uid, node=local_var_node)
+                vi_node_uids.add(q_node_uid)
+
+                if gref_term_uid:
+                    my_wire_end = WireEnd(
+                        terminal_id=q_gref_term_uid,
+                        node_id=q_node_uid,
+                        index=0,
+                        name=control_name,
+                    )
+                    term_lookup[gref_term_uid] = my_wire_end
+
+                    # Synthetic (non-drawn) dataflow edge to the referenced
+                    # control, direction-matched to read vs write — TODO:
+                    # WRITE is not yet consumed by codegen (kind
+                    # "local_variable" is excluded from operation dispatch),
+                    # this only wires the value for future write support.
+                    if fp_wire_end is not None:
+                        if is_write:
+                            g.add_edge(
+                                q_node_uid, vi_name,
+                                source=my_wire_end, dest=fp_wire_end,
+                            )
+                        else:
+                            g.add_edge(
+                                vi_name, q_node_uid,
+                                source=fp_wire_end, dest=my_wire_end,
+                            )
+                continue  # gRef fully handled — skip generic node path below
 
             # statVIRef: Static VI Reference constant.
             # Creates a ConstantNode whose value is the referenced VI name.
