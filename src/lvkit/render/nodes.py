@@ -42,6 +42,7 @@ from ..primitive_resolver import get_resolver as get_prim_resolver
 from ..vilib_resolver import get_resolver as get_vilib_resolver
 from .glyph import (
     ArithGlyph,
+    BooleanConstantGlyph,
     BracketGlyph,
     CenteredSvgGlyph,
     ConstantGlyph,
@@ -71,6 +72,17 @@ def _format_const(value: object) -> str:
             return value
         return str(int(f)) if f.is_integer() else value
     return str(value)
+
+
+_BOOL_TRUE_TOKENS = frozenset({"true", "t", "1", "yes", "on"})
+
+
+def _bool_value(raw: object) -> bool:
+    """Truthiness of a boolean constant's stored value — the parser may hand
+    back a real ``bool``, or a string/number token ('True'/'T'/'1'/...)."""
+    if isinstance(raw, bool):
+        return raw
+    return str(raw).strip().lower() in _BOOL_TRUE_TOKENS
 
 # Arithmetic-primitive name/operation -> triangle symbol (moved here from
 # the old draw.py dispatch dict — this IS "add a code-drawn built-in").
@@ -345,6 +357,9 @@ class GeneratedGlyphResolver:
                 return ErrorClusterGlyph()
             if fam == "variant":
                 return VariantGlyph()
+            if fam == "bool":
+                raw = node.raw_value if node.value is None else node.value
+                return BooleanConstantGlyph(_bool_value(raw))
             color = wire_style(node.lv_type).color
             raw = node.raw_value if node.value is None else node.value
             if numeric_repr(node.lv_type) is not None:

@@ -20,6 +20,7 @@ from lvkit.primitive_resolver import NodeIcon, PrimitiveEntry, ResolvedPrimitive
 from lvkit.render.backend import SvgBackend
 from lvkit.render.glyph import (
     ArithGlyph,
+    BooleanConstantGlyph,
     ConstantGlyph,
     InlineSvgGlyph,
     WrappedBoxGlyph,
@@ -114,6 +115,41 @@ def test_constant_node_resolves_via_generated_glyph():
     assert isinstance(glyph, ConstantGlyph)
     assert glyph.value == "0"  # LabVIEW omits trailing ".0" for whole floats
     assert glyph.color == DEFAULT_THEME.wire_float
+
+
+def test_boolean_constant_resolves_to_boolean_glyph():
+    from lvkit.render.nodes import _bool_value
+
+    bool_t = LVType(kind="primitive", underlying_type="Boolean")
+    true_node = ConstantNode(id="vi::t", vi="vi", value="True", lv_type=bool_t,
+                             terminals=[])
+    false_node = ConstantNode(id="vi::f", vi="vi", value="0000", lv_type=bool_t,
+                              terminals=[])
+    gt = resolve_glyph(true_node, _ctx())
+    gf = resolve_glyph(false_node, _ctx())
+    assert isinstance(gt, BooleanConstantGlyph) and gt.value is True
+    assert isinstance(gf, BooleanConstantGlyph) and gf.value is False
+    # token parsing: real bool, T/1/true -> True; anything else -> False
+    assert _bool_value(True) and _bool_value("T") and _bool_value("1")
+    assert not _bool_value("0000") and not _bool_value("False") and not _bool_value(0)
+
+
+def test_boolean_constant_glyph_true_vs_false_render():
+    b = SvgBackend()
+    BooleanConstantGlyph(True).draw(b, (0.0, 0.0, 16.0, 14.0), DEFAULT_THEME)
+    true_svg = b.render((0.0, 0.0, 16.0, 14.0))
+    b2 = SvgBackend()
+    BooleanConstantGlyph(False).draw(b2, (0.0, 0.0, 16.0, 14.0), DEFAULT_THEME)
+    false_svg = b2.render((0.0, 0.0, 16.0, 14.0))
+    green = DEFAULT_THEME.wire_bool
+    # True: green fill + white bezel + white T
+    assert f'fill="{green}"' in true_svg and 'stroke="#ffffff"' in true_svg
+    assert ">T</text>" in true_svg
+    # False: white fill + green outline + green F
+    assert 'fill="#ffffff"' in false_svg and f'stroke="{green}"' in false_svg
+    assert ">F</text>" in false_svg
+    # centered SQUARE (side = min(w,h) = 14), not stretched to the 16 width
+    assert 'width="14.0"' in true_svg
 
 
 def test_fallback_always_returns_a_glyph_for_an_unhandled_node_kind():
