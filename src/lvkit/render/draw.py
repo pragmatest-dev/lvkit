@@ -264,6 +264,17 @@ class _SelectorGeom:
     right_x: float   # ► center-x
 
 
+def _frame_display(structure: RenderStructure, scene: Scene, value: str) -> str:
+    """Selector text for one frame value. A stacked sequence shows the frame
+    number WITH the full range — ``N [0..M]`` (e.g. ``2 [0..2]``) — LabVIEW's
+    signature sequence label; a case shows its plain selector value."""
+    if isinstance(structure.node, SequenceNode):  # flat isn't interactive
+        values = scene.frame_values.get(structure.raw_uid, [])
+        last = len(values) - 1 if values else 0
+        return f"{value} [0..{last}]"
+    return value
+
+
 def _selector_geom(
     structure: RenderStructure, scene: Scene, *, has_dropdown: bool,
     backend: Backend,
@@ -271,7 +282,9 @@ def _selector_geom(
     x1, y1, x2, _ = structure.bounds
     values = scene.frame_values.get(structure.raw_uid, [])
     max_val_w = max(
-        (backend.measure_text(str(v), _SELECTOR_SIZE) for v in values), default=10.0,
+        (backend.measure_text(_frame_display(structure, scene, v), _SELECTOR_SIZE)
+         for v in values),
+        default=10.0,
     )
     pad = 4.0
     tri_w = _SELECTOR_TRI_W if has_dropdown else 0.0
@@ -336,8 +349,11 @@ def _draw_frame_selector(
 
     _arrow("prev", g.left_x, "◄")
 
-    # The value box. For a case it's the dropdown TOGGLE (and carries the frame
-    # list the JS controller reads); a stacked sequence's box is inert.
+    # Middle target — carries the frame list the JS controller reads. A CASE
+    # draws the white ring/value box + ▼ dropdown TOGGLE (the ring-control
+    # look). A STACKED SEQUENCE draws NO box and NO ▼ — its ``N [0..M]`` frame
+    # label sits flat on the bar (per-frame value-label pass), so it reads as a
+    # sequence, not a case; the middle is just a transparent config carrier.
     box_data = {
         "lv-struct": struct, "lv-frames": ";".join(values), "lv-default": default,
     }
@@ -347,16 +363,19 @@ def _draw_frame_selector(
         cls="lv-selector", data=box_data,
         style="cursor:pointer" if has_dropdown else None,
     )
-    backend.rect(bx1, by1, bx2, by2, fill="#ffffff",
-                 stroke=theme.struct_border, stroke_width=0.75)
-    if g.tri is not None:
-        tx1, ty1, tx2, ty2 = g.tri
-        backend.line(tx1, ty1, tx1, ty2, stroke="#cccccc", stroke_width=0.5)
-        tcx, tcy = (tx1 + tx2) / 2, (ty1 + ty2) / 2
-        backend.polygon(
-            [(tcx - 3.0, tcy - 1.6), (tcx + 3.0, tcy - 1.6), (tcx, tcy + 2.2)],
-            fill=theme.case_bar_text,
-        )
+    if has_dropdown:
+        backend.rect(bx1, by1, bx2, by2, fill="#ffffff",
+                     stroke=theme.struct_border, stroke_width=0.75)
+        if g.tri is not None:
+            tx1, ty1, tx2, ty2 = g.tri
+            backend.line(tx1, ty1, tx1, ty2, stroke="#cccccc", stroke_width=0.5)
+            tcx, tcy = (tx1 + tx2) / 2, (ty1 + ty2) / 2
+            backend.polygon(
+                [(tcx - 3.0, tcy - 1.6), (tcx + 3.0, tcy - 1.6), (tcx, tcy + 2.2)],
+                fill=theme.case_bar_text,
+            )
+    else:
+        backend.rect(bx1, by1, bx2, by2, fill="transparent", stroke="none")
     backend.end_group()
 
     _arrow("next", g.right_x, "►")
@@ -405,15 +424,17 @@ def _draw_frame_value_label(
     structure: RenderStructure, scene: Scene, value: str,
     backend: Backend, theme: Theme,
 ) -> None:
-    """The selected frame's value, centered in the value box's text zone (to
-    the LEFT of the ▼ dropdown, never under it or the arrows)."""
+    """The selected frame's label, centered in the selector's text zone (to the
+    LEFT of a case's ▼ dropdown, never under it or the arrows). A case shows its
+    plain value; a stacked sequence shows ``N [0..M]`` (see _frame_display)."""
     has_dropdown = isinstance(structure.node, CaseStructureNode)
     g = _selector_geom(structure, scene, has_dropdown=has_dropdown, backend=backend)
+    label = _frame_display(structure, scene, value)
     tri_w = (g.tri[2] - g.tri[0]) if g.tri is not None else 0.0
     zone_w = (g.box[2] - g.box[0]) - tri_w - 4.0
     text = (
-        value if backend.measure_text(value, _SELECTOR_SIZE) <= zone_w
-        else fit_label(value, zone_w, backend, _SELECTOR_SIZE)
+        label if backend.measure_text(label, _SELECTOR_SIZE) <= zone_w
+        else fit_label(label, zone_w, backend, _SELECTOR_SIZE)
     )
     backend.text(g.text_cx, g.baseline, text, _SELECTOR_SIZE, fill=theme.case_bar_text)
 
