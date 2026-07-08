@@ -9,6 +9,8 @@ node glyphs only — see DESIGN.md's phasing).
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+
 from ..graph.models import (
     AnyGraphNode,
     CaseStructureNode,
@@ -243,44 +245,98 @@ def _draw_while_loop_border(x1, y1, x2, y2, backend: Backend, theme: Theme) -> N
 # Bar height for a case/stacked-sequence selector bar (also used to position
 # the clickable overlay + value-label groups — see draw_scene).
 _CASE_BAR_H = 14.0
+_SELECTOR_SIZE = 9.0        # font size of the value + arrows
+_SELECTOR_TRI_W = 11.0      # width of the dropdown-triangle zone (case only)
+_SELECTOR_ARROW_GAP = 15.0  # horizontal room reserved for each flanking arrow
+
+
+@dataclass(frozen=True)
+class _SelectorGeom:
+    """Laid-out pieces of a case/stacked-sequence selector, so the value box
+    (base chrome), the arrows/dropdown, and the per-frame value text all
+    line up without overlapping — computed once from the frame values."""
+
+    box: tuple[float, float, float, float]  # white value-display box
+    tri: tuple[float, float, float, float] | None  # dropdown zone (case only)
+    text_cx: float   # center-x of the value text (its own zone, left of ▼)
+    baseline: float  # shared baseline y for value + arrows
+    left_x: float    # ◄ center-x
+    right_x: float   # ► center-x
+
+
+def _selector_geom(
+    structure: RenderStructure, scene: Scene, *, has_dropdown: bool,
+    backend: Backend,
+) -> _SelectorGeom:
+    x1, y1, x2, _ = structure.bounds
+    values = scene.frame_values.get(structure.raw_uid, [])
+    max_val_w = max(
+        (backend.measure_text(str(v), _SELECTOR_SIZE) for v in values), default=10.0,
+    )
+    pad = 4.0
+    tri_w = _SELECTOR_TRI_W if has_dropdown else 0.0
+    box_w = max_val_w + 2 * pad + tri_w
+    box_w = max(22.0, min(box_w, (x2 - x1) - 2 * _SELECTOR_ARROW_GAP))
+    cx = (x1 + x2) / 2
+    bx1, bx2 = cx - box_w / 2, cx + box_w / 2
+    by1, by2 = y1 - _CASE_BAR_H + 2.0, y1 - 2.0
+    box = (bx1, by1, bx2, by2)
+    tri = (bx2 - tri_w, by1, bx2, by2) if has_dropdown else None
+    text_right = bx2 - tri_w
+    baseline = (by1 + by2) / 2 + _SELECTOR_SIZE * 0.34
+    return _SelectorGeom(
+        box=box, tri=tri, text_cx=(bx1 + text_right) / 2, baseline=baseline,
+        left_x=bx1 - _SELECTOR_ARROW_GAP / 2, right_x=bx2 + _SELECTOR_ARROW_GAP / 2,
+    )
 
 
 def _draw_frame_border(
-    structure: RenderStructure, backend: Backend, theme: Theme, *, kind: str,
+    structure: RenderStructure, backend: Backend, theme: Theme,
 ) -> None:
-    """The interactive structure's box + selector bar chrome.
-
-    A case shows ``◄ ▼ ►`` (the ``▼`` is the value-picker affordance); a
-    stacked sequence shows ``◄ ►`` only — there's no dropdown, just prev/
-    next through the frame order.
-
-    The frame's VALUE/index text is NOT drawn here — it lives in a
-    dedicated, per-(struct, value) ``lv-frame`` group (see draw_scene's
-    value-label pass) so it stays correct under nesting and flips with the
-    selector.
-    """
+    """The interactive structure's outer box + selector bar background. The
+    value box, arrows, and dropdown are drawn by ``_draw_frame_selector``
+    (it has the frame values needed to size the box); the value text lives in
+    the per-frame value-label groups (see draw_scene)."""
     x1, y1, x2, y2 = structure.bounds
     backend.rect(x1, y1, x2, y2, fill="none", stroke=theme.struct_border,
                  stroke_width=1.2)
     backend.rect(x1, y1 - _CASE_BAR_H, x2, y1, fill=theme.case_bar_fill,
                  stroke=theme.struct_border, stroke_width=1)
-    cx = (x1 + x2) / 2
-    backend.text(cx - 16, y1 - 3.5, "◄", 9, fill=theme.case_bar_text)
-    right = "▼ ►" if kind == "case" else "►"
-    backend.text(cx + 16, y1 - 3.5, right, 9, fill=theme.case_bar_text)
 
 
 def _draw_frame_selector(
-    structure: RenderStructure, scene: Scene, backend: Backend,
+    structure: RenderStructure, scene: Scene, backend: Backend, theme: Theme,
 ) -> None:
-    """A transparent, clickable overlay on an interactive structure's
-    selector bar, carrying the frame-cycle metadata the inline JS
-    controller reads on click (``__init__.py``'s frame controller)."""
+    """The selector's value box (a white outlined display), the ◄/► prev/next
+    arrows, and — for a case — a ▼ dropdown triangle in its own zone, plus the
+    transparent clickable overlay carrying the frame-cycle metadata the inline
+    JS controller reads on click. A stacked sequence omits the ▼ (no
+    value-picker, just prev/next through the frame order). The frame VALUE is
+    drawn on top per-frame by ``_draw_frame_value_label``."""
     values = scene.frame_values.get(structure.raw_uid)
     default = scene.default_frame.get(structure.raw_uid)
     if not values or default is None:
         return
-    x1, y1, x2, _y2 = structure.bounds
+    has_dropdown = isinstance(structure.node, CaseStructureNode)
+    g = _selector_geom(structure, scene, has_dropdown=has_dropdown, backend=backend)
+    bx1, by1, bx2, by2 = g.box
+
+    # White value-display box (the "dropdown" the selected value sits in).
+    backend.rect(bx1, by1, bx2, by2, fill="#ffffff",
+                 stroke=theme.struct_border, stroke_width=0.75)
+    backend.text(g.left_x, g.baseline, "◄", _SELECTOR_SIZE, fill=theme.case_bar_text)
+    backend.text(g.right_x, g.baseline, "►", _SELECTOR_SIZE, fill=theme.case_bar_text)
+    if g.tri is not None:
+        tx1, ty1, tx2, ty2 = g.tri
+        backend.line(tx1, ty1, tx1, ty2, stroke="#cccccc", stroke_width=0.5)
+        tcx, tcy = (tx1 + tx2) / 2, (ty1 + ty2) / 2
+        backend.polygon(
+            [(tcx - 3.0, tcy - 1.6), (tcx + 3.0, tcy - 1.6), (tcx, tcy + 2.2)],
+            fill=theme.case_bar_text,
+        )
+
+    # Clickable overlay over the whole selector region (arrows + box).
+    x1, y1, _x2, _y2 = structure.bounds
     backend.begin_group(
         cls="lv-selector",
         data={
@@ -290,15 +346,26 @@ def _draw_frame_selector(
         },
         style="cursor:pointer",
     )
-    backend.rect(x1, y1 - _CASE_BAR_H, x2, y1, fill="transparent", stroke="none")
+    backend.rect(g.left_x - 6.0, y1 - _CASE_BAR_H, g.right_x + 6.0, y1,
+                 fill="transparent", stroke="none")
     backend.end_group()
 
 
 def _draw_frame_value_label(
-    structure: RenderStructure, value: str, backend: Backend, theme: Theme,
+    structure: RenderStructure, scene: Scene, value: str,
+    backend: Backend, theme: Theme,
 ) -> None:
-    x1, y1, x2, _y2 = structure.bounds
-    backend.text((x1 + x2) / 2, y1 - 3.5, value, 9, fill=theme.case_bar_text)
+    """The selected frame's value, centered in the value box's text zone (to
+    the LEFT of the ▼ dropdown, never under it or the arrows)."""
+    has_dropdown = isinstance(structure.node, CaseStructureNode)
+    g = _selector_geom(structure, scene, has_dropdown=has_dropdown, backend=backend)
+    tri_w = (g.tri[2] - g.tri[0]) if g.tri is not None else 0.0
+    zone_w = (g.box[2] - g.box[0]) - tri_w - 4.0
+    text = (
+        value if backend.measure_text(value, _SELECTOR_SIZE) <= zone_w
+        else fit_label(value, zone_w, backend, _SELECTOR_SIZE)
+    )
+    backend.text(g.text_cx, g.baseline, text, _SELECTOR_SIZE, fill=theme.case_bar_text)
 
 
 def _draw_sequence_border(
@@ -324,10 +391,8 @@ def draw_structure(
         _draw_for_loop_border(x1, y1, x2, y2, backend, theme)
     elif kind == "whileLoop":
         _draw_while_loop_border(x1, y1, x2, y2, backend, theme)
-    elif kind == "case":
-        _draw_frame_border(structure, backend, theme, kind="case")
-    elif kind == "stackedSequence":
-        _draw_frame_border(structure, backend, theme, kind="seq")
+    elif kind in ("case", "stackedSequence"):
+        _draw_frame_border(structure, backend, theme)
     elif kind == "flatSequence":
         _draw_sequence_border(structure, backend, theme)
     else:
@@ -523,7 +588,7 @@ def _draw_layer_content(
     for structure in structures:
         draw_structure(structure, backend, theme)
         if _is_interactive_structure(structure.node):
-            _draw_frame_selector(structure, scene, backend)
+            _draw_frame_selector(structure, scene, backend, theme)
 
     for net in nets:
         for branch in net.branches:
@@ -622,13 +687,20 @@ def draw_scene(scene: Scene, backend: Backend, theme: Theme = DEFAULT_THEME) -> 
             label_path: FramePath = structure.frame_path + (
                 (structure.raw_uid, value),
             )
+            visible = value == default and _is_default_visible(
+                structure.frame_path, scene.default_frame,
+            )
+            # pointer-events:none so a click on the value text falls through to
+            # the .lv-selector overlay beneath (which is drawn earlier) — the
+            # whole selector stays clickable, value digits included.
+            style = (
+                "pointer-events:none" if visible
+                else "display:none;pointer-events:none"
+            )
             backend.begin_group(
                 cls="lv-frame",
                 data={"path": encode_frame_path(label_path)},
-                style=None if (
-                    value == default
-                    and _is_default_visible(structure.frame_path, scene.default_frame)
-                ) else "display:none",
+                style=style,
             )
-            _draw_frame_value_label(structure, value, backend, theme)
+            _draw_frame_value_label(structure, scene, value, backend, theme)
             backend.end_group()

@@ -399,7 +399,7 @@ def test_case_svg_has_lv_frame_groups_one_visible_per_struct():
             matches = re.findall(pattern, svg)
             assert matches, f"no lv-frame group for {path_attr}"
             for _whole, style in matches:
-                if style == "display:none":
+                if "display:none" in style:
                     hidden += 1
                 else:
                     visible += 1
@@ -568,7 +568,7 @@ def test_stacked_sequence_svg_has_lv_frame_and_selector():
             matches = re.findall(pattern, svg)
             assert matches, f"no lv-frame group for {path_attr}"
             for _whole, style in matches:
-                if style == "display:none":
+                if "display:none" in style:
                     hidden += 1
                 else:
                     visible += 1
