@@ -295,11 +295,8 @@ def _render_terminals(
 # an optional input wire, SR/auto-index carry real data). "selector" also
 # matches by name because the graph tags it that way (construction.py)
 # rather than always setting tunnel_type="caseSel".
-# Shift register: the RIGHT terminal (rSR — written at iteration end) shows the
-# DOWN arrow; the LEFT terminal (lSR — read at the next iteration's start) shows
-# the UP arrow. (These were previously swapped.)
 _TUNNEL_GLYPH_KIND = {
-    "lMax": "N", "lSR": "sr_up", "rSR": "sr_down",
+    "lMax": "N", "lSR": "sr_down", "rSR": "sr_up",
     "lpTun": "autoindex", "caseSel": "selector",
 }
 
