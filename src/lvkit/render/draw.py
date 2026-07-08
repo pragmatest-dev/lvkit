@@ -9,7 +9,7 @@ node glyphs only — see DESIGN.md's phasing).
 
 from __future__ import annotations
 
-from ..graph.models import CaseStructureNode, VINode
+from ..graph.models import CaseStructureNode, SequenceNode, VINode
 from ..models import FPTerminal, LVType
 from .backend import Backend, Point
 from .glyph import ArithGlyph, ErrorClusterGlyph, VariantGlyph, fit_label
@@ -47,6 +47,15 @@ _STRUCTURE_STYLE = {
 # LabVIEW's array-control terminal icon always shows a 3-row index display
 # (i / j / k) as fixed chrome, independent of the array's real dimensionality.
 _ARRAY_INDEX_ROWS = 3
+
+
+def _is_interactive_structure(node: object) -> bool:
+    """Case structures and STACKED sequences get selector chrome + per-frame
+    ``lv-frame``/``lv-selector`` groups; flat sequences (film-strip, every
+    frame always visible) and loops do not."""
+    return isinstance(node, CaseStructureNode) or (
+        isinstance(node, SequenceNode) and node.node_type != "flatSequence"
+    )
 
 
 def _inset(bounds, frac: float = 0.075):
@@ -193,19 +202,24 @@ def _draw_while_loop_border(x1, y1, x2, y2, backend: Backend, theme: Theme) -> N
                  stroke_width=1.2)
 
 
-# Bar height for a case structure's selector bar (also used to position the
-# clickable overlay + value-label groups — see draw_scene).
+# Bar height for a case/stacked-sequence selector bar (also used to position
+# the clickable overlay + value-label groups — see draw_scene).
 _CASE_BAR_H = 14.0
 
 
-def _draw_case_border(
-    structure: RenderStructure, backend: Backend, theme: Theme,
+def _draw_frame_border(
+    structure: RenderStructure, backend: Backend, theme: Theme, *, kind: str,
 ) -> None:
-    """The case structure's box + selector bar chrome (``◄`` / ``▼ ►``).
+    """The interactive structure's box + selector bar chrome.
 
-    The frame's VALUE text is NOT drawn here — it lives in a dedicated,
-    per-(struct, value) ``lv-frame`` group (see draw_scene's value-label
-    pass) so it stays correct under nesting and flips with the selector.
+    A case shows ``◄ ▼ ►`` (the ``▼`` is the value-picker affordance); a
+    stacked sequence shows ``◄ ►`` only — there's no dropdown, just prev/
+    next through the frame order.
+
+    The frame's VALUE/index text is NOT drawn here — it lives in a
+    dedicated, per-(struct, value) ``lv-frame`` group (see draw_scene's
+    value-label pass) so it stays correct under nesting and flips with the
+    selector.
     """
     x1, y1, x2, y2 = structure.bounds
     backend.rect(x1, y1, x2, y2, fill="none", stroke=theme.struct_border,
@@ -214,15 +228,16 @@ def _draw_case_border(
                  stroke=theme.struct_border, stroke_width=1)
     cx = (x1 + x2) / 2
     backend.text(cx - 16, y1 - 3.5, "◄", 9, fill=theme.case_bar_text)
-    backend.text(cx + 16, y1 - 3.5, "▼ ►", 9, fill=theme.case_bar_text)
+    right = "▼ ►" if kind == "case" else "►"
+    backend.text(cx + 16, y1 - 3.5, right, 9, fill=theme.case_bar_text)
 
 
-def _draw_case_selector(
+def _draw_frame_selector(
     structure: RenderStructure, scene: Scene, backend: Backend,
 ) -> None:
-    """A transparent, clickable overlay on a case structure's selector bar,
-    carrying the frame-cycle metadata the inline JS controller reads on
-    click (``__init__.py``'s frame controller)."""
+    """A transparent, clickable overlay on an interactive structure's
+    selector bar, carrying the frame-cycle metadata the inline JS
+    controller reads on click (``__init__.py``'s frame controller)."""
     values = scene.frame_values.get(structure.raw_uid)
     default = scene.default_frame.get(structure.raw_uid)
     if not values or default is None:
@@ -241,18 +256,25 @@ def _draw_case_selector(
     backend.end_group()
 
 
-def _draw_case_value_label(
+def _draw_frame_value_label(
     structure: RenderStructure, value: str, backend: Backend, theme: Theme,
 ) -> None:
     x1, y1, x2, _y2 = structure.bounds
     backend.text((x1 + x2) / 2, y1 - 3.5, value, 9, fill=theme.case_bar_text)
 
 
-def _draw_sequence_border(x1, y1, x2, y2, backend: Backend, theme: Theme) -> None:
+def _draw_sequence_border(
+    structure: RenderStructure, backend: Backend, theme: Theme,
+) -> None:
+    """Flat sequence: outer box + top/bottom rails, plus a vertical divider
+    line at each inter-frame boundary (the film-strip look)."""
+    x1, y1, x2, y2 = structure.bounds
     backend.rect(x1, y1, x2, y2, fill="none", stroke=theme.struct_border,
                  stroke_width=1.2)
     backend.line(x1, y1 + 4, x2, y1 + 4, stroke=theme.struct_border, stroke_width=1)
     backend.line(x1, y2 - 4, x2, y2 - 4, stroke=theme.struct_border, stroke_width=1)
+    for dx in structure.dividers:
+        backend.line(dx, y1, dx, y2, stroke=theme.struct_border, stroke_width=1)
 
 
 def draw_structure(
@@ -265,12 +287,14 @@ def draw_structure(
     elif kind == "whileLoop":
         _draw_while_loop_border(x1, y1, x2, y2, backend, theme)
     elif kind == "case":
-        _draw_case_border(structure, backend, theme)
+        _draw_frame_border(structure, backend, theme, kind="case")
+    elif kind == "stackedSequence":
+        _draw_frame_border(structure, backend, theme, kind="seq")
     elif kind == "flatSequence":
-        _draw_sequence_border(x1, y1, x2, y2, backend, theme)
+        _draw_sequence_border(structure, backend, theme)
     else:
-        # Stacked sequence, In Place Element Structure, event structure,
-        # or anything else — a plain border (matches the prior renderer).
+        # In Place Element Structure, event structure, or anything else —
+        # a plain border (matches the prior renderer).
         backend.rect(x1, y1, x2, y2, fill="none", stroke=theme.struct_border,
                      stroke_width=1.2)
     # Border terminals (N/i/cond, tunnels, shift registers, selector) are NOT
@@ -455,12 +479,13 @@ def _draw_layer_content(
 ) -> None:
     """One layer's worth of structures -> wires -> boundary terminals ->
     nodes, in the SAME relative order as the original single-pass
-    ``draw_scene`` — reused for both the base layer and each case-frame
-    group so a non-case VI (only a base layer) renders byte-identically."""
+    ``draw_scene`` — reused for both the base layer and each frame group so
+    a VI with no interactive structures (only a base layer) renders
+    byte-identically."""
     for structure in structures:
         draw_structure(structure, backend, theme)
-        if isinstance(structure.node, CaseStructureNode):
-            _draw_case_selector(structure, scene, backend)
+        if _is_interactive_structure(structure.node):
+            _draw_frame_selector(structure, scene, backend)
 
     for net in nets:
         for branch in net.branches:
@@ -540,11 +565,12 @@ def draw_scene(scene: Scene, backend: Backend, theme: Theme = DEFAULT_THEME) -> 
         _draw_layer_coercion_dots(nets, dots, backend, theme)
         backend.end_group()
 
-    # Dedicated single-segment value-label groups (see _draw_case_border /
-    # DECISION 2): one per (case struct, frame value), so each case's
-    # ``◄ value ▼ ►`` label flips independently of content nesting.
+    # Dedicated single-segment value-label groups (see _draw_frame_border /
+    # DECISION 2): one per (struct, frame value), so each case's
+    # ``◄ value ▼ ►`` (or stacked sequence's ``◄ index ►``) label flips
+    # independently of content nesting.
     for structure in scene.structures:
-        if not isinstance(structure.node, CaseStructureNode):
+        if not _is_interactive_structure(structure.node):
             continue
         values = scene.frame_values.get(structure.raw_uid, [])
         default = scene.default_frame.get(structure.raw_uid)
@@ -566,5 +592,5 @@ def draw_scene(scene: Scene, backend: Backend, theme: Theme = DEFAULT_THEME) -> 
                     and _is_default_visible(structure.frame_path, scene.default_frame)
                 ) else "display:none",
             )
-            _draw_case_value_label(structure, value, backend, theme)
+            _draw_frame_value_label(structure, value, backend, theme)
             backend.end_group()

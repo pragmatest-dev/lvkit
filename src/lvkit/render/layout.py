@@ -79,6 +79,10 @@ class Layout:
     # raw uids whose ``<label>`` child is hidden (objFlags bit 0x8) — i.e.
     # LabVIEW's "label visible" property is off for that element.
     hidden_labels: set[str] = field(default_factory=set)
+    # Flat-sequence raw uid -> absolute x of each inter-frame boundary
+    # (frames 1..N-1) — the film-strip dividers. Empty for every other
+    # structure kind (stacked sequences overlap; nothing to divide).
+    sequence_dividers: dict[str, list[float]] = field(default_factory=dict)
     icon_png: Path | None = None
 
     def scene_bounds(self, pad: float = 30.0) -> Rect:
@@ -116,6 +120,8 @@ class _LayoutBuilder:
         self.indexing_tunnels: set[str] = set()
         # raw uids whose direct <label> child is hidden (objFlags bit 0x8).
         self.hidden_labels: set[str] = set()
+        # flat-sequence raw uid -> inter-frame divider x-positions.
+        self.sequence_dividers: dict[str, list[float]] = {}
 
     def _record_label_hidden(self, elem: ET.Element, uid: str | None) -> None:
         """Record uid whose ``<label>`` is hidden (objFlags bit 0x8), so the
@@ -246,6 +252,17 @@ class _LayoutBuilder:
                     # tunnel/selector glyphs). A nested constant's ddo box,
                     # if present, is more specific and overrides it below.
                     self.node_bounds.setdefault(term_uid, abs_tb)
+                    # A tunnel's GRAPH terminal uid can be a nested alias of
+                    # this term (the dco's inner/outer termList uids) rather
+                    # than term_uid itself — e.g. a stacked-sequence tunnel is
+                    # modeled under uid 729 while the rect lives on term 704.
+                    # Register the border rect under every aliased uid too
+                    # (mirroring terminal_centers below), but only for a pure
+                    # terminal (no attached constant), so the structure-border
+                    # lookup by the graph's chosen uid finds geometry.
+                    if cb is None:
+                        for u in self._collect_uids(term):
+                            self.node_bounds.setdefault(u, abs_tb)
             if cb is not None:
                 abs_cb = (
                     ox + cb[0] + off_x, oy + cb[1] + off_y,
@@ -340,18 +357,48 @@ class _LayoutBuilder:
             return
 
         # Flat/stacked sequence: frames live under sequenceList, each with
-        # its own diagramList. LabVIEW doesn't record a per-frame absolute
-        # offset in this element, so (matching the prior renderer) every
-        # frame is walked at the sequence's own origin.
+        # its own diagramList.
+        #
+        # Stacked sequence: frames overlap at one spot (you flip through
+        # them) — matching the prior renderer, every frame is walked at the
+        # sequence's own origin.
+        #
+        # Flat sequence: frames sit side by side (a film strip). Each
+        # ``<sequenceFrame>`` carries its own ``<bounds>`` whose ``left``/
+        # ``top`` are the frame's absolute heap position — the per-frame
+        # x/y offset relative to frame 0 is real recorded data, not a
+        # guess. Tile each frame's diagram by that offset and record the
+        # inter-frame boundaries as film-strip dividers.
         seqlist = elem.find("sequenceList")
-        if seqlist is not None:
-            for frame in seqlist.findall("SL__arrayElement"):
-                fdl = frame.find("diagramList")
-                if fdl is None:
-                    continue
-                for d in fdl.findall("SL__arrayElement"):
-                    if d.get("class") == "diag":
-                        self.walk(d, ax1, ay1)
+        if seqlist is None:
+            return
+        is_flat = elem.get("class") == "flatSequence"
+        frames = seqlist.findall("SL__arrayElement")
+        frame0_rect = _rect(frames[0]) if is_flat and frames else None
+        dividers: list[float] = []
+        for i, frame in enumerate(frames):
+            dx = dy = 0.0
+            if is_flat and frame0_rect is not None:
+                frect = _rect(frame)
+                if frect is not None:
+                    dx = frect[0] - frame0_rect[0]
+                    dy = frect[1] - frame0_rect[1]
+                    if i > 0:
+                        dividers.append(ax1 + dx)
+            # A sequence frame's tunnels (seqTun/flatSeqTun) live in the
+            # ``sequenceFrame``'s OWN termList — not the sequence element's
+            # (which has none) — so map them here with the frame offset.
+            # Without this the structure's border tunnels get no geometry and
+            # never render, and every wire through them is dropped.
+            self._map_terms(frame, ax1 + dx, ay1 + dy)
+            fdl = frame.find("diagramList")
+            if fdl is None:
+                continue
+            for d in fdl.findall("SL__arrayElement"):
+                if d.get("class") == "diag":
+                    self.walk(d, ax1 + dx, ay1 + dy)
+        if is_flat and dividers and uid:
+            self.sequence_dividers.setdefault(uid, []).extend(dividers)
 
 
 def build_layout(vi_or_bd: Path) -> Layout:
@@ -378,5 +425,6 @@ def build_layout(vi_or_bd: Path) -> Layout:
         structure_border_uids=builder.structure_border_uids,
         indexing_tunnels=builder.indexing_tunnels,
         hidden_labels=builder.hidden_labels,
+        sequence_dividers=builder.sequence_dividers,
         icon_png=icon if icon.exists() else None,
     )

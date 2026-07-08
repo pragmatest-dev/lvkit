@@ -61,6 +61,12 @@ CORPUS: list[Sample] = [
            "Arrays + clusters · purple Variant terminals + solid-purple constant"),
     Sample("vitester_build", "samples/JKI-VI-Tester/source/build.vi",
            "LabVIEW class / project-plugin (OOP) dataflow"),
+    Sample(
+        "stacked_sequence",
+        "samples/OpenG/extracted/File Group 0/user.lib/_OpenG.lib/string/"
+        "string.llb/Number to Proper Engl Text__ogtk.vi",
+        "Stacked sequence (3 frames) · click the ◄ index ► selector to flip",
+    ),
 ]
 
 

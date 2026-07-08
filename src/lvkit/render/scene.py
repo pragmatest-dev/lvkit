@@ -22,10 +22,8 @@ from ..graph.models import (
     Wire,
 )
 from ..models import (
-    CaseFrame,
     FPTerminal,
     LVType,
-    SequenceFrame,
     Terminal,
     TunnelTerminal,
 )
@@ -36,8 +34,6 @@ from .style import WireStyle, numeric_repr, wire_style
 from .wire_router import WireRouter, _compress
 
 logger = logging.getLogger(__name__)
-
-Frame = CaseFrame | SequenceFrame
 
 # LabVIEW-internal nodes that are NOT drawn as visible diagram objects. `nMux`
 # ("Node Multiplexer") is the compiler's data multiplexer at structure
@@ -70,10 +66,11 @@ class RenderFPTerminal:
     label_visible: bool = True
 
 
-# Root->leaf (raw case-structure uid, str(selector_value)) segments naming
-# which CASE-structure frame(s) an item belongs to. () = base/always-visible
-# (top level, inside a loop, or inside a flat/stacked sequence — only CASE
-# structures are interactive, see _frame_path).
+# Root->leaf (raw structure uid, str(selector_value / frame index)) segments
+# naming which interactive-structure frame(s) an item belongs to. () =
+# base/always-visible (top level, inside a loop, or inside a flat sequence —
+# only CASE structures and STACKED sequences are interactive, see
+# _frame_path).
 FramePath = tuple[tuple[str, str], ...]
 
 
@@ -128,14 +125,20 @@ class RenderStructure:
     node: StructureNode
     bounds: Rect
     border_terminals: list[RenderBorderTerminal] = field(default_factory=list)
-    # This structure's OWN case-ancestor path (computed from its parent
-    # chain) — non-empty when this structure itself sits inside another
-    # CASE structure's frame, so its border/chrome draws inside that
-    # ancestor's frame group instead of the base layer.
+    # This structure's OWN interactive-ancestor path (computed from its
+    # parent chain) — non-empty when this structure itself sits inside
+    # another CASE structure's or STACKED sequence's frame, so its
+    # border/chrome draws inside that ancestor's frame group instead of the
+    # base layer.
     frame_path: FramePath = ()
     # Raw (VI-name-stripped) uid of this structure — the stable key into
-    # Scene.default_frame / Scene.frame_values for case selector chrome.
+    # Scene.default_frame / Scene.frame_values for selector chrome (case or
+    # stacked sequence).
     raw_uid: str = ""
+    # Flat-sequence film-strip divider x-positions (absolute), one per
+    # inter-frame boundary (frames 1..N-1) — from Layout.sequence_dividers.
+    # Empty for every other structure kind.
+    dividers: list[float] = field(default_factory=list)
 
 
 @dataclass(frozen=True)
@@ -173,9 +176,10 @@ class Scene:
     wire_nets: list[RenderWireNet] = field(default_factory=list)
     coercion_dots: list[RenderCoercionDot] = field(default_factory=list)
     icon_png: Path | None = None
-    # raw case-struct uid -> default selector value (str), and -> the
-    # ordered list of ALL selector values — the SVG selector chrome's
-    # click-to-cycle metadata (see draw.py's lv-selector / __init__.py's JS).
+    # raw struct uid (case or stacked sequence) -> default selector value
+    # (str), and -> the ordered list of ALL selector values — the SVG
+    # selector chrome's click-to-cycle metadata (see draw.py's lv-selector /
+    # __init__.py's JS).
     default_frame: dict[str, str] = field(default_factory=dict)
     frame_values: dict[str, list[str]] = field(default_factory=dict)
 
@@ -193,66 +197,21 @@ def _strip_prefix(qualified_id: str, vi_name: str) -> str:
     return qualified_id
 
 
-def _shown_frame_and_hidden_keys(
-    node: StructureNode,
-) -> tuple[Frame | None, set[str]]:
-    """Pick the single displayed frame for case/stacked-sequence structures.
-
-    Flat sequences show every frame side by side on the real diagram (not
-    single-frame), so callers only invoke this for case structures and
-    *stacked* sequences.
-    """
-    if isinstance(node, CaseStructureNode):
-        case_frames = node.frames
-        if not case_frames:
-            return None, set()
-        shown_case = next(
-            (f for f in case_frames if f.is_default), case_frames[0],
-        )
-        hidden_case = {
-            str(f.selector_value) for f in case_frames if f is not shown_case
-        }
-        return shown_case, hidden_case
-    if isinstance(node, SequenceNode):
-        seq_frames = node.frames
-        if not seq_frames:
-            return None, set()
-        shown_seq = seq_frames[0]
-        hidden_seq = {str(i) for i in range(len(seq_frames)) if i != 0}
-        return shown_seq, hidden_seq
-    return None, set()
-
-
-def _hidden_structures(
-    nodes: list[AnyGraphNode],
-) -> dict[str, tuple[Frame | None, set[str]]]:
-    """Structure id -> (shown frame, hidden frame keys) for STACKED
-    sequences only.
-
-    CASE structures are interactive now (every frame renders, tagged with a
-    frame path — see ``_frame_path`` / ``_case_frame_info``) and are no
-    longer single-frame-excluded here. Flat sequences show every frame side
-    by side on the real diagram, so they were never excluded either.
-    """
-    result: dict[str, tuple[Frame | None, set[str]]] = {}
-    for node in nodes:
-        if isinstance(node, SequenceNode) and node.node_type != "flatSequence":
-            shown, hidden = _shown_frame_and_hidden_keys(node)
-            if hidden:
-                result[node.id] = (shown, hidden)
-    return result
+def _is_stacked_sequence(node: AnyGraphNode) -> bool:
+    return isinstance(node, SequenceNode) and node.node_type != "flatSequence"
 
 
 def _frame_path(
     node: AnyGraphNode, by_id: dict[str, AnyGraphNode], vi_name: str,
 ) -> FramePath:
-    """Root->leaf ``(raw_case_uid, str(selector_value))`` segments for each
-    CASE-structure ancestor of ``node`` — walks the ``parent`` chain.
+    """Root->leaf ``(raw_struct_uid, str(selector_value / frame index))``
+    segments for each interactive-structure ancestor of ``node`` — walks the
+    ``parent`` chain.
 
-    Scope is CASE structures ONLY (roadmap #17 decision): loops, flat
-    sequences, and stacked sequences are skipped, so their children always
-    get ``()`` (base/always-visible), matching their unchanged single-frame
-    or show-everything rendering.
+    Scope is CASE structures and STACKED sequences (roadmap #17 + this
+    feature): loops and flat sequences are skipped, so their children always
+    get ``()`` (base/always-visible), matching their unchanged
+    show-everything rendering.
     """
     segs: list[tuple[str, str]] = []
     cur: AnyGraphNode | None = node
@@ -260,7 +219,7 @@ def _frame_path(
         parent = by_id.get(cur.parent)
         if parent is None:
             break
-        if isinstance(parent, CaseStructureNode):
+        if isinstance(parent, CaseStructureNode) or _is_stacked_sequence(parent):
             segs.append((_strip_prefix(parent.id, vi_name), str(cur.frame)))
         cur = parent
     segs.reverse()
@@ -280,75 +239,33 @@ def _is_default_visible(path: FramePath, default_frame: dict[str, str]) -> bool:
     return all(default_frame.get(s) == v for s, v in path)
 
 
-def _case_frame_info(
+def _frame_info(
     nodes: list[AnyGraphNode], vi_name: str,
 ) -> tuple[dict[str, str], dict[str, list[str]]]:
-    """raw case-struct uid -> default selector value, and -> the ordered
-    list of ALL selector values (case.frames order) — the selector chrome's
-    click-to-cycle metadata."""
+    """raw struct uid -> default frame value, and -> the ordered list of ALL
+    frame values — the selector chrome's click-to-cycle metadata.
+
+    Cases key by selector value (with ``is_default``/first-frame fallback);
+    stacked sequences key by frame index (always default "0", frames execute
+    in order so the first is the natural starting view).
+    """
     default_frame: dict[str, str] = {}
     frame_values: dict[str, list[str]] = {}
     for node in nodes:
-        if not isinstance(node, CaseStructureNode) or not node.frames:
-            continue
-        raw = _strip_prefix(node.id, vi_name)
-        frame_values[raw] = [str(f.selector_value) for f in node.frames]
-        shown = next((f for f in node.frames if f.is_default), node.frames[0])
-        default_frame[raw] = str(shown.selector_value)
+        if isinstance(node, CaseStructureNode) and node.frames:
+            raw = _strip_prefix(node.id, vi_name)
+            frame_values[raw] = [str(f.selector_value) for f in node.frames]
+            shown = next((f for f in node.frames if f.is_default), node.frames[0])
+            default_frame[raw] = str(shown.selector_value)
+        elif (
+            isinstance(node, SequenceNode)
+            and node.node_type != "flatSequence"
+            and node.frames
+        ):
+            raw = _strip_prefix(node.id, vi_name)
+            frame_values[raw] = [str(i) for i in range(len(node.frames))]
+            default_frame[raw] = "0"
     return default_frame, frame_values
-
-
-def _excluded_node_ids(nodes: list[AnyGraphNode]) -> set[str]:
-    """Nodes hidden by the single-frame display policy, incl. transitive
-    descendants of an excluded structure (C2)."""
-    hidden_by_structure = {
-        struct_id: hidden for struct_id, (_shown, hidden) in
-        _hidden_structures(nodes).items()
-    }
-
-    excluded: set[str] = set()
-    by_parent: dict[str, list[str]] = {}
-    for node in nodes:
-        if node.parent:
-            by_parent.setdefault(node.parent, []).append(node.id)
-        hidden = hidden_by_structure.get(node.parent or "")
-        if hidden is not None and str(node.frame) in hidden:
-            excluded.add(node.id)
-
-    frontier = list(excluded)
-    while frontier:
-        nid = frontier.pop()
-        for child_id in by_parent.get(nid, []):
-            if child_id not in excluded:
-                excluded.add(child_id)
-                frontier.append(child_id)
-    return excluded
-
-
-def _excluded_terminal_ids(nodes: list[AnyGraphNode]) -> set[str]:
-    """Inner tunnel terminals of a case structure's HIDDEN frames.
-
-    A case structure has one inner tunnel terminal PER FRAME, all attached
-    to the SAME outer tunnel terminal on the structure node itself (so the
-    node-level exclusion in ``_excluded_node_ids`` can't distinguish them —
-    both the shown and hidden frames' wires touch the structure's own node
-    id). Each inner tunnel is stamped with its owning frame's
-    selector_value (construction.py::_build_structure_terminals), so we can
-    exclude the ones belonging to hidden frames directly by terminal id.
-    """
-    excluded: set[str] = set()
-    for struct_id, (_shown, hidden) in _hidden_structures(nodes).items():
-        node = next((n for n in nodes if n.id == struct_id), None)
-        if node is None:
-            continue
-        for t in node.terminals:
-            if (
-                isinstance(t, TunnelTerminal)
-                and t.boundary == "inner"
-                and str(t.frame) in hidden
-            ):
-                excluded.add(t.id)
-    return excluded
 
 
 def _render_terminals(
@@ -595,10 +512,11 @@ def _wire_path(
 ) -> FramePath:
     """The frame path a wire belongs to, from its endpoints' nodes.
 
-    A wire touching a case structure's INNER tunnel terminal belongs to
-    that tunnel's owning frame (the tunnel's node IS the structure itself,
-    per construction.py — its own ``_frame_path`` gives the structure's
-    ANCESTOR path, to which we append this tunnel's own frame segment). A
+    A wire touching a case structure's or stacked sequence's INNER tunnel
+    terminal belongs to that tunnel's owning frame (the tunnel's node IS the
+    structure itself, per construction.py — its own ``_frame_path`` gives
+    the structure's ANCESTOR path, to which we append this tunnel's own
+    frame segment). A
     wire touching an ordinary node belongs to that node's frame path. The
     most-specific (longest/deepest) endpoint wins — wires never span two
     sibling frames, they route through the border tunnel, so the shallower
@@ -626,8 +544,6 @@ def _build_wire_nets(
     graph: InMemoryVIGraph,
     vi_name: str,
     layout: Layout,
-    excluded: set[str],
-    excluded_terminal_ids: set[str],
     obstacles: list[Rect],
     scene_bounds: Rect,
     by_id: dict[str, AnyGraphNode],
@@ -646,14 +562,12 @@ def _build_wire_nets(
 
     wires = [
         w for w in graph.get_wires(vi_name, include_internal=True)
-        if w.source.node_id not in excluded and w.dest.node_id not in excluded
-        and w.source.terminal_id not in excluded_terminal_ids
-        and w.dest.terminal_id not in excluded_terminal_ids
-        and frozenset((w.source.terminal_id, w.dest.terminal_id)) not in paired
+        if frozenset((w.source.terminal_id, w.dest.terminal_id)) not in paired
     ]
 
     # Group by (source terminal, frame path) — a fan-out net whose branches
-    # land in different case frames splits into one RenderWireNet per frame
+    # land in different case/stacked-sequence frames splits into one
+    # RenderWireNet per frame
     # (junctions recomputed per group below), so hidden-frame branches don't
     # leak into the base/other-frame net.
     by_group: dict[tuple[str, FramePath], list[Wire]] = {}
@@ -786,9 +700,7 @@ def build_scene(graph: InMemoryVIGraph, vi_name: str) -> Scene | None:
     layout = build_layout(src_path)
     all_nodes = graph.iter_nodes(vi_name)
     by_id: dict[str, AnyGraphNode] = {n.id: n for n in all_nodes}
-    excluded = _excluded_node_ids(all_nodes)
-    excluded_terminal_ids = _excluded_terminal_ids(all_nodes)
-    default_frame, frame_values = _case_frame_info(all_nodes, vi_name)
+    default_frame, frame_values = _frame_info(all_nodes, vi_name)
     glyph_ctx = GlyphContext(graph=graph, vi_name=vi_name)
 
     render_nodes: list[RenderNode] = []
@@ -796,8 +708,6 @@ def build_scene(graph: InMemoryVIGraph, vi_name: str) -> Scene | None:
     missing: list[str] = []
 
     for node in all_nodes:
-        if node.id in excluded:
-            continue
         if node.node_type in _INTERNAL_NODE_TYPES:
             continue  # internal mux node — not a visible diagram object
         raw_uid = _strip_prefix(node.id, vi_name)
@@ -805,8 +715,9 @@ def build_scene(graph: InMemoryVIGraph, vi_name: str) -> Scene | None:
         fp_path = _frame_path(node, by_id, vi_name)
         if bounds is None:
             # Base/default-frame content stays fatal (fail-closed); a
-            # non-default (currently-hidden) case frame's missing geometry
-            # is best-effort — skip it rather than declining the whole VI.
+            # non-default (currently-hidden) case/stacked-sequence frame's
+            # missing geometry is best-effort — skip it rather than
+            # declining the whole VI.
             if _is_default_visible(fp_path, default_frame):
                 missing.append(node.id)
             else:
@@ -821,6 +732,7 @@ def build_scene(graph: InMemoryVIGraph, vi_name: str) -> Scene | None:
                 border_terminals=_structure_borders(node, layout, vi_name),
                 frame_path=fp_path,
                 raw_uid=raw_uid,
+                dividers=layout.sequence_dividers.get(raw_uid, []),
             ))
         else:
             glyph = resolve_glyph(node, glyph_ctx)
@@ -862,8 +774,7 @@ def build_scene(graph: InMemoryVIGraph, vi_name: str) -> Scene | None:
     obstacles = [n.bounds for n in render_nodes]
 
     wire_nets = _build_wire_nets(
-        graph, vi_name, layout, excluded, excluded_terminal_ids,
-        obstacles, scene_bounds, by_id,
+        graph, vi_name, layout, obstacles, scene_bounds, by_id,
     )
     coercion_dots = _arith_coercion_dots(render_nodes)
 

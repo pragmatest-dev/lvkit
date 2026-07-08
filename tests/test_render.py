@@ -17,7 +17,12 @@ from pathlib import Path
 import pytest
 
 from lvkit.graph.core import InMemoryVIGraph
-from lvkit.graph.models import CaseStructureNode, LoopNode, StructureNode
+from lvkit.graph.models import (
+    CaseStructureNode,
+    LoopNode,
+    SequenceNode,
+    StructureNode,
+)
 from lvkit.models import FPTerminal, LVType
 from lvkit.render import render_vi, render_vi_file
 from lvkit.render.backend import SvgBackend
@@ -150,6 +155,13 @@ NESTED_CASE_VI = Path(
 # a loop) — its scene has 2+ segment compound frame paths.
 NESTED_CASE_CONTENT_VI = Path(
     "samples/JKI-EasyXML/Source/Fast Parser/XML Loop Stack Recursion.vi"
+)
+# Flat (film-strip) sequence with 3 side-by-side frames.
+FLAT_SEQ_VI = Path("samples/DAQmx-Digital-IO/In.vi")
+# Stacked (interactive) sequence with 3 overlapping frames.
+STACKED_SEQ_VI = Path(
+    "samples/OpenG/extracted/File Group 0/user.lib/_OpenG.lib/string/"
+    "string.llb/Number to Proper Engl Text__ogtk.vi"
 )
 CORPUS_VIS = [
     Path("samples/JKI-VI-Tester/source/Utilities/Get LV Class Members from Path.vi"),
@@ -314,8 +326,8 @@ def test_render_vi_file_determinism_across_hash_seeds():
 def test_case_structures_render_all_frames_not_just_shown():
     """Roadmap #17: every case frame's nodes are now IN the scene (tagged
     with a frame path), not excluded — the single-frame policy inverted for
-    case structures (stacked sequences are unaffected, see
-    test_stacked_sequence_and_loop_have_no_frame_groups)."""
+    case structures (stacked sequences got the same treatment separately —
+    see test_stacked_sequence_svg_has_lv_frame_and_selector)."""
     loaded = _load_graph(CASE_VI)
     if loaded is None:
         pytest.skip(f"sample VI not available: {CASE_VI}")
@@ -423,10 +435,10 @@ def test_nested_case_svg_has_compound_data_path():
     assert encoded.count("=") >= 2  # at least two struct=val segments
 
 
-def test_stacked_sequence_and_loop_have_no_frame_groups():
-    """Regression guard: VIs with no case structures produce no lv-frame /
-    lv-selector groups at all (loops, flat AND stacked sequences stay
-    exactly as before, per roadmap #17 scope)."""
+def test_loop_only_vi_has_no_frame_groups():
+    """Regression guard: a VI with no interactive structures (no case, no
+    stacked sequence — just a For-Loop) produces no lv-frame / lv-selector
+    groups at all."""
     if not GROUND_TRUTH_VI.exists():
         pytest.skip(f"sample VI not available: {GROUND_TRUTH_VI}")
     svg = render_vi_file(GROUND_TRUTH_VI)
@@ -436,6 +448,158 @@ def test_stacked_sequence_and_loop_have_no_frame_groups():
     # class="lv-frame"/"lv-selector" — not a bare substring match.)
     assert 'class="lv-frame"' not in svg
     assert 'class="lv-selector"' not in svg
+
+
+def test_flat_sequence_frames_tile_and_have_dividers():
+    """Roadmap: a flat (film-strip) sequence's frames must no longer overlap
+    at one origin — each frame's nodes tile by the heap-recorded per-frame
+    x/y offset, and the structure records divider x-positions between
+    frames. Flat sequences stay non-interactive (no lv-frame/lv-selector for
+    their own content — see _frame_path scope)."""
+    loaded = _load_graph(FLAT_SEQ_VI)
+    if loaded is None:
+        pytest.skip(f"sample VI not available: {FLAT_SEQ_VI}")
+    graph, vi = loaded
+    scene = build_scene(graph, vi)
+    if scene is None:
+        pytest.skip("sample lacks required diagram geometry")
+
+    flat = [
+        s for s in scene.structures
+        if isinstance(s.node, SequenceNode) and s.node.node_type == "flatSequence"
+    ]
+    if not flat:
+        pytest.skip("sample has no flat sequence in this scene")
+    structure = flat[0]
+    assert structure.dividers, "expected inter-frame divider positions"
+
+    # Frame 0 vs frame 1's inner nodes must NOT land at the same x — the
+    # whole point of tiling. inner_node_uids is per SequenceFrame.
+    frames = structure.node.frames  # type: ignore[attr-defined]
+    assert len(frames) >= 2
+    node_by_uid = {n.node.id: n for n in scene.nodes}
+
+    def _x_centers(frame_idx: int) -> list[float]:
+        frame = frames[frame_idx]
+        xs = []
+        for uid in frame.inner_node_uids:
+            qid = f"{vi}::{uid}"
+            rn = node_by_uid.get(qid)
+            if rn is not None:
+                x1, _y1, x2, _y2 = rn.bounds
+                xs.append((x1 + x2) / 2)
+        return xs
+
+    xs0 = _x_centers(0)
+    xs1 = _x_centers(1)
+    if not xs0 or not xs1:
+        pytest.skip("frame 0/1 have no renderable inner nodes in this scene")
+    assert max(xs0) < min(xs1) or max(xs1) < min(xs0), (
+        "frame 0 and frame 1 node x-ranges overlap — tiling offset not applied"
+    )
+
+    svg = render_vi_file(FLAT_SEQ_VI, expand_subvis=False)
+    assert svg is not None
+    assert svg.count("<line") >= len(structure.dividers)
+
+
+def test_sequence_tunnels_get_geometry_and_render():
+    """A sequence's tunnel terminals live in each ``sequenceFrame``'s (or the
+    stacked sequence's) own termList — layout must map them so they render as
+    border terminals. Regression: they previously got no geometry (their
+    frame termList was never walked / the graph modeled them under a nested
+    alias uid), so no tunnel drew and every wire through them was dropped."""
+    for path in (FLAT_SEQ_VI, STACKED_SEQ_VI):
+        loaded = _load_graph(path)
+        if loaded is None:
+            continue
+        graph, vi = loaded
+        scene = build_scene(graph, vi)
+        if scene is None:
+            continue
+        seqs = [s for s in scene.structures if isinstance(s.node, SequenceNode)]
+        if not seqs:
+            continue
+        total_borders = sum(len(s.border_terminals) for s in seqs)
+        assert total_borders > 0, (
+            f"{path.name}: sequence(s) rendered zero tunnel border terminals"
+        )
+        return  # at least one sample present and asserted
+    pytest.skip("no sequence sample VI available")
+
+
+def test_stacked_sequence_svg_has_lv_frame_and_selector():
+    """Stacked sequences are now interactive (roadmap: generalized from the
+    #17 case machinery): every frame renders (tagged with a frame path),
+    with a clickable ``◄ index ►`` selector, only the default (frame 0)
+    starting visible."""
+    loaded = _load_graph(STACKED_SEQ_VI)
+    if loaded is None:
+        pytest.skip(f"sample VI not available: {STACKED_SEQ_VI}")
+    graph, vi = loaded
+    scene = build_scene(graph, vi)
+    if scene is None:
+        pytest.skip("sample lacks required diagram geometry")
+
+    stacked = [
+        s for s in scene.structures
+        if isinstance(s.node, SequenceNode) and s.node.node_type != "flatSequence"
+        and scene.frame_values.get(s.raw_uid)
+    ]
+    if not stacked:
+        pytest.skip("sample has no interactive stacked sequence in this scene")
+
+    svg = render_vi(graph, vi)
+    assert svg is not None
+    assert 'class="lv-frame"' in svg
+    assert 'class="lv-selector"' in svg
+    assert "◄ ►" in svg or "►" in svg  # no ▼ (that's the case affordance)
+
+    for structure in stacked:
+        values = scene.frame_values[structure.raw_uid]
+        default = scene.default_frame.get(structure.raw_uid)
+        visible = hidden = 0
+        for value in values:
+            path_attr = f"{structure.raw_uid}={value}"
+            pattern = (
+                r'<g class="lv-frame" data-path="' + re.escape(path_attr)
+                + r'"( style="([^"]*)")?>'
+            )
+            matches = re.findall(pattern, svg)
+            assert matches, f"no lv-frame group for {path_attr}"
+            for _whole, style in matches:
+                if style == "display:none":
+                    hidden += 1
+                else:
+                    visible += 1
+        assert visible >= 1
+        assert default == "0"
+
+
+def test_render_vi_file_determinism_across_hash_seeds_stacked_seq():
+    """Same determinism guarantee as the case-VI version, extended to a VI
+    with an interactive stacked sequence."""
+    if not STACKED_SEQ_VI.exists():
+        pytest.skip(f"sample VI not available: {STACKED_SEQ_VI}")
+
+    script = (
+        "import hashlib\n"
+        "from lvkit.render import render_vi_file\n"
+        f"svg = render_vi_file({str(STACKED_SEQ_VI)!r}, expand_subvis=False)\n"
+        "assert svg is not None\n"
+        "print(hashlib.sha256(svg.encode()).hexdigest())\n"
+    )
+    digests = []
+    for seed in ("0", "1234567"):
+        result = subprocess.run(
+            [sys.executable, "-c", script],
+            cwd=Path(__file__).resolve().parent.parent,
+            env={**os.environ, "PYTHONHASHSEED": seed},
+            capture_output=True, text=True, timeout=60,
+        )
+        assert result.returncode == 0, result.stderr
+        digests.append(result.stdout.strip())
+    assert digests[0] == digests[1]
 
 
 def test_render_vi_file_determinism_across_hash_seeds_case_vi():
