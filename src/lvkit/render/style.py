@@ -59,6 +59,9 @@ DEFAULT_THEME = Theme()
 # Unified diagram line width (wires + structure borders), matched to the
 # ground truth's ~1px scalar wire / structure-border weight.
 _LINE_W = 1.2
+# Extra stroke width per array dimension — an array wire is drawn markedly
+# bolder than its scalar element (1D ~2.8px vs 1.2px), thicker still for 2D+.
+_ARRAY_W_PER_DIM = 1.6
 
 
 @dataclass(frozen=True)
@@ -205,7 +208,9 @@ def wire_style(
 
     if lv_type.kind == "array":
         inner = wire_style(lv_type.element_type, theme)
-        return WireStyle(inner.color, inner.width + (lv_type.dimensions or 1))
+        return WireStyle(
+            inner.color, inner.width + _ARRAY_W_PER_DIM * (lv_type.dimensions or 1),
+        )
 
     family = type_family(lv_type)
     color = getattr(theme, _FAMILY_COLOR.get(family, ""), theme.wire_default)

@@ -713,8 +713,10 @@ def test_wire_style_array_width_scales_with_dimensions():
     arr_2d = LVType(kind="array", dimensions=2, element_type=scalar)
 
     base = wire_style(scalar).width
-    assert wire_style(arr_1d).width == base + 1
-    assert wire_style(arr_2d).width == base + 2
+    # Array wires are drawn markedly bolder than the scalar element, thicker
+    # still per dimension.
+    assert wire_style(arr_1d).width > base
+    assert wire_style(arr_2d).width > wire_style(arr_1d).width
     # Color is inherited from the element type, not a fixed array color.
     assert wire_style(arr_1d).color == wire_style(scalar).color
 
