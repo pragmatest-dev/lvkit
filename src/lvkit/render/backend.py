@@ -99,12 +99,13 @@ class Backend(Protocol):
 
     def begin_group(
         self, *, cls: str | None = None, data: dict[str, str] | None = None,
-        style: str | None = None,
+        style: str | None = None, title: str | None = None,
     ) -> None:
         """Open a grouping container (``<g>``) — used for the interactive
         case-frame layering (``lv-frame``) and click targets (``lv-selector``).
         ``data`` becomes ``data-*`` attributes (keys sorted for determinism).
-        Must be paired with ``end_group()``."""
+        ``title``, when given, is emitted as a ``<title>`` child so the whole
+        group shows a native hover tooltip. Must be paired with ``end_group()``."""
         ...
 
     def end_group(self) -> None:
@@ -221,7 +222,7 @@ class SvgBackend:
 
     def begin_group(
         self, *, cls: str | None = None, data: dict[str, str] | None = None,
-        style: str | None = None,
+        style: str | None = None, title: str | None = None,
     ) -> None:
         attrs = []
         if cls is not None:
@@ -233,6 +234,8 @@ class SvgBackend:
             attrs.append(f"style={quoteattr(style)}")
         suffix = (" " + " ".join(attrs)) if attrs else ""
         self._elements.append(f"<g{suffix}>")
+        if title is not None:
+            self._elements.append(f"<title>{escape(title)}</title>")
 
     def end_group(self) -> None:
         self._elements.append("</g>")

@@ -51,6 +51,7 @@ from .glyph import (
     InlineSvgGlyph,
     LabeledBoxGlyph,
     VariantGlyph,
+    WrappedBoxGlyph,
 )
 from .style import numeric_repr, type_family, wire_style
 
@@ -335,7 +336,9 @@ class GeneratedGlyphResolver:
         if isinstance(node, PrimitiveNode):
             return self._primitive_glyph(node)
         if isinstance(node, VINode):
-            return LabeledBoxGlyph("", "subvi_fill", "subvi_stroke", 1.5)
+            # No custom icon: draw the VI name wrapped inside the box (up to 4
+            # lines), LabVIEW's default no-icon subVI look — see WrappedBoxGlyph.
+            return WrappedBoxGlyph(node.name or "")
         if isinstance(node, ConstantNode):
             fam = type_family(node.lv_type)
             if fam == "error_cluster":
@@ -362,7 +365,9 @@ class GeneratedGlyphResolver:
             return ArithGlyph(sym)
         if node.node_type == "aBuild" or node.name == "Build Array":
             return BracketGlyph()
-        return LabeledBoxGlyph(node.name or "?", "prim_fill", "prim_stroke", 1.0)
+        # No icon yet: wrap the primitive's name inside the box (up to 4 lines,
+        # adaptive font) — same treatment as an icon-less subVI.
+        return WrappedBoxGlyph(node.name or "?", "prim_fill", "prim_stroke", 1.0)
 
 
 class FallbackBoxResolver:
@@ -370,7 +375,7 @@ class FallbackBoxResolver:
 
     def resolve(self, node: AnyGraphNode, ctx: GlyphContext) -> Glyph:
         label = node.name or node.node_type or "?"
-        return LabeledBoxGlyph(label, "prim_fill", "prim_stroke", 1.0)
+        return WrappedBoxGlyph(label, "prim_fill", "prim_stroke", 1.0)
 
 
 # The registration point: an ordered list, tried in order, first hit wins.

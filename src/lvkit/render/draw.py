@@ -9,10 +9,22 @@ node glyphs only — see DESIGN.md's phasing).
 
 from __future__ import annotations
 
-from ..graph.models import CaseStructureNode, SequenceNode, VINode
+from ..graph.models import (
+    AnyGraphNode,
+    CaseStructureNode,
+    PrimitiveNode,
+    SequenceNode,
+    VINode,
+)
 from ..models import FPTerminal, LVType
 from .backend import Backend, Point
-from .glyph import ArithGlyph, ErrorClusterGlyph, VariantGlyph, fit_label
+from .glyph import (
+    ArithGlyph,
+    ErrorClusterGlyph,
+    VariantGlyph,
+    WrappedBoxGlyph,
+    fit_label,
+)
 from .scene import (
     FramePath,
     RenderBorderTerminal,
@@ -87,13 +99,39 @@ def draw_node(node: RenderNode, backend: Backend, theme: Theme = DEFAULT_THEME) 
                 min(r[0] for r in rects), min(r[1] for r in rects),
                 max(r[2] for r in rects), max(r[3] for r in rects),
             )
+    # A hover tooltip (SVG <title>) with the node's full identity — the
+    # wrapped subVI box shows a possibly-truncated name, so the untruncated
+    # name on hover is the payoff (roadmap #12).
+    tooltip = _node_tooltip(node.node)
+    if tooltip:
+        backend.begin_group(title=tooltip)
+
     node.glyph.draw(backend, bounds, theme)
 
-    if isinstance(node.node, VINode) and node.label_visible:
+    # Name below the box — ONLY when it isn't already drawn inside: a subVI
+    # with no icon now wraps its name into the box (WrappedBoxGlyph), so a
+    # second copy below would be redundant. A subVI WITH a real icon keeps its
+    # label below, as before.
+    if (
+        isinstance(node.node, VINode)
+        and node.label_visible
+        and not isinstance(node.glyph, WrappedBoxGlyph)
+    ):
         name = node.node.name or ""
         if name:
             x1, y1, x2, y2 = node.bounds
             backend.text((x1 + x2) / 2, y2 + 9, name, 8.0)
+
+    if tooltip:
+        backend.end_group()
+
+
+def _node_tooltip(node: AnyGraphNode) -> str | None:
+    """Full-identity hover text for a node, or None for nodes without a useful
+    name (constants show their value in-box already)."""
+    if isinstance(node, VINode | PrimitiveNode):
+        return node.name or None
+    return None
 
 
 def _draw_border_terminal(

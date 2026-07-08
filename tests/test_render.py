@@ -864,3 +864,61 @@ def test_coercion_is_numeric_representation_only():
     assert not coerces(dbl, dbl)      # same type
     assert not coerces(arr_dbl, dbl)  # auto-index (array->element) is NOT coercion
     assert not coerces(string, dbl)   # non-numeric, no dot
+
+
+# --------------------------------------------------------------------------- #
+# SubVI-without-icon: name wrapped inside the box + hover tooltip
+# --------------------------------------------------------------------------- #
+
+def test_wrap_label_greedy_and_hard_break():
+    from lvkit.render.glyph import wrap_label
+    b = SvgBackend()
+    # multi-word wraps to several lines, none over the width
+    lines = wrap_label("DAQmx Create Virtual Channel.vi", 34, b, 6.0, 4)
+    assert 2 <= len(lines) <= 4
+    assert all(b.measure_text(ln, 6.0) <= 34 for ln in lines)
+    # a single word wider than the box is hard-broken, not left overflowing
+    broken = wrap_label("Supercalifragilistic", 20, b, 7.0, 4)
+    assert len(broken) >= 2
+    assert all(b.measure_text(ln, 7.0) <= 20 for ln in broken if not ln.endswith("…"))
+
+
+def test_wrapped_box_glyph_fits_full_name_by_shrinking():
+    from lvkit.render.glyph import WrappedBoxGlyph
+    b = SvgBackend()
+    WrappedBoxGlyph("DAQmx Create Virtual Channel.vi").draw(
+        b, (0.0, 0.0, 32.0, 32.0), DEFAULT_THEME,
+    )
+    svg = b.render((0.0, 0.0, 32.0, 32.0))
+    texts = re.findall(r"<text[^>]*>([^<]*)</text>", svg)
+    assert len([t for t in texts if t]) >= 3          # wrapped to multiple lines
+    assert "…" not in "".join(texts)             # full name, no truncation
+    joined = "".join(texts)
+    for word in ("DAQmx", "Create", "Virtual", "Channel"):
+        assert word in joined
+    # every line stays inside the box vertically
+    ys = [float(m) for m in re.findall(r'<text[^>]*y="([0-9.]+)"', svg)]
+    assert ys and all(0.0 <= y <= 32.0 for y in ys)
+
+
+def test_wrapped_box_glyph_ellipsizes_when_truly_impossible():
+    from lvkit.render.glyph import WrappedBoxGlyph
+    b = SvgBackend()
+    WrappedBoxGlyph("x" * 200).draw(b, (0.0, 0.0, 18.0, 18.0), DEFAULT_THEME)
+    assert "…" in b.render((0.0, 0.0, 18.0, 18.0))
+
+
+def test_subvi_nodes_get_hover_tooltip_titles():
+    """SubVI nodes carry a <title> (hover tooltip) with their full name —
+    roadmap #12. Uses the flat-seq sample (three DAQmx Write subVIs)."""
+    loaded = _load_graph(FLAT_SEQ_VI)
+    if loaded is None:
+        pytest.skip(f"sample VI not available: {FLAT_SEQ_VI}")
+    graph, vi = loaded
+    svg = render_vi(graph, vi)
+    if svg is None:
+        pytest.skip("sample lacks required diagram geometry")
+    # the SubVI name appears as a tooltip even though it's wrapped in the box
+    # (root <title> is the VI name "In.vi"; "<title>DAQmx" can only be a node)
+    assert "<title>DAQmx" in svg
+    assert re.search(r"<g>\s*<title>DAQmx", svg)

@@ -22,7 +22,7 @@ from lvkit.render.glyph import (
     ArithGlyph,
     ConstantGlyph,
     InlineSvgGlyph,
-    LabeledBoxGlyph,
+    WrappedBoxGlyph,
 )
 from lvkit.render.nodes import (
     ExtractedIconResolver,
@@ -124,7 +124,7 @@ def test_fallback_always_returns_a_glyph_for_an_unhandled_node_kind():
     FallbackBoxResolver still succeeds."""
     node = InPlaceNode(id="vi::4", vi="vi", node_type="ipes", terminals=[])
     glyph = resolve_glyph(node, _ctx())
-    assert isinstance(glyph, LabeledBoxGlyph)
+    assert isinstance(glyph, WrappedBoxGlyph)
 
 
 def test_fallback_resolver_never_returns_none_directly():
