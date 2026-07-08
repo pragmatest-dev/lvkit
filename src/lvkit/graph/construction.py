@@ -30,6 +30,7 @@ from ..parser.models import ParsedConstant, ParsedType
 from ..parser.node_types import (
     CpdArithNode,
     CtlRefConstNode,
+    GRefNode,
     InvokeNode,
     PropertyNode,
     SelectNode,
@@ -294,6 +295,13 @@ class ConstructionMixin:
                 if slot.fp_dco_uid:
                     conpane_slots[slot.fp_dco_uid] = slot.index
 
+        # fp_dco_uid -> FP terminal WireEnd, for gRef (Local Variable) aliasing
+        # below. A local variable references its control by paramIdx, which is
+        # the control's position in the VI's FULL front-panel control list
+        # (NOT the connector-pane slot — non-conpane controls have no slot yet
+        # are still referenceable). We resolve paramIdx via fp.controls order.
+        fp_dco_wire_ends: dict[str, WireEnd] = {}
+
         # Build FP terminals list for the VINode
         vi_terminals: list[Terminal] = []
         for fp_term in bd.fp_terminals:
@@ -337,6 +345,17 @@ class ConstructionMixin:
                 index=slot_index,
                 name=ctrl.name if ctrl else fp_term.name,
             )
+            fp_dco_wire_ends[fp_term.fp_dco_uid] = term_lookup[fp_term.uid]
+
+        # paramIdx -> FP terminal WireEnd, indexed by the control's position in
+        # the front-panel control list (the order a local variable's paramIdx
+        # refers to — verified type-consistent, unlike the conpane slot).
+        param_wire_ends: dict[int, WireEnd] = {}
+        if fp:
+            for i, ctrl in enumerate(fp.controls):
+                we = fp_dco_wire_ends.get(ctrl.uid)
+                if we is not None:
+                    param_wire_ends[i] = we
 
         # Create the VINode
         vi_node = VINode(
@@ -416,6 +435,31 @@ class ConstructionMixin:
                                     term_lookup[term_uid] = fp_wire_end
                                     break
                 continue  # No graph node for ctlRefConst
+
+            # gRef: Local Variable reference. Reads/writes an FP control by its
+            # paramIdx — the control's position in the VI's front-panel control
+            # list (covers non-conpane controls too). Same aliasing pattern as
+            # ctlRefConst: alias the (single) terminal to that control's FP
+            # terminal WireEnd, no graph node created. Unresolvable param_idx
+            # (a global VI's local var, or an out-of-range index) is deferred.
+            if isinstance(node, GRefNode):
+                fp_wire_end = (
+                    param_wire_ends.get(node.param_idx)
+                    if node.param_idx is not None
+                    else None
+                )
+                if fp_wire_end:
+                    for term_uid, t_info in bd.terminal_info.items():
+                        if t_info.parent_uid == node.uid:
+                            term_lookup[term_uid] = fp_wire_end
+                            break
+                else:
+                    logger.debug(
+                        "VI %s: gRef %s param_idx=%s did not resolve to a "
+                        "front-panel control — deferring",
+                        vi_name, node.uid, node.param_idx,
+                    )
+                continue  # No graph node for gRef
 
             # statVIRef: Static VI Reference constant.
             # Creates a ConstantNode whose value is the referenced VI name.

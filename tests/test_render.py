@@ -955,3 +955,39 @@ def test_case_vi_svg_is_well_formed_xml_standalone():
     svg = render_vi(graph, vi)
     assert svg is not None and "<script>" in svg
     ET.fromstring(svg)  # raises ParseError if the script broke XML well-formedness
+
+
+LOCALVAR_VI = Path(
+    "samples/OpenG/extracted/File Group 0/user.lib/_OpenG.lib/string/"
+    "string.llb/Number to Proper Engl Text__ogtk.vi"
+)
+
+
+def test_gref_local_variable_wires_to_correct_control():
+    """gRef (Local Variable) nodes must wire to the control their paramIdx
+    names — which indexes the VI's FULL front-panel control list, not the
+    connector-pane slots. Regression: two case selectors fed by local
+    variables of non-conpane boolean indicators were unwired (parser dropped
+    gRef), and a conpane-slot resolution mis-wired them to the wrong control."""
+    loaded = _load_graph(LOCALVAR_VI)
+    if loaded is None:
+        pytest.skip(f"sample VI not available: {LOCALVAR_VI}")
+    graph, vi = loaded
+    name = {}
+    for n in graph.iter_nodes(vi):
+        for t in n.terminals:
+            name[t.id] = t.name
+    vinode = graph.get_graph_node(vi)
+    for t in vinode.terminals:
+        name[t.id] = t.name
+
+    def source_name(sel_raw: str) -> str | None:
+        for w in graph.get_wires(vi, include_internal=True):
+            if w.dest.terminal_id == f"{vi}::{sel_raw}":
+                return name.get(w.source.terminal_id)
+        return None
+
+    # These two selectors were unwired before gRef support; now they resolve to
+    # the boolean indicators their local variables reference (paramIdx 3 / 1).
+    assert source_name("284") == "hasTensPlace"
+    assert source_name("834") == "hasOnesPlace"

@@ -112,6 +112,20 @@ class CtlRefConstNode(ParsedNode):
 
 
 @dataclass
+class GRefNode(ParsedNode):
+    """Local Variable reference (class="gRef").
+
+    Reads (or writes) the value of an FP control/indicator by connector-pane
+    slot index rather than by direct wire. param_idx set: the output
+    terminal is aliased to that connector-pane slot's FP terminal WireEnd
+    in the graph (no new graph node — same pattern as ctlRefConst).
+    param_idx None: unresolvable (e.g. a global VI's local var) — deferred.
+    """
+
+    param_idx: int | None = None
+
+
+@dataclass
 class StatVIRefNode(ParsedNode):
     """Static VI Reference constant (class="statVIRef").
 
@@ -642,6 +656,31 @@ class CtlRefConstHandler(NodeTypeHandler):
         return CtlRefConstNode(**common, ddo_uid=ddo_uid)
 
 
+class GRefHandler(NodeTypeHandler):
+    """Handler for Local Variable references (class="gRef").
+
+    The single termList entry's <dco class="gRefDCO"> carries <paramIdx>,
+    the connector-pane slot index of the referenced FP control.
+    """
+
+    xml_class = "gRef"
+    display_name = "Local Variable"
+
+    def parse(self, elem: ET.Element) -> GRefNode:
+        common = self._extract_common(elem)
+        param_idx = None
+        term_list = elem.find("termList")
+        if term_list is not None:
+            term_elem = term_list.find("SL__arrayElement")
+            if term_elem is not None:
+                dco_elem = term_elem.find("dco")
+                if dco_elem is not None:
+                    idx_elem = dco_elem.find("paramIdx")
+                    if idx_elem is not None and idx_elem.text:
+                        param_idx = int(idx_elem.text)
+        return GRefNode(**common, param_idx=param_idx)
+
+
 class StatVIRefHandler(NodeTypeHandler):
     """Handler for Static VI Reference (class="statVIRef")."""
 
@@ -836,6 +875,7 @@ _HANDLERS: list[NodeTypeHandler] = [
     _MuxHandler(),
     _DemuxHandler(),
     CtlRefConstHandler(),
+    GRefHandler(),
     StatVIRefHandler(),
     FormulaNodeHandler(),
     DecomposeClusterHandler(),
