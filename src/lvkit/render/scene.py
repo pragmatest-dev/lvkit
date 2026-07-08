@@ -246,12 +246,9 @@ def _frame_info(
     frame values — the selector chrome's click-to-cycle metadata.
 
     Cases key by selector value (with ``is_default``/first-frame fallback);
-    stacked sequences key by frame index. A sequence executes ALL frames in
-    order, so no frame is semantically "the" one — but frame 0 is very often an
-    empty setup frame, and opening a big stacked sequence on an empty frame
-    reads as broken. So the initial VIEW defaults to the frame with the most
-    content (ties → lowest index); the selector still steps through every frame,
-    frame 0 included.
+    stacked sequences key by frame index and default to frame 0 here — but
+    ``build_scene`` overrides that with the heap's saved displayed frame
+    (``dIdx``), the faithful initial view.
     """
     default_frame: dict[str, str] = {}
     frame_values: dict[str, list[str]] = {}
@@ -268,11 +265,7 @@ def _frame_info(
         ):
             raw = _strip_prefix(node.id, vi_name)
             frame_values[raw] = [str(i) for i in range(len(node.frames))]
-            richest = max(
-                range(len(node.frames)),
-                key=lambda i: len(node.frames[i].inner_node_uids),
-            )
-            default_frame[raw] = str(richest)
+            default_frame[raw] = "0"
     return default_frame, frame_values
 
 
@@ -785,6 +778,33 @@ def build_scene(graph: InMemoryVIGraph, vi_name: str) -> Scene | None:
         graph, vi_name, layout, obstacles, scene_bounds, by_id,
     )
     coercion_dots = _arith_coercion_dots(render_nodes)
+
+    # Draw structures OUTERMOST-FIRST (by containment depth). A For Loop border
+    # paints its interior with the canvas color (the cascade-card look), so if a
+    # containing loop were drawn AFTER a structure inside it (UID order can do
+    # that), it would paint OVER that structure — box, selector, contents and
+    # all. Sorting by ancestor depth keeps every container behind its contents.
+    # Stable sort preserves the deterministic UID order within a depth.
+    def _depth(node: AnyGraphNode) -> int:
+        d, cur = 0, node.parent
+        while cur:
+            parent = by_id.get(cur)
+            if parent is None:
+                break
+            d += 1
+            cur = parent.parent
+        return d
+
+    structures.sort(key=lambda s: _depth(s.node))
+
+    # A stacked sequence saves its displayed frame in the heap (``dIdx``); open
+    # on that faithful frame, not frame 0 (often an empty setup frame).
+    for node in all_nodes:
+        if isinstance(node, SequenceNode) and node.node_type != "flatSequence":
+            raw = _strip_prefix(node.id, vi_name)
+            shown = layout.sequence_shown_frame.get(raw)
+            if shown is not None and str(shown) in frame_values.get(raw, []):
+                default_frame[raw] = str(shown)
 
     return Scene(
         bounds=scene_bounds,

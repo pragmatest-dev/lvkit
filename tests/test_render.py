@@ -577,12 +577,15 @@ def test_stacked_sequence_svg_has_lv_frame_and_selector():
                 else:
                     visible += 1
         assert visible >= 1
-        # Initial view defaults to the richest frame (most inner nodes), not
-        # the often-empty frame 0 — so a big stacked sequence doesn't open blank.
-        frames = structure.node.frames  # type: ignore[attr-defined]
-        richest = str(max(range(len(frames)),
-                          key=lambda i: len(frames[i].inner_node_uids)))
-        assert default == richest
+        # Initial view = the heap's saved displayed frame (dIdx), not frame 0
+        # (often an empty setup frame) — so a big stacked sequence doesn't open
+        # blank.
+        from lvkit.render.layout import build_layout
+        shown = build_layout(
+            graph.get_vi_source_path(vi),
+        ).sequence_shown_frame.get(structure.raw_uid)
+        if shown is not None:
+            assert default == str(shown)
 
 
 def test_render_vi_file_determinism_across_hash_seeds_stacked_seq():

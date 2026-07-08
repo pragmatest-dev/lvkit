@@ -83,6 +83,10 @@ class Layout:
     # (frames 1..N-1) — the film-strip dividers. Empty for every other
     # structure kind (stacked sequences overlap; nothing to divide).
     sequence_dividers: dict[str, list[float]] = field(default_factory=dict)
+    # Stacked-sequence raw uid -> the frame index the VI has DISPLAYED (heap
+    # ``dIdx``) — the faithful initial view (frame 0 is often an empty setup
+    # frame).
+    sequence_shown_frame: dict[str, int] = field(default_factory=dict)
     icon_png: Path | None = None
 
     def scene_bounds(self, pad: float = 30.0) -> Rect:
@@ -122,6 +126,8 @@ class _LayoutBuilder:
         self.hidden_labels: set[str] = set()
         # flat-sequence raw uid -> inter-frame divider x-positions.
         self.sequence_dividers: dict[str, list[float]] = {}
+        # stacked-sequence raw uid -> displayed frame index (heap dIdx).
+        self.sequence_shown_frame: dict[str, int] = {}
 
     def _record_label_hidden(self, elem: ET.Element, uid: str | None) -> None:
         """Record uid whose ``<label>`` is hidden (objFlags bit 0x8), so the
@@ -333,6 +339,11 @@ class _LayoutBuilder:
         self._record_label_hidden(elem, uid)
         if uid:
             self.node_bounds.setdefault(uid, (ax1, ay1, ax2, ay2))
+        # A stacked sequence records its currently-displayed frame in ``dIdx``.
+        if uid and elem.get("class") in ("seq", "sequence"):
+            didx = elem.findtext("dIdx")
+            if didx and didx.strip().lstrip("-").isdigit():
+                self.sequence_shown_frame[uid] = int(didx.strip())
         # An sRN's own ``bounds`` is a translation for out-of-diagram terminal
         # REFERENCES, but its ``termList`` holds fPTerm/constants that are
         # diagram-level objects — each already carries diagram-relative bounds,
@@ -426,5 +437,6 @@ def build_layout(vi_or_bd: Path) -> Layout:
         indexing_tunnels=builder.indexing_tunnels,
         hidden_labels=builder.hidden_labels,
         sequence_dividers=builder.sequence_dividers,
+        sequence_shown_frame=builder.sequence_shown_frame,
         icon_png=icon if icon.exists() else None,
     )
