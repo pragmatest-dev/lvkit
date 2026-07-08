@@ -321,16 +321,16 @@ def _draw_frame_selector(
     structure: RenderStructure, scene: Scene, backend: Backend, theme: Theme,
 ) -> None:
     """The selector chrome as separate CLICK TARGETS: a ◄ prev arrow, the value
-    box (which — for a case — is a ▼ dropdown toggle carrying the frame list),
-    and a ► next arrow. The dropdown MENU itself is drawn topmost by
-    ``_draw_frame_menu``; the frame VALUE is drawn on top per-frame by
-    ``_draw_frame_value_label``. A stacked sequence has no ▼ / menu — its box
-    isn't a toggle, just prev/next arrows."""
+    box (a ▼ dropdown toggle carrying the frame list — both cases and stacked
+    sequences can jump to a frame), and a ► next arrow. The dropdown MENU is
+    drawn topmost by ``_draw_frame_menu``; the frame LABEL is drawn on top
+    per-frame by ``_draw_frame_value_label`` (a case shows its value, a stacked
+    sequence its ``N [0..M]`` frame label)."""
     values = scene.frame_values.get(structure.raw_uid)
     default = scene.default_frame.get(structure.raw_uid)
     if not values or default is None:
         return
-    has_dropdown = isinstance(structure.node, CaseStructureNode)
+    has_dropdown = _is_interactive_structure(structure.node)
     g = _selector_geom(structure, scene, has_dropdown=has_dropdown, backend=backend)
     bx1, by1, bx2, by2 = g.box
     struct = structure.raw_uid
@@ -427,7 +427,7 @@ def _draw_frame_value_label(
     """The selected frame's label, centered in the selector's text zone (to the
     LEFT of a case's ▼ dropdown, never under it or the arrows). A case shows its
     plain value; a stacked sequence shows ``N [0..M]`` (see _frame_display)."""
-    has_dropdown = isinstance(structure.node, CaseStructureNode)
+    has_dropdown = _is_interactive_structure(structure.node)
     g = _selector_geom(structure, scene, has_dropdown=has_dropdown, backend=backend)
     label = _frame_display(structure, scene, value)
     tri_w = (g.tri[2] - g.tri[0]) if g.tri is not None else 0.0
@@ -702,10 +702,11 @@ def draw_scene(scene: Scene, backend: Backend, theme: Theme = DEFAULT_THEME) -> 
     base_nets = [n for n in scene.wire_nets if not n.frame_path]
     base_nodes = [n for n in scene.nodes if not n.frame_path]
     base_dots = [d.point for d in scene.coercion_dots if not d.frame_path]
+    base_fps = [fp for fp in scene.fp_terminals if not fp.frame_path]
 
     _draw_layer_content(base_structures, base_nets, base_nodes, scene, backend, theme)
 
-    for fp in scene.fp_terminals:
+    for fp in base_fps:
         draw_fp_terminal(fp.terminal, fp.bounds, backend, theme, fp.label_visible)
 
     _draw_layer_coercion_dots(base_nets, base_dots, backend, theme)
@@ -723,12 +724,16 @@ def draw_scene(scene: Scene, backend: Backend, theme: Theme = DEFAULT_THEME) -> 
     for d in scene.coercion_dots:
         if d.frame_path:
             paths.add(d.frame_path)
+    for fp in scene.fp_terminals:
+        if fp.frame_path:
+            paths.add(fp.frame_path)
 
     for path in sorted(paths, key=encode_frame_path):
         structures = [s for s in scene.structures if s.frame_path == path]
         nets = [n for n in scene.wire_nets if n.frame_path == path]
         nodes = [n for n in scene.nodes if n.frame_path == path]
         dots = [d.point for d in scene.coercion_dots if d.frame_path == path]
+        fps = [fp for fp in scene.fp_terminals if fp.frame_path == path]
         visible = _is_default_visible(path, scene.default_frame)
         backend.begin_group(
             cls="lv-frame",
@@ -736,6 +741,8 @@ def draw_scene(scene: Scene, backend: Backend, theme: Theme = DEFAULT_THEME) -> 
             style=None if visible else "display:none",
         )
         _draw_layer_content(structures, nets, nodes, scene, backend, theme)
+        for fp in fps:
+            draw_fp_terminal(fp.terminal, fp.bounds, backend, theme, fp.label_visible)
         _draw_layer_coercion_dots(nets, dots, backend, theme)
         backend.end_group()
 
@@ -777,9 +784,9 @@ def draw_scene(scene: Scene, backend: Backend, theme: Theme = DEFAULT_THEME) -> 
             backend.end_group()
 
     # Dropdown menus LAST so they overlay the whole diagram when opened (they
-    # are display:none until the ▼ toggle shows them). Cases only.
+    # are display:none until the ▼ toggle shows them). Cases + stacked seqs.
     for structure in scene.structures:
-        if isinstance(structure.node, CaseStructureNode) and scene.frame_values.get(
+        if _is_interactive_structure(structure.node) and scene.frame_values.get(
             structure.raw_uid,
         ):
             _draw_frame_menu(structure, scene, backend, theme)

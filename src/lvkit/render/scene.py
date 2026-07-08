@@ -64,6 +64,11 @@ class RenderFPTerminal:
     bounds: Rect
     center: Point
     label_visible: bool = True
+    # Frame path of the interactive-structure frame this terminal sits in
+    # (derived from the node it wires to) — so an indicator placed inside a
+    # case/sequence frame hides with that frame instead of showing in all of
+    # them. () = base/always-visible (the usual boundary terminal).
+    frame_path: FramePath = ()
 
 
 # Root->leaf (raw structure uid, str(selector_value / frame index)) segments
@@ -747,6 +752,23 @@ def build_scene(graph: InMemoryVIGraph, vi_name: str) -> Scene | None:
     fp_terminals: list[RenderFPTerminal] = []
     vi_node = graph.get_graph_node(vi_name)
     if vi_node is not None:
+        # Frame membership for FP terminals (they carry no parent/frame): an
+        # indicator/control placed INSIDE a case/sequence frame wires to a node
+        # in that frame — inherit that node's (deepest) frame path so it hides
+        # with the frame instead of rendering in every frame.
+        fp_ids = {t.id for t in vi_node.terminals if isinstance(t, FPTerminal)}
+        fp_frame: dict[str, FramePath] = {}
+        for w in graph.get_wires(vi_name, include_internal=True):
+            for end, other in ((w.source, w.dest), (w.dest, w.source)):
+                if end.terminal_id not in fp_ids:
+                    continue
+                node = by_id.get(other.node_id)
+                if node is None:
+                    continue
+                cand = _frame_path(node, by_id, vi_name)
+                if len(cand) > len(fp_frame.get(end.terminal_id, ())):
+                    fp_frame[end.terminal_id] = cand
+
         for t in vi_node.terminals:
             if not isinstance(t, FPTerminal):
                 continue
@@ -761,7 +783,7 @@ def build_scene(graph: InMemoryVIGraph, vi_name: str) -> Scene | None:
             label_visible = raw_uid not in layout.hidden_labels
             fp_terminals.append(RenderFPTerminal(
                 terminal=t, bounds=bounds, center=center,
-                label_visible=label_visible,
+                label_visible=label_visible, frame_path=fp_frame.get(t.id, ()),
             ))
 
     if missing:
