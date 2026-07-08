@@ -251,10 +251,14 @@ class SvgBackend:
         ``root_id``, when given, is set as the root ``<svg id=...>`` so
         inline ``script`` can scope its DOM queries to this one document
         (needed so multiple inlined SVGs on one HTML page don't collide).
-        ``script``, when given, is appended as a literal inline ``<script>``
-        right before ``</svg>`` — it is author-controlled JS (the frame-
-        toggle controller), not escaped; it must not contain a literal
-        ``</script>`` substring.
+        ``script``, when given, is appended as an inline ``<script>`` right
+        before ``</svg>`` — author-controlled JS (the frame-toggle
+        controller), not escaped. Its body is wrapped in a comment-guarded
+        CDATA section (``/*<![CDATA[*/ … /*]]>*/``) so a standalone ``.svg``
+        (parsed as strict XML, where a ``<`` in the JS would be an invalid
+        start-tag) AND inline SVG in HTML (where the markers are just JS
+        comments) both parse. It must not contain a literal ``</script>`` or
+        the CDATA terminator ``]]>``.
         """
         x1, y1, x2, y2 = bounds
         w, h = x2 - x1, y2 - y1
@@ -266,8 +270,10 @@ class SvgBackend:
         title_el = f"<title>{escape(title)}</title>" if title else None
         script_el = None
         if script is not None:
-            if "</script>" in script:
-                raise ValueError("script must not contain a literal </script>")
-            script_el = f"<script>{script}</script>"
+            if "</script>" in script or "]]>" in script:
+                raise ValueError(
+                    "script must not contain a literal </script> or ]]>"
+                )
+            script_el = f"<script>/*<![CDATA[*/\n{script}\n/*]]>*/</script>"
         parts = [head, title_el, *self._elements, script_el, "</svg>"]
         return "\n".join(p for p in parts if p is not None)

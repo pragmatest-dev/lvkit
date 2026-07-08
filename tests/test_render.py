@@ -922,3 +922,22 @@ def test_subvi_nodes_get_hover_tooltip_titles():
     # (root <title> is the VI name "In.vi"; "<title>DAQmx" can only be a node)
     assert "<title>DAQmx" in svg
     assert re.search(r"<g>\s*<title>DAQmx", svg)
+
+
+def test_case_vi_svg_is_well_formed_xml_standalone():
+    """A case/stacked-seq VI embeds an inline <script> whose JS contains '<'
+    (e.g. `i < n`). Opened as a standalone .svg the browser parses strict XML,
+    so the script body must be CDATA-guarded — assert the whole document
+    parses as XML (regression for 'StartTag: invalid element name')."""
+    import xml.etree.ElementTree as ET
+
+    loaded = _load_graph(CASE_VI)
+    if loaded is None:
+        pytest.skip(f"sample VI not available: {CASE_VI}")
+    graph, vi = loaded
+    scene = build_scene(graph, vi)
+    if scene is None or not scene.frame_values:
+        pytest.skip("sample has no interactive structures (no inline script)")
+    svg = render_vi(graph, vi)
+    assert svg is not None and "<script>" in svg
+    ET.fromstring(svg)  # raises ParseError if the script broke XML well-formedness
