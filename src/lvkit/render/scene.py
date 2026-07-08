@@ -246,8 +246,12 @@ def _frame_info(
     frame values — the selector chrome's click-to-cycle metadata.
 
     Cases key by selector value (with ``is_default``/first-frame fallback);
-    stacked sequences key by frame index (always default "0", frames execute
-    in order so the first is the natural starting view).
+    stacked sequences key by frame index. A sequence executes ALL frames in
+    order, so no frame is semantically "the" one — but frame 0 is very often an
+    empty setup frame, and opening a big stacked sequence on an empty frame
+    reads as broken. So the initial VIEW defaults to the frame with the most
+    content (ties → lowest index); the selector still steps through every frame,
+    frame 0 included.
     """
     default_frame: dict[str, str] = {}
     frame_values: dict[str, list[str]] = {}
@@ -264,7 +268,11 @@ def _frame_info(
         ):
             raw = _strip_prefix(node.id, vi_name)
             frame_values[raw] = [str(i) for i in range(len(node.frames))]
-            default_frame[raw] = "0"
+            richest = max(
+                range(len(node.frames)),
+                key=lambda i: len(node.frames[i].inner_node_uids),
+            )
+            default_frame[raw] = str(richest)
     return default_frame, frame_values
 
 
