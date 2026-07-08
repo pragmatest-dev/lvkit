@@ -386,7 +386,11 @@ def test_case_svg_has_lv_frame_groups_one_visible_per_struct():
     assert svg is not None
     assert '<g class="lv-frame" data-path="' in svg
     assert '<g class="lv-selector"' in svg
-    assert "data-frames=" in svg and "data-default=" in svg
+    assert "data-lv-frames=" in svg and "data-lv-default=" in svg
+    # a case has a real dropdown: a hidden menu with clickable options/values
+    assert 'class="lv-menu"' in svg
+    assert 'class="lv-option"' in svg and "data-lv-value=" in svg
+    assert 'data-lv-action="toggle"' in svg
 
     for raw, values in scene.frame_values.items():
         visible = hidden = 0

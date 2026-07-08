@@ -307,12 +307,12 @@ def _draw_frame_border(
 def _draw_frame_selector(
     structure: RenderStructure, scene: Scene, backend: Backend, theme: Theme,
 ) -> None:
-    """The selector's value box (a white outlined display), the ◄/► prev/next
-    arrows, and — for a case — a ▼ dropdown triangle in its own zone, plus the
-    transparent clickable overlay carrying the frame-cycle metadata the inline
-    JS controller reads on click. A stacked sequence omits the ▼ (no
-    value-picker, just prev/next through the frame order). The frame VALUE is
-    drawn on top per-frame by ``_draw_frame_value_label``."""
+    """The selector chrome as separate CLICK TARGETS: a ◄ prev arrow, the value
+    box (which — for a case — is a ▼ dropdown toggle carrying the frame list),
+    and a ► next arrow. The dropdown MENU itself is drawn topmost by
+    ``_draw_frame_menu``; the frame VALUE is drawn on top per-frame by
+    ``_draw_frame_value_label``. A stacked sequence has no ▼ / menu — its box
+    isn't a toggle, just prev/next arrows."""
     values = scene.frame_values.get(structure.raw_uid)
     default = scene.default_frame.get(structure.raw_uid)
     if not values or default is None:
@@ -320,12 +320,35 @@ def _draw_frame_selector(
     has_dropdown = isinstance(structure.node, CaseStructureNode)
     g = _selector_geom(structure, scene, has_dropdown=has_dropdown, backend=backend)
     bx1, by1, bx2, by2 = g.box
+    struct = structure.raw_uid
+    bar_top, bar_bot = structure.bounds[1] - _CASE_BAR_H, structure.bounds[1]
 
-    # White value-display box (the "dropdown" the selected value sits in).
+    def _arrow(action: str, xc: float, glyph: str) -> None:
+        backend.begin_group(
+            cls="lv-selector",
+            data={"lv-action": action, "lv-struct": struct},
+            style="cursor:pointer",
+        )
+        backend.rect(xc - 7.0, bar_top, xc + 7.0, bar_bot,
+                     fill="transparent", stroke="none")
+        backend.text(xc, g.baseline, glyph, _SELECTOR_SIZE, fill=theme.case_bar_text)
+        backend.end_group()
+
+    _arrow("prev", g.left_x, "◄")
+
+    # The value box. For a case it's the dropdown TOGGLE (and carries the frame
+    # list the JS controller reads); a stacked sequence's box is inert.
+    box_data = {
+        "lv-struct": struct, "lv-frames": ";".join(values), "lv-default": default,
+    }
+    if has_dropdown:
+        box_data["lv-action"] = "toggle"
+    backend.begin_group(
+        cls="lv-selector", data=box_data,
+        style="cursor:pointer" if has_dropdown else None,
+    )
     backend.rect(bx1, by1, bx2, by2, fill="#ffffff",
                  stroke=theme.struct_border, stroke_width=0.75)
-    backend.text(g.left_x, g.baseline, "◄", _SELECTOR_SIZE, fill=theme.case_bar_text)
-    backend.text(g.right_x, g.baseline, "►", _SELECTOR_SIZE, fill=theme.case_bar_text)
     if g.tri is not None:
         tx1, ty1, tx2, ty2 = g.tri
         backend.line(tx1, ty1, tx1, ty2, stroke="#cccccc", stroke_width=0.5)
@@ -334,20 +357,47 @@ def _draw_frame_selector(
             [(tcx - 3.0, tcy - 1.6), (tcx + 3.0, tcy - 1.6), (tcx, tcy + 2.2)],
             fill=theme.case_bar_text,
         )
+    backend.end_group()
 
-    # Clickable overlay over the whole selector region (arrows + box).
-    x1, y1, _x2, _y2 = structure.bounds
+    _arrow("next", g.right_x, "►")
+
+
+_MENU_ROW_H = 13.0
+
+
+def _draw_frame_menu(
+    structure: RenderStructure, scene: Scene, backend: Backend, theme: Theme,
+) -> None:
+    """A case structure's dropdown MENU: one clickable row per frame value,
+    stacked below the value box, hidden until the ▼ toggle opens it. Drawn in a
+    final topmost pass so it overlays the diagram; clicking a row selects that
+    frame (see the JS controller). Only cases get a menu."""
+    values = scene.frame_values.get(structure.raw_uid)
+    if not values:
+        return
+    g = _selector_geom(structure, scene, has_dropdown=True, backend=backend)
+    bx1, _by1, bx2, by2 = g.box
+    struct = structure.raw_uid
+    zone_w = (bx2 - bx1) - 6.0
     backend.begin_group(
-        cls="lv-selector",
-        data={
-            "struct": structure.raw_uid,
-            "frames": ";".join(values),
-            "default": default,
-        },
-        style="cursor:pointer",
+        cls="lv-menu", data={"lv-struct": struct}, style="display:none",
     )
-    backend.rect(g.left_x - 6.0, y1 - _CASE_BAR_H, g.right_x + 6.0, y1,
-                 fill="transparent", stroke="none")
+    for i, v in enumerate(values):
+        ry1 = by2 + i * _MENU_ROW_H
+        ry2 = ry1 + _MENU_ROW_H
+        backend.begin_group(
+            cls="lv-option", data={"lv-struct": struct, "lv-value": v},
+            style="cursor:pointer",
+        )
+        backend.rect(bx1, ry1, bx2, ry2, fill="#ffffff",
+                     stroke="#999999", stroke_width=0.5)
+        text = (
+            v if backend.measure_text(v, _SELECTOR_SIZE) <= zone_w
+            else fit_label(v, zone_w, backend, _SELECTOR_SIZE)
+        )
+        backend.text((bx1 + bx2) / 2, ry1 + _MENU_ROW_H / 2 + _SELECTOR_SIZE * 0.34,
+                     text, _SELECTOR_SIZE, fill=theme.case_bar_text)
+        backend.end_group()
     backend.end_group()
 
 
@@ -704,3 +754,11 @@ def draw_scene(scene: Scene, backend: Backend, theme: Theme = DEFAULT_THEME) -> 
             )
             _draw_frame_value_label(structure, scene, value, backend, theme)
             backend.end_group()
+
+    # Dropdown menus LAST so they overlay the whole diagram when opened (they
+    # are display:none until the ▼ toggle shows them). Cases only.
+    for structure in scene.structures:
+        if isinstance(structure.node, CaseStructureNode) and scene.frame_values.get(
+            structure.raw_uid,
+        ):
+            _draw_frame_menu(structure, scene, backend, theme)

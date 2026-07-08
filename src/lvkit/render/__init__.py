@@ -35,51 +35,68 @@ def _root_id(vi_name: str) -> str:
     return "lv-" + _ID_SANITIZE_RE.sub("-", vi_name).strip("-")
 
 
-# Interactive case-frame controller (roadmap #17): cycles a case structure's
-# ``◄ value ▼ ►`` selector through its frames on click, showing/hiding the
-# matching ``lv-frame`` groups (content + the dedicated value-label groups).
-# An IIFE scoped to this SVG's own root id, guarded against double-init so a
-# gallery page embedding many SVGs (each with its own <script>) is safe.
-# No Math.random()/Date — nothing here affects the rendered SVG bytes upstream
-# of this script tag, and the script's own text is a fixed constant.
+# Interactive frame controller (roadmap #17): a case/stacked-sequence selector
+# with ◄/► prev-next arrows AND a ▼ dropdown that opens a real menu of frame
+# values to pick from. Selecting a frame shows/hides the matching ``lv-frame``
+# groups (content + value-label groups) by ANDing every ``struct=value`` segment
+# of their ``data-path`` against current state — which is what makes nesting
+# compose. A delegated click handler reads ``data-lv-action`` (prev/next/toggle)
+# and ``data-lv-value`` (a menu option) off the clicked target. Scoped to this
+# SVG's own root id and guarded against double-init so a page embedding many
+# SVGs is safe. No Math.random()/Date.
 _FRAME_CONTROLLER_JS = """(function() {
   var root = document.getElementById(__ROOT_ID__);
   if (!root || root.__lvInit) return;
   root.__lvInit = true;
-  var state = {};
-  var selectors = root.querySelectorAll(".lv-selector");
-  for (var i = 0; i < selectors.length; i++) {
-    var sel = selectors[i];
-    state[sel.getAttribute("data-struct")] = sel.getAttribute("data-default");
+  var config = {}, state = {};
+  var carriers = root.querySelectorAll("[data-lv-frames]");
+  for (var i = 0; i < carriers.length; i++) {
+    var el = carriers[i], s = el.getAttribute("data-lv-struct");
+    config[s] = { frames: el.getAttribute("data-lv-frames").split(";"),
+                  def: el.getAttribute("data-lv-default") };
+    state[s] = config[s].def;
   }
   function apply() {
-    var groups = root.querySelectorAll(".lv-frame");
-    for (var i = 0; i < groups.length; i++) {
-      var g = groups[i];
-      var segs = g.getAttribute("data-path").split(";");
-      var visible = true;
+    var gs = root.querySelectorAll(".lv-frame");
+    for (var i = 0; i < gs.length; i++) {
+      var g = gs[i], segs = g.getAttribute("data-path").split(";"), vis = true;
       for (var j = 0; j < segs.length; j++) {
         var seg = segs[j];
         if (!seg) continue;
-        var eq = seg.indexOf("=");
-        var struct = seg.slice(0, eq);
-        var val = seg.slice(eq + 1);
-        if (state[struct] !== val) { visible = false; break; }
+        var k = seg.indexOf("=");
+        if (state[seg.slice(0, k)] !== seg.slice(k + 1)) { vis = false; break; }
       }
-      g.style.display = visible ? "" : "none";
+      g.style.display = vis ? "" : "none";
     }
   }
-  for (var i = 0; i < selectors.length; i++) {
-    (function(sel) {
-      sel.addEventListener("click", function() {
-        var struct = sel.getAttribute("data-struct");
-        var frames = sel.getAttribute("data-frames").split(";");
-        var idx = frames.indexOf(state[struct]);
-        state[struct] = frames[(idx + 1) % frames.length];
-        apply();
-      });
-    })(selectors[i]);
+  function closeMenus(except) {
+    var ms = root.querySelectorAll(".lv-menu");
+    for (var i = 0; i < ms.length; i++)
+      if (ms[i] !== except) ms[i].style.display = "none";
   }
+  root.addEventListener("click", function(e) {
+    var t = e.target;
+    while (t && t !== root && t.getAttribute &&
+           t.getAttribute("data-lv-action") === null &&
+           t.getAttribute("data-lv-value") === null) t = t.parentNode;
+    if (!t || t === root || !t.getAttribute) { closeMenus(null); return; }
+    var s = t.getAttribute("data-lv-struct");
+    var val = t.getAttribute("data-lv-value");
+    var action = t.getAttribute("data-lv-action");
+    if (val !== null) { state[s] = val; apply(); closeMenus(null); }
+    else if (action === "prev" || action === "next") {
+      var f = config[s].frames, idx = f.indexOf(state[s]);
+      state[s] = f[(idx + (action === "next" ? 1 : f.length - 1)) % f.length];
+      apply(); closeMenus(null);
+    } else if (action === "toggle") {
+      var m = root.querySelector('.lv-menu[data-lv-struct="' + s + '"]');
+      if (m) {
+        var open = m.style.display !== "none";
+        closeMenus(m);
+        m.style.display = open ? "none" : "";
+      }
+    }
+  });
   apply();
 })();"""
 
