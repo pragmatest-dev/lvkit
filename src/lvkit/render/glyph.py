@@ -262,20 +262,19 @@ class BooleanConstantGlyph:
         cx, cy = (x1 + x2) / 2, (y1 + y2) / 2
         x1, y1, x2, y2 = cx - side / 2, cy - side / 2, cx + side / 2, cy + side / 2
         green = getattr(theme, self.green_attr)
-        rx = min(2.5, side / 6)
         if self.value:
             # Green outer outline + green fill, then a white inner outline
             # (the bezel) inset within it, still green-filled — a white T.
+            # Sharp corners: LabVIEW block-diagram objects aren't rounded.
             backend.rect(x1, y1, x2, y2, fill=green, stroke=green,
-                         stroke_width=1.0, rx=rx)
+                         stroke_width=1.0)
             inset = min(2.0, (x2 - x1) * 0.16, (y2 - y1) * 0.16)
             backend.rect(x1 + inset, y1 + inset, x2 - inset, y2 - inset,
-                         fill=green, stroke="#ffffff", stroke_width=1.0,
-                         rx=max(0.8, rx - 1.0))
+                         fill=green, stroke="#ffffff", stroke_width=1.0)
             text_fill, letter = "#ffffff", "T"
         else:
             backend.rect(x1, y1, x2, y2, fill="#ffffff", stroke=green,
-                         stroke_width=1.2, rx=rx)
+                         stroke_width=1.2)
             text_fill, letter = green, "F"
         size = max(6.0, min(11.0, (y2 - y1) * 0.72, (x2 - x1) * 0.9))
         backend.text(
