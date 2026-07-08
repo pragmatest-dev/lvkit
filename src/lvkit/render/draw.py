@@ -9,11 +9,20 @@ node glyphs only — see DESIGN.md's phasing).
 
 from __future__ import annotations
 
-from ..graph.models import VINode
-from ..models import CaseFrame, FPTerminal, LVType
-from .backend import Backend
+from ..graph.models import CaseStructureNode, VINode
+from ..models import FPTerminal, LVType
+from .backend import Backend, Point
 from .glyph import ArithGlyph, ErrorClusterGlyph, VariantGlyph, fit_label
-from .scene import RenderBorderTerminal, RenderNode, RenderStructure, Scene
+from .scene import (
+    FramePath,
+    RenderBorderTerminal,
+    RenderNode,
+    RenderStructure,
+    RenderWireNet,
+    Scene,
+    _is_default_visible,
+    encode_frame_path,
+)
 from .style import (
     DEFAULT_THEME,
     Theme,
@@ -184,21 +193,59 @@ def _draw_while_loop_border(x1, y1, x2, y2, backend: Backend, theme: Theme) -> N
                  stroke_width=1.2)
 
 
+# Bar height for a case structure's selector bar (also used to position the
+# clickable overlay + value-label groups — see draw_scene).
+_CASE_BAR_H = 14.0
+
+
 def _draw_case_border(
     structure: RenderStructure, backend: Backend, theme: Theme,
 ) -> None:
+    """The case structure's box + selector bar chrome (``◄`` / ``▼ ►``).
+
+    The frame's VALUE text is NOT drawn here — it lives in a dedicated,
+    per-(struct, value) ``lv-frame`` group (see draw_scene's value-label
+    pass) so it stays correct under nesting and flips with the selector.
+    """
     x1, y1, x2, y2 = structure.bounds
-    bar_h = 14.0
     backend.rect(x1, y1, x2, y2, fill="none", stroke=theme.struct_border,
                  stroke_width=1.2)
-    backend.rect(x1, y1 - bar_h, x2, y1, fill=theme.case_bar_fill,
+    backend.rect(x1, y1 - _CASE_BAR_H, x2, y1, fill=theme.case_bar_fill,
                  stroke=theme.struct_border, stroke_width=1)
-    shown = structure.shown_frame
-    label = str(shown.selector_value) if isinstance(shown, CaseFrame) else ""
-    backend.text(
-        (x1 + x2) / 2, y1 - 3.5, f"◄ {label} ▼ ►", 9,
-        fill=theme.case_bar_text,
+    cx = (x1 + x2) / 2
+    backend.text(cx - 16, y1 - 3.5, "◄", 9, fill=theme.case_bar_text)
+    backend.text(cx + 16, y1 - 3.5, "▼ ►", 9, fill=theme.case_bar_text)
+
+
+def _draw_case_selector(
+    structure: RenderStructure, scene: Scene, backend: Backend,
+) -> None:
+    """A transparent, clickable overlay on a case structure's selector bar,
+    carrying the frame-cycle metadata the inline JS controller reads on
+    click (``__init__.py``'s frame controller)."""
+    values = scene.frame_values.get(structure.raw_uid)
+    default = scene.default_frame.get(structure.raw_uid)
+    if not values or default is None:
+        return
+    x1, y1, x2, _y2 = structure.bounds
+    backend.begin_group(
+        cls="lv-selector",
+        data={
+            "struct": structure.raw_uid,
+            "frames": ";".join(values),
+            "default": default,
+        },
+        style="cursor:pointer",
     )
+    backend.rect(x1, y1 - _CASE_BAR_H, x2, y1, fill="transparent", stroke="none")
+    backend.end_group()
+
+
+def _draw_case_value_label(
+    structure: RenderStructure, value: str, backend: Backend, theme: Theme,
+) -> None:
+    x1, y1, x2, _y2 = structure.bounds
+    backend.text((x1 + x2) / 2, y1 - 3.5, value, 9, fill=theme.case_bar_text)
 
 
 def _draw_sequence_border(x1, y1, x2, y2, backend: Backend, theme: Theme) -> None:
@@ -402,19 +449,20 @@ def draw_fp_terminal(
         _draw_fp_value_cell(value_bounds, sample, backend, theme)
 
 
-def draw_scene(scene: Scene, backend: Backend, theme: Theme = DEFAULT_THEME) -> None:
-    """Draw an entire scene: canvas, structures, wires, nodes, FP terminals,
-    then coercion dots last — they mark a TERMINAL point, which (like a wire
-    stub) can sit inside a node's own bounds, so they must be topmost to stay
-    visible rather than getting covered by the node/FP-terminal fill drawn
-    after wires."""
-    x1, y1, x2, y2 = scene.bounds
-    backend.rect(x1, y1, x2, y2, fill=theme.canvas)
-
-    for structure in scene.structures:
+def _draw_layer_content(
+    structures: list[RenderStructure], nets: list[RenderWireNet],
+    nodes: list[RenderNode], scene: Scene, backend: Backend, theme: Theme,
+) -> None:
+    """One layer's worth of structures -> wires -> boundary terminals ->
+    nodes, in the SAME relative order as the original single-pass
+    ``draw_scene`` — reused for both the base layer and each case-frame
+    group so a non-case VI (only a base layer) renders byte-identically."""
+    for structure in structures:
         draw_structure(structure, backend, theme)
+        if isinstance(structure.node, CaseStructureNode):
+            _draw_case_selector(structure, scene, backend)
 
-    for net in scene.wire_nets:
+    for net in nets:
         for branch in net.branches:
             backend.path(branch, stroke=net.style.color, stroke_width=net.style.width)
         for jx, jy in net.junctions:
@@ -422,21 +470,101 @@ def draw_scene(scene: Scene, backend: Backend, theme: Theme = DEFAULT_THEME) -> 
 
     # Boundary terminals ON TOP of wires — a tunnel/shift-register/N-i sits on
     # the structure border and the wire butts against it, never over it.
-    for structure in scene.structures:
+    for structure in structures:
         for bt in structure.border_terminals:
             _draw_border_terminal(bt, backend, theme)
 
-    for node in scene.nodes:
+    for node in nodes:
         draw_node(node, backend, theme)
+
+
+def _draw_layer_coercion_dots(
+    nets: list[RenderWireNet], dots: list[Point], backend: Backend, theme: Theme,
+) -> None:
+    for net in nets:
+        for dx, dy in net.coercion_dots:
+            backend.circle(dx, dy, 2.0, fill=theme.coercion_dot,
+                            stroke="#ffffff", stroke_width=0.5)
+    for dx, dy in dots:
+        backend.circle(dx, dy, 2.0, fill=theme.coercion_dot,
+                        stroke="#ffffff", stroke_width=0.5)
+
+
+def draw_scene(scene: Scene, backend: Backend, theme: Theme = DEFAULT_THEME) -> None:
+    """Draw an entire scene: canvas, base-layer structures/wires/nodes/FP
+    terminals/coercion dots (unchanged order — byte-identical for VIs with
+    no case structures), then one ``lv-frame`` group per distinct case-frame
+    path (all frames rendered; only the default-selected one starts visible
+    — see roadmap #17), then each case's clickable selector-value labels."""
+    x1, y1, x2, y2 = scene.bounds
+    backend.rect(x1, y1, x2, y2, fill=theme.canvas)
+
+    base_structures = [s for s in scene.structures if not s.frame_path]
+    base_nets = [n for n in scene.wire_nets if not n.frame_path]
+    base_nodes = [n for n in scene.nodes if not n.frame_path]
+    base_dots = [d.point for d in scene.coercion_dots if not d.frame_path]
+
+    _draw_layer_content(base_structures, base_nets, base_nodes, scene, backend, theme)
 
     for fp in scene.fp_terminals:
         draw_fp_terminal(fp.terminal, fp.bounds, backend, theme, fp.label_visible)
 
-    for net in scene.wire_nets:
-        for dx, dy in net.coercion_dots:
-            backend.circle(dx, dy, 2.0, fill=theme.coercion_dot,
-                            stroke="#ffffff", stroke_width=0.5)
+    _draw_layer_coercion_dots(base_nets, base_dots, backend, theme)
 
-    for dx, dy in scene.coercion_dots:
-        backend.circle(dx, dy, 2.0, fill=theme.coercion_dot,
-                        stroke="#ffffff", stroke_width=0.5)
+    paths: set[FramePath] = set()
+    for s in scene.structures:
+        if s.frame_path:
+            paths.add(s.frame_path)
+    for n in scene.nodes:
+        if n.frame_path:
+            paths.add(n.frame_path)
+    for net in scene.wire_nets:
+        if net.frame_path:
+            paths.add(net.frame_path)
+    for d in scene.coercion_dots:
+        if d.frame_path:
+            paths.add(d.frame_path)
+
+    for path in sorted(paths, key=encode_frame_path):
+        structures = [s for s in scene.structures if s.frame_path == path]
+        nets = [n for n in scene.wire_nets if n.frame_path == path]
+        nodes = [n for n in scene.nodes if n.frame_path == path]
+        dots = [d.point for d in scene.coercion_dots if d.frame_path == path]
+        visible = _is_default_visible(path, scene.default_frame)
+        backend.begin_group(
+            cls="lv-frame",
+            data={"path": encode_frame_path(path)},
+            style=None if visible else "display:none",
+        )
+        _draw_layer_content(structures, nets, nodes, scene, backend, theme)
+        _draw_layer_coercion_dots(nets, dots, backend, theme)
+        backend.end_group()
+
+    # Dedicated single-segment value-label groups (see _draw_case_border /
+    # DECISION 2): one per (case struct, frame value), so each case's
+    # ``◄ value ▼ ►`` label flips independently of content nesting.
+    for structure in scene.structures:
+        if not isinstance(structure.node, CaseStructureNode):
+            continue
+        values = scene.frame_values.get(structure.raw_uid, [])
+        default = scene.default_frame.get(structure.raw_uid)
+        for value in values:
+            # Full compositional path: this case's own ancestor frame_path
+            # PLUS its own (struct, value) segment. A nested case's label
+            # must hide when an ancestor case is on a different frame (its
+            # box is hidden), not just when its own selector differs — a
+            # bare single-segment path would leak a floating label. The JS
+            # controller ANDs every segment, so ancestors gate it correctly.
+            label_path: FramePath = structure.frame_path + (
+                (structure.raw_uid, value),
+            )
+            backend.begin_group(
+                cls="lv-frame",
+                data={"path": encode_frame_path(label_path)},
+                style=None if (
+                    value == default
+                    and _is_default_visible(structure.frame_path, scene.default_frame)
+                ) else "display:none",
+            )
+            _draw_case_value_label(structure, value, backend, theme)
+            backend.end_group()

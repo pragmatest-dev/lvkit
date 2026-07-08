@@ -105,7 +105,8 @@ figcaption span {{ color:var(--muted); font-size:12px; }}
 <header>
   <h1>lvkit renderer — VI gallery</h1>
   <p>{count} VIs · regenerate with
-  <code>uv run python scripts/render_gallery.py</code></p>
+  <code>uv run python scripts/render_gallery.py</code>
+  · click a case's <code>◄ value ▼ ►</code> selector to flip frames</p>
 </header>
 <div class="grid">
 {cards}

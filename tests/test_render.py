@@ -9,6 +9,7 @@ these skip gracefully when a given file isn't present.
 from __future__ import annotations
 
 import os
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -22,7 +23,7 @@ from lvkit.render import render_vi, render_vi_file
 from lvkit.render.backend import SvgBackend
 from lvkit.render.draw import draw_fp_terminal
 from lvkit.render.layout import Layout
-from lvkit.render.scene import _structure_borders, build_scene
+from lvkit.render.scene import _structure_borders, build_scene, encode_frame_path
 from lvkit.render.style import DEFAULT_THEME, coercion_key, wire_style
 from lvkit.render.wire_router import RouterConfig, WireRouter, _compress, path_d
 
@@ -145,13 +146,18 @@ NESTED_CASE_VI = Path(
     "samples/OpenG/extracted/File Group 0/user.lib/_OpenG.lib/variantconfig/"
     "variantconfig.llb/Write Panel to INI__ogtk.vi"
 )
+# A case genuinely nested inside another case's frame (not just a case inside
+# a loop) — its scene has 2+ segment compound frame paths.
+NESTED_CASE_CONTENT_VI = Path(
+    "samples/JKI-EasyXML/Source/Fast Parser/XML Loop Stack Recursion.vi"
+)
 CORPUS_VIS = [
     Path("samples/JKI-VI-Tester/source/Utilities/Get LV Class Members from Path.vi"),
     Path(
         "samples/JKI-EasyXML/Source/JKI Reuse Candidates/"
         "Is an Error__JKI Error Handling.vi"
     ),
-    Path("samples/JKI-EasyXML/Source/Fast Parser/XML Loop Stack Recursion.vi"),
+    NESTED_CASE_CONTENT_VI,
     CASE_VI,
     Path("samples/JKI-VI-Tester/source/Prototype/Test Project/Method1.vi"),
     Path(
@@ -305,10 +311,14 @@ def test_render_vi_file_determinism_across_hash_seeds():
     assert digests[0] == digests[1]
 
 
-def test_single_frame_policy_hides_other_case_frames():
-    loaded = _load_graph(NESTED_CASE_VI)
+def test_case_structures_render_all_frames_not_just_shown():
+    """Roadmap #17: every case frame's nodes are now IN the scene (tagged
+    with a frame path), not excluded — the single-frame policy inverted for
+    case structures (stacked sequences are unaffected, see
+    test_stacked_sequence_and_loop_have_no_frame_groups)."""
+    loaded = _load_graph(CASE_VI)
     if loaded is None:
-        pytest.skip(f"sample VI not available: {NESTED_CASE_VI}")
+        pytest.skip(f"sample VI not available: {CASE_VI}")
     graph, vi = loaded
 
     all_nodes = graph.iter_nodes(vi)
@@ -318,7 +328,6 @@ def test_single_frame_policy_hides_other_case_frames():
     total_frame_children = sum(
         len(frame.inner_node_uids) for c in case_nodes for frame in c.frames
     )
-    # Only meaningful when at least one case has >1 non-empty frame.
     if total_frame_children == 0:
         pytest.skip("sample's case structure(s) have no frame children")
 
@@ -326,20 +335,135 @@ def test_single_frame_policy_hides_other_case_frames():
     if scene is None:
         pytest.skip("sample lacks required diagram geometry")
 
-    visible_ids = {n.node.id for n in scene.nodes} | {
-        s.node.id for s in scene.structures
-    }
-    # Nodes belonging to a non-shown frame must not appear in the scene.
+    # Non-default frames' nodes are now present (tagged with a non-empty
+    # frame_path), not wholesale-excluded — a hidden frame's individual node
+    # may still be dropped if it genuinely lacks heap geometry (the relaxed
+    # fail-closed rule skips-with-log rather than aborting), so this checks
+    # "at least one survives and is frame-tagged", not "every single one".
+    any_non_default_visible = False
     for c in case_nodes:
         if not c.frames:
             continue
         shown = next((f for f in c.frames if f.is_default), c.frames[0])
         for frame in c.frames:
-            if frame is shown:
+            if frame is shown or not frame.inner_node_uids:
                 continue
             for uid in frame.inner_node_uids:
                 qid = f"{vi}::{uid}"
-                assert qid not in visible_ids
+                render_node = next(
+                    (n for n in scene.nodes if n.node.id == qid), None,
+                )
+                if render_node is not None:
+                    assert render_node.frame_path
+                    any_non_default_visible = True
+    assert any_non_default_visible, (
+        "expected at least one non-default case-frame node to survive into "
+        "the scene, frame-tagged"
+    )
+
+
+def test_case_svg_has_lv_frame_groups_one_visible_per_struct():
+    loaded = _load_graph(CASE_VI)
+    if loaded is None:
+        pytest.skip(f"sample VI not available: {CASE_VI}")
+    graph, vi = loaded
+    scene = build_scene(graph, vi)
+    if scene is None or not scene.frame_values:
+        pytest.skip("sample has no interactive case structures")
+    svg = render_vi(graph, vi)
+    assert svg is not None
+    assert '<g class="lv-frame" data-path="' in svg
+    assert '<g class="lv-selector"' in svg
+    assert "data-frames=" in svg and "data-default=" in svg
+
+    for raw, values in scene.frame_values.items():
+        visible = hidden = 0
+        for value in values:
+            path_attr = f'{raw}={value}'
+            pattern = (
+                r'<g class="lv-frame" data-path="' + re.escape(path_attr)
+                + r'"( style="([^"]*)")?>'
+            )
+            matches = re.findall(pattern, svg)
+            assert matches, f"no lv-frame group for {path_attr}"
+            for _whole, style in matches:
+                if style == "display:none":
+                    hidden += 1
+                else:
+                    visible += 1
+        assert visible >= 1
+        assert hidden == visible * (len(values) - 1) if len(values) > 1 else True
+
+
+def test_nested_case_svg_has_compound_data_path():
+    """A case genuinely nested inside another case's frame produces a
+    ``data-path`` with TWO ``struct=val`` segments (root->leaf), so nested
+    cases compose without needing nested DOM (roadmap #17)."""
+    loaded = _load_graph(NESTED_CASE_CONTENT_VI)
+    if loaded is None:
+        pytest.skip(f"sample VI not available: {NESTED_CASE_CONTENT_VI}")
+    graph, vi = loaded
+    scene = build_scene(graph, vi)
+    if scene is None:
+        pytest.skip("sample lacks required diagram geometry")
+
+    compound = [
+        p for p in
+        {n.frame_path for n in scene.nodes if len(n.frame_path) >= 2}
+        | {s.frame_path for s in scene.structures if len(s.frame_path) >= 2}
+    ]
+    if not compound:
+        pytest.skip("sample has no genuinely nested case frame in this scene")
+
+    svg = render_vi(graph, vi)
+    assert svg is not None
+    path = compound[0]
+    encoded = encode_frame_path(path)
+    assert f'data-path="{encoded}"' in svg
+    assert encoded.count("=") >= 2  # at least two struct=val segments
+
+
+def test_stacked_sequence_and_loop_have_no_frame_groups():
+    """Regression guard: VIs with no case structures produce no lv-frame /
+    lv-selector groups at all (loops, flat AND stacked sequences stay
+    exactly as before, per roadmap #17 scope)."""
+    if not GROUND_TRUTH_VI.exists():
+        pytest.skip(f"sample VI not available: {GROUND_TRUTH_VI}")
+    svg = render_vi_file(GROUND_TRUTH_VI)
+    assert svg is not None
+    # (The inline frame-controller <script> mentions the CSS class names in
+    # its JS source even when unused, so check for the actual SVG elements —
+    # class="lv-frame"/"lv-selector" — not a bare substring match.)
+    assert 'class="lv-frame"' not in svg
+    assert 'class="lv-selector"' not in svg
+
+
+def test_render_vi_file_determinism_across_hash_seeds_case_vi():
+    """Same determinism guarantee as
+    test_render_vi_file_determinism_across_hash_seeds, extended to a VI with
+    interactive case structures (frame-path partitioning must not depend on
+    hash-randomized set iteration either)."""
+    if not CASE_VI.exists():
+        pytest.skip(f"sample VI not available: {CASE_VI}")
+
+    script = (
+        "import hashlib\n"
+        "from lvkit.render import render_vi_file\n"
+        f"svg = render_vi_file({str(CASE_VI)!r}, expand_subvis=False)\n"
+        "assert svg is not None\n"
+        "print(hashlib.sha256(svg.encode()).hexdigest())\n"
+    )
+    digests = []
+    for seed in ("0", "1234567"):
+        result = subprocess.run(
+            [sys.executable, "-c", script],
+            cwd=Path(__file__).resolve().parent.parent,
+            env={**os.environ, "PYTHONHASHSEED": seed},
+            capture_output=True, text=True, timeout=60,
+        )
+        assert result.returncode == 0, result.stderr
+        digests.append(result.stdout.strip())
+    assert digests[0] == digests[1]
 
 
 # --------------------------------------------------------------------------- #

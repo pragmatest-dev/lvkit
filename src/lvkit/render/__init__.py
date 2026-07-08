@@ -12,6 +12,8 @@ resolver chain) -> ``draw.py`` (replays the resolved glyphs/structures/wires)
 
 from __future__ import annotations
 
+import json
+import re
 from pathlib import Path
 
 from ..graph.core import InMemoryVIGraph
@@ -22,6 +24,65 @@ from .style import DEFAULT_THEME
 
 __all__ = ["Scene", "build_scene", "render_vi", "render_vi_file"]
 
+# Deterministic per-VI id for the root <svg> — sanitized from the VI name, no
+# randomness/time (byte-reproducibility rule), so the inline frame-controller
+# script below can scope its DOM queries to exactly this document, and many
+# inlined SVGs on one HTML page (the gallery) don't collide with each other.
+_ID_SANITIZE_RE = re.compile(r"[^A-Za-z0-9]+")
+
+
+def _root_id(vi_name: str) -> str:
+    return "lv-" + _ID_SANITIZE_RE.sub("-", vi_name).strip("-")
+
+
+# Interactive case-frame controller (roadmap #17): cycles a case structure's
+# ``◄ value ▼ ►`` selector through its frames on click, showing/hiding the
+# matching ``lv-frame`` groups (content + the dedicated value-label groups).
+# An IIFE scoped to this SVG's own root id, guarded against double-init so a
+# gallery page embedding many SVGs (each with its own <script>) is safe.
+# No Math.random()/Date — nothing here affects the rendered SVG bytes upstream
+# of this script tag, and the script's own text is a fixed constant.
+_FRAME_CONTROLLER_JS = """(function() {
+  var root = document.getElementById(__ROOT_ID__);
+  if (!root || root.__lvInit) return;
+  root.__lvInit = true;
+  var state = {};
+  var selectors = root.querySelectorAll(".lv-selector");
+  for (var i = 0; i < selectors.length; i++) {
+    var sel = selectors[i];
+    state[sel.getAttribute("data-struct")] = sel.getAttribute("data-default");
+  }
+  function apply() {
+    var groups = root.querySelectorAll(".lv-frame");
+    for (var i = 0; i < groups.length; i++) {
+      var g = groups[i];
+      var segs = g.getAttribute("data-path").split(";");
+      var visible = true;
+      for (var j = 0; j < segs.length; j++) {
+        var seg = segs[j];
+        if (!seg) continue;
+        var eq = seg.indexOf("=");
+        var struct = seg.slice(0, eq);
+        var val = seg.slice(eq + 1);
+        if (state[struct] !== val) { visible = false; break; }
+      }
+      g.style.display = visible ? "" : "none";
+    }
+  }
+  for (var i = 0; i < selectors.length; i++) {
+    (function(sel) {
+      sel.addEventListener("click", function() {
+        var struct = sel.getAttribute("data-struct");
+        var frames = sel.getAttribute("data-frames").split(";");
+        var idx = frames.indexOf(state[struct]);
+        state[struct] = frames[(idx + 1) % frames.length];
+        apply();
+      });
+    })(selectors[i]);
+  }
+  apply();
+})();"""
+
 
 def render_vi(graph: InMemoryVIGraph, vi_name: str) -> str | None:
     """Render one VI's block diagram to an SVG string.
@@ -30,12 +91,26 @@ def render_vi(graph: InMemoryVIGraph, vi_name: str) -> str | None:
     knows the VI exists and what it contains, but the heap XML doesn't have
     a diagram position for something semantically required. Callers (e.g.
     the docs pipeline) should fall back to a non-geometric rendering.
+
+    The SVG is self-contained and interactive: a case structure's
+    ``◄ value ▼ ►`` selector is clickable and cycles through its frames (see
+    ``_FRAME_CONTROLLER_JS``); non-JS consumers still see the default frame.
     """
     scene = build_scene(graph, vi_name)
     if scene is None:
         return None
     backend = SvgBackend()
     draw_scene(scene, backend, DEFAULT_THEME)
+    # Only VIs with interactive case structures carry the root id + inline
+    # frame-controller script; a diagram with no case structures (loops, flat/
+    # stacked sequences, straight-line dataflow) renders byte-identically to
+    # the pre-#17 output — no dead JS shipped in every SVG.
+    if scene.frame_values:
+        root_id = _root_id(vi_name)
+        script = _FRAME_CONTROLLER_JS.replace("__ROOT_ID__", json.dumps(root_id))
+        return backend.render(
+            scene.bounds, title=vi_name, script=script, root_id=root_id,
+        )
     return backend.render(scene.bounds, title=vi_name)
 
 

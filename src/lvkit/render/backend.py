@@ -9,7 +9,7 @@ heuristic: it needs to match whatever backend eventually renders the text.
 from __future__ import annotations
 
 from typing import Protocol, runtime_checkable
-from xml.sax.saxutils import escape
+from xml.sax.saxutils import escape, quoteattr
 
 Point = tuple[float, float]
 
@@ -95,6 +95,20 @@ class Backend(Protocol):
         equivalent) — callers that need a guaranteed visual should treat
         this as best-effort, matching every other JSON-declared glyph path.
         """
+        ...
+
+    def begin_group(
+        self, *, cls: str | None = None, data: dict[str, str] | None = None,
+        style: str | None = None,
+    ) -> None:
+        """Open a grouping container (``<g>``) — used for the interactive
+        case-frame layering (``lv-frame``) and click targets (``lv-selector``).
+        ``data`` becomes ``data-*`` attributes (keys sorted for determinism).
+        Must be paired with ``end_group()``."""
+        ...
+
+    def end_group(self) -> None:
+        """Close the most recently opened ``begin_group()``."""
         ...
 
 
@@ -205,20 +219,52 @@ class SvgBackend:
             f"{fragment}</svg>"
         )
 
+    def begin_group(
+        self, *, cls: str | None = None, data: dict[str, str] | None = None,
+        style: str | None = None,
+    ) -> None:
+        attrs = []
+        if cls is not None:
+            attrs.append(f"class={quoteattr(cls)}")
+        data = data or {}
+        for k in sorted(data):
+            attrs.append(f"data-{k}={quoteattr(data[k])}")
+        if style is not None:
+            attrs.append(f"style={quoteattr(style)}")
+        suffix = (" " + " ".join(attrs)) if attrs else ""
+        self._elements.append(f"<g{suffix}>")
+
+    def end_group(self) -> None:
+        self._elements.append("</g>")
+
     def render(
         self, bounds: tuple[float, float, float, float], *, title: str | None = None,
+        script: str | None = None, root_id: str | None = None,
     ) -> str:
         """Wrap accumulated ops into a complete SVG document.
 
         ``title`` (e.g. the VI name), when given, is emitted as an SVG
         ``<title>`` element right after the root tag for accessibility.
+        ``root_id``, when given, is set as the root ``<svg id=...>`` so
+        inline ``script`` can scope its DOM queries to this one document
+        (needed so multiple inlined SVGs on one HTML page don't collide).
+        ``script``, when given, is appended as a literal inline ``<script>``
+        right before ``</svg>`` — it is author-controlled JS (the frame-
+        toggle controller), not escaped; it must not contain a literal
+        ``</script>`` substring.
         """
         x1, y1, x2, y2 = bounds
         w, h = x2 - x1, y2 - y1
+        id_attr = f" id={quoteattr(root_id)}" if root_id is not None else ""
         head = (
-            f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="{x1:.0f} '
+            f'<svg xmlns="http://www.w3.org/2000/svg"{id_attr} viewBox="{x1:.0f} '
             f'{y1:.0f} {w:.0f} {h:.0f}" font-family="sans-serif">'
         )
         title_el = f"<title>{escape(title)}</title>" if title else None
-        parts = [head, title_el, *self._elements, "</svg>"]
+        script_el = None
+        if script is not None:
+            if "</script>" in script:
+                raise ValueError("script must not contain a literal </script>")
+            script_el = f"<script>{script}</script>"
+        parts = [head, title_el, *self._elements, script_el, "</svg>"]
         return "\n".join(p for p in parts if p is not None)

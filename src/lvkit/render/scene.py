@@ -70,6 +70,13 @@ class RenderFPTerminal:
     label_visible: bool = True
 
 
+# Root->leaf (raw case-structure uid, str(selector_value)) segments naming
+# which CASE-structure frame(s) an item belongs to. () = base/always-visible
+# (top level, inside a loop, or inside a flat/stacked sequence — only CASE
+# structures are interactive, see _frame_path).
+FramePath = tuple[tuple[str, str], ...]
+
+
 @dataclass(frozen=True)
 class RenderNode:
     """A non-structure graph node (primitive, SubVI call, constant, ...)."""
@@ -84,6 +91,7 @@ class RenderNode:
     glyph: Glyph
     terminals: list[RenderTerminal] = field(default_factory=list)
     label_visible: bool = True
+    frame_path: FramePath = ()
 
 
 @dataclass(frozen=True)
@@ -106,6 +114,11 @@ class RenderBorderTerminal:
     bounds: Rect
     glyph_kind: str | None = None
     color: str | None = None
+    # Inner tunnels aren't drawn as glyphs today (see _structure_borders) —
+    # this field exists for symmetry with the other frame-tagged dataclasses
+    # and future inner-tunnel-per-frame work; it is currently always ()
+    # since only outer tunnels are emitted.
+    frame_path: FramePath = ()
 
 
 @dataclass(frozen=True)
@@ -115,7 +128,14 @@ class RenderStructure:
     node: StructureNode
     bounds: Rect
     border_terminals: list[RenderBorderTerminal] = field(default_factory=list)
-    shown_frame: Frame | None = None
+    # This structure's OWN case-ancestor path (computed from its parent
+    # chain) — non-empty when this structure itself sits inside another
+    # CASE structure's frame, so its border/chrome draws inside that
+    # ancestor's frame group instead of the base layer.
+    frame_path: FramePath = ()
+    # Raw (VI-name-stripped) uid of this structure — the stable key into
+    # Scene.default_frame / Scene.frame_values for case selector chrome.
+    raw_uid: str = ""
 
 
 @dataclass(frozen=True)
@@ -129,6 +149,17 @@ class RenderWireNet:
     # Receiving-terminal points where source/dest normalized types differ —
     # LabVIEW's implicit-conversion coercion dot (see style.coercion_key).
     coercion_dots: list[Point] = field(default_factory=list)
+    frame_path: FramePath = ()
+
+
+@dataclass(frozen=True)
+class RenderCoercionDot:
+    """One arithmetic-primitive coercion dot (scene.py::_arith_coercion_dots),
+    frame-tagged like every other scene item so a dot on a hidden case
+    frame's node stays hidden until that frame is selected."""
+
+    point: Point
+    frame_path: FramePath = ()
 
 
 @dataclass(frozen=True)
@@ -140,8 +171,13 @@ class Scene:
     nodes: list[RenderNode] = field(default_factory=list)
     structures: list[RenderStructure] = field(default_factory=list)
     wire_nets: list[RenderWireNet] = field(default_factory=list)
-    coercion_dots: list[Point] = field(default_factory=list)
+    coercion_dots: list[RenderCoercionDot] = field(default_factory=list)
     icon_png: Path | None = None
+    # raw case-struct uid -> default selector value (str), and -> the
+    # ordered list of ALL selector values — the SVG selector chrome's
+    # click-to-cycle metadata (see draw.py's lv-selector / __init__.py's JS).
+    default_frame: dict[str, str] = field(default_factory=dict)
+    frame_values: dict[str, list[str]] = field(default_factory=dict)
 
     @property
     def obstacles(self) -> list[Rect]:
@@ -190,19 +226,76 @@ def _shown_frame_and_hidden_keys(
 def _hidden_structures(
     nodes: list[AnyGraphNode],
 ) -> dict[str, tuple[Frame | None, set[str]]]:
-    """Structure id -> (shown frame, hidden frame keys) for case/stacked
-    sequences only (flat sequences show every frame)."""
+    """Structure id -> (shown frame, hidden frame keys) for STACKED
+    sequences only.
+
+    CASE structures are interactive now (every frame renders, tagged with a
+    frame path — see ``_frame_path`` / ``_case_frame_info``) and are no
+    longer single-frame-excluded here. Flat sequences show every frame side
+    by side on the real diagram, so they were never excluded either.
+    """
     result: dict[str, tuple[Frame | None, set[str]]] = {}
     for node in nodes:
-        if isinstance(node, CaseStructureNode):
-            shown, hidden = _shown_frame_and_hidden_keys(node)
-            if hidden:
-                result[node.id] = (shown, hidden)
-        elif isinstance(node, SequenceNode) and node.node_type != "flatSequence":
+        if isinstance(node, SequenceNode) and node.node_type != "flatSequence":
             shown, hidden = _shown_frame_and_hidden_keys(node)
             if hidden:
                 result[node.id] = (shown, hidden)
     return result
+
+
+def _frame_path(
+    node: AnyGraphNode, by_id: dict[str, AnyGraphNode], vi_name: str,
+) -> FramePath:
+    """Root->leaf ``(raw_case_uid, str(selector_value))`` segments for each
+    CASE-structure ancestor of ``node`` — walks the ``parent`` chain.
+
+    Scope is CASE structures ONLY (roadmap #17 decision): loops, flat
+    sequences, and stacked sequences are skipped, so their children always
+    get ``()`` (base/always-visible), matching their unchanged single-frame
+    or show-everything rendering.
+    """
+    segs: list[tuple[str, str]] = []
+    cur: AnyGraphNode | None = node
+    while cur is not None and cur.parent:
+        parent = by_id.get(cur.parent)
+        if parent is None:
+            break
+        if isinstance(parent, CaseStructureNode):
+            segs.append((_strip_prefix(parent.id, vi_name), str(cur.frame)))
+        cur = parent
+    segs.reverse()
+    return tuple(segs)
+
+
+def encode_frame_path(path: FramePath) -> str:
+    """``"struct=val;struct2=val2"`` — root->leaf, insertion order (already
+    deterministic: built by walking the parent chain of nodes returned in
+    sorted, byte-reproducible order by ``iter_nodes``)."""
+    return ";".join(f"{s}={v}" for s, v in path)
+
+
+def _is_default_visible(path: FramePath, default_frame: dict[str, str]) -> bool:
+    """Whether every segment of ``path`` matches that case's default frame
+    (vacuously True for ``()`` — base content stays always-visible/fatal)."""
+    return all(default_frame.get(s) == v for s, v in path)
+
+
+def _case_frame_info(
+    nodes: list[AnyGraphNode], vi_name: str,
+) -> tuple[dict[str, str], dict[str, list[str]]]:
+    """raw case-struct uid -> default selector value, and -> the ordered
+    list of ALL selector values (case.frames order) — the selector chrome's
+    click-to-cycle metadata."""
+    default_frame: dict[str, str] = {}
+    frame_values: dict[str, list[str]] = {}
+    for node in nodes:
+        if not isinstance(node, CaseStructureNode) or not node.frames:
+            continue
+        raw = _strip_prefix(node.id, vi_name)
+        frame_values[raw] = [str(f.selector_value) for f in node.frames]
+        shown = next((f for f in node.frames if f.is_default), node.frames[0])
+        default_frame[raw] = str(shown.selector_value)
+    return default_frame, frame_values
 
 
 def _excluded_node_ids(nodes: list[AnyGraphNode]) -> set[str]:
@@ -497,6 +590,38 @@ def _term_owner_bounds(
     return owner
 
 
+def _wire_path(
+    w: Wire, graph: InMemoryVIGraph, by_id: dict[str, AnyGraphNode], vi_name: str,
+) -> FramePath:
+    """The frame path a wire belongs to, from its endpoints' nodes.
+
+    A wire touching a case structure's INNER tunnel terminal belongs to
+    that tunnel's owning frame (the tunnel's node IS the structure itself,
+    per construction.py — its own ``_frame_path`` gives the structure's
+    ANCESTOR path, to which we append this tunnel's own frame segment). A
+    wire touching an ordinary node belongs to that node's frame path. The
+    most-specific (longest/deepest) endpoint wins — wires never span two
+    sibling frames, they route through the border tunnel, so the shallower
+    endpoint (the tunnel/structure itself) is always a prefix of the other.
+    """
+    cands: list[FramePath] = []
+    for end in (w.source, w.dest):
+        node = by_id.get(end.node_id)
+        if node is None:
+            continue
+        term = graph.get_terminal(end.terminal_id)
+        if (
+            isinstance(term, TunnelTerminal)
+            and term.boundary == "inner"
+            and term.frame is not None
+        ):
+            base = _frame_path(node, by_id, vi_name)
+            cands.append(base + ((_strip_prefix(node.id, vi_name), str(term.frame)),))
+        else:
+            cands.append(_frame_path(node, by_id, vi_name))
+    return max(cands, key=len) if cands else ()
+
+
 def _build_wire_nets(
     graph: InMemoryVIGraph,
     vi_name: str,
@@ -505,6 +630,7 @@ def _build_wire_nets(
     excluded_terminal_ids: set[str],
     obstacles: list[Rect],
     scene_bounds: Rect,
+    by_id: dict[str, AnyGraphNode],
 ) -> list[RenderWireNet]:
     # Exclude ONLY the true internal pass-throughs: a tunnel/shift-register's
     # own outer<->inner pairing (paired_id). Do NOT exclude every same-structure
@@ -526,14 +652,19 @@ def _build_wire_nets(
         and frozenset((w.source.terminal_id, w.dest.terminal_id)) not in paired
     ]
 
-    by_source: dict[str, list[Wire]] = {}
-    order: list[str] = []
+    # Group by (source terminal, frame path) — a fan-out net whose branches
+    # land in different case frames splits into one RenderWireNet per frame
+    # (junctions recomputed per group below), so hidden-frame branches don't
+    # leak into the base/other-frame net.
+    by_group: dict[tuple[str, FramePath], list[Wire]] = {}
+    order: list[tuple[str, FramePath]] = []
     for w in wires:
-        key = w.source.terminal_id
-        if key not in by_source:
-            by_source[key] = []
+        path = _wire_path(w, graph, by_id, vi_name)
+        key = (w.source.terminal_id, path)
+        if key not in by_group:
+            by_group[key] = []
             order.append(key)
-        by_source[key].append(w)
+        by_group[key].append(w)
 
     router = WireRouter(obstacles, scene_bounds)
     all_points = list(layout.terminal_centers.values())
@@ -541,14 +672,17 @@ def _build_wire_nets(
 
     nets: list[RenderWireNet] = []
     for key in order:
-        group = by_source[key]
-        raw_src = _strip_prefix(key, vi_name)
+        src_key, path = key
+        group = by_group[key]
+        raw_src = _strip_prefix(src_key, vi_name)
         src_center = layout.terminal_centers.get(raw_src)
         if src_center is None:
-            logger.debug("no geometry for source terminal %s; dropping wire(s)", key)
+            logger.debug(
+                "no geometry for source terminal %s; dropping wire(s)", src_key,
+            )
             continue
 
-        source_term = graph.get_terminal(key)
+        source_term = graph.get_terminal(src_key)
         src_num = numeric_repr(source_term.lv_type if source_term else None)
         # An output exits RIGHT (dataflow is left->right), not toward whatever
         # edge its tiny termBounds happens to sit near.
@@ -593,7 +727,7 @@ def _build_wire_nets(
         junctions = [src_center] if len(branches) > 1 else []
         nets.append(RenderWireNet(
             source=group[0], style=style, branches=branches,
-            junctions=junctions, coercion_dots=coercion_dots,
+            junctions=junctions, coercion_dots=coercion_dots, frame_path=path,
         ))
     return nets
 
@@ -606,8 +740,9 @@ _NUMERIC_RANK = {
 }
 
 
-def _arith_coercion_dots(render_nodes: list[RenderNode]) -> list[Point]:
-    """Center points of coerced inputs on arithmetic primitives.
+def _arith_coercion_dots(render_nodes: list[RenderNode]) -> list[RenderCoercionDot]:
+    """Coerced-input dots on arithmetic primitives, tagged with each dot's
+    owning node's frame path (see ``RenderCoercionDot``).
 
     An arith primitive unifies its numeric inputs to the widest representation;
     LabVIEW marks each narrower input with a red coercion dot. Scoped to
@@ -615,7 +750,7 @@ def _arith_coercion_dots(render_nodes: list[RenderNode]) -> list[Point]:
     inputs genuinely coerce to one type — unlike e.g. Index Array, whose I32
     index meeting a DBL array is structural, not a coercion.
     """
-    dots: list[Point] = []
+    dots: list[RenderCoercionDot] = []
     for rn in render_nodes:
         if not isinstance(rn.glyph, ArithGlyph):
             continue
@@ -633,7 +768,8 @@ def _arith_coercion_dots(render_nodes: list[RenderNode]) -> list[Point]:
                 # crosses in — the terminal's edge on its wire-entry side (same
                 # _exit_side normal the router uses), not a hardcoded side.
                 role = _wire_role(t.terminal, "input")
-                dots.append(_wire_edge_point(t.center, t.bounds, role))
+                point = _wire_edge_point(t.center, t.bounds, role)
+                dots.append(RenderCoercionDot(point=point, frame_path=rn.frame_path))
     return dots
 
 
@@ -649,9 +785,10 @@ def build_scene(graph: InMemoryVIGraph, vi_name: str) -> Scene | None:
 
     layout = build_layout(src_path)
     all_nodes = graph.iter_nodes(vi_name)
+    by_id: dict[str, AnyGraphNode] = {n.id: n for n in all_nodes}
     excluded = _excluded_node_ids(all_nodes)
     excluded_terminal_ids = _excluded_terminal_ids(all_nodes)
-    hidden_structures = _hidden_structures(all_nodes)
+    default_frame, frame_values = _case_frame_info(all_nodes, vi_name)
     glyph_ctx = GlyphContext(graph=graph, vi_name=vi_name)
 
     render_nodes: list[RenderNode] = []
@@ -665,16 +802,25 @@ def build_scene(graph: InMemoryVIGraph, vi_name: str) -> Scene | None:
             continue  # internal mux node — not a visible diagram object
         raw_uid = _strip_prefix(node.id, vi_name)
         bounds = layout.node_bounds.get(raw_uid)
+        fp_path = _frame_path(node, by_id, vi_name)
         if bounds is None:
-            missing.append(node.id)
+            # Base/default-frame content stays fatal (fail-closed); a
+            # non-default (currently-hidden) case frame's missing geometry
+            # is best-effort — skip it rather than declining the whole VI.
+            if _is_default_visible(fp_path, default_frame):
+                missing.append(node.id)
+            else:
+                logger.debug(
+                    "hidden-frame element %s missing geometry; skipping", node.id,
+                )
             continue
         if isinstance(node, StructureNode):
-            shown_frame, _hidden = hidden_structures.get(node.id, (None, set()))
             structures.append(RenderStructure(
                 node=node,
                 bounds=bounds,
                 border_terminals=_structure_borders(node, layout, vi_name),
-                shown_frame=shown_frame,
+                frame_path=fp_path,
+                raw_uid=raw_uid,
             ))
         else:
             glyph = resolve_glyph(node, glyph_ctx)
@@ -682,7 +828,7 @@ def build_scene(graph: InMemoryVIGraph, vi_name: str) -> Scene | None:
             label_visible = raw_uid not in layout.hidden_labels
             render_nodes.append(RenderNode(
                 node=node, bounds=bounds, glyph=glyph, terminals=terminals,
-                label_visible=label_visible,
+                label_visible=label_visible, frame_path=fp_path,
             ))
 
     fp_terminals: list[RenderFPTerminal] = []
@@ -717,7 +863,7 @@ def build_scene(graph: InMemoryVIGraph, vi_name: str) -> Scene | None:
 
     wire_nets = _build_wire_nets(
         graph, vi_name, layout, excluded, excluded_terminal_ids,
-        obstacles, scene_bounds,
+        obstacles, scene_bounds, by_id,
     )
     coercion_dots = _arith_coercion_dots(render_nodes)
 
@@ -729,4 +875,6 @@ def build_scene(graph: InMemoryVIGraph, vi_name: str) -> Scene | None:
         wire_nets=wire_nets,
         coercion_dots=coercion_dots,
         icon_png=layout.icon_png,
+        default_frame=default_frame,
+        frame_values=frame_values,
     )
