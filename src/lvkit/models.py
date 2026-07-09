@@ -149,6 +149,7 @@ class Terminal(BaseModel):
     nmux_field_index: int | None = None  # class field index
     wiring_rule: int = 0  # 0=unknown, 1=required, 2=recommended, 3=optional
     default_value: ScalarValue = None
+    inverted: bool = False  # "Not" applied to this terminal (e.g. cpdArith)
 
     def python_type(self) -> str:
         """Python type string derived from lv_type."""

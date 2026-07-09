@@ -26,7 +26,7 @@ from .constants import (
     TERMINAL_CLASS,
     TERMINAL_CONTAINER_CLASSES,
 )
-from .flags import is_indicator, is_output_terminal
+from .flags import is_indicator, is_inverted_terminal, is_output_terminal
 from .front_panel import (
     _lvtype_to_parsed,
     extract_fp_terminals,
@@ -490,6 +490,11 @@ def _process_element_terminals(
         if not term_name:
             term_name = extract_label(term)
 
+        # Per-terminal "Not" flag (e.g. Compound Arithmetic invert):
+        # bit 16 (0x00010000) set in the terminal's DCO objFlags.
+        dco_flags_elem = dco.find("objFlags") if dco is not None else None
+        inverted = is_inverted_terminal(safe_int(dco_flags_elem))
+
         terminal_info[term_uid] = ParsedTerminalInfo(
             uid=term_uid,
             parent_uid=elem_uid,
@@ -497,6 +502,7 @@ def _process_element_terminals(
             is_output=is_output,
             parsed_type=parsed_type,
             name=term_name,
+            inverted=inverted,
         )
 
 

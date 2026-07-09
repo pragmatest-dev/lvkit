@@ -11,12 +11,28 @@ from ..context import CodeGenContext
 from ..fragment import CodeFragment
 
 
+def _is_boolean(term: object) -> bool:
+    """Check whether a terminal carries a LabVIEW Boolean value."""
+    lv_type = getattr(term, "lv_type", None)
+    return bool(lv_type is not None and lv_type.underlying_type == "Boolean")
+
+
+def _invert_expr(expr: ast.expr, boolean: bool) -> ast.expr:
+    """Wrap an expression with the terminal's "Not" invert."""
+    if boolean:
+        return ast.UnaryOp(op=ast.Not(), operand=expr)
+    return ast.UnaryOp(op=ast.Invert(), operand=expr)
+
+
 def generate_compound_arith(
     node: PrimitiveOperation, ctx: CodeGenContext,
 ) -> CodeFragment:
     """Generate code for compound arithmetic (cpdArith).
 
-    Combines multiple inputs with a single operation (OR, AND, ADD).
+    Combines multiple inputs with a single operation (OR, AND, ADD, MULTIPLY,
+    XOR). Each input (and the output) may independently be inverted
+    ("Not"). When the terminals are Boolean, ``add``/``multiply`` translate
+    to logical OR/AND respectively.
     """
     terminals = node.terminals
     operation = node.operation or "or"
@@ -29,12 +45,25 @@ def generate_compound_arith(
 
     output_term = outputs[0]
     output_id = output_term.id
+    boolean = _is_boolean(output_term) or any(_is_boolean(t) for t in inputs)
 
+    # Boolean-context translation: add -> or, multiply -> and.
+    if boolean:
+        if operation == "add":
+            operation = "or"
+        elif operation == "multiply":
+            operation = "and"
+
+    sorted_inputs = sorted(inputs, key=lambda t: t.index)
     input_exprs = []
     input_names = []
-    for inp in sorted(inputs, key=lambda t: t.index):
+    for inp in sorted_inputs:
         val = ctx.resolve(inp.id)
         if val:
+            expr = parse_expr(val)
+            if inp.inverted:
+                expr = _invert_expr(expr, boolean)
+                val = ast.unparse(expr)
             input_exprs.append(val)
             input_names.append(val)
 
@@ -49,6 +78,14 @@ def generate_compound_arith(
         )
 
     if len(input_exprs) == 1:
+        combined = parse_expr(input_exprs[0])
+        if output_term.inverted:
+            combined = _invert_expr(combined, boolean)
+            stmt = build_assign(var_name, combined)
+            return CodeFragment(
+                statements=[stmt],
+                bindings={output_id: var_name},
+            )
         return CodeFragment(bindings={output_id: input_exprs[0]})
 
     combined = parse_expr(input_exprs[0])
@@ -72,12 +109,37 @@ def generate_compound_arith(
                 op=ast.Add(),
                 right=parse_expr(expr_str),
             )
+    elif operation == "multiply":
+        for expr_str in input_exprs[1:]:
+            combined = ast.BinOp(
+                left=combined,
+                op=ast.Mult(),
+                right=parse_expr(expr_str),
+            )
+    elif operation == "xor":
+        for expr_str in input_exprs[1:]:
+            right = parse_expr(expr_str)
+            if boolean:
+                combined = ast.Compare(
+                    left=combined,
+                    ops=[ast.NotEq()],
+                    comparators=[right],
+                )
+            else:
+                combined = ast.BinOp(
+                    left=combined,
+                    op=ast.BitXor(),
+                    right=right,
+                )
     else:
         for expr_str in input_exprs[1:]:
             combined = ast.BoolOp(
                 op=ast.Or(),
                 values=[combined, parse_expr(expr_str)],
             )
+
+    if output_term.inverted:
+        combined = _invert_expr(combined, boolean)
 
     stmt = build_assign(var_name, combined)
     return CodeFragment(

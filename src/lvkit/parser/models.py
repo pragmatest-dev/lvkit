@@ -83,6 +83,7 @@ class ParsedTerminalInfo:
     is_output: bool  # True if output terminal (data flows out)
     parsed_type: ParsedType | None = None  # Type info from same VI's XML
     name: str | None = None  # Terminal name (from FP, primitive ref, or SubVI)
+    inverted: bool = False  # DCO objFlags bit 16: "Not" applied to this terminal
 
 
 class ParsedWiringRule:

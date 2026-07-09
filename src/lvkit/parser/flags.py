@@ -3,6 +3,11 @@
 # Terminal flags (from objFlags/termFlags)
 TERMINAL_IS_OUTPUT = 0x1  # Bit 0: terminal is output (vs input)
 
+# Terminal DCO flags (from <dco><objFlags>)
+# Compound Arithmetic (and similar) nodes: bit 16 set on a terminal's DCO
+# means "invert this terminal" (Not before an input, Not after the output).
+TERMINAL_DCO_INVERTED = 0x00010000  # Bit 16: terminal value is inverted
+
 # Front panel control flags
 FP_IS_INDICATOR = 0x10000  # Bit 16: control is indicator (vs control)
 
@@ -14,6 +19,11 @@ WIRING_RULE_MASK = 0x03  # 2 bits for wiring rule
 def is_output_terminal(flags: int) -> bool:
     """Check if terminal flags indicate an output terminal."""
     return bool(flags & TERMINAL_IS_OUTPUT)
+
+
+def is_inverted_terminal(flags: int) -> bool:
+    """Check if a terminal's DCO objFlags mark it as inverted ("Not")."""
+    return bool(flags & TERMINAL_DCO_INVERTED)
 
 
 def is_indicator(flags: int) -> bool:

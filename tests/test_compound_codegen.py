@@ -6,7 +6,7 @@ import ast
 
 from lvkit.codegen.context import CodeGenContext
 from lvkit.codegen.nodes import compound
-from lvkit.models import PrimitiveOperation, Terminal
+from lvkit.models import LVType, PrimitiveOperation, Terminal
 from tests.helpers import make_ctx
 
 
@@ -346,6 +346,256 @@ class TestCompoundArithExecutable:
         )
         output_var = fragment.bindings["term_out"]
         assert result[output_var] == 6
+
+
+class TestCompoundArithInvert:
+    """Tests for per-terminal invert ("Not") on cpdArith terminals."""
+
+    def test_boolean_add_with_inverted_input_becomes_or_not(self):
+        """add on Boolean terminals is OR; an inverted input gets `not (...)`."""
+        boolean = LVType(kind="primitive", underlying_type="Boolean")
+        ctx = make_ctx("term1", "term2", "term_out")
+        ctx.bind("term1", "hasTensPlace")
+        ctx.bind("term2", "isTeen")
+
+        op = PrimitiveOperation(
+            id="cpd1",
+            name="Compound Add",
+            labels=["Compound"],
+            node_type="cpdArith",
+            operation="add",
+            terminals=[
+                Terminal(
+                    id="term1", index=1, direction="input", lv_type=boolean,
+                ),
+                Terminal(
+                    id="term2", index=2, direction="input", lv_type=boolean,
+                    inverted=True,
+                ),
+                Terminal(
+                    id="term_out", index=0, direction="output", lv_type=boolean,
+                ),
+            ],
+        )
+
+        fragment = compound.generate_compound_arith(op, ctx)
+
+        ast.fix_missing_locations(fragment.statements[0])
+        code = ast.unparse(fragment.statements[0])
+        assert " or " in code
+        assert "not isTeen" in code
+        assert "hasTensPlace" in code
+
+        # Equivalent to: x or (not y)
+        module = ast.Module(body=fragment.statements, type_ignores=[])
+        ast.fix_missing_locations(module)
+        compiled = compile(module, "<test>", "exec")
+        output_var = fragment.bindings["term_out"]
+
+        local_vars = {"hasTensPlace": False, "isTeen": False}
+        exec(compiled, {}, local_vars)
+        assert local_vars[output_var] is True  # False or (not False)
+
+        local_vars = {"hasTensPlace": False, "isTeen": True}
+        exec(compiled, {}, local_vars)
+        assert local_vars[output_var] is False  # False or (not True)
+
+        local_vars = {"hasTensPlace": True, "isTeen": True}
+        exec(compiled, {}, local_vars)
+        assert local_vars[output_var] is True  # True or (not True)
+
+    def test_numeric_add_unaffected_by_uninverted_terminals(self):
+        """Numeric add with no inverted terminals keeps plain `+` behavior."""
+        ctx = make_ctx("term1", "term2", "term_out")
+        ctx.bind("term1", "a")
+        ctx.bind("term2", "b")
+
+        op = PrimitiveOperation(
+            id="cpd1",
+            name="Compound Add",
+            labels=["Compound"],
+            node_type="cpdArith",
+            operation="add",
+            terminals=[
+                Terminal(id="term1", index=1, direction="input"),
+                Terminal(id="term2", index=2, direction="input"),
+                Terminal(id="term_out", index=0, direction="output"),
+            ],
+        )
+
+        fragment = compound.generate_compound_arith(op, ctx)
+
+        ast.fix_missing_locations(fragment.statements[0])
+        code = ast.unparse(fragment.statements[0])
+        assert "+" in code
+        assert "not" not in code
+        assert "~" not in code
+
+    def test_inverted_output_boolean(self):
+        """An inverted output terminal wraps the whole combined expr in `not`."""
+        boolean = LVType(kind="primitive", underlying_type="Boolean")
+        ctx = make_ctx("term1", "term2", "term_out")
+        ctx.bind("term1", "flag_a")
+        ctx.bind("term2", "flag_b")
+
+        op = PrimitiveOperation(
+            id="cpd1",
+            name="Compound Or",
+            labels=["Compound"],
+            node_type="cpdArith",
+            operation="or",
+            terminals=[
+                Terminal(id="term1", index=1, direction="input", lv_type=boolean),
+                Terminal(id="term2", index=2, direction="input", lv_type=boolean),
+                Terminal(
+                    id="term_out", index=0, direction="output", lv_type=boolean,
+                    inverted=True,
+                ),
+            ],
+        )
+
+        fragment = compound.generate_compound_arith(op, ctx)
+
+        ast.fix_missing_locations(fragment.statements[0])
+        code = ast.unparse(fragment.statements[0])
+        assert code.strip().startswith(fragment.bindings["term_out"] + " = not")
+
+        module = ast.Module(body=fragment.statements, type_ignores=[])
+        ast.fix_missing_locations(module)
+        compiled = compile(module, "<test>", "exec")
+        output_var = fragment.bindings["term_out"]
+
+        local_vars = {"flag_a": False, "flag_b": False}
+        exec(compiled, {}, local_vars)
+        assert local_vars[output_var] is True  # not (False or False)
+
+    def test_inverted_output_numeric_uses_bitwise_invert(self):
+        """Numeric inverted output uses `~(...)`, not boolean `not`."""
+        ctx = make_ctx("term1", "term2", "term_out")
+        ctx.bind("term1", "a")
+        ctx.bind("term2", "b")
+
+        op = PrimitiveOperation(
+            id="cpd1",
+            name="Compound Add",
+            labels=["Compound"],
+            node_type="cpdArith",
+            operation="add",
+            terminals=[
+                Terminal(id="term1", index=1, direction="input"),
+                Terminal(id="term2", index=2, direction="input"),
+                Terminal(id="term_out", index=0, direction="output", inverted=True),
+            ],
+        )
+
+        fragment = compound.generate_compound_arith(op, ctx)
+
+        ast.fix_missing_locations(fragment.statements[0])
+        code = ast.unparse(fragment.statements[0])
+        assert "~" in code
+        assert "not" not in code
+
+    def test_multiply_boolean_translates_to_and(self):
+        """multiply on Boolean terminals combines via `and`."""
+        boolean = LVType(kind="primitive", underlying_type="Boolean")
+        ctx = make_ctx("term1", "term2", "term_out")
+        ctx.bind("term1", "a")
+        ctx.bind("term2", "b")
+
+        op = PrimitiveOperation(
+            id="cpd1",
+            name="Compound Multiply",
+            labels=["Compound"],
+            node_type="cpdArith",
+            operation="multiply",
+            terminals=[
+                Terminal(id="term1", index=1, direction="input", lv_type=boolean),
+                Terminal(id="term2", index=2, direction="input", lv_type=boolean),
+                Terminal(id="term_out", index=0, direction="output", lv_type=boolean),
+            ],
+        )
+
+        fragment = compound.generate_compound_arith(op, ctx)
+
+        ast.fix_missing_locations(fragment.statements[0])
+        code = ast.unparse(fragment.statements[0])
+        assert " and " in code
+
+    def test_multiply_numeric_uses_mult(self):
+        """multiply on numeric terminals uses `*`."""
+        ctx = make_ctx("term1", "term2", "term_out")
+        ctx.bind("term1", "a")
+        ctx.bind("term2", "b")
+
+        op = PrimitiveOperation(
+            id="cpd1",
+            name="Compound Multiply",
+            labels=["Compound"],
+            node_type="cpdArith",
+            operation="multiply",
+            terminals=[
+                Terminal(id="term1", index=1, direction="input"),
+                Terminal(id="term2", index=2, direction="input"),
+                Terminal(id="term_out", index=0, direction="output"),
+            ],
+        )
+
+        fragment = compound.generate_compound_arith(op, ctx)
+
+        ast.fix_missing_locations(fragment.statements[0])
+        code = ast.unparse(fragment.statements[0])
+        assert "*" in code
+
+    def test_xor_boolean_uses_not_equal(self):
+        """xor on Boolean terminals combines via `!=`."""
+        boolean = LVType(kind="primitive", underlying_type="Boolean")
+        ctx = make_ctx("term1", "term2", "term_out")
+        ctx.bind("term1", "a")
+        ctx.bind("term2", "b")
+
+        op = PrimitiveOperation(
+            id="cpd1",
+            name="Compound Xor",
+            labels=["Compound"],
+            node_type="cpdArith",
+            operation="xor",
+            terminals=[
+                Terminal(id="term1", index=1, direction="input", lv_type=boolean),
+                Terminal(id="term2", index=2, direction="input", lv_type=boolean),
+                Terminal(id="term_out", index=0, direction="output", lv_type=boolean),
+            ],
+        )
+
+        fragment = compound.generate_compound_arith(op, ctx)
+
+        ast.fix_missing_locations(fragment.statements[0])
+        code = ast.unparse(fragment.statements[0])
+        assert "!=" in code
+
+    def test_xor_numeric_uses_bitxor(self):
+        """xor on numeric terminals uses `^`."""
+        ctx = make_ctx("term1", "term2", "term_out")
+        ctx.bind("term1", "a")
+        ctx.bind("term2", "b")
+
+        op = PrimitiveOperation(
+            id="cpd1",
+            name="Compound Xor",
+            labels=["Compound"],
+            node_type="cpdArith",
+            operation="xor",
+            terminals=[
+                Terminal(id="term1", index=1, direction="input"),
+                Terminal(id="term2", index=2, direction="input"),
+                Terminal(id="term_out", index=0, direction="output"),
+            ],
+        )
+
+        fragment = compound.generate_compound_arith(op, ctx)
+
+        ast.fix_missing_locations(fragment.statements[0])
+        code = ast.unparse(fragment.statements[0])
+        assert "^" in code
 
 
 class TestArrayBuildMakeVarName:

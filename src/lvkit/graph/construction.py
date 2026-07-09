@@ -633,6 +633,7 @@ class ConstructionMixin:
                     direction="output" if t_info.is_output else "input",
                     name=t_info.name,
                     lv_type=lv_type,
+                    inverted=t_info.inverted,
                 )
                 node_terminals.append(terminal)
 
