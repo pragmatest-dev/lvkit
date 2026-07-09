@@ -1,0 +1,29 @@
+# Build the container from the repo root (so lvkit's source is in context),
+# push it, and deploy to Cloud Run — one command:
+#
+#   gcloud builds submit --config deploy/cloudrun/cloudbuild.yaml \
+#     --substitutions=_IMAGE=gcr.io/$(gcloud config get-value project)/lvkit-render .
+#
+steps:
+  - name: gcr.io/cloud-builders/docker
+    args: ["build", "-f", "deploy/cloudrun/Dockerfile", "-t", "${_IMAGE}", "."]
+  - name: gcr.io/cloud-builders/docker
+    args: ["push", "${_IMAGE}"]
+  - name: gcr.io/google.com/cloudsdktool/cloud-sdk
+    entrypoint: gcloud
+    args:
+      - run
+      - deploy
+      - lvkit-render
+      - --image=${_IMAGE}
+      - --region=${_REGION}
+      - --platform=managed
+      - --allow-unauthenticated
+      - --memory=1Gi
+      - --cpu=1
+      - --timeout=120
+      - --max-instances=5
+substitutions:
+  _IMAGE: gcr.io/PROJECT_ID/lvkit-render
+  _REGION: us-central1
+images: ["${_IMAGE}"]

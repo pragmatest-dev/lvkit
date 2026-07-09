@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>lvkit — VI → block diagram</title>
+<style>
+  :root{--bg:#eceadf;--panel:#fbfbf5;--ink:#23231d;--muted:#6a6a5c;--line:#cfccba;--accent:#4a7c34}
+  @media (prefers-color-scheme:dark){:root{--bg:#16160f;--panel:#1d1d15;--ink:#e7e5d6;--muted:#9a9789;--line:#33322a;--accent:#7fbf5f}}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
+    background:var(--bg);color:var(--ink);line-height:1.5}
+  main{max-width:60rem;margin:0 auto;padding:clamp(1rem,4vw,2.5rem)}
+  h1{font-size:1.3rem;margin:0 0 .3rem}
+  p{color:var(--muted);margin:.2rem 0 1.2rem;font-size:.9rem}
+  .drop{border:2px dashed var(--line);border-radius:10px;padding:2.5rem 1rem;text-align:center;
+    background:var(--panel);cursor:pointer;transition:border-color .15s}
+  .drop.hot{border-color:var(--accent)}
+  .drop input{display:none}
+  .out{margin-top:1.4rem;background:var(--panel);border:1px solid var(--line);border-radius:10px;
+    overflow:auto;padding:1rem;min-height:6rem}
+  .out svg{display:block;max-width:100%;height:auto}
+  .err{color:#b4462f;font-size:.9rem;white-space:pre-wrap}
+</style>
+</head>
+<body>
+<main>
+  <h1>VI → block diagram</h1>
+  <p>Drop a <code>.vi</code> file (or click) to render it as an SVG. No LabVIEW required.</p>
+  <label class="drop" id="drop">
+    <input type="file" id="file" accept=".vi">
+    <span id="label">Choose or drop a .vi file</span>
+  </label>
+  <div class="out" id="out"></div>
+</main>
+<script>
+  const drop = document.getElementById('drop');
+  const file = document.getElementById('file');
+  const out = document.getElementById('out');
+  const label = document.getElementById('label');
+
+  async function send(f){
+    if(!f) return;
+    label.textContent = 'Rendering ' + f.name + '…';
+    out.innerHTML = '';
+    const fd = new FormData(); fd.append('vi', f);
+    try{
+      const r = await fetch('/render', {method:'POST', body: fd});
+      const text = await r.text();
+      if(!r.ok){ out.innerHTML = '<div class="err">'+text+'</div>'; }
+      else { out.innerHTML = text; }   // static picture; see README on interactivity
+    }catch(e){ out.innerHTML = '<div class="err">'+e+'</div>'; }
+    label.textContent = f.name + ' — choose another';
+  }
+
+  file.addEventListener('change', e => send(e.target.files[0]));
+  ['dragover','dragenter'].forEach(ev => drop.addEventListener(ev, e => {
+    e.preventDefault(); drop.classList.add('hot');
+  }));
+  ['dragleave','drop'].forEach(ev => drop.addEventListener(ev, e => {
+    e.preventDefault(); drop.classList.remove('hot');
+  }));
+  drop.addEventListener('drop', e => send(e.dataTransfer.files[0]));
+</script>
+</body>
+</html>

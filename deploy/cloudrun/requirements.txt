@@ -1,0 +1,5 @@
+# Web layer for local dev. lvkit itself (and pylabview) is installed from the
+# repo by the Dockerfile (`pip install /src`); for local runs, `pip install -e .`
+# from the repo root first, then these.
+flask>=3.0
+gunicorn>=21.2
