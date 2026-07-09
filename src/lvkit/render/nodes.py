@@ -76,6 +76,31 @@ def _format_const(value: object) -> str:
     return str(value)
 
 
+def string_const_display(raw: object) -> str:
+    """DISPLAY text for a string constant. The parser stores the value as a
+    Python string literal wrapped in single quotes with ``\\`` and ``'``
+    escaped (parser/vi.py — ``f"'{escaped}'"``); codegen needs those quotes,
+    but the diagram must show the bare text. Strip the surrounding quotes and
+    unescape ``\\'`` -> ``'`` and ``\\\\`` -> ``\\`` (a single left-to-right
+    scan, so escapes never re-corrupt each other). Real newlines in the value
+    are untouched. Non-quoted values (defensive) pass through unchanged."""
+    s = str(raw) if raw is not None else ""
+    if len(s) < 2 or s[0] != "'" or s[-1] != "'":
+        return s
+    body = s[1:-1]
+    out: list[str] = []
+    i = 0
+    while i < len(body):
+        c = body[i]
+        if c == "\\" and i + 1 < len(body) and body[i + 1] in ("'", "\\"):
+            out.append(body[i + 1])
+            i += 2
+        else:
+            out.append(c)
+            i += 1
+    return "".join(out)
+
+
 _BOOL_TRUE_TOKENS = frozenset({"true", "t", "1", "yes", "on"})
 
 
@@ -394,6 +419,9 @@ class GeneratedGlyphResolver:
             raw = node.raw_value if node.value is None else node.value
             if numeric_repr(node.lv_type) is not None:
                 value = _format_const(raw)
+            elif fam == "string":
+                # Show the bare text (quotes/escapes are a codegen artifact).
+                value = string_const_display(raw)
             else:
                 value = str(raw) if raw is not None else ""
             # String constants word-wrap to fill their (already content-sized)

@@ -239,8 +239,14 @@ class WireRouter:
             yield full
         if 1 < self._cfg.grid:
             margin = 150.0
-            x1, y1 = min(p1[0], p2[0]) - margin, min(p1[1], p2[1]) - margin
-            x2, y2 = max(p1[0], p2[0]) + margin, max(p1[1], p2[1]) + margin
+            bminx, bminy, bmaxx, bmaxy = self._bounds
+            # Clamp the local 1px window to this router's OWN bounds so a
+            # CONFINED router (bounds = a container's interior) can't escape
+            # its frame through the finer-grid fallback.
+            x1 = max(min(p1[0], p2[0]) - margin, bminx)
+            y1 = max(min(p1[1], p2[1]) - margin, bminy)
+            x2 = min(max(p1[0], p2[0]) + margin, bmaxx)
+            y2 = min(max(p1[1], p2[1]) + margin, bmaxy)
             window: Rect = (x1, y1, x2, y2)
             local_obstacles = [
                 o for o in self._obstacles
@@ -272,8 +278,11 @@ class WireRouter:
             mx = (x1 + x2) / 2
             return [p1, (mx, y1), (mx, y2), p2]
         margin = 20.0
-        top = min(o[1] for o in blockers) - margin
-        bottom = max(o[3] for o in blockers) + margin
+        # Keep the detour leg inside this router's bounds — a CONFINED router
+        # must not send its last-resort route out of the container frame.
+        _, bminy, _, bmaxy = self._bounds
+        top = max(min(o[1] for o in blockers) - margin, bminy)
+        bottom = min(max(o[3] for o in blockers) + margin, bmaxy)
         cost_top = abs(y1 - top) + abs(y2 - top)
         cost_bottom = abs(y1 - bottom) + abs(y2 - bottom)
         y = top if cost_top <= cost_bottom else bottom

@@ -9,17 +9,19 @@ touches the graph or the raw heap XML again.
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 
 from ..graph.core import InMemoryVIGraph
 from ..graph.models import (
     AnyGraphNode,
     CaseStructureNode,
+    ConstantNode,
     LoopNode,
     SequenceNode,
     StructureNode,
     Wire,
+    WireEnd,
 )
 from ..models import (
     FPTerminal,
@@ -27,10 +29,11 @@ from ..models import (
     Terminal,
     TunnelTerminal,
 )
-from .glyph import ArithGlyph, Glyph
+from .backend import SvgBackend
+from .glyph import ArithGlyph, Glyph, wrap_label
 from .layout import Layout, Point, Rect, build_layout
-from .nodes import GlyphContext, resolve_glyph
-from .style import WireStyle, numeric_repr, wire_style
+from .nodes import GlyphContext, resolve_glyph, string_const_display
+from .style import WireStyle, numeric_repr, type_family, wire_style
 from .wire_router import WireRouter, _compress
 
 logger = logging.getLogger(__name__)
@@ -299,6 +302,71 @@ def _frame_info(
             frame_values[raw] = [str(i) for i in range(len(node.frames))]
             default_frame[raw] = "0"
     return default_frame, frame_values
+
+
+# String-constant glyph text metrics — keep in sync with
+# ConstantGlyph.text_size and glyph._draw_wrapped's pad/line_h.
+_CONST_TEXT_SIZE = 9.0
+_CONST_PAD = 2.5
+_CONST_LINE_H = _CONST_TEXT_SIZE + 2.0
+
+
+def _string_const_lines(display: str, box_w: float, measure: SvgBackend) -> int:
+    """Number of wrapped rows a string constant's DISPLAY text occupies at our
+    font in a box of width ``box_w`` — honoring explicit newlines, then greedy
+    word-wrap (identical to ConstantGlyph._draw_wrapped, minus the height cap)."""
+    avail_w = box_w - 2 * _CONST_PAD
+    n = 0
+    for seg in display.split("\n"):
+        if not seg:
+            n += 1
+            continue
+        if avail_w <= 0:
+            n += 1
+            continue
+        n += max(1, len(wrap_label(seg, avail_w, measure, _CONST_TEXT_SIZE, 100000)))
+    return max(1, n)
+
+
+def _trim_string_const_geom(
+    graph: InMemoryVIGraph, vi_name: str, layout: Layout,
+) -> tuple[dict[str, Rect], dict[str, Point]]:
+    """Trimmed geometry for string-constant boxes (task #27). Anchored at the
+    heap TOP-LEFT: x1/y1 and width are untouched; ONLY the bottom edge (y2)
+    moves UP to the wrapped-text height at our font (never past the heap
+    bottom — we only trim empty vertical space, never grow). The oversized
+    heap boxes (LabVIEW's own larger font) otherwise make some interior wires
+    unroutable.
+
+    Returns (raw uid -> trimmed node bounds, raw uid -> its output terminal
+    center clamped onto the shrunk box) so the router obstacle, the drawn box,
+    and the wire attach point all use the same shrunk rect."""
+    measure = SvgBackend()
+    bounds_out: dict[str, Rect] = {}
+    centers_out: dict[str, Point] = {}
+    for node in graph.iter_nodes(vi_name):
+        if not isinstance(node, ConstantNode) or type_family(node.lv_type) != "string":
+            continue
+        raw = _strip_prefix(node.id, vi_name)
+        b = layout.node_bounds.get(raw)
+        if b is None:
+            continue
+        x1, y1, x2, y2 = b
+        raw_val = node.raw_value if node.value is None else node.value
+        display = string_const_display(raw_val)
+        n = _string_const_lines(display, x2 - x1, measure)
+        needed = 2 * _CONST_PAD + n * _CONST_LINE_H
+        new_bottom = min(y2, y1 + needed)
+        if new_bottom >= y2:
+            continue  # nothing to trim
+        bounds_out[raw] = (x1, y1, x2, new_bottom)
+        # The heap terminal center sits at the box's vertical MIDDLE and does
+        # NOT follow the box, so after trimming it would dangle below the
+        # shrunk box. Re-anchor it to the NEW box: right edge (x2), vertical
+        # middle of the shrunk rect — so the wire attaches to the box's right
+        # edge, not empty space. (Output exits right, so x2 is the attach x.)
+        centers_out[raw] = (x2, (y1 + new_bottom) / 2)
+    return bounds_out, centers_out
 
 
 def _render_terminals(
@@ -644,31 +712,99 @@ def _wire_path(
     return max(cands, key=len) if cands else ()
 
 
-def _wire_exempt_structures(
-    w: Wire, by_id: dict[str, AnyGraphNode], vi_name: str,
-) -> frozenset[str]:
-    """Raw uids of the structures a wire may legitimately overlap, so they're
-    NOT treated as obstacles for it:
+# Height of a case/stacked-sequence selector banner drawn ABOVE the frame
+# body's top edge — keep in sync with ``draw._CASE_BAR_H`` (the renderer that
+# actually paints it). Only interactive structures (case, stacked sequence)
+# draw one; loops and flat sequences do not.
+_CASE_BAR_H = 14.0
 
-    (a) a structure the wire CONNECTS TO — an endpoint's node IS that
-        structure (a tunnel/shift-register/selector terminal belongs to the
-        StructureNode itself), so the wire legitimately reaches its border;
-    (b) any structure that CONTAINS the wire — an ANCESTOR of either
-        endpoint's node via the parent chain (a wire drawn inside a loop/
-        case/sequence frame lives within that structure and all its
-        enclosing structures). All ancestors are exempt, so nesting is
-        handled.
 
-    Every OTHER structure is a solid obstacle the wire must route around.
+def _has_banner(node: AnyGraphNode) -> bool:
+    return isinstance(node, CaseStructureNode) or _is_stacked_sequence(node)
+
+
+def _structure_obstacle_rect(rs: RenderStructure) -> Rect:
+    """A structure's footprint for the router — its frame BODY plus, for a
+    case/stacked sequence, the SELECTOR BANNER drawn above the top edge (the
+    bar holding ◄ value ▼ ►). The banner is visually part of the structure,
+    so wires must route around it too, not straight over the selector."""
+    x1, y1, x2, y2 = rs.bounds
+    if _has_banner(rs.node):
+        return (x1, y1 - _CASE_BAR_H, x2, y2)
+    return rs.bounds
+
+
+def _endpoint_containers(
+    end: WireEnd, graph: InMemoryVIGraph,
+    by_id: dict[str, AnyGraphNode], vi_name: str,
+) -> list[str]:
+    """Raw uids of the structures whose frame this endpoint lives IN, ordered
+    innermost (leaf) → outermost (root).
+
+    An endpoint lives in a structure's frame when:
+    * its node is nested inside (the structure is an ANCESTOR via the parent
+      chain — interior nodes and arbitrary nesting), or
+    * it is one of the structure's own INNER tunnel/shift-register/selector
+      terminals (``boundary == "inner"`` — the inner face is on the frame
+      side). Inner and outer tunnels often share the same center point, so
+      inner-vs-outer is read from the graph terminal, never from geometry.
     """
-    exempt: set[str] = set()
-    for end in (w.source, w.dest):
-        cur = by_id.get(end.node_id)
-        while cur is not None:
-            if isinstance(cur, StructureNode):
-                exempt.add(_strip_prefix(cur.id, vi_name))
-            cur = by_id.get(cur.parent) if cur.parent else None
-    return frozenset(exempt)
+    node = by_id.get(end.node_id)
+    if node is None:
+        return []
+    out: list[str] = []
+    term = graph.get_terminal(end.terminal_id)
+    if (
+        isinstance(term, TunnelTerminal)
+        and term.boundary == "inner"
+        and isinstance(node, StructureNode)
+    ):
+        out.append(_strip_prefix(node.id, vi_name))  # inner face -> inside this frame
+    cur = by_id.get(node.parent) if node.parent else None
+    while cur is not None:
+        if isinstance(cur, StructureNode):
+            out.append(_strip_prefix(cur.id, vi_name))
+        cur = by_id.get(cur.parent) if cur.parent else None
+    return out
+
+
+def _wire_exempt_structures(
+    w: Wire, graph: InMemoryVIGraph, by_id: dict[str, AnyGraphNode], vi_name: str,
+) -> frozenset[str]:
+    """Raw uids of the structures a wire may legitimately overlap (NOT treated
+    as obstacles for it) — every structure EITHER endpoint lives inside (the
+    CONTAINS relationship; see ``_endpoint_containers``).
+
+    A structure the wire merely CONNECTS TO on its OUTER face is NOT exempt:
+    its interior stays a solid obstacle, so an EXTERNAL wire approaches the
+    tunnel from outside and stops at the border (Correction 2 attaches such a
+    wire on the OUTER face, reachable by hugging the exterior) instead of
+    cutting across the whole box.
+    """
+    return frozenset(
+        _endpoint_containers(w.source, graph, by_id, vi_name)
+    ) | frozenset(
+        _endpoint_containers(w.dest, graph, by_id, vi_name)
+    )
+
+
+def _innermost_common_container(
+    w: Wire, graph: InMemoryVIGraph, by_id: dict[str, AnyGraphNode], vi_name: str,
+) -> str | None:
+    """Raw uid of the INNERMOST structure that contains BOTH endpoints, or
+    None if the wire is not fully contained (e.g. external -> outer tunnel).
+
+    A fully-contained wire must be CONFINED to this structure's interior so
+    the router can't path out of the frame and back to dodge an interior
+    obstacle. ``_endpoint_containers`` is ordered leaf→root, so the first
+    container common to both endpoints is the deepest (nesting handled).
+    """
+    src = _endpoint_containers(w.source, graph, by_id, vi_name)
+    dst = set(_endpoint_containers(w.dest, graph, by_id, vi_name))
+    for uid in src:
+        if uid in dst:
+            return uid
+    return None
 
 
 def _build_wire_nets(
@@ -715,10 +851,17 @@ def _build_wire_nets(
     all_points = list(layout.terminal_centers.values())
     owner = _term_owner_bounds(graph, vi_name, layout)
 
-    # Obstacles are NODES *and* STRUCTURE footprints — a wire must not run over
-    # or under a For/While Loop, Case, or Sequence box it has nothing to do
-    # with, exactly as it must not cross a node. Obstacle lists are built per
-    # (frame path, exempt-structure set):
+    # Body bounds of every structure, keyed by raw uid — the CONFINEMENT rect
+    # for a wire fully contained by it (its interior; the selector banner is
+    # above the body and stays outside, so a contained wire can't stray into
+    # its own container's banner either).
+    struct_body_by_uid = {rs.raw_uid: rs.bounds for rs in render_structures}
+
+    # Obstacles are NODES *and* STRUCTURE footprints (body + selector banner,
+    # see _structure_obstacle_rect) — a wire must not run over or under a
+    # For/While Loop, Case, or Sequence box (or its selector bar) it has
+    # nothing to do with, exactly as it must not cross a node. Routers are
+    # built per (frame path, exempt-structure set, confinement rect):
     #   * frame path — a node/structure only in a mutually-exclusive
     #     case/stacked-sequence frame is never on screen at the same time as a
     #     wire outside that frame, so it can't obstruct it even where their
@@ -726,16 +869,22 @@ def _build_wire_nets(
     #   * exempt structures — a structure the wire connects to or lives inside
     #     is legitimately overlapped, never routed around. See
     #     _wire_exempt_structures.
-    # Both keys take few distinct values per VI, so the cache keeps routing
-    # cheap despite the per-wire exemption.
+    #   * confinement — a fully-contained wire's router is bounded to its
+    #     innermost container's interior, so A* can't leave the frame to
+    #     detour (see _innermost_common_container).
+    # Each key takes few distinct values per VI, so the cache keeps routing
+    # cheap despite the per-wire exemption/confinement.
     node_bounds_by_path: dict[FramePath, list[Rect]] = {}
     structs_by_path: dict[FramePath, list[tuple[str, Rect]]] = {}
-    routers: dict[tuple[FramePath, frozenset[str]], tuple[WireRouter, list[Rect]]] = {}
+    routers: dict[
+        tuple[FramePath, frozenset[str], Rect | None],
+        tuple[WireRouter, list[Rect]],
+    ] = {}
 
     def _router_for(
-        path: FramePath, exempt: frozenset[str],
+        path: FramePath, exempt: frozenset[str], confine: Rect | None,
     ) -> tuple[WireRouter, list[Rect]]:
-        cached = routers.get((path, exempt))
+        cached = routers.get((path, exempt, confine))
         if cached is not None:
             return cached
         if path not in node_bounds_by_path:
@@ -744,14 +893,15 @@ def _build_wire_nets(
                 if _frame_compatible(rn.frame_path, path)
             ]
             structs_by_path[path] = [
-                (rs.raw_uid, rs.bounds) for rs in render_structures
+                (rs.raw_uid, _structure_obstacle_rect(rs))
+                for rs in render_structures
                 if _frame_compatible(rs.frame_path, path)
             ]
         obstacles = node_bounds_by_path[path] + [
             b for uid, b in structs_by_path[path] if uid not in exempt
         ]
-        entry = (WireRouter(obstacles, scene_bounds), obstacles)
-        routers[(path, exempt)] = entry
+        entry = (WireRouter(obstacles, confine or scene_bounds), obstacles)
+        routers[(path, exempt, confine)] = entry
         return entry
 
     nets: list[RenderWireNet] = []
@@ -789,8 +939,10 @@ def _build_wire_nets(
                     w.dest.terminal_id,
                 )
                 continue
-            exempt = _wire_exempt_structures(w, by_id, vi_name)
-            router, obstacles = _router_for(path, exempt)
+            exempt = _wire_exempt_structures(w, graph, by_id, vi_name)
+            confine_uid = _innermost_common_container(w, graph, by_id, vi_name)
+            confine = struct_body_by_uid.get(confine_uid) if confine_uid else None
+            router, obstacles = _router_for(path, exempt, confine)
             dest_term = graph.get_terminal(w.dest.terminal_id)
             dest_types.append(dest_term.lv_type if dest_term else None)
             dst_owner = owner.get(raw_dst)
@@ -810,7 +962,20 @@ def _build_wire_nets(
                 dst_center, dst_owner, dst_dir, dst_border, obstacles, dst_owner,
                 toward=src_center,
             )
-            mid = router.route(src_out, dst_in, all_points, src_owner, dst_owner)
+            # The router's endpoint-owner exemption lets a wire pass through
+            # exactly its own node's box near that endpoint. A TUNNEL/border
+            # endpoint's "owner" is the whole STRUCTURE — but its contact
+            # point sits ON the border (outside the interior test) and, for an
+            # external wire, the interior must stay blocked, so we must NOT
+            # hand the router a structure-sized exemption. Pass None for
+            # border endpoints (an internal wire's structure is already
+            # exempt via _wire_exempt_structures, so it isn't an obstacle
+            # anyway); plain node endpoints keep their own-box exemption.
+            src_route_owner = None if src_border else src_owner
+            dst_route_owner = None if dst_border else dst_owner
+            mid = router.route(
+                src_out, dst_in, all_points, src_route_owner, dst_route_owner,
+            )
             # Drop redundant collinear points (the directional stubs are often
             # collinear with the first/last leg) so we don't add kinks LabVIEW
             # wouldn't draw.
@@ -889,6 +1054,16 @@ def build_scene(graph: InMemoryVIGraph, vi_name: str) -> Scene | None:
         return None
 
     layout = build_layout(src_path)
+    # Shrink oversized string-constant boxes to their wrapped-text height
+    # (top-left anchored) BEFORE anything consumes geometry, so the drawn box,
+    # the router obstacle, and the wire attach point all use the trimmed rect.
+    trim_bounds, trim_centers = _trim_string_const_geom(graph, vi_name, layout)
+    if trim_bounds:
+        layout = replace(
+            layout,
+            node_bounds={**layout.node_bounds, **trim_bounds},
+            terminal_centers={**layout.terminal_centers, **trim_centers},
+        )
     all_nodes = graph.iter_nodes(vi_name)
     by_id: dict[str, AnyGraphNode] = {n.id: n for n in all_nodes}
     default_frame, frame_values = _frame_info(all_nodes, vi_name)

@@ -30,12 +30,14 @@ from lvkit.render import render_vi, render_vi_file
 from lvkit.render.backend import SvgBackend
 from lvkit.render.draw import draw_fp_terminal, draw_node
 from lvkit.render.glyph import CompoundArithGlyph
-from lvkit.render.layout import Layout, Point, Rect
+from lvkit.render.layout import Layout, Point, Rect, build_layout
+from lvkit.render.nodes import string_const_display
 from lvkit.render.scene import (
     Scene,
     _exit_side,
     _frame_compatible,
     _structure_borders,
+    _trim_string_const_geom,
     build_scene,
     encode_frame_path,
 )
@@ -876,11 +878,19 @@ def _inside(pt: Point, rect: Rect) -> bool:
     return x1 <= x <= x2 and y1 <= y <= y2
 
 
+def _on_border(pt: Point, struct) -> bool:
+    return any(_inside(pt, bt.bounds) for bt in struct.border_terminals)
+
+
 def _count_structure_crossings(scene: Scene) -> int:
-    """Routed wire segments passing through a STRUCTURE footprint the wire
-    neither connects to nor lives inside. A structure is exempt for a branch
-    when an endpoint is inside its bounds (contains) or on one of its border
-    terminals (connects-to, which lies within the bounds). Frame-aware."""
+    """Routed wire segments passing through the INTERIOR of a STRUCTURE the
+    wire does not live INSIDE — INCLUDING a structure it merely CONNECTS TO
+    via an outer tunnel. A wire is contained (allowed inside) only when BOTH
+    endpoints lie within the structure bounds (an interior node, or an inner
+    tunnel on the border); if even one endpoint is outside, the wire connects
+    from outside (or is unrelated) and must stop at the border. The single
+    border/tunnel contact zone is excluded so a legitimate outer-face
+    attachment isn't miscounted. Frame-aware."""
     crossings = 0
     for net in scene.wire_nets:
         structs = [
@@ -891,7 +901,7 @@ def _count_structure_crossings(scene: Scene) -> int:
             a, b = branch[0], branch[-1]
             blockers = [
                 s for s in structs
-                if not (_inside(a, s.bounds) or _inside(b, s.bounds))
+                if not (_inside(a, s.bounds) and _inside(b, s.bounds))
             ]
             for i in range(len(branch) - 1):
                 (x1, y1), (x2, y2) = branch[i], branch[i + 1]
@@ -902,7 +912,8 @@ def _count_structure_crossings(scene: Scene) -> int:
                     y = y1 + (y2 - y1) * st / steps
                     for s in blockers:
                         bx1, by1, bx2, by2 = s.bounds
-                        if bx1 + 1 < x < bx2 - 1 and by1 + 1 < y < by2 - 1:
+                        if (bx1 + 1 < x < bx2 - 1 and by1 + 1 < y < by2 - 1
+                                and not _on_border((x, y), s)):
                             hit = True
                             break
                     if hit:
@@ -950,12 +961,14 @@ def _count_tunnel_face_mismatches(scene: Scene) -> tuple[int, int]:
     return mismatches, total
 
 
-def test_no_wire_segment_crosses_a_non_connected_structure():
-    """Structures ARE obstacles: a wire must route AROUND any For/While Loop,
-    Case, or Sequence box it neither connects to nor lives inside (the user's
-    reported float-over-For-Loop and shift-register-over-stacked-sequence
-    cases). Connect/contain/frame exemptions keep legitimate border/interior
-    wiring intact."""
+def test_no_wire_segment_crosses_a_structure_it_is_not_inside():
+    """Structures ARE obstacles: a wire must route AROUND the interior of any
+    For/While Loop, Case, or Sequence box it does not LIVE INSIDE — including
+    one it merely CONNECTS TO via an outer tunnel (the user's reported
+    float-over-For-Loop and shift-register-over-stacked-sequence cases). A
+    wire only lives inside a structure when BOTH endpoints are within it
+    (interior node or inner tunnel); an external wire stops at the outer
+    border. Contain/frame exemptions keep legitimate interior wiring intact."""
     loaded = _load_graph(STACKED_SEQ_VI)
     if loaded is None:
         pytest.skip(f"sample VI not available or failed to load: {STACKED_SEQ_VI}")
@@ -980,6 +993,172 @@ def test_tunnel_wires_attach_on_the_face_toward_their_other_endpoint():
     mismatches, total = _count_tunnel_face_mismatches(scene)
     assert total > 0  # the sample really does exercise tunnels
     assert mismatches == 0
+
+
+def _count_contained_wire_escapes(graph, vi: str, scene: Scene) -> int:
+    """A wire fully CONTAINED by a structure (per the graph's
+    ``_innermost_common_container`` — the same relation the router confines
+    on) must have no segment outside that container's body. Maps each routed
+    branch back to its wire (by dest-center) to look up the true container —
+    geometry alone can't tell an outer tunnel sitting on the border (endpoint
+    inside the bbox but living OUTSIDE the frame) from real containment."""
+    from lvkit.render.scene import (
+        _innermost_common_container,
+        _strip_prefix,
+        _wire_path,
+    )
+    src = graph.get_vi_source_path(vi)
+    layout = build_layout(src)
+    by_id = {n.id: n for n in graph.iter_nodes(vi)}
+    body = {rs.raw_uid: rs.bounds for rs in scene.structures}
+
+    paired: set = set()
+    for node in graph.iter_nodes(vi):
+        for t in node.terminals:
+            pid = getattr(t, "paired_id", None)
+            if pid:
+                paired.add(frozenset((t.id, pid)))
+    by_group: dict = {}
+    for w in graph.get_wires(vi, include_internal=True):
+        if frozenset((w.source.terminal_id, w.dest.terminal_id)) in paired:
+            continue
+        path = _wire_path(w, graph, by_id, vi)
+        by_group.setdefault((w.source.terminal_id, path), []).append(w)
+
+    escapes = 0
+    for net in scene.wire_nets:
+        if net.source is None:
+            continue
+        group = by_group.get((net.source.source.terminal_id, net.frame_path), [])
+        for branch in net.branches:
+            dst = branch[-1]
+            match = None
+            for w in group:
+                c = layout.terminal_centers.get(_strip_prefix(w.dest.terminal_id, vi))
+                if c and abs(c[0] - dst[0]) < 2 and abs(c[1] - dst[1]) < 2:
+                    match = w
+                    break
+            if match is None:
+                continue
+            uid = _innermost_common_container(match, graph, by_id, vi)
+            rect = body.get(uid) if uid else None
+            if rect is None:
+                continue
+            if any(_dist_outside(pt, rect) > 1.5 for pt in branch):
+                escapes += 1
+    return escapes
+
+
+def _dist_outside(pt: Point, rect: Rect) -> float:
+    x, y = pt
+    x1, y1, x2, y2 = rect
+    dx = max(x1 - x, 0.0, x - x2)
+    dy = max(y1 - y, 0.0, y - y2)
+    return max(dx, dy)
+
+
+def _count_banner_crossings(scene: Scene) -> int:
+    """Routed wire segments overlapping a case/stacked-sequence SELECTOR BANNER
+    (the bar above the top edge) of a structure the wire is UNRELATED to (no
+    endpoint on/in it). The banner is visually part of the structure, so an
+    unrelated wire must route around it."""
+    from lvkit.graph.models import CaseStructureNode as _Case
+    from lvkit.graph.models import SequenceNode as _Seq
+    bar_h = 14.0
+    crossings = 0
+    for net in scene.wire_nets:
+        structs = [
+            s for s in scene.structures
+            if _frame_compatible(s.frame_path, net.frame_path)
+            and (isinstance(s.node, _Case)
+                 or (isinstance(s.node, _Seq) and s.node.node_type != "flatSequence"))
+        ]
+        for branch in net.branches:
+            a, b = branch[0], branch[-1]
+            for s in structs:
+                if _inside(a, s.bounds) or _inside(b, s.bounds):
+                    continue  # wire connects to / lives in this structure
+                x1, y1, x2, _ = s.bounds
+                banner = (x1, y1 - bar_h, x2, y1)
+                hit = False
+                for i in range(len(branch) - 1):
+                    (px1, py1), (px2, py2) = branch[i], branch[i + 1]
+                    steps = int(max(abs(px2 - px1), abs(py2 - py1)) / 2) + 1
+                    for st in range(1, steps):
+                        x = px1 + (px2 - px1) * st / steps
+                        y = py1 + (py2 - py1) * st / steps
+                        if banner[0] + 1 < x < banner[2] - 1 and \
+                                banner[1] + 1 < y < banner[3] - 1:
+                            hit = True
+                            break
+                    if hit:
+                        break
+                if hit:
+                    crossings += 1
+    return crossings
+
+
+def test_contained_wires_stay_inside_their_structure():
+    """A fully-contained wire (both endpoints inside a structure) is confined to
+    that structure's interior — it never routes out of the frame and back to
+    dodge an interior obstacle (regression: the increment wire inside a For
+    Loop leaving the loop around a tall string constant)."""
+    loaded = _load_graph(STACKED_SEQ_VI)
+    if loaded is None:
+        pytest.skip(f"sample VI not available or failed to load: {STACKED_SEQ_VI}")
+    graph, vi = loaded
+    scene = build_scene(graph, vi)
+    if scene is None:
+        pytest.skip("scene build failed (missing geometry)")
+    assert _count_contained_wire_escapes(graph, vi, scene) == 0
+
+
+def test_no_unrelated_wire_crosses_a_selector_banner():
+    """The selector banner (bar above a case/stacked-sequence) is an obstacle:
+    a wire unrelated to that structure must not run over its selector."""
+    loaded = _load_graph(STACKED_SEQ_VI)
+    if loaded is None:
+        pytest.skip(f"sample VI not available or failed to load: {STACKED_SEQ_VI}")
+    graph, vi = loaded
+    scene = build_scene(graph, vi)
+    if scene is None:
+        pytest.skip("scene build failed (missing geometry)")
+    assert _count_banner_crossings(scene) == 0
+
+
+def test_string_const_display_strips_quotes_and_unescapes():
+    # Parser stores '...' with \\ and \' escaped; display shows the bare text.
+    assert string_const_display("'hello'") == "hello"
+    assert string_const_display("'it\\'s'") == "it's"
+    assert string_const_display("'a\\\\b'") == "a\\b"
+    assert string_const_display("'line1\nline2'") == "line1\nline2"  # newlines kept
+    assert string_const_display("novalue") == "novalue"  # non-quoted passthrough
+    assert string_const_display(None) == ""
+
+
+def test_string_constant_boxes_trimmed_top_left_anchored():
+    """String-constant boxes shrink to their wrapped-text height, anchored at
+    the heap top-left (x1/y1/width unchanged, only y2 moves up, never past the
+    heap bottom), and the output terminal re-anchors to the shrunk box's right
+    edge at its vertical middle."""
+    loaded = _load_graph(STACKED_SEQ_VI)
+    if loaded is None:
+        pytest.skip(f"sample VI not available or failed to load: {STACKED_SEQ_VI}")
+    graph, vi = loaded
+    src = graph.get_vi_source_path(vi)
+    if src is None:
+        pytest.skip("no source path")
+    layout = build_layout(src)
+    trim_bounds, trim_centers = _trim_string_const_geom(graph, vi, layout)
+    assert trim_bounds  # the sample has multi-line string constants
+    for raw, (nx1, ny1, nx2, ny2) in trim_bounds.items():
+        ox1, oy1, ox2, oy2 = layout.node_bounds[raw]
+        assert (nx1, ny1, nx2) == (ox1, oy1, ox2)  # top-left + width unchanged
+        assert oy1 < ny2 <= oy2                     # bottom moved up, not past heap
+        cx, cy = trim_centers[raw]
+        assert cx == nx2                            # terminal on the right edge
+        assert ny1 <= cy <= ny2                     # ... within the shrunk box
+        assert abs(cy - (ny1 + ny2) / 2) < 0.51     # ... at its vertical middle
 
 
 # --------------------------------------------------------------------------- #
