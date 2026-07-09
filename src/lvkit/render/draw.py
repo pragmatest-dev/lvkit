@@ -14,6 +14,7 @@ from dataclasses import dataclass
 from ..graph.models import (
     AnyGraphNode,
     CaseStructureNode,
+    LocalVariableNode,
     PrimitiveNode,
     SequenceNode,
     VINode,
@@ -159,7 +160,15 @@ def draw_node(node: RenderNode, backend: Backend, theme: Theme = DEFAULT_THEME) 
 
 def _node_tooltip(node: AnyGraphNode) -> str | None:
     """Full-identity hover text for a node, or None for nodes without a useful
-    name (constants show their value in-box already)."""
+    name (constants show their value in-box already).
+
+    A local variable MUST get its own title: without one the browser shows the
+    nearest ancestor ``<title>`` (the diagram's VI name), so every local var
+    would otherwise read as the VI itself.
+    """
+    if isinstance(node, LocalVariableNode):
+        name = node.control_name or node.name
+        return f"Local Variable: {name}" if name else "Local Variable"
     if isinstance(node, VINode | PrimitiveNode):
         return node.name or None
     return None
