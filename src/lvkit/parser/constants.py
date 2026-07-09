@@ -25,6 +25,7 @@ NODE_CLASS_CPD_ARITH = "cpdArith"  # Compound arithmetic (e.g., Or of multiple b
 NODE_CLASS_ARRAY_BUILD = "aBuild"  # Array builder node
 NODE_CLASS_FLAT_SEQ = "flatSequence"  # Flat sequence structure
 NODE_CLASS_PRINTF = "printf"  # Format String primitive
+NODE_CLASS_SCANF = "scanf"  # Scan From String primitive (variable terminals)
 NODE_CLASS_NMUX = "nMux"  # Node Multiplexer (selector)
 NODE_CLASS_ARRAY_DELETE = "aDelete"  # Delete From Array
 NODE_CLASS_ARRAY_INDEX = "aIndx"  # Index Array (expandable)
@@ -66,6 +67,7 @@ OPERATION_NODE_CLASSES = (
     NODE_CLASS_ARRAY_BUILD,
     NODE_CLASS_FLAT_SEQ,
     NODE_CLASS_PRINTF,
+    NODE_CLASS_SCANF,
     NODE_CLASS_NMUX,
     NODE_CLASS_ARRAY_DELETE,
     NODE_CLASS_ARRAY_INDEX,

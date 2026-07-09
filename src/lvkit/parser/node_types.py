@@ -562,6 +562,24 @@ class PrintfHandler(NodeTypeHandler):
         return PrimitiveNode(**common)
 
 
+class ScanfHandler(NodeTypeHandler):
+    """Handler for Scan From String nodes (class="scanf").
+
+    LabVIEW's scanf node takes a format string and an input string, producing
+    scanned values as outputs. Like ``printf`` it has a variable number of
+    terminals; ``_extract_common`` walks the termList generically. Treated as a
+    primitive so its output wires resolve (otherwise every wire from a scanf
+    output is dropped in graph construction).
+    """
+
+    xml_class = "scanf"
+    display_name = "Scan From String"
+
+    def parse(self, elem: ET.Element) -> PrimitiveNode:
+        common = self._extract_common(elem)
+        return PrimitiveNode(**common)
+
+
 class NMuxHandler(NodeTypeHandler):
     """Handler for Node Multiplexer (class="nMux").
 
@@ -871,6 +889,7 @@ _HANDLERS: list[NodeTypeHandler] = [
     StackedSequenceHandler(),
     _SequenceAliasHandler(),
     PrintfHandler(),
+    ScanfHandler(),
     NMuxHandler(),
     _MuxHandler(),
     _DemuxHandler(),

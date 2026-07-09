@@ -1009,3 +1009,25 @@ def test_gref_local_variable_wires_to_correct_control():
         )
         assert node.control_name == expected_control
         assert term.name == expected_control
+
+
+def test_scanf_nodes_parsed_and_wired():
+    """Scan From String (class="scanf") is a variable-terminal operation like
+    printf. It was missing from the parser allowlist, so it was never turned
+    into a graph node and EVERY wire from a scanf output was silently dropped
+    in graph construction (the sink terminal appeared unwired). Regression:
+    four scanf->prim(1510) I32 connections vanished from this VI's diagram."""
+    loaded = _load_graph(LOCALVAR_VI)
+    if loaded is None:
+        pytest.skip(f"sample VI not available: {LOCALVAR_VI}")
+    graph, vi = loaded
+    scanfs = [n for n in graph.iter_nodes(vi) if n.node_type == "scanf"]
+    assert len(scanfs) == 4, f"expected 4 scanf nodes, got {len(scanfs)}"
+
+    wired = set()
+    for w in graph.get_wires(vi, include_internal=True):
+        wired.add(w.source.terminal_id)
+        wired.add(w.dest.terminal_id)
+    # The four I32 inputs previously left unwired by the dropped scanf wires.
+    for raw in ("910", "1095", "1314", "1358"):
+        assert f"{vi}::{raw}" in wired, f"terminal {raw} still unwired"
