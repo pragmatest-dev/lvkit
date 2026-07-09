@@ -31,7 +31,14 @@ from lvkit.render.backend import SvgBackend
 from lvkit.render.draw import draw_fp_terminal, draw_node
 from lvkit.render.glyph import CompoundArithGlyph
 from lvkit.render.layout import Layout
-from lvkit.render.scene import _structure_borders, build_scene, encode_frame_path
+from lvkit.render.scene import (
+    Scene,
+    _exit_side,
+    _frame_compatible,
+    _structure_borders,
+    build_scene,
+    encode_frame_path,
+)
 from lvkit.render.style import DEFAULT_THEME, coercion_key, wire_style
 from lvkit.render.wire_router import RouterConfig, WireRouter, _compress, path_d
 
@@ -83,6 +90,41 @@ def test_router_avoids_obstacle():
 
     assert route[0] == p1 and route[-1] == p2
     assert not crosses_obstacle(route)
+
+
+def test_router_routes_around_third_node_directly_between_endpoints():
+    """A wire between two nodes with a THIRD node sitting directly on the
+    straight line between them must detour around it — no segment may pass
+    through the third node's interior. Distinct from
+    ``test_router_avoids_obstacle``: the blocking obstacle here is itself a
+    real node with its own owner-adjacent geometry (not a bare rect off to
+    one side of a simple straight shot), closer to the dense-diagram shape
+    that regressed in practice.
+    """
+    src_node = (0.0, 40.0, 20.0, 60.0)
+    blocker_node = (55.0, 30.0, 85.0, 70.0)
+    dst_node = (120.0, 40.0, 140.0, 60.0)
+    obstacles = [src_node, blocker_node, dst_node]
+    r = WireRouter(
+        obstacles, bounds=(0.0, 0.0, 200.0, 120.0), config=RouterConfig(grid=2),
+    )
+    p1, p2 = (20.0, 50.0), (120.0, 50.0)  # straight line runs through blocker_node
+    route = r.route(p1, p2, endpoints=[p1, p2], p1_owner=src_node, p2_owner=dst_node)
+
+    def crosses(obstacle, pts) -> bool:
+        bx1, by1, bx2, by2 = obstacle
+        for i in range(len(pts) - 1):
+            (x1, y1), (x2, y2) = pts[i], pts[i + 1]
+            steps = int(max(abs(x2 - x1), abs(y2 - y1))) + 1
+            for s in range(1, steps):
+                x = x1 + (x2 - x1) * s / steps
+                y = y1 + (y2 - y1) * s / steps
+                if bx1 + 1 < x < bx2 - 1 and by1 + 1 < y < by2 - 1:
+                    return True
+        return False
+
+    assert route[0] == p1 and route[-1] == p2
+    assert not crosses(blocker_node, route)
 
 
 def test_compress_drops_collinear_points():
@@ -782,6 +824,52 @@ def test_corpus_renders_without_exceptions(vi_path: Path):
             assert len(branch) >= 2
 
 
+def _count_non_endpoint_crossings(scene: Scene) -> int:
+    """How many routed wire segments pass through the interior of a node
+    that is NOT that wire's own source/dest node. Obstacles are scoped per
+    wire net's own frame path (``_frame_compatible``) — a node exclusive to
+    a mutually-exclusive case/stacked-sequence frame is never visible at
+    the same time as a wire outside that frame, so it isn't a real
+    obstacle for it even if their heap-derived boxes overlap."""
+    crossings = 0
+    for net in scene.wire_nets:
+        obstacles = [
+            n.bounds for n in scene.nodes
+            if _frame_compatible(n.frame_path, net.frame_path)
+        ]
+        for branch in net.branches:
+            src, dst = branch[0], branch[-1]
+            for i in range(len(branch) - 1):
+                (x1, y1), (x2, y2) = branch[i], branch[i + 1]
+                steps = int(max(abs(x2 - x1), abs(y2 - y1)) / 2) + 1
+                for s in range(1, steps):
+                    x = x1 + (x2 - x1) * s / steps
+                    y = y1 + (y2 - y1) * s / steps
+                    for bx1, by1, bx2, by2 in obstacles:
+                        if not (bx1 + 1 < x < bx2 - 1 and by1 + 1 < y < by2 - 1):
+                            continue
+                        near_src = bx1 <= src[0] <= bx2 and by1 <= src[1] <= by2
+                        near_dst = bx1 <= dst[0] <= bx2 and by1 <= dst[1] <= by2
+                        if near_src or near_dst:
+                            continue
+                        crossings += 1
+                        break
+    return crossings
+
+
+def test_no_wire_segment_crosses_a_non_endpoint_node():
+    """Regression for the router cutting through unrelated nodes: every
+    routed wire segment must clear every node it doesn't start or end at."""
+    loaded = _load_graph(STACKED_SEQ_VI)
+    if loaded is None:
+        pytest.skip(f"sample VI not available or failed to load: {STACKED_SEQ_VI}")
+    graph, vi = loaded
+    scene = build_scene(graph, vi)
+    if scene is None:
+        pytest.skip("scene build failed (missing geometry)")
+    assert _count_non_endpoint_crossings(scene) == 0
+
+
 # --------------------------------------------------------------------------- #
 # P1: wire color table + coercion key (pure unit tests, no VI needed)
 # --------------------------------------------------------------------------- #
@@ -904,6 +992,50 @@ def test_control_border_thicker_than_indicator_border():
     )
     assert 'stroke-width="3.0"' in control_svg
     assert 'stroke-width="1.5"' in indicator_svg
+
+
+# --------------------------------------------------------------------------- #
+# Structure border-terminal exit direction: vertical on top/bottom edges,
+# horizontal on left/right edges (tunnels/shift-registers only — ordinary
+# node terminals stay forced left->right dataflow).
+# --------------------------------------------------------------------------- #
+
+
+def test_border_terminal_on_top_edge_gets_vertical_exit_normal():
+    structure_bounds = (0.0, 0.0, 200.0, 100.0)
+    center = (100.0, 2.0)  # near the top edge
+    normal = _exit_side(None, center, structure_bounds, border=True)
+    assert normal == (0.0, -1.0)
+
+
+def test_border_terminal_on_bottom_edge_gets_vertical_exit_normal():
+    structure_bounds = (0.0, 0.0, 200.0, 100.0)
+    center = (100.0, 98.0)  # near the bottom edge
+    normal = _exit_side(None, center, structure_bounds, border=True)
+    assert normal == (0.0, 1.0)
+
+
+def test_border_terminal_on_left_edge_gets_horizontal_exit_normal():
+    structure_bounds = (0.0, 0.0, 200.0, 100.0)
+    center = (2.0, 50.0)  # near the left edge
+    normal = _exit_side(None, center, structure_bounds, border=True)
+    assert normal == (-1.0, 0.0)
+
+
+def test_border_terminal_on_right_edge_gets_horizontal_exit_normal():
+    structure_bounds = (0.0, 0.0, 200.0, 100.0)
+    center = (198.0, 50.0)  # near the right edge
+    normal = _exit_side(None, center, structure_bounds, border=True)
+    assert normal == (1.0, 0.0)
+
+
+def test_non_border_terminal_ignores_edge_and_uses_dataflow_direction():
+    # An ordinary (non-border) terminal keeps forced left->right dataflow
+    # even when it happens to sit closer to the top/bottom edge.
+    structure_bounds = (0.0, 0.0, 200.0, 100.0)
+    center = (100.0, 2.0)
+    assert _exit_side("output", center, structure_bounds, border=False) == (1.0, 0.0)
+    assert _exit_side("input", center, structure_bounds, border=False) == (-1.0, 0.0)
 
 
 # --------------------------------------------------------------------------- #
