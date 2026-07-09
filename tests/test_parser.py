@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import xml.etree.ElementTree as ET
 from pathlib import Path
 
 import pytest
@@ -25,6 +26,7 @@ from lvkit.parser import (
     parse_vi,
     parse_vi_metadata,
 )
+from lvkit.parser.vi import _process_element_terminals
 
 # === Model Dataclass Tests ===
 
@@ -150,6 +152,47 @@ class TestWiringRule:
         assert ParsedWiringRule.RECOMMENDED == 2
         assert ParsedWiringRule.OPTIONAL == 3
         assert ParsedWiringRule.DYNAMIC_DISPATCH == 4
+
+
+class TestTerminalInvertGating:
+    """The DCO objFlags "Not" bit (0x00010000) means "invert this terminal"
+    ONLY on Compound Arithmetic (cpdArith) nodes. Other primitives (e.g.
+    Increment, primResID 1058) reuse the same bit for an unrelated purpose,
+    so ``_process_element_terminals`` must only extract it for cpdArith
+    elements and leave every other node class's terminals uninverted."""
+
+    @staticmethod
+    def _make_elem(elem_class: str, elem_uid: str, term_uid: str) -> ET.Element:
+        # Bit 16 (0x00010000 == 65536) set in the terminal's DCO objFlags.
+        xml = f"""
+<SL__arrayElement class="{elem_class}" uid="{elem_uid}">
+  <termList>
+    <SL__arrayElement class="term" uid="{term_uid}">
+      <dco uid="dco{term_uid}" class="stdNum">
+        <parmIndex>0</parmIndex>
+        <objFlags>65536</objFlags>
+      </dco>
+    </SL__arrayElement>
+  </termList>
+</SL__arrayElement>
+"""
+        return ET.fromstring(xml)
+
+    def test_cpd_arith_terminal_is_inverted(self):
+        """A cpdArith element's terminal with the bit set is inverted."""
+        elem = self._make_elem("cpdArith", "e1", "t1")
+        terminal_info: dict[str, ParsedTerminalInfo] = {}
+        _process_element_terminals(elem, set(), set(), None, terminal_info)
+        assert terminal_info["t1"].inverted is True
+
+    def test_non_cpd_arith_terminal_is_not_inverted(self):
+        """A non-cpdArith element (e.g. a plain primitive, like Increment)
+        with the same bit set must NOT be marked inverted — this bit only
+        means "Not" on Compound Arithmetic."""
+        elem = self._make_elem("prim", "e2", "t2")
+        terminal_info: dict[str, ParsedTerminalInfo] = {}
+        _process_element_terminals(elem, set(), set(), None, terminal_info)
+        assert terminal_info["t2"].inverted is False
 
 
 class TestTunnelMapping:
@@ -732,7 +775,6 @@ class TestParsePolymorphicInfo:
         xml_file = tmp_path / "test.xml"
         xml_file.write_text(xml_content)
 
-        import xml.etree.ElementTree as ET
         tree = ET.parse(xml_file)
         root = tree.getroot()
 
@@ -761,7 +803,6 @@ class TestParsePolymorphicInfo:
         xml_file = tmp_path / "test.xml"
         xml_file.write_text(xml_content)
 
-        import xml.etree.ElementTree as ET
         tree = ET.parse(xml_file)
         root = tree.getroot()
 

@@ -20,6 +20,7 @@ from lvkit.models import LVType
 
 from .constants import (
     MULTI_LABEL_CLASS,
+    NODE_CLASS_CPD_ARITH,
     NODE_CLASS_SHIFT_REG,
     OPERATION_NODE_CLASSES,
     STRUCTURE_NODE_CLASSES,
@@ -490,10 +491,15 @@ def _process_element_terminals(
         if not term_name:
             term_name = extract_label(term)
 
-        # Per-terminal "Not" flag (e.g. Compound Arithmetic invert):
-        # bit 16 (0x00010000) set in the terminal's DCO objFlags.
-        dco_flags_elem = dco.find("objFlags") if dco is not None else None
-        inverted = is_inverted_terminal(safe_int(dco_flags_elem))
+        # Per-terminal "Not" flag: bit 16 (0x00010000) set in the
+        # terminal's DCO objFlags. This bit only means "invert" for
+        # Compound Arithmetic nodes; other primitives (e.g. Increment)
+        # reuse the same bit for an unrelated purpose, so only extract
+        # it when the containing element is cpdArith.
+        inverted = False
+        if elem_class == NODE_CLASS_CPD_ARITH:
+            dco_flags_elem = dco.find("objFlags") if dco is not None else None
+            inverted = is_inverted_terminal(safe_int(dco_flags_elem))
 
         terminal_info[term_uid] = ParsedTerminalInfo(
             uid=term_uid,

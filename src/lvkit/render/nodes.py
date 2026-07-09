@@ -340,6 +340,34 @@ class PdfIconResolver:
         return None
 
 
+# cpdArith operation -> Boolean-context translation. Same mapping codegen
+# applies in ``codegen/nodes/compound.py::generate_compound_arith`` — a
+# Boolean compound-arith's "add" is a logical OR and "multiply" is a
+# logical AND, not the raw arithmetic operator.
+_CPD_ARITH_BOOLEAN_OP = {"add": "or", "multiply": "and"}
+
+
+def _cpd_arith_boolean(node: PrimitiveNode) -> bool:
+    """Whether ``node`` (a cpdArith primitive) operates on Booleans — true if
+    its output OR any input terminal carries a Boolean type. Mirrors
+    ``codegen/nodes/compound.py::_is_boolean``/its use in
+    ``generate_compound_arith``, so the glyph and the generated code agree."""
+    return any(
+        t.lv_type is not None and t.lv_type.underlying_type == "Boolean"
+        for t in node.terminals
+    )
+
+
+def _cpd_arith_operation(node: PrimitiveNode) -> str:
+    """The operator symbol key to feed ``CompoundArithGlyph`` for a cpdArith
+    node: ``node.operation`` translated to its Boolean-context equivalent
+    (add->or, multiply->and) when the node's terminals are Boolean."""
+    operation = node.operation or "or"
+    if _cpd_arith_boolean(node):
+        return _CPD_ARITH_BOOLEAN_OP.get(operation, operation)
+    return operation
+
+
 class GeneratedGlyphResolver:
     """Code-drawn built-ins — migrated from the old ``draw.py`` dispatch
     dict. This is where "adding a visual" still means writing a branch,
@@ -388,7 +416,10 @@ class GeneratedGlyphResolver:
     @staticmethod
     def _primitive_glyph(node: PrimitiveNode) -> Glyph:
         if node.node_type == "cpdArith":
-            return CompoundArithGlyph(node.operation or "or")
+            num_inputs = sum(1 for t in node.terminals if t.direction == "input")
+            return CompoundArithGlyph(
+                _cpd_arith_operation(node), num_inputs=max(1, num_inputs),
+            )
         sym = _ARITH_SYMBOL.get(node.operation or node.name or "")
         if sym:
             return ArithGlyph(sym)

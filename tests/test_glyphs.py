@@ -9,13 +9,14 @@ pattern as ``test_render.py`` — the repo's sample VIs are local-only.
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 import pytest
 
 from lvkit.graph.core import InMemoryVIGraph
 from lvkit.graph.models import ConstantNode, InPlaceNode, PrimitiveNode, VINode
-from lvkit.models import LVType
+from lvkit.models import LVType, Terminal
 from lvkit.primitive_resolver import NodeIcon, PrimitiveEntry, ResolvedPrimitive
 from lvkit.render.backend import SvgBackend
 from lvkit.render.glyph import (
@@ -254,6 +255,78 @@ def test_compound_arith_glyph_renders_at_real_bounds_with_default_operation():
     # asset.
     assert 'width="40.0" height="30.0"' in svg
     assert ">∨<" in svg  # default "or" symbol when operation is unset
+
+
+def test_cpd_arith_boolean_add_renders_as_logical_or():
+    """A Boolean-terminal cpdArith node with operation "add" is LabVIEW's
+    logical OR (see codegen/nodes/compound.py::generate_compound_arith),
+    so the glyph must show 'or' (drawn as ``∨``), not the raw '+' — mirrors
+    node 802 in the stacked_sequence sample."""
+    bool_t = LVType(kind="primitive", underlying_type="Boolean")
+    node = PrimitiveNode(
+        id="vi::20", vi="vi", name="Compound Arithmetic", node_type="cpdArith",
+        operation="add",
+        terminals=[
+            Terminal(id="vi::20::0", index=0, direction="input", lv_type=bool_t),
+            Terminal(id="vi::20::1", index=1, direction="input", lv_type=bool_t),
+            Terminal(id="vi::20::2", index=2, direction="output", lv_type=bool_t),
+        ],
+    )
+    glyph = resolve_glyph(node, _ctx())
+    assert isinstance(glyph, CompoundArithGlyph)
+    assert glyph.operation == "or"
+    assert glyph.num_inputs == 2  # matches node 802: 2 boolean inputs
+    bounds = (0.0, 0.0, 24.0, 17.0)
+    backend = SvgBackend()
+    glyph.draw(backend, bounds, DEFAULT_THEME)
+    svg = backend.render(bounds)
+    assert ">∨<" in svg
+    # 1 vertical operator-cell divider + (num_inputs - 1) horizontal row
+    # dividers = 2 lines total for a 2-input node.
+    assert len(re.findall(r"<line[^>]*/>", svg)) == 2
+
+
+def test_cpd_arith_numeric_add_still_renders_as_plus():
+    """A NUMERIC-terminal cpdArith node with operation "add" is ordinary
+    arithmetic addition — the glyph must keep the '+' symbol."""
+    num_t = LVType(kind="primitive", underlying_type="NumFloat64")
+    node = PrimitiveNode(
+        id="vi::21", vi="vi", name="Compound Arithmetic", node_type="cpdArith",
+        operation="add",
+        terminals=[
+            Terminal(id="vi::21::0", index=0, direction="input", lv_type=num_t),
+            Terminal(id="vi::21::1", index=1, direction="input", lv_type=num_t),
+            Terminal(id="vi::21::2", index=2, direction="output", lv_type=num_t),
+        ],
+    )
+    glyph = resolve_glyph(node, _ctx())
+    assert isinstance(glyph, CompoundArithGlyph)
+    assert glyph.operation == "add"
+
+
+def test_cpd_arith_three_inputs_draws_two_horizontal_dividers():
+    """A 3-input cpdArith node draws 1 vertical operator-cell divider plus
+    2 horizontal row dividers (one per input boundary) = 3 lines total."""
+    num_t = LVType(kind="primitive", underlying_type="NumFloat64")
+    node = PrimitiveNode(
+        id="vi::22", vi="vi", name="Compound Arithmetic", node_type="cpdArith",
+        operation="add",
+        terminals=[
+            Terminal(id="vi::22::0", index=0, direction="input", lv_type=num_t),
+            Terminal(id="vi::22::1", index=1, direction="input", lv_type=num_t),
+            Terminal(id="vi::22::2", index=2, direction="input", lv_type=num_t),
+            Terminal(id="vi::22::3", index=3, direction="output", lv_type=num_t),
+        ],
+    )
+    glyph = resolve_glyph(node, _ctx())
+    assert isinstance(glyph, CompoundArithGlyph)
+    assert glyph.num_inputs == 3
+    bounds = (0.0, 0.0, 40.0, 30.0)
+    backend = SvgBackend()
+    glyph.draw(backend, bounds, DEFAULT_THEME)
+    svg = backend.render(bounds)
+    assert len(re.findall(r"<line[^>]*/>", svg)) == 3
+    assert ">+<" in svg
 
 
 # --------------------------------------------------------------------------- #

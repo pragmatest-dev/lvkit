@@ -227,25 +227,41 @@ _CPD_ARITH_SYMBOL = {
 class CompoundArithGlyph:
     """The Compound Arithmetic node (``node_type == "cpdArith"``): a plain
     rectangle (sharp corners — block-diagram objects aren't rounded, unlike
-    the borderless arithmetic triangle) with its operator symbol centered.
+    the borderless arithmetic triangle), split like LabVIEW's real glyph:
+
+    - a narrower RIGHT cell holding the operator symbol, spanning the full
+      node height (the output side);
+    - a wider LEFT area divided into ``num_inputs`` horizontal rows by
+      ``num_inputs - 1`` evenly-spaced lines — one row per input terminal,
+      where each input wire lands.
+
     N-input growth is free — the glyph carries no intrinsic size, it scales
     to whatever heap ``bounds`` the node has."""
 
     operation: str
+    num_inputs: int = 1
     fill_attr: str = "prim_fill"
     stroke_attr: str = "prim_stroke"
 
     def draw(self, backend: Backend, bounds: Rect, theme: Theme) -> None:
         x1, y1, x2, y2 = bounds
-        backend.rect(
-            x1, y1, x2, y2,
-            fill=getattr(theme, self.fill_attr),
-            stroke=getattr(theme, self.stroke_attr),
-            stroke_width=1.2,
-        )
+        fill = getattr(theme, self.fill_attr)
+        stroke = getattr(theme, self.stroke_attr)
+        backend.rect(x1, y1, x2, y2, fill=fill, stroke=stroke, stroke_width=1.2)
+
+        width, height = x2 - x1, y2 - y1
+        op_w = min(width * 0.5, max(8.0, height))
+        x_div = x2 - op_w
+        backend.line(x_div, y1, x_div, y2, stroke=stroke, stroke_width=1.0)
+
+        num_inputs = max(1, self.num_inputs)
+        for i in range(1, num_inputs):
+            y = y1 + i * height / num_inputs
+            backend.line(x1, y, x_div, y, stroke=stroke, stroke_width=1.0)
+
         symbol = _CPD_ARITH_SYMBOL.get(self.operation, self.operation)
-        size = max(6.0, min(15.0, (y2 - y1) * 0.62, (x2 - x1) * 0.85))
-        cx, cy = (x1 + x2) / 2, (y1 + y2) / 2
+        size = max(6.0, min(15.0, height * 0.62, op_w * 0.85))
+        cx, cy = (x_div + x2) / 2, (y1 + y2) / 2
         backend.text(cx, cy + size * 0.34, symbol, size)
 
 

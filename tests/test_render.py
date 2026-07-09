@@ -653,11 +653,18 @@ def test_render_vi_file_determinism_across_hash_seeds_case_vi():
 
 def test_compound_arithmetic_renders_box_with_invert_bubble():
     """The stacked-sequence sample's Compound Arithmetic node (id 802) has
-    operation "add" and one inverted input terminal — the SVG must show a
-    CompoundArithGlyph rectangle (not the old hexagon/triangle fallback) with
-    its "+" symbol, sized to the node's REAL heap bounds (not a fixed 32x32
-    or a union-of-terminals triangle), plus exactly one invert-bubble circle
-    for the single inverted terminal."""
+    2 Boolean input terminals, operation "add", and one inverted input
+    terminal — the SVG must show a CompoundArithGlyph rectangle (not the old
+    hexagon/triangle fallback), sized to the node's REAL heap bounds (not a
+    fixed 32x32 or a union-of-terminals triangle), split by a vertical
+    divider into a right operator cell and a left area with one horizontal
+    divider per input row (2 inputs -> 1 horizontal divider), plus exactly
+    one invert-bubble circle for the single inverted terminal.
+
+    Its terminals are Boolean, so LabVIEW's "add" mode is logical OR — the
+    symbol is "∨", not the raw "+" (see
+    codegen/nodes/compound.py::generate_compound_arith's boolean-context
+    translation, mirrored by render for this same node)."""
     loaded = _load_graph(STACKED_SEQ_VI)
     if loaded is None:
         pytest.skip(f"sample VI not available: {STACKED_SEQ_VI}")
@@ -674,11 +681,14 @@ def test_compound_arithmetic_renders_box_with_invert_bubble():
     assert inverted_terminals, (
         "expected sample cpdArith node to have an inverted terminal"
     )
+    num_inputs = sum(1 for t in node.terminals if t.direction == "input")
+    assert num_inputs == 2, "expected sample cpdArith node to have 2 inputs"
 
     scene = build_scene(graph, vi)
     assert scene is not None
     render_node = next(rn for rn in scene.nodes if rn.node.id == node.id)
     assert isinstance(render_node.glyph, CompoundArithGlyph)
+    assert render_node.glyph.num_inputs == num_inputs
     # The glyph draws at the node's OWN heap bounds — not a fixed size and not
     # the ArithGlyph union-of-terminal-bounds special case in draw_node.
     x1, y1, x2, y2 = render_node.bounds
@@ -687,13 +697,14 @@ def test_compound_arithmetic_renders_box_with_invert_bubble():
     svg = render_vi(graph, vi)
     assert svg is not None
     assert "<title>Compound Arithmetic</title>" in svg
-    # Operator symbol for "add".
-    assert ">+<" in svg
+    # Boolean-context operator symbol: "add" on Booleans is logical OR.
+    assert ">∨<" in svg
 
     # Isolate JUST this node's draw output to count its own invert bubbles
     # (other unrelated nodes in this VI, e.g. Format/Scan String, also carry
     # inverted=True terminals — see models.py's DCO objFlags bit 16 — so a
-    # whole-SVG circle count would over-count).
+    # whole-SVG circle count would over-count) and its divider lines (1
+    # vertical operator-cell divider + num_inputs-1 horizontal row dividers).
     backend = SvgBackend()
     draw_node(render_node, backend, DEFAULT_THEME)
     node_svg = backend.render(render_node.bounds)
@@ -704,6 +715,8 @@ def test_compound_arithmetic_renders_box_with_invert_bubble():
         node_svg,
     )
     assert len(bubbles) == len(inverted_terminals)
+    dividers = re.findall(r"<line[^>]*/>", node_svg)
+    assert len(dividers) == 1 + (num_inputs - 1)
 
 
 def test_render_vi_file_determinism_cpdarith_invert_bubble():
