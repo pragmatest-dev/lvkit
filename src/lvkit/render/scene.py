@@ -712,28 +712,6 @@ def _wire_path(
     return max(cands, key=len) if cands else ()
 
 
-# Height of a case/stacked-sequence selector banner drawn ABOVE the frame
-# body's top edge — keep in sync with ``draw._CASE_BAR_H`` (the renderer that
-# actually paints it). Only interactive structures (case, stacked sequence)
-# draw one; loops and flat sequences do not.
-_CASE_BAR_H = 14.0
-
-
-def _has_banner(node: AnyGraphNode) -> bool:
-    return isinstance(node, CaseStructureNode) or _is_stacked_sequence(node)
-
-
-def _structure_obstacle_rect(rs: RenderStructure) -> Rect:
-    """A structure's footprint for the router — its frame BODY plus, for a
-    case/stacked sequence, the SELECTOR BANNER drawn above the top edge (the
-    bar holding ◄ value ▼ ►). The banner is visually part of the structure,
-    so wires must route around it too, not straight over the selector."""
-    x1, y1, x2, y2 = rs.bounds
-    if _has_banner(rs.node):
-        return (x1, y1 - _CASE_BAR_H, x2, y2)
-    return rs.bounds
-
-
 def _endpoint_containers(
     end: WireEnd, graph: InMemoryVIGraph,
     by_id: dict[str, AnyGraphNode], vi_name: str,
@@ -857,18 +835,20 @@ def _build_wire_nets(
     # its own container's banner either).
     struct_body_by_uid = {rs.raw_uid: rs.bounds for rs in render_structures}
 
-    # Obstacles are NODES *and* STRUCTURE footprints (body + selector banner,
-    # see _structure_obstacle_rect) — a wire must not run over or under a
-    # For/While Loop, Case, or Sequence box (or its selector bar) it has
-    # nothing to do with, exactly as it must not cross a node. Routers are
-    # built per (frame path, exempt-structure set, confinement rect):
+    # Obstacles are NODES *and* STRUCTURE footprints (each structure's true heap
+    # bounds — the selector sits INSIDE those bounds, so there is no separate
+    # banner rect) — a wire must not run over or under a For/While Loop, Case, or
+    # Sequence box it has nothing to do with, exactly as it must not cross a node.
+    # Routers are built per (frame path, exempt-structure set, confinement rect):
     #   * frame path — a node/structure only in a mutually-exclusive
     #     case/stacked-sequence frame is never on screen at the same time as a
     #     wire outside that frame, so it can't obstruct it even where their
     #     heap boxes overlap (frames reuse screen space). See _frame_compatible.
-    #   * exempt structures — a structure the wire connects to or lives inside
-    #     is legitimately overlapped, never routed around. See
-    #     _wire_exempt_structures.
+    #   * exempt structures — CONTAINS-ONLY: a structure is dropped from the
+    #     obstacle set only when the wire LIVES INSIDE it (an endpoint node is
+    #     nested in it, or the endpoint is its own inner tunnel terminal). A
+    #     structure the wire merely connects to on its OUTER face is NOT exempt;
+    #     its interior stays a hard obstacle. See _wire_exempt_structures.
     #   * confinement — a fully-contained wire's router is bounded to its
     #     innermost container's interior, so A* can't leave the frame to
     #     detour (see _innermost_common_container).
@@ -893,7 +873,7 @@ def _build_wire_nets(
                 if _frame_compatible(rn.frame_path, path)
             ]
             structs_by_path[path] = [
-                (rs.raw_uid, _structure_obstacle_rect(rs))
+                (rs.raw_uid, rs.bounds)
                 for rs in render_structures
                 if _frame_compatible(rs.frame_path, path)
             ]

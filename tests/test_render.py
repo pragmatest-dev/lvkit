@@ -1057,47 +1057,6 @@ def _dist_outside(pt: Point, rect: Rect) -> float:
     return max(dx, dy)
 
 
-def _count_banner_crossings(scene: Scene) -> int:
-    """Routed wire segments overlapping a case/stacked-sequence SELECTOR BANNER
-    (the bar above the top edge) of a structure the wire is UNRELATED to (no
-    endpoint on/in it). The banner is visually part of the structure, so an
-    unrelated wire must route around it."""
-    from lvkit.graph.models import CaseStructureNode as _Case
-    from lvkit.graph.models import SequenceNode as _Seq
-    bar_h = 14.0
-    crossings = 0
-    for net in scene.wire_nets:
-        structs = [
-            s for s in scene.structures
-            if _frame_compatible(s.frame_path, net.frame_path)
-            and (isinstance(s.node, _Case)
-                 or (isinstance(s.node, _Seq) and s.node.node_type != "flatSequence"))
-        ]
-        for branch in net.branches:
-            a, b = branch[0], branch[-1]
-            for s in structs:
-                if _inside(a, s.bounds) or _inside(b, s.bounds):
-                    continue  # wire connects to / lives in this structure
-                x1, y1, x2, _ = s.bounds
-                banner = (x1, y1 - bar_h, x2, y1)
-                hit = False
-                for i in range(len(branch) - 1):
-                    (px1, py1), (px2, py2) = branch[i], branch[i + 1]
-                    steps = int(max(abs(px2 - px1), abs(py2 - py1)) / 2) + 1
-                    for st in range(1, steps):
-                        x = px1 + (px2 - px1) * st / steps
-                        y = py1 + (py2 - py1) * st / steps
-                        if banner[0] + 1 < x < banner[2] - 1 and \
-                                banner[1] + 1 < y < banner[3] - 1:
-                            hit = True
-                            break
-                    if hit:
-                        break
-                if hit:
-                    crossings += 1
-    return crossings
-
-
 def test_contained_wires_stay_inside_their_structure():
     """A fully-contained wire (both endpoints inside a structure) is confined to
     that structure's interior — it never routes out of the frame and back to
@@ -1111,19 +1070,6 @@ def test_contained_wires_stay_inside_their_structure():
     if scene is None:
         pytest.skip("scene build failed (missing geometry)")
     assert _count_contained_wire_escapes(graph, vi, scene) == 0
-
-
-def test_no_unrelated_wire_crosses_a_selector_banner():
-    """The selector banner (bar above a case/stacked-sequence) is an obstacle:
-    a wire unrelated to that structure must not run over its selector."""
-    loaded = _load_graph(STACKED_SEQ_VI)
-    if loaded is None:
-        pytest.skip(f"sample VI not available or failed to load: {STACKED_SEQ_VI}")
-    graph, vi = loaded
-    scene = build_scene(graph, vi)
-    if scene is None:
-        pytest.skip("scene build failed (missing geometry)")
-    assert _count_banner_crossings(scene) == 0
 
 
 def test_string_const_display_strips_quotes_and_unescapes():

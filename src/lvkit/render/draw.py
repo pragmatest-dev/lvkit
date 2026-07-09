@@ -280,8 +280,9 @@ def _draw_while_loop_border(x1, y1, x2, y2, backend: Backend, theme: Theme) -> N
                  stroke_width=1.2)
 
 
-# Bar height for a case/stacked-sequence selector bar (also used to position
-# the clickable overlay + value-label groups — see draw_scene).
+# Height of a case/stacked-sequence selector bar, drawn INSIDE the top of the
+# structure's heap bounds (the selector sits within the frame, per LabVIEW — its
+# heap termBounds are inside the bounds; there is no band above the top edge).
 _CASE_BAR_H = 14.0
 _SELECTOR_SIZE = 9.0        # font size of the value + arrows
 _SELECTOR_TRI_W = 11.0      # width of the dropdown-triangle zone (case only)
@@ -290,16 +291,18 @@ _SELECTOR_ARROW_GAP = 15.0  # horizontal room reserved for each flanking arrow
 
 @dataclass(frozen=True)
 class _SelectorGeom:
-    """Laid-out pieces of a case/stacked-sequence selector, so the value box
-    (base chrome), the arrows/dropdown, and the per-frame value text all
-    line up without overlapping — computed once from the frame values."""
+    """Laid-out pieces of a case/stacked-sequence selector. Per the LabVIEW
+    reference, the selector is ONE enclosing box at top-center holding, left to
+    right, a ◄ arrow cell | the value (+ ▼ dropdown for a case) | a ► arrow cell,
+    with vertical dividers between cells. Computed once from the frame values."""
 
-    box: tuple[float, float, float, float]  # white value-display box
-    tri: tuple[float, float, float, float] | None  # dropdown zone (case only)
+    outer: tuple[float, float, float, float]  # the single enclosing box
+    box: tuple[float, float, float, float]  # the central value cell (inside outer)
+    tri: tuple[float, float, float, float] | None  # dropdown ▼ zone (case only)
     text_cx: float   # center-x of the value text (its own zone, left of ▼)
     baseline: float  # shared baseline y for value + arrows
-    left_x: float    # ◄ center-x
-    right_x: float   # ► center-x
+    left_x: float    # ◄ center-x (in the left arrow cell)
+    right_x: float   # ► center-x (in the right arrow cell)
 
 
 def _frame_display(structure: RenderStructure, scene: Scene, value: str) -> str:
@@ -326,33 +329,37 @@ def _selector_geom(
     )
     pad = 4.0
     tri_w = _SELECTOR_TRI_W if has_dropdown else 0.0
-    box_w = max_val_w + 2 * pad + tri_w
-    box_w = max(22.0, min(box_w, (x2 - x1) - 2 * _SELECTOR_ARROW_GAP))
+    arrow_w = 13.0  # width of each flanking ◄ / ► arrow cell
+    val_w = max(22.0, max_val_w + 2 * pad + tri_w)  # central value cell (incl. ▼)
+    total_w = arrow_w + val_w + arrow_w
+    total_w = min(total_w, (x2 - x1) - 6.0)
     cx = (x1 + x2) / 2
-    bx1, bx2 = cx - box_w / 2, cx + box_w / 2
-    by1, by2 = y1 - _CASE_BAR_H + 2.0, y1 - 2.0
-    box = (bx1, by1, bx2, by2)
-    tri = (bx2 - tri_w, by1, bx2, by2) if has_dropdown else None
-    text_right = bx2 - tri_w
-    baseline = (by1 + by2) / 2 + _SELECTOR_SIZE * 0.34
+    ox1, ox2 = cx - total_w / 2, cx + total_w / 2
+    # The enclosing box sits INSIDE the top of the frame (heap termBounds put the
+    # selector inside the bounds — no band above the top edge).
+    oy1, oy2 = y1 + 1.0, y1 + _CASE_BAR_H - 1.0
+    vc1, vc2 = ox1 + arrow_w, ox2 - arrow_w  # value-cell x range
+    box = (vc1, oy1, vc2, oy2)
+    tri = (vc2 - tri_w, oy1, vc2, oy2) if has_dropdown else None
+    text_right = vc2 - tri_w
+    baseline = (oy1 + oy2) / 2 + _SELECTOR_SIZE * 0.34
     return _SelectorGeom(
-        box=box, tri=tri, text_cx=(bx1 + text_right) / 2, baseline=baseline,
-        left_x=bx1 - _SELECTOR_ARROW_GAP / 2, right_x=bx2 + _SELECTOR_ARROW_GAP / 2,
+        outer=(ox1, oy1, ox2, oy2), box=box, tri=tri,
+        text_cx=(vc1 + text_right) / 2, baseline=baseline,
+        left_x=(ox1 + vc1) / 2, right_x=(vc2 + ox2) / 2,
     )
 
 
 def _draw_frame_border(
     structure: RenderStructure, backend: Backend, theme: Theme,
 ) -> None:
-    """The interactive structure's outer box + selector bar background. The
-    value box, arrows, and dropdown are drawn by ``_draw_frame_selector``
-    (it has the frame values needed to size the box); the value text lives in
-    the per-frame value-label groups (see draw_scene)."""
+    """The interactive structure's outer box only. LabVIEW draws NO header
+    band — the selector is a compact ``◄ value ▼ ►`` widget that sits inside
+    the top of the frame (drawn by ``_draw_frame_selector``), not a full-width
+    bar. The value text lives in the per-frame value-label groups (draw_scene)."""
     x1, y1, x2, y2 = structure.bounds
     backend.rect(x1, y1, x2, y2, fill="none", stroke=theme.struct_border,
                  stroke_width=1.2)
-    backend.rect(x1, y1 - _CASE_BAR_H, x2, y1, fill=theme.case_bar_fill,
-                 stroke=theme.struct_border, stroke_width=1)
 
 
 def _draw_frame_selector(
@@ -370,28 +377,33 @@ def _draw_frame_selector(
         return
     has_dropdown = _is_interactive_structure(structure.node)
     g = _selector_geom(structure, scene, has_dropdown=has_dropdown, backend=backend)
-    bx1, by1, bx2, by2 = g.box
+    ox1, oy1, ox2, oy2 = g.outer
+    vc1, _, vc2, _ = g.box
     struct = structure.raw_uid
-    bar_top, bar_bot = structure.bounds[1] - _CASE_BAR_H, structure.bounds[1]
 
-    def _arrow(action: str, xc: float, glyph: str) -> None:
+    # One enclosing box (white) with vertical dividers between the flanking
+    # arrow cells and the central value cell — the LabVIEW selector-label look.
+    backend.rect(ox1, oy1, ox2, oy2, fill="#ffffff",
+                 stroke=theme.struct_border, stroke_width=0.75)
+    backend.line(vc1, oy1, vc1, oy2, stroke=theme.struct_border, stroke_width=0.5)
+    backend.line(vc2, oy1, vc2, oy2, stroke=theme.struct_border, stroke_width=0.5)
+
+    def _arrow(action: str, xc: float, glyph: str, cell: tuple[float, float]) -> None:
+        cx1, cx2 = cell
         backend.begin_group(
             cls="lv-selector",
             data={"lv-action": action, "lv-struct": struct},
             style="cursor:pointer",
         )
-        backend.rect(xc - 7.0, bar_top, xc + 7.0, bar_bot,
-                     fill="transparent", stroke="none")
+        backend.rect(cx1, oy1, cx2, oy2, fill="transparent", stroke="none")
         backend.text(xc, g.baseline, glyph, _SELECTOR_SIZE, fill=theme.case_bar_text)
         backend.end_group()
 
-    _arrow("prev", g.left_x, "◄")
+    _arrow("prev", g.left_x, "◄", (ox1, vc1))
 
-    # Middle target — carries the frame list the JS controller reads. A CASE
-    # draws the white ring/value box + ▼ dropdown TOGGLE (the ring-control
-    # look). A STACKED SEQUENCE draws NO box and NO ▼ — its ``N [0..M]`` frame
-    # label sits flat on the bar (per-frame value-label pass), so it reads as a
-    # sequence, not a case; the middle is just a transparent config carrier.
+    # Middle target — carries the frame list the JS controller reads, and (for a
+    # case) draws the ▼ dropdown toggle. The value TEXT is drawn per-frame by
+    # _draw_frame_value_label.
     box_data = {
         "lv-struct": struct, "lv-frames": ";".join(values), "lv-default": default,
     }
@@ -401,22 +413,18 @@ def _draw_frame_selector(
         cls="lv-selector", data=box_data,
         style="cursor:pointer" if has_dropdown else None,
     )
-    if has_dropdown:
-        backend.rect(bx1, by1, bx2, by2, fill="#ffffff",
-                     stroke=theme.struct_border, stroke_width=0.75)
-        if g.tri is not None:
-            tx1, ty1, tx2, ty2 = g.tri
-            backend.line(tx1, ty1, tx1, ty2, stroke="#cccccc", stroke_width=0.5)
-            tcx, tcy = (tx1 + tx2) / 2, (ty1 + ty2) / 2
-            backend.polygon(
-                [(tcx - 3.0, tcy - 1.6), (tcx + 3.0, tcy - 1.6), (tcx, tcy + 2.2)],
-                fill=theme.case_bar_text,
-            )
-    else:
-        backend.rect(bx1, by1, bx2, by2, fill="transparent", stroke="none")
+    backend.rect(vc1, oy1, vc2, oy2, fill="transparent", stroke="none")
+    if has_dropdown and g.tri is not None:
+        tx1, ty1, tx2, ty2 = g.tri
+        backend.line(tx1, ty1, tx1, ty2, stroke="#cccccc", stroke_width=0.5)
+        tcx, tcy = (tx1 + tx2) / 2, (ty1 + ty2) / 2
+        backend.polygon(
+            [(tcx - 3.0, tcy - 1.6), (tcx + 3.0, tcy - 1.6), (tcx, tcy + 2.2)],
+            fill=theme.case_bar_text,
+        )
     backend.end_group()
 
-    _arrow("next", g.right_x, "►")
+    _arrow("next", g.right_x, "►", (vc2, ox2))
 
 
 _MENU_ROW_H = 13.0
