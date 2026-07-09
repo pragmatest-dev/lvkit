@@ -21,13 +21,15 @@ from lvkit.graph.models import (
     CaseStructureNode,
     LocalVariableNode,
     LoopNode,
+    PrimitiveNode,
     SequenceNode,
     StructureNode,
 )
 from lvkit.models import FPTerminal, LVType
 from lvkit.render import render_vi, render_vi_file
 from lvkit.render.backend import SvgBackend
-from lvkit.render.draw import draw_fp_terminal
+from lvkit.render.draw import draw_fp_terminal, draw_node
+from lvkit.render.glyph import CompoundArithGlyph
 from lvkit.render.layout import Layout
 from lvkit.render.scene import _structure_borders, build_scene, encode_frame_path
 from lvkit.render.style import DEFAULT_THEME, coercion_key, wire_style
@@ -627,6 +629,94 @@ def test_render_vi_file_determinism_across_hash_seeds_case_vi():
         "import hashlib\n"
         "from lvkit.render import render_vi_file\n"
         f"svg = render_vi_file({str(CASE_VI)!r}, expand_subvis=False)\n"
+        "assert svg is not None\n"
+        "print(hashlib.sha256(svg.encode()).hexdigest())\n"
+    )
+    digests = []
+    for seed in ("0", "1234567"):
+        result = subprocess.run(
+            [sys.executable, "-c", script],
+            cwd=Path(__file__).resolve().parent.parent,
+            env={**os.environ, "PYTHONHASHSEED": seed},
+            capture_output=True, text=True, timeout=60,
+        )
+        assert result.returncode == 0, result.stderr
+        digests.append(result.stdout.strip())
+    assert digests[0] == digests[1]
+
+
+# --------------------------------------------------------------------------- #
+# Compound Arithmetic (cpdArith): real-bounds rectangle + operator symbol +
+# per-terminal invert ("Not") bubbles.
+# --------------------------------------------------------------------------- #
+
+
+def test_compound_arithmetic_renders_box_with_invert_bubble():
+    """The stacked-sequence sample's Compound Arithmetic node (id 802) has
+    operation "add" and one inverted input terminal — the SVG must show a
+    CompoundArithGlyph rectangle (not the old hexagon/triangle fallback) with
+    its "+" symbol, sized to the node's REAL heap bounds (not a fixed 32x32
+    or a union-of-terminals triangle), plus exactly one invert-bubble circle
+    for the single inverted terminal."""
+    loaded = _load_graph(STACKED_SEQ_VI)
+    if loaded is None:
+        pytest.skip(f"sample VI not available: {STACKED_SEQ_VI}")
+    graph, vi = loaded
+
+    cpd_nodes = [
+        n for n in graph.iter_nodes(vi)
+        if isinstance(n, PrimitiveNode) and n.node_type == "cpdArith"
+    ]
+    if not cpd_nodes:
+        pytest.skip("sample has no cpdArith node")
+    node = cpd_nodes[0]
+    inverted_terminals = [t for t in node.terminals if t.inverted]
+    assert inverted_terminals, (
+        "expected sample cpdArith node to have an inverted terminal"
+    )
+
+    scene = build_scene(graph, vi)
+    assert scene is not None
+    render_node = next(rn for rn in scene.nodes if rn.node.id == node.id)
+    assert isinstance(render_node.glyph, CompoundArithGlyph)
+    # The glyph draws at the node's OWN heap bounds — not a fixed size and not
+    # the ArithGlyph union-of-terminal-bounds special case in draw_node.
+    x1, y1, x2, y2 = render_node.bounds
+    assert x2 > x1 and y2 > y1
+
+    svg = render_vi(graph, vi)
+    assert svg is not None
+    assert "<title>Compound Arithmetic</title>" in svg
+    # Operator symbol for "add".
+    assert ">+<" in svg
+
+    # Isolate JUST this node's draw output to count its own invert bubbles
+    # (other unrelated nodes in this VI, e.g. Format/Scan String, also carry
+    # inverted=True terminals — see models.py's DCO objFlags bit 16 — so a
+    # whole-SVG circle count would over-count).
+    backend = SvgBackend()
+    draw_node(render_node, backend, DEFAULT_THEME)
+    node_svg = backend.render(render_node.bounds)
+    stroke = f'stroke="{DEFAULT_THEME.prim_stroke}"'
+    fill = f'fill="{DEFAULT_THEME.canvas}"'
+    bubbles = re.findall(
+        r'<circle[^>]*' + re.escape(fill) + r'[^>]*' + re.escape(stroke) + r'[^>]*/>',
+        node_svg,
+    )
+    assert len(bubbles) == len(inverted_terminals)
+
+
+def test_render_vi_file_determinism_cpdarith_invert_bubble():
+    """Determinism across hash seeds for the invert-bubble geometry
+    specifically — terminal iteration/bubble placement must not depend on
+    hash-randomized ordering."""
+    if not STACKED_SEQ_VI.exists():
+        pytest.skip(f"sample VI not available: {STACKED_SEQ_VI}")
+
+    script = (
+        "import hashlib\n"
+        "from lvkit.render import render_vi_file\n"
+        f"svg = render_vi_file({str(STACKED_SEQ_VI)!r}, expand_subvis=False)\n"
         "assert svg is not None\n"
         "print(hashlib.sha256(svg.encode()).hexdigest())\n"
     )

@@ -214,6 +214,41 @@ class ArithGlyph:
         backend.text(x1 + (x2 - x1) * 0.36, cy + size * 0.34, self.symbol, size)
 
 
+# Compound Arithmetic operator -> symbol (raw ``PrimitiveNode.operation``
+# strings, lowercase — not yet boolean-translated by codegen; for rendering
+# we just show the operator's own symbol). Unknown operations fall back to
+# the raw operation string itself (see CompoundArithGlyph.draw).
+_CPD_ARITH_SYMBOL = {
+    "or": "∨", "and": "∧", "xor": "⊕", "add": "+", "multiply": "×",
+}
+
+
+@dataclass(frozen=True)
+class CompoundArithGlyph:
+    """The Compound Arithmetic node (``node_type == "cpdArith"``): a plain
+    rectangle (sharp corners — block-diagram objects aren't rounded, unlike
+    the borderless arithmetic triangle) with its operator symbol centered.
+    N-input growth is free — the glyph carries no intrinsic size, it scales
+    to whatever heap ``bounds`` the node has."""
+
+    operation: str
+    fill_attr: str = "prim_fill"
+    stroke_attr: str = "prim_stroke"
+
+    def draw(self, backend: Backend, bounds: Rect, theme: Theme) -> None:
+        x1, y1, x2, y2 = bounds
+        backend.rect(
+            x1, y1, x2, y2,
+            fill=getattr(theme, self.fill_attr),
+            stroke=getattr(theme, self.stroke_attr),
+            stroke_width=1.2,
+        )
+        symbol = _CPD_ARITH_SYMBOL.get(self.operation, self.operation)
+        size = max(6.0, min(15.0, (y2 - y1) * 0.62, (x2 - x1) * 0.85))
+        cx, cy = (x1 + x2) / 2, (y1 + y2) / 2
+        backend.text(cx, cy + size * 0.34, symbol, size)
+
+
 @dataclass(frozen=True)
 class ConstantGlyph:
     """A constant's colored box (color from its own ``LVType``, computed by

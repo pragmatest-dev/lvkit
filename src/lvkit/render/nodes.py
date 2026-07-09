@@ -46,6 +46,7 @@ from .glyph import (
     BooleanConstantGlyph,
     BracketGlyph,
     CenteredSvgGlyph,
+    CompoundArithGlyph,
     ConstantGlyph,
     ErrorClusterGlyph,
     Glyph,
@@ -386,6 +387,8 @@ class GeneratedGlyphResolver:
 
     @staticmethod
     def _primitive_glyph(node: PrimitiveNode) -> Glyph:
+        if node.node_type == "cpdArith":
+            return CompoundArithGlyph(node.operation or "or")
         sym = _ARITH_SYMBOL.get(node.operation or node.name or "")
         if sym:
             return ArithGlyph(sym)

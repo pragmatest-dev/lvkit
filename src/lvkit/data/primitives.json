@@ -3381,11 +3381,7 @@
       "python_code": "array[index:index + length]"
     },
     "cpdArith": {
-      "name": "Compound Arithmetic",
-      "icon": {
-        "svg": "<polygon points=\"2,8 6,1 18,1 22,8 18,15 6,15\" fill=\"#fff6d8\" stroke=\"#b07d10\" stroke-width=\"1.5\"/><text x=\"12\" y=\"11\" font-size=\"9\" text-anchor=\"middle\" fill=\"#b07d10\">Σ</text>",
-        "size": [24, 16]
-      }
+      "name": "Compound Arithmetic"
     },
     "unbundle": {
       "name": "Unbundle"

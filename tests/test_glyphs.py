@@ -21,8 +21,8 @@ from lvkit.render.backend import SvgBackend
 from lvkit.render.glyph import (
     ArithGlyph,
     BooleanConstantGlyph,
+    CompoundArithGlyph,
     ConstantGlyph,
-    InlineSvgGlyph,
     WrappedBoxGlyph,
 )
 from lvkit.render.nodes import (
@@ -76,18 +76,18 @@ def test_node_icon_accepts_inline_svg_and_size():
 # --------------------------------------------------------------------------- #
 
 
-def test_json_glyph_wins_over_generated_for_declared_icon():
-    """cpdArith (Compound Arithmetic) has a real seeded icon in
-    data/primitives.json (node_types.cpdArith.icon) — the resolver chain
-    must pick it over GeneratedGlyphResolver's generic labeled box."""
+def test_generated_glyph_wins_for_cpdarith():
+    """cpdArith (Compound Arithmetic) has NO declared JSON icon — it must
+    resolve via GeneratedGlyphResolver's dedicated CompoundArithGlyph (a
+    real-bounds rectangle + operator symbol), not a JsonGlyphResolver
+    icon (there is none) and not the generic labeled-box fallback."""
     node = PrimitiveNode(
         id="vi::1", vi="vi", name="Compound Arithmetic", node_type="cpdArith",
         operation="add", terminals=[],
     )
     glyph = resolve_glyph(node, _ctx())
-    assert isinstance(glyph, InlineSvgGlyph)
-    assert "Σ" in glyph.fragment
-    assert glyph.size == (24, 16)
+    assert isinstance(glyph, CompoundArithGlyph)
+    assert glyph.operation == "add"
 
 
 def test_generated_glyph_wins_over_fallback_for_known_arithmetic():
@@ -232,22 +232,28 @@ def test_extracted_icon_resolver_ignores_non_vi_nodes():
 
 
 # --------------------------------------------------------------------------- #
-# The seeded JSON icon example actually renders.
+# CompoundArithGlyph: a real-bounds rectangle (not a fixed-size icon), with
+# the operator symbol for the node's operation ("or" is the default when
+# ``operation`` isn't set, matching GeneratedGlyphResolver._primitive_glyph).
 # --------------------------------------------------------------------------- #
 
 
-def test_seeded_json_icon_renders_as_nested_svg():
+def test_compound_arith_glyph_renders_at_real_bounds_with_default_operation():
     node = PrimitiveNode(
         id="vi::11", vi="vi", name="Compound Arithmetic", node_type="cpdArith",
         terminals=[],
     )
     glyph = resolve_glyph(node, _ctx())
+    assert isinstance(glyph, CompoundArithGlyph)
+    bounds = (0.0, 0.0, 40.0, 30.0)
     backend = SvgBackend()
-    glyph.draw(backend, (0.0, 0.0, 40.0, 30.0), DEFAULT_THEME)
-    svg = backend.render((0.0, 0.0, 40.0, 30.0))
-    assert "<svg x=" in svg
-    assert 'viewBox="0 0 24 16"' in svg
-    assert "Σ" in svg
+    glyph.draw(backend, bounds, DEFAULT_THEME)
+    svg = backend.render(bounds)
+    # A plain rectangle sized to the PASSED-IN bounds — not a fixed 24x16
+    # icon — so a wider/taller node (more inputs) grows the box, not a fixed
+    # asset.
+    assert 'width="40.0" height="30.0"' in svg
+    assert ">∨<" in svg  # default "or" symbol when operation is unset
 
 
 # --------------------------------------------------------------------------- #

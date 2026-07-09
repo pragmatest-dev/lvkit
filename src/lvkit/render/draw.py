@@ -34,7 +34,10 @@ from .scene import (
     RenderStructure,
     RenderWireNet,
     Scene,
+    _exit_side,
     _is_default_visible,
+    _wire_edge_point,
+    _wire_role,
     encode_frame_path,
 )
 from .style import (
@@ -70,6 +73,31 @@ def _is_interactive_structure(node: object) -> bool:
     return isinstance(node, CaseStructureNode) or (
         isinstance(node, SequenceNode) and node.node_type != "flatSequence"
     )
+
+
+# A LabVIEW "Not" bubble — a small open circle drawn AT an inverted terminal,
+# on the wire side (the side its wire exits/enters), straddling the node's
+# border the same way a real "Not" gate bubble sits on a boolean primitive.
+_INVERT_BUBBLE_R = 2.75
+
+
+def _draw_invert_bubbles(node: RenderNode, backend: Backend, theme: Theme) -> None:
+    """Draw a bubble at every terminal with ``Terminal.inverted`` set — today
+    only Compound Arithmetic sets it, but this is generic over any terminal
+    (input or output) so it stays correct if another node type starts
+    setting the flag."""
+    for rt in node.terminals:
+        if not rt.terminal.inverted:
+            continue
+        role = _wire_role(rt.terminal, "output")
+        edge = _wire_edge_point(rt.center, rt.bounds, role)
+        nx, ny = _exit_side(role, rt.center, rt.bounds)
+        cx = edge[0] + nx * _INVERT_BUBBLE_R
+        cy = edge[1] + ny * _INVERT_BUBBLE_R
+        backend.circle(
+            cx, cy, _INVERT_BUBBLE_R,
+            fill=theme.canvas, stroke=theme.prim_stroke, stroke_width=1.0,
+        )
 
 
 def _inset(bounds, frac: float = 0.075):
@@ -109,6 +137,7 @@ def draw_node(node: RenderNode, backend: Backend, theme: Theme = DEFAULT_THEME) 
         backend.begin_group(title=tooltip)
 
     node.glyph.draw(backend, bounds, theme)
+    _draw_invert_bubbles(node, backend, theme)
 
     # Name below the box — ONLY when it isn't already drawn inside: a subVI
     # with no icon now wraps its name into the box (WrappedBoxGlyph), so a
