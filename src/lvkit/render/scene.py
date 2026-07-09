@@ -190,9 +190,14 @@ class Scene:
 
     @property
     def obstacles(self) -> list[Rect]:
-        """Node rectangles wires should avoid (structures are not obstacles,
-        matching how LabVIEW routes wires along/through structure borders)."""
-        return [n.bounds for n in self.nodes]
+        """Every rectangle wires should avoid — node boxes AND structure
+        footprints (For/While Loop, Case, Sequence, ...). A wire must not run
+        over or under a structure it neither connects to nor lives inside, the
+        same way it must not cross a node. This is the coarse full-diagram
+        view; the router applies per-wire connect/contain/frame exemptions in
+        ``_build_wire_nets`` (a structure the wire touches or is enclosed by is
+        not an obstacle FOR THAT WIRE)."""
+        return [n.bounds for n in self.nodes] + [s.bounds for s in self.structures]
 
 
 def _strip_prefix(qualified_id: str, vi_name: str) -> str:
@@ -450,6 +455,7 @@ def _exit_side(
     center: Point,
     bounds: Rect | None,
     border: bool = False,
+    toward: Point | None = None,
 ) -> Point:
     """Unit normal a wire leaves/enters a terminal on.
 
@@ -461,11 +467,17 @@ def _exit_side(
 
     ``border=True`` is for a STRUCTURE BORDER terminal (tunnel / shift
     register) — those don't follow left→right dataflow direction at all,
-    they exit perpendicular to whichever edge of their OWNING STRUCTURE
-    they physically sit on (``bounds`` must be the structure's own bounds
-    for this to be correct — top/bottom edge terminals get a vertical
-    normal, left/right edge terminals get a horizontal one), so direction
-    is ignored and nearest-edge geometry decides instead.
+    they sit ON one edge of their OWNING STRUCTURE (``bounds`` must be the
+    structure's own bounds) and exit perpendicular to it: top/bottom edge →
+    vertical normal, left/right edge → horizontal normal.
+
+    A border terminal has an INNER face (toward the structure interior) and
+    an OUTER face (away from it) on that same edge. When ``toward`` (the
+    wire's OTHER endpoint) is given, the normal is chosen by which face the
+    other endpoint is on: an endpoint INSIDE the structure attaches on the
+    INNER face (normal points inward, wire stays in the frame); an endpoint
+    OUTSIDE attaches on the OUTER face. Without ``toward`` the plain
+    nearest-edge (outward) normal is returned.
     """
     if not border:
         if direction == "output":
@@ -478,7 +490,13 @@ def _exit_side(
     cx, cy = center
     d = {(1.0, 0.0): x2 - cx, (-1.0, 0.0): cx - x1,
          (0.0, 1.0): y2 - cy, (0.0, -1.0): cy - y1}
-    return min(d, key=lambda k: d[k])
+    outward = min(d, key=lambda k: d[k])
+    if border and toward is not None:
+        inside = x1 <= toward[0] <= x2 and y1 <= toward[1] <= y2
+        if inside:
+            return (-outward[0], -outward[1])  # inner face: point into the frame
+        return outward  # outer face
+    return outward
 
 
 def _stub(
@@ -488,9 +506,13 @@ def _stub(
     border: bool = False,
     obstacles: list[Rect] | None = None,
     owner: Rect | None = None,
+    toward: Point | None = None,
 ) -> Point:
     """The point a wire's own exit/entry stub starts/ends at, ``_STUB`` px
     out from ``center`` along its edge normal.
+
+    ``toward`` (the wire's OTHER endpoint) selects a border terminal's
+    inner-vs-outer face — see ``_exit_side``.
 
     When ``obstacles`` is given (the router's own obstacle list), the stub
     length backs off (9, 7, 5, 3, 1, 0 px) if the full-length stub would
@@ -502,7 +524,7 @@ def _stub(
     wire) outside every node but its own; at 0px it's just the terminal
     center, always valid.
     """
-    sx, sy = _exit_side(direction, center, bounds, border)
+    sx, sy = _exit_side(direction, center, bounds, border, toward)
     if obstacles is None:
         return (center[0] + sx * _STUB, center[1] + sy * _STUB)
     for length in (_STUB, 7.0, 5.0, 3.0, 1.0, 0.0):
@@ -622,11 +644,39 @@ def _wire_path(
     return max(cands, key=len) if cands else ()
 
 
+def _wire_exempt_structures(
+    w: Wire, by_id: dict[str, AnyGraphNode], vi_name: str,
+) -> frozenset[str]:
+    """Raw uids of the structures a wire may legitimately overlap, so they're
+    NOT treated as obstacles for it:
+
+    (a) a structure the wire CONNECTS TO — an endpoint's node IS that
+        structure (a tunnel/shift-register/selector terminal belongs to the
+        StructureNode itself), so the wire legitimately reaches its border;
+    (b) any structure that CONTAINS the wire — an ANCESTOR of either
+        endpoint's node via the parent chain (a wire drawn inside a loop/
+        case/sequence frame lives within that structure and all its
+        enclosing structures). All ancestors are exempt, so nesting is
+        handled.
+
+    Every OTHER structure is a solid obstacle the wire must route around.
+    """
+    exempt: set[str] = set()
+    for end in (w.source, w.dest):
+        cur = by_id.get(end.node_id)
+        while cur is not None:
+            if isinstance(cur, StructureNode):
+                exempt.add(_strip_prefix(cur.id, vi_name))
+            cur = by_id.get(cur.parent) if cur.parent else None
+    return frozenset(exempt)
+
+
 def _build_wire_nets(
     graph: InMemoryVIGraph,
     vi_name: str,
     layout: Layout,
     render_nodes: list[RenderNode],
+    render_structures: list[RenderStructure],
     scene_bounds: Rect,
     by_id: dict[str, AnyGraphNode],
 ) -> list[RenderWireNet]:
@@ -665,24 +715,43 @@ def _build_wire_nets(
     all_points = list(layout.terminal_centers.values())
     owner = _term_owner_bounds(graph, vi_name, layout)
 
-    # One router (and obstacle list) PER WIRE-NET FRAME PATH, not one global
-    # list: a node exclusive to a different, mutually-exclusive case/stacked-
-    # sequence frame is never actually visible at the same time as a wire
-    # outside that frame, so it must not obstruct that wire's route even if
-    # their heap-derived boxes happen to overlap (frames reuse screen space).
-    # See ``_frame_compatible``. Cached per distinct frame path — VIs
-    # typically have few — so this doesn't multiply routing cost per wire.
-    routers: dict[FramePath, tuple[WireRouter, list[Rect]]] = {}
+    # Obstacles are NODES *and* STRUCTURE footprints — a wire must not run over
+    # or under a For/While Loop, Case, or Sequence box it has nothing to do
+    # with, exactly as it must not cross a node. Obstacle lists are built per
+    # (frame path, exempt-structure set):
+    #   * frame path — a node/structure only in a mutually-exclusive
+    #     case/stacked-sequence frame is never on screen at the same time as a
+    #     wire outside that frame, so it can't obstruct it even where their
+    #     heap boxes overlap (frames reuse screen space). See _frame_compatible.
+    #   * exempt structures — a structure the wire connects to or lives inside
+    #     is legitimately overlapped, never routed around. See
+    #     _wire_exempt_structures.
+    # Both keys take few distinct values per VI, so the cache keeps routing
+    # cheap despite the per-wire exemption.
+    node_bounds_by_path: dict[FramePath, list[Rect]] = {}
+    structs_by_path: dict[FramePath, list[tuple[str, Rect]]] = {}
+    routers: dict[tuple[FramePath, frozenset[str]], tuple[WireRouter, list[Rect]]] = {}
 
-    def _router_for(path: FramePath) -> tuple[WireRouter, list[Rect]]:
-        cached = routers.get(path)
+    def _router_for(
+        path: FramePath, exempt: frozenset[str],
+    ) -> tuple[WireRouter, list[Rect]]:
+        cached = routers.get((path, exempt))
         if cached is not None:
             return cached
-        filtered = [
-            rn.bounds for rn in render_nodes if _frame_compatible(rn.frame_path, path)
+        if path not in node_bounds_by_path:
+            node_bounds_by_path[path] = [
+                rn.bounds for rn in render_nodes
+                if _frame_compatible(rn.frame_path, path)
+            ]
+            structs_by_path[path] = [
+                (rs.raw_uid, rs.bounds) for rs in render_structures
+                if _frame_compatible(rs.frame_path, path)
+            ]
+        obstacles = node_bounds_by_path[path] + [
+            b for uid, b in structs_by_path[path] if uid not in exempt
         ]
-        entry = (WireRouter(filtered, scene_bounds), filtered)
-        routers[path] = entry
+        entry = (WireRouter(obstacles, scene_bounds), obstacles)
+        routers[(path, exempt)] = entry
         return entry
 
     nets: list[RenderWireNet] = []
@@ -697,7 +766,6 @@ def _build_wire_nets(
             )
             continue
 
-        router, obstacles = _router_for(path)
         source_term = graph.get_terminal(src_key)
         src_num = numeric_repr(source_term.lv_type if source_term else None)
         src_owner = owner.get(raw_src)
@@ -708,9 +776,6 @@ def _build_wire_nets(
         # An output exits RIGHT (dataflow is left->right), not toward whatever
         # edge its tiny termBounds happens to sit near.
         src_dir = _wire_role(source_term, "output")
-        src_out = _stub(
-            src_center, src_owner, src_dir, src_border, obstacles, src_owner,
-        )
 
         branches: list[list[Point]] = []
         coercion_dots: list[Point] = []
@@ -724,15 +789,26 @@ def _build_wire_nets(
                     w.dest.terminal_id,
                 )
                 continue
+            exempt = _wire_exempt_structures(w, by_id, vi_name)
+            router, obstacles = _router_for(path, exempt)
             dest_term = graph.get_terminal(w.dest.terminal_id)
             dest_types.append(dest_term.lv_type if dest_term else None)
             dst_owner = owner.get(raw_dst)
             dst_border = isinstance(dest_term, TunnelTerminal)
             dst_dir = _wire_role(dest_term, "input")
+            # A border terminal's stub direction picks the INNER vs OUTER face
+            # by which side of the structure the OTHER endpoint sits on
+            # (toward=). A plain node's stub is direction-based; toward is
+            # ignored, so src_out is identical across branches there.
+            src_out = _stub(
+                src_center, src_owner, src_dir, src_border, obstacles, src_owner,
+                toward=dst_center,
+            )
             # enter from the left, unless it's a border terminal (perpendicular
-            # to its structure's edge instead)
+            # to its structure's edge, inner/outer face toward the source)
             dst_in = _stub(
                 dst_center, dst_owner, dst_dir, dst_border, obstacles, dst_owner,
+                toward=src_center,
             )
             mid = router.route(src_out, dst_in, all_points, src_owner, dst_owner)
             # Drop redundant collinear points (the directional stubs are often
@@ -905,7 +981,7 @@ def build_scene(graph: InMemoryVIGraph, vi_name: str) -> Scene | None:
     scene_bounds = layout.scene_bounds()
 
     wire_nets = _build_wire_nets(
-        graph, vi_name, layout, render_nodes, scene_bounds, by_id,
+        graph, vi_name, layout, render_nodes, structures, scene_bounds, by_id,
     )
     coercion_dots = _arith_coercion_dots(render_nodes)
 

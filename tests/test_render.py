@@ -30,7 +30,7 @@ from lvkit.render import render_vi, render_vi_file
 from lvkit.render.backend import SvgBackend
 from lvkit.render.draw import draw_fp_terminal, draw_node
 from lvkit.render.glyph import CompoundArithGlyph
-from lvkit.render.layout import Layout
+from lvkit.render.layout import Layout, Point, Rect
 from lvkit.render.scene import (
     Scene,
     _exit_side,
@@ -870,6 +870,118 @@ def test_no_wire_segment_crosses_a_non_endpoint_node():
     assert _count_non_endpoint_crossings(scene) == 0
 
 
+def _inside(pt: Point, rect: Rect) -> bool:
+    x, y = pt
+    x1, y1, x2, y2 = rect
+    return x1 <= x <= x2 and y1 <= y <= y2
+
+
+def _count_structure_crossings(scene: Scene) -> int:
+    """Routed wire segments passing through a STRUCTURE footprint the wire
+    neither connects to nor lives inside. A structure is exempt for a branch
+    when an endpoint is inside its bounds (contains) or on one of its border
+    terminals (connects-to, which lies within the bounds). Frame-aware."""
+    crossings = 0
+    for net in scene.wire_nets:
+        structs = [
+            s for s in scene.structures
+            if _frame_compatible(s.frame_path, net.frame_path)
+        ]
+        for branch in net.branches:
+            a, b = branch[0], branch[-1]
+            blockers = [
+                s for s in structs
+                if not (_inside(a, s.bounds) or _inside(b, s.bounds))
+            ]
+            for i in range(len(branch) - 1):
+                (x1, y1), (x2, y2) = branch[i], branch[i + 1]
+                steps = int(max(abs(x2 - x1), abs(y2 - y1)) / 2) + 1
+                hit = False
+                for st in range(1, steps):
+                    x = x1 + (x2 - x1) * st / steps
+                    y = y1 + (y2 - y1) * st / steps
+                    for s in blockers:
+                        bx1, by1, bx2, by2 = s.bounds
+                        if bx1 + 1 < x < bx2 - 1 and by1 + 1 < y < by2 - 1:
+                            hit = True
+                            break
+                    if hit:
+                        break
+                if hit:
+                    crossings += 1
+    return crossings
+
+
+def _count_tunnel_face_mismatches(scene: Scene) -> tuple[int, int]:
+    """For every branch endpoint sitting on a structure border terminal, the
+    stub must leave toward the INNER face when the other endpoint is inside
+    the structure, the OUTER face when outside. Returns (mismatches, total)."""
+    mismatches = 0
+    total = 0
+    for net in scene.wire_nets:
+        for branch in net.branches:
+            if len(branch) < 2:
+                continue
+            a, b = branch[0], branch[-1]
+            for end, other, nxt in (
+                (a, b, branch[1]),
+                (b, a, branch[-2]),
+            ):
+                for s in scene.structures:
+                    on_border = any(
+                        _inside(end, bt.bounds) for bt in s.border_terminals
+                    )
+                    if not on_border:
+                        continue
+                    dx, dy = nxt[0] - end[0], nxt[1] - end[1]
+                    if abs(dx) < 1e-9 and abs(dy) < 1e-9:
+                        continue
+                    total += 1
+                    sx1, sy1, sx2, sy2 = s.bounds
+                    cx, cy = (sx1 + sx2) / 2, (sy1 + sy2) / 2
+                    other_inside = _inside(other, s.bounds)
+                    if abs(dx) >= abs(dy):
+                        stub_inward = (cx - end[0]) * dx > 0
+                    else:
+                        stub_inward = (cy - end[1]) * dy > 0
+                    if stub_inward != other_inside:
+                        mismatches += 1
+                    break
+    return mismatches, total
+
+
+def test_no_wire_segment_crosses_a_non_connected_structure():
+    """Structures ARE obstacles: a wire must route AROUND any For/While Loop,
+    Case, or Sequence box it neither connects to nor lives inside (the user's
+    reported float-over-For-Loop and shift-register-over-stacked-sequence
+    cases). Connect/contain/frame exemptions keep legitimate border/interior
+    wiring intact."""
+    loaded = _load_graph(STACKED_SEQ_VI)
+    if loaded is None:
+        pytest.skip(f"sample VI not available or failed to load: {STACKED_SEQ_VI}")
+    graph, vi = loaded
+    scene = build_scene(graph, vi)
+    if scene is None:
+        pytest.skip("scene build failed (missing geometry)")
+    assert _count_structure_crossings(scene) == 0
+
+
+def test_tunnel_wires_attach_on_the_face_toward_their_other_endpoint():
+    """A tunnel/border terminal attaches on its INNER face when the wire's
+    other endpoint is inside the structure, OUTER face when outside — checked
+    across every tunnel-touching wire in the VI, not one instance."""
+    loaded = _load_graph(STACKED_SEQ_VI)
+    if loaded is None:
+        pytest.skip(f"sample VI not available or failed to load: {STACKED_SEQ_VI}")
+    graph, vi = loaded
+    scene = build_scene(graph, vi)
+    if scene is None:
+        pytest.skip("scene build failed (missing geometry)")
+    mismatches, total = _count_tunnel_face_mismatches(scene)
+    assert total > 0  # the sample really does exercise tunnels
+    assert mismatches == 0
+
+
 # --------------------------------------------------------------------------- #
 # P1: wire color table + coercion key (pure unit tests, no VI needed)
 # --------------------------------------------------------------------------- #
@@ -1036,6 +1148,41 @@ def test_non_border_terminal_ignores_edge_and_uses_dataflow_direction():
     center = (100.0, 2.0)
     assert _exit_side("output", center, structure_bounds, border=False) == (1.0, 0.0)
     assert _exit_side("input", center, structure_bounds, border=False) == (-1.0, 0.0)
+
+
+def test_border_terminal_attaches_inner_face_when_other_endpoint_inside():
+    # Left-edge tunnel; the wire's other endpoint is INSIDE the structure ->
+    # attach on the INNER face: the stub points inward (+x, into the frame),
+    # so the wire never leaves the frame to come back in.
+    structure_bounds = (0.0, 0.0, 200.0, 100.0)
+    center = (2.0, 50.0)  # on the left edge
+    inside_pt = (150.0, 50.0)
+    normal = _exit_side(None, center, structure_bounds, border=True, toward=inside_pt)
+    assert normal == (1.0, 0.0)
+
+
+def test_border_terminal_attaches_outer_face_when_other_endpoint_outside():
+    # Same left-edge tunnel; the other endpoint is OUTSIDE (to the left) ->
+    # attach on the OUTER face: the stub points outward (-x).
+    structure_bounds = (0.0, 0.0, 200.0, 100.0)
+    center = (2.0, 50.0)
+    outside_pt = (-40.0, 50.0)
+    normal = _exit_side(None, center, structure_bounds, border=True, toward=outside_pt)
+    assert normal == (-1.0, 0.0)
+
+
+def test_border_terminal_top_edge_inner_face_points_down_into_frame():
+    # Top-edge tunnel, other endpoint inside -> inner (downward) face.
+    structure_bounds = (0.0, 0.0, 200.0, 100.0)
+    center = (100.0, 2.0)
+    inside_pt = (100.0, 60.0)
+    normal = _exit_side(None, center, structure_bounds, border=True, toward=inside_pt)
+    assert normal == (0.0, 1.0)
+    outside_pt = (100.0, -30.0)
+    normal_out = _exit_side(
+        None, center, structure_bounds, border=True, toward=outside_pt,
+    )
+    assert normal_out == (0.0, -1.0)
 
 
 # --------------------------------------------------------------------------- #
