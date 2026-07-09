@@ -152,6 +152,32 @@ def test_boolean_constant_glyph_true_vs_false_render():
     assert 'width="14.0"' in true_svg
 
 
+def test_string_constant_wraps_full_text_no_ellipsis():
+    """A multi-line string constant fills its (content-sized) box with the full
+    text word-wrapped and honoring explicit newlines — NOT collapsed to one
+    ellipsized line. The box here is tall, as LabVIEW sizes these word lists."""
+    b = SvgBackend()
+    value = "\none\ntwo\nthree\nfour\nfive"
+    ConstantGlyph(value, "#e05fa0", multiline=True).draw(
+        b, (0.0, 0.0, 70.0, 120.0), DEFAULT_THEME,
+    )
+    svg = b.render((0.0, 0.0, 70.0, 120.0))
+    # Every word shows as its own line; nothing is truncated with an ellipsis.
+    for word in ("one", "two", "three", "four", "five"):
+        assert f">{word}</text>" in svg
+    assert "…" not in svg
+    # Wrapped lines are left-aligned (start), not centered.
+    assert 'text-anchor="start"' in svg
+
+
+def test_scalar_constant_stays_single_line_centered():
+    b = SvgBackend()
+    ConstantGlyph("42", "#1f3fbf").draw(b, (0.0, 0.0, 30.0, 16.0), DEFAULT_THEME)
+    svg = b.render((0.0, 0.0, 30.0, 16.0))
+    assert ">42</text>" in svg
+    assert 'text-anchor="middle"' in svg
+
+
 def test_fallback_always_returns_a_glyph_for_an_unhandled_node_kind():
     """No resolver targets structure nodes (scene.py never calls
     resolve_glyph on them — they go through draw_structure instead), so

@@ -218,12 +218,19 @@ class ArithGlyph:
 class ConstantGlyph:
     """A constant's colored box (color from its own ``LVType``, computed by
     the resolver — a literal color, not a theme attribute, since it varies
-    per-node rather than per-role)."""
+    per-node rather than per-role).
+
+    ``multiline`` (string constants) renders the FULL text word-wrapped to the
+    box, honoring explicit newlines, top- and left-aligned like a LabVIEW
+    string constant — LabVIEW already sizes these boxes to their content, so
+    wrapping fills the box instead of collapsing a multi-line word list to one
+    ellipsized line. Scalar constants stay single-line and centered."""
 
     value: str
     color: str
     fill_attr: str = "term_fill"
     text_size: float = 9.0
+    multiline: bool = False
 
     def draw(self, backend: Backend, bounds: Rect, theme: Theme) -> None:
         x1, y1, x2, y2 = bounds
@@ -231,12 +238,45 @@ class ConstantGlyph:
             x1, y1, x2, y2, fill=theme.const_fill,
             stroke=self.color, stroke_width=1.2,
         )
-        if self.value:
+        if not self.value:
+            return
+        if self.multiline:
+            self._draw_wrapped(backend, x1, y1, x2, y2)
+        else:
             backend.text(
                 (x1 + x2) / 2, (y1 + y2) / 2 + 3,
                 fit_label(self.value, x2 - x1, backend, self.text_size),
                 self.text_size,
             )
+
+    def _draw_wrapped(
+        self, backend: Backend, x1: float, y1: float, x2: float, y2: float,
+    ) -> None:
+        pad = 2.5
+        avail_w = x2 - x1 - 2 * pad
+        line_h = self.text_size + 2.0
+        max_lines = max(1, int((y2 - y1 - 2 * pad) / line_h))
+        # Honor explicit newlines first, then word-wrap each segment. A blank
+        # segment (e.g. the leading newline of a line-indexed word list) keeps
+        # a blank row so line indices line up with the source string.
+        lines: list[str] = []
+        for seg in self.value.split("\n"):
+            if not seg:
+                lines.append("")
+                continue
+            lines.extend(wrap_label(seg, avail_w, backend, self.text_size, max_lines))
+        if len(lines) > max_lines:
+            lines = lines[:max_lines]
+            last = lines[-1]
+            while last and backend.measure_text(last + "…", self.text_size) > avail_w:
+                last = last[:-1]
+            lines[-1] = last + "…"
+        ty = y1 + pad + self.text_size
+        for line in lines:
+            backend.text(
+                x1 + pad, ty, line, self.text_size, anchor="start",
+            )
+            ty += line_h
 
 
 @dataclass(frozen=True)

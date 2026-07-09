@@ -367,7 +367,9 @@ class GeneratedGlyphResolver:
                 value = _format_const(raw)
             else:
                 value = str(raw) if raw is not None else ""
-            return ConstantGlyph(value or "", color)
+            # String constants word-wrap to fill their (already content-sized)
+            # box instead of collapsing to one ellipsized line.
+            return ConstantGlyph(value or "", color, multiline=fam == "string")
         if isinstance(node, FormulaNode):
             return LabeledBoxGlyph(
                 node.name or "Formula", "prim_fill", "prim_stroke", 1.5,
