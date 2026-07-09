@@ -466,6 +466,41 @@
       "verified": true,
       "pdf_page": 649
     },
+    "1510": {
+      "name": "Pick Line",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "output_string",
+          "type": "String"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "line_index",
+          "type": "NumInt32"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "multi_line_string",
+          "type": "String"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "string",
+          "type": "String"
+        }
+      ],
+      "python_code": {
+        "output_string": "in_3 + (in_2.splitlines()[in_1] if 0 <= in_1 < len(in_2.splitlines()) else \"\")"
+      },
+      "inline": true,
+      "verified": true,
+      "guess_reason": "Pick Line primitive (String >> Additional String Functions): chooses the zero-based line_index-th line from multi_line_string and appends it to string; out-of-range index returns the base string unchanged (NI docs). Confirmed a primitive not the vi.lib Pick Line & Append.vi: heap node is class=prim primResID=1510 with no VI-link fields. Observed 5x in Number to Proper Engl Text__ogtk.vi as (I32 index <- Scan From String, String source, String base unwired) -> String -> Concatenate. idx2=multi-line source vs idx3=append-base disambiguated by dataflow: if idx3 were the source it is empty, making the node a no-op passthrough."
+    },
     "1516": {
       "name": "Select",
       "terminals": [
