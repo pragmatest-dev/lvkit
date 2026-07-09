@@ -904,15 +904,16 @@ _HANDLERS: list[NodeTypeHandler] = [
     # Built-in primitives with specialized XML classes
     _BuiltinPrimitiveHandler("aDelete", "Delete From Array", 1901),
     _BuiltinPrimitiveHandler("aIndx", "Index Array", 1809),
-    _BuiltinPrimitiveHandler("concat", "Concatenate Strings", 1051),
     _BuiltinPrimitiveHandler("subset", "Array Subset", 1516),
     _BuiltinPrimitiveHandler("mergeErrors", "Merge Errors", 2401),
     _BuiltinPrimitiveHandler("oHExt", "Obtain/Release Semaphore", 8069),
-    # Array ops resolved via node_types section of primitives.json (no numeric ID)
+    # Class-resolved primitives — no numeric primResID. These resolve via the
+    # node_types section of primitives.json by XML class. Do NOT borrow a numeric
+    # arithmetic resID: "concat" once used 1051, which is Subtract, so every
+    # Concatenate Strings node rendered/generated as a subtraction.
     _BuiltinPrimitiveHandler("aInit", "Initialize Array", None),
     _BuiltinPrimitiveHandler("aReplace", "Replace Array Subset", None),
-    # Array ops resolved via primitives section (have numeric ID)
-    _BuiltinPrimitiveHandler("decimate", "Decimate 1D Array", 1062),
+    _BuiltinPrimitiveHandler("concat", "Concatenate Strings", None),
 ]
 
 # Build registry from handlers

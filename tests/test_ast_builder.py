@@ -152,7 +152,7 @@ def test_build_module_with_primitive():
                 id="op:1",
                 name="Add",
                 labels=["Primitive"],
-                primResID=1061,
+                primResID=1050,
                 terminals=[
                     Terminal(id="term:1", index=1, direction="input", name="x"),
                     Terminal(id="term:2", index=2, direction="input", name="y"),

@@ -304,36 +304,6 @@
       "inline": true,
       "verified": true
     },
-    "1061": {
-      "name": "Add",
-      "elementwise": true,
-      "terminals": [
-        {
-          "index": 0,
-          "direction": "out",
-          "name": "result",
-          "type": "polymorphic"
-        },
-        {
-          "index": 1,
-          "direction": "in",
-          "name": "x",
-          "type": "polymorphic"
-        },
-        {
-          "index": 2,
-          "direction": "in",
-          "name": "y",
-          "type": "polymorphic"
-        }
-      ],
-      "python_code": {
-        "result": "in_1 + in_2"
-      },
-      "inline": true,
-      "verified": true,
-      "pdf_page": 515
-    },
     "1056": {
       "name": "Split 1D Array",
       "terminals": [
