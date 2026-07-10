@@ -1,23 +1,33 @@
 """Orthogonal wire router for faithful LabVIEW block-diagram rendering.
 
-LabVIEW does not store readable wire paths (only an opaque ``compressedWireTable``
-blob), but it does store every terminal's exact position. This router recovers
-LabVIEW-style wires from endpoints alone:
+LabVIEW stores every terminal's exact position but no readable wire path (only an
+opaque ``compressedWireTable`` blob). This router recovers LabVIEW-style
+orthogonal wires from endpoints alone:
 
-  1. Try clean routes first — straight, single-elbow, or Z — leaving terminals
-     the way LabVIEW draws them.
-  2. Fall back to obstacle-avoiding A* only when a node actually blocks the route.
+  1. Clean routes first — straight, single-elbow (L), or Z — the way LabVIEW
+     draws an unobstructed wire. A clean route is rejected only if it enters an
+     obstacle interior OR runs *coincident along* an obstacle outline (hugging);
+     a brief perpendicular graze is fine.
+  2. Otherwise an orthogonal **visibility graph** (Hanan grid built from the
+     obstacle edges, each obstacle inflated by a clearance margin) searched with
+     Dijkstra + a bend penalty. Because clearance is baked into the graph node
+     coordinates, a routed wire can never lie on an outline (no hugging), and the
+     sparse, obstacle-derived graph cannot explode the way a uniform-pixel A*
+     grid does.
 
-Experiment 1 (``experiments/lv-renderer/wire_router_demo.py``) showed this hybrid
-beats both a naive midpoint router and pure A* — fewest bends *and* it stops
-cutting through unrelated nodes.
+Contract (a drop-in for the old hybrid): ``WireRouter(obstacles, bounds,
+config)`` + ``route(p1, p2, endpoints, p1_owner, p2_owner) -> list[Point]`` — an
+endpoint-inclusive polyline, never None. ``endpoints`` is accepted for API
+compatibility but unused. ``p1_owner``/``p2_owner`` are the rects the endpoints
+sit on; a wire may pass through exactly those (a terminal legitimately sits on
+its own node's edge) but no other obstacle. All routes are clamped to ``bounds``
+(a confined wire's container interior), so a contained wire never leaves its frame.
 """
 
 from __future__ import annotations
 
 import heapq
-from collections.abc import Iterator
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 
 Point = tuple[float, float]
 Rect = tuple[float, float, float, float]  # x1, y1, x2, y2
@@ -25,17 +35,19 @@ Rect = tuple[float, float, float, float]  # x1, y1, x2, y2
 
 @dataclass(frozen=True)
 class RouterConfig:
-    grid: int = 3
-    bend_penalty: int = 4
+    bend_penalty: float = 4.0
     # Endpoints within this many px on one axis are treated as aligned on that
     # axis — LabVIEW draws a plain straight segment rather than a jog for
     # sub-pixel/near-pixel offsets (heap terminal centers are rarely exactly
     # equal even when the diagram clearly intends a straight wire).
     align_tol: float = 2.0
+    # Wires keep this many px clear of every non-owner obstacle. Baked into the
+    # visibility-graph node coordinates and used by the clean-candidate hug test.
+    clearance: float = 4.0
 
 
 class WireRouter:
-    """Routes orthogonal wires over a fixed set of rectangular node obstacles."""
+    """Routes orthogonal wires over a fixed set of rectangular obstacles."""
 
     def __init__(
         self,
@@ -43,14 +55,9 @@ class WireRouter:
         bounds: Rect,
         config: RouterConfig | None = None,
     ) -> None:
-        self._obstacles = obstacles
+        self._obstacles = list(obstacles)
         self._bounds = bounds
         self._cfg = config or RouterConfig()
-        self._minx, self._miny, maxx, maxy = bounds
-        g = self._cfg.grid
-        self._cols = int((maxx - self._minx) // g) + 2
-        self._rows = int((maxy - self._miny) // g) + 2
-        self._blocked: set[tuple[int, int]] = set()  # built lazily per route set
 
     # -- public API ---------------------------------------------------------
     def route(
@@ -61,40 +68,26 @@ class WireRouter:
         p1_owner: Rect | None = None,
         p2_owner: Rect | None = None,
     ) -> list[Point]:
-        """Return the polyline (incl. endpoints) connecting p1 → p2.
-
-        ``endpoints`` is every terminal center in the diagram; the grid keeps a
-        free channel around each so terminals on node edges stay reachable.
-
-        ``p1_owner``/``p2_owner`` are the bounds of the node each endpoint's
-        own terminal sits on (if any) — a wire is allowed to pass through
-        exactly that rect near its own endpoint (a terminal legitimately sits
-        on its node's edge), but no OTHER obstacle, including one that
-        happens to be near an endpoint.
-        """
-        if not self._blocked:
-            self._build_grid(endpoints)
+        del endpoints  # unused; kept for API compatibility
         for cand in self._clean_candidates(p1, p2):
             if not self._crosses(cand, p1_owner, p2_owner):
                 return cand
-        return self._astar(p1, p2, endpoints, p1_owner, p2_owner)
+        vg = self._visibility_route(p1, p2, p1_owner, p2_owner)
+        if vg is not None:
+            return vg
+        # Last resort (no path found even in the visibility graph): the
+        # least-bad clean candidate, so a wire is always drawn.
+        return self._clean_candidates(p1, p2)[0]
 
     # -- clean routes -------------------------------------------------------
     def _clean_candidates(self, p1: Point, p2: Point) -> list[list[Point]]:
-        """Candidate routes, tried in order of ascending bend count.
+        """Candidate routes in ascending bend count: straight (0) < L (1) < Z (2).
 
-        Straight (0 bends) beats a single elbow/L (1 bend) beats a Z
-        (2 bends) — the first one that doesn't cross an obstacle wins, so a Z
-        is only ever used when both L orientations are blocked. Endpoints
-        within ``align_tol`` on an axis are treated as aligned, so a wire
-        LabVIEW clearly means to be straight isn't drawn with a jog just
-        because heap-derived centers differ by a sub-pixel amount.
-
-        A "feedback" route (``p2`` to the left of ``p1`` — e.g. a
-        shift-register value wiring back to a terminal on its own left) is
-        handled separately: an elbow anchored at the exit stub's own x
-        clears the source node vertically before heading back left, instead
-        of doubling back through the row the source sits on.
+        Endpoints within ``align_tol`` on an axis are treated as aligned (a wire
+        LabVIEW means to be straight isn't jogged over a sub-pixel offset). A
+        "feedback" route (``p2`` left of ``p1``) drops its vertical leg at the
+        source's own exit x so it clears the source vertically instead of
+        doubling back through the source's row.
         """
         (x1, y1), (x2, y2) = p1, p2
         tol = self._cfg.align_tol
@@ -102,16 +95,11 @@ class WireRouter:
         if abs(y1 - y2) <= tol or abs(x1 - x2) <= tol:
             cands.append([p1, p2])                      # straight (0 bends)
         if x2 < x1 - tol:
-            # Feedback wire: go vertical at the source's own exit x (already
-            # clear of the source node via the stub), then straight back
-            # into the destination — never re-crosses the source's row.
             cands.append([p1, (x1, y2), p2])
             cands.append([p1, (x2, y1), p2])
         else:
             cands.append([p1, (x2, y1), p2])            # horizontal-first L
             cands.append([p1, (x1, y2), p2])            # vertical-first L
-        # LabVIEW drops the vertical leg right after the source's exit stub,
-        # not at the horizontal midpoint — a short stub out, then straight in.
         jog = 9.0
         if x2 >= x1:
             jx = min(x1 + jog, (x1 + x2) / 2)
@@ -126,281 +114,255 @@ class WireRouter:
         p1_owner: Rect | None = None,
         p2_owner: Rect | None = None,
     ) -> bool:
-        """True if the polyline passes through a NON-OWNER node interior.
+        """True if the polyline enters a non-owner obstacle INTERIOR, or runs
+        COINCIDENT ALONG an obstacle outline (hugging) for more than a graze.
 
-        A wire's own endpoint terminal legitimately sits on (or just outside)
-        its own node's edge, so the specific obstacle rect that owns p1/p2
-        (``p1_owner``/``p2_owner``) is exempt from the interior test — but
-        every OTHER obstacle counts, even one that happens to be close to an
-        endpoint (a neighbor node must never be clipped just because it sits
-        near the wire's start/end).
+        The wire's own endpoint terminal legitimately sits on its own node's
+        edge, so ``p1_owner``/``p2_owner`` are exempt. A perpendicular crossing
+        that briefly clips an obstacle's clearance band is allowed — only a
+        segment running parallel-and-adjacent to an edge (the "wire lies on the
+        outline" defect) is rejected.
         """
+        c = self._cfg.clearance
         for i in range(len(pts) - 1):
-            (x1, y1), (x2, y2) = pts[i], pts[i + 1]
-            steps = int(max(abs(x2 - x1), abs(y2 - y1)) / 2) + 1
-            for s in range(1, steps):
-                x = x1 + (x2 - x1) * s / steps
-                y = y1 + (y2 - y1) * s / steps
-                for obstacle in self._obstacles:
-                    if obstacle == p1_owner or obstacle == p2_owner:
-                        continue
-                    bx1, by1, bx2, by2 = obstacle
-                    if bx1 + 1 < x < bx2 - 1 and by1 + 1 < y < by2 - 1:
+            (ax, ay), (bx, by) = pts[i], pts[i + 1]
+            horizontal = abs(by - ay) <= abs(bx - ax)
+            for obstacle in self._obstacles:
+                if obstacle == p1_owner or obstacle == p2_owner:
+                    continue
+                bx1, by1, bx2, by2 = obstacle
+                if horizontal:
+                    lo, hi = min(ax, bx), max(ax, bx)
+                    # (1) through the interior
+                    if by1 + 1 < ay < by2 - 1 and hi > bx1 + 1 and lo < bx2 - 1:
+                        return True
+                    # (2) parallel-adjacent to the top/bottom edge (hugging)
+                    overlap = min(hi, bx2) - max(lo, bx1)
+                    if overlap > c and (
+                        by1 - c < ay < by1 + c or by2 - c < ay < by2 + c
+                    ):
+                        return True
+                else:
+                    lo, hi = min(ay, by), max(ay, by)
+                    if bx1 + 1 < ax < bx2 - 1 and hi > by1 + 1 and lo < by2 - 1:
+                        return True
+                    overlap = min(hi, by2) - max(lo, by1)
+                    if overlap > c and (
+                        bx1 - c < ax < bx1 + c or bx2 - c < ax < bx2 + c
+                    ):
                         return True
         return False
 
-    # -- grid + A* ----------------------------------------------------------
-    def _to_grid(self, p: Point) -> tuple[int, int]:
-        g = self._cfg.grid
-        return (round((p[0] - self._minx) / g), round((p[1] - self._miny) / g))
-
-    def _to_world(self, c: tuple[int, int]) -> Point:
-        g = self._cfg.grid
-        return (self._minx + c[0] * g, self._miny + c[1] * g)
-
-    def _build_grid(self, endpoints: list[Point]) -> None:
-        """Mark every grid cell inside an obstacle (minus a 1px margin) as
-        blocked.
-
-        ``endpoints`` (every terminal center in the diagram) is accepted for
-        API-compatibility with callers but deliberately UNUSED here: an
-        earlier version carved a free zone around every terminal in the
-        WHOLE diagram, which punched a hole clean through any small
-        obstacle that happened to have some unrelated terminal near it —
-        exactly the "wire cuts through a neighbor node" bug. The free zone
-        a route's own endpoints need to escape their own node is instead
-        carved locally, per search, in ``_astar_grid`` (scoped to just that
-        route's start/goal), which can't leak into a neighboring obstacle.
-        """
-        del endpoints
-        g = self._cfg.grid
-        blocked: set[tuple[int, int]] = set()
-        for (bx1, by1, bx2, by2) in self._obstacles:
-            gx1 = int((bx1 - self._minx) // g) + 1
-            gx2 = int((bx2 - self._minx) // g) - 1
-            gy1 = int((by1 - self._miny) // g) + 1
-            gy2 = int((by2 - self._miny) // g) - 1
-            for gx in range(gx1, gx2 + 1):
-                for gy in range(gy1, gy2 + 1):
-                    blocked.add((gx, gy))
-        self._blocked = blocked or {(-999, -999)}  # sentinel so we don't rebuild
-
-    def _astar(
-        self,
-        p1: Point,
-        p2: Point,
-        endpoints: list[Point],
-        p1_owner: Rect | None = None,
-        p2_owner: Rect | None = None,
-    ) -> list[Point]:
-        """Grid-search a route, retrying at progressively finer grids before
-        giving up. A* on the configured grid can fail to find a path in dense
-        diagrams even though a route exists at finer resolution (the coarse
-        grid marks a whole cell blocked if any part of an obstacle overlaps
-        it). Only if even the finest grid finds nothing do we fall back to a
-        geometric detour — never a straight cut through an obstacle.
-
-        Every candidate grid path is re-checked with the same CONTINUOUS
-        ``_crosses`` test used for clean candidates before being accepted: a
-        coarse grid's blocked cells carry a whole-grid-unit margin around an
-        obstacle (so a route can hug its edge), which can let a path graze
-        along an obstacle just inside that margin — a real crossing by the
-        continuous (pixel-accurate) test even though no grid CELL was
-        technically blocked. Rejecting those forces a retry at a finer grid,
-        where the margin shrinks.
-        """
-        path = self._astar_grid(p1, p2, p1_owner, p2_owner)
-        if path is not None and not self._crosses(path, p1_owner, p2_owner):
-            return path
-        for sub in self._finer_routers(p1, p2, endpoints):
-            path = sub._astar_grid(p1, p2, p1_owner, p2_owner)
-            if path is not None and not self._crosses(path, p1_owner, p2_owner):
-                return path
-        return self._detour(p1, p2, p1_owner, p2_owner)
-
-    def _finer_routers(
-        self, p1: Point, p2: Point, endpoints: list[Point],
-    ) -> Iterator[WireRouter]:
-        """Progressively finer-grid sub-routers.
-
-        grid=2 searches the FULL diagram (still cheap — only ~1.5x the
-        default grid=3 cell count) so it can find a route requiring a
-        detour anywhere in the diagram, not just near p1/p2. grid=1 is
-        windowed to a LOCAL area around p1/p2 — a full-diagram search at
-        1px resolution can be millions of cells, far too slow per wire —
-        which is fine because by this point only dense LOCAL clutter (e.g.
-        a small obstacle nested inside a large owner) is left to solve; a
-        route that would need a diagram-spanning detour at 1px precision
-        is not a realistic case.
-        """
-        if 2 < self._cfg.grid:
-            full = WireRouter(self._obstacles, self._bounds, replace(self._cfg, grid=2))
-            full._build_grid(endpoints)
-            yield full
-        if 1 < self._cfg.grid:
-            margin = 150.0
-            bminx, bminy, bmaxx, bmaxy = self._bounds
-            # Clamp the local 1px window to this router's OWN bounds so a
-            # CONFINED router (bounds = a container's interior) can't escape
-            # its frame through the finer-grid fallback.
-            x1 = max(min(p1[0], p2[0]) - margin, bminx)
-            y1 = max(min(p1[1], p2[1]) - margin, bminy)
-            x2 = min(max(p1[0], p2[0]) + margin, bmaxx)
-            y2 = min(max(p1[1], p2[1]) + margin, bmaxy)
-            window: Rect = (x1, y1, x2, y2)
-            local_obstacles = [
-                o for o in self._obstacles
-                if o[0] < x2 and o[2] > x1 and o[1] < y2 and o[3] > y1
-            ]
-            sub = WireRouter(local_obstacles, window, replace(self._cfg, grid=1))
-            sub._build_grid(endpoints)
-            yield sub
-
-    def _detour(
+    # -- visibility graph ---------------------------------------------------
+    def _visibility_route(
         self,
         p1: Point,
         p2: Point,
         p1_owner: Rect | None,
         p2_owner: Rect | None,
-    ) -> list[Point]:
-        """Last-resort route when even the finest grid finds no path: go
-        around every non-owner obstacle that overlaps the x-span between the
-        endpoints, via a horizontal leg above (or below, whichever is
-        shorter) all of them — geometrically guaranteed not to cross any
-        obstacle's interior, unlike the old naive midpoint elbow."""
-        (x1, y1), (x2, y2) = p1, p2
-        lo_x, hi_x = min(x1, x2), max(x1, x2)
-        blockers = [
-            o for o in self._obstacles
-            if o != p1_owner and o != p2_owner and o[0] < hi_x and o[2] > lo_x
-        ]
-        if not blockers:
-            mx = (x1 + x2) / 2
-            return [p1, (mx, y1), (mx, y2), p2]
-        margin = 20.0
-        # Keep the detour leg inside this router's bounds — a CONFINED router
-        # must not send its last-resort route out of the container frame.
-        _, bminy, _, bmaxy = self._bounds
-        top = max(min(o[1] for o in blockers) - margin, bminy)
-        bottom = min(max(o[3] for o in blockers) + margin, bmaxy)
-        cost_top = abs(y1 - top) + abs(y2 - top)
-        cost_bottom = abs(y1 - bottom) + abs(y2 - bottom)
-        y = top if cost_top <= cost_bottom else bottom
-        return [p1, (x1, y), (x2, y), p2]
-
-    def _owner_free_cells(self, owner: Rect | None) -> set[tuple[int, int]]:
-        """Grid cells inside ``owner`` that are free FOR THIS ROUTE ONLY —
-        the wire's own endpoint may legitimately travel through its own
-        node's interior to reach the node's edge (matching ``_crosses``'
-        owner exemption), but a genuinely separate obstacle nested inside
-        that same footprint (e.g. an array/cluster constant's own element
-        constant, drawn inside the parent's border) must stay blocked."""
-        if owner is None:
-            return set()
-        g = self._cfg.grid
-        ox1, oy1, ox2, oy2 = owner
-        gx1 = int((ox1 - self._minx) // g) + 1
-        gx2 = int((ox2 - self._minx) // g) - 1
-        gy1 = int((oy1 - self._miny) // g) + 1
-        gy2 = int((oy2 - self._miny) // g) - 1
-        cells = {(gx, gy) for gx in range(gx1, gx2 + 1) for gy in range(gy1, gy2 + 1)}
-        for other in self._obstacles:
-            if other == owner:
-                continue
-            bx1, by1, bx2, by2 = other
-            ngx1 = int((bx1 - self._minx) // g) + 1
-            ngx2 = int((bx2 - self._minx) // g) - 1
-            ngy1 = int((by1 - self._miny) // g) + 1
-            ngy2 = int((by2 - self._miny) // g) - 1
-            for gx in range(ngx1, ngx2 + 1):
-                for gy in range(ngy1, ngy2 + 1):
-                    cells.discard((gx, gy))
-        return cells
-
-    def _astar_grid(
-        self,
-        p1: Point,
-        p2: Point,
-        p1_owner: Rect | None = None,
-        p2_owner: Rect | None = None,
     ) -> list[Point] | None:
-        """One A* search at this router's own configured grid. Returns None
-        (never a through-obstacle fallback) if no path exists."""
-        start, goal = self._to_grid(p1), self._to_grid(p2)
-        free = {start, goal}
-        for gpt in (start, goal):
-            for dx in range(-1, 2):
-                for dy in range(-1, 2):
-                    free.add((gpt[0] + dx, gpt[1] + dy))
-        free |= self._owner_free_cells(p1_owner)
-        free |= self._owner_free_cells(p2_owner)
+        """Route over an orthogonal visibility graph (Hanan grid).
 
-        def blocked(c: tuple[int, int]) -> bool:
-            if c in free:
-                return False
-            if not (0 <= c[0] <= self._cols and 0 <= c[1] <= self._rows):
-                return True
-            return c in self._blocked
+        Nodes are the intersections of candidate grid lines — the endpoints'
+        coordinates plus every non-owner obstacle's edges inflated OUTWARD by
+        ``clearance`` — that don't fall inside an inflated obstacle (so ordinary
+        routing keeps its distance). Edges connect adjacent collinear nodes whose
+        segment doesn't cross an obstacle INTERIOR (real rect). The endpoints are
+        always nodes and may escape a clearance band they sit in (a tunnel on a
+        structure border), but never cross an interior. Dijkstra minimises length
+        plus a per-turn bend penalty.
+        """
+        c = self._cfg.clearance
+        bx1, by1, bx2, by2 = self._bounds
 
-        bend = self._cfg.bend_penalty
-        # state = (x, y, dir): dir 0=none, 1=horizontal, 2=vertical
-        start_state = (start[0], start[1], 0)
-        pq: list[tuple[int, int, tuple[int, int, int]]] = [(0, 0, start_state)]
-        best: dict[tuple[int, int, int], int] = {start_state: 0}
-        came: dict[tuple[int, int, int], tuple[int, int, int]] = {}
-        goal_state: tuple[int, int, int] | None = None
-        while pq:
-            _f, gcost, (x, y, d) = heapq.heappop(pq)
-            if (x, y) == goal:
-                goal_state = (x, y, d)
-                break
-            if gcost > best.get((x, y, d), 1 << 30):
+        def is_owner(o: Rect) -> bool:
+            return o == p1_owner or o == p2_owner
+
+        interiors = [o for o in self._obstacles if not is_owner(o)]
+        inflated = [
+            (o[0] - c, o[1] - c, o[2] + c, o[3] + c) for o in interiors
+        ]
+
+        def clamp(v: float, lo: float, hi: float) -> float:
+            return lo if v < lo else hi if v > hi else v
+
+        xs: set[float] = {p1[0], p2[0]}
+        ys: set[float] = {p1[1], p2[1]}
+        for (ix1, iy1, ix2, iy2) in inflated:
+            for x in (ix1, ix2):
+                if bx1 <= x <= bx2:
+                    xs.add(x)
+            for y in (iy1, iy2):
+                if by1 <= y <= by2:
+                    ys.add(y)
+        xs_l = sorted(xs)
+        ys_l = sorted(ys)
+
+        def strictly_inside_inflated(x: float, y: float) -> bool:
+            for (ix1, iy1, ix2, iy2) in inflated:
+                if ix1 < x < ix2 and iy1 < y < iy2:
+                    return True
+            return False
+
+        # Grid nodes that sit in free space (outside every inflated rect), plus
+        # the two endpoints (which may legitimately be inside a clearance band).
+        nodes: list[Point] = [
+            (x, y)
+            for x in xs_l
+            for y in ys_l
+            if not strictly_inside_inflated(x, y)
+        ]
+        node_set = set(nodes)
+        node_set.add(p1)
+        node_set.add(p2)
+
+        def seg_hits_interior(a: Point, b: Point) -> bool:
+            (sx, sy), (tx, ty) = a, b
+            lo_x, hi_x = min(sx, tx), max(sx, tx)
+            lo_y, hi_y = min(sy, ty), max(sy, ty)
+            for (ox1, oy1, ox2, oy2) in interiors:
+                # axis-aligned segment vs rect interior (1px inset so touching
+                # an edge is allowed)
+                if hi_x > ox1 + 1 and lo_x < ox2 - 1 and \
+                        hi_y > oy1 + 1 and lo_y < oy2 - 1:
+                    return True
+            return False
+
+        # Build orthogonal adjacency: each node connects to its immediate
+        # neighbour along +x/-x/+y/-y among the grid lines, if the connecting
+        # segment is interior-free.
+        by_col: dict[float, list[float]] = {}
+        by_row: dict[float, list[float]] = {}
+        for (x, y) in node_set:
+            by_col.setdefault(x, []).append(y)
+            by_row.setdefault(y, []).append(x)
+        for x in by_col:
+            by_col[x].sort()
+        for y in by_row:
+            by_row[y].sort()
+
+        adj: dict[Point, list[Point]] = {n: [] for n in node_set}
+
+        def link(a: Point, b: Point) -> None:
+            if not seg_hits_interior(a, b):
+                adj[a].append(b)
+                adj[b].append(a)
+
+        for x, col in by_col.items():
+            for i in range(len(col) - 1):
+                link((x, col[i]), (x, col[i + 1]))
+        for y, row in by_row.items():
+            for i in range(len(row) - 1):
+                link((row[i], y), (row[i + 1], y))
+
+        # An endpoint whose x/y isn't shared by a free node still needs to reach
+        # the grid: connect each endpoint to the nearest node on its own row and
+        # column (interior-checked), covering the escape from a clearance band.
+        for ep in (p1, p2):
+            self._link_endpoint(ep, node_set, adj, seg_hits_interior)
+
+        path = self._dijkstra(p1, p2, adj)
+        if path is None:
+            return None
+        return _compress(path)
+
+    @staticmethod
+    def _link_endpoint(
+        ep: Point,
+        node_set: set[Point],
+        adj: dict[Point, list[Point]],
+        seg_hits_interior,
+    ) -> None:
+        ex, ey = ep
+        # nearest node with same x (vertical escape) and same y (horizontal),
+        # in both directions, reachable without crossing an interior.
+        best: dict[str, tuple[float, Point]] = {}
+        for n in node_set:
+            if n == ep:
                 continue
-            for dx, dy, nd in ((1, 0, 1), (-1, 0, 1), (0, 1, 2), (0, -1, 2)):
-                nx, ny = x + dx, y + dy
-                if blocked((nx, ny)):
-                    continue
-                ng = gcost + 1 + (bend if d and nd != d else 0)
-                ns = (nx, ny, nd)
-                if ng < best.get(ns, 1 << 30):
-                    best[ns] = ng
-                    came[ns] = (x, y, d)
-                    h = abs(nx - goal[0]) + abs(ny - goal[1])
-                    heapq.heappush(pq, (ng + h, ng, ns))
+            nx, ny = n
+            if nx == ex and ny != ey:
+                key = "up" if ny < ey else "down"
+                d = abs(ny - ey)
+                if key not in best or d < best[key][0]:
+                    best[key] = (d, n)
+            elif ny == ey and nx != ex:
+                key = "left" if nx < ex else "right"
+                d = abs(nx - ex)
+                if key not in best or d < best[key][0]:
+                    best[key] = (d, n)
+        for _d, n in best.values():
+            if not seg_hits_interior(ep, n):
+                adj[ep].append(n)
+                adj.setdefault(n, []).append(ep)
+
+    @staticmethod
+    def _dijkstra(
+        start: Point, goal: Point, adj: dict[Point, list[Point]],
+    ) -> list[Point] | None:
+        """Shortest orthogonal path start→goal with a bend penalty. State carries
+        the incoming direction so a turn costs extra, favouring straight runs."""
+        bend = 4.0
+
+        def direction(a: Point, b: Point) -> int:
+            return 0 if a[0] == b[0] else 1  # 0 vertical, 1 horizontal
+
+        # state = (node, dir); dir 2 = none (at start)
+        start_state = (start, 2)
+        pq: list[tuple[float, int, Point, int]] = [(0.0, 0, start, 2)]
+        best: dict[tuple[Point, int], float] = {start_state: 0.0}
+        came: dict[tuple[Point, int], tuple[Point, int]] = {}
+        counter = 1
+        goal_state: tuple[Point, int] | None = None
+        while pq:
+            cost, _c, node, d = heapq.heappop(pq)
+            state = (node, d)
+            if cost > best.get(state, float("inf")):
+                continue
+            if node == goal:
+                goal_state = state
+                break
+            for nb in adj.get(node, ()):
+                nd = direction(node, nb)
+                step = abs(nb[0] - node[0]) + abs(nb[1] - node[1])
+                turn = bend if d != 2 and nd != d else 0.0
+                ncost = cost + step + turn
+                ns = (nb, nd)
+                if ncost < best.get(ns, float("inf")):
+                    best[ns] = ncost
+                    came[ns] = state
+                    heapq.heappush(pq, (ncost, counter, nb, nd))
+                    counter += 1
         if goal_state is None:
             return None
-        cells: list[tuple[int, int]] = []
-        s: tuple[int, int, int] | None = goal_state
-        while s in came:
-            cells.append((s[0], s[1]))
-            s = came[s]
-        cells.append((start[0], start[1]))
-        cells.reverse()
-        pts = [self._to_world(c) for c in cells]
-        pts[0], pts[-1] = p1, p2
-        return _compress(pts)
+        pts: list[Point] = []
+        s: tuple[Point, int] | None = goal_state
+        while s is not None:
+            pts.append(s[0])
+            s = came.get(s)
+        pts.reverse()
+        return pts
 
 
 def _compress(pts: list[Point], tol: float = 0.75) -> list[Point]:
-    """Drop collinear (within ``tol`` px) interior points, keeping only real
-    bend vertices.
+    """Drop interior points that lie on a straight axis-aligned run, keeping real
+    bends.
 
-    ``tol`` absorbs the sub-pixel jogs that appear when a stub point and a
-    real terminal center are meant to read as one straight run but differ by
-    a fraction of a pixel (heap-derived centers are rarely exactly equal even
-    when the diagram clearly intends a straight wire) — real bends in this
-    router are always many pixels apart, so this never merges an intentional
-    turn.
+    Collinearity is measured against the LAST KEPT point (``out[-1]``), not the
+    raw previous point — otherwise a sub-pixel step just before a corner (the
+    visibility graph emits nodes at obstacle edges ± clearance, which can be a
+    fraction of a pixel apart) makes the corner look collinear with the wrong
+    axis and gets dropped, collapsing an L into a diagonal.
     """
     if len(pts) <= 2:
         return pts
     out = [pts[0]]
     for i in range(1, len(pts) - 1):
-        ax, ay = pts[i - 1]
+        px, py = out[-1]
         bx, by = pts[i]
         cx, cy = pts[i + 1]
-        if (abs(ax - bx) <= tol and abs(bx - cx) <= tol) or (
-            abs(ay - by) <= tol and abs(by - cy) <= tol
+        if (abs(px - bx) <= tol and abs(bx - cx) <= tol) or (
+            abs(py - by) <= tol and abs(by - cy) <= tol
         ):
             continue
         out.append(pts[i])

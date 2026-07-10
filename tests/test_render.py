@@ -74,7 +74,7 @@ def test_elbow_route_when_offset_and_clear():
 def test_router_avoids_obstacle():
     obstacle = (40.0, 40.0, 70.0, 60.0)
     r = WireRouter([obstacle], bounds=(0.0, 0.0, 200.0, 120.0),
-                   config=RouterConfig(grid=2))
+                   config=RouterConfig())
     p1, p2 = (10.0, 50.0), (120.0, 50.0)
     route = r.route(p1, p2, endpoints=[p1, p2])
 
@@ -108,7 +108,7 @@ def test_router_routes_around_third_node_directly_between_endpoints():
     dst_node = (120.0, 40.0, 140.0, 60.0)
     obstacles = [src_node, blocker_node, dst_node]
     r = WireRouter(
-        obstacles, bounds=(0.0, 0.0, 200.0, 120.0), config=RouterConfig(grid=2),
+        obstacles, bounds=(0.0, 0.0, 200.0, 120.0), config=RouterConfig(),
     )
     p1, p2 = (20.0, 50.0), (120.0, 50.0)  # straight line runs through blocker_node
     route = r.route(p1, p2, endpoints=[p1, p2], p1_owner=src_node, p2_owner=dst_node)
