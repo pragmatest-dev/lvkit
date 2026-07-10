@@ -65,7 +65,7 @@ class Theme:
     # crossing — so a crossing reads as one wire passing OVER the other, not a
     # solid `+`. Same-net branches share a solid trunk (their casings never
     # punch each other, since a net draws all its own casing before its color).
-    wire_casing: float = 1.4
+    wire_casing: float = 1.1
 
 
 DEFAULT_THEME = Theme()
