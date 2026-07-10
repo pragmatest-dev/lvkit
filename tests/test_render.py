@@ -740,7 +740,10 @@ def test_compound_arithmetic_renders_box_with_invert_bubble():
 
     svg = render_vi(graph, vi)
     assert svg is not None
-    assert "<title>Compound Arithmetic</title>" in svg
+    # Context-help title: node identity on the first line, then its connector
+    # pane (terminal types) below — so match the identity line, not the whole
+    # (now multi-line) title.
+    assert "<title>Compound Arithmetic\n" in svg
     # Boolean-context operator symbol: "add" on Booleans is logical OR.
     assert ">∨<" in svg
 

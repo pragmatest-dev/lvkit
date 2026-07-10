@@ -19,7 +19,7 @@ from ..graph.models import (
     SequenceNode,
     VINode,
 )
-from ..models import FPTerminal, LVType
+from ..models import FPTerminal, LVType, Terminal
 from .backend import Backend, Point
 from .glyph import (
     ArithGlyph,
@@ -159,19 +159,54 @@ def draw_node(node: RenderNode, backend: Backend, theme: Theme = DEFAULT_THEME) 
 
 
 def _node_tooltip(node: AnyGraphNode) -> str | None:
-    """Full-identity hover text for a node, or None for nodes without a useful
-    name (constants show their value in-box already).
+    """Context-help hover text for a node: its identity, description (when
+    known), and its connector pane — every terminal with direction, type, and
+    label (when the heap carries one). Returns None for nodes without a useful
+    identity (constants show their value in-box already).
 
     A local variable MUST get its own title: without one the browser shows the
     nearest ancestor ``<title>`` (the diagram's VI name), so every local var
     would otherwise read as the VI itself.
     """
+    header: str | None = None
     if isinstance(node, LocalVariableNode):
         name = node.control_name or node.name
-        return f"Local Variable: {name}" if name else "Local Variable"
-    if isinstance(node, VINode | PrimitiveNode):
-        return node.name or None
-    return None
+        header = f"Local Variable: {name}" if name else "Local Variable"
+    elif isinstance(node, VINode | PrimitiveNode):
+        header = node.name or None
+    if header is None:
+        return None
+
+    lines = [header]
+    desc = getattr(node, "description", None)
+    if desc:
+        lines.append(desc)
+    lines.extend(_terminal_help_lines(node))
+    return "\n".join(lines)
+
+
+def _terminal_help_lines(node: AnyGraphNode) -> list[str]:
+    """The node's connector pane as tooltip lines — inputs then outputs, each
+    ``label: type`` (label omitted → ``terminal N`` from its index). Types come
+    straight from the heap's stored terminal types (the FULL pane, wired or
+    not); labels are shown only when LabVIEW actually stored one."""
+    terms = getattr(node, "terminals", None) or []
+
+    def fmt(t: Terminal) -> str:
+        ty = t.lv_type.to_python() if t.lv_type else "?"
+        label = t.name or f"terminal {t.index}"
+        return f"  {label}: {ty}"
+
+    ins = sorted((t for t in terms if t.direction == "input"), key=lambda t: t.index)
+    outs = sorted((t for t in terms if t.direction == "output"), key=lambda t: t.index)
+    out: list[str] = []
+    if ins:
+        out.append("Inputs:")
+        out += [fmt(t) for t in ins]
+    if outs:
+        out.append("Outputs:")
+        out += [fmt(t) for t in outs]
+    return out
 
 
 def _draw_border_terminal(
