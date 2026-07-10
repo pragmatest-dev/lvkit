@@ -53,7 +53,11 @@ class Theme:
     wire_cluster: str = "#8a5a2b"  # brown — clusters / typedefs
     wire_error: str = "#a88d1e"    # mustard/dark-yellow — error clusters (LV 8.2+)
     wire_variant: str = "#840984"  # purple — Variant (NI rgb(132,9,132))
-    wire_default: str = "#e8821e"  # anything unrecognized falls back to DBL
+    # Unresolved / unknown-type wires — a DISTINCT dark grey, NOT the float
+    # orange. A wire with no resolved type is a type-propagation BUG; colouring
+    # it like a DBL float hid every such gap. Dark grey makes them stand out so
+    # the real type-propagation scope is visible instead of masquerading as float.
+    wire_default: str = "#555555"
 
 
 DEFAULT_THEME = Theme()
