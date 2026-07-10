@@ -375,27 +375,27 @@
       "pdf_page": 750
     },
     "1112": {
-      "name": "Not A Number/Path/Refnum?",
+      "name": "Empty String/Path?",
       "terminals": [
         {
           "index": 0,
           "direction": "out",
-          "name": "not_a_path",
-          "type": "polymorphic"
+          "name": "is_empty",
+          "type": "Boolean"
         },
         {
           "index": 1,
           "direction": "in",
-          "name": "value",
+          "name": "string_or_path",
           "type": "polymorphic"
         }
       ],
       "python_code": {
-        "not_a_path": "not bool(in_1)"
+        "is_empty": "len(in_1) == 0"
       },
       "inline": true,
       "verified": true,
-      "pdf_page": 759
+      "guess_reason": "Was mislabeled 'Not A Number/Path/Refnum?' (which takes NUMBERS). Observed polymorphic over String (Number to Proper Engl Text) AND Path (Get Class Inheritance from Class Path.vi), both -> Boolean. NI docs (labview-api-ref/functions/empty-string-path): Empty String/Path? 'returns TRUE if string/path is an empty string or an empty path'. The String/Path->Bool polymorphism uniquely pins it."
     },
     "1144": {
       "name": "To Unsigned Word Integer",
@@ -833,6 +833,29 @@
       },
       "verified": true,
       "pdf_page": 657
+    },
+    "1076": {
+      "name": "Round Toward +Infinity",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "ceiling",
+          "type": "NumFloat64"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "x",
+          "type": "NumFloat64"
+        }
+      ],
+      "python_code": {
+        "ceiling": "math.ceil(in_1)"
+      },
+      "inline": true,
+      "verified": true,
+      "guess_reason": "Unary DBL->DBL. Consumer dataflow pins the mode: String Length (1502) -> /3 (Divide 1053) -> 1076 -> For Loop N count, i.e. ceil(len/3) = number of 3-digit blocks (a 4-digit number needs 2 blocks; only rounding UP is correct). NI docs (labview-api-ref/functions/round-toward-infinity-2): Round Toward +Infinity 'rounds to the next highest integer... equivalent of the ceiling function'."
     },
     "1077": {
       "name": "Path To String",
