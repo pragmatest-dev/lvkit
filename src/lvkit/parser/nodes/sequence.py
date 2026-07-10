@@ -113,9 +113,7 @@ def _extract_tunnels_from_termlist(
         if dco is not None:
             dco_class = dco.get("class", "")
             if dco_class in TUNNEL_DCO_CLASSES:
-                tunnel = extract_tunnel_mapping(dco, dco_class)
-                if tunnel:
-                    tunnels.append(tunnel)
+                tunnels.extend(extract_tunnel_mapping(dco, dco_class))
 
 
 def _extract_inner_node_uids(frame_elem: ET.Element) -> list[str]:

@@ -60,9 +60,7 @@ def extract_loops(root: ET.Element) -> list[ParsedLoopStructure]:
                     if dco is not None:
                         dco_class = dco.get("class", "")
                         if dco_class in TUNNEL_DCO_CLASSES:
-                            tunnel = extract_tunnel_mapping(dco, dco_class)
-                            if tunnel:
-                                tunnels.append(tunnel)
+                            tunnels.extend(extract_tunnel_mapping(dco, dco_class))
 
             # Find inner diagram
             diag_list = loop_elem.find("diagramList")

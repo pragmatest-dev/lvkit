@@ -49,9 +49,7 @@ def extract_decompose_structures(
                 if dco is not None:
                     dco_class = dco.get("class", "")
                     if dco_class == TUNNEL_CLASS_DECOMPOSE_RECOMPOSE:
-                        tunnel = extract_tunnel_mapping(dco, dco_class)
-                        if tunnel:
-                            tunnels.append(tunnel)
+                        tunnels.extend(extract_tunnel_mapping(dco, dco_class))
 
         # Extract inner node UIDs from the single inner diagram
         diag_list = elem.find("diagramList")

@@ -250,8 +250,13 @@ def parse_vctp_types(xml_path: Path | str) -> dict[int, LVType]:
                 fields=fields if fields else None,
             )
 
-        elif type_name == "Array":
-            # Parse array element type
+        elif type_name in ("Array", "SubArray"):
+            # A SubArray is an array VIEW — same element type + dimensions as a
+            # plain Array. LabVIEW stores it as the output type of Reverse 1D
+            # Array, Rotate, Split, etc. Its typedesc has the identical shape
+            # (<Dimension> + nested element <TypeDesc>), so parse it identically;
+            # otherwise the element type is dropped and it renders/typechecks as
+            # unknown instead of an array.
             element_type = None
             dims = len(td.findall("Dimension"))
             for nested in td.findall("TypeDesc"):
@@ -262,7 +267,7 @@ def parse_vctp_types(xml_path: Path | str) -> dict[int, LVType]:
 
             lv_type = LVType(
                 kind="array",
-                underlying_type="Array",
+                underlying_type=type_name,
                 element_type=element_type,
                 dimensions=dims if dims > 0 else 1,
             )

@@ -258,8 +258,7 @@ def _extract_case_tunnels(
     → one Tunnel per frame.
     """
     if dco_class == "csTun":
-        tunnel = extract_tunnel_mapping(dco, dco_class)
-        return [tunnel] if tunnel else []
+        return extract_tunnel_mapping(dco, dco_class)
 
     # selTun: per-frame inner terminals
     dco_term_list = dco.find("termList")
