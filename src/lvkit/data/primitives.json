@@ -1606,63 +1606,27 @@
       "pdf_page": 1794
     },
     "1537": {
-      "name": "Search and Replace String",
+      "name": "To Lower Case",
       "terminals": [
         {
           "index": 0,
           "direction": "out",
-          "name": "result_string",
+          "name": "all_lower_case_string",
           "type": "String"
         },
         {
           "index": 1,
           "direction": "in",
-          "name": "input_string",
+          "name": "string",
           "type": "String"
-        },
-        {
-          "index": 2,
-          "direction": "in",
-          "name": "search_string",
-          "type": "String"
-        },
-        {
-          "index": 3,
-          "direction": "in",
-          "name": "replace_string",
-          "type": "String"
-        },
-        {
-          "index": 4,
-          "direction": "in",
-          "name": "replace_all",
-          "type": "Boolean"
-        },
-        {
-          "index": 5,
-          "direction": "in",
-          "name": "offset",
-          "type": "NumInt32"
-        },
-        {
-          "index": 6,
-          "direction": "out",
-          "name": "number_of_replacements",
-          "type": "NumInt32"
-        },
-        {
-          "index": 7,
-          "direction": "out",
-          "name": "offset_past_replacement",
-          "type": "NumInt32"
         }
       ],
       "python_code": {
-        "result_string": "in_1.replace(in_2, in_3) if in_4 else in_1.replace(in_2, in_3, 1)"
+        "all_lower_case_string": "in_1.lower() if isinstance(in_1, str) else [s.lower() for s in in_1]"
       },
       "inline": true,
       "verified": true,
-      "pdf_page": 654
+      "guess_reason": "Was mislabeled 'Search and Replace String' (an 8-terminal string op); the actual node is a hard 2-terminal (termList elements=2, no unwired terminal), UNARY, type-preserving, polymorphic over String AND Array[String] (auto-maps). Among the four 2-terminal unary string primitives (to-lower-case, to-upper-case, reverse-string, rotate-string), reverse/rotate would scramble word characters and don't fit the number->text role; NI docs (labview-api-ref/functions/to-lower-case): To Lower Case 'converts all alphabetic characters to lowercase... does not affect non-alphabetic characters... polymorphic'. Chosen lower (not upper) because the VI's word output is lowercase (all constants lowercase, conventional English number text). Cleanroom: no glyph available to confirm upper-vs-lower; resolved from VI logic."
     },
     "1538": {
       "name": "Search/Split String",
