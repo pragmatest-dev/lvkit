@@ -58,6 +58,14 @@ class Theme:
     # it like a DBL float hid every such gap. Dark grey makes them stand out so
     # the real type-propagation scope is visible instead of masquerading as float.
     wire_default: str = "#555555"
+    # Half-width (per side) of the canvas-colored casing drawn under each wire.
+    # A background "moat" that separates a wire from its neighbours and, because
+    # casing is painted per-NET (all casings then all colors, net by net), the
+    # NEXT net's casing punches a gap in the PRIOR net's color at an orthogonal
+    # crossing — so a crossing reads as one wire passing OVER the other, not a
+    # solid `+`. Same-net branches share a solid trunk (their casings never
+    # punch each other, since a net draws all its own casing before its color).
+    wire_casing: float = 1.4
 
 
 DEFAULT_THEME = Theme()

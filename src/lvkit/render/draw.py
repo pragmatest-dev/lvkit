@@ -249,27 +249,32 @@ def _draw_border_terminal(
 
 
 def _draw_for_loop_border(x1, y1, x2, y2, backend: Backend, theme: Theme) -> None:
-    """The For-Loop's signature border: a cascade of THREE identical rectangles
-    stacked down-right like cards. The heap ``bounds`` (x1..x2, y1..y2) is the
-    OVERALL bbox = the BACKMOST card's bottom-right corner (measured against the
-    ground truth: the three right-edge lines sit at 238/240/242 with 242 = the
-    bbox edge). So the cards are inset INWARD from the bbox — the front card is
-    top-left-aligned and (2o x 2o) smaller — not offset outward past x2/y2 where
-    they would collide with a node just right of the loop. Front card is drawn
-    last, canvas-filled, with a dog-eared bottom-right corner."""
+    """The For-Loop's signature stacked-card border — three identical cards
+    fanning DOWN-RIGHT from a top-left-aligned front card. Drawn as OUTLINES
+    ONLY (no fill) so the whole border sits ON TOP of the wires: the loop edge
+    and the card slivers are never notched by wire casing, and there is no fill
+    to cover a wire running inside the loop. For each card behind the front, only
+    its VISIBLE L is stroked (top-right sliver -> right edge -> bottom edge ->
+    bottom-left sliver) — the edges that would fall inside the front card are
+    omitted, so no line shows through the front card's interior. The heap bounds
+    are the BACKMOST card's bottom-right corner; the front card is (2o x 2o)
+    smaller and top-left-aligned (measured against the ground truth)."""
     o = 2.0
     s = theme.struct_border
     w2, h2 = (x2 - x1) - 2 * o, (y2 - y1) - 2 * o
-    for k in (2, 1):  # back + mid cards, top-left at (x1+k*o, y1+k*o)
-        ox, oy = x1 + k * o, y1 + k * o
-        backend.rect(ox, oy, ox + w2, oy + h2,
-                     fill=theme.canvas, stroke=s, stroke_width=1.2)
+    fx2, fy2 = x1 + w2, y1 + h2  # front card bottom-right
+    for k in (2, 1):  # back + mid cards, offset +k*o down-right of the front card
+        backend.path(
+            [(fx2, y1 + k * o), (fx2 + k * o, y1 + k * o),
+             (fx2 + k * o, fy2 + k * o), (x1 + k * o, fy2 + k * o),
+             (x1 + k * o, fy2)],
+            fill="none", stroke=s, stroke_width=1.2,
+        )
     # Front card (loop boundary), top-left-aligned, dog-eared bottom-right.
-    fx2, fy2 = x1 + w2, y1 + h2
     f = 6.0
     backend.path(
         [(x1, y1), (fx2, y1), (fx2, fy2 - f), (fx2 - f, fy2), (x1, fy2), (x1, y1)],
-        fill=theme.canvas, stroke=s, stroke_width=1.2,
+        fill="none", stroke=s, stroke_width=1.2,
     )
     backend.path([(fx2, fy2 - f), (fx2 - f, fy2 - f), (fx2 - f, fy2)],
                  stroke=s, stroke_width=1.2)
@@ -502,6 +507,11 @@ def _draw_sequence_border(
 def draw_structure(
     structure: RenderStructure, backend: Backend, theme: Theme = DEFAULT_THEME,
 ) -> None:
+    """A structure's border (and film-strip/selector chrome), drawn AFTER wires
+    so it sits over the wire casing and is never notched by it. Every structure
+    is outline-only (``fill="none"``) — including the For-Loop, whose stacked
+    cards are stroked as visible outlines — so nothing here can cover a wire that
+    runs inside the structure."""
     x1, y1, x2, y2 = structure.bounds
     kind = _STRUCTURE_STYLE.get(structure.node.node_type or "", "generic")
     if kind == "forLoop":
@@ -697,28 +707,37 @@ def _draw_layer_content(
     structures: list[RenderStructure], nets: list[RenderWireNet],
     nodes: list[RenderNode], scene: Scene, backend: Backend, theme: Theme,
 ) -> None:
-    """One layer's worth of structures -> wires -> boundary terminals ->
-    nodes, in the SAME relative order as the original single-pass
-    ``draw_scene`` — reused for both the base layer and each frame group so
-    a VI with no interactive structures (only a base layer) renders
-    byte-identically."""
+    """One layer, in three stacked passes: wires -> structure OUTLINES +
+    boundary terminals -> nodes. Reused for the base layer and each frame group.
+
+    Every structure is outline-only (no fill — even the For-Loop's stacked
+    cards), so the whole border is drawn OVER the wires: the wire's casing never
+    notches an outline, and a tunnel sits on top of the wire it receives, while
+    nothing covers a wire that runs inside a structure. Casing is painted per-NET
+    (all of a net's casings, then all its colors) so the net's own trunk stays
+    solid while the NEXT net's casing breaks the prior net's color at an
+    orthogonal crossing (see ``Theme.wire_casing``)."""
+    # Pass 1 — wires (per-net casing then color).
+    casing = theme.wire_casing
+    for net in nets:
+        if casing > 0:
+            for branch in net.branches:
+                backend.path(branch, stroke=theme.canvas,
+                             stroke_width=net.style.width + 2 * casing)
+        for branch in net.branches:
+            backend.path(branch, stroke=net.style.color, stroke_width=net.style.width)
+
+    # Pass 2 — structure OUTLINES + selector chrome, then boundary terminals
+    # (tunnels/SR/N-i), all ON TOP of the wires.
     for structure in structures:
         draw_structure(structure, backend, theme)
         if _is_interactive_structure(structure.node):
             _draw_frame_selector(structure, scene, backend, theme)
-
-    for net in nets:
-        for branch in net.branches:
-            backend.path(branch, stroke=net.style.color, stroke_width=net.style.width)
-        for jx, jy in net.junctions:
-            backend.circle(jx, jy, 2.5, fill=net.style.color)
-
-    # Boundary terminals ON TOP of wires — a tunnel/shift-register/N-i sits on
-    # the structure border and the wire butts against it, never over it.
     for structure in structures:
         for bt in structure.border_terminals:
             _draw_border_terminal(bt, backend, theme)
 
+    # Pass 3 — nodes on top.
     for node in nodes:
         draw_node(node, backend, theme)
 
@@ -743,6 +762,15 @@ def draw_scene(scene: Scene, backend: Backend, theme: Theme = DEFAULT_THEME) -> 
     — see roadmap #17), then each case's clickable selector-value labels."""
     x1, y1, x2, y2 = scene.bounds
     backend.rect(x1, y1, x2, y2, fill=theme.canvas)
+
+    # A case/stacked-seq structure's tunnels live on its border and are drawn
+    # once with the (base-or-ancestor-layer) structure. But that structure's
+    # OWN frames' inner wires draw in LATER ``lv-frame`` groups, on top. So each
+    # frame layer re-draws its ENCLOSING structure's border terminals (tunnels/
+    # selector) after its inner content — the container draws its tunnels on top
+    # of its own inner wires, not the other way round. Keyed by raw_uid, which
+    # equals a frame path's leaf struct-uid (both strip the vi-name prefix).
+    by_raw_uid = {s.raw_uid: s for s in scene.structures if s.raw_uid}
 
     base_structures = [s for s in scene.structures if not s.frame_path]
     base_nets = [n for n in scene.wire_nets if not n.frame_path]
@@ -787,6 +815,11 @@ def draw_scene(scene: Scene, backend: Backend, theme: Theme = DEFAULT_THEME) -> 
             style=None if visible else "display:none",
         )
         _draw_layer_content(structures, nets, nodes, scene, backend, theme)
+        # The container draws its own tunnels on top of this frame's inner wires.
+        enclosing = by_raw_uid.get(path[-1][0])
+        if enclosing is not None:
+            for bt in enclosing.border_terminals:
+                _draw_border_terminal(bt, backend, theme)
         for fp in fps:
             draw_fp_terminal(fp.terminal, fp.bounds, backend, theme, fp.label_visible)
         _draw_layer_coercion_dots(nets, dots, backend, theme)

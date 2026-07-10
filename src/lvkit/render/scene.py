@@ -974,10 +974,13 @@ def _build_wire_nets(
             source_term.lv_type if source_term else None, dest_types,
         )
         style = wire_style(carrier)
-        junctions = [src_center] if len(branches) > 1 else []
+        # Junction dots deferred to Phase B: true trunk-and-branch dots need the
+        # router to merge branches onto shared trunks first (the parked nudging
+        # pass). Until then there are almost no mid-wire forks to mark, so the
+        # ``junctions`` field is left empty rather than dotting the source stub.
         nets.append(RenderWireNet(
             source=group[0], style=style, branches=branches,
-            junctions=junctions, coercion_dots=coercion_dots, frame_path=path,
+            coercion_dots=coercion_dots, frame_path=path,
         ))
     return nets
 
