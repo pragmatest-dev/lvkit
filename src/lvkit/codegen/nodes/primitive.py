@@ -261,9 +261,11 @@ def _build_input_map(
             key = to_var_name(name) + "_values"
             input_map[key] = ", ".join(values)
 
-    # Fill defaults for JSON-defined terminals not in the node.
-    # Unwired terminals don't appear in node.terminals but templates
-    # may reference them as in_N. Use the JSON default or None.
+    # Fill defaults for template terminals the heap did not serialize at all
+    # (truly-absent optional terminals). NOTE: merely UNWIRED terminals DO
+    # appear in node.terminals — the heap serializes the full connector pane —
+    # so this only covers indices a template references that aren't in the
+    # node's termList. Use the JSON default or None.
     if resolved and resolved.terminals:
         node_indices = {t.index for t in node.terminals}
         for rt in resolved.terminals:
@@ -644,12 +646,17 @@ def _emit_unknown(
     either write a mapping into .lvkit/ or replace the raise with a
     contextual fix.
     """
+    # The FULL connector pane — node.terminals carries every terminal the heap
+    # serialized, wired AND unwired, each with its declared type. Mark wired
+    # status so the resolver can identify by the whole pane, not just the
+    # terminals that happen to have wires in this VI.
     terminals = [
         {
             "index": term.index,
             "direction": term.direction,
             "name": term.name,
             "type": term.lv_type.underlying_type if term.lv_type else None,
+            "wired": ctx.is_wired(term.id),
         }
         for term in node.terminals
     ]

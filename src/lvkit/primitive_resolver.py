@@ -28,7 +28,7 @@ class PrimitiveResolutionNeeded(Exception):
         self,
         prim_id: int | str,
         prim_name: str,
-        terminals: list[dict[str, str | int | None]],
+        terminals: list[dict[str, str | int | bool | None]],
         vi_name: str | None = None,
         qualified_vi_name: str | None = None,
     ):
@@ -52,13 +52,19 @@ class PrimitiveResolutionNeeded(Exception):
             msg += f"  In VI: {self.qualified_vi_name}\n"
         elif self.vi_name:
             msg += f"  In VI: {self.vi_name}\n"
-        msg += "  Wired terminals from graph:\n"
+        msg += (
+            "  Full connector pane (every terminal the heap serialized — wired\n"
+            "  AND unwired — with its declared type; identify by this whole\n"
+            "  signature, not just the wired ones):\n"
+        )
         for t in self.terminals:
             parts = [
                 f"index={t['index']}",
                 f"direction={t['direction']}",
                 f"type={t['type']}",
             ]
+            if "wired" in t:
+                parts.append("wired" if t["wired"] else "UNWIRED")
             if t.get("name"):
                 parts.append(f"name={t['name']}")
             msg += f"    - {' '.join(parts)}\n"

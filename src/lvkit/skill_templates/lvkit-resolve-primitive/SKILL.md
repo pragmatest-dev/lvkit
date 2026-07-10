@@ -37,7 +37,11 @@ Write down the EXACT diagnostic output:
 - Every terminal: index, direction, type
 - The VI name (and the qualified name if present — "In VI: ..." line)
 
-**IMPORTANT: Primitives only show WIRED terminals.** Unlike VIs (which show all connector pane terminals), primitives only include terminals that have wires connected. A primitive with 7 possible terminals may only show 5 in a given VI. When matching against documentation or source, the observed terminals are a SUBSET of the full terminal list. Match by the terminals you see, not by total count.
+**IMPORTANT: the heap carries the primitive's FULL connector pane — identify by it, not just wired terminals.** LabVIEW serializes EVERY terminal of a primitive in its `termList`, including UNWIRED ones, each with its own index, direction (from `objFlags`), and declared type (from its own `typeDesc`). So the full terminal count + per-terminal type signature ARE available in the parsed data (verified in-tree: prim 1302 carries an unwired output typed `NumUInt32`; prim 1056 an unwired output typed `NumFloat64`). This full connector-pane signature is the strongest discriminator — use it.
+
+**The `PrimitiveResolutionNeeded` diagnostic already lists this full pane.** It reports EVERY terminal — each marked `wired` or `UNWIRED` — with its index, direction, and declared type (the graph carries unwired terminals; the diagnostic does not drop them). So identify from the whole signature shown in the diagnostic: total terminal count + each terminal's direction + type. Do NOT match only the wired subset, and do NOT assume the count is short.
+
+For a **polymorphic/adaptive** primitive, an UNWIRED terminal may show its adapt/placeholder type rather than a concrete one — count, direction, and position stay reliable; concrete types come from the wired terminals.
 
 ## Step 2: Get more instances of this primResID
 
@@ -184,7 +188,7 @@ When you find a candidate page, use WebFetch to read the full Inputs/Outputs sec
 
 - The terminal TYPES match the actual types from Step 1
 - The terminal NAMES and DIRECTIONS match the documentation
-- The observed terminals are a SUBSET of the documented terminals (primitives only show wired terminals, not all possible ones)
+- The diagnostic lists the FULL connector pane (every terminal, each marked wired/UNWIRED, with its type) — the whole signature should match the documentation, not just the wired terminals.
 - The CONTEXT (Step 3) makes sense for what the function does
 
 If WebSearch is unavailable or returns nothing useful:
