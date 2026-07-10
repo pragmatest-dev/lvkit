@@ -752,17 +752,22 @@ def test_compound_arithmetic_renders_box_with_invert_bubble():
     # inverted=True terminals — see models.py's DCO objFlags bit 16 — so a
     # whole-SVG circle count would over-count) and its divider lines (1
     # vertical operator-cell divider + num_inputs-1 horizontal row dividers).
+    # The hidden ".lv-help" connector-pane panel redraws this SAME glyph a
+    # second time (as its small central icon — see draw.py's
+    # _draw_connector_pane), so it's sliced off before counting: this test
+    # is about the always-visible node markup, not its hover panel's copy.
     backend = SvgBackend()
     draw_node(render_node, backend, DEFAULT_THEME)
     node_svg = backend.render(render_node.bounds)
+    visible_svg = node_svg.split('<g class="lv-help"', 1)[0]
     stroke = f'stroke="{DEFAULT_THEME.prim_stroke}"'
     fill = f'fill="{DEFAULT_THEME.canvas}"'
     bubbles = re.findall(
         r'<circle[^>]*' + re.escape(fill) + r'[^>]*' + re.escape(stroke) + r'[^>]*/>',
-        node_svg,
+        visible_svg,
     )
     assert len(bubbles) == len(inverted_terminals)
-    dividers = re.findall(r"<line[^>]*/>", node_svg)
+    dividers = re.findall(r"<line[^>]*/>", visible_svg)
     assert len(dividers) == 1 + (num_inputs - 1)
 
 
@@ -1446,7 +1451,10 @@ def test_subvi_nodes_get_hover_tooltip_titles():
     # the SubVI name appears as a tooltip even though it's wrapped in the box
     # (root <title> is the VI name "In.vi"; "<title>DAQmx" can only be a node)
     assert "<title>DAQmx" in svg
-    assert re.search(r"<g>\s*<title>DAQmx", svg)
+    # Every tooltip-carrying node group also carries the "lv-node" CSS hook
+    # (see render/__init__.py's injected stylesheet) that reveals its
+    # connector-pane hover panel — replaces the bare "<g>" this used to be.
+    assert re.search(r'<g class="lv-node">\s*<title>DAQmx', svg)
 
 
 def test_case_vi_svg_is_well_formed_xml_standalone():

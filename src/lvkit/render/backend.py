@@ -245,6 +245,7 @@ class SvgBackend:
     def render(
         self, bounds: tuple[float, float, float, float], *, title: str | None = None,
         script: str | None = None, root_id: str | None = None,
+        style: str | None = None,
     ) -> str:
         """Wrap accumulated ops into a complete SVG document.
 
@@ -253,14 +254,17 @@ class SvgBackend:
         ``root_id``, when given, is set as the root ``<svg id=...>`` so
         inline ``script`` can scope its DOM queries to this one document
         (needed so multiple inlined SVGs on one HTML page don't collide).
-        ``script``, when given, is appended as an inline ``<script>`` right
-        before ``</svg>`` — author-controlled JS (the frame-toggle
-        controller), not escaped. Its body is wrapped in a comment-guarded
-        CDATA section (``/*<![CDATA[*/ … /*]]>*/``) so a standalone ``.svg``
-        (parsed as strict XML, where a ``<`` in the JS would be an invalid
-        start-tag) AND inline SVG in HTML (where the markers are just JS
-        comments) both parse. It must not contain a literal ``</script>`` or
-        the CDATA terminator ``]]>``.
+        ``style``, when given, is emitted as a ``<style>`` element (static,
+        author-controlled CSS — e.g. the ``.lv-node:hover`` connector-pane
+        reveal rule — not escaped) right after ``title``. ``script``, when
+        given, is appended as an inline ``<script>`` right before
+        ``</svg>`` — author-controlled JS (the frame-toggle controller),
+        not escaped. Its body is wrapped in a comment-guarded CDATA section
+        (``/*<![CDATA[*/ … /*]]>*/``) so a standalone ``.svg`` (parsed as
+        strict XML, where a ``<`` in the JS would be an invalid start-tag)
+        AND inline SVG in HTML (where the markers are just JS comments)
+        both parse. It must not contain a literal ``</script>`` or the
+        CDATA terminator ``]]>``.
         """
         x1, y1, x2, y2 = bounds
         w, h = x2 - x1, y2 - y1
@@ -270,6 +274,7 @@ class SvgBackend:
             f'{y1:.0f} {w:.0f} {h:.0f}" font-family="sans-serif">'
         )
         title_el = f"<title>{escape(title)}</title>" if title else None
+        style_el = f"<style>{style}</style>" if style else None
         script_el = None
         if script is not None:
             if "</script>" in script or "]]>" in script:
@@ -277,5 +282,5 @@ class SvgBackend:
                     "script must not contain a literal </script> or ]]>"
                 )
             script_el = f"<script>/*<![CDATA[*/\n{script}\n/*]]>*/</script>"
-        parts = [head, title_el, *self._elements, script_el, "</svg>"]
+        parts = [head, title_el, style_el, *self._elements, script_el, "</svg>"]
         return "\n".join(p for p in parts if p is not None)

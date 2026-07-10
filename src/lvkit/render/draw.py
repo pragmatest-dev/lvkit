@@ -33,6 +33,7 @@ from .scene import (
     RenderBorderTerminal,
     RenderNode,
     RenderStructure,
+    RenderTerminal,
     RenderWireNet,
     Scene,
     _exit_side,
@@ -132,10 +133,13 @@ def draw_node(node: RenderNode, backend: Backend, theme: Theme = DEFAULT_THEME) 
             )
     # A hover tooltip (SVG <title>) with the node's full identity — the
     # wrapped subVI box shows a possibly-truncated name, so the untruncated
-    # name on hover is the payoff (roadmap #12).
+    # name on hover is the payoff (roadmap #12). ``lv-node`` is the CSS hook
+    # (see render/__init__.py's injected stylesheet) that reveals this same
+    # node's ``.lv-help`` connector-pane panel on hover — the native <title>
+    # tooltip stays as a text fallback (e.g. no-CSS consumers).
     tooltip = _node_tooltip(node.node)
     if tooltip:
-        backend.begin_group(title=tooltip)
+        backend.begin_group(cls="lv-node", title=tooltip)
 
     node.glyph.draw(backend, bounds, theme)
     _draw_invert_bubbles(node, backend, theme)
@@ -155,18 +159,19 @@ def draw_node(node: RenderNode, backend: Backend, theme: Theme = DEFAULT_THEME) 
             backend.text((x1 + x2) / 2, y2 + 9, name, 8.0)
 
     if tooltip:
+        _draw_connector_pane(node, bounds, backend, theme)
         backend.end_group()
 
 
-def _node_tooltip(node: AnyGraphNode) -> str | None:
-    """Context-help hover text for a node: its identity, description (when
-    known), and its connector pane — every terminal with direction, type, and
-    label (when the heap carries one). Returns None for nodes without a useful
-    identity (constants show their value in-box already).
+def _node_identity(node: AnyGraphNode) -> tuple[str, str | None] | None:
+    """A node's (header, description) for context-help purposes — the shared
+    lookup behind both the text ``<title>`` tooltip and the visual connector-
+    pane panel. Returns None for nodes without a useful identity (constants
+    show their value in-box already).
 
-    A local variable MUST get its own title: without one the browser shows the
-    nearest ancestor ``<title>`` (the diagram's VI name), so every local var
-    would otherwise read as the VI itself.
+    A local variable MUST get its own header: without one the browser shows
+    the nearest ancestor ``<title>`` (the diagram's VI name), so every local
+    var would otherwise read as the VI itself.
     """
     header: str | None = None
     if isinstance(node, LocalVariableNode):
@@ -176,26 +181,58 @@ def _node_tooltip(node: AnyGraphNode) -> str | None:
         header = node.name or None
     if header is None:
         return None
+    desc = getattr(node, "description", None)
+    return header, (desc or None)
+
+
+def _node_tooltip(node: AnyGraphNode) -> str | None:
+    """Context-help hover text for a node: its identity, description (when
+    known), and its connector pane — every terminal with direction, type, and
+    label (when the heap carries one). Returns None for nodes without a useful
+    identity (constants show their value in-box already)."""
+    ident = _node_identity(node)
+    if ident is None:
+        return None
+    header, desc = ident
 
     lines = [header]
-    desc = getattr(node, "description", None)
     if desc:
         lines.append(desc)
     lines.extend(_terminal_help_lines(node))
     return "\n".join(lines)
 
 
+def _terminal_label(t: Terminal) -> str:
+    """A terminal's display label: the resolved def name (``display_name``,
+    e.g. "x"/"difference"), else a caller-side ``name`` if any, else
+    ``terminal N`` from its connector-pane index."""
+    return t.display_name or t.name or f"terminal {t.index}"
+
+
+def _terminal_is_informative(t: Terminal) -> bool:
+    """Whether a terminal is worth showing in context help. Skips pure EMPTY
+    connector-pane slots — a position with no label AND no meaningful type
+    (unwired, unnamed pane slots, e.g. a big DAQmx SubVI's spare terminals);
+    any labeled or typed terminal is kept."""
+    if t.display_name or t.name:
+        return True
+    ty = t.lv_type.to_python() if t.lv_type else None
+    return ty not in (None, "None", "Any")
+
+
 def _terminal_help_lines(node: AnyGraphNode) -> list[str]:
     """The node's connector pane as tooltip lines — inputs then outputs, each
-    ``label: type`` (label omitted → ``terminal N`` from its index). Types come
-    straight from the heap's stored terminal types (the FULL pane, wired or
-    not); labels are shown only when LabVIEW actually stored one."""
-    terms = getattr(node, "terminals", None) or []
+    ``label: type``. Empty pane slots (no label, no type) are omitted; labels
+    prefer the resolved def name, then a caller-side name, then ``terminal N``.
+    """
+    terms = [
+        t for t in (getattr(node, "terminals", None) or [])
+        if _terminal_is_informative(t)
+    ]
 
     def fmt(t: Terminal) -> str:
         ty = t.lv_type.to_python() if t.lv_type else "?"
-        label = t.display_name or t.name or f"terminal {t.index}"
-        return f"  {label}: {ty}"
+        return f"  {_terminal_label(t)}: {ty}"
 
     ins = sorted((t for t in terms if t.direction == "input"), key=lambda t: t.index)
     outs = sorted((t for t in terms if t.direction == "output"), key=lambda t: t.index)
@@ -207,6 +244,203 @@ def _terminal_help_lines(node: AnyGraphNode) -> list[str]:
         out.append("Outputs:")
         out += [fmt(t) for t in outs]
     return out
+
+
+# --------------------------------------------------------------------- #
+# Connector-pane hover panel (roadmap #40 front end) — matches the LabVIEW
+# Context Help window's own connector-pane diagram (verified against NI doc
+# screenshots: a "To Lower Case"-style 1-in/1-out and an "Add"-style 2-in/
+# 1-out): a small header (node name + description) ABOVE a compact, purely
+# horizontal diagram — INPUT labels stacked and right-aligned on the left,
+# short type-colored wire stubs, the node's OWN glyph (reused from draw_node,
+# scaled down) in the center, more stubs, then OUTPUT labels stacked and
+# left-aligned on the right. Hidden (``display:none``) until CSS reveals it
+# on ``.lv-node:hover`` (see render/__init__.py's injected stylesheet).
+# --------------------------------------------------------------------- #
+
+_PANE_STUB_LEN = 22.0    # stub-wire length, icon edge -> label
+_PANE_PAD = 6.0          # panel inner padding
+_PANE_TITLE_SIZE = 9.0
+_PANE_DESC_SIZE = 7.5
+_PANE_LABEL_SIZE = 7.5     # terminal name
+_PANE_TYPE_SIZE = 6.5      # terminal type — smaller/lighter, secondary info
+_PANE_TYPE_COLOR = "#777777"
+_PANE_MAX_LABEL_W = 110.0  # per-terminal name+type truncation width
+_PANE_MAX_HEADER_W = 220.0  # title/description truncation width
+_PANE_GAP_ABOVE = 6.0     # panel bottom -> node top gap
+_PANE_MIN_ROW_H = 14.0    # vertical spacing between stub rows
+_PANE_ICON_MIN_H = 20.0   # smallest the central icon is allowed to shrink to
+_PANE_ICON_MIN_W = 18.0
+_PANE_ICON_MAX_W = 50.0
+
+
+def _pane_terminal_sort_key(rt: RenderTerminal) -> tuple[int, float, int]:
+    """Top-to-bottom visual order: by the terminal's own heap ``termBounds``
+    y (NOT index/parmIndex, which is reversed from visual order — see
+    roadmap notes). Terminals with no bounds sort after those that have one,
+    ordered among themselves by index."""
+    if rt.bounds is not None:
+        return (0, rt.bounds[1], rt.terminal.index)
+    return (1, 0.0, rt.terminal.index)
+
+
+@dataclass(frozen=True)
+class _PaneRow:
+    """One terminal's fitted label pieces: the name (primary) and the
+    ``" (type)"`` suffix (secondary, drawn smaller/lighter) — kept separate
+    so each can be styled and right/left-aligned independently, per the
+    LabVIEW Context Help look ("x  (float)")."""
+
+    name: str
+    name_w: float
+    type_str: str
+    type_w: float
+    color: str
+    width: float
+
+    @property
+    def total_w(self) -> float:
+        return self.name_w + self.type_w
+
+
+def _pane_row(rt: RenderTerminal, backend: Backend, theme: Theme) -> _PaneRow:
+    t = rt.terminal
+    name = _terminal_label(t)
+    type_str = f" ({t.lv_type.to_python() if t.lv_type else '?'})"
+    name_w = backend.measure_text(name, _PANE_LABEL_SIZE)
+    type_w = backend.measure_text(type_str, _PANE_TYPE_SIZE)
+    if name_w + type_w > _PANE_MAX_LABEL_W:
+        # Type stays intact (short, meaningful); the name shrinks to fit.
+        avail = max(10.0, _PANE_MAX_LABEL_W - type_w)
+        name = fit_label(name, avail, backend, _PANE_LABEL_SIZE)
+        name_w = backend.measure_text(name, _PANE_LABEL_SIZE)
+    style = wire_style(t.lv_type, theme)
+    return _PaneRow(name, name_w, type_str, type_w, style.color, style.width)
+
+
+def _draw_connector_pane(
+    node: RenderNode, bounds: tuple[float, float, float, float],
+    backend: Backend, theme: Theme,
+) -> None:
+    """Draw the node's hidden connector-pane panel, positioned just
+    above-right of its drawn glyph ``bounds``. A no-op for nodes without a
+    context-help identity (matches ``_node_tooltip``'s gate — callers only
+    invoke this when a tooltip was drawn)."""
+    ident = _node_identity(node.node)
+    if ident is None:
+        return
+    header, desc = ident
+
+    ins = sorted(
+        (rt for rt in node.terminals
+         if rt.terminal.direction == "input"
+         and _terminal_is_informative(rt.terminal)),
+        key=_pane_terminal_sort_key,
+    )
+    outs = sorted(
+        (rt for rt in node.terminals
+         if rt.terminal.direction == "output"
+         and _terminal_is_informative(rt.terminal)),
+        key=_pane_terminal_sort_key,
+    )
+    in_rows = [_pane_row(rt, backend, theme) for rt in ins]
+    out_rows = [_pane_row(rt, backend, theme) for rt in outs]
+    left_w = max((r.total_w for r in in_rows), default=0.0)
+    right_w = max((r.total_w for r in out_rows), default=0.0)
+
+    # Row height grows to give the central icon a legible minimum height —
+    # a 1-row node (like "To Lower Case") gets a ~20px icon, not a squashed
+    # 14px sliver.
+    n_rows = max(len(ins), len(outs), 1)
+    row_h = max(_PANE_MIN_ROW_H, _PANE_ICON_MIN_H / n_rows)
+    diagram_h = n_rows * row_h
+
+    # The central icon is the node's OWN glyph (draw.py's resolver chain
+    # already picked it), scaled down but keeping its real aspect ratio —
+    # height pinned to the row span (so every stub lands flush on its edge),
+    # width derived from that same aspect ratio and clamped to a sane range.
+    bw, bh = bounds[2] - bounds[0], bounds[3] - bounds[1]
+    aspect = (bw / bh) if bh > 0 else 1.0
+    icon_h = diagram_h
+    icon_w = min(_PANE_ICON_MAX_W, max(_PANE_ICON_MIN_W, icon_h * aspect))
+
+    content_w = left_w + _PANE_STUB_LEN + icon_w + _PANE_STUB_LEN + right_w
+
+    full_title_w = backend.measure_text(header, _PANE_TITLE_SIZE)
+    inner_w = max(content_w, min(full_title_w, _PANE_MAX_HEADER_W))
+    full_desc_w = backend.measure_text(desc, _PANE_DESC_SIZE) if desc else 0.0
+    if desc:
+        inner_w = max(inner_w, min(full_desc_w, _PANE_MAX_HEADER_W))
+
+    title_line = (
+        header if full_title_w <= inner_w
+        else fit_label(header, inner_w, backend, _PANE_TITLE_SIZE)
+    )
+    desc_line = None
+    if desc:
+        desc_line = (
+            desc if full_desc_w <= inner_w
+            else fit_label(desc, inner_w, backend, _PANE_DESC_SIZE)
+        )
+
+    header_h = 11.0 + (11.0 if desc_line else 0.0)
+    panel_w = inner_w + 2 * _PANE_PAD
+    panel_h = header_h + _PANE_PAD + diagram_h + _PANE_PAD
+
+    x1, y1, _x2, _y2 = bounds
+    panel_x1 = x1
+    panel_x2 = panel_x1 + panel_w
+    panel_y2 = y1 - _PANE_GAP_ABOVE
+    panel_y1 = panel_y2 - panel_h
+
+    backend.begin_group(cls="lv-help", style="display:none")
+    backend.rect(
+        panel_x1, panel_y1, panel_x2, panel_y2,
+        fill=theme.canvas, stroke=theme.struct_border, stroke_width=1.0, rx=3,
+    )
+    cx = (panel_x1 + panel_x2) / 2
+    backend.text(
+        cx, panel_y1 + _PANE_PAD + 7.0, title_line, _PANE_TITLE_SIZE, bold=True,
+    )
+    if desc_line:
+        backend.text(cx, panel_y1 + _PANE_PAD + 18.0, desc_line, _PANE_DESC_SIZE)
+
+    # The diagram row (labels + stubs + icon) centers horizontally within the
+    # panel — it only spans the full width when the title/description isn't
+    # wider than the connector-pane content itself.
+    diagram_x0 = panel_x1 + _PANE_PAD + max(0.0, (inner_w - content_w) / 2)
+    icon_x1 = diagram_x0 + left_w + _PANE_STUB_LEN
+    icon_x2 = icon_x1 + icon_w
+    icon_y1 = panel_y1 + header_h + _PANE_PAD
+    icon_y2 = icon_y1 + icon_h
+    node.glyph.draw(backend, (icon_x1, icon_y1, icon_x2, icon_y2), theme)
+
+    for i, row in enumerate(in_rows):
+        y = icon_y1 + row_h / 2 + i * row_h
+        backend.path(
+            [(icon_x1, y), (icon_x1 - _PANE_STUB_LEN, y)],
+            stroke=row.color, stroke_width=row.width,
+        )
+        label_end = icon_x1 - _PANE_STUB_LEN - 3.0
+        ty = y + _PANE_LABEL_SIZE * 0.35
+        backend.text(label_end, ty, row.type_str, _PANE_TYPE_SIZE,
+                     fill=_PANE_TYPE_COLOR, anchor="end")
+        backend.text(label_end - row.type_w, ty, row.name, _PANE_LABEL_SIZE,
+                     anchor="end")
+
+    for i, row in enumerate(out_rows):
+        y = icon_y1 + row_h / 2 + i * row_h
+        backend.path(
+            [(icon_x2, y), (icon_x2 + _PANE_STUB_LEN, y)],
+            stroke=row.color, stroke_width=row.width,
+        )
+        label_start = icon_x2 + _PANE_STUB_LEN + 3.0
+        ty = y + _PANE_LABEL_SIZE * 0.35
+        backend.text(label_start, ty, row.name, _PANE_LABEL_SIZE, anchor="start")
+        backend.text(label_start + row.name_w, ty, row.type_str, _PANE_TYPE_SIZE,
+                     fill=_PANE_TYPE_COLOR, anchor="start")
+
+    backend.end_group()
 
 
 def _draw_border_terminal(

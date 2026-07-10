@@ -44,6 +44,20 @@ def _root_id(vi_name: str) -> str:
 # and ``data-lv-value`` (a menu option) off the clicked target. Scoped to this
 # SVG's own root id and guarded against double-init so a page embedding many
 # SVGs is safe. No Math.random()/Date.
+# Connector-pane hover reveal (roadmap #40 front end): every drawn node is
+# wrapped in a ``.lv-node`` group carrying a child ``.lv-help`` group (the
+# LabVIEW-Context-Help-style panel — see draw.py::_draw_connector_pane),
+# hidden by default. Pure CSS, no JS: `:hover` reveals it. `!important`
+# beats the inline `display:none` written on the group itself (its only
+# purpose is to hide it from non-hover renders/screenshots).
+# `pointer-events:none` on the panel keeps it from stealing hover off the
+# node underneath it (it can visually sit over sibling nodes; see draw.py).
+_CONNECTOR_PANE_CSS = (
+    ".lv-node:hover .lv-help{display:block !important}"
+    ".lv-help{pointer-events:none}"
+)
+
+
 _FRAME_CONTROLLER_JS = """(function() {
   var root = document.getElementById(__ROOT_ID__);
   if (!root || root.__lvInit) return;
@@ -127,8 +141,9 @@ def render_vi(graph: InMemoryVIGraph, vi_name: str) -> str | None:
         script = _FRAME_CONTROLLER_JS.replace("__ROOT_ID__", json.dumps(root_id))
         return backend.render(
             scene.bounds, title=vi_name, script=script, root_id=root_id,
+            style=_CONNECTOR_PANE_CSS,
         )
-    return backend.render(scene.bounds, title=vi_name)
+    return backend.render(scene.bounds, title=vi_name, style=_CONNECTOR_PANE_CSS)
 
 
 def render_vi_file(
