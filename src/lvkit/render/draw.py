@@ -194,7 +194,7 @@ def _terminal_help_lines(node: AnyGraphNode) -> list[str]:
 
     def fmt(t: Terminal) -> str:
         ty = t.lv_type.to_python() if t.lv_type else "?"
-        label = t.name or f"terminal {t.index}"
+        label = t.display_name or t.name or f"terminal {t.index}"
         return f"  {label}: {ty}"
 
     ins = sorted((t for t in terms if t.direction == "input"), key=lambda t: t.index)

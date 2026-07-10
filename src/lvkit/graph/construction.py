@@ -624,6 +624,20 @@ class ConstructionMixin:
                     known_terminals,
                 )
 
+            # Surface the resolved definition's terminal NAMES (primitives.json
+            # / node-type / vilib) as a DISPLAY-ONLY label, keyed by the
+            # (now-resolved) connector-pane index. Kept separate from ``name``
+            # because ``name`` feeds codegen variable naming — this must not
+            # change generated code. Feeds the connector-pane hover, the
+            # <title> tooltip, and describe (real "x"/"y"/"difference" instead
+            # of "terminal N"); the caller almost never labels a primitive's
+            # terminals, so without this they are anonymous.
+            known_names: dict[int, str] = {}
+            if known_terminals:
+                for kt in known_terminals:
+                    if kt.name and kt.index is not None:
+                        known_names[kt.index] = kt.name
+
             node_terminals: list[Terminal] = []
             for term_uid, t_info, lv_type in raw_terms:
                 q_term_uid = self._qid(vi_name, term_uid)
@@ -632,6 +646,7 @@ class ConstructionMixin:
                     index=t_info.index,
                     direction="output" if t_info.is_output else "input",
                     name=t_info.name,
+                    display_name=t_info.name or known_names.get(t_info.index),
                     lv_type=lv_type,
                     inverted=t_info.inverted,
                 )

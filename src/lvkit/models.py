@@ -143,6 +143,11 @@ class Terminal(BaseModel):
     index: int
     direction: str  # "input" or "output"
     name: str | None = None
+    # Display-only label (resolved def's terminal name, e.g. "x"/"difference").
+    # Separate from ``name`` because ``name`` drives codegen variable naming;
+    # this must never change generated code. Used by the renderer's connector-
+    # pane hover / tooltip and by describe. See graph/construction.py.
+    display_name: str | None = None
     lv_type: LVType | None = None
     var_name: str | None = None  # set during codegen
     nmux_role: str | None = None  # "agg" or "list"
