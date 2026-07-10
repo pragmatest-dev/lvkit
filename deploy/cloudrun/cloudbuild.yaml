@@ -27,3 +27,8 @@ substitutions:
   _IMAGE: gcr.io/PROJECT_ID/lvkit-render
   _REGION: us-central1
 images: ["${_IMAGE}"]
+# New projects default Cloud Build to the Compute Engine service account, whose
+# builds fail against the default regional logs bucket — pin logging so the
+# first build on a fresh project succeeds without extra bucket/SA setup.
+options:
+  logging: CLOUD_LOGGING_ONLY

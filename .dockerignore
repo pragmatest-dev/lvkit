@@ -1,0 +1,29 @@
+# Build context for the Cloud Run image needs only the installable package
+# (pyproject.toml + README.md + src/lvkit) and deploy/cloudrun. Everything below
+# is excluded so `COPY . /src` doesn't bake in ~1.5G of samples/outputs/git.
+.git
+.gitignore
+.venv
+venv
+samples/
+outputs/
+tests/
+experiments/
+scripts/
+docs/
+*.pdf
+.tmp/
+.tmp_sweep.py
+.claude/
+.github/
+node_modules/
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.pyright/
+*.egg-info/
+dist/
+build/
