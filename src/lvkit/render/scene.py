@@ -31,6 +31,7 @@ from ..models import (
 )
 from .backend import SvgBackend
 from .glyph import ArithGlyph, Glyph, wrap_label
+from .lane_pass import BranchCtx, apply_lane_pass
 from .layout import Layout, Point, Rect, build_layout
 from .nodes import GlyphContext, resolve_glyph, string_const_display
 from .style import WireStyle, numeric_repr, type_family, wire_style
@@ -885,6 +886,10 @@ def _build_wire_nets(
         return entry
 
     nets: list[RenderWireNet] = []
+    # (net index in `nets`, branch index) -> the obstacle/owner/confinement
+    # context that branch was routed against, so the lane pass can reject any
+    # offset that would violate the router's own obstacle/containment rules.
+    branch_ctx: dict[tuple[int, int], BranchCtx] = {}
     for key in order:
         src_key, path = key
         group = by_group[key]
@@ -960,6 +965,16 @@ def _build_wire_nets(
             # collinear with the first/last leg) so we don't add kinks LabVIEW
             # wouldn't draw.
             branches.append(_compress([src_center, *mid, dst_center]))
+            # Same obstacle/owner/confinement this branch was routed against,
+            # keyed for the lane pass. net_index = len(nets) (this net is
+            # appended after the group loop, so it will occupy that slot).
+            branch_ctx[(len(nets), len(branches) - 1)] = BranchCtx(
+                obstacles=tuple(obstacles),
+                owners=tuple(o for o in (src_owner, dst_owner) if o is not None),
+                confine=confine,
+                src_border=src_border,
+                dst_border=dst_border,
+            )
 
             # Coercion dot ONLY on a numeric-representation change (I32->DBL),
             # never a structural one (array->element at an auto-index tunnel).
@@ -974,15 +989,21 @@ def _build_wire_nets(
             source_term.lv_type if source_term else None, dest_types,
         )
         style = wire_style(carrier)
-        # Junction dots deferred to Phase B: true trunk-and-branch dots need the
-        # router to merge branches onto shared trunks first (the parked nudging
-        # pass). Until then there are almost no mid-wire forks to mark, so the
-        # ``junctions`` field is left empty rather than dotting the source stub.
+        # Junction dots are populated below by the lane-assignment pass,
+        # from the REBUILT geometry (a real shared trunk run), not guessed
+        # here at the source stub.
         nets.append(RenderWireNet(
             source=group[0], style=style, branches=branches,
             coercion_dots=coercion_dots, frame_path=path,
         ))
-    return nets
+
+    # Post-routing interval-coloring lane-assignment pass (see lane_pass.py):
+    # nudges only the segments that genuinely conflict with a DIFFERENT
+    # net's segment on the same track into separate lanes; same-net branches
+    # keep sharing a lane (and get a junction dot where they diverge).
+    # Routing itself (above) is unchanged -- this only repositions the
+    # already-routed polylines.
+    return apply_lane_pass(nets, branch_ctx)
 
 
 _NUMERIC_RANK = {

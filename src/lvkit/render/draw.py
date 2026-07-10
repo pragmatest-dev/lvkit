@@ -726,6 +726,8 @@ def _draw_layer_content(
                              stroke_width=net.style.width + 2 * casing)
         for branch in net.branches:
             backend.path(branch, stroke=net.style.color, stroke_width=net.style.width)
+        for jx, jy in net.junctions:
+            backend.circle(jx, jy, 3.0, fill=net.style.color)
 
     # Pass 2 — structure OUTLINES + selector chrome, then boundary terminals
     # (tunnels/SR/N-i), all ON TOP of the wires.
