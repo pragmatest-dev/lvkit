@@ -1026,6 +1026,39 @@ def _arith_coercion_dots(render_nodes: list[RenderNode]) -> list[RenderCoercionD
     return dots
 
 
+def _drawn_bounds(
+    nodes: list[RenderNode],
+    structures: list[RenderStructure],
+    fp_terminals: list[RenderFPTerminal],
+    wire_nets: list[RenderWireNet],
+    pad: float = 30.0,
+) -> Rect | None:
+    """Padded bbox over everything actually DRAWN — rendered node/structure/
+    border-terminal/FP rects plus every routed wire point. The SVG viewBox.
+    Excludes unrendered layout rects (see ``layout.scene_bounds``), so the view
+    crops to real content. Returns None when nothing is drawn."""
+    xs: list[float] = []
+    ys: list[float] = []
+    for rn in nodes:
+        xs += [rn.bounds[0], rn.bounds[2]]
+        ys += [rn.bounds[1], rn.bounds[3]]
+    for rs in structures:
+        for b in (rs.bounds, *(bt.bounds for bt in rs.border_terminals)):
+            xs += [b[0], b[2]]
+            ys += [b[1], b[3]]
+    for fp in fp_terminals:
+        xs += [fp.bounds[0], fp.bounds[2]]
+        ys += [fp.bounds[1], fp.bounds[3]]
+    for net in wire_nets:
+        for branch in net.branches:
+            for x, y in branch:
+                xs.append(x)
+                ys.append(y)
+    if not xs:
+        return None
+    return (min(xs) - pad, min(ys) - pad, max(xs) + pad, max(ys) + pad)
+
+
 def build_scene(graph: InMemoryVIGraph, vi_name: str) -> Scene | None:
     """Build a ``Scene`` for one VI by joining graph semantics to heap
     geometry. Returns None (fail-closed) if required geometry is missing —
@@ -1170,8 +1203,18 @@ def build_scene(graph: InMemoryVIGraph, vi_name: str) -> Scene | None:
             if shown is not None and str(shown) in frame_values.get(raw, []):
                 default_frame[raw] = str(shown)
 
+    # Tight viewBox: the bbox of everything actually DRAWN (rendered elements +
+    # routed wires), padded. ``layout.scene_bounds()`` is computed from raw
+    # layout rects that include UNRENDERED stray elements, which inflate the
+    # canvas with empty margin. This crops the SVG view to the real content.
+    # Computed HERE, after routing, so the router still confined wires to the
+    # loose ``scene_bounds`` — routes are byte-identical; only the view crops in.
+    view_bounds = _drawn_bounds(
+        render_nodes, structures, fp_terminals, wire_nets,
+    ) or scene_bounds
+
     return Scene(
-        bounds=scene_bounds,
+        bounds=view_bounds,
         fp_terminals=fp_terminals,
         nodes=render_nodes,
         structures=structures,
