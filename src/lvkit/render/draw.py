@@ -110,6 +110,24 @@ def _inset(bounds, frac: float = 0.075):
     dx, dy = (x2 - x1) * frac, (y2 - y1) * frac
     return x1 + dx, y1 + dy, x2 - dx, y2 - dy
 
+def _glyph_bounds(node: RenderNode) -> tuple[float, float, float, float]:
+    """The rect a node's glyph is ACTUALLY drawn at — same special case as
+    ``draw_node`` for arithmetic primitives (see its docstring): the union of
+    terminal ``termBounds``, not the full 32x32 clickable box. Shared with
+    the connector-panel drawer (``_draw_connector_panel``) so the panel's
+    terminal geometry (fx/fy) is computed against the SAME rect the glyph is
+    actually drawn in, not a different one."""
+    bounds = node.bounds
+    if isinstance(node.glyph, ArithGlyph):
+        rects = [t.bounds for t in node.terminals if t.bounds is not None]
+        if rects:
+            bounds = (
+                min(r[0] for r in rects), min(r[1] for r in rects),
+                max(r[2] for r in rects), max(r[3] for r in rects),
+            )
+    return bounds
+
+
 def draw_node(node: RenderNode, backend: Backend, theme: Theme = DEFAULT_THEME) -> None:
     """Draw one node's already-resolved ``Glyph`` (see ``nodes.py``'s
     resolver chain — extending node visuals never touches this function).
@@ -123,23 +141,19 @@ def draw_node(node: RenderNode, backend: Backend, theme: Theme = DEFAULT_THEME) 
     guessed size and no leftward drift. Other primitives (e.g. bracket/build-
     array glyphs) are drawn at their node bounds. Real subVI/prim icons and
     constants keep their own bounds."""
-    bounds = node.bounds
-    if isinstance(node.glyph, ArithGlyph):
-        rects = [t.bounds for t in node.terminals if t.bounds is not None]
-        if rects:
-            bounds = (
-                min(r[0] for r in rects), min(r[1] for r in rects),
-                max(r[2] for r in rects), max(r[3] for r in rects),
-            )
+    bounds = _glyph_bounds(node)
     # A hover tooltip (SVG <title>) with the node's full identity — the
     # wrapped subVI box shows a possibly-truncated name, so the untruncated
-    # name on hover is the payoff (roadmap #12). ``lv-node`` is the CSS hook
-    # (see render/__init__.py's injected stylesheet) that reveals this same
-    # node's ``.lv-help`` connector-pane panel on hover — the native <title>
-    # tooltip stays as a text fallback (e.g. no-CSS consumers).
+    # name on hover is the payoff (roadmap #12). ``lv-node`` + ``data-node``
+    # are the JS hooks (see render/__init__.py's injected hover script) that
+    # reveal this same node's ``.lv-help`` connector-panel — drawn separately,
+    # in a top-level overlay group, by ``draw_help_overlay`` (see scene.py's
+    # ``draw_scene``) so it always paints over every other diagram element,
+    # not just this node's later siblings. The native <title> tooltip stays
+    # as a text fallback (e.g. no-JS consumers).
     tooltip = _node_tooltip(node.node)
     if tooltip:
-        backend.begin_group(cls="lv-node", title=tooltip)
+        backend.begin_group(cls="lv-node", data={"node": node.node.id}, title=tooltip)
 
     node.glyph.draw(backend, bounds, theme)
     _draw_invert_bubbles(node, backend, theme)
@@ -159,7 +173,6 @@ def draw_node(node: RenderNode, backend: Backend, theme: Theme = DEFAULT_THEME) 
             backend.text((x1 + x2) / 2, y2 + 9, name, 8.0)
 
     if tooltip:
-        _draw_connector_pane(node, bounds, backend, theme)
         backend.end_group()
 
 
@@ -247,50 +260,66 @@ def _terminal_help_lines(node: AnyGraphNode) -> list[str]:
 
 
 # --------------------------------------------------------------------- #
-# Connector-pane hover panel (roadmap #40 front end) — matches the LabVIEW
-# Context Help window's own connector-pane diagram (verified against NI doc
-# screenshots: a "To Lower Case"-style 1-in/1-out and an "Add"-style 2-in/
-# 1-out): a small header (node name + description) ABOVE a compact, purely
-# horizontal diagram — INPUT labels stacked and right-aligned on the left,
-# short type-colored wire stubs, the node's OWN glyph (reused from draw_node,
-# scaled down) in the center, more stubs, then OUTPUT labels stacked and
-# left-aligned on the right. Hidden (``display:none``) until CSS reveals it
-# on ``.lv-node:hover`` (see render/__init__.py's injected stylesheet).
+# Connector-pane hover panel (roadmap #40 front end) — a labeled MAP of the
+# node exactly as drawn on the diagram, not an abstracted in/out list: every
+# terminal is placed at its own true ``(fx, fy)`` position on a scaled copy
+# of the node's own glyph (from its real heap ``termBounds``, via
+# ``_term_side_and_frac``), with a short type-colored stub routed OUTWARD
+# from the nearest edge to its label. So an Add's output (apex, fx≈1) gets a
+# right-going stub, a bottom-edge terminal gets a downward one — the panel's
+# geometry matches the node's, which is the entire point (a wire hitting the
+# top-left of a node reads as "the top-left label" in the panel, not
+# "somewhere in a stacked input list").
+#
+# Every panel is drawn in this function into its own small ``<g class=
+# "lv-help" data-node="...">``, laid out in LOCAL coordinates near the
+# origin (position/visibility is applied at runtime by JS — see
+# render/__init__.py's injected hover script). Panels are collected and
+# emitted in ONE overlay pass, after every other layer (``draw_help_overlay``,
+# called last by ``scene.py``'s ``draw_scene``), so a panel always paints
+# over the rest of the diagram regardless of node draw order. The native
+# ``<title>`` tooltip (``_node_tooltip``) stays as a text-only fallback.
 # --------------------------------------------------------------------- #
 
-_PANE_STUB_LEN = 22.0    # stub-wire length, icon edge -> label
-_PANE_PAD = 6.0          # panel inner padding
+_PANE_PAD = 6.0            # panel inner padding
 _PANE_TITLE_SIZE = 9.0
 _PANE_DESC_SIZE = 7.5
-_PANE_LABEL_SIZE = 7.5     # terminal name
-_PANE_TYPE_SIZE = 6.5      # terminal type — smaller/lighter, secondary info
+_PANE_LABEL_SIZE = 7.5      # terminal name
+_PANE_TYPE_SIZE = 6.5       # terminal type — smaller/lighter, secondary info
 _PANE_TYPE_COLOR = "#777777"
-_PANE_MAX_LABEL_W = 110.0  # per-terminal name+type truncation width
+_PANE_MAX_LABEL_W = 130.0   # per-terminal name+type truncation width
 _PANE_MAX_HEADER_W = 220.0  # title/description truncation width
-_PANE_GAP_ABOVE = 6.0     # panel bottom -> node top gap
-_PANE_MIN_ROW_H = 14.0    # vertical spacing between stub rows
-_PANE_ICON_MIN_H = 20.0   # smallest the central icon is allowed to shrink to
-_PANE_ICON_MIN_W = 18.0
-_PANE_ICON_MAX_W = 50.0
 
+_PANE_STUB_OUT = 12.0       # straight run out of the icon edge, before a jog
+_PANE_STUB_FULL = 20.0      # full stub length, icon edge -> label anchor
+_PANE_TEXT_GAP = 3.0        # label anchor -> first glyph of text
+_PANE_STUB_MARGIN = _PANE_STUB_FULL + _PANE_TEXT_GAP  # edge -> text start
 
-def _pane_terminal_sort_key(rt: RenderTerminal) -> tuple[int, float, int]:
-    """Top-to-bottom visual order: by the terminal's own heap ``termBounds``
-    y (NOT index/parmIndex, which is reversed from visual order — see
-    roadmap notes). Terminals with no bounds sort after those that have one,
-    ordered among themselves by index."""
-    if rt.bounds is not None:
-        return (0, rt.bounds[1], rt.terminal.index)
-    return (1, 0.0, rt.terminal.index)
+_PANE_ROW_MIN_GAP = 11.0    # min vertical spacing between left/right labels
+_PANE_ROW_HALF = _PANE_LABEL_SIZE / 2 + 2.0  # vertical pad around a label row
+_PANE_COL_PAD = 6.0         # min horizontal padding between top/bottom labels
+_PANE_LINE_H = _PANE_LABEL_SIZE + 2.0  # one text line's height (top/bottom)
+
+_PANE_ICON_TARGET = 60.0    # target longer-side px for the scaled icon
+_PANE_ICON_MIN = 18.0
+_PANE_ICON_MAX = 90.0
+
+# fx/fy classification -> the outward unit normal a terminal's stub exits on.
+_SIDE_NORMAL: dict[str, Point] = {
+    "left": (-1.0, 0.0), "right": (1.0, 0.0),
+    "top": (0.0, -1.0), "bottom": (0.0, 1.0),
+}
 
 
 @dataclass(frozen=True)
-class _PaneRow:
-    """One terminal's fitted label pieces: the name (primary) and the
-    ``" (type)"`` suffix (secondary, drawn smaller/lighter) — kept separate
-    so each can be styled and right/left-aligned independently, per the
-    LabVIEW Context Help look ("x  (float)")."""
+class _PaneLabel:
+    """One terminal's fitted label pieces (name + a smaller/lighter
+    ``" (type)"`` suffix) plus its wire-color stub style and its true
+    ``(side, frac)`` position on the node's own glyph — see
+    ``_term_side_and_frac``."""
 
+    side: str
+    frac: float  # fy for left/right, fx for top/bottom — in [0, 1]
     name: str
     name_w: float
     type_str: str
@@ -303,7 +332,46 @@ class _PaneRow:
         return self.name_w + self.type_w
 
 
-def _pane_row(rt: RenderTerminal, backend: Backend, theme: Theme) -> _PaneRow:
+def _term_side_and_frac(
+    rt: RenderTerminal, bounds: tuple[float, float, float, float],
+) -> tuple[str, float]:
+    """A terminal's TRUE side + normalized position along that side, from
+    which EDGE of the node's drawn ``bounds`` its own heap ``termBounds`` rect
+    lines up against — NOT the nearest edge to its center.
+
+    LabVIEW connector-pane rule (given by the user, verified against heap
+    ``termBounds``): a terminal that lines the LEFT or RIGHT edge is wired
+    HORIZONTALLY, even when it also sits high or low (a corner terminal — e.g.
+    Compound Arithmetic's top-left input, or Select's three left-column
+    inputs). Only a terminal strictly BETWEEN the left/right columns — flush to
+    the TOP or BOTTOM edge and inset from both sides — wires vertically (e.g.
+    Scan From String's top input string). So horizontal wins ties: compare the
+    smaller left/right gap to the smaller top/bottom gap; the terminal's rect
+    edge, not its center, measures each gap.
+
+    Falls back to a direction-based side (input->left, output->right) at the
+    mid-point when the terminal has no ``termBounds`` (no heap geometry) or the
+    node's box is degenerate — geometry we don't have, not geometry we guess."""
+    x1, y1, x2, y2 = bounds
+    bw, bh = x2 - x1, y2 - y1
+    if rt.bounds is not None and bw > 0 and bh > 0:
+        tx1, ty1, tx2, ty2 = rt.bounds
+        # Gap from the terminal's own rect edge to each icon edge; ~0 means the
+        # terminal "lines" that edge.
+        gl, gr = tx1 - x1, x2 - tx2
+        gt, gb = ty1 - y1, y2 - ty2
+        tcx, tcy = (tx1 + tx2) / 2, (ty1 + ty2) / 2
+        fx = min(1.0, max(0.0, (tcx - x1) / bw))
+        fy = min(1.0, max(0.0, (tcy - y1) / bh))
+        if min(gl, gr) <= min(gt, gb):  # horizontal wins ties
+            return ("left" if gl <= gr else "right"), fy
+        return ("top" if gt <= gb else "bottom"), fx
+    side = "right" if rt.terminal.direction == "output" else "left"
+    return side, 0.5
+
+
+def _pane_label(rt: RenderTerminal, side: str, frac: float,
+                 backend: Backend, theme: Theme) -> _PaneLabel:
     t = rt.terminal
     name = _terminal_label(t)
     type_str = f" ({t.lv_type.to_python() if t.lv_type else '?'})"
@@ -315,63 +383,174 @@ def _pane_row(rt: RenderTerminal, backend: Backend, theme: Theme) -> _PaneRow:
         name = fit_label(name, avail, backend, _PANE_LABEL_SIZE)
         name_w = backend.measure_text(name, _PANE_LABEL_SIZE)
     style = wire_style(t.lv_type, theme)
-    return _PaneRow(name, name_w, type_str, type_w, style.color, style.width)
+    return _PaneLabel(
+        side, frac, name, name_w, type_str, type_w, style.color, style.width,
+    )
 
 
-def _draw_connector_pane(
-    node: RenderNode, bounds: tuple[float, float, float, float],
-    backend: Backend, theme: Theme,
-) -> None:
-    """Draw the node's hidden connector-pane panel, positioned just
-    above-right of its drawn glyph ``bounds``. A no-op for nodes without a
-    context-help identity (matches ``_node_tooltip``'s gate — callers only
-    invoke this when a tooltip was drawn)."""
+def _spread_1d(values: list[float], min_gaps: list[float]) -> list[float]:
+    """Nudge sorted ``values`` apart so consecutive entries are at least
+    ``min_gaps[i]`` (the gap required BEFORE entry ``i``, i>=1) apart, then
+    re-centers the whole run on its original mean so one crowded pair
+    doesn't drag the group toward one end. Pure function of its inputs —
+    deterministic (no set/dict iteration, no hashing) so panel layout is
+    byte-reproducible across runs/hash seeds."""
+    if not values:
+        return []
+    out = list(values)
+    for i in range(1, len(out)):
+        floor = out[i - 1] + min_gaps[i]
+        if out[i] < floor:
+            out[i] = floor
+    shift = sum(v - o for v, o in zip(values, out)) / len(values)
+    out = [o + shift for o in out]
+    for i in range(1, len(out)):
+        floor = out[i - 1] + min_gaps[i]
+        if out[i] < floor - 1e-9:
+            out[i] = floor
+    return out
+
+
+def _pane_stub_points(edge: Point, side: str, final_perp: float) -> list[Point]:
+    """Path points for one terminal's stub, routed like real LabVIEW wiring:
+    it ORIGINATES at the terminal's true edge point and runs ORTHOGONALLY
+    (horizontal/vertical segments only — never a diagonal) out to its label
+    slot. When the label sits exactly on the terminal's own edge fraction the
+    stub is a single straight run; when the label was spread apart for
+    legibility (see ``_spread_1d``) the stub becomes a proper elbow/Z —
+    out along the side normal, across to the label's row/column, then in to
+    the label anchor. The kinks are expected: that's how LabVIEW wires look,
+    and they keep every stub visibly terminating at the REAL geometry even
+    when its label is offset. ``final_perp`` is the label's y (left/right
+    sides) or x (top/bottom sides) in ``edge``'s local coordinate space."""
+    ex, ey = edge
+    if side in ("left", "right"):
+        nx = _SIDE_NORMAL[side][0]
+        x_out = ex + nx * _PANE_STUB_OUT
+        x_end = ex + nx * _PANE_STUB_FULL
+        if abs(final_perp - ey) < 0.5:
+            return [edge, (x_end, ey)]
+        # horizontal out, vertical across to the label row, horizontal to anchor
+        return [edge, (x_out, ey), (x_out, final_perp), (x_end, final_perp)]
+    ny = _SIDE_NORMAL[side][1]
+    y_out = ey + ny * _PANE_STUB_OUT
+    y_end = ey + ny * _PANE_STUB_FULL
+    if abs(final_perp - ex) < 0.5:
+        return [edge, (ex, y_end)]
+    # vertical out, horizontal across to the label column, vertical to anchor
+    return [edge, (ex, y_out), (final_perp, y_out), (final_perp, y_end)]
+
+
+def _draw_connector_panel(node: RenderNode, backend: Backend, theme: Theme) -> None:
+    """Draw one node's hidden, hover-revealed connector panel: a labeled map
+    of the node's own glyph with every terminal at its TRUE position (see
+    module docstring above). A no-op for nodes without a context-help
+    identity (matches ``_node_tooltip``'s gate)."""
     ident = _node_identity(node.node)
     if ident is None:
         return
     header, desc = ident
 
-    ins = sorted(
-        (rt for rt in node.terminals
-         if rt.terminal.direction == "input"
-         and _terminal_is_informative(rt.terminal)),
-        key=_pane_terminal_sort_key,
-    )
-    outs = sorted(
-        (rt for rt in node.terminals
-         if rt.terminal.direction == "output"
-         and _terminal_is_informative(rt.terminal)),
-        key=_pane_terminal_sort_key,
-    )
-    in_rows = [_pane_row(rt, backend, theme) for rt in ins]
-    out_rows = [_pane_row(rt, backend, theme) for rt in outs]
-    left_w = max((r.total_w for r in in_rows), default=0.0)
-    right_w = max((r.total_w for r in out_rows), default=0.0)
+    bounds = _glyph_bounds(node)
+    x1, y1, x2, y2 = bounds
+    bw, bh = max(1e-6, x2 - x1), max(1e-6, y2 - y1)
 
-    # Row height grows to give the central icon a legible minimum height —
-    # a 1-row node (like "To Lower Case") gets a ~20px icon, not a squashed
-    # 14px sliver.
-    n_rows = max(len(ins), len(outs), 1)
-    row_h = max(_PANE_MIN_ROW_H, _PANE_ICON_MIN_H / n_rows)
-    diagram_h = n_rows * row_h
+    sided: dict[str, list[_PaneLabel]] = {
+        "left": [], "right": [], "top": [], "bottom": [],
+    }
+    # Terminals sharing an identical ``termBounds`` rect occupy ONE connector-
+    # pane slot: a growable node (e.g. Scan From String) stores the slot
+    # position once on the input-default half, and the wired output half
+    # inherits it, so both alias to the same rect. They cannot both sit on that
+    # one point and we lack the output's own geometry — so place each co-located
+    # terminal by its KNOWN graph direction (input->left, output->right)
+    # instead of the shared rect, keeping the geometric ``frac`` for its height
+    # along that side. De-collides the pair AND puts the wired output on its
+    # correct side.
+    seen_rects: set[tuple[float, float, float, float]] = set()
+    shared_rects: set[tuple[float, float, float, float]] = set()
+    for rt in node.terminals:
+        if rt.bounds is not None:
+            (shared_rects if rt.bounds in seen_rects else seen_rects).add(rt.bounds)
+    for rt in node.terminals:
+        if not _terminal_is_informative(rt.terminal):
+            continue
+        side, frac = _term_side_and_frac(rt, bounds)
+        if rt.bounds is not None and rt.bounds in shared_rects:
+            side = "right" if rt.terminal.direction == "output" else "left"
+        sided[side].append(_pane_label(rt, side, frac, backend, theme))
+    for labels in sided.values():
+        labels.sort(key=lambda lb: lb.frac)
 
-    # The central icon is the node's OWN glyph (draw.py's resolver chain
-    # already picked it), scaled down but keeping its real aspect ratio —
-    # height pinned to the row span (so every stub lands flush on its edge),
-    # width derived from that same aspect ratio and clamped to a sane range.
-    bw, bh = bounds[2] - bounds[0], bounds[3] - bounds[1]
-    aspect = (bw / bh) if bh > 0 else 1.0
-    icon_h = diagram_h
-    icon_w = min(_PANE_ICON_MAX_W, max(_PANE_ICON_MIN_W, icon_h * aspect))
+    # Icon: the node's OWN glyph, uniformly scaled to a legible size,
+    # preserving its real aspect ratio (never distorted, never a fixed box).
+    long_side = max(bw, bh)
+    scale = _PANE_ICON_TARGET / long_side
+    icon_w, icon_h = bw * scale, bh * scale
+    if max(icon_w, icon_h) > _PANE_ICON_MAX:
+        s = _PANE_ICON_MAX / max(icon_w, icon_h)
+        icon_w, icon_h = icon_w * s, icon_h * s
+    if min(icon_w, icon_h) < _PANE_ICON_MIN:
+        s = _PANE_ICON_MIN / max(1e-6, min(icon_w, icon_h))
+        icon_w, icon_h = icon_w * s, icon_h * s
 
-    content_w = left_w + _PANE_STUB_LEN + icon_w + _PANE_STUB_LEN + right_w
+    # Left/right: labels stack VERTICALLY at their true icon-relative height
+    # (fy * icon_h), separated just enough to stay legible.
+    left_y0 = [lb.frac * icon_h for lb in sided["left"]]
+    right_y0 = [lb.frac * icon_h for lb in sided["right"]]
+    left_y = _spread_1d(left_y0, [_PANE_ROW_MIN_GAP] * len(left_y0))
+    right_y = _spread_1d(right_y0, [_PANE_ROW_MIN_GAP] * len(right_y0))
+    left_w = max((lb.total_w for lb in sided["left"]), default=0.0)
+    right_w = max((lb.total_w for lb in sided["right"]), default=0.0)
+
+    # Top/bottom: labels sit side by side HORIZONTALLY at their true
+    # icon-relative x (fx * icon_w), separated by their own text widths.
+    top_x0 = [lb.frac * icon_w for lb in sided["top"]]
+    bottom_x0 = [lb.frac * icon_w for lb in sided["bottom"]]
+
+    def _col_gaps(labels: list[_PaneLabel]) -> list[float]:
+        gaps = [0.0] * len(labels)
+        for i in range(1, len(labels)):
+            gaps[i] = (labels[i - 1].total_w + labels[i].total_w) / 2 + _PANE_COL_PAD
+        return gaps
+
+    top_x = _spread_1d(top_x0, _col_gaps(sided["top"]))
+    bottom_x = _spread_1d(bottom_x0, _col_gaps(sided["bottom"]))
+
+    # Unified diagram extents (icon-local frame: icon spans [0,icon_w] x
+    # [0,icon_h]) over EVERY side's labels, so the panel is exactly as wide/
+    # tall as it needs to be — no wasted margin, nothing clipped.
+    xs_min, xs_max = [0.0], [icon_w]
+    if sided["left"]:
+        xs_min.append(-(_PANE_STUB_MARGIN + left_w))
+    if sided["right"]:
+        xs_max.append(icon_w + _PANE_STUB_MARGIN + right_w)
+    for x, lb in zip(top_x, sided["top"]):
+        xs_min.append(x - lb.total_w / 2)
+        xs_max.append(x + lb.total_w / 2)
+    for x, lb in zip(bottom_x, sided["bottom"]):
+        xs_min.append(x - lb.total_w / 2)
+        xs_max.append(x + lb.total_w / 2)
+    x_min, x_max = min(xs_min), max(xs_max)
+    diagram_w = x_max - x_min
+
+    ys_min, ys_max = [0.0], [icon_h]
+    if left_y:
+        ys_min.append(min(left_y) - _PANE_ROW_HALF)
+        ys_max.append(max(left_y) + _PANE_ROW_HALF)
+    if right_y:
+        ys_min.append(min(right_y) - _PANE_ROW_HALF)
+        ys_max.append(max(right_y) + _PANE_ROW_HALF)
+    mid_h = max(ys_max) - min(ys_min)
+    top_h = (_PANE_STUB_MARGIN + _PANE_LINE_H) if sided["top"] else 0.0
+    bottom_h = (_PANE_STUB_MARGIN + _PANE_LINE_H) if sided["bottom"] else 0.0
+    diagram_h = top_h + mid_h + bottom_h
 
     full_title_w = backend.measure_text(header, _PANE_TITLE_SIZE)
-    inner_w = max(content_w, min(full_title_w, _PANE_MAX_HEADER_W))
+    inner_w = max(diagram_w, min(full_title_w, _PANE_MAX_HEADER_W))
     full_desc_w = backend.measure_text(desc, _PANE_DESC_SIZE) if desc else 0.0
     if desc:
         inner_w = max(inner_w, min(full_desc_w, _PANE_MAX_HEADER_W))
-
     title_line = (
         header if full_title_w <= inner_w
         else fit_label(header, inner_w, backend, _PANE_TITLE_SIZE)
@@ -387,59 +566,89 @@ def _draw_connector_pane(
     panel_w = inner_w + 2 * _PANE_PAD
     panel_h = header_h + _PANE_PAD + diagram_h + _PANE_PAD
 
-    x1, y1, _x2, _y2 = bounds
-    panel_x1 = x1
-    panel_x2 = panel_x1 + panel_w
-    panel_y2 = y1 - _PANE_GAP_ABOVE
-    panel_y1 = panel_y2 - panel_h
+    # Everything below is drawn in a small LOCAL coordinate space around the
+    # origin — panels are positioned/clamped at runtime by JS (see
+    # render/__init__.py), not baked in relative to the node's own position.
+    diagram_x0 = _PANE_PAD + max(0.0, (inner_w - diagram_w) / 2)
+    icon_x1 = diagram_x0 - x_min
+    icon_x2 = icon_x1 + icon_w
+    diagram_y0 = header_h + _PANE_PAD
+    icon_y1 = diagram_y0 + top_h - min(ys_min)
+    icon_y2 = icon_y1 + icon_h
 
-    backend.begin_group(cls="lv-help", style="display:none")
+    backend.begin_group(
+        cls="lv-help", data={"node": node.node.id},
+        style="visibility:hidden;pointer-events:none",
+    )
     backend.rect(
-        panel_x1, panel_y1, panel_x2, panel_y2,
+        0.0, 0.0, panel_w, panel_h,
         fill=theme.canvas, stroke=theme.struct_border, stroke_width=1.0, rx=3,
     )
-    cx = (panel_x1 + panel_x2) / 2
-    backend.text(
-        cx, panel_y1 + _PANE_PAD + 7.0, title_line, _PANE_TITLE_SIZE, bold=True,
-    )
+    cx = panel_w / 2
+    backend.text(cx, _PANE_PAD + 7.0, title_line, _PANE_TITLE_SIZE, bold=True)
     if desc_line:
-        backend.text(cx, panel_y1 + _PANE_PAD + 18.0, desc_line, _PANE_DESC_SIZE)
+        backend.text(cx, _PANE_PAD + 18.0, desc_line, _PANE_DESC_SIZE)
 
-    # The diagram row (labels + stubs + icon) centers horizontally within the
-    # panel — it only spans the full width when the title/description isn't
-    # wider than the connector-pane content itself.
-    diagram_x0 = panel_x1 + _PANE_PAD + max(0.0, (inner_w - content_w) / 2)
-    icon_x1 = diagram_x0 + left_w + _PANE_STUB_LEN
-    icon_x2 = icon_x1 + icon_w
-    icon_y1 = panel_y1 + header_h + _PANE_PAD
-    icon_y2 = icon_y1 + icon_h
     node.glyph.draw(backend, (icon_x1, icon_y1, icon_x2, icon_y2), theme)
 
-    for i, row in enumerate(in_rows):
-        y = icon_y1 + row_h / 2 + i * row_h
-        backend.path(
-            [(icon_x1, y), (icon_x1 - _PANE_STUB_LEN, y)],
-            stroke=row.color, stroke_width=row.width,
-        )
-        label_end = icon_x1 - _PANE_STUB_LEN - 3.0
-        ty = y + _PANE_LABEL_SIZE * 0.35
-        backend.text(label_end, ty, row.type_str, _PANE_TYPE_SIZE,
-                     fill=_PANE_TYPE_COLOR, anchor="end")
-        backend.text(label_end - row.type_w, ty, row.name, _PANE_LABEL_SIZE,
-                     anchor="end")
+    def _draw_side(labels: list[_PaneLabel], side: str, final: list[float]) -> None:
+        for lb, perp in zip(labels, final):
+            if side == "left":
+                edge = (icon_x1, icon_y1 + lb.frac * icon_h)
+            elif side == "right":
+                edge = (icon_x2, icon_y1 + lb.frac * icon_h)
+            elif side == "top":
+                edge = (icon_x1 + lb.frac * icon_w, icon_y1)
+            else:
+                edge = (icon_x1 + lb.frac * icon_w, icon_y2)
+            final_perp = perp + (icon_y1 if side in ("left", "right") else icon_x1)
+            pts = _pane_stub_points(edge, side, final_perp)
+            backend.path(pts, stroke=lb.color, stroke_width=lb.width)
+            end_x, end_y = pts[-1]
+            if side == "left":
+                ty = end_y + _PANE_LABEL_SIZE * 0.35
+                backend.text(end_x - _PANE_TEXT_GAP, ty, lb.type_str, _PANE_TYPE_SIZE,
+                             fill=_PANE_TYPE_COLOR, anchor="end")
+                backend.text(end_x - _PANE_TEXT_GAP - lb.type_w, ty, lb.name,
+                             _PANE_LABEL_SIZE, anchor="end")
+            elif side == "right":
+                ty = end_y + _PANE_LABEL_SIZE * 0.35
+                backend.text(end_x + _PANE_TEXT_GAP, ty, lb.name, _PANE_LABEL_SIZE,
+                             anchor="start")
+                backend.text(end_x + _PANE_TEXT_GAP + lb.name_w, ty, lb.type_str,
+                             _PANE_TYPE_SIZE, fill=_PANE_TYPE_COLOR, anchor="start")
+            else:
+                start_x = end_x - lb.total_w / 2
+                ty = (
+                    end_y - _PANE_TEXT_GAP if side == "top"
+                    else end_y + _PANE_TEXT_GAP + _PANE_LABEL_SIZE * 0.8
+                )
+                backend.text(start_x, ty, lb.name, _PANE_LABEL_SIZE, anchor="start")
+                backend.text(start_x + lb.name_w, ty, lb.type_str, _PANE_TYPE_SIZE,
+                             fill=_PANE_TYPE_COLOR, anchor="start")
 
-    for i, row in enumerate(out_rows):
-        y = icon_y1 + row_h / 2 + i * row_h
-        backend.path(
-            [(icon_x2, y), (icon_x2 + _PANE_STUB_LEN, y)],
-            stroke=row.color, stroke_width=row.width,
-        )
-        label_start = icon_x2 + _PANE_STUB_LEN + 3.0
-        ty = y + _PANE_LABEL_SIZE * 0.35
-        backend.text(label_start, ty, row.name, _PANE_LABEL_SIZE, anchor="start")
-        backend.text(label_start + row.name_w, ty, row.type_str, _PANE_TYPE_SIZE,
-                     fill=_PANE_TYPE_COLOR, anchor="start")
+    _draw_side(sided["left"], "left", left_y)
+    _draw_side(sided["right"], "right", right_y)
+    _draw_side(sided["top"], "top", top_x)
+    _draw_side(sided["bottom"], "bottom", bottom_x)
 
+    backend.end_group()
+
+
+def draw_help_overlay(
+    nodes: list[RenderNode], backend: Backend, theme: Theme = DEFAULT_THEME,
+) -> None:
+    """Draw every node's connector-help panel into ONE top-level overlay
+    group, emitted LAST (see ``scene.py``'s ``draw_scene``) so panels always
+    paint over every other diagram layer — wires, structures, and every
+    node, including ones drawn after their own owner. Each panel starts
+    ``visibility:hidden`` (kept in the render tree, not ``display:none``, so
+    a hidden panel's ``getBBox()`` still works for the hover script's
+    clamped positioning — see render/__init__.py); JS shows exactly one at a
+    time, on hover of its matching ``.lv-node``."""
+    backend.begin_group(cls="lv-help-overlay")
+    for node in nodes:
+        _draw_connector_panel(node, backend, theme)
     backend.end_group()
 
 
@@ -1140,3 +1349,11 @@ def draw_scene(scene: Scene, backend: Backend, theme: Theme = DEFAULT_THEME) -> 
             structure.raw_uid,
         ):
             _draw_frame_menu(structure, scene, backend, theme)
+
+    # Connector-help panels go ABSOLUTE LAST, in one overlay group, over every
+    # other layer (base + all frame groups + menus) — see draw_help_overlay's
+    # docstring. scene.nodes is every RenderNode regardless of frame_path (one
+    # panel per node, not re-emitted per frame — a node inside a currently
+    # hidden case frame is itself hidden, so its panel simply never receives
+    # a hover event; no duplication needed).
+    draw_help_overlay(scene.nodes, backend, theme)

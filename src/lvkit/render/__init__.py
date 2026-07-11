@@ -44,18 +44,6 @@ def _root_id(vi_name: str) -> str:
 # and ``data-lv-value`` (a menu option) off the clicked target. Scoped to this
 # SVG's own root id and guarded against double-init so a page embedding many
 # SVGs is safe. No Math.random()/Date.
-# Connector-pane hover reveal (roadmap #40 front end): every drawn node is
-# wrapped in a ``.lv-node`` group carrying a child ``.lv-help`` group (the
-# LabVIEW-Context-Help-style panel — see draw.py::_draw_connector_pane),
-# hidden by default. Pure CSS, no JS: `:hover` reveals it. `!important`
-# beats the inline `display:none` written on the group itself (its only
-# purpose is to hide it from non-hover renders/screenshots).
-# `pointer-events:none` on the panel keeps it from stealing hover off the
-# node underneath it (it can visually sit over sibling nodes; see draw.py).
-_CONNECTOR_PANE_CSS = (
-    ".lv-node:hover .lv-help{display:block !important}"
-    ".lv-help{pointer-events:none}"
-)
 
 
 _FRAME_CONTROLLER_JS = """(function() {
@@ -115,6 +103,105 @@ _FRAME_CONTROLLER_JS = """(function() {
 })();"""
 
 
+# Connector-panel hover controller (roadmap #40 rework): panels are no longer
+# children of their node (see draw.py::draw_help_overlay — they're all in one
+# overlay group at the END of the document, so they paint over everything
+# else), so plain CSS ``:hover`` can no longer reveal them — this JS drives
+# show/hide AND positions each panel at runtime.
+#
+# Each ``.lv-node`` carries ``data-node`` matching its ``.lv-help`` panel's
+# own ``data-node`` (built into a lookup map once, at init — no dynamic
+# attribute-selector string-building, so odd characters in a node id can't
+# break a selector). On ``mouseenter`` the panel is measured with
+# ``getBBox()`` (it starts ``visibility:hidden``, not ``display:none``, so it
+# still has real geometry to measure — see draw.py), placed OUTSIDE the
+# hovered node's own box (above/below/left/right, in that preference order —
+# the panel must never cover the very node it's explaining, since that would
+# hide the wires the user is trying to identify), then clamped fully inside
+# the root SVG's ``viewBox`` (sliding left/up if it would overflow right/
+# bottom, right/down if it would overflow left/top). If every side still
+# overlaps the node after clamping (a tight corner smaller than the panel),
+# it's pushed further off the node along whichever axis has room, so the
+# node's own rect stays maximally clear even though the viewBox can't fit
+# the panel entirely clear of it. On ``mouseleave`` the panel hides again.
+_HOVER_PANEL_JS = """(function() {
+  var root = document.getElementById(__ROOT_ID__);
+  if (!root || root.__lvHoverInit) return;
+  root.__lvHoverInit = true;
+  var GAP = 8;
+  var helpByNode = {};
+  var helps = root.querySelectorAll(".lv-help");
+  for (var i = 0; i < helps.length; i++) {
+    helpByNode[helps[i].getAttribute("data-node")] = helps[i];
+  }
+  function viewBox() {
+    var parts = root.getAttribute("viewBox").split(/\\s+/);
+    return [parseFloat(parts[0]), parseFloat(parts[1]),
+            parseFloat(parts[2]), parseFloat(parts[3])];
+  }
+  function clamp(x, y, w, h, vb) {
+    var minX = vb[0], minY = vb[1], maxX = vb[0] + vb[2], maxY = vb[1] + vb[3];
+    if (x + w > maxX) x = maxX - w;
+    if (y + h > maxY) y = maxY - h;
+    if (x < minX) x = minX;
+    if (y < minY) y = minY;
+    return [x, y];
+  }
+  function overlapsNode(x, y, w, h, nb) {
+    return x < nb.x + nb.width && x + w > nb.x &&
+           y < nb.y + nb.height && y + h > nb.y;
+  }
+  function place(nodeEl, help) {
+    var nb = nodeEl.getBBox();
+    var hb = help.getBBox();
+    var vb = viewBox();
+    var candidates = [
+      [nb.x, nb.y - hb.height - GAP],               // above, left-aligned
+      [nb.x, nb.y + nb.height + GAP],                // below, left-aligned
+      [nb.x + nb.width + GAP, nb.y],                 // right, top-aligned
+      [nb.x - hb.width - GAP, nb.y],                 // left, top-aligned
+    ];
+    var chosen = null;
+    for (var i = 0; i < candidates.length; i++) {
+      var p = clamp(candidates[i][0], candidates[i][1], hb.width, hb.height, vb);
+      if (!overlapsNode(p[0], p[1], hb.width, hb.height, nb)) { chosen = p; break; }
+    }
+    if (!chosen) {
+      // Tight corner: every side still overlaps the node after clamping.
+      // Push as far off the node as the viewBox allows -- above first, else
+      // below, else left, else right -- so the node's own rect stays as
+      // clear as possible even though a perfect fit isn't available.
+      var x = nb.x, y = nb.y - hb.height - GAP;
+      if (y < vb[1]) {
+        y = nb.y + nb.height + GAP;
+        if (y + hb.height > vb[1] + vb[3]) {
+          x = nb.x - hb.width - GAP;
+          y = nb.y;
+          if (x < vb[0]) { x = nb.x + nb.width + GAP; }
+        }
+      }
+      chosen = clamp(x, y, hb.width, hb.height, vb);
+    }
+    help.setAttribute("transform", "translate(" + chosen[0] + "," + chosen[1] + ")");
+  }
+  var nodes = root.querySelectorAll(".lv-node");
+  for (var i = 0; i < nodes.length; i++) {
+    var nodeEl = nodes[i];
+    var help = helpByNode[nodeEl.getAttribute("data-node")];
+    if (!help) continue;
+    (function(nodeEl, help) {
+      nodeEl.addEventListener("mouseenter", function() {
+        place(nodeEl, help);
+        help.style.visibility = "visible";
+      });
+      nodeEl.addEventListener("mouseleave", function() {
+        help.style.visibility = "hidden";
+      });
+    })(nodeEl, help);
+  }
+})();"""
+
+
 def render_vi(graph: InMemoryVIGraph, vi_name: str) -> str | None:
     """Render one VI's block diagram to an SVG string.
 
@@ -125,25 +212,32 @@ def render_vi(graph: InMemoryVIGraph, vi_name: str) -> str | None:
 
     The SVG is self-contained and interactive: a case structure's
     ``◄ value ▼ ►`` selector is clickable and cycles through its frames (see
-    ``_FRAME_CONTROLLER_JS``); non-JS consumers still see the default frame.
+    ``_FRAME_CONTROLLER_JS``), and hovering a node reveals its connector-help
+    panel, positioned clear of the node and clamped inside the viewBox (see
+    ``_HOVER_PANEL_JS``); non-JS consumers still see the default frame and no
+    panels (both degrade gracefully — the SVG is static without JS).
     """
     scene = build_scene(graph, vi_name)
     if scene is None:
         return None
     backend = SvgBackend()
     draw_scene(scene, backend, DEFAULT_THEME)
-    # Only VIs with interactive case structures carry the root id + inline
-    # frame-controller script; a diagram with no case structures (loops, flat/
-    # stacked sequences, straight-line dataflow) renders byte-identically to
-    # the pre-#17 output — no dead JS shipped in every SVG.
+    # Only a VI that actually needs JS (interactive case/sequence frames,
+    # and/or at least one connector-help panel) carries the root id + inline
+    # script — a diagram with neither renders byte-identically to a version
+    # with no interactivity at all, no dead JS shipped in every SVG.
+    scripts = []
     if scene.frame_values:
+        scripts.append(_FRAME_CONTROLLER_JS)
+    if scene.nodes:
+        scripts.append(_HOVER_PANEL_JS)
+    if scripts:
         root_id = _root_id(vi_name)
-        script = _FRAME_CONTROLLER_JS.replace("__ROOT_ID__", json.dumps(root_id))
+        script = "\n".join(scripts).replace("__ROOT_ID__", json.dumps(root_id))
         return backend.render(
             scene.bounds, title=vi_name, script=script, root_id=root_id,
-            style=_CONNECTOR_PANE_CSS,
         )
-    return backend.render(scene.bounds, title=vi_name, style=_CONNECTOR_PANE_CSS)
+    return backend.render(scene.bounds, title=vi_name)
 
 
 def render_vi_file(
