@@ -1550,3 +1550,114 @@ def test_scanf_nodes_parsed_and_wired():
     # The four I32 inputs previously left unwired by the dropped scanf wires.
     for raw in ("910", "1095", "1314", "1358"):
         assert f"{vi}::{raw}" in wired, f"terminal {raw} still unwired"
+
+
+# --------------------------------------------------------------------------- #
+# Clean-room ORIGINAL primitive glyphs (roadmap #14): Bundle/Unbundle +
+# comparison triangles, resolved AHEAD of the pixel-matched icon assets.
+# These are pure unit tests over synthetic graph nodes (no VI files needed),
+# so they run even where the local-only sample corpus is absent.
+# --------------------------------------------------------------------------- #
+
+def _prim(node_type, name=None, dirs=()):
+    """A synthetic PrimitiveNode with one terminal per direction in ``dirs``."""
+    from lvkit.models import Terminal
+    terms = [
+        Terminal(id=f"t{i}", index=i, direction=d) for i, d in enumerate(dirs)
+    ]
+    return PrimitiveNode(
+        id="n0", vi="V", name=name, node_type=node_type, terminals=terms,
+    )
+
+
+def _ctx():
+    from lvkit.render.nodes import GlyphContext
+    return GlyphContext(graph=InMemoryVIGraph(), vi_name="V")
+
+
+def test_bundle_glyph_for_many_in_one_out_mux():
+    """An nMux/mux/demux with N inputs and one output is a Bundle."""
+    from lvkit.render.glyph import BundleGlyph
+    from lvkit.render.nodes import resolve_glyph
+    node = _prim("nMux", "Node Multiplexer",
+                 dirs=("input", "input", "input", "output"))
+    glyph = resolve_glyph(node, _ctx())
+    assert isinstance(glyph, BundleGlyph)
+    assert glyph.num_fields == 3
+
+
+def test_unbundle_glyph_for_one_in_many_out_mux():
+    """A 1-input / N-output mux is an Unbundle (mirror of Bundle)."""
+    from lvkit.render.glyph import UnbundleGlyph
+    from lvkit.render.nodes import resolve_glyph
+    node = _prim("demux", "Demultiplexer",
+                 dirs=("input", "output", "output", "output", "output"))
+    glyph = resolve_glyph(node, _ctx())
+    assert isinstance(glyph, UnbundleGlyph)
+    assert glyph.num_fields == 4
+
+
+def test_pass_through_mux_is_not_a_bundle_glyph():
+    """A 1-in/1-out mux is a structure-boundary pass-through, not an
+    assemble/disassemble — it must NOT get a Bundle/Unbundle glyph."""
+    from lvkit.render.glyph import BundleGlyph, UnbundleGlyph
+    from lvkit.render.nodes import resolve_glyph
+    node = _prim("nMux", "Node Multiplexer", dirs=("input", "output"))
+    glyph = resolve_glyph(node, _ctx())
+    assert not isinstance(glyph, (BundleGlyph, UnbundleGlyph))
+
+
+def test_comparison_primitives_use_the_arith_triangle():
+    """The comparison functions reuse the borderless arithmetic triangle with
+    their own symbol (same shape LabVIEW draws them with)."""
+    from lvkit.render.glyph import ArithGlyph
+    from lvkit.render.nodes import resolve_glyph
+    expected = {
+        "Equal?": "=", "Not Equal?": "≠", "Greater?": ">", "Less?": "<",
+        "Greater Or Equal?": "≥", "Less Or Equal?": "≤",
+    }
+    for name, symbol in expected.items():
+        node = _prim("prim", name, dirs=("input", "input", "output"))
+        glyph = resolve_glyph(node, _ctx())
+        assert isinstance(glyph, ArithGlyph), name
+        assert glyph.symbol == symbol, name
+
+
+def test_original_glyphs_take_precedence_over_pixel_icons():
+    """The OriginalGlyphResolver must sit BEFORE PdfIconResolver so our
+    clean-room glyphs win over any pixel-matched icon asset."""
+    from lvkit.render.nodes import (
+        _RESOLVERS,
+        OriginalGlyphResolver,
+        PdfIconResolver,
+    )
+    types = [type(r) for r in _RESOLVERS]
+    assert types.index(OriginalGlyphResolver) < types.index(PdfIconResolver)
+
+
+def test_bundle_and_unbundle_draw_mirrored_split_boxes():
+    """Bundle draws element rows on the LEFT + arrow cell on the RIGHT;
+    Unbundle mirrors it (arrow cell LEFT, rows RIGHT). Both draw the shared
+    split-box skeleton: a rect, one vertical divider, num_fields-1 row
+    dividers, and the direction arrow — at the node's own bounds."""
+    from lvkit.render.glyph import BundleGlyph, UnbundleGlyph
+    bounds = (0.0, 0.0, 60.0, 40.0)
+    for glyph in (BundleGlyph(num_fields=3), UnbundleGlyph(num_fields=3)):
+        b = SvgBackend()
+        glyph.draw(b, bounds, DEFAULT_THEME)
+        svg = b.render(bounds)
+        assert svg.count("<rect") == 1
+        # 1 vertical divider + (num_fields - 1) row dividers = 3 lines.
+        assert len(re.findall(r"<line", svg)) == 1 + (3 - 1)
+        assert "▶" in svg
+    # The arrow sits on OPPOSITE halves for bundle vs unbundle (mirror).
+    bb = SvgBackend()
+    BundleGlyph(num_fields=3).draw(bb, bounds, DEFAULT_THEME)
+    ub = SvgBackend()
+    UnbundleGlyph(num_fields=3).draw(ub, bounds, DEFAULT_THEME)
+
+    def arrow_x(svg):
+        m = re.search(r'<text x="([\d.]+)"[^>]*>▶<', svg)
+        return float(m.group(1))
+    assert arrow_x(bb.render(bounds)) > 30.0  # right half
+    assert arrow_x(ub.render(bounds)) < 30.0  # left half

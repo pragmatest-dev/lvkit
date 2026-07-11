@@ -45,6 +45,7 @@ from .glyph import (
     ArithGlyph,
     BooleanConstantGlyph,
     BracketGlyph,
+    BundleGlyph,
     CenteredSvgGlyph,
     CompoundArithGlyph,
     ConstantGlyph,
@@ -53,6 +54,7 @@ from .glyph import (
     IconImageGlyph,
     InlineSvgGlyph,
     LabeledBoxGlyph,
+    UnbundleGlyph,
     VariantGlyph,
     WrappedBoxGlyph,
 )
@@ -117,6 +119,22 @@ _ARITH_SYMBOL = {
     "Add": "+", "Subtract": "−", "Multiply": "×", "Divide": "÷",
     "Increment": "+1", "Decrement": "-1",
 }
+
+# Comparison primitives — LabVIEW draws each as the same borderless triangle
+# as an arithmetic op, only the interior symbol differs (see NI docs slugs
+# equal/not-equal/greater/less/greater-or-equal/less-or-equal). Keyed by the
+# resolved primitive NAME (primitives.json), the same way _ARITH_SYMBOL keys
+# arithmetic — several type-variant prim_ids share one comparison name.
+_COMPARE_SYMBOL = {
+    "Equal?": "=", "Not Equal?": "≠", "Greater?": ">", "Less?": "<",
+    "Greater Or Equal?": "≥", "Less Or Equal?": "≤",
+}
+
+# Cluster assemble/disassemble node classes. LabVIEW parses the palette Bundle
+# and Unbundle functions (and their case/loop-boundary variants) as these
+# "Node Multiplexer" classes; bundling vs unbundling is read from the terminal
+# direction counts (N-in/1-out = Bundle, 1-in/N-out = Unbundle).
+_CLUSTER_MUX_TYPES = frozenset({"nMux", "mux", "demux"})
 
 _DEFAULT_ICON_SIZE = (24, 24)
 
@@ -309,6 +327,48 @@ def _svg_sizes() -> dict[str, tuple[int, int]]:
     return {k: (int(v[0]), int(v[1])) for k, v in raw.items()}
 
 
+class OriginalGlyphResolver:
+    """Clean-room ORIGINAL glyphs for primitives whose SHAPE we draw ourselves
+    (roadmap #14). Each matched primitive gets a glyph that reproduces the real
+    LabVIEW outline + footprint (looked up from NI's function-reference images)
+    with OUR OWN interior symbol — never NI's pixel artwork. Placed BEFORE
+    ``PdfIconResolver`` so these take precedence over the pixel-matched icon
+    assets; every primitive NOT listed here returns ``None`` and keeps its
+    existing rendering, so un-migrated prims never regress.
+
+    Migrated so far:
+
+    - Bundle / Unbundle (``nMux``/``mux``/``demux`` "Node Multiplexer" classes,
+      disambiguated by terminal-direction counts) — ``BundleGlyph`` /
+      ``UnbundleGlyph``.
+    - The six comparison functions (Equal?, Not Equal?, Greater?, Less?,
+      Greater Or Equal?, Less Or Equal?) — the arithmetic ``ArithGlyph``
+      triangle with the comparison symbol.
+    """
+
+    def resolve(self, node: AnyGraphNode, ctx: GlyphContext) -> Glyph | None:
+        if not isinstance(node, PrimitiveNode):
+            return None
+        if node.node_type in _CLUSTER_MUX_TYPES:
+            return self._cluster_glyph(node)
+        symbol = _COMPARE_SYMBOL.get(node.name or "")
+        if symbol is not None:
+            return ArithGlyph(symbol)
+        return None
+
+    @staticmethod
+    def _cluster_glyph(node: PrimitiveNode) -> Glyph | None:
+        ins = sum(1 for t in node.terminals if t.direction == "input")
+        outs = sum(1 for t in node.terminals if t.direction == "output")
+        if ins >= 2 and outs == 1:
+            return BundleGlyph(num_fields=ins)
+        if outs >= 2 and ins == 1:
+            return UnbundleGlyph(num_fields=outs)
+        # A 1-in/1-out mux is a structure-boundary pass-through, not an
+        # assemble/disassemble — leave it to the existing rendering.
+        return None
+
+
 class PdfIconResolver:
     """Real, PDF-extracted LabVIEW icons for boxed primitives (built by
     ``scripts/extract_lv_icons.py`` from the reference manual — see
@@ -472,6 +532,7 @@ class FallbackBoxResolver:
 _RESOLVERS: list[NodeGlyphResolver] = [
     ExtractedIconResolver(),
     JsonGlyphResolver(),
+    OriginalGlyphResolver(),
     PdfIconResolver(),
     GeneratedGlyphResolver(),
     FallbackBoxResolver(),

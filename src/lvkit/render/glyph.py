@@ -194,8 +194,10 @@ class WrappedBoxGlyph:
 
 @dataclass(frozen=True)
 class ArithGlyph:
-    """The arithmetic-primitive triangle (Add/Subtract/Multiply/Divide/
-    Increment/Decrement) with its operator symbol."""
+    """The arithmetic/comparison-primitive triangle (Add/Subtract/Multiply/
+    Divide/Increment/Decrement, and the comparison functions Equal?/Greater?/
+    ...) with its operator symbol. LabVIEW draws all of these as the same
+    borderless right-pointing triangle — only the interior symbol differs."""
 
     symbol: str
     fill_attr: str = "prim_fill"
@@ -212,6 +214,55 @@ class ArithGlyph:
         size = max(6.0, min(15.0, (y2 - y1) * 0.62, (x2 - x1) * 0.85))
         cy = (y1 + y2) / 2
         backend.text(x1 + (x2 - x1) * 0.36, cy + size * 0.34, self.symbol, size)
+
+
+def draw_split_box(
+    backend: Backend, bounds: Rect, theme: Theme, *,
+    symbol: str, num_cells: int, symbol_side: str,
+    fill_attr: str = "prim_fill", stroke_attr: str = "prim_stroke",
+    stroke_width: float = 1.2,
+) -> None:
+    """Reusable clean-room glyph body: a bordered rectangle split by a vertical
+    divider into a narrow SYMBOL cell (spanning the full height, holding one
+    centered symbol/text) and a wider CELLS area divided into ``num_cells``
+    horizontal rows — one row per element terminal, where each wire lands.
+
+    ``symbol_side`` (``"left"``/``"right"``) picks which side the symbol cell
+    sits on. This is the shared skeleton of every "assemble N things into /
+    split one thing into N" primitive — Compound Arithmetic (symbol on the
+    right, one row per input), Bundle (element rows left, cluster arrow right),
+    and Unbundle (cluster arrow left, element rows right) — matching each real
+    primitive's outline+proportions while keeping the interior our own drawing.
+
+    N-cell growth is free: the glyph carries no intrinsic size, it scales to
+    whatever heap ``bounds`` the node has, so an N-input Bundle/Compound
+    Arithmetic draws correctly at any width."""
+    x1, y1, x2, y2 = bounds
+    fill = getattr(theme, fill_attr)
+    stroke = getattr(theme, stroke_attr)
+    backend.rect(x1, y1, x2, y2, fill=fill, stroke=stroke, stroke_width=stroke_width)
+
+    width, height = x2 - x1, y2 - y1
+    sym_w = min(width * 0.5, max(8.0, height))
+    if symbol_side == "left":
+        x_div = x1 + sym_w
+        sym_x1, sym_x2 = x1, x_div
+        cell_x1, cell_x2 = x_div, x2
+    else:  # "right" (default / Compound-Arithmetic layout)
+        x_div = x2 - sym_w
+        sym_x1, sym_x2 = x_div, x2
+        cell_x1, cell_x2 = x1, x_div
+    backend.line(x_div, y1, x_div, y2, stroke=stroke, stroke_width=1.0)
+
+    cells = max(1, num_cells)
+    for i in range(1, cells):
+        y = y1 + i * height / cells
+        backend.line(cell_x1, y, cell_x2, y, stroke=stroke, stroke_width=1.0)
+
+    size = max(6.0, min(15.0, height * 0.62, sym_w * 0.85))
+    backend.text(
+        (sym_x1 + sym_x2) / 2, (y1 + y2) / 2 + size * 0.34, symbol, size,
+    )
 
 
 # Compound Arithmetic operator -> symbol (raw ``PrimitiveNode.operation``
@@ -244,25 +295,58 @@ class CompoundArithGlyph:
     stroke_attr: str = "prim_stroke"
 
     def draw(self, backend: Backend, bounds: Rect, theme: Theme) -> None:
-        x1, y1, x2, y2 = bounds
-        fill = getattr(theme, self.fill_attr)
-        stroke = getattr(theme, self.stroke_attr)
-        backend.rect(x1, y1, x2, y2, fill=fill, stroke=stroke, stroke_width=1.2)
+        draw_split_box(
+            backend, bounds, theme,
+            symbol=_CPD_ARITH_SYMBOL.get(self.operation, self.operation),
+            num_cells=self.num_inputs, symbol_side="right",
+            fill_attr=self.fill_attr, stroke_attr=self.stroke_attr,
+        )
 
-        width, height = x2 - x1, y2 - y1
-        op_w = min(width * 0.5, max(8.0, height))
-        x_div = x2 - op_w
-        backend.line(x_div, y1, x_div, y2, stroke=stroke, stroke_width=1.0)
 
-        num_inputs = max(1, self.num_inputs)
-        for i in range(1, num_inputs):
-            y = y1 + i * height / num_inputs
-            backend.line(x1, y, x_div, y, stroke=stroke, stroke_width=1.0)
+# The direction arrow shown in a Bundle/Unbundle's cluster cell — data flows
+# left-to-right through the node, so both point right (our own symbol, not
+# NI's artwork). The mirror of WHICH side the element rows sit on is what
+# distinguishes bundling from unbundling, exactly as the real glyphs do.
+_CLUSTER_ARROW = "▶"
 
-        symbol = _CPD_ARITH_SYMBOL.get(self.operation, self.operation)
-        size = max(6.0, min(15.0, height * 0.62, op_w * 0.85))
-        cx, cy = (x_div + x2) / 2, (y1 + y2) / 2
-        backend.text(cx, cy + size * 0.34, symbol, size)
+
+@dataclass(frozen=True)
+class BundleGlyph:
+    """The Bundle primitive (assemble N elements into one cluster). Original
+    clean-room glyph matching LabVIEW's outline (NI docs slug ``bundle``): a
+    box whose LEFT area is split into one row per element input, and whose
+    narrow RIGHT cell (the output cluster side) carries a right-pointing
+    direction arrow. Drawn via the shared ``draw_split_box`` skeleton."""
+
+    num_fields: int = 1
+    fill_attr: str = "prim_fill"
+    stroke_attr: str = "prim_stroke"
+
+    def draw(self, backend: Backend, bounds: Rect, theme: Theme) -> None:
+        draw_split_box(
+            backend, bounds, theme,
+            symbol=_CLUSTER_ARROW, num_cells=self.num_fields, symbol_side="right",
+            fill_attr=self.fill_attr, stroke_attr=self.stroke_attr,
+        )
+
+
+@dataclass(frozen=True)
+class UnbundleGlyph:
+    """The Unbundle primitive (split one cluster into N elements). Mirror of
+    ``BundleGlyph`` matching LabVIEW's outline (NI docs slug ``unbundle``): a
+    narrow LEFT cell (the input cluster side) with a right-pointing direction
+    arrow, and a RIGHT area split into one row per element output."""
+
+    num_fields: int = 1
+    fill_attr: str = "prim_fill"
+    stroke_attr: str = "prim_stroke"
+
+    def draw(self, backend: Backend, bounds: Rect, theme: Theme) -> None:
+        draw_split_box(
+            backend, bounds, theme,
+            symbol=_CLUSTER_ARROW, num_cells=self.num_fields, symbol_side="left",
+            fill_attr=self.fill_attr, stroke_attr=self.stroke_attr,
+        )
 
 
 @dataclass(frozen=True)
