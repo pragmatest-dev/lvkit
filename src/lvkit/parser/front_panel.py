@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import xml.etree.ElementTree as ET
+from dataclasses import dataclass
 from pathlib import Path
 
 from lvkit.models import LVType
@@ -42,33 +43,51 @@ def _lvtype_to_parsed(lv_type: LVType) -> ParsedType:
     )
 
 
-def extract_fp_dco_types(fp_xml_path: Path | str) -> dict[str, str]:
-    """Extract typeDesc from FP DCO elements.
+# Bit 0 of an fPDCO's ``objFlags`` is LabVIEW's control/indicator designation:
+# set => indicator (VI output), clear => control (VI input). It is stored on the
+# node itself, so it is AUTHORITATIVE even for an UNWIRED terminal — unlike
+# inferring direction from wire connectivity, which cannot classify a terminal
+# with no wires (e.g. an error-out indicator left unconnected).
+_FP_INDICATOR_FLAG = 0x1
 
-    The FP XML contains fPDCO elements with typeDesc that specify the actual
-    LabVIEW type for each front panel control/indicator.
 
-    Args:
-        fp_xml_path: Path to the *_FPHb.xml file
+@dataclass(frozen=True)
+class FpDcoInfo:
+    """The stored attributes of one front-panel DCO node, read straight off the
+    node: its type descriptor and its control/indicator designation.
+    ``is_indicator`` is None only when the node carries no ``objFlags``."""
 
-    Returns:
-        Dict mapping DCO UID -> typeDesc (e.g., "166" -> "TypeID(1)")
+    type_desc: str | None = None
+    is_indicator: bool | None = None
+
+
+def extract_fp_dco_info(fp_xml_path: Path | str) -> dict[str, FpDcoInfo]:
+    """Read each front-panel DCO node's stored attributes in a single pass,
+    keyed by DCO uid: its ``typeDesc`` (the actual LabVIEW type) and its
+    control/indicator flag (``objFlags`` bit 0).
     """
-    tree = ET.parse(fp_xml_path)
-    root = tree.getroot()
+    root = ET.parse(fp_xml_path).getroot()
 
-    dco_types: dict[str, str] = {}
-
-    # fPDCO elements have typeDesc children with the actual type
+    info: dict[str, FpDcoInfo] = {}
     for dco in root.findall(".//*[@class='fPDCO']"):
         uid = dco.get("uid")
         if not uid:
             continue
         type_desc_elem = dco.find("typeDesc")
-        if type_desc_elem is not None and type_desc_elem.text:
-            dco_types[uid] = type_desc_elem.text
+        type_desc = (
+            type_desc_elem.text
+            if type_desc_elem is not None and type_desc_elem.text
+            else None
+        )
+        is_indicator: bool | None = None
+        obj_flags = dco.find("objFlags")
+        if obj_flags is not None and obj_flags.text:
+            text = obj_flags.text.strip()
+            if text.lstrip("-").isdigit():
+                is_indicator = bool(int(text) & _FP_INDICATOR_FLAG)
+        info[uid] = FpDcoInfo(type_desc=type_desc, is_indicator=is_indicator)
 
-    return dco_types
+    return info
 
 
 def extract_fp_terminals(
@@ -93,10 +112,10 @@ def extract_fp_terminals(
     Returns:
         List of ParsedFPTerminal with resolved types
     """
-    # Get DCO types from FP XML if available
-    dco_types: dict[str, str] = {}
+    # Read each DCO node's stored attributes (type + control/indicator flag).
+    dco_info: dict[str, FpDcoInfo] = {}
     if fp_xml_path:
-        dco_types = extract_fp_dco_types(fp_xml_path)
+        dco_info = extract_fp_dco_info(fp_xml_path)
 
     # First, collect all fPTerm UIDs
     fp_term_uids = set()
@@ -118,23 +137,28 @@ def extract_fp_terminals(
             else None
         )
 
-        # Look up typeDesc from FP DCO
-        type_desc = dco_types.get(fp_dco_uid) if fp_dco_uid else None
+        # The DCO node carries both the type and the control/indicator flag.
+        info = dco_info.get(fp_dco_uid) if fp_dco_uid else None
 
         fp_term_data[uid] = {
             "fp_dco_uid": fp_dco_uid or "",
             "name": name,
-            "is_indicator": False,
-            "type_desc": type_desc,
+            # Authoritative flag straight off the node: True/False when stored,
+            # None when the node carried no objFlags (~8% of DCOs) — those fall
+            # back to the wire-direction inference below.
+            "is_indicator": info.is_indicator if info else None,
+            "type_desc": info.type_desc if info else None,
         }
 
-    # Analyze signals to determine input vs output
+    # Fallback for terminals whose DCO node stored no flag: a terminal that
+    # RECEIVES a wire is an indicator (output). Only fills a None — it never
+    # overrides a stored flag.
     for sig in root.findall(".//signalList/SL__arrayElement[@class='signal']"):
         terms = [t.get("uid") for t in sig.findall("termList/SL__arrayElement")]
         if len(terms) >= 2:
             destinations = terms[1:]
             for dest in destinations:
-                if dest in fp_term_uids:
+                if dest in fp_term_uids and fp_term_data[dest]["is_indicator"] is None:
                     fp_term_data[dest]["is_indicator"] = True
 
     # Build the result list with resolved types
@@ -147,11 +171,14 @@ def extract_fp_terminals(
             lv_type = resolve_type_rich(type_desc_str, type_map)
             parsed_type = _lvtype_to_parsed(lv_type)
 
+        # None here means no stored flag AND no incoming wire => a control.
+        is_indicator = bool(data["is_indicator"])
+
         terminals.append(ParsedFPTerminal(
             uid=uid,
             fp_dco_uid=data["fp_dco_uid"],
             name=data["name"],
-            is_indicator=data["is_indicator"],
+            is_indicator=is_indicator,
             parsed_type=parsed_type,
         ))
 
