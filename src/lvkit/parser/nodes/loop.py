@@ -7,7 +7,9 @@ import xml.etree.ElementTree as ET
 from lvkit.models import Tunnel
 
 from ..constants import LOOP_NODE_CLASSES, TERMINAL_CLASS, TUNNEL_DCO_CLASSES
+from ..flags import is_inverted_terminal
 from ..models import ParsedLoopStructure
+from ..utils import safe_int
 from .base import extract_tunnel_mapping
 
 
@@ -86,6 +88,7 @@ def extract_loops(root: ET.Element) -> list[ParsedLoopStructure]:
 
             # Find stop condition terminal for while loops (loopTestDCO class="lTst")
             stop_condition_uid: str | None = None
+            stop_condition_inverted = False
             loop_test_dco = loop_elem.find("loopTestDCO[@class='lTst']")
             if loop_test_dco is not None:
                 # The termList inside has the terminal receiving the stop boolean
@@ -95,6 +98,18 @@ def extract_loops(root: ET.Element) -> list[ParsedLoopStructure]:
                     if first_term is not None:
                         stop_condition_uid = first_term.get("uid")
 
+                # loopTestDCO's own <objFlags> bit 16 encodes the conditional
+                # terminal's polarity (Stop-if-True vs Continue-if-True).
+                # Data evidence (.tmp/task19_findings.md): bit 16 SET means
+                # Stop-if-True (the common case: e.g. a standard "Stop
+                # Button" control wired straight in), bit 16 CLEAR means
+                # Continue-if-True. This is the opposite sense of
+                # TERMINAL_DCO_INVERTED's meaning for cpdArith terminals.
+                dco_flags_elem = loop_test_dco.find("objFlags")
+                stop_condition_inverted = not is_inverted_terminal(
+                    safe_int(dco_flags_elem)
+                )
+
             loops.append(ParsedLoopStructure(
                 uid=loop_uid,
                 loop_type=loop_class,
@@ -103,6 +118,7 @@ def extract_loops(root: ET.Element) -> list[ParsedLoopStructure]:
                 inner_diagram_uid=inner_diagram_uid,
                 inner_node_uids=inner_node_uids,
                 stop_condition_terminal_uid=stop_condition_uid,
+                stop_condition_inverted=stop_condition_inverted,
             ))
 
     return loops

@@ -362,6 +362,10 @@ class LoopOperation(Operation):
 
     loop_type: str | None = None
     stop_condition_terminal: str | None = None
+    # While loop conditional-terminal polarity. True = Continue-if-True,
+    # False = Stop-if-True (default). See ParsedLoopStructure for the
+    # data evidence backing this polarity mapping.
+    stop_condition_inverted: bool = False
 
 
 class SequenceOperation(Operation):

@@ -499,12 +499,22 @@ def _build_while_loop(
 ) -> tuple[ast.While, str | None]:
     """Build a while loop AST node.
 
-    LabVIEW while loops have do-while semantics: the body runs at least once,
-    then the stop condition is checked at the END of each iteration.
+    LabVIEW while loops have do-while semantics: the body ALWAYS runs at
+    least once, then the stop condition is tested at the END of each
+    iteration. We model this directly with Python's do-while idiom:
 
-    We model this with: stop = False; while not stop: <body>
-    The stop variable is computed inside the loop body, and initialized to
-    False to ensure the first iteration runs.
+        while True:
+            <body>
+            if <stop_expr>:
+                break
+
+    The conditional terminal also has a polarity that LabVIEW lets the user
+    toggle (right-click "Stop if True" vs "Continue if True"):
+    - Stop-if-True (default, ``stop_condition_inverted`` False): break when
+      the resolved condition is True -> ``if cond: break``.
+    - Continue-if-True (``stop_condition_inverted`` True): the loop keeps
+      running while the condition is True, so it breaks when the condition
+      is False -> ``if not cond: break``.
 
     Returns:
         Tuple of (While AST node, stop condition variable name or None)
@@ -521,21 +531,22 @@ def _build_while_loop(
         # The cpdArith or other operation computes this inside the loop
         stop_condition = ctx.resolve(stop_terminal)
         if stop_condition:
-            # LabVIEW stops when condition is True
-            # Python: stop = False; while not stop: <body updates stop>
-            # This models do-while: first iteration always runs,
-            # condition checked after each iteration
+            cond_expr = parse_expr(stop_condition)
+            if node.stop_condition_inverted:
+                cond_expr = ast.UnaryOp(op=ast.Not(), operand=cond_expr)
+            body = [
+                *body,
+                ast.If(test=cond_expr, body=[ast.Break()], orelse=[]),
+            ]
             return ast.While(
-                test=ast.UnaryOp(
-                    op=ast.Not(),
-                    operand=parse_expr(stop_condition),
-                ),
+                test=ast.Constant(value=True),
                 body=body,
                 orelse=[],
             ), stop_condition
 
-    # Fallback: no stop condition found, use break to prevent infinite loop
-    body.append(ast.Break())
+    # Fallback: no stop condition found, use break to prevent infinite loop.
+    # Do-while with no condition still runs the body exactly once.
+    body = [*body, ast.Break()]
     return ast.While(
         test=ast.Constant(value=True),
         body=body,

@@ -4,9 +4,11 @@ from __future__ import annotations
 
 import ast
 
+from lvkit.codegen.ast_utils import parse_stmt
 from lvkit.codegen.context import CodeGenContext
 from lvkit.codegen.nodes import loop
 from lvkit.codegen.nodes.loop import (
+    _build_while_loop,
     _get_dest_terminal_name,
     _get_source_terminal_name,
     _make_var_name,
@@ -686,3 +688,149 @@ class TestLoopCodeGenExecutable:
             for assign in init_assigns
             if isinstance(assign.targets[0], ast.Name)
         ]
+
+
+class TestWhileLoopDoWhileSemantics:
+    """Task #19: LabVIEW while loops are do-while (body runs at least once,
+    condition tested at the END) AND honor conditional-terminal polarity
+    (Stop-if-True vs Continue-if-True).
+
+    These tests build the ``ast.While`` via ``_build_while_loop`` directly
+    (the exact function this task rewrites), then compile and EXECUTE the
+    resulting module, asserting on actual runtime values -- not just on the
+    shape of the generated AST.
+    """
+
+    def _run(self, while_ast: ast.While, preamble: str) -> dict:
+        module = ast.Module(
+            body=[parse_stmt(preamble), while_ast],
+            type_ignores=[],
+        )
+        ast.fix_missing_locations(module)
+        local_vars: dict = {}
+        exec(compile(module, "<test>", "exec"), {}, local_vars)
+        return local_vars
+
+    def test_body_runs_once_even_when_stop_if_true_is_immediately_true(self):
+        """Do-while: the stop condition is computed INSIDE the body and is
+        True on the very first pass. A pre-test ``while not stop`` loop
+        would never enter the body at all. LabVIEW semantics run the body
+        first, then test -- so it must still execute exactly once."""
+        ctx = make_ctx("stop_flag")
+        ctx.bind("stop_flag", "should_stop")
+
+        node = LoopOperation(
+            id="loop1",
+            name="While Loop",
+            labels=["Loop"],
+            loop_type="whileLoop",
+            tunnels=[],
+            inner_nodes=[],
+            stop_condition_terminal="stop_flag",
+            stop_condition_inverted=False,  # Stop-if-True
+        )
+        body = [
+            parse_stmt("run_count += 1"),
+            parse_stmt("should_stop = True"),
+        ]
+
+        while_ast, stop_var = _build_while_loop(node, body, ctx)
+        assert stop_var == "should_stop"
+
+        result = self._run(while_ast, "run_count = 0")
+        assert result["run_count"] == 1
+
+    def test_stop_if_true_terminates_with_correct_final_value(self):
+        """Stop-if-True (default polarity): loop breaks when the resolved
+        condition becomes True -- ``if cond: break``."""
+        ctx = make_ctx("stop_flag")
+        ctx.bind("stop_flag", "should_stop")
+
+        node = LoopOperation(
+            id="loop1",
+            name="While Loop",
+            labels=["Loop"],
+            loop_type="whileLoop",
+            tunnels=[],
+            inner_nodes=[],
+            stop_condition_terminal="stop_flag",
+            stop_condition_inverted=False,  # Stop-if-True
+        )
+        body = [
+            parse_stmt("count += 1"),
+            parse_stmt("should_stop = count >= 3"),
+        ]
+
+        while_ast, _ = _build_while_loop(node, body, ctx)
+
+        result = self._run(while_ast, "count = 0")
+        assert result["count"] == 3
+
+    def test_continue_if_true_terminates_with_correct_final_value(self):
+        """Continue-if-True (inverted polarity): the loop keeps running
+        while the condition is True, so it breaks when the condition is
+        False -- ``if not cond: break``.
+
+        Uses the opposite condition expression (``count < 3`` instead of
+        ``count >= 3``) to reach the SAME final count as the Stop-if-True
+        test. If the polarity were mishandled (e.g. treated as
+        Stop-if-True), this would incorrectly break after the first
+        iteration (count == 1) instead of running to count == 3.
+        """
+        ctx = make_ctx("continue_flag")
+        ctx.bind("continue_flag", "keep_going")
+
+        node = LoopOperation(
+            id="loop1",
+            name="While Loop",
+            labels=["Loop"],
+            loop_type="whileLoop",
+            tunnels=[],
+            inner_nodes=[],
+            stop_condition_terminal="continue_flag",
+            stop_condition_inverted=True,  # Continue-if-True
+        )
+        body = [
+            parse_stmt("count += 1"),
+            parse_stmt("keep_going = count < 3"),
+        ]
+
+        while_ast, _ = _build_while_loop(node, body, ctx)
+
+        result = self._run(while_ast, "count = 0")
+        assert result["count"] == 3
+
+    def test_generate_end_to_end_do_while_shape(self):
+        """End-to-end through loop.generate(): the emitted AST is the
+        do-while shape (``while True: <body>; if <stop>: break``), not the
+        old pre-test shape (``while not <stop>: <body>``)."""
+        ctx = make_ctx("stop_flag")
+        ctx.bind("stop_flag", "should_stop")
+
+        loop_op = LoopOperation(
+            id="loop1",
+            name="While Loop",
+            labels=["Loop"],
+            loop_type="whileLoop",
+            tunnels=[],
+            inner_nodes=[],
+            stop_condition_terminal="stop_flag",
+            stop_condition_inverted=False,
+        )
+
+        fragment = loop.generate(loop_op, ctx)
+
+        while_stmt = next(
+            s for s in fragment.statements if isinstance(s, ast.While)
+        )
+        # Top-level test must be `True` (do-while), never a computed
+        # pre-test condition.
+        assert isinstance(while_stmt.test, ast.Constant)
+        assert while_stmt.test.value is True
+
+        # An `if <stop>: break` must appear as the last statement in the
+        # loop body (condition tested at the END, not the start).
+        last = while_stmt.body[-1]
+        assert isinstance(last, ast.If)
+        assert len(last.body) == 1
+        assert isinstance(last.body[0], ast.Break)

@@ -93,6 +93,7 @@ class OperationsMixin:
         inner_nodes: list[Operation] = []
         loop_type: str | None = None
         stop_cond: str | None = None
+        stop_cond_inverted = False
         case_frames: list[CaseFrame] = []
         seq_frames: list[SequenceFrame] = []
         selector_terminal: str | None = None
@@ -114,6 +115,7 @@ class OperationsMixin:
                     child_uids, vi_name,
                 )
                 stop_cond = gnode.stop_condition_terminal
+                stop_cond_inverted = gnode.stop_condition_inverted
 
             elif isinstance(gnode, CaseStructureNode):
                 labels = ["CaseStructure"]
@@ -174,6 +176,7 @@ class OperationsMixin:
                 **common,
                 loop_type=loop_type,
                 stop_condition_terminal=stop_cond,
+                stop_condition_inverted=stop_cond_inverted,
             )
         if isinstance(gnode, VINode):
             return SubVIOperation(

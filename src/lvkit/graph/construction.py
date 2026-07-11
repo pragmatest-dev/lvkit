@@ -753,6 +753,7 @@ class ConstructionMixin:
                 # Loop structure
                 loop_struct = loop_by_uid.get(node.uid)
                 stop_cond: str | None = None
+                stop_cond_inverted = False
 
                 parser_tunnels: list = []
                 if loop_struct:
@@ -761,6 +762,7 @@ class ConstructionMixin:
                         stop_cond = self._qid(
                             vi_name, loop_struct.stop_condition_terminal_uid
                         )
+                    stop_cond_inverted = loop_struct.stop_condition_inverted
 
                 # Build terminals from tunnels + sRN terminals
                 structure_terminals = self._build_structure_terminals(
@@ -775,6 +777,7 @@ class ConstructionMixin:
                     terminals=structure_terminals,
                     loop_type=node.node_type,
                     stop_condition_terminal=stop_cond,
+                    stop_condition_inverted=stop_cond_inverted,
                 )
             elif node.node_type in ("caseStruct", "select"):
                 # Case structure

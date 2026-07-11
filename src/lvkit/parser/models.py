@@ -107,6 +107,7 @@ class ParsedLoopStructure:
     - Tunnel mappings linking outer<->inner terminals
     - Reference to inner diagram containing loop body operations
     - Stop condition terminal (for while loops)
+    - Stop condition polarity (for while loops)
     """
     uid: str
     loop_type: str  # "whileLoop" or "forLoop"
@@ -115,6 +116,15 @@ class ParsedLoopStructure:
     inner_diagram_uid: str | None = None
     inner_node_uids: list[str] = field(default_factory=list)
     stop_condition_terminal_uid: str | None = None  # While loop stop (lTst)
+    # While loop conditional-terminal polarity. True = Continue-if-True
+    # (loop keeps running while the condition is True; stops when False).
+    # False (default) = Stop-if-True (loop stops when the condition is
+    # True). Derived from loopTestDCO's own <objFlags> bit 16. See
+    # .tmp/task19_findings.md for the data evidence establishing this
+    # polarity: bit 16 SET -> Stop-if-True, bit 16 CLEAR -> Continue-if-True
+    # (the opposite of TERMINAL_DCO_INVERTED's meaning on cpdArith
+    # terminals, where bit 16 set means "invert").
+    stop_condition_inverted: bool = False
 
 
 from ..models import CaseFrame, SequenceFrame  # noqa: E402
