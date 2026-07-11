@@ -371,10 +371,12 @@ class LoadingMixin:
         if search_paths is None:
             search_paths = [dir_path]
 
-        for vi_path in dir_path.rglob("*.vi"):
+        # Sorted: load order decides which same-named file claims a name first
+        # when SubVI deps resolve, so filesystem order made loads irreproducible.
+        for vi_path in sorted(dir_path.rglob("*.vi")):
             self.load_vi(vi_path, expand_subvis, search_paths)
 
-        for llb_path in dir_path.rglob("*.llb"):
+        for llb_path in sorted(dir_path.rglob("*.llb")):
             if llb_path.is_file():
                 self.load_llb(llb_path, expand_subvis, search_paths)
 
@@ -543,7 +545,11 @@ class LoadingMixin:
                 if lv_type.typedef_name:
                     all_dep_qnames.add(lv_type.typedef_name)
 
-            for qname in all_dep_qnames:
+            # Sorted: dependency load ORDER decides which same-named candidate
+            # file claims a name first, so a hash-ordered set here made the
+            # loaded VI SET non-deterministic across runs (146 vs 109 on the
+            # JKI Programmatic API tree). Deterministic order → reproducible docs.
+            for qname in sorted(all_dep_qnames):
                 self._load_dependency(
                     qname,
                     dep_ref_map.get(qname),
@@ -906,7 +912,9 @@ class LoadingMixin:
             candidate = search_path / filename
             if candidate.exists():
                 return candidate
-            for found in search_path.rglob(filename):
+            # Sorted: rglob yields filesystem order, so an unsorted first-match
+            # picked a different duplicate per run/machine — non-deterministic.
+            for found in sorted(search_path.rglob(filename)):
                 return found
 
         return None
@@ -949,10 +957,12 @@ class LoadingMixin:
                 if candidate.exists():
                     return candidate
 
-            for found in search_path.rglob(vi_name):
+            # Sorted: deterministic pick among duplicate matches (rglob order
+            # is filesystem-dependent — see _find_by_name).
+            for found in sorted(search_path.rglob(vi_name)):
                 return found
 
             if alt_name:
-                for found in search_path.rglob(alt_name):
+                for found in sorted(search_path.rglob(alt_name)):
                     return found
         return None
