@@ -69,3 +69,22 @@ and observation — not copied from any internal NI source.
   excludes any such asset.
 - No NI documentation PDF or prose is bundled. Documentation is consulted from
   public ni.com pages at development/resolution time only.
+
+## Sample corpus (test-only — never redistributed)
+
+lvkit does not ship or commit any sample `.vi` files. The `samples/` directory
+is `.gitignore`d; VIs used for testing are pulled on demand from each project's
+own permissively-licensed upstream via `scripts/pull_samples.sh`. Every source
+has a provable, permissive license (verified from the repo's own LICENSE file):
+
+| Set | License | Source |
+| --- | --- | --- |
+| JKI-EasyXML | BSD-3-Clause | <https://github.com/JKISoftware/JKI-EasyXML> |
+| JKI-VI-Tester | BSD-3-Clause | <https://github.com/JKISoftware/JKI-VI-Tester> |
+| LabVIEW-DAQ | MIT | <https://github.com/KL-Turner/LabVIEW-DAQ> |
+| pylabview (test VIs) | MIT | <https://github.com/mefistotelis/pylabview> |
+| DCAF-DAQModule | Apache-2.0 | <https://github.com/LabVIEW-DCAF/DAQModule> |
+| OpenG Toolkit | BSD-3-Clause (OSI) | <https://sourceforge.net/projects/opengtoolkit/> · <https://www.vipm.io/package/openg.org_lib_openg_toolkit/> |
+
+VIs whose provenance/licensing cannot be established are not used and are never
+committed or rendered into any published artifact.
