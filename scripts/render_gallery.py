@@ -114,7 +114,7 @@ figcaption span {{ color:var(--muted); font-size:12px; }}
   <h1>lvkit renderer — VI gallery</h1>
   <p>{count} VIs · regenerate with
   <code>uv run python scripts/render_gallery.py</code>
-  · scroll to zoom · drag to pan · double-click to reset
+  · <code>ctrl/⌘ + scroll</code> to zoom · drag to pan · double-click to reset
   · click a case's <code>◄ value ▼ ►</code> selector to flip frames</p>
 </header>
 <div class="grid">
@@ -138,6 +138,7 @@ _SCRIPT = """
       pz.style.transform='translate('+tx+'px,'+ty+'px) scale('+scale+')';
     }
     stage.addEventListener('wheel', function(e){
+      if(!(e.ctrlKey || e.metaKey)) return;  // plain wheel scrolls the page
       e.preventDefault();
       var r=stage.getBoundingClientRect();
       var mx=e.clientX-r.left, my=e.clientY-r.top;
