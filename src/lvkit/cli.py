@@ -183,10 +183,6 @@ def main() -> int:
         default=[],
         help="Search paths for SubVI resolution (can be repeated)",
     )
-    desc_parser.add_argument(
-        "--chart", action="store_true",
-        help="Include Mermaid flowchart diagram",
-    )
     _add_project_root_arg(desc_parser)
     _add_library_root_args(desc_parser)
 
@@ -259,7 +255,7 @@ def main() -> int:
     # Visualize command - interactive graph visualization
     viz_parser = subparsers.add_parser(
         "visualize",
-        help="Generate VI graphs as Mermaid flowcharts or interactive diagrams",
+        help="Generate an interactive VI graph (dataflow or dependency network)",
     )
     viz_parser.add_argument(
         "input_path",
@@ -290,13 +286,6 @@ def main() -> int:
         default="dataflow",
         choices=["dataflow", "deps"],
         help="Graph type: dataflow (operations within VI) or deps (VI dependencies)",
-    )
-    viz_parser.add_argument(
-        "--format",
-        default=None,
-        choices=["interactive", "flowchart"],
-        help="Output format: flowchart (Mermaid, default for dataflow) "
-        "or interactive (pyvis, default for deps)",
     )
     _add_project_root_arg(viz_parser)
     _add_library_root_args(viz_parser)
@@ -569,16 +558,6 @@ def cmd_describe(args: argparse.Namespace) -> int:
                 vi_name = preferred[0]
 
         print(describe_vi(graph, vi_name))
-
-        if args.chart:
-            from .graph.flowchart import flowchart
-
-            print()
-            print("## Dataflow Chart")
-            print()
-            print("```mermaid")
-            print(flowchart(graph, vi_name))
-            print("```")
 
         return 0
     except (ValueError, FileNotFoundError, KeyError) as e:
@@ -897,30 +876,18 @@ def cmd_visualize(args: argparse.Namespace) -> int:
 
     output = Path(args.output)
 
-    # Default format: flowchart for dataflow, interactive for deps
-    fmt = args.format or ("interactive" if args.mode == "deps" else "flowchart")
-
-    if fmt == "flowchart":
-        from .graph.flowchart import flowchart_html
-
-        vis = list(graph.list_vis())
-        primary_vi = vis[0] if vis else ""
-        html = flowchart_html(graph, primary_vi)
-        output.parent.mkdir(parents=True, exist_ok=True)
-        output.write_text(html, encoding="utf-8")
+    try:
+        import pyvis  # type: ignore[import-untyped]  # noqa: F401
+    except ImportError:
+        print(
+            "Error: pyvis not installed. Run: pip install pyvis",
+            file=sys.stderr,
+        )
+        return 1
+    if args.mode == "deps":
+        _visualize_deps(graph, output)
     else:
-        try:
-            import pyvis  # type: ignore[import-untyped]  # noqa: F401
-        except ImportError:
-            print(
-                "Error: pyvis not installed. Run: pip install pyvis",
-                file=sys.stderr,
-            )
-            return 1
-        if args.mode == "deps":
-            _visualize_deps(graph, output)
-        else:
-            _visualize_dataflow(graph, output)
+        _visualize_dataflow(graph, output)
 
     print(f"Graph saved to {args.output}")
 

@@ -30,7 +30,6 @@ from lvkit.graph.describe import (
     describe_vi,
 )
 from lvkit.graph.diff import diff_structured, diff_text
-from lvkit.graph.flowchart import flowchart, flowchart_html
 
 SAMPLE_VI = Path("samples/DAQmx-Digital-IO/In.vi")
 
@@ -135,33 +134,6 @@ def test_diff_structured_with_no_resolutions(loaded_graph) -> None:
     graph, vi_name = loaded_graph
     report = diff_structured(graph, graph, vi_name, vi_name)
     assert report.is_empty()
-
-
-# ============================================================
-# visualize / flowchart
-# ============================================================
-
-
-def test_flowchart_with_no_resolutions(loaded_graph) -> None:
-    """flowchart() renders Mermaid output with empty resolvers."""
-    graph, vi_name = loaded_graph
-    text = flowchart(graph, vi_name)
-    assert text
-    # Mermaid flowchart syntax marker
-    assert "flowchart" in text.lower() or "graph" in text.lower()
-
-
-def test_flowchart_html_with_no_resolutions(loaded_graph) -> None:
-    """flowchart_html() renders the visualize HTML page with empty resolvers.
-
-    `lvkit visualize --format flowchart` calls this — it's a separate
-    code path from plain flowchart() that wraps the Mermaid output in
-    an HTML scaffold.
-    """
-    graph, vi_name = loaded_graph
-    html = flowchart_html(graph, vi_name)
-    assert html
-    assert "<html" in html.lower() or "<!doctype" in html.lower()
 
 
 # ============================================================

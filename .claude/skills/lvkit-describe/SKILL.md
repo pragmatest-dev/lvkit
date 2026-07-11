@@ -12,10 +12,10 @@ Run `lvkit describe` on the VI:
 lvkit describe "<vi-path>" --search-path "<library-path>"
 ```
 
-Add `--chart` to also print a Mermaid flowchart:
+To see the VI's faithful block diagram, render it to SVG:
 
 ```bash
-lvkit describe "<vi-path>" --search-path "<library-path>" --chart
+lvkit render "<vi-path>" --search-path "<library-path>" -o "<vi>.svg"
 ```
 
 **Report to the user using this format:**
