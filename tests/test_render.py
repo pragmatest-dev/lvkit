@@ -1803,6 +1803,22 @@ def test_bundle_and_unbundle_draw_mirrored_split_boxes():
     assert arrow_x(ub.render(bounds)) < 30.0  # left half
 
 
+def test_entry_edge_point_seats_dot_on_wire_side():
+    """A coercion dot on a border terminal sits on the edge the wire ENTERS
+    (toward the source), never the terminal's center."""
+    from lvkit.render.scene import _entry_edge_point
+    center = (100.0, 100.0)
+    bounds = (90.0, 92.0, 110.0, 108.0)  # 20x16 box around the center
+    # wire coming from the left -> left edge (x1), same y as center
+    assert _entry_edge_point(center, bounds, (10.0, 100.0)) == (90.0, 100.0)
+    # from the right -> right edge (x2)
+    assert _entry_edge_point(center, bounds, (400.0, 100.0)) == (110.0, 100.0)
+    # from above -> top edge (y1)
+    assert _entry_edge_point(center, bounds, (100.0, 10.0)) == (100.0, 92.0)
+    # no bounds -> center (unchanged)
+    assert _entry_edge_point(center, None, (10.0, 100.0)) == center
+
+
 def test_string_constant_has_full_text_tooltip():
     """A string/path constant whose in-box text may be ellipsized carries the
     FULL value as a native <title> tooltip so it stays readable on hover."""

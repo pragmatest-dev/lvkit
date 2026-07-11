@@ -729,6 +729,23 @@ def _wire_edge_point(
     return (cx, y2)
 
 
+def _entry_edge_point(center: Point, bounds: Rect | None, toward: Point) -> Point:
+    """The point on a terminal's ``bounds`` on the side the wire ACTUALLY enters
+    — the edge of the rect crossed by the ray from ``center`` toward the wire's
+    entry stub (``toward``). Used to seat a coercion dot on a big border-terminal
+    glyph (a For-Loop's N/i) at the wire, not in the middle where it obscures the
+    label. Falls back to ``center`` when the terminal has no known box."""
+    if bounds is None:
+        return center
+    cx, cy = center
+    tx, ty = toward
+    x1, y1, x2, y2 = bounds
+    dx, dy = tx - cx, ty - cy
+    if abs(dx) >= abs(dy):
+        return (x1 if dx <= 0 else x2, cy)
+    return (cx, y1 if dy <= 0 else y2)
+
+
 def _wire_role(term: Terminal | None, fallback: str) -> str | None:
     """The terminal's role for wire-stub purposes: "output" (exits right) or
     "input" (enters from the left).
@@ -1070,9 +1087,18 @@ def _build_wire_nets(
 
             # Coercion dot ONLY on a numeric-representation change (I32->DBL),
             # never a structural one (array->element at an auto-index tunnel).
+            # It sits on the destination terminal's BORDER where the wire enters
+            # — not the terminal's center, which for a big border glyph (a
+            # For-Loop's N, i, tunnels) would land in the middle and obscure it.
             dst_num = numeric_repr(dest_term.lv_type if dest_term else None)
             if src_num is not None and dst_num is not None and src_num != dst_num:
-                coercion_dots.append(dst_center)
+                # The terminal's own box (its heap termBounds) is kept in
+                # node_bounds keyed by terminal uid — covers a For-Loop's N, a
+                # tunnel, a subVI input, etc.; seat the dot on the entry edge.
+                dst_bounds = layout.node_bounds.get(raw_dst)
+                coercion_dots.append(
+                    _entry_edge_point(dst_center, dst_bounds, dst_in)
+                )
 
         if not branches:
             continue
