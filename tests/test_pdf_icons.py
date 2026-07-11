@@ -18,7 +18,12 @@ import pytest
 from lvkit.graph.core import InMemoryVIGraph
 from lvkit.graph.models import PrimitiveNode, VINode
 from lvkit.render.backend import SvgBackend
-from lvkit.render.glyph import ArithGlyph, CenteredSvgGlyph, IconImageGlyph
+from lvkit.render.glyph import (
+    ArithGlyph,
+    CenteredSvgGlyph,
+    IconImageGlyph,
+    WrappedBoxGlyph,
+)
 from lvkit.render.nodes import (
     _RESOLVERS,
     ExtractedIconResolver,
@@ -156,8 +161,20 @@ def test_index_array_prefers_node_type_asset_over_shared_prim_id():
         assert glyph.icon_path == asset
 
 
+def test_build_array_resolves_to_clean_room_box():
+    """Build Array (aBuild) renders as a clean-room 'Build Array' labeled box,
+    taking precedence over the vectorized NI icon asset (which read as a noisy
+    little grid). See OriginalGlyphResolver."""
+    node = PrimitiveNode(
+        id="vi::aBuild", vi="vi", name="Build Array",
+        node_type="aBuild", terminals=[],
+    )
+    glyph = resolve_glyph(node, _ctx())
+    assert isinstance(glyph, WrappedBoxGlyph)
+    assert glyph.label == "Build Array"
+
+
 @pytest.mark.parametrize("node_type,display_name", [
-    ("aBuild", "Build Array"),
     ("aIndx", "Index Array"),
     ("aInit", "Initialize Array"),
 ])
