@@ -30,6 +30,7 @@ NODE_CLASS_SCANF = "scanf"  # Scan From String primitive (variable terminals)
 NODE_CLASS_NMUX = "nMux"  # Node Multiplexer (selector)
 NODE_CLASS_ARRAY_DELETE = "aDelete"  # Delete From Array
 NODE_CLASS_ARRAY_INDEX = "aIndx"  # Index Array (expandable)
+NODE_CLASS_ARRAY_REPLACE = "aReplace"  # Replace Array Subset
 NODE_CLASS_CONCAT = "concat"  # Concatenate (strings/arrays)
 NODE_CLASS_SUBSET = "subset"  # Array/String Subset
 NODE_CLASS_MERGE_ERRORS = "mergeErrors"  # Merge Errors
@@ -73,6 +74,7 @@ OPERATION_NODE_CLASSES = (
     NODE_CLASS_NMUX,
     NODE_CLASS_ARRAY_DELETE,
     NODE_CLASS_ARRAY_INDEX,
+    NODE_CLASS_ARRAY_REPLACE,
     NODE_CLASS_CONCAT,
     NODE_CLASS_SUBSET,
     NODE_CLASS_MERGE_ERRORS,

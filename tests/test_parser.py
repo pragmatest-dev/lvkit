@@ -857,3 +857,20 @@ class TestRealVIParsing:
         if main_xml and main_xml.exists():
             metadata = parse_vi_metadata(main_xml)
             assert "name" in metadata or "qualified_name" in metadata
+
+
+def test_every_registered_handler_is_reachable_by_extraction() -> None:
+    """Guard against silently dropped nodes: every class with a registered
+    node handler MUST also appear in OPERATION_NODE_CLASSES, which is what
+    _extract_nodes iterates. A handler that is registered but not whitelisted
+    is never reached, so those nodes vanish from the diagram (the aReplace /
+    'Replace Array Subset' drop). This test fails loudly if the two lists
+    diverge again."""
+    from lvkit.parser.constants import OPERATION_NODE_CLASSES
+    from lvkit.parser.node_types import NODE_HANDLERS
+
+    unreachable = sorted(set(NODE_HANDLERS) - set(OPERATION_NODE_CLASSES))
+    assert not unreachable, (
+        f"Node handlers registered but not in OPERATION_NODE_CLASSES "
+        f"(they will be silently dropped by _extract_nodes): {unreachable}"
+    )
