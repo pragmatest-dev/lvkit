@@ -266,11 +266,14 @@ def render_vi_with_subvis(
     scene = build_scene(graph, vi_name)
     if scene is None:
         return None, {}
-    subvis = {
-        rn.node.id: rn.node.name
-        for rn in scene.nodes
-        if isinstance(rn.node, VINode) and rn.node.name
-    }
+    # Prefer the fully-qualified callee name (e.g. "TestCase.lvclass:run.vi")
+    # so a consumer can identify the exact VI; fall back to the bare name.
+    subvis: dict[str, str] = {}
+    for rn in scene.nodes:
+        if isinstance(rn.node, VINode):
+            target = rn.node.qualified_name or rn.node.name
+            if target:
+                subvis[rn.node.id] = target
     return _render_scene_svg(scene, vi_name), subvis
 
 

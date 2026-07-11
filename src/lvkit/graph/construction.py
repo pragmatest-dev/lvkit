@@ -696,6 +696,25 @@ class ConstructionMixin:
                 poly_variant = None
                 if isinstance(node, SubVINode) and node.poly_variant_name:
                     poly_variant = node.poly_variant_name
+                # Persist the FULLY QUALIFIED callee name (e.g.
+                # "TestCase.lvclass:CallTestMethod.vi"). The graph already
+                # resolves this to wire up cross-VI edges (see
+                # _connect_subvi_calls); store it on the node too so consumers
+                # can identify the exact callee instead of the ambiguous bare
+                # file name. None when the callee can't be resolved to a loaded
+                # VI (unresolved vilib, call-by-ref, ...).
+                # The callee's fully-qualified name (e.g.
+                # "TestCase.lvclass:CallTestMethod.vi"). Prefer the iUse->qname
+                # map, then the graph's own resolution (mirroring
+                # _connect_subvi_calls); when there's no known container it is
+                # simply the bare name — never None.
+                callee_q = (iuse_to_qname or {}).get(node.uid) or node_name
+                resolved_q = self.resolve_vi_name(callee_q) if callee_q else None
+                qualified_name = (
+                    resolved_q
+                    if resolved_q and resolved_q in self._graph
+                    else node_name
+                )
                 graph_node: AnyGraphNode = VINode(
                     id=q_node_uid,
                     vi=vi_name,
@@ -705,6 +724,7 @@ class ConstructionMixin:
                     description=description,
                     poly_variant_name=poly_variant,
                     qualified_path=iuse_to_qpath.get(node.uid),
+                    qualified_name=qualified_name,
                 )
             elif node.node_type in ("whileLoop", "forLoop"):
                 # Loop structure

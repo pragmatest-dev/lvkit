@@ -108,3 +108,19 @@ def test_diagram_no_navigation_for_undocumented_subvi(tmp_path):
     svg = '<svg><g data-node="Parent.vi::42"></g></svg>'
     html = gen._render_diagram(svg, {"Parent.vi::42": "Child.vi"}, lambda n: n)
     assert "location.href" not in html
+
+
+def test_diagram_links_by_qualified_name(tmp_path):
+    """SubVI nav matches the fully-qualified callee name the graph now provides
+    (e.g. TestCase.lvclass:run.vi), so a class method links to the right page."""
+    gen = HTMLDocGenerator(tmp_path, "test-doc", "vi")
+    gen.all_vis = {"TestCase.lvclass:CallTestMethod.vi"}
+    svg = '<svg><g data-node="Caller.vi::7"></g></svg>'
+    html = gen._render_diagram(
+        svg,
+        {"Caller.vi::7": "TestCase.lvclass:CallTestMethod.vi"},
+        lambda n: n.replace(":", "_").replace(".vi", ".html"),
+    )
+    assert "location.href" in html
+    assert "Caller.vi::7" in html  # the linked node
+    assert "TestCase.lvclass_CallTestMethod.html" in html  # resolved target link
