@@ -322,18 +322,22 @@ class JsonGlyphResolver:
         return None
 
 
-def _bundle_by_name_glyph(node: PrimitiveNode) -> BundleByNameGlyph | None:
+def _bundle_by_name_glyph(
+    node: PrimitiveNode, graph: InMemoryVIGraph,
+) -> BundleByNameGlyph | None:
     """A Bundle/Unbundle-By-Name glyph for an ``nMux`` node, with each accessed
     field's NAME resolved from the wired cluster's type. The ``agg`` terminal is
-    the cluster (its ``lv_type.fields`` are the names); each ``list`` terminal
-    carries an ``nmux_field_index`` into that field list. ``bundling`` is True
-    when the cluster is the OUTPUT (fields in → cluster out). Returns None if the
-    cluster type carries no field names (caller falls back to the compact glyph).
+    the cluster; each ``list`` terminal carries an ``nmux_field_index`` into that
+    field list. ``bundling`` is True when the cluster is the OUTPUT (fields in →
+    cluster out). Field names come from ``graph.get_type_fields()`` — the ONE API
+    for both anonymous clusters (fields inline on the terminal) and named/class
+    types (fields only in dep_graph, e.g. an LVOOP private-data cluster). Returns
+    None if no field names are resolvable (caller falls back to the compact glyph).
     """
     agg = next((t for t in node.terminals if t.nmux_role == "agg"), None)
-    if agg is None:
+    if agg is None or agg.lv_type is None:
         return None
-    fields = (agg.lv_type.fields if agg.lv_type else None) or []
+    fields = graph.get_type_fields(agg.lv_type) or []
     if not fields:
         return None
     field_terms = sorted(
@@ -382,7 +386,7 @@ class OriginalGlyphResolver:
         if not isinstance(node, PrimitiveNode):
             return None
         if node.node_type in _CLUSTER_MUX_TYPES:
-            return self._cluster_glyph(node)
+            return self._cluster_glyph(node, ctx.graph)
         symbol = _COMPARE_SYMBOL.get(node.name or "")
         if symbol is not None:
             return ArithGlyph(symbol)
@@ -395,12 +399,12 @@ class OriginalGlyphResolver:
         return None
 
     @staticmethod
-    def _cluster_glyph(node: PrimitiveNode) -> Glyph | None:
+    def _cluster_glyph(node: PrimitiveNode, graph: InMemoryVIGraph) -> Glyph | None:
         # nMux is Bundle/Unbundle BY NAME — a box with the accessed field NAMES,
         # resolved from the wired cluster's type (mux/demux are the compact,
         # positional Bundle/Unbundle handled by field count below).
         if node.node_type == "nMux":
-            named = _bundle_by_name_glyph(node)
+            named = _bundle_by_name_glyph(node, graph)
             if named is not None:
                 return named
         # FIELD terminals (nmux_role=="list") are the real payload count — the

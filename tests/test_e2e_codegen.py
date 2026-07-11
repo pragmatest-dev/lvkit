@@ -9,6 +9,7 @@ complete pipeline that unit tests miss.
 from __future__ import annotations
 
 import ast
+import types
 from pathlib import Path
 
 import pytest
@@ -33,6 +34,9 @@ DAQMX_OUT_VI = Path("samples/DAQmx-Digital-IO/Out.vi")
 TESTCASE_DIR = Path("samples/JKI-VI-Tester/source/Classes/TestCase")
 DCAF_CONFIG_DIR = Path("samples/DCAF-DAQModule/source/module/configuration")
 DELETE_LINE_VI = DCAF_CONFIG_DIR / "Delete Line.vi"
+TESTRESULT_DIR = Path("samples/JKI-VI-Tester/source/Classes/TestResult")
+GET_TESTS_RUN_VI = TESTRESULT_DIR / "GetTestsRun.vi"
+TESTRESULT_INIT_VI = TESTRESULT_DIR / "TestResult_Init.vi"
 
 
 def _skip_if_missing(*paths: Path) -> None:
@@ -347,3 +351,74 @@ class TestIPESDeleteLine:
         """Return value must reference the same variable as input."""
         code = _generate(delete_line_graph, self.VI_NAME)
         assert "daqmx_module_configuration_out=daqmx_module_configuration_in" in code
+
+
+# ── nMux on an LVOOP class's own private data (task #56) ────────────
+#
+# A Bundle/Unbundle By Name (nMux) whose "agg" terminal is the class's own
+# private-data cluster (wired through the "this" refnum) must resolve field
+# names from the class's dep_graph, exactly like an anonymous-cluster nMux
+# resolves them from inline type_map fields. Regression coverage for the
+# "Type resolution needed for 'field[N]'" failure (task #56): GetTestsRun.vi
+# is a single-field Unbundle By Name on TestResult.lvclass's private data —
+# the same node shape as the originally-reported failure (Method1.vi, an
+# LV-8.2-era VI whose TM80 resource pylabview cannot parse at all — a
+# pylabview extraction gap, not a codegen bug; see
+# scratchpad/task56_findings.md). TestResult_Init.vi covers the BUNDLE
+# direction (multi-field Bundle By Name, LVOOP constructor pattern).
+
+
+class TestClassPrivateDataNmux:
+    """E2E: nMux unbundle/bundle of an LVOOP class's own private data."""
+
+    def test_unbundle_generates_and_executes(self):
+        """GetTestsRun.vi: single-field Unbundle By Name on private data.
+
+        Must resolve the ``testsRun`` field name (not raise
+        TypeResolutionNeeded) and, when executed, read the real value off
+        the "this" object.
+        """
+        _skip_if_missing(GET_TESTS_RUN_VI)
+        graph = InMemoryVIGraph()
+        graph.load_vi(str(GET_TESTS_RUN_VI), search_paths=[TESTRESULT_DIR.parent])
+
+        vi_name = "TestResult.lvclass:GetTestsRun.vi"
+        ctx = graph.get_vi_context(vi_name)
+        code = build_module(ctx, vi_name, graph=graph)
+        assert_valid_python(code, vi_name)
+        assert ".testsrun" in code, "Expected attribute access on the class field"
+
+        ns: dict = {}
+        exec(compile(code, "<GetTestsRun.vi>", "exec"), ns)  # noqa: S102
+        this = types.SimpleNamespace(testsrun=42)
+        result = ns["gettestsrun"](this)
+        assert result.testsrun == 42
+        assert result.testresult_out is this
+
+    def test_bundle_generates_and_executes(self):
+        """TestResult_Init.vi: multi-field Bundle By Name (constructor)
+        writing several fields onto the class's own private data.
+
+        Must resolve every field name and, when executed, write the real
+        values onto the "this" object.
+        """
+        _skip_if_missing(TESTRESULT_INIT_VI)
+        graph = InMemoryVIGraph()
+        graph.load_vi(str(TESTRESULT_INIT_VI), search_paths=[TESTRESULT_DIR.parent])
+
+        vi_name = "TestResult.lvclass:TestResult_Init.vi"
+        ctx = graph.get_vi_context(vi_name)
+        code = build_module(ctx, vi_name, graph=graph)
+        assert_valid_python(code, vi_name)
+
+        ns: dict = {}
+        exec(compile(code, "<TestResult_Init.vi>", "exec"), ns)  # noqa: S102
+        this = types.SimpleNamespace()
+        result = ns["testresult_init"](this, "event_ref")
+        out = result.testresult_out
+        assert out is this
+        assert out.testsrun == 0
+        assert out.shouldstop is False
+        assert out.errors == "[]"
+        assert out.failures == "[]"
+        assert out.resultstatuschangedeventref == "event_ref"

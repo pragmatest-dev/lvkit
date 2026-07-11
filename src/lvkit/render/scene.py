@@ -43,21 +43,26 @@ from .wire_router import WireRouter, _compress
 
 logger = logging.getLogger(__name__)
 
-def _is_boundary_mux(node: AnyGraphNode) -> bool:
+def _is_boundary_mux(node: AnyGraphNode, graph: InMemoryVIGraph) -> bool:
     """A structure-boundary data multiplexer that LabVIEW never draws as a box.
 
     An ``nMux`` ("Node Multiplexer") is EITHER a visible Bundle/Unbundle By Name
     — a box listing accessed field NAMES, however few (a single-field access is
     still drawn) — OR the compiler's shift-register/tunnel muxer, which carries
     no cluster and so has no named box. The visible one always has an ``agg``
-    terminal whose CLUSTER type supplies the field names; without that there's
-    nothing to draw, so only that case is skipped (its terminals stay in the
-    layout so wires still route to the SR/tunnel positions).
+    terminal whose CLUSTER type supplies the field names — resolved the same way
+    codegen resolves them, via ``graph.get_type_fields()`` (anonymous clusters
+    carry fields inline; class/typedef types resolve them from dep_graph) — so an
+    LVOOP private-data unbundle is recognized too, not just anonymous clusters.
+    Without any resolvable fields there's nothing to draw, so only that case is
+    skipped (its terminals stay in the layout so wires still route to the
+    SR/tunnel positions).
     """
     if node.node_type != "nMux":
         return False
     agg = next((t for t in node.terminals if t.nmux_role == "agg"), None)
-    return not (agg is not None and agg.lv_type is not None and agg.lv_type.fields)
+    fields = graph.get_type_fields(agg.lv_type) if agg and agg.lv_type else None
+    return not fields
 
 
 @dataclass(frozen=True)
@@ -1264,7 +1269,7 @@ def build_scene(graph: InMemoryVIGraph, vi_name: str) -> Scene | None:
     missing: list[str] = []
 
     for node in all_nodes:
-        if _is_boundary_mux(node):
+        if _is_boundary_mux(node, graph):
             continue  # internal 1-in/1-out mux — not a visible diagram object
         raw_uid = _strip_prefix(node.id, vi_name)
         bounds = layout.node_bounds.get(raw_uid)

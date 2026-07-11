@@ -1923,4 +1923,49 @@ def test_nmux_renders_as_bundle_by_name_and_skips_boundary_mux():
     for node in nmux.values():
         agg = next((t for t in node.terminals if t.nmux_role == "agg"), None)
         has_fields = bool(agg and agg.lv_type and agg.lv_type.fields)
-        assert _is_boundary_mux(node) is not has_fields
+        assert _is_boundary_mux(node, graph) is not has_fields
+
+
+def test_nmux_on_class_private_data_draws_field_name():
+    """An nMux unbundling an LVOOP class's own private data (the "this" refnum,
+    not an anonymous cluster) must ALSO render as a By-Name box with the real
+    field name — not fall back to the compact glyph, and not be dropped as a
+    boundary mux. Field names for a class type live only in dep_graph (never
+    inline on the terminal's ``lv_type.fields``), so this exercises the
+    ``graph.get_type_fields()`` path through both ``_is_boundary_mux`` and
+    ``_bundle_by_name_glyph`` (task #56)."""
+    from lvkit.render.glyph import BundleByNameGlyph
+    from lvkit.render.scene import _is_boundary_mux
+
+    testresult_dir = Path("samples/JKI-VI-Tester/source/Classes/TestResult")
+    vi_path = testresult_dir / "GetTestsRun.vi"
+    if not vi_path.exists():
+        pytest.skip("sample VI not available")
+
+    graph = InMemoryVIGraph()
+    graph.load_vi(str(vi_path), search_paths=[testresult_dir.parent])
+    vi_name = "TestResult.lvclass:GetTestsRun.vi"
+
+    nmux = [n for n in graph.iter_nodes(vi_name)
+            if getattr(n, "node_type", None) == "nMux"]
+    assert nmux, "expected an nMux node on the class private-data unbundle"
+    agg = next((t for t in nmux[0].terminals if t.nmux_role == "agg"), None)
+    assert agg is not None and agg.lv_type is not None
+    # The agg terminal is the class type itself (via the "this" refnum) — it
+    # carries NO inline fields; they only resolve through dep_graph.
+    assert agg.lv_type.classname == "TestResult.lvclass"
+    assert not agg.lv_type.fields
+
+    assert not _is_boundary_mux(nmux[0], graph), (
+        "class private-data nMux must be a visible By-Name box, not a "
+        "dropped boundary muxer"
+    )
+
+    scene = build_scene(graph, vi_name)
+    assert scene is not None
+    rn = {r.node.id.split("::")[-1]: r for r in scene.nodes}
+    raw_uid = nmux[0].id.split("::")[-1]
+    assert raw_uid in rn, "class private-data nMux must be drawn"
+    glyph = rn[raw_uid].glyph
+    assert isinstance(glyph, BundleByNameGlyph)
+    assert glyph.names == ("testsRun",)
