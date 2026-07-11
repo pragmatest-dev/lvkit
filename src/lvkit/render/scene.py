@@ -43,13 +43,20 @@ from .wire_router import WireRouter, _compress
 
 logger = logging.getLogger(__name__)
 
-# LabVIEW-internal nodes that are NOT drawn as visible diagram objects. `nMux`
-# ("Node Multiplexer") is the compiler's data multiplexer at structure
-# boundaries (shift-register / tunnel muxing across frames/iterations) — it
-# spans the structure's inner region in the heap but LabVIEW never draws it as a
-# box. We skip its glyph; its terminals stay in the layout so wires still route
-# to the shift-register / tunnel positions that visually represent it.
-_INTERNAL_NODE_TYPES = {"nMux"}
+def _is_boundary_mux(node: AnyGraphNode) -> bool:
+    """A structure-boundary data multiplexer that LabVIEW never draws as a box.
+
+    An ``nMux`` ("Node Multiplexer") is EITHER a visible Bundle/Unbundle By Name
+    (many named field terminals — drawn) OR the compiler's shift-register/tunnel
+    muxer at a structure boundary, which passes a SINGLE value through (1 input,
+    1 output) and has no box. Only the latter is skipped; its terminals stay in
+    the layout so wires still route to the SR/tunnel positions that represent it.
+    """
+    if node.node_type != "nMux":
+        return False
+    ins = sum(1 for t in node.terminals if t.direction == "input")
+    outs = sum(1 for t in node.terminals if t.direction == "output")
+    return ins <= 1 and outs <= 1
 
 
 @dataclass(frozen=True)
@@ -1202,8 +1209,8 @@ def build_scene(graph: InMemoryVIGraph, vi_name: str) -> Scene | None:
     missing: list[str] = []
 
     for node in all_nodes:
-        if node.node_type in _INTERNAL_NODE_TYPES:
-            continue  # internal mux node — not a visible diagram object
+        if _is_boundary_mux(node):
+            continue  # internal 1-in/1-out mux — not a visible diagram object
         raw_uid = _strip_prefix(node.id, vi_name)
         bounds = layout.node_bounds.get(raw_uid)
         fp_path = _frame_path(node, by_id, vi_name)

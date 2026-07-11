@@ -1801,3 +1801,51 @@ def test_bundle_and_unbundle_draw_mirrored_split_boxes():
         return float(m.group(1))
     assert arrow_x(bb.render(bounds)) > 30.0  # right half
     assert arrow_x(ub.render(bounds)) < 30.0  # left half
+
+
+def test_bundle_by_name_glyph_draws_field_names():
+    """Bundle/Unbundle By Name draws one row per field, each LABELED with the
+    field name (not the compact arrow glyph)."""
+    from lvkit.render.glyph import BundleByNameGlyph
+    bounds = (0.0, 0.0, 90.0, 60.0)
+    b = SvgBackend()
+    BundleByNameGlyph(names=("level", "parent name", "xml index")).draw(
+        b, bounds, DEFAULT_THEME,
+    )
+    svg = b.render(bounds)
+    for name in ("level", "parent name", "xml index"):
+        assert name in svg
+    assert "▶" not in svg  # By Name is named rows, not the compact arrow
+
+
+def test_nmux_renders_as_bundle_by_name_and_skips_boundary_mux():
+    """nMux with named fields renders as a By-Name box with the field names
+    resolved from the wired cluster type; a 1-in/1-out nMux boundary muxer is
+    still skipped (no box)."""
+    from lvkit.render.glyph import BundleByNameGlyph
+    from lvkit.render.scene import _is_boundary_mux
+
+    loaded = _load_graph(Path("samples/JKI-EasyXML/Source/Fast Parser/"
+                              "XML Loop Stack Recursion.vi"))
+    if loaded is None:
+        pytest.skip("sample VI not available")
+    graph, vi = loaded
+    nmux = {n.id.split("::")[-1]: n for n in graph.iter_nodes(vi)
+            if getattr(n, "node_type", None) == "nMux"}
+    scene = build_scene(graph, vi)
+    assert scene is not None
+    rn = {r.node.id.split("::")[-1]: r for r in scene.nodes}
+
+    # 1969: 1-in/11-out Unbundle By Name — drawn, with resolved field names.
+    if "1969" in nmux:
+        assert "1969" in rn, "By-Name nMux must be rendered, not dropped"
+        glyph = rn["1969"].glyph
+        assert isinstance(glyph, BundleByNameGlyph)
+        assert "xml index" in glyph.names and "pretty print level" in glyph.names
+    # A 1-in/1-out nMux is a boundary muxer — skipped.
+    for raw, node in nmux.items():
+        ins = sum(1 for t in node.terminals if t.direction == "input")
+        outs = sum(1 for t in node.terminals if t.direction == "output")
+        if ins <= 1 and outs <= 1:
+            assert _is_boundary_mux(node)
+            assert raw not in rn, "boundary muxer should not be drawn"

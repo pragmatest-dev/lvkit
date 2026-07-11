@@ -350,6 +350,43 @@ class UnbundleGlyph:
 
 
 @dataclass(frozen=True)
+class BundleByNameGlyph:
+    """Bundle / Unbundle By Name (heap class ``nMux``): a box with one row per
+    accessed field, each row LABELED with the field's NAME. Unlike the compact
+    positional Bundle/Unbundle (``BundleGlyph``/``UnbundleGlyph``, terminals
+    only), By Name shows the names — resolved from the wired cluster's type by
+    the resolver. The small cluster (refnum) terminal is drawn separately at the
+    node's corner; the named rows fill the box, one per ``list`` terminal in
+    top-to-bottom order. Scales to the node's heap bounds (names left-aligned,
+    truncated to fit)."""
+
+    names: tuple[str, ...]
+    bundling: bool = True  # True: Bundle By Name; False: Unbundle By Name
+    fill_attr: str = "prim_fill"
+    stroke_attr: str = "prim_stroke"
+
+    def draw(self, backend: Backend, bounds: Rect, theme: Theme) -> None:
+        x1, y1, x2, y2 = bounds
+        fill = getattr(theme, self.fill_attr)
+        stroke = getattr(theme, self.stroke_attr)
+        backend.rect(x1, y1, x2, y2, fill=fill, stroke=stroke, stroke_width=1.2)
+        rows = self.names or ("",)
+        n = len(rows)
+        h = y2 - y1
+        pad = 3.0
+        size = max(6.0, min(9.0, (h / n) * 0.62))
+        for i, name in enumerate(rows):
+            ry1 = y1 + i * h / n
+            ry2 = y1 + (i + 1) * h / n
+            if i > 0:
+                backend.line(x1, ry1, x2, ry1, stroke=stroke, stroke_width=0.75)
+            label = fit_label(name, (x2 - x1) - 2 * pad, backend, size)
+            backend.text(
+                x1 + pad, (ry1 + ry2) / 2 + size * 0.34, label, size, anchor="start",
+            )
+
+
+@dataclass(frozen=True)
 class ConstantGlyph:
     """A constant's colored box (color from its own ``LVType``, computed by
     the resolver — a literal color, not a theme attribute, since it varies

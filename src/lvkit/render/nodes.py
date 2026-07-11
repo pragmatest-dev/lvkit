@@ -45,6 +45,7 @@ from ..vilib_resolver import get_resolver as get_vilib_resolver
 from .glyph import (
     ArithGlyph,
     BooleanConstantGlyph,
+    BundleByNameGlyph,
     BundleGlyph,
     CenteredSvgGlyph,
     ClusterConstantGlyph,
@@ -292,6 +293,35 @@ class JsonGlyphResolver:
         return None
 
 
+def _bundle_by_name_glyph(node: PrimitiveNode) -> BundleByNameGlyph | None:
+    """A Bundle/Unbundle-By-Name glyph for an ``nMux`` node, with each accessed
+    field's NAME resolved from the wired cluster's type. The ``agg`` terminal is
+    the cluster (its ``lv_type.fields`` are the names); each ``list`` terminal
+    carries an ``nmux_field_index`` into that field list. ``bundling`` is True
+    when the cluster is the OUTPUT (fields in → cluster out). Returns None if the
+    cluster type carries no field names (caller falls back to the compact glyph).
+    """
+    agg = next((t for t in node.terminals if t.nmux_role == "agg"), None)
+    if agg is None:
+        return None
+    fields = (agg.lv_type.fields if agg.lv_type else None) or []
+    if not fields:
+        return None
+    field_terms = sorted(
+        (t for t in node.terminals if t.nmux_role == "list"), key=lambda t: t.index,
+    )
+    if not field_terms:
+        return None
+    names: list[str] = []
+    for t in field_terms:
+        fi = t.nmux_field_index
+        if fi is not None and 0 <= fi < len(fields) and fields[fi].name:
+            names.append(fields[fi].name)
+        else:
+            names.append(t.name or (f"field {fi}" if fi is not None else "?"))
+    return BundleByNameGlyph(names=tuple(names), bundling=agg.direction == "output")
+
+
 class OriginalGlyphResolver:
     """Clean-room ORIGINAL glyphs for primitives whose SHAPE we draw ourselves
     (roadmap #14). Each matched primitive gets a glyph that reproduces the real
@@ -333,6 +363,13 @@ class OriginalGlyphResolver:
 
     @staticmethod
     def _cluster_glyph(node: PrimitiveNode) -> Glyph | None:
+        # nMux is Bundle/Unbundle BY NAME — a box with the accessed field NAMES,
+        # resolved from the wired cluster's type (mux/demux are the compact,
+        # positional Bundle/Unbundle handled by terminal count below).
+        if node.node_type == "nMux":
+            named = _bundle_by_name_glyph(node)
+            if named is not None:
+                return named
         ins = sum(1 for t in node.terminals if t.direction == "input")
         outs = sum(1 for t in node.terminals if t.direction == "output")
         if ins >= 2 and outs == 1:
