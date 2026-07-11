@@ -8,6 +8,7 @@ wire's LabVIEW type to a color/width — it branches on the SOURCE terminal's
 
 from __future__ import annotations
 
+import dataclasses
 from dataclasses import dataclass
 
 from ..models import LVType, _is_error_cluster
@@ -21,13 +22,17 @@ class Theme:
     struct_border: str = "#1e1e1e"       # loop/structure border (near-black, per GT)
     prim_fill: str = "#fff6d8"
     prim_stroke: str = "#b07d10"
+    prim_text: str = "#1a1a1a"       # label text on prim_fill (Arith/Bundle/…)
     term_fill: str = "#fff3e2"
     const_fill: str = "#ffffff"       # numeric/string constant box background
+    const_text: str = "#1a1a1a"      # label text on const_fill
     loop_term: str = "#1f3fbf"           # N / i border terminal
     loop_term_fill: str = "#ffffcc"      # pale-yellow fill of the N/i box (per GT)
+    loop_term_text: str = "#1a1a1a"      # "N"/"i" glyph text on loop_term_fill
     cond_stop: str = "#c62828"           # while-loop conditional terminal
     subvi_fill: str = "#eef0e6"
     subvi_stroke: str = "#7a7d63"
+    subvi_text: str = "#1a1a1a"      # wrapped subVI name text on subvi_fill
     case_bar_fill: str = "#e9e6d2"
     case_bar_text: str = "#4a4636"
     case_no_error_border: str = "#2e9e3f"  # green — error-cluster "No Error" frame
@@ -45,6 +50,12 @@ class Theme:
     fp_index_fill: str = "#c8c8c8"  # array index-display cell
     localvar_fill: str = "#ffffff"       # local-variable box background
     localvar_stroke: str = "#4a4a3a"     # local-variable box border
+    localvar_text: str = "#1a1a1a"       # wrapped local-var name text on localvar_fill
+    text: str = "#1a1a1a"     # default/canvas label text (node names, FP names, …)
+    # Secondary/muted text on the connector-help panel (panel bg = ``canvas``) —
+    # paired with the panel's type-annotation text specifically (smaller,
+    # lighter than the terminal name beside it).
+    pane_type_text: str = "#777777"
 
     # Wire colors by LabVIEW type family.
     wire_float: str = "#e8821e"    # orange — DBL/float (also the P0 default)
@@ -71,6 +82,27 @@ class Theme:
 
 
 DEFAULT_THEME = Theme()
+
+
+def css_var_theme(base: Theme = DEFAULT_THEME) -> Theme:
+    """A ``Theme`` where every HEX-COLOR field (a ``str`` starting with
+    ``"#"``) is rewritten to ``var(--lv-<dashed-name>, <hex>)`` — e.g.
+    ``prim_fill`` -> ``"var(--lv-prim-fill, #fff6d8)"``. Non-color fields
+    (``wire_casing``, a float) pass through unchanged.
+
+    This is SAMPLER-ONLY: ``DEFAULT_THEME`` itself stays raw hex (every
+    existing render/test keeps its exact output), and only a page that also
+    defines the matching ``--lv-*`` custom properties gets live recoloring.
+    A standalone SVG with no such page CSS still renders correct LIGHT mode,
+    since the hex value is the ``var()`` fallback.
+    """
+    overrides: dict[str, str] = {}
+    for f in dataclasses.fields(base):
+        value = getattr(base, f.name)
+        if isinstance(value, str) and value.startswith("#"):
+            var_name = "--lv-" + f.name.replace("_", "-")
+            overrides[f.name] = f"var({var_name}, {value})"
+    return dataclasses.replace(base, **overrides)
 
 # Unified diagram line width (wires + structure borders), matched to the
 # ground truth's ~1px scalar wire / structure-border weight.

@@ -395,7 +395,10 @@ class OriginalGlyphResolver:
             # read as a noisy little grid. The name in a box is clearer and
             # matches the neighbouring text-box prims (Add Array Elements,
             # Random Number). Swap in a real glyph here later.
-            return WrappedBoxGlyph("Build Array", "prim_fill", "prim_stroke", 1.0)
+            return WrappedBoxGlyph(
+                "Build Array", "prim_fill", "prim_stroke", 1.0,
+                text_attr="prim_text",
+            )
         return None
 
     @staticmethod
@@ -584,7 +587,7 @@ class GeneratedGlyphResolver:
             return WrappedBoxGlyph(
                 node.control_name or node.name or "Local Variable",
                 "localvar_fill", "localvar_stroke", 1.0,
-                max_lines=2, text_size=7.0,
+                max_lines=2, text_size=7.0, text_attr="localvar_text",
             )
         return None
 
@@ -604,10 +607,15 @@ class GeneratedGlyphResolver:
         if node.prim_id is not None and (
             node.name == f"unknown_primitive_{node.prim_id}"
         ):
-            return WrappedBoxGlyph(f"#{node.prim_id}", "prim_fill", "prim_stroke", 1.0)
+            return WrappedBoxGlyph(
+                f"#{node.prim_id}", "prim_fill", "prim_stroke", 1.0,
+                text_attr="prim_text",
+            )
         # No icon yet: wrap the primitive's name inside the box (up to 4 lines,
         # adaptive font) — same treatment as an icon-less subVI.
-        return WrappedBoxGlyph(node.name or "?", "prim_fill", "prim_stroke", 1.0)
+        return WrappedBoxGlyph(
+            node.name or "?", "prim_fill", "prim_stroke", 1.0, text_attr="prim_text",
+        )
 
 
 class FallbackBoxResolver:
@@ -615,7 +623,9 @@ class FallbackBoxResolver:
 
     def resolve(self, node: AnyGraphNode, ctx: GlyphContext) -> Glyph:
         label = node.name or node.node_type or "?"
-        return WrappedBoxGlyph(label, "prim_fill", "prim_stroke", 1.0)
+        return WrappedBoxGlyph(
+            label, "prim_fill", "prim_stroke", 1.0, text_attr="prim_text",
+        )
 
 
 # The registration point: an ordered list, tried in order, first hit wins.

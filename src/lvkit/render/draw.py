@@ -182,7 +182,7 @@ def draw_node(node: RenderNode, backend: Backend, theme: Theme = DEFAULT_THEME) 
         name = node.node.name or ""
         if name:
             x1, y1, x2, y2 = node.bounds
-            backend.text((x1 + x2) / 2, y2 + 9, name, 8.0)
+            backend.text((x1 + x2) / 2, y2 + 9, name, 8.0, fill=theme.text)
 
     if tooltip:
         backend.end_group()
@@ -336,7 +336,6 @@ _PANE_TITLE_SIZE = 9.0
 _PANE_DESC_SIZE = 7.5
 _PANE_LABEL_SIZE = 7.5      # terminal name
 _PANE_TYPE_SIZE = 6.5       # terminal type — smaller/lighter, secondary info
-_PANE_TYPE_COLOR = "#777777"
 _PANE_MAX_LABEL_W = 130.0   # per-terminal name+type truncation width
 _PANE_MAX_HEADER_W = 220.0  # title/description truncation width
 
@@ -635,9 +634,11 @@ def _draw_connector_panel(node: RenderNode, backend: Backend, theme: Theme) -> N
         fill=theme.canvas, stroke=theme.struct_border, stroke_width=1.0, rx=3,
     )
     cx = panel_w / 2
-    backend.text(cx, _PANE_PAD + 7.0, title_line, _PANE_TITLE_SIZE, bold=True)
+    # Panel background is theme.canvas — pair with the canvas/default text role.
+    backend.text(cx, _PANE_PAD + 7.0, title_line, _PANE_TITLE_SIZE, bold=True,
+                 fill=theme.text)
     if desc_line:
-        backend.text(cx, _PANE_PAD + 18.0, desc_line, _PANE_DESC_SIZE)
+        backend.text(cx, _PANE_PAD + 18.0, desc_line, _PANE_DESC_SIZE, fill=theme.text)
 
     node.glyph.draw(backend, (icon_x1, icon_y1, icon_x2, icon_y2), theme)
 
@@ -658,24 +659,25 @@ def _draw_connector_panel(node: RenderNode, backend: Backend, theme: Theme) -> N
             if side == "left":
                 ty = end_y + _PANE_LABEL_SIZE * 0.35
                 backend.text(end_x - _PANE_TEXT_GAP, ty, lb.type_str, _PANE_TYPE_SIZE,
-                             fill=_PANE_TYPE_COLOR, anchor="end")
+                             fill=theme.pane_type_text, anchor="end")
                 backend.text(end_x - _PANE_TEXT_GAP - lb.type_w, ty, lb.name,
-                             _PANE_LABEL_SIZE, anchor="end")
+                             _PANE_LABEL_SIZE, anchor="end", fill=theme.text)
             elif side == "right":
                 ty = end_y + _PANE_LABEL_SIZE * 0.35
                 backend.text(end_x + _PANE_TEXT_GAP, ty, lb.name, _PANE_LABEL_SIZE,
-                             anchor="start")
+                             anchor="start", fill=theme.text)
                 backend.text(end_x + _PANE_TEXT_GAP + lb.name_w, ty, lb.type_str,
-                             _PANE_TYPE_SIZE, fill=_PANE_TYPE_COLOR, anchor="start")
+                             _PANE_TYPE_SIZE, fill=theme.pane_type_text, anchor="start")
             else:
                 start_x = end_x - lb.total_w / 2
                 ty = (
                     end_y - _PANE_TEXT_GAP if side == "top"
                     else end_y + _PANE_TEXT_GAP + _PANE_LABEL_SIZE * 0.8
                 )
-                backend.text(start_x, ty, lb.name, _PANE_LABEL_SIZE, anchor="start")
+                backend.text(start_x, ty, lb.name, _PANE_LABEL_SIZE, anchor="start",
+                             fill=theme.text)
                 backend.text(start_x + lb.name_w, ty, lb.type_str, _PANE_TYPE_SIZE,
-                             fill=_PANE_TYPE_COLOR, anchor="start")
+                             fill=theme.pane_type_text, anchor="start")
 
     _draw_side(sided["left"], "left", left_y)
     _draw_side(sided["right"], "right", right_y)
@@ -715,7 +717,7 @@ def _draw_border_terminal(
     if kind in ("N", "i"):
         backend.rect(x1, y1, x2, y2, fill=theme.loop_term_fill,
                      stroke=theme.loop_term, stroke_width=1.5)
-        backend.text(cx, cy + 4, kind, 11, fill=theme.loop_term, italic=True)
+        backend.text(cx, cy + 4, kind, 11, fill=theme.loop_term_text, italic=True)
         return
     if kind == "cond":
         # Judgment call: LabVIEW distinguishes "Stop if True" (red stop
@@ -732,7 +734,11 @@ def _draw_border_terminal(
         col = bt.color or theme.selector_stroke
         backend.rect(x1, y1, x2, y2, fill=theme.loop_term_fill,
                      stroke=col, stroke_width=1.2)
-        backend.text(cx, cy + 4, "?", 10, fill=col)
+        # The "?" itself keeps the same semantic wire-type color as the border
+        # when one is known (bt.color); only the NEUTRAL fallback (no wire
+        # feeding it yet) uses the dedicated selector_text role rather than
+        # reusing selector_stroke, so the two can be tuned independently.
+        backend.text(cx, cy + 4, "?", 10, fill=bt.color or theme.selector_text)
         return
     if kind in ("sr_down", "sr_up"):
         # Shift register: a type-colored box with a filled triangle glyph.
@@ -942,9 +948,10 @@ def _draw_frame_selector(
     vc1, _, vc2, _ = g.box
     struct = structure.raw_uid
 
-    # One enclosing box (white) with vertical dividers between the flanking
-    # arrow cells and the central value cell — the LabVIEW selector-label look.
-    backend.rect(ox1, oy1, ox2, oy2, fill="#ffffff",
+    # One enclosing box, filled with the case-bar role (paired with
+    # case_bar_text below), with vertical dividers between the flanking arrow
+    # cells and the central value cell — the LabVIEW selector-label look.
+    backend.rect(ox1, oy1, ox2, oy2, fill=theme.case_bar_fill,
                  stroke=theme.struct_border, stroke_width=0.75)
     backend.line(vc1, oy1, vc1, oy2, stroke=theme.struct_border, stroke_width=0.5)
     backend.line(vc2, oy1, vc2, oy2, stroke=theme.struct_border, stroke_width=0.5)
@@ -1015,7 +1022,9 @@ def _draw_frame_menu(
             cls="lv-option", data={"lv-struct": struct, "lv-value": v},
             style="cursor:pointer",
         )
-        backend.rect(bx1, ry1, bx2, ry2, fill="#ffffff",
+        # Same case-bar fill as the selector box above, so the row's
+        # case_bar_text label pairs with a themed background here too.
+        backend.rect(bx1, ry1, bx2, ry2, fill=theme.case_bar_fill,
                      stroke="#999999", stroke_width=0.5)
         # The row's DISPLAY is the faithful typed label (enum name, No Error /
         # Error, quoted string, ...); the raw value stays the click identity in
@@ -1215,7 +1224,7 @@ def draw_fp_terminal(
         size = 8.0
         # LabVIEW default: the FULL control/indicator name sits ABOVE the box,
         # centered, overflowing the terminal width — never truncated.
-        backend.text((x1 + x2) / 2, y1 - 4, label, size)
+        backend.text((x1 + x2) / 2, y1 - 4, label, size, fill=theme.text)
 
     type_label = _fp_type_label(terminal, scalar_type)
     if type_label:

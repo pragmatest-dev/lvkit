@@ -21,7 +21,7 @@ from ..graph.models import VINode
 from .backend import SvgBackend
 from .draw import draw_scene
 from .scene import Scene, build_scene
-from .style import DEFAULT_THEME
+from .style import DEFAULT_THEME, Theme
 
 __all__ = [
     "Scene",
@@ -209,13 +209,20 @@ _HOVER_PANEL_JS = """(function() {
 })();"""
 
 
-def render_vi(graph: InMemoryVIGraph, vi_name: str) -> str | None:
+def render_vi(
+    graph: InMemoryVIGraph, vi_name: str, *, theme: Theme = DEFAULT_THEME,
+) -> str | None:
     """Render one VI's block diagram to an SVG string.
 
     Returns None (fail-closed) if required geometry is missing — the graph
     knows the VI exists and what it contains, but the heap XML doesn't have
     a diagram position for something semantically required. Callers (e.g.
     the docs pipeline) should fall back to a non-geometric rendering.
+
+    ``theme`` defaults to ``DEFAULT_THEME`` (raw hex, self-contained SVG).
+    Pass ``style.css_var_theme()`` for a page (e.g. the sampler) that embeds
+    the SVG inline and wants its colors driven live by page CSS custom
+    properties instead.
 
     The SVG is self-contained and interactive: a case structure's
     ``◄ value ▼ ►`` selector is clickable and cycles through its frames (see
@@ -227,13 +234,13 @@ def render_vi(graph: InMemoryVIGraph, vi_name: str) -> str | None:
     scene = build_scene(graph, vi_name)
     if scene is None:
         return None
-    return _render_scene_svg(scene, vi_name)
+    return _render_scene_svg(scene, vi_name, theme)
 
 
-def _render_scene_svg(scene: Scene, vi_name: str) -> str:
+def _render_scene_svg(scene: Scene, vi_name: str, theme: Theme = DEFAULT_THEME) -> str:
     """Draw an already-built ``Scene`` to a self-contained interactive SVG."""
     backend = SvgBackend()
-    draw_scene(scene, backend, DEFAULT_THEME)
+    draw_scene(scene, backend, theme)
     # Only a VI that actually needs JS (interactive case/sequence frames,
     # and/or at least one connector-help panel) carries the root id + inline
     # script — a diagram with neither renders byte-identically to a version
@@ -253,7 +260,7 @@ def _render_scene_svg(scene: Scene, vi_name: str) -> str:
 
 
 def render_vi_with_subvis(
-    graph: InMemoryVIGraph, vi_name: str,
+    graph: InMemoryVIGraph, vi_name: str, *, theme: Theme = DEFAULT_THEME,
 ) -> tuple[str | None, dict[str, str]]:
     """Render one VI, and also return the ``data-node`` id -> target VI name map
     for the subVI-call nodes on its diagram.
@@ -274,7 +281,7 @@ def render_vi_with_subvis(
             target = rn.node.qualified_name or rn.node.name
             if target:
                 subvis[rn.node.id] = target
-    return _render_scene_svg(scene, vi_name), subvis
+    return _render_scene_svg(scene, vi_name, theme), subvis
 
 
 def render_vi_file(
@@ -284,6 +291,7 @@ def render_vi_file(
     vilib_root: Path | None = None,
     userlib_root: Path | None = None,
     expand_subvis: bool = True,
+    theme: Theme = DEFAULT_THEME,
 ) -> str | None:
     """Render a ``.vi`` file (or ``_BDHb.xml`` heap) straight from disk,
     building a fresh graph.
@@ -313,4 +321,4 @@ def render_vi_file(
         if not expand_subvis:
             raise
         graph = _load(False)  # degrade: still render this VI's own diagram
-    return render_vi(graph, graph.resolve_vi_name(vi_name_hint))
+    return render_vi(graph, graph.resolve_vi_name(vi_name_hint), theme=theme)

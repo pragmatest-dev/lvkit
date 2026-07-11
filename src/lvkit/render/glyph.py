@@ -113,6 +113,7 @@ class LabeledBoxGlyph:
     stroke_attr: str = "prim_stroke"
     stroke_width: float = 1.0
     text_size: float = 8.0
+    text_attr: str = "prim_text"
 
     def draw(self, backend: Backend, bounds: Rect, theme: Theme) -> None:
         x1, y1, x2, y2 = bounds
@@ -126,6 +127,7 @@ class LabeledBoxGlyph:
             (x1 + x2) / 2, (y1 + y2) / 2 + 3,
             self.label,
             self.text_size,
+            fill=getattr(theme, self.text_attr),
         )
 
 
@@ -143,6 +145,7 @@ class WrappedBoxGlyph:
     stroke_width: float = 1.5
     max_lines: int = 4
     text_size: float = 7.0
+    text_attr: str = "subvi_text"
 
     def draw(self, backend: Backend, bounds: Rect, theme: Theme) -> None:
         x1, y1, x2, y2 = bounds
@@ -166,8 +169,9 @@ class WrappedBoxGlyph:
         # Center the baseline set vertically on cy (small +size*0.32 nudge so
         # the visual mass, not the baselines, sits centered).
         first = cy - (len(lines) - 1) * line_h / 2 + size * 0.32
+        text_fill = getattr(theme, self.text_attr)
         for i, line in enumerate(lines):
-            backend.text(cx, first + i * line_h, line, size)
+            backend.text(cx, first + i * line_h, line, size, fill=text_fill)
 
     _GAP = 1.3  # extra px between baselines beyond the font size
 
@@ -202,6 +206,7 @@ class ArithGlyph:
     symbol: str
     fill_attr: str = "prim_fill"
     stroke_attr: str = "prim_stroke"
+    text_attr: str = "prim_text"
 
     def draw(self, backend: Backend, bounds: Rect, theme: Theme) -> None:
         x1, y1, x2, y2 = bounds
@@ -213,14 +218,15 @@ class ArithGlyph:
         # Scale the operator to the (often small) triangle so it doesn't overflow.
         size = max(6.0, min(15.0, (y2 - y1) * 0.62, (x2 - x1) * 0.85))
         cy = (y1 + y2) / 2
-        backend.text(x1 + (x2 - x1) * 0.36, cy + size * 0.34, self.symbol, size)
+        backend.text(x1 + (x2 - x1) * 0.36, cy + size * 0.34, self.symbol, size,
+                     fill=getattr(theme, self.text_attr))
 
 
 def draw_split_box(
     backend: Backend, bounds: Rect, theme: Theme, *,
     symbol: str, num_cells: int, symbol_side: str,
     fill_attr: str = "prim_fill", stroke_attr: str = "prim_stroke",
-    stroke_width: float = 1.2,
+    text_attr: str = "prim_text", stroke_width: float = 1.2,
 ) -> None:
     """Reusable clean-room glyph body: a bordered rectangle split by a vertical
     divider into a narrow SYMBOL cell (spanning the full height, holding one
@@ -262,6 +268,7 @@ def draw_split_box(
     size = max(6.0, min(15.0, height * 0.62, sym_w * 0.85))
     backend.text(
         (sym_x1 + sym_x2) / 2, (y1 + y2) / 2 + size * 0.34, symbol, size,
+        fill=getattr(theme, text_attr),
     )
 
 
@@ -293,6 +300,7 @@ class CompoundArithGlyph:
     num_inputs: int = 1
     fill_attr: str = "prim_fill"
     stroke_attr: str = "prim_stroke"
+    text_attr: str = "prim_text"
 
     def draw(self, backend: Backend, bounds: Rect, theme: Theme) -> None:
         draw_split_box(
@@ -300,6 +308,7 @@ class CompoundArithGlyph:
             symbol=_CPD_ARITH_SYMBOL.get(self.operation, self.operation),
             num_cells=self.num_inputs, symbol_side="right",
             fill_attr=self.fill_attr, stroke_attr=self.stroke_attr,
+            text_attr=self.text_attr,
         )
 
 
@@ -321,12 +330,14 @@ class BundleGlyph:
     num_fields: int = 1
     fill_attr: str = "prim_fill"
     stroke_attr: str = "prim_stroke"
+    text_attr: str = "prim_text"
 
     def draw(self, backend: Backend, bounds: Rect, theme: Theme) -> None:
         draw_split_box(
             backend, bounds, theme,
             symbol=_CLUSTER_ARROW, num_cells=self.num_fields, symbol_side="right",
             fill_attr=self.fill_attr, stroke_attr=self.stroke_attr,
+            text_attr=self.text_attr,
         )
 
 
@@ -340,12 +351,14 @@ class UnbundleGlyph:
     num_fields: int = 1
     fill_attr: str = "prim_fill"
     stroke_attr: str = "prim_stroke"
+    text_attr: str = "prim_text"
 
     def draw(self, backend: Backend, bounds: Rect, theme: Theme) -> None:
         draw_split_box(
             backend, bounds, theme,
             symbol=_CLUSTER_ARROW, num_cells=self.num_fields, symbol_side="left",
             fill_attr=self.fill_attr, stroke_attr=self.stroke_attr,
+            text_attr=self.text_attr,
         )
 
 
@@ -364,11 +377,13 @@ class BundleByNameGlyph:
     bundling: bool = True  # True: Bundle By Name; False: Unbundle By Name
     fill_attr: str = "prim_fill"
     stroke_attr: str = "prim_stroke"
+    text_attr: str = "prim_text"
 
     def draw(self, backend: Backend, bounds: Rect, theme: Theme) -> None:
         x1, y1, x2, y2 = bounds
         fill = getattr(theme, self.fill_attr)
         stroke = getattr(theme, self.stroke_attr)
+        text_fill = getattr(theme, self.text_attr)
         backend.rect(x1, y1, x2, y2, fill=fill, stroke=stroke, stroke_width=1.2)
         rows = self.names or ("",)
         n = len(rows)
@@ -383,6 +398,7 @@ class BundleByNameGlyph:
             label = fit_label(name, (x2 - x1) - 2 * pad, backend, size)
             backend.text(
                 x1 + pad, (ry1 + ry2) / 2 + size * 0.34, label, size, anchor="start",
+                fill=text_fill,
             )
 
 
@@ -403,6 +419,7 @@ class ConstantGlyph:
     fill_attr: str = "term_fill"
     text_size: float = 9.0
     multiline: bool = False
+    text_attr: str = "const_text"
 
     def draw(self, backend: Backend, bounds: Rect, theme: Theme) -> None:
         x1, y1, x2, y2 = bounds
@@ -413,16 +430,18 @@ class ConstantGlyph:
         if not self.value:
             return
         if self.multiline:
-            self._draw_wrapped(backend, x1, y1, x2, y2)
+            self._draw_wrapped(backend, x1, y1, x2, y2, theme)
         else:
             backend.text(
                 (x1 + x2) / 2, (y1 + y2) / 2 + 3,
                 fit_label(self.value, x2 - x1, backend, self.text_size),
                 self.text_size,
+                fill=getattr(theme, self.text_attr),
             )
 
     def _draw_wrapped(
         self, backend: Backend, x1: float, y1: float, x2: float, y2: float,
+        theme: Theme,
     ) -> None:
         pad = 2.5
         avail_w = x2 - x1 - 2 * pad
@@ -444,9 +463,10 @@ class ConstantGlyph:
                 last = last[:-1]
             lines[-1] = last + "…"
         ty = y1 + pad + self.text_size
+        text_fill = getattr(theme, self.text_attr)
         for line in lines:
             backend.text(
-                x1 + pad, ty, line, self.text_size, anchor="start",
+                x1 + pad, ty, line, self.text_size, anchor="start", fill=text_fill,
             )
             ty += line_h
 
