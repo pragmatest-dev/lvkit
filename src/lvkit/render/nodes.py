@@ -20,6 +20,7 @@ this module IS the registration point).
 
 from __future__ import annotations
 
+import ast
 import functools
 import json
 import logging
@@ -38,6 +39,7 @@ from ..graph.models import (
     PrimitiveNode,
     VINode,
 )
+from ..models import LVType
 from ..primitive_resolver import NodeIcon
 from ..primitive_resolver import get_resolver as get_prim_resolver
 from ..vilib_resolver import get_resolver as get_vilib_resolver
@@ -46,6 +48,7 @@ from .glyph import (
     BooleanConstantGlyph,
     BundleGlyph,
     CenteredSvgGlyph,
+    ClusterConstantGlyph,
     CompoundArithGlyph,
     ConstantGlyph,
     ErrorClusterGlyph,
@@ -460,6 +463,55 @@ def _cpd_arith_operation(node: PrimitiveNode) -> str:
     return operation
 
 
+def _leaf_const_glyph(lv_type: LVType | None, raw: object) -> Glyph:
+    """One non-cluster constant's glyph, from its type + raw value. Shared by
+    top-level constants and by each field of a composed cluster constant."""
+    fam = type_family(lv_type)
+    if fam == "variant":
+        return VariantGlyph()
+    if fam == "bool":
+        return BooleanConstantGlyph(_bool_value(raw))
+    color = wire_style(lv_type).color
+    if numeric_repr(lv_type) is not None:
+        value = _format_const(raw)
+    elif fam == "string":
+        # Show the bare text (quotes/escapes are a codegen artifact).
+        value = string_const_display(raw)
+    else:
+        value = str(raw) if raw is not None else ""
+    # String constants word-wrap to fill their (already content-sized) box.
+    return ConstantGlyph(value or "", color, multiline=fam == "string")
+
+
+def _cluster_field_values(value: object) -> dict[str, object]:
+    """A cluster constant's field values as a dict. The graph stores the value
+    as its Python ``repr`` string (e.g. ``"{'status': True, 'code': 17}"``); parse
+    it back the same way ``graph.describe`` does (``ast.literal_eval``)."""
+    if isinstance(value, dict):
+        return value
+    if isinstance(value, str) and value:
+        try:
+            parsed = ast.literal_eval(value)
+        except (ValueError, SyntaxError):
+            return {}
+        if isinstance(parsed, dict):
+            return parsed
+    return {}
+
+
+def _cluster_const_glyph(node: ConstantNode, is_error: bool) -> Glyph | None:
+    """Compose a cluster constant from its fields' own leaf glyphs. None when
+    the cluster type carries no field info (nothing to compose from)."""
+    fields = getattr(node.lv_type, "fields", None) or []
+    if not fields:
+        return None
+    values = _cluster_field_values(node.value)
+    composed = tuple(
+        (f.name, _leaf_const_glyph(f.type, values.get(f.name))) for f in fields
+    )
+    return ClusterConstantGlyph(composed, is_error=is_error)
+
+
 class GeneratedGlyphResolver:
     """Code-drawn built-ins — migrated from the old ``draw.py`` dispatch
     dict. This is where "adding a visual" still means writing a branch,
@@ -475,25 +527,15 @@ class GeneratedGlyphResolver:
             return WrappedBoxGlyph(node.name or "")
         if isinstance(node, ConstantNode):
             fam = type_family(node.lv_type)
-            if fam == "error_cluster":
-                return ErrorClusterGlyph()
-            if fam == "variant":
-                return VariantGlyph()
-            if fam == "bool":
-                raw = node.raw_value if node.value is None else node.value
-                return BooleanConstantGlyph(_bool_value(raw))
-            color = wire_style(node.lv_type).color
+            if fam in ("cluster", "error_cluster"):
+                composed = _cluster_const_glyph(node, is_error=fam == "error_cluster")
+                if composed is not None:
+                    return composed
+                # No field info to compose from — keep the old schematic.
+                if fam == "error_cluster":
+                    return ErrorClusterGlyph()
             raw = node.raw_value if node.value is None else node.value
-            if numeric_repr(node.lv_type) is not None:
-                value = _format_const(raw)
-            elif fam == "string":
-                # Show the bare text (quotes/escapes are a codegen artifact).
-                value = string_const_display(raw)
-            else:
-                value = str(raw) if raw is not None else ""
-            # String constants word-wrap to fill their (already content-sized)
-            # box instead of collapsing to one ellipsized line.
-            return ConstantGlyph(value or "", color, multiline=fam == "string")
+            return _leaf_const_glyph(node.lv_type, raw)
         if isinstance(node, FormulaNode):
             return LabeledBoxGlyph(
                 node.name or "Formula", "prim_fill", "prim_stroke", 1.5,

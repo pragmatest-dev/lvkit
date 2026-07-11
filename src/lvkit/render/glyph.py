@@ -587,6 +587,49 @@ class ErrorClusterGlyph:
 
 
 @dataclass(frozen=True)
+class ClusterConstantGlyph:
+    """A cluster constant drawn by COMPOSING each field's own constant glyph
+    (boolean / numeric / string / …) inside a cluster box.
+
+    LabVIEW stores no inner-element positions for a block-diagram constant, so
+    the fields are laid out here — a vertical stack, each row a small field-name
+    label beside that field's value glyph. Error clusters get the mustard border
+    (``wire_error``) and the stored status / code / source field order; any
+    other cluster gets the generic cluster brown."""
+
+    fields: tuple[tuple[str, Glyph], ...]
+    is_error: bool = False
+    fill_attr: str = "const_fill"
+
+    def draw(self, backend: Backend, bounds: Rect, theme: Theme) -> None:
+        x1, y1, x2, y2 = bounds
+        border = theme.wire_error if self.is_error else theme.wire_cluster
+        backend.rect(
+            x1, y1, x2, y2,
+            fill=getattr(theme, self.fill_attr), stroke=border, stroke_width=1.5,
+        )
+        if not self.fields:
+            return
+        pad = 3.0
+        label_size = 7.0
+        row_h = (y2 - y1 - 2 * pad) / len(self.fields)
+        label_w = min(
+            0.4 * (x2 - x1),
+            max(backend.measure_text(nm, label_size) for nm, _ in self.fields) + 4.0,
+        )
+        for i, (name, field_glyph) in enumerate(self.fields):
+            ry1 = y1 + pad + i * row_h
+            ry2 = ry1 + row_h
+            backend.text(
+                x1 + pad, (ry1 + ry2) / 2 + label_size * 0.34, name,
+                label_size, anchor="start", fill=border,
+            )
+            cx1 = x1 + pad + label_w
+            if x2 - pad > cx1 and ry2 - 1.0 > ry1 + 1.0:
+                field_glyph.draw(backend, (cx1, ry1 + 1.0, x2 - pad, ry2 - 1.0), theme)
+
+
+@dataclass(frozen=True)
 class InlineSvgGlyph:
     """A hand-authored SVG fragment (JSON ``icon.svg``/``icon.file``),
     scaled to the node's bounds via a nested ``<svg>`` element — the fragment
