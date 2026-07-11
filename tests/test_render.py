@@ -1880,10 +1880,14 @@ def test_nmux_renders_as_bundle_by_name_and_skips_boundary_mux():
         glyph = rn["1969"].glyph
         assert isinstance(glyph, BundleByNameGlyph)
         assert "xml index" in glyph.names and "pretty print level" in glyph.names
-    # A 1-in/1-out nMux is a boundary muxer — skipped.
-    for raw, node in nmux.items():
-        ins = sum(1 for t in node.terminals if t.direction == "input")
-        outs = sum(1 for t in node.terminals if t.direction == "output")
-        if ins <= 1 and outs <= 1:
-            assert _is_boundary_mux(node)
-            assert raw not in rn, "boundary muxer should not be drawn"
+    # A single-field nMux is STILL a visible By-Name access — it must render
+    # (not be dropped as a hole), and only a nMux with no named-field cluster
+    # counts as an invisible boundary muxer.
+    if "1854" in nmux:
+        assert "1854" in rn, "single-field By-Name nMux must be drawn"
+        assert isinstance(rn["1854"].glyph, BundleByNameGlyph)
+        assert rn["1854"].glyph.names == ("status",)
+    for node in nmux.values():
+        agg = next((t for t in node.terminals if t.nmux_role == "agg"), None)
+        has_fields = bool(agg and agg.lv_type and agg.lv_type.fields)
+        assert _is_boundary_mux(node) is not has_fields

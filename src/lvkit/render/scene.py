@@ -47,16 +47,17 @@ def _is_boundary_mux(node: AnyGraphNode) -> bool:
     """A structure-boundary data multiplexer that LabVIEW never draws as a box.
 
     An ``nMux`` ("Node Multiplexer") is EITHER a visible Bundle/Unbundle By Name
-    (many named field terminals — drawn) OR the compiler's shift-register/tunnel
-    muxer at a structure boundary, which passes a SINGLE value through (1 input,
-    1 output) and has no box. Only the latter is skipped; its terminals stay in
-    the layout so wires still route to the SR/tunnel positions that represent it.
+    — a box listing accessed field NAMES, however few (a single-field access is
+    still drawn) — OR the compiler's shift-register/tunnel muxer, which carries
+    no cluster and so has no named box. The visible one always has an ``agg``
+    terminal whose CLUSTER type supplies the field names; without that there's
+    nothing to draw, so only that case is skipped (its terminals stay in the
+    layout so wires still route to the SR/tunnel positions).
     """
     if node.node_type != "nMux":
         return False
-    ins = sum(1 for t in node.terminals if t.direction == "input")
-    outs = sum(1 for t in node.terminals if t.direction == "output")
-    return ins <= 1 and outs <= 1
+    agg = next((t for t in node.terminals if t.nmux_role == "agg"), None)
+    return not (agg is not None and agg.lv_type is not None and agg.lv_type.fields)
 
 
 @dataclass(frozen=True)
