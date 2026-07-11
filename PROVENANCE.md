@@ -62,6 +62,21 @@ In other words, the open, inferential, and occasionally-wrong nature of these
 definitions is itself evidence that they were derived from public information
 and observation — not copied from any internal NI source.
 
+### Driver mappings (e.g. NI-DAQmx)
+
+lvkit's support for driver APIs such as NI-DAQmx is derived only from public
+sources: the **published DAQmx documentation** (function and terminal names and
+their documented behavior) mapped onto the **public `nidaqmx` Python library**
+that NI distributes openly. **lvkit never had access to the actual DAQmx VIs,
+and did not need them** — their internals are not the source of the mappings.
+
+To confirm a terminal's ORDER (which connector-pane index carries which
+parameter), lvkit observes the dataflow of VIs that *call* a DAQmx VI: the
+caller's own wiring — read from the caller's XML — reveals which index receives
+which wire. So a DAQmx VI is only ever seen indirectly, as a call inside another
+VI used to verify terminal order; the mapping content itself comes entirely from
+the public documentation and the public Python library.
+
 ## Not used / removed
 
 - No NI-created artwork. Primitive glyphs are drawn procedurally by the render
