@@ -973,9 +973,13 @@ def _draw_frame_menu(
         )
         backend.rect(bx1, ry1, bx2, ry2, fill="#ffffff",
                      stroke="#999999", stroke_width=0.5)
+        # The row's DISPLAY is the faithful typed label (enum name, No Error /
+        # Error, quoted string, ...); the raw value stays the click identity in
+        # ``lv-value`` above so the JS controller still matches frame paths.
+        label = _frame_display(structure, scene, v)
         text = (
-            v if backend.measure_text(v, _SELECTOR_SIZE) <= zone_w
-            else fit_label(v, zone_w, backend, _SELECTOR_SIZE)
+            label if backend.measure_text(label, _SELECTOR_SIZE) <= zone_w
+            else fit_label(label, zone_w, backend, _SELECTOR_SIZE)
         )
         backend.text((bx1 + bx2) / 2, ry1 + _MENU_ROW_H / 2 + _SELECTOR_SIZE * 0.34,
                      text, _SELECTOR_SIZE, fill=theme.case_bar_text)
