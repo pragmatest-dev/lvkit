@@ -1700,11 +1700,17 @@ def test_scanf_nodes_parsed_and_wired():
 # so they run even where the local-only sample corpus is absent.
 # --------------------------------------------------------------------------- #
 
-def _prim(node_type, name=None, dirs=()):
-    """A synthetic PrimitiveNode with one terminal per direction in ``dirs``."""
+def _prim(node_type, name=None, dirs=(), roles=()):
+    """A synthetic PrimitiveNode with one terminal per direction in ``dirs``.
+    ``roles``, if given, is a parallel sequence of ``nmux_role`` values
+    ("agg"/"list"/None) for a Bundle/Unbundle-family node."""
     from lvkit.models import Terminal
     terms = [
-        Terminal(id=f"t{i}", index=i, direction=d) for i, d in enumerate(dirs)
+        Terminal(
+            id=f"t{i}", index=i, direction=d,
+            nmux_role=roles[i] if i < len(roles) else None,
+        )
+        for i, d in enumerate(dirs)
     ]
     return PrimitiveNode(
         id="n0", vi="V", name=name, node_type=node_type, terminals=terms,
@@ -1717,33 +1723,60 @@ def _ctx():
 
 
 def test_bundle_glyph_for_many_in_one_out_mux():
-    """An nMux/mux/demux with N inputs and one output is a Bundle."""
+    """An nMux/mux/demux with N field (list) inputs and one aggregate output
+    is a Bundle — field count comes from ``nmux_role=="list"`` terminals, not
+    a raw input/output count (the aggregate terminal is never a field)."""
     from lvkit.render.glyph import BundleGlyph
     from lvkit.render.nodes import resolve_glyph
-    node = _prim("nMux", "Node Multiplexer",
-                 dirs=("input", "input", "input", "output"))
+    node = _prim(
+        "mux", "Bundle",
+        dirs=("input", "input", "input", "output"),
+        roles=("list", "list", "list", "agg"),
+    )
     glyph = resolve_glyph(node, _ctx())
     assert isinstance(glyph, BundleGlyph)
     assert glyph.num_fields == 3
 
 
 def test_unbundle_glyph_for_one_in_many_out_mux():
-    """A 1-input / N-output mux is an Unbundle (mirror of Bundle)."""
+    """A 1-aggregate-input / N-field-output mux is an Unbundle (mirror of
+    Bundle)."""
     from lvkit.render.glyph import UnbundleGlyph
     from lvkit.render.nodes import resolve_glyph
-    node = _prim("demux", "Demultiplexer",
-                 dirs=("input", "output", "output", "output", "output"))
+    node = _prim(
+        "demux", "Unbundle",
+        dirs=("input", "output", "output", "output", "output"),
+        roles=("agg", "list", "list", "list", "list"),
+    )
     glyph = resolve_glyph(node, _ctx())
     assert isinstance(glyph, UnbundleGlyph)
     assert glyph.num_fields == 4
 
 
+def test_single_field_bundle_is_not_dropped():
+    """A single-field Bundle/Unbundle must still draw with num_fields=1 — N=1
+    is not special-cased into a fallback box (this was bug #1: a 1-field
+    Unbundle used to fall through to a labeled 'Node Multiplexer' box)."""
+    from lvkit.render.glyph import UnbundleGlyph
+    from lvkit.render.nodes import resolve_glyph
+    node = _prim(
+        "demux", "Unbundle", dirs=("input", "output"), roles=("agg", "list"),
+    )
+    glyph = resolve_glyph(node, _ctx())
+    assert isinstance(glyph, UnbundleGlyph)
+    assert glyph.num_fields == 1
+
+
 def test_pass_through_mux_is_not_a_bundle_glyph():
-    """A 1-in/1-out mux is a structure-boundary pass-through, not an
-    assemble/disassemble — it must NOT get a Bundle/Unbundle glyph."""
+    """A 1-in/1-out mux with NO field (list) terminals — both terminals are
+    the aggregate — is a structure-boundary pass-through, not an
+    assemble/disassemble; it must NOT get a Bundle/Unbundle glyph."""
     from lvkit.render.glyph import BundleGlyph, UnbundleGlyph
     from lvkit.render.nodes import resolve_glyph
-    node = _prim("nMux", "Node Multiplexer", dirs=("input", "output"))
+    node = _prim(
+        "nMux", "Bundle/Unbundle By Name",
+        dirs=("input", "output"), roles=("agg", "agg"),
+    )
     glyph = resolve_glyph(node, _ctx())
     assert not isinstance(glyph, (BundleGlyph, UnbundleGlyph))
 

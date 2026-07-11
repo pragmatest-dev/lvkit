@@ -37,7 +37,7 @@ from .backend import SvgBackend
 from .glyph import ArithGlyph, CompoundArithGlyph, Glyph, wrap_label
 from .lane_pass import BranchCtx, apply_lane_pass
 from .layout import Layout, Point, Rect, build_layout
-from .nodes import GlyphContext, resolve_glyph, string_const_display
+from .nodes import _CLUSTER_MUX_TYPES, GlyphContext, resolve_glyph, string_const_display
 from .style import WireStyle, numeric_repr, type_family, wire_style
 from .wire_router import WireRouter, _compress
 
@@ -464,7 +464,7 @@ def _trim_string_const_geom(
 
 
 def _render_terminals(
-    node: AnyGraphNode, layout: Layout, vi_name: str,
+    node: AnyGraphNode, layout: Layout, vi_name: str, node_bounds: Rect | None = None,
 ) -> list[RenderTerminal]:
     result: list[RenderTerminal] = []
     for t in node.terminals:
@@ -476,7 +476,35 @@ def _render_terminals(
         result.append(RenderTerminal(
             terminal=t, center=center, bounds=layout.node_bounds.get(key),
         ))
+    if node.node_type in _CLUSTER_MUX_TYPES and node_bounds is not None:
+        result = _reposition_mux_aggregates(result, node_bounds)
     return result
+
+
+def _reposition_mux_aggregates(
+    terminals: list[RenderTerminal], node_bounds: Rect,
+) -> list[RenderTerminal]:
+    """Separate a Bundle/Unbundle node's AGGREGATE (cluster) terminals.
+
+    A ``nMux``/``mux``/``demux`` node has up to TWO aggregate terminals (an
+    input source cluster and an output assembled cluster) that share one DCO
+    uid. In the heap, the agg-input often carries no ``termBounds`` of its
+    own, so both aggregate terminals resolve to the SAME center point —
+    collapsing the incoming and outgoing cluster wires onto one spot. Anchor
+    the output aggregate to the node's right edge and the input aggregate to
+    its left edge (both vertically centered); FIELD (``nmux_role=="list"``)
+    terminals keep their heap-derived centers.
+    """
+    left_x, top_y, right_x, bottom_y = node_bounds
+    mid_y = (top_y + bottom_y) / 2
+    out: list[RenderTerminal] = []
+    for rt in terminals:
+        if rt.terminal.nmux_role != "agg":
+            out.append(rt)
+            continue
+        x = right_x if rt.terminal.direction == "output" else left_x
+        out.append(replace(rt, center=(x, mid_y)))
+    return out
 
 
 # TunnelTerminal.tunnel_type -> fixed glyph kind, for border terminals the
@@ -1264,7 +1292,7 @@ def build_scene(graph: InMemoryVIGraph, vi_name: str) -> Scene | None:
             ))
         else:
             glyph = resolve_glyph(node, glyph_ctx)
-            terminals = _render_terminals(node, layout, vi_name)
+            terminals = _render_terminals(node, layout, vi_name, bounds)
             label_visible = raw_uid not in layout.hidden_labels
             render_nodes.append(RenderNode(
                 node=node, bounds=bounds, glyph=glyph, terminals=terminals,

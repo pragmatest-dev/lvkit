@@ -611,7 +611,7 @@ class NMuxHandler(NodeTypeHandler):
     """
 
     xml_class = "nMux"
-    display_name = "Node Multiplexer"
+    display_name = "Bundle/Unbundle By Name"
 
     def parse(self, elem: ET.Element) -> SelectNode:
         common = self._extract_common(elem)
@@ -670,7 +670,7 @@ class _MuxHandler(NMuxHandler):
     """
 
     xml_class = "mux"
-    display_name = "Multiplexer"
+    display_name = "Bundle"
 
 
 class _DemuxHandler(NMuxHandler):
@@ -681,7 +681,7 @@ class _DemuxHandler(NMuxHandler):
     """
 
     xml_class = "demux"
-    display_name = "Demultiplexer"
+    display_name = "Unbundle"
 
 
 class CtlRefConstHandler(NodeTypeHandler):

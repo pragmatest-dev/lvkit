@@ -30,6 +30,7 @@ from .glyph import (
     WrappedBoxGlyph,
     fit_label,
 )
+from .nodes import _CLUSTER_MUX_TYPES, mux_display_name
 from .scene import (
     FramePath,
     RenderBorderTerminal,
@@ -209,6 +210,11 @@ def _node_identity(node: AnyGraphNode) -> tuple[str, str | None] | None:
         if (isinstance(node, PrimitiveNode) and node.prim_id is not None
                 and node.name == f"unknown_primitive_{node.prim_id}"):
             header = f"#{node.prim_id}"
+        # Bundle/Unbundle (By Name): the parser's XML-class jargon ("Node
+        # Multiplexer"/"Multiplexer"/"Demultiplexer") never belongs in
+        # user-facing text — show the directional human name instead.
+        if isinstance(node, PrimitiveNode) and node.node_type in _CLUSTER_MUX_TYPES:
+            header = mux_display_name(node)
     if header is None:
         return None
     desc = getattr(node, "description", None)

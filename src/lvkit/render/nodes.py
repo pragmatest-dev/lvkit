@@ -135,11 +135,39 @@ _COMPARE_SYMBOL = {
 
 # Cluster assemble/disassemble node classes. LabVIEW parses the palette Bundle
 # and Unbundle functions (and their case/loop-boundary variants) as these
-# "Node Multiplexer" classes; bundling vs unbundling is read from the terminal
-# direction counts (N-in/1-out = Bundle, 1-in/N-out = Unbundle).
+# "Node Multiplexer" classes; bundling vs unbundling is read from the FIELD
+# (nmux_role=="list") terminals' direction — inputs = Bundle, outputs =
+# Unbundle. The AGGREGATE (nmux_role=="agg") terminal(s) are never counted.
 _CLUSTER_MUX_TYPES = frozenset({"nMux", "mux", "demux"})
 
+# node_type -> (bundle name, unbundle name), for when direction can't be
+# determined from a ``list``-role terminal (defensive fallback only).
+_MUX_TYPE_DEFAULT_NAMES = {
+    "nMux": "Bundle/Unbundle By Name",
+    "mux": "Bundle",
+    "demux": "Unbundle",
+}
+
 _DEFAULT_ICON_SIZE = (24, 24)
+
+
+def mux_display_name(node: AnyGraphNode) -> str:
+    """Human name for an ``nMux``/``mux``/``demux`` node — never the internal
+    "Node Multiplexer"/"Multiplexer"/"Demultiplexer" XML-class jargon.
+    Direction is read from the FIELD (``nmux_role=="list"``) terminals, the
+    same rule the glyph resolver uses: fields are inputs -> Bundle, fields
+    are outputs -> Unbundle. Falls back to a type-based default if the node
+    has no field terminals (defensive; shouldn't happen for a real mux)."""
+    node_type = node.node_type
+    field_terms = [t for t in node.terminals if t.nmux_role == "list"]
+    if field_terms:
+        bundling = field_terms[0].direction == "input"
+        if node_type == "nMux":
+            return "Bundle By Name" if bundling else "Unbundle By Name"
+        return "Bundle" if bundling else "Unbundle"
+    if node_type is None:
+        return "Bundle/Unbundle By Name"
+    return _MUX_TYPE_DEFAULT_NAMES.get(node_type, "Bundle/Unbundle By Name")
 
 
 @dataclass(frozen=True)
@@ -320,7 +348,11 @@ def _bundle_by_name_glyph(node: PrimitiveNode) -> BundleByNameGlyph | None:
             names.append(fields[fi].name)
         else:
             names.append(t.name or (f"field {fi}" if fi is not None else "?"))
-    return BundleByNameGlyph(names=tuple(names), bundling=agg.direction == "output")
+    # Direction comes from the FIELD terminals, not the aggregate — there can
+    # be TWO aggregate terminals (an input source cluster and an output
+    # assembled cluster) sharing one DCO, so ``agg.direction`` is ambiguous.
+    bundling = field_terms[0].direction == "input"
+    return BundleByNameGlyph(names=tuple(names), bundling=bundling)
 
 
 class OriginalGlyphResolver:
@@ -337,8 +369,8 @@ class OriginalGlyphResolver:
     Migrated so far:
 
     - Bundle / Unbundle (``nMux``/``mux``/``demux`` "Node Multiplexer" classes,
-      disambiguated by terminal-direction counts) — ``BundleGlyph`` /
-      ``UnbundleGlyph``.
+      disambiguated by FIELD (``nmux_role=="list"``) terminal direction) —
+      ``BundleGlyph`` / ``UnbundleGlyph``.
     - The six comparison functions (Equal?, Not Equal?, Greater?, Less?,
       Greater Or Equal?, Less Or Equal?) — the arithmetic ``ArithGlyph``
       triangle with the comparison symbol.
@@ -366,20 +398,26 @@ class OriginalGlyphResolver:
     def _cluster_glyph(node: PrimitiveNode) -> Glyph | None:
         # nMux is Bundle/Unbundle BY NAME — a box with the accessed field NAMES,
         # resolved from the wired cluster's type (mux/demux are the compact,
-        # positional Bundle/Unbundle handled by terminal count below).
+        # positional Bundle/Unbundle handled by field count below).
         if node.node_type == "nMux":
             named = _bundle_by_name_glyph(node)
             if named is not None:
                 return named
-        ins = sum(1 for t in node.terminals if t.direction == "input")
-        outs = sum(1 for t in node.terminals if t.direction == "output")
-        if ins >= 2 and outs == 1:
-            return BundleGlyph(num_fields=ins)
-        if outs >= 2 and ins == 1:
-            return UnbundleGlyph(num_fields=outs)
-        # A 1-in/1-out mux is a structure-boundary pass-through, not an
-        # assemble/disassemble — leave it to the existing rendering.
-        return None
+        # FIELD terminals (nmux_role=="list") are the real payload count — the
+        # AGGREGATE terminal(s) (nmux_role=="agg", up to two: an input source
+        # cluster and an output assembled cluster sharing one DCO) are NOT
+        # fields and must never be counted. Direction comes from the fields,
+        # not the aggregate, for the same reason. N=1 is not special-cased.
+        field_terms = [t for t in node.terminals if t.nmux_role == "list"]
+        num_fields = len(field_terms)
+        if num_fields == 0:
+            # No field terminals at all — an invisible SR/tunnel muxer, not an
+            # assemble/disassemble. Leave it to the existing rendering.
+            return None
+        bundling = field_terms[0].direction == "input"
+        if bundling:
+            return BundleGlyph(num_fields=num_fields)
+        return UnbundleGlyph(num_fields=num_fields)
 
 
 # cpdArith operation -> Boolean-context translation. Same mapping codegen
