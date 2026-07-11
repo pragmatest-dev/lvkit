@@ -38,6 +38,7 @@ from . import (
     primitive,
     printf,
     property_node,
+    queue_ops,
     sequence,
     subvi,
 )
@@ -78,6 +79,12 @@ def _generate_primitive(
     node: PrimitiveOperation, ctx: CodeGenContext,
 ) -> CodeFragment:
     """Secondary dispatch for PrimitiveOperation by node_type."""
+    # Queue Operations (Obtain/Enqueue/Dequeue/Get Queue Status) are
+    # generic `class="prim"` XML nodes distinguished only by primResID
+    # (verified against JKI-VI-Tester samples) -- node_type alone can't
+    # tell them apart, so dispatch by primResID before the node_type match.
+    if node.node_type == "prim" and node.primResID in queue_ops.QUEUE_PRIM_IDS:
+        return queue_ops.generate(node, ctx)
     match node.node_type:
         case "cpdArith":
             return compound.generate_compound_arith(node, ctx)

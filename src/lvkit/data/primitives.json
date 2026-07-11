@@ -2356,7 +2356,7 @@
     },
     "9111": {
       "name": "Enqueue Element",
-      "placeholder": true,
+      "verified": true,
       "terminals": [
         {
           "index": 0,
@@ -2401,12 +2401,14 @@
           "type": "Cluster"
         }
       ],
-      "python_code": "pass",
-      "note": "Queue op. Stateful; codegen TBD."
+      "python_code": {
+        "_body": "raise RuntimeError('Enqueue Element (9111) should be dispatched to codegen/nodes/queue_ops.py by primResID -- this stub should be unreachable')"
+      },
+      "note": "Queue op. Handled by codegen/nodes/queue_ops.py (dispatched by primResID, not this template) -- calls lvkit.labview_queue.enqueue_element()."
     },
     "9113": {
       "name": "Dequeue Element",
-      "placeholder": true,
+      "verified": true,
       "terminals": [
         {
           "index": 0,
@@ -2451,12 +2453,14 @@
           "type": "Cluster"
         }
       ],
-      "python_code": "pass",
-      "note": "Queue op. Stateful; codegen TBD."
+      "python_code": {
+        "_body": "raise RuntimeError('Dequeue Element (9113) should be dispatched to codegen/nodes/queue_ops.py by primResID -- this stub should be unreachable')"
+      },
+      "note": "Queue op. Handled by codegen/nodes/queue_ops.py (dispatched by primResID, not this template) -- calls lvkit.labview_queue.dequeue_element()."
     },
     "9129": {
       "name": "Enqueue Element At Opposite End",
-      "placeholder": true,
+      "verified": true,
       "terminals": [
         {
           "index": 0,
@@ -2501,12 +2505,14 @@
           "type": "Cluster"
         }
       ],
-      "python_code": "pass",
-      "note": "Queue op (LIFO push for the parser stack). Stateful; codegen TBD."
+      "python_code": {
+        "_body": "raise RuntimeError('Enqueue Element At Opposite End (9129) should be dispatched to codegen/nodes/queue_ops.py by primResID -- this stub should be unreachable')"
+      },
+      "note": "Queue op (LIFO push for the parser stack). Handled by codegen/nodes/queue_ops.py (dispatched by primResID, not this template) -- calls lvkit.labview_queue.enqueue_element_at_opposite_end()."
     },
     "9108": {
       "name": "Obtain Queue",
-      "placeholder": true,
+      "verified": true,
       "terminals": [
         {
           "index": 4,
@@ -2557,12 +2563,14 @@
           "type": "Cluster"
         }
       ],
-      "python_code": "pass",
-      "note": "Queue op (ref_type=Queue on idx8). Stateful; codegen TBD."
+      "python_code": {
+        "_body": "raise RuntimeError('Obtain Queue (9108) should be dispatched to codegen/nodes/queue_ops.py by primResID -- this stub should be unreachable')"
+      },
+      "note": "Queue op (ref_type=Queue on idx8). Handled by codegen/nodes/queue_ops.py (dispatched by primResID, not this template) -- calls lvkit.labview_queue.obtain_queue()."
     },
     "9109": {
       "name": "Get Queue Status",
-      "placeholder": true,
+      "verified": true,
       "terminals": [
         {
           "index": 0,
@@ -2601,8 +2609,10 @@
           "type": "Cluster"
         }
       ],
-      "python_code": "pass",
-      "note": "Queue op. Stateful; codegen TBD."
+      "python_code": {
+        "_body": "raise RuntimeError('Get Queue Status (9109) should be dispatched to codegen/nodes/queue_ops.py by primResID -- this stub should be unreachable')"
+      },
+      "note": "Queue op. Handled by codegen/nodes/queue_ops.py (dispatched by primResID, not this template) -- calls lvkit.labview_queue.get_queue_status(). No separate pending-count terminal was ever observed wired in samples used to resolve this entry; count = len(elements) with return_elements=True."
     },
     "9101": {
       "name": "Open VI Reference",
