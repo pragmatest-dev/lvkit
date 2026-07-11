@@ -48,7 +48,18 @@
       const r = await fetch('/render', {method:'POST', body: fd});
       const text = await r.text();
       if(!r.ok){ out.innerHTML = '<div class="err">'+text+'</div>'; }
-      else { out.innerHTML = text; }   // static picture; see README on interactivity
+      else {
+        out.innerHTML = text;
+        // A <script> inside an SVG inserted via innerHTML does NOT execute, so
+        // the hover panels + frame selector stay dead. Re-create each script
+        // element so the browser runs it and the diagram becomes interactive.
+        out.querySelectorAll('script').forEach(old => {
+          const s = document.createElement('script');
+          for(const a of old.attributes) s.setAttribute(a.name, a.value);
+          s.textContent = old.textContent;
+          old.replaceWith(s);
+        });
+      }
     }catch(e){ out.innerHTML = '<div class="err">'+e+'</div>'; }
     label.textContent = f.name + ' — choose another';
   }
