@@ -121,6 +121,71 @@ def test_selector_label_error_no_error_and_error():
 
 
 # --------------------------------------------------------------------------- #
+# Coercion dots on numeric-unifying primitives (#11) — ArithGlyph AND
+# CompoundArithGlyph, but not boxed/structural primitives.
+# --------------------------------------------------------------------------- #
+
+
+def _num_input(index, repr_name):
+    from lvkit.models import LVType, Terminal
+    from lvkit.render.scene import RenderTerminal
+
+    t = Terminal(
+        id=f"t{index}", index=index, direction="input",
+        lv_type=LVType(kind="primitive", underlying_type=repr_name),
+    )
+    return RenderTerminal(terminal=t, center=(10.0, 10.0 * index),
+                          bounds=(5.0, 10.0 * index - 4, 15.0, 10.0 * index + 4))
+
+
+def _arith_node(glyph, input_reprs):
+    from lvkit.graph.models import PrimitiveNode
+    from lvkit.render.scene import RenderNode
+
+    return RenderNode(
+        node=PrimitiveNode(id="n1", name="op", vi="v"),
+        bounds=(0.0, 0.0, 20.0, 40.0),
+        glyph=glyph,
+        terminals=[_num_input(i + 1, r) for i, r in enumerate(input_reprs)],
+    )
+
+
+def test_coercion_dot_on_compound_arith_mixed_widths():
+    """Compound Arithmetic (CompoundArithGlyph) now gets a coercion dot on its
+    narrower input when its numeric inputs differ in width — #11."""
+    from lvkit.render.glyph import ArithGlyph, CompoundArithGlyph
+    from lvkit.render.scene import _arith_coercion_dots
+
+    cpd = _arith_node(CompoundArithGlyph("+", num_inputs=2),
+                      ["NumInt32", "NumFloat64"])
+    assert len(_arith_coercion_dots([cpd])) == 1
+
+    arith = _arith_node(ArithGlyph("+"), ["NumInt32", "NumFloat64"])
+    assert len(_arith_coercion_dots([arith])) == 1
+
+
+def test_no_coercion_dot_when_widths_match():
+    from lvkit.render.glyph import CompoundArithGlyph
+    from lvkit.render.scene import _arith_coercion_dots
+
+    cpd = _arith_node(CompoundArithGlyph("+", num_inputs=2),
+                      ["NumFloat64", "NumFloat64"])
+    assert _arith_coercion_dots([cpd]) == []
+
+
+def test_no_coercion_dot_on_boxed_primitive():
+    """A boxed primitive (WrappedBoxGlyph) is never coercion-dotted even with
+    differing numeric inputs — its inputs may differ structurally (e.g. an
+    index or exponent), not by coercion."""
+    from lvkit.render.glyph import WrappedBoxGlyph
+    from lvkit.render.scene import _arith_coercion_dots
+
+    boxed = _arith_node(WrappedBoxGlyph("Scale By Power Of 2"),
+                        ["NumFloat64", "NumInt32"])
+    assert _arith_coercion_dots([boxed]) == []
+
+
+# --------------------------------------------------------------------------- #
 # Wire router (pure geometry — unaffected by the graph-driven rewrite)
 # --------------------------------------------------------------------------- #
 

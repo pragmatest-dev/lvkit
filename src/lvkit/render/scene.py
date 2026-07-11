@@ -34,7 +34,7 @@ from ..models import (
     _is_error_cluster,
 )
 from .backend import SvgBackend
-from .glyph import ArithGlyph, Glyph, wrap_label
+from .glyph import ArithGlyph, CompoundArithGlyph, Glyph, wrap_label
 from .lane_pass import BranchCtx, apply_lane_pass
 from .layout import Layout, Point, Rect, build_layout
 from .nodes import GlyphContext, resolve_glyph, string_const_display
@@ -1104,14 +1104,18 @@ def _arith_coercion_dots(render_nodes: list[RenderNode]) -> list[RenderCoercionD
     owning node's frame path (see ``RenderCoercionDot``).
 
     An arith primitive unifies its numeric inputs to the widest representation;
-    LabVIEW marks each narrower input with a red coercion dot. Scoped to
-    ``ArithGlyph`` nodes (Add/Subtract/Multiply/Divide/...), where all numeric
-    inputs genuinely coerce to one type — unlike e.g. Index Array, whose I32
-    index meeting a DBL array is structural, not a coercion.
+    LabVIEW marks each narrower input with a red coercion dot. Scoped to the
+    numeric-unifying glyph families — ``ArithGlyph`` (Add/Subtract/Multiply/
+    Divide/... and the six comparisons) and ``CompoundArithGlyph`` (Compound
+    Arithmetic, which unifies its N inputs the same way) — where all numeric
+    inputs genuinely coerce to one type. Deliberately NOT applied to boxed
+    primitives whose inputs differ structurally rather than by coercion (e.g.
+    Index Array's I32 index meeting a DBL array, or Scale By Power of 2's
+    integer exponent), which would mis-flag a real narrower-but-required input.
     """
     dots: list[RenderCoercionDot] = []
     for rn in render_nodes:
-        if not isinstance(rn.glyph, ArithGlyph):
+        if not isinstance(rn.glyph, (ArithGlyph, CompoundArithGlyph)):
             continue
         ins = [t for t in rn.terminals if t.terminal.direction == "input"]
         ranks = [
