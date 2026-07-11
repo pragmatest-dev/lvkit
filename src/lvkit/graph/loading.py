@@ -312,10 +312,18 @@ class LoadingMixin:
             vi_path = self._resolve_class_vi_path(lvclass_path.parent, method.vi_path)
             if vi_path and vi_path.exists():
                 self.load_vi(vi_path, expand_subvis, search_paths)
-                # Ownership edge
+                # Ownership edge — carries scope/accessor info for docs
+                # (class landing pages, access-level badges).
                 vi_name = cls_qname + ":" + Path(method.vi_path).name
                 if vi_name in self._dep_graph:
-                    self._dep_graph.add_edge(cls_qname, vi_name, rel="owns")
+                    self._dep_graph.add_edge(
+                        cls_qname, vi_name,
+                        rel="owns",
+                        scope=method.scope,
+                        is_accessor=method.is_accessor,
+                        accessor_type=method.accessor_type,
+                        accessor_field=method.accessor_field,
+                    )
 
     def _resolve_class_vi_path(self, cls_dir: Path, relative_path: str) -> Path | None:
         """Resolve VI path from lvclass relative URL."""

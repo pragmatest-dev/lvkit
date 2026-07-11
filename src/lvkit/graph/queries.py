@@ -17,15 +17,19 @@ from typing import TYPE_CHECKING, Any
 
 import networkx as nx
 
-from ..models import FPTerminal, Operation, Terminal
+from ..models import ClusterField, FPTerminal, Operation, Terminal
 from ..vilib_resolver import get_resolver as get_vilib_resolver
 from .core import _OPERATION_KINDS, _graph_node_to_op_kind, _node_order_key
 from .models import (
     AnyGraphNode,
+    ClassFieldEntry,
+    ClassHierarchyInfo,
     ClusterInfo,
     Constant,
     ConstantInfo,
     ConstantNode,
+    MethodAccessInfo,
+    MethodOverrideInfo,
     PolyInfo,
     PrimitiveInfo,
     StructureNode,
@@ -64,6 +68,9 @@ class QueryMixin:
         def _build_operation(self, uid: str, vi_name: str) -> Operation: ...
         def _kind_to_labels(self, kind: str) -> list[str]: ...
         def has_parallel_branches(self, vi_name: str) -> bool: ...
+        def get_class_fields(
+            self, classname: str,
+        ) -> list[ClusterField] | None: ...
 
     # === Cypher query compat ===
 
@@ -510,7 +517,7 @@ class QueryMixin:
             return []
 
         results = []
-        for uid in node_uids:
+        for uid in sorted(node_uids, key=_node_order_key):
             if uid not in self._graph:
                 continue
             gnode = self._graph.nodes[uid].get("node")
@@ -875,3 +882,158 @@ class QueryMixin:
             for variant in info.variants:
                 result[variant] = wrapper
         return result
+
+    # === Class Hierarchy Queries ===
+    #
+    # These read the class/method structure that ``load_lvclass()`` records
+    # on ``_dep_graph``: class nodes carry ``parent_class`` (bare ancestor
+    # name) + ``fields`` (own private-data fields), and "owns" edges from a
+    # class to its method VIs carry the per-method scope/accessor info
+    # parsed by ``structure.parse_lvclass()``.
+
+    def list_classes(self) -> list[str]:
+        """List all loaded (non-stub) class names in the dependency graph."""
+        return sorted(
+            n for n, d in self._dep_graph.nodes(data=True)
+            if d.get("node_type") == "class" and n not in self._stubs
+        )
+
+    def get_owning_class(self, vi_name: str) -> str | None:
+        """Get the class that owns this method VI, via its "owns" edge.
+
+        Returns None if ``vi_name`` isn't a class method VI.
+        """
+        if vi_name not in self._dep_graph:
+            return None
+        for pred in self._dep_graph.predecessors(vi_name):
+            if self._dep_graph.nodes[pred].get("node_type") != "class":
+                continue
+            edata = self._dep_graph.get_edge_data(pred, vi_name) or {}
+            if edata.get("rel") == "owns":
+                return pred
+        return None
+
+    def get_class_hierarchy(self, classname: str) -> ClassHierarchyInfo | None:
+        """Get hierarchy info for one loaded class: parent, children,
+        documented methods, and fields (own + inherited).
+
+        Returns None if ``classname`` isn't a loaded (non-stub) class node.
+        """
+        if not self._dep_graph.has_node(classname) or classname in self._stubs:
+            return None
+        data = self._dep_graph.nodes[classname]
+        if data.get("node_type") != "class":
+            return None
+
+        # parent_class is recorded as the bare ancestor name (no ".lvclass",
+        # no library qualification — see structure._find_parent_class_by_path).
+        # Re-qualify and only surface it if that class is itself loaded.
+        parent_raw: str | None = data.get("parent_class")
+        parent_class: str | None = None
+        if parent_raw and parent_raw != "LabVIEW Object":
+            candidate = parent_raw + ".lvclass"
+            if self._dep_graph.has_node(candidate) and candidate not in self._stubs:
+                parent_class = candidate
+
+        # Children: invert parent_class across every loaded class. Compare
+        # against the bare (unqualified) leaf of our own name, matching how
+        # parent_class is recorded.
+        leaf = classname.rsplit(":", 1)[-1]
+        own_bare = leaf[: -len(".lvclass")] if leaf.endswith(".lvclass") else leaf
+        child_classes = sorted(
+            node for node, ndata in self._dep_graph.nodes(data=True)
+            if ndata.get("node_type") == "class"
+            and node not in self._stubs
+            and ndata.get("parent_class") == own_bare
+        )
+
+        # Methods: VI nodes owned by this class that are actually documented
+        # (present in list_vis() — excludes stub/unresolved method VIs).
+        vis = set(self.list_vis())
+        methods = sorted(
+            succ for succ in self._dep_graph.successors(classname)
+            if succ in vis
+            and (self._dep_graph.get_edge_data(classname, succ) or {}).get("rel")
+            == "owns"
+        )
+
+        own_fields: list[ClusterField] = data.get("fields") or []
+        inherited_fields: list[ClusterField] = (
+            self.get_class_fields(parent_class) or [] if parent_class else []
+        )
+        fields = [
+            ClassFieldEntry(field=f, inherited=True) for f in inherited_fields
+        ] + [
+            ClassFieldEntry(field=f, inherited=False) for f in own_fields
+        ]
+
+        return ClassHierarchyInfo(
+            classname=classname,
+            parent_class=parent_class,
+            child_classes=child_classes,
+            methods=methods,
+            fields=fields,
+        )
+
+    def get_method_access(self, vi_name: str) -> MethodAccessInfo | None:
+        """Get access-scope info for a class method VI.
+
+        Returns None if ``vi_name`` isn't a class method VI, or its "owns"
+        edge predates the scope/accessor attrs (should not happen for
+        anything loaded via ``load_lvclass()``).
+        """
+        owner = self.get_owning_class(vi_name)
+        if owner is None:
+            return None
+        edata = self._dep_graph.get_edge_data(owner, vi_name) or {}
+        scope = edata.get("scope")
+        if scope is None:
+            return None
+        return MethodAccessInfo(
+            vi_name=vi_name,
+            scope=scope,
+            is_accessor=bool(edata.get("is_accessor")),
+            accessor_type=edata.get("accessor_type"),
+            accessor_field=edata.get("accessor_field"),
+        )
+
+    def get_method_overrides(self, vi_name: str) -> MethodOverrideInfo | None:
+        """Get bidirectional override links for a class method VI.
+
+        Matches by bare method name (e.g. "run.vi") against the immediate
+        parent class and each immediate child class. Only links to VIs that
+        are themselves documented (in ``list_vis()``). Returns None if
+        ``vi_name`` isn't a class method VI, or no override link exists in
+        either direction.
+        """
+        owner = self.get_owning_class(vi_name)
+        if owner is None:
+            return None
+        hierarchy = self.get_class_hierarchy(owner)
+        if hierarchy is None:
+            return None
+
+        bare_method = vi_name.rsplit(":", 1)[-1]
+        vis = set(self.list_vis())
+
+        overrides: str | None = None
+        if hierarchy.parent_class:
+            candidate = f"{hierarchy.parent_class}:{bare_method}"
+            if candidate in vis:
+                overrides = candidate
+
+        overridden_by: list[str] = []
+        for child in hierarchy.child_classes:
+            candidate = f"{child}:{bare_method}"
+            if candidate in vis:
+                overridden_by.append(candidate)
+        overridden_by.sort()
+
+        if overrides is None and not overridden_by:
+            return None
+
+        return MethodOverrideInfo(
+            vi_name=vi_name,
+            overrides=overrides,
+            overridden_by=overridden_by,
+        )

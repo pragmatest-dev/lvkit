@@ -15,6 +15,7 @@ from pydantic import BaseModel
 
 from ..models import (
     CaseFrame,
+    ClusterField,
     LVType,
     Operation,
     PropertyDef,
@@ -468,3 +469,67 @@ class ParallelBranch:
     operation_ids: list[str]
     merge_terminal: str | None
     merge_operation: str | None
+
+
+# ============================================================
+# Class hierarchy types (docs: class landing pages + navigation)
+# ============================================================
+
+
+@dataclass
+class ClassFieldEntry:
+    """One private-data field on a class's Properties list.
+
+    ``inherited`` distinguishes fields declared on this class (own, from the
+    class's own private-data cluster) from fields declared on an ancestor
+    class (inherited, present because LabVIEW nests the parent's private
+    data cluster as the first field of the child's).
+    """
+
+    field: ClusterField
+    inherited: bool
+
+
+@dataclass
+class ClassHierarchyInfo:
+    """Hierarchy info for one loaded LabVIEW class.
+
+    All names are fully-qualified (``"X.lvclass"``, or ``"Lib.lvlib:X.lvclass"``
+    for library-nested classes). ``methods`` and ``child_classes`` only include
+    entries that are themselves loaded/documented (no dangling links).
+    """
+
+    classname: str
+    parent_class: str | None
+    child_classes: list[str]
+    methods: list[str]
+    fields: list[ClassFieldEntry]
+
+
+@dataclass
+class MethodAccessInfo:
+    """Access-scope info for a class method VI, from its owning class.
+
+    ``scope`` is one of the scopes LabVIEW class items are parsed with today
+    ("public" / "protected" / "private" — see ``structure.SCOPE_MAP``).
+    """
+
+    vi_name: str
+    scope: str
+    is_accessor: bool
+    accessor_type: str | None
+    accessor_field: str | None
+
+
+@dataclass
+class MethodOverrideInfo:
+    """Bidirectional override links for a class method VI.
+
+    ``overrides`` is the immediate parent class's same-named method (if it is
+    itself a documented VI). ``overridden_by`` is every immediate child
+    class's same-named method that is documented.
+    """
+
+    vi_name: str
+    overrides: str | None
+    overridden_by: list[str]

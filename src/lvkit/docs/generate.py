@@ -238,6 +238,11 @@ def _prepare_vi_documentation_data(
         logger.exception("SVG diagram render failed for %s", vi_name)
         diagram_svg, subvi_nodes = None, {}
 
+    # Class hierarchy navigation: only set for class method VIs.
+    owning_class = graph.get_owning_class(vi_name)
+    method_access = graph.get_method_access(vi_name) if owning_class else None
+    method_overrides = graph.get_method_overrides(vi_name) if owning_class else None
+
     return {
         "vi_name": vi_name,
         "controls": controls,
@@ -253,6 +258,9 @@ def _prepare_vi_documentation_data(
         # {diagram data-node id -> target subVI name}; the page turns this into
         # click-to-navigate links (navigation lives in the doc layer).
         "subvi_nodes": subvi_nodes,
+        "owning_class": owning_class,
+        "method_access": method_access,
+        "method_overrides": method_overrides,
     }
 
 
@@ -400,6 +408,26 @@ def generate_documents(
     print(
         f"[TIMING] HTML generation: {time.time() - t0:.2f}s"
         f" - Generated {generated_count} pages"
+    )
+
+    # Generate class landing pages (must run before the index page, so the
+    # index can link class group headers to their landing page).
+    print("[TIMING] Generating class landing pages...")
+    t0 = time.time()
+    class_names = graph.list_classes()
+    for classname in class_names:
+        hierarchy = graph.get_class_hierarchy(classname)
+        if hierarchy is None:
+            continue
+        method_access = {}
+        for method_vi in hierarchy.methods:
+            access = graph.get_method_access(method_vi)
+            if access is not None:
+                method_access[method_vi] = access
+        generator.generate_class_page(hierarchy, method_access)
+    print(
+        f"[TIMING] Class page generation: {time.time() - t0:.2f}s"
+        f" - Generated {len(class_names)} class pages"
     )
 
     # Generate index page - filter out poly variants (only show wrappers)

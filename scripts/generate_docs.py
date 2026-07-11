@@ -4,8 +4,9 @@
 Kept as a thin wrapper (rather than removed outright) because
 ``lvkit.mcp.tools.generate_documents`` subprocesses this script with
 ``--search-path``/``--no-expand``/``--vilib``/``--userlib``. All actual
-generation logic lives in ``lvkit.docs.generate.generate_documents`` — this
-file only parses argv and forwards.
+generation logic — including class landing pages and method-level access
+badges/override navigation — lives in ``lvkit.docs.generate.generate_documents``;
+this file only parses argv and forwards.
 
 Usage:
     python scripts/generate_docs.py <vi_or_library_path> <output_dir>

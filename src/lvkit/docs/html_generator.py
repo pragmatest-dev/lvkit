@@ -7,6 +7,13 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
+from lvkit.graph.models import (
+    ClassFieldEntry,
+    ClassHierarchyInfo,
+    MethodAccessInfo,
+    MethodOverrideInfo,
+)
+
 
 class HTMLDocGenerator:
     """Generate static HTML documentation for VIs."""
@@ -24,6 +31,10 @@ class HTMLDocGenerator:
         self.doc_type = doc_type
         self.all_vis: set[str] = set()  # Track which VIs have pages
         self.icon_map: dict[str, str] = {}  # VI name -> relative icon path
+        # classname -> class landing page path (relative to output_dir root),
+        # populated by generate_class_page(). Used by the index page to link
+        # library group headers to their class landing page.
+        self.class_pages: dict[str, str] = {}
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
     def generate_vi_page(self, vi_data: dict[str, Any]) -> None:
@@ -41,6 +52,27 @@ class HTMLDocGenerator:
         html_path.parent.mkdir(parents=True, exist_ok=True)
 
         html = self._render_vi_page(vi_data)
+
+        html_path.write_text(html, encoding="utf-8")
+
+    def generate_class_page(
+        self,
+        hierarchy: ClassHierarchyInfo,
+        method_access: dict[str, MethodAccessInfo],
+    ) -> None:
+        """Generate the landing page for one loaded LabVIEW class.
+
+        Args:
+            hierarchy: Parent/children/methods/fields for this class.
+            method_access: Access-scope info for this class's own methods
+                (keyed by qualified VI name), used to badge the Methods list.
+        """
+        filename = self._class_name_to_filename(hierarchy.classname)
+        self.class_pages[hierarchy.classname] = filename
+        html_path = self.output_dir / filename
+        html_path.parent.mkdir(parents=True, exist_ok=True)
+
+        html = self._render_class_page(hierarchy, method_access)
 
         html_path.write_text(html, encoding="utf-8")
 
@@ -104,6 +136,9 @@ class HTMLDocGenerator:
         is_poly = vi_data.get("is_polymorphic", False)
         variant_params = vi_data.get("variant_params", [])
         icon_path = vi_data.get("icon_path")
+        owning_class = vi_data.get("owning_class")
+        method_access = vi_data.get("method_access")
+        method_overrides = vi_data.get("method_overrides")
 
         # Create a relative link function for this VI's directory
         current_lib = self._extract_library_group(vi_name)
@@ -144,6 +179,19 @@ class HTMLDocGenerator:
         if is_poly and variant_params:
             poly_html = self._render_polymorphic_section(variant_params, relative_link)
 
+        # Class hierarchy: breadcrumb link back to the owning class, an
+        # access-scope badge, and an Overrides/Overridden-by section.
+        breadcrumb_class_html = ""
+        display_vi_name = vi_name
+        if owning_class:
+            class_href = "../" + self._class_name_to_filename(owning_class)
+            breadcrumb_class_html = f'<a href="{class_href}">{owning_class}</a> / '
+            display_vi_name = vi_name.rsplit(":", 1)[-1]
+        access_badge_html = self._render_access_badge(method_access)
+        overrides_html = self._render_method_overrides_section(
+            method_overrides, relative_link
+        )
+
         # Pre-compute values used inside the HTML f-string
         icon_html = (
             f'<img src="{icon_path}" alt="VI Icon" class="vi-icon">'
@@ -172,14 +220,15 @@ class HTMLDocGenerator:
 </head>
 <body>
     <nav class="breadcrumb">
-        <a href="../index.html">{self.doc_title}</a> / <span>{vi_name}</span>
+        <a href="../index.html">{self.doc_title}</a> /
+        {breadcrumb_class_html}<span>{display_vi_name}</span>
     </nav>
 
     <header>
         <div class="vi-header">
             {icon_html}
             <div class="vi-header-text">
-                <h1>{vi_name}</h1>
+                <h1>{vi_name}{access_badge_html}</h1>
                 <p class="vi-type">{vi_type_label}</p>
             </div>
         </div>
@@ -192,6 +241,8 @@ class HTMLDocGenerator:
         </section>
 
         {poly_html}
+
+        {overrides_html}
 
         <section id="inputs">
             <h2>Inputs (Controls)</h2>
@@ -484,6 +535,225 @@ class HTMLDocGenerator:
         </section>
         """
 
+    def _render_access_badge(self, access: MethodAccessInfo | None) -> str:
+        """Render a small access-scope badge (+ accessor kind, if any)."""
+        if access is None or not access.scope:
+            return ""
+        html = f' <span class="scope-badge scope-{access.scope}">{access.scope}</span>'
+        if access.is_accessor and access.accessor_type:
+            html += (
+                f' <span class="accessor-badge">{access.accessor_type}</span>'
+            )
+        return html
+
+    def _render_method_overrides_section(
+        self,
+        overrides: MethodOverrideInfo | None,
+        link_fn: Callable[[str], str],
+    ) -> str:
+        """Render the Overrides / Overridden-by hierarchy section for a method page.
+
+        Returns "" when there is no override relationship to show.
+        """
+        if overrides is None:
+            return ""
+
+        parts: list[str] = []
+        if overrides.overrides:
+            parts.append(
+                f'<p><strong>Overrides:</strong> '
+                f'<a href="{link_fn(overrides.overrides)}">'
+                f'<code>{overrides.overrides}</code></a></p>'
+            )
+        if overrides.overridden_by:
+            items = "".join(
+                f'<li><a href="{link_fn(v)}"><code>{v}</code></a></li>'
+                for v in overrides.overridden_by
+            )
+            parts.append(
+                f'<p><strong>Overridden by:</strong></p>'
+                f'<ul class="override-list">{items}</ul>'
+            )
+
+        if not parts:
+            return ""
+
+        return f"""
+        <section id="hierarchy">
+            <h2>Class Hierarchy</h2>
+            {''.join(parts)}
+        </section>
+        """
+
+    def _class_name_to_filename(self, classname: str) -> str:
+        """Convert a class qualified name to its landing-page path.
+
+        Lives in the same per-class subdirectory as its method pages
+        (``_vi_name_to_filename`` groups a method VI's page under its
+        owning class's sanitized qualified name), so intra-class links
+        need no "../" prefix. The basename is the raw qualified class name
+        with ".html" appended — this can never collide with a method page's
+        basename, since those always carry a ":<method>.vi" suffix baked in
+        before sanitizing.
+        """
+        safe_lib = (
+            classname.replace(".", "_").replace(":", "_").replace("/", "_")
+        )
+        return f"{safe_lib}/{classname}.html"
+
+    def _render_class_hierarchy_section(
+        self,
+        hierarchy: ClassHierarchyInfo,
+        class_link: Callable[[str], str],
+    ) -> str:
+        """Render the Inherits-from / Subclasses block for a class page."""
+        parts: list[str] = []
+        if hierarchy.parent_class:
+            parts.append(
+                f'<p><strong>Inherits from:</strong> '
+                f'<a href="{class_link(hierarchy.parent_class)}">'
+                f'<code>{hierarchy.parent_class}</code></a></p>'
+            )
+        if hierarchy.child_classes:
+            items = "".join(
+                f'<li><a href="{class_link(c)}"><code>{c}</code></a></li>'
+                for c in hierarchy.child_classes
+            )
+            parts.append(
+                f'<p><strong>Subclasses:</strong></p>'
+                f'<ul class="subclass-list">{items}</ul>'
+            )
+        if not parts:
+            return (
+                "<p>Root class — no parent or subclasses in this "
+                "documentation set.</p>"
+            )
+        return "".join(parts)
+
+    def _render_class_properties_table(self, fields: list[ClassFieldEntry]) -> str:
+        """Render the class's private-data fields, marking inherited vs own."""
+        if not fields:
+            return "<p>No private data fields</p>"
+
+        rows = []
+        for entry in fields:
+            f = entry.field
+            type_str = f.type.underlying_type if f.type else "Any"
+            origin = "inherited" if entry.inherited else "own"
+            origin_badge = (
+                f'<span class="field-origin field-origin-{origin}">{origin}</span>'
+            )
+            rows.append(
+                f"""
+            <tr>
+                <td>{f.name}</td>
+                <td><code>{type_str}</code></td>
+                <td>{origin_badge}</td>
+            </tr>
+            """
+            )
+
+        return f"""
+        <table>
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Type</th>
+                    <th>Origin</th>
+                </tr>
+            </thead>
+            <tbody>
+                {''.join(rows)}
+            </tbody>
+        </table>
+        """
+
+    def _render_class_methods_list(
+        self,
+        methods: list[str],
+        method_access: dict[str, MethodAccessInfo],
+        method_link: Callable[[str], str],
+    ) -> str:
+        """Render the class's method list, each linked to its VI page."""
+        if not methods:
+            return "<p>No methods</p>"
+
+        items = []
+        for vi_name in methods:
+            display_name = vi_name.rsplit(":", 1)[-1]
+            badge_html = self._render_access_badge(method_access.get(vi_name))
+            items.append(
+                f'<li><a href="{method_link(vi_name)}">'
+                f'<code>{display_name}</code></a>{badge_html}</li>'
+            )
+
+        return f'<ul class="method-list">{"".join(items)}</ul>'
+
+    def _render_class_page(
+        self,
+        hierarchy: ClassHierarchyInfo,
+        method_access: dict[str, MethodAccessInfo],
+    ) -> str:
+        """Render the landing page HTML for one loaded class."""
+        classname = hierarchy.classname
+
+        def method_link(vi_name: str) -> str:
+            full = self._vi_name_to_filename(vi_name)
+            return full.split("/", 1)[1] if "/" in full else full
+
+        def class_link(target_classname: str) -> str:
+            return "../" + self._class_name_to_filename(target_classname)
+
+        hierarchy_html = self._render_class_hierarchy_section(hierarchy, class_link)
+        properties_html = self._render_class_properties_table(hierarchy.fields)
+        methods_html = self._render_class_methods_list(
+            hierarchy.methods, method_access, method_link
+        )
+
+        return f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{classname} - {self.doc_title}</title>
+    <link rel="stylesheet" href="../style.css">
+</head>
+<body>
+    <nav class="breadcrumb">
+        <a href="../index.html">{self.doc_title}</a> / <span>{classname}</span>
+    </nav>
+
+    <header>
+        <div class="vi-header-text">
+            <h1>{classname}</h1>
+            <p class="vi-type">Class</p>
+        </div>
+    </header>
+
+    <main>
+        <section id="hierarchy">
+            <h2>Hierarchy</h2>
+            {hierarchy_html}
+        </section>
+
+        <section id="properties">
+            <h2>Properties</h2>
+            {properties_html}
+        </section>
+
+        <section id="methods">
+            <h2>Methods</h2>
+            {methods_html}
+        </section>
+    </main>
+
+    <footer>
+        <p>Generated by lvkit generate_documents</p>
+    </footer>
+</body>
+</html>
+"""
+
     def _extract_library_group(self, vi_name: str) -> str:
         """Extract library/group name from VI name for grouping.
 
@@ -563,11 +833,18 @@ class HTMLDocGenerator:
 
             vi_count = len(vis_in_library)
             vi_plural = "s" if vi_count != 1 else ""
+            # Class group headers link to the class's landing page.
+            if library in self.class_pages:
+                library_name_html = (
+                    f'<a href="{self.class_pages[library]}">{library}</a>'
+                )
+            else:
+                library_name_html = library
             library_sections.append(f"""
             <details class="library-accordion" open>
                 <summary class="library-header">
                     <div class="library-header-content">
-                        <span class="library-name">{library}</span>
+                        <span class="library-name">{library_name_html}</span>
                         <span class="library-count">{vi_count} VI{vi_plural}</span>
                     </div>
                 </summary>

@@ -396,3 +396,70 @@ footer {
     display: flex;
     align-items: center;
 }
+
+/* Class hierarchy styles (class landing pages + method-page navigation) */
+.subclass-list,
+.method-list,
+.override-list {
+    list-style: none;
+    margin-left: 0;
+}
+
+.subclass-list li,
+.method-list li,
+.override-list li {
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.subclass-list li:last-child,
+.method-list li:last-child,
+.override-list li:last-child {
+    border-bottom: none;
+}
+
+.scope-badge,
+.accessor-badge,
+.field-origin {
+    display: inline-block;
+    padding: 2px 9px;
+    border-radius: 10px;
+    font-size: 0.75em;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.scope-badge,
+.accessor-badge {
+    margin-left: 8px;
+}
+
+.scope-public {
+    background: #d4edda;
+    color: #155724;
+}
+
+.scope-protected {
+    background: #fff3cd;
+    color: #856404;
+}
+
+.scope-private {
+    background: #f8d7da;
+    color: #721c24;
+}
+
+.accessor-badge {
+    background: #e2e3f5;
+    color: #383d8f;
+}
+
+.field-origin-own {
+    background: #d4edda;
+    color: #155724;
+}
+
+.field-origin-inherited {
+    background: #e2e3e5;
+    color: #383d41;
+}
