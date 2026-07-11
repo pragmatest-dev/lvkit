@@ -15,7 +15,7 @@ from lvkit.docs.html_generator import HTMLDocGenerator
 from lvkit.docs.utils import generate_dependency_description
 from lvkit.graph import InMemoryVIGraph
 from lvkit.models import CaseOperation, SequenceOperation
-from lvkit.render import render_vi
+from lvkit.render import render_vi_with_subvis
 from lvkit.structure import parse_lvclass, parse_lvlib
 
 logger = logging.getLogger(__name__)
@@ -217,10 +217,10 @@ def _prepare_vi_documentation_data(
         icon_path = str(icon_map[vi_name])
 
     try:
-        diagram_svg = render_vi(graph, vi_name)
+        diagram_svg, subvi_nodes = render_vi_with_subvis(graph, vi_name)
     except Exception:
-        logger.exception("SVG diagram render failed for %s; falling back", vi_name)
-        diagram_svg = None
+        logger.exception("SVG diagram render failed for %s", vi_name)
+        diagram_svg, subvi_nodes = None, {}
 
     return {
         "vi_name": vi_name,
@@ -234,6 +234,9 @@ def _prepare_vi_documentation_data(
         "variant_params": variant_params,
         "icon_path": icon_path,
         "diagram_svg": diagram_svg,
+        # {diagram data-node id -> target subVI name}; the page turns this into
+        # click-to-navigate links (navigation lives in the doc layer).
+        "subvi_nodes": subvi_nodes,
     }
 
 

@@ -17,12 +17,19 @@ import re
 from pathlib import Path
 
 from ..graph.core import InMemoryVIGraph
+from ..graph.models import VINode
 from .backend import SvgBackend
 from .draw import draw_scene
 from .scene import Scene, build_scene
 from .style import DEFAULT_THEME
 
-__all__ = ["Scene", "build_scene", "render_vi", "render_vi_file"]
+__all__ = [
+    "Scene",
+    "build_scene",
+    "render_vi",
+    "render_vi_file",
+    "render_vi_with_subvis",
+]
 
 # Deterministic per-VI id for the root <svg> — sanitized from the VI name, no
 # randomness/time (byte-reproducibility rule), so the inline frame-controller
@@ -220,6 +227,11 @@ def render_vi(graph: InMemoryVIGraph, vi_name: str) -> str | None:
     scene = build_scene(graph, vi_name)
     if scene is None:
         return None
+    return _render_scene_svg(scene, vi_name)
+
+
+def _render_scene_svg(scene: Scene, vi_name: str) -> str:
+    """Draw an already-built ``Scene`` to a self-contained interactive SVG."""
     backend = SvgBackend()
     draw_scene(scene, backend, DEFAULT_THEME)
     # Only a VI that actually needs JS (interactive case/sequence frames,
@@ -238,6 +250,28 @@ def render_vi(graph: InMemoryVIGraph, vi_name: str) -> str | None:
             scene.bounds, title=vi_name, script=script, root_id=root_id,
         )
     return backend.render(scene.bounds, title=vi_name)
+
+
+def render_vi_with_subvis(
+    graph: InMemoryVIGraph, vi_name: str,
+) -> tuple[str | None, dict[str, str]]:
+    """Render one VI, and also return the ``data-node`` id -> target VI name map
+    for the subVI-call nodes on its diagram.
+
+    The renderer stays navigation-free; this just surfaces WHICH drawn nodes are
+    subVIs (structure the graph already knows) so a consumer like the docs
+    pipeline can attach its own click-to-navigate behavior to those nodes by
+    their ``data-node`` id. Returns ``(None, {})`` when the VI has no drawable
+    geometry (same fail-closed contract as ``render_vi``)."""
+    scene = build_scene(graph, vi_name)
+    if scene is None:
+        return None, {}
+    subvis = {
+        rn.node.id: rn.node.name
+        for rn in scene.nodes
+        if isinstance(rn.node, VINode) and rn.node.name
+    }
+    return _render_scene_svg(scene, vi_name), subvis
 
 
 def render_vi_file(

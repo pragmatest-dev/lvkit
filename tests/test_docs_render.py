@@ -1,9 +1,10 @@
-"""Golden tests for SVG-in-docs integration (P3).
+"""Golden tests for SVG-in-docs integration.
 
-Verifies the docs pipeline embeds the faithful ``render_vi`` SVG at the
-Block Diagram section, and falls back to the Mermaid ``<pre>`` when
-``render_vi`` can't produce geometry. The sample VI is local-only
-(gitignored) — skip gracefully when it's unavailable.
+Verifies the docs pipeline embeds the faithful ``render_vi`` SVG at the Block
+Diagram section (mermaid is fully retired), shows a note when the render can't
+produce geometry, and injects click-to-navigate wiring onto documented subVI
+nodes. The sample VI is local-only (gitignored) — skip gracefully when it's
+unavailable.
 """
 
 from __future__ import annotations
@@ -69,13 +70,41 @@ def test_docs_embed_faithful_svg_when_render_succeeds(tmp_path):
     assert "<pre class='mermaid'>" not in section
 
 
-def test_docs_fall_back_to_mermaid_when_render_fails(tmp_path, monkeypatch):
+def test_docs_show_note_when_render_fails(tmp_path, monkeypatch):
     graph, vi_name = _require_sample()
 
-    monkeypatch.setattr("lvkit.docs.generate.render_vi", lambda graph, vi_name: None)
+    monkeypatch.setattr(
+        "lvkit.docs.generate.render_vi_with_subvis",
+        lambda graph, vi_name: (None, {}),
+    )
 
     html = _generate_page(tmp_path, graph, vi_name)
     section = _dataflow_section(html)
 
-    assert "<pre class='mermaid'>" in section
+    # No SVG, no mermaid — just an explanatory note.
     assert "<svg" not in section
+    assert "mermaid" not in section
+    assert "Block diagram unavailable" in section
+
+
+def test_diagram_injects_subvi_navigation(tmp_path):
+    """A documented subVI node gets click-to-navigate wiring, added by the doc
+    layer and keyed on the renderer's ``data-node`` id."""
+    gen = HTMLDocGenerator(tmp_path, "test-doc", "vi")
+    gen.all_vis = {"Child.vi"}
+    svg = '<svg><g class="lv-node" data-node="Parent.vi::42"></g></svg>'
+    html = gen._render_diagram(
+        svg, {"Parent.vi::42": "Child.vi"}, lambda n: n.replace(".vi", ".html")
+    )
+    assert 'data-node="Parent.vi::42"' in html  # SVG embedded verbatim
+    assert '"Parent.vi::42"' in html and "Child.html" in html  # nav map
+    assert "location.href" in html  # click behavior
+
+
+def test_diagram_no_navigation_for_undocumented_subvi(tmp_path):
+    """A subVI without its own page is not turned into a link."""
+    gen = HTMLDocGenerator(tmp_path, "test-doc", "vi")
+    gen.all_vis = set()
+    svg = '<svg><g data-node="Parent.vi::42"></g></svg>'
+    html = gen._render_diagram(svg, {"Parent.vi::42": "Child.vi"}, lambda n: n)
+    assert "location.href" not in html

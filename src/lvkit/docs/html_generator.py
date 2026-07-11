@@ -2,248 +2,10 @@
 
 from __future__ import annotations
 
+import json
 from collections.abc import Callable
-from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
-
-from lvkit.models import (
-    CaseOperation,
-    LoopOperation,
-    PrimitiveOperation,
-    SequenceOperation,
-)
-
-
-@dataclass
-class MermaidRenderer:
-    """Renders graph data to Mermaid flowchart syntax."""
-
-    all_vis: set[str] = field(default_factory=set)
-    _lines: list[str] = field(default_factory=list)
-    _node_ids: dict[str, str] = field(default_factory=dict)
-    _node_styles: list[tuple[str, str]] = field(default_factory=list)
-    _subvi_nodes: list[tuple[str, str]] = field(default_factory=list)
-    _counter: int = 0
-
-    def _next_id(self) -> str:
-        nid = f"n{self._counter}"
-        self._counter += 1
-        return nid
-
-    @staticmethod
-    def _escape(s: str) -> str:
-        """Escape special chars for Mermaid labels."""
-        if s == "" or s == '""':
-            return "''"
-        return s.replace('"', "'")
-
-    def _render_operation(self, op, indent: str = "    ") -> None:
-        """Render an operation, recursively handling loops.
-
-        Args:
-            op: Operation dataclass instance
-            indent: Indentation string for nested elements
-        """
-        nid = self._next_id()
-        self._node_ids[op.id] = nid
-        name = op.name or ""
-
-        match op:
-            case LoopOperation() if op.inner_nodes:
-                loop_label = (
-                    "While Loop" if op.loop_type == "whileLoop"
-                    else "For Loop" if op.loop_type == "forLoop"
-                    else "Loop"
-                )
-                self._lines.append(f'{indent}subgraph {nid}["{loop_label}"]')
-                for inner_op in op.inner_nodes:
-                    self._render_operation(inner_op, indent + "    ")
-                self._lines.append(f'{indent}end')
-                self._node_styles.append((nid, "loopStyle"))
-
-            case SequenceOperation() if op.frames:
-                self._lines.append(f'{indent}subgraph {nid}["Flat Sequence"]')
-                for i, frame in enumerate(op.frames):
-                    frame_id = f"{nid}_f{i}"
-                    self._lines.append(f'{indent}    subgraph {frame_id}["Frame {i}"]')
-                    for inner_op in frame.operations:
-                        self._render_operation(inner_op, indent + "        ")
-                    self._lines.append(f'{indent}    end')
-                self._lines.append(f'{indent}end')
-                self._node_styles.append((nid, "operationStyle"))
-
-            case CaseOperation() if op.frames:
-                cases = [str(f.selector_value) for f in op.frames]
-                case_label = " | ".join(cases[:4])
-                if len(cases) > 4:
-                    case_label += " | ..."
-                label = f"Case [{case_label}]" if case_label else "Case"
-                self._lines.append(f'{indent}{nid}{{{{"{self._escape(label)}"}}}}')
-                self._node_styles.append((nid, "caseStyle"))
-
-            case _ if "SubVI" in op.labels:
-                label = self._escape(name or "SubVI")
-                self._lines.append(f'{indent}{nid}["{label}"]')
-                self._node_styles.append((nid, "subviStyle"))
-                if name:
-                    self._subvi_nodes.append((nid, name))
-
-            case PrimitiveOperation():
-                if op.operation and name:
-                    label = self._escape(f"{name} ({op.operation.upper()})")
-                else:
-                    label = self._escape(name or f"prim_{op.primResID or '?'}")
-                self._lines.append(f'{indent}{nid}["{label}"]')
-                self._node_styles.append((nid, "primitiveStyle"))
-
-            case LoopOperation():
-                loop_label = (
-                    "While Loop" if op.loop_type == "whileLoop"
-                    else "For Loop" if op.loop_type == "forLoop"
-                    else "Loop"
-                )
-                self._lines.append(f'{indent}{nid}(["{loop_label}"])')
-                self._node_styles.append((nid, "loopStyle"))
-
-            case _:
-                label = self._escape(name or "Operation")
-                self._lines.append(f'{indent}{nid}["{label}"]')
-                self._node_styles.append((nid, "operationStyle"))
-
-    def render(
-        self, graph: dict[str, Any], vi_name_to_filename: Callable[[str], str]
-    ) -> str:
-        """Render graph to Mermaid flowchart HTML."""
-        inputs = graph.get("inputs", [])
-        outputs = graph.get("outputs", [])
-        operations = graph.get("operations", [])
-        constants = graph.get("constants", [])
-        data_flow = graph.get("data_flow", [])
-
-        if not (inputs or outputs or operations or constants):
-            return "<p>No dataflow graph available</p>"
-
-        # Reset state
-        self._lines = ["<pre class='mermaid'>", "flowchart LR"]
-        self._node_ids = {}
-        self._node_styles = []
-        self._subvi_nodes = []
-        self._counter = 0
-
-        # Render inputs (controls)
-        for inp in inputs:
-            nid = self._next_id()
-            self._node_ids[inp.id] = nid
-            name = inp.name or "input"
-            lv_type = inp.python_type()
-            label = f"{name}: {lv_type}" if lv_type and lv_type != "Any" else name
-            self._lines.append(f'    {nid}[/"{self._escape(label)}"/]')
-            self._node_styles.append((nid, "controlStyle"))
-
-        # Render outputs (indicators)
-        for out in outputs:
-            nid = self._next_id()
-            self._node_ids[out.id] = nid
-            name = out.name or "output"
-            lv_type = out.python_type()
-            label = f"{name}: {lv_type}" if lv_type and lv_type != "Any" else name
-            self._lines.append(f'    {nid}[\\"{self._escape(label)}"\\]')
-            self._node_styles.append((nid, "indicatorStyle"))
-
-        # Render constants
-        for const in constants:
-            nid = self._next_id()
-            self._node_ids[const.id] = nid
-            value = const.value
-            underlying = const.lv_type.underlying_type if const.lv_type else None
-
-            # Check if this is an enum constant - display member name not raw value
-            if const.lv_type and const.lv_type.values and value is not None:
-                try:
-                    int_value = int(value)
-                    for member_name, enum_val in const.lv_type.values.items():
-                        if enum_val.value == int_value:
-                            value_str = member_name
-                            break
-                    else:
-                        value_str = str(value)
-                except (ValueError, TypeError, AttributeError):
-                    value_str = str(value)
-            elif underlying == "Boolean":
-                # Decode boolean: "00"/"0000"/0/False → False, else → True
-                raw = value if value is not None else const.raw_value
-                value_str = (
-                    "False"
-                    if str(raw) in ("0", "00", "0000", "False", "None")
-                    else "True"
-                )
-            else:
-                value_str = str(value) if value is not None else "None"
-
-            if len(value_str) > 30:
-                value_str = value_str[:27] + "..."
-            self._lines.append(f'    {nid}[["{self._escape(value_str)}"]]')
-            self._node_styles.append((nid, "constantStyle"))
-
-        # Render operations
-        for op in operations:
-            self._render_operation(op)
-
-        # Render edges (deduplicated)
-        rendered_edges: set[tuple[str, str]] = set()
-        for wire in data_flow:
-            from_id = wire.from_parent_id
-            if from_id not in self._node_ids:
-                from_id = wire.from_terminal_id
-            to_id = wire.to_parent_id
-            if to_id not in self._node_ids:
-                to_id = wire.to_terminal_id
-
-            if (
-                from_id in self._node_ids
-                and to_id in self._node_ids
-                and from_id != to_id
-            ):
-                edge_key = (self._node_ids[from_id], self._node_ids[to_id])
-                if edge_key not in rendered_edges:
-                    rendered_edges.add(edge_key)
-                    self._lines.append(f'    {edge_key[0]} --> {edge_key[1]}')
-
-        # Add click links for SubVIs
-        for nid, vi_name in self._subvi_nodes:
-            if vi_name in self.all_vis:
-                link = vi_name_to_filename(vi_name)
-                self._lines.append(f'    click {nid} href "{link}"')
-
-        # Style definitions
-        self._lines.append(
-            "    classDef controlStyle fill:#bbdefb,stroke:#1976d2,stroke-width:2px"
-        )
-        self._lines.append(
-            "    classDef indicatorStyle fill:#fff3e0,stroke:#f57c00,stroke-width:2px"
-        )
-        self._lines.append("    classDef constantStyle fill:#f3e5f5,stroke:#7b1fa2")
-        self._lines.append("    classDef subviStyle fill:#e8f5e9,stroke:#388e3c")
-        self._lines.append(
-            "    classDef primitiveStyle fill:#fffde7,stroke:#f9a825,stroke-width:2px"
-        )
-        self._lines.append(
-            "    classDef operationStyle fill:#e0e0e0,stroke:#616161,stroke-width:2px"
-        )
-        self._lines.append(
-            "    classDef loopStyle fill:#e1bee7,stroke:#8e24aa,stroke-width:2px"
-        )
-        self._lines.append(
-            "    classDef caseStyle fill:#b2ebf2,stroke:#00838f,stroke-width:2px"
-        )
-
-        # Apply styles
-        for nid, style in self._node_styles:
-            self._lines.append(f"    class {nid} {style}")
-
-        self._lines.append("</pre>")
-        return "\n".join(self._lines)
 
 
 class HTMLDocGenerator:
@@ -262,7 +24,6 @@ class HTMLDocGenerator:
         self.doc_type = doc_type
         self.all_vis: set[str] = set()  # Track which VIs have pages
         self.icon_map: dict[str, str] = {}  # VI name -> relative icon path
-        self._mermaid = MermaidRenderer()
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
     def generate_vi_page(self, vi_data: dict[str, Any]) -> None:
@@ -299,6 +60,40 @@ class HTMLDocGenerator:
         css_path = self.output_dir / "style.css"
         css_path.write_text(css, encoding="utf-8")
 
+    def _render_diagram(
+        self,
+        diagram_svg: str,
+        subvi_nodes: dict[str, str],
+        relative_link: Callable[[str], str],
+    ) -> str:
+        """Embed the SVG block diagram and attach click-to-navigate behaviour to
+        its subVI nodes.
+
+        Navigation lives HERE in the doc layer, keyed on the ``data-node`` ids
+        the renderer already emits — the renderer itself stays navigation-free.
+        Only subVIs that have their own documented page become links."""
+        nav = {
+            node_id: relative_link(target)
+            for node_id, target in subvi_nodes.items()
+            if target in self.all_vis
+        }
+        nav_script = ""
+        if nav:
+            nav_script = (
+                "<script>/*<![CDATA[*/(function(){"
+                f"var NAV={json.dumps(nav)};"
+                "document.querySelectorAll('.diagram-container [data-node]')"
+                ".forEach(function(g){"
+                "var u=NAV[g.getAttribute('data-node')];if(!u)return;"
+                "g.style.cursor='pointer';g.setAttribute('tabindex','0');"
+                "g.addEventListener('click',function(){location.href=u;});"
+                "});})();/*]]>*/</script>"
+            )
+        return (
+            '<div class="diagram-container" style="overflow:auto">'
+            f"{diagram_svg}</div>{nav_script}"
+        )
+
     def _render_vi_page(self, vi_data: dict[str, Any]) -> str:
         """Render VI page HTML."""
         vi_name = vi_data["vi_name"]
@@ -306,7 +101,6 @@ class HTMLDocGenerator:
         indicators = vi_data.get("indicators", [])
         dependencies = vi_data.get("dependencies", {})
         callers = vi_data.get("callers", [])
-        graph = vi_data.get("graph", {})
         is_poly = vi_data.get("is_polymorphic", False)
         variant_params = vi_data.get("variant_params", [])
         icon_path = vi_data.get("icon_path")
@@ -336,13 +130,14 @@ class HTMLDocGenerator:
         callers_html = self._render_callers_section(callers, relative_link)
         diagram_svg = vi_data.get("diagram_svg")
         if diagram_svg:
-            dataflow_html = (
-                '<div class="diagram-container" style="overflow:auto">'
-                f"{diagram_svg}</div>"
+            dataflow_html = self._render_diagram(
+                diagram_svg, vi_data.get("subvi_nodes", {}), relative_link
             )
         else:
-            self._mermaid.all_vis = self.all_vis
-            dataflow_html = self._mermaid.render(graph, relative_link)
+            dataflow_html = (
+                '<div class="diagram-note">Block diagram unavailable — '
+                "no diagram geometry for this VI.</div>"
+            )
 
         # Polymorphic section if applicable
         poly_html = ""
@@ -374,15 +169,6 @@ class HTMLDocGenerator:
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{vi_name} - {self.doc_title}</title>
     <link rel="stylesheet" href="../style.css">
-    <script type="module">
-        import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
-        mermaid.initialize({{
-            startOnLoad: true,
-            theme: 'default',
-            flowchart: {{ curve: 'monotoneX' }}
-        }});
-        await mermaid.contentLoaded();
-    </script>
 </head>
 <body>
     <nav class="breadcrumb">
