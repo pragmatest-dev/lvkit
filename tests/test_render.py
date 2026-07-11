@@ -1764,16 +1764,15 @@ def test_comparison_primitives_use_the_arith_triangle():
         assert glyph.symbol == symbol, name
 
 
-def test_original_glyphs_take_precedence_over_pixel_icons():
-    """The OriginalGlyphResolver must sit BEFORE PdfIconResolver so our
-    clean-room glyphs win over any pixel-matched icon asset."""
-    from lvkit.render.nodes import (
-        _RESOLVERS,
-        OriginalGlyphResolver,
-        PdfIconResolver,
-    )
+def test_original_glyphs_lead_the_resolver_chain():
+    """Clean-room OriginalGlyphResolver leads the chain so our own glyphs win,
+    and the NI-derived PDF-icon resolver is gone entirely (no licensed art)."""
+    from lvkit.render import nodes as nodes_mod
+    from lvkit.render.nodes import _RESOLVERS, OriginalGlyphResolver
+
     types = [type(r) for r in _RESOLVERS]
-    assert types.index(OriginalGlyphResolver) < types.index(PdfIconResolver)
+    assert types[0] is OriginalGlyphResolver
+    assert not hasattr(nodes_mod, "PdfIconResolver")
 
 
 def test_bundle_and_unbundle_draw_mirrored_split_boxes():

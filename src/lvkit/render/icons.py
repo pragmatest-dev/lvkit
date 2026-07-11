@@ -77,9 +77,9 @@ def png_to_svg(png_bytes: bytes) -> tuple[str, tuple[int, int]] | None:
     rectangles. This is far more compact than one element per rectangle while
     remaining pixel-perfect. Wraps the paths in an
     ``<svg viewBox="0 0 W H" shape-rendering="crispEdges">``. Returns None if
-    the image is empty/degenerate. This is the shared core used by both the
-    build-time vectorizer (scripts/vectorize_icons.py) and render-time SubVI
-    icon vectorization (nodes.ExtractedIconResolver).
+    the image is empty/degenerate. Used at render time to vectorize a SubVI's
+    own ``_ICON.png`` (nodes.ExtractedIconResolver) — the user's own file, not
+    any bundled asset.
     """
     try:
         import io

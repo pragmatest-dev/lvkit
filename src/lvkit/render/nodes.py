@@ -22,7 +22,6 @@ from __future__ import annotations
 
 import ast
 import functools
-import json
 import logging
 from dataclasses import dataclass
 from pathlib import Path
@@ -293,50 +292,16 @@ class JsonGlyphResolver:
         return None
 
 
-@functools.lru_cache(maxsize=1)
-def _glyph_asset_stems() -> frozenset[str]:
-    """Cached set of extracted PDF-icon asset filename stems under
-    ``data/glyphs/`` (see ``scripts/extract_lv_icons.py``) — avoids
-    re-globbing the directory on every node's glyph resolution."""
-    glyphs_dir = _bundled_data_dir() / "glyphs"
-    if not glyphs_dir.is_dir():
-        return frozenset()
-    return frozenset(p.stem for p in glyphs_dir.glob("*.png"))
-
-
-@functools.lru_cache(maxsize=1)
-def _svg_asset_stems() -> frozenset[str]:
-    """Cached set of vectorized icon asset filename stems under
-    ``data/glyphs/`` (see ``scripts/vectorize_icons.py``) — mirrors
-    ``_glyph_asset_stems`` but for the pixel-faithful ``.svg`` assets."""
-    glyphs_dir = _bundled_data_dir() / "glyphs"
-    if not glyphs_dir.is_dir():
-        return frozenset()
-    return frozenset(p.stem for p in glyphs_dir.glob("*.svg"))
-
-
-@functools.lru_cache(maxsize=1)
-def _svg_sizes() -> dict[str, tuple[int, int]]:
-    """Natural ``(w, h)`` per SVG icon stem, from
-    ``data/glyphs/_svg_sizes.json`` (see ``scripts/vectorize_icons.py``)."""
-    path = _bundled_data_dir() / "glyphs" / "_svg_sizes.json"
-    if not path.is_file():
-        return {}
-    try:
-        raw = json.loads(path.read_text())
-    except (OSError, ValueError):
-        return {}
-    return {k: (int(v[0]), int(v[1])) for k, v in raw.items()}
-
-
 class OriginalGlyphResolver:
     """Clean-room ORIGINAL glyphs for primitives whose SHAPE we draw ourselves
     (roadmap #14). Each matched primitive gets a glyph that reproduces the real
     LabVIEW outline + footprint (looked up from NI's function-reference images)
     with OUR OWN interior symbol — never NI's pixel artwork. Placed FIRST in the
-    resolver list so these take precedence over every NI-derived icon asset
-    (extracted, JSON, or PDF); every primitive NOT listed here returns ``None``
-    and falls through to those resolvers, so un-migrated prims never regress.
+    resolver list; every primitive NOT listed here returns ``None`` and falls
+    through to the remaining resolvers (a subVI's own icon, a declared inline
+    SVG, procedural shapes, or the labeled-box fallback). The NI-derived
+    PDF-icon path was removed for licensing, so an un-migrated primitive now
+    renders as a labeled box rather than pixel-matched NI art.
 
     Migrated so far:
 
@@ -376,62 +341,6 @@ class OriginalGlyphResolver:
             return UnbundleGlyph(num_fields=outs)
         # A 1-in/1-out mux is a structure-boundary pass-through, not an
         # assemble/disassemble — leave it to the existing rendering.
-        return None
-
-
-class PdfIconResolver:
-    """Real, PDF-extracted LabVIEW icons for boxed primitives (built by
-    ``scripts/extract_lv_icons.py`` from the reference manual — see
-    FIDELITY_PLAN.md step 5). Boxed array/cluster/string/variant primitives
-    (Build Array, Index Array, String Length, ...) get their real
-    connector-pane icon here; borderless arithmetic/comparison primitives
-    are never boxed in the manual, so they have no extracted asset and fall
-    through unchanged to ``GeneratedGlyphResolver``'s triangle.
-
-    Lookup mirrors codegen's node_type-before-prim_id precedence
-    (``codegen/nodes/primitive.py``): several array primitives are dispatched
-    by XML class (node_type) rather than primResID, and some of those
-    classes SHARE a primResID with an unrelated "prim"-class primitive (e.g.
-    "Index Array" runs under primResID 1809, which primitives.json
-    separately and correctly labels "Array Size" for the generic "prim"
-    class). Checking the node_type-keyed asset (``prim_nt_<node_type>.png``)
-    before the prim_id-keyed one (``prim_<prim_id>.png``) prevents a
-    node_type-dispatched primitive from ever inheriting a same-numbered but
-    unrelated primitive's icon.
-    """
-
-    def resolve(self, node: AnyGraphNode, ctx: GlyphContext) -> Glyph | None:
-        if not isinstance(node, PrimitiveNode):
-            return None
-        png_stems = _glyph_asset_stems()
-        svg_stems = _svg_asset_stems()
-        if node.node_type and node.node_type != "prim":
-            glyph = self._load(f"prim_nt_{node.node_type}", png_stems, svg_stems)
-            if glyph is not None:
-                return glyph
-        if node.prim_id is not None:
-            glyph = self._load(f"prim_{node.prim_id}", png_stems, svg_stems)
-            if glyph is not None:
-                return glyph
-        return None
-
-    @staticmethod
-    def _load(
-        stem: str, png_stems: frozenset[str], svg_stems: frozenset[str]
-    ) -> Glyph | None:
-        if stem in svg_stems:
-            natural = _svg_sizes().get(stem)
-            if natural is not None:
-                path = _bundled_data_dir() / "glyphs" / f"{stem}.svg"
-                try:
-                    fragment = path.read_text()
-                except OSError:
-                    logger.debug("svg glyph asset not found: %s", path)
-                else:
-                    return CenteredSvgGlyph(fragment, natural)
-        if stem in png_stems:
-            path = _bundled_data_dir() / "glyphs" / f"{stem}.png"
-            return IconImageGlyph(path)
         return None
 
 
@@ -609,7 +518,6 @@ _RESOLVERS: list[NodeGlyphResolver] = [
     OriginalGlyphResolver(),
     ExtractedIconResolver(),
     JsonGlyphResolver(),
-    PdfIconResolver(),
     GeneratedGlyphResolver(),
     FallbackBoxResolver(),
 ]
