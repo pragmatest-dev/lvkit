@@ -1803,6 +1803,28 @@ def test_bundle_and_unbundle_draw_mirrored_split_boxes():
     assert arrow_x(ub.render(bounds)) < 30.0  # left half
 
 
+def test_string_constant_has_full_text_tooltip():
+    """A string/path constant whose in-box text may be ellipsized carries the
+    FULL value as a native <title> tooltip so it stays readable on hover."""
+    from lvkit.graph.models import ConstantNode
+    from lvkit.models import LVType
+    from lvkit.render.draw import draw_node
+    from lvkit.render.glyph import ConstantGlyph
+    from lvkit.render.scene import RenderNode
+
+    full = "a very long string constant that will not fit in this little box"
+    node = ConstantNode(
+        id="c1", vi="v", value=full,
+        lv_type=LVType(kind="primitive", underlying_type="String"),
+    )
+    rn = RenderNode(node=node, bounds=(0.0, 0.0, 40.0, 16.0),
+                    glyph=ConstantGlyph(full, "#000000", multiline=True))
+    b = SvgBackend()
+    draw_node(rn, b)
+    svg = b.render((0.0, 0.0, 40.0, 16.0))
+    assert f"<title>{full}</title>" in svg
+
+
 def test_bundle_by_name_glyph_draws_field_names():
     """Bundle/Unbundle By Name draws one row per field, each LABELED with the
     field name (not the compact arrow glyph)."""
