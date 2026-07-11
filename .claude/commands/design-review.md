@@ -12,7 +12,7 @@ Run an iterative design review on the file or directory specified by `$ARGUMENTS
 ### Phase 1: Load scope and plan context
 
 1. Resolve `$ARGUMENTS` to a list of Python files. If it's a directory, include all `.py` files recursively.
-2. Check for an active plan file at the path shown in any `plan mode` system messages, or look for recent specs in `agent-os/specs/`. If a plan exists, read it — findings in Phase 2 will be checked against plan objectives.
+2. Check for an active plan file at the path shown in any `plan mode` system messages. If a plan exists, read it — findings in Phase 2 will be checked against plan objectives.
 
 ### Phase 2: Audit
 
