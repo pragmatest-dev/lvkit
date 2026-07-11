@@ -75,7 +75,7 @@ def _card(sample: Sample, svg: str) -> str:
         '<figure class="card">'
         f'<figcaption><b>{html.escape(sample.name)}</b>'
         f'<span>{html.escape(sample.note)}</span></figcaption>'
-        f'<div class="stage"><div class="pz">{svg}</div></div>'
+        f'<div class="stage">{svg}</div>'
         '</figure>'
     )
 
@@ -104,9 +104,7 @@ figcaption {{ padding:10px 14px; border-bottom:1px solid var(--line);
   display:flex; gap:12px; align-items:baseline; }}
 figcaption b {{ font-size:14px; }}
 figcaption span {{ color:var(--muted); font-size:12px; }}
-.stage {{ position:relative; overflow:hidden; touch-action:none; cursor:grab; }}
-.stage.grabbing {{ cursor:grabbing; }}
-.pz {{ transform-origin:0 0; will-change:transform; padding:14px; }}
+.stage {{ padding:14px; overflow-x:auto; }}
 .stage svg {{ max-width:100%; height:auto; display:block; }}
 .fail {{ color:#c0392b; padding:10px 14px; font-size:13px; }}
 </style>
@@ -114,57 +112,11 @@ figcaption span {{ color:var(--muted); font-size:12px; }}
   <h1>lvkit renderer — VI gallery</h1>
   <p>{count} VIs · regenerate with
   <code>uv run python scripts/render_gallery.py</code>
-  · <code>ctrl/⌘ + scroll</code> to zoom · drag to pan · double-click to reset
   · click a case's <code>◄ value ▼ ►</code> selector to flip frames</p>
 </header>
 <div class="grid">
 {cards}
 </div>
-"""
-
-
-# Per-diagram pan/zoom. Kept OUT of _PAGE (raw JS braces would fight
-# str.format) and appended after formatting. Wheel zooms toward the cursor,
-# drag pans, double-click resets. Pointerdown on a selector/menu falls through
-# so the frame chrome stays clickable.
-_SCRIPT = """
-<script>/*<![CDATA[*/
-(function(){
-  document.querySelectorAll('.stage').forEach(function(stage){
-    var pz = stage.querySelector('.pz');
-    if(!pz) return;
-    var scale=1, tx=0, ty=0, drag=false, ox=0, oy=0;
-    function apply(){
-      pz.style.transform='translate('+tx+'px,'+ty+'px) scale('+scale+')';
-    }
-    stage.addEventListener('wheel', function(e){
-      if(!(e.ctrlKey || e.metaKey)) return;  // plain wheel scrolls the page
-      e.preventDefault();
-      var r=stage.getBoundingClientRect();
-      var mx=e.clientX-r.left, my=e.clientY-r.top;
-      var f=Math.exp(-e.deltaY*0.0015);
-      var ns=Math.min(24, Math.max(0.4, scale*f)); f=ns/scale;
-      tx=mx-(mx-tx)*f; ty=my-(my-ty)*f; scale=ns; apply();
-    }, {passive:false});
-    stage.addEventListener('pointerdown', function(e){
-      if(e.button!==0) return;
-      if(e.target.closest('.lv-selector,.lv-option')) return;
-      drag=true; ox=e.clientX-tx; oy=e.clientY-ty;
-      stage.classList.add('grabbing');
-      try{ stage.setPointerCapture(e.pointerId); }catch(_){}
-    });
-    stage.addEventListener('pointermove', function(e){
-      if(!drag) return; tx=e.clientX-ox; ty=e.clientY-oy; apply();
-    });
-    function end(){ drag=false; stage.classList.remove('grabbing'); }
-    stage.addEventListener('pointerup', end);
-    stage.addEventListener('pointercancel', end);
-    stage.addEventListener('dblclick', function(e){
-      e.preventDefault(); scale=1; tx=0; ty=0; apply();
-    });
-  });
-})();
-/*]]>*/</script>
 """
 
 
@@ -205,7 +157,7 @@ def main() -> int:
         ok += 1
 
     index = out / "index.html"
-    index.write_text(_PAGE.format(count=ok, cards="\n".join(cards)) + _SCRIPT)
+    index.write_text(_PAGE.format(count=ok, cards="\n".join(cards)))
 
     print(f"\n{ok} rendered, {skipped} skipped, {failed} failed")
     print(f"\nOpen: {index.resolve()}")
