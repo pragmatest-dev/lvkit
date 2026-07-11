@@ -637,6 +637,9 @@ class ClusterConstantGlyph:
     fields: tuple[tuple[str, Glyph], ...]
     is_error: bool = False
     fill_attr: str = "const_fill"
+    # ``name: value`` per field, for a hover tooltip — useful when the cluster
+    # is drawn small/collapsed and the inline values aren't legible.
+    value_summary: str = ""
 
     def draw(self, backend: Backend, bounds: Rect, theme: Theme) -> None:
         x1, y1, x2, y2 = bounds

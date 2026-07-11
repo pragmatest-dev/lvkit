@@ -23,6 +23,7 @@ from ..models import FPTerminal, LVType, Terminal
 from .backend import Backend, Point
 from .glyph import (
     ArithGlyph,
+    ClusterConstantGlyph,
     ConstantGlyph,
     ErrorClusterGlyph,
     VariantGlyph,
@@ -158,6 +159,10 @@ def draw_node(node: RenderNode, backend: Backend, theme: Theme = DEFAULT_THEME) 
         # ellipsized ("…"); expose the FULL value on hover so it stays readable.
         if type_family(getattr(node.node, "lv_type", None)) in ("string", "path"):
             tooltip = node.glyph.value
+    if tooltip is None and isinstance(node.glyph, ClusterConstantGlyph):
+        # A cluster constant may be drawn small/collapsed; its field values are
+        # then unreadable inline, so show them all on hover.
+        tooltip = node.glyph.value_summary or None
     if tooltip:
         backend.begin_group(cls="lv-node", data={"node": node.node.id}, title=tooltip)
 

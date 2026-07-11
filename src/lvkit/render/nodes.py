@@ -23,6 +23,7 @@ from __future__ import annotations
 import ast
 import functools
 import logging
+import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol
@@ -435,13 +436,17 @@ def _leaf_const_glyph(lv_type: LVType | None, raw: object) -> Glyph:
     color = wire_style(lv_type).color
     if fam == "enum":
         # We know the type is an enum: show the item-name string, keeping the
-        # enum/numeric wire color the box already uses (wire_int).
-        return ConstantGlyph(_enum_const_name(lv_type, raw), color)
+        # enum/numeric wire color the box already uses (wire_int). An unset
+        # cluster field (raw None) is the first item (ordinal 0), not "None".
+        name = _enum_const_name(lv_type, 0 if raw is None else raw)
+        return ConstantGlyph(name, color)
     if numeric_repr(lv_type) is not None:
-        value = _format_const(raw)
+        # An unset numeric cluster field shows its default 0, never "None".
+        value = _format_const(0 if raw is None else raw)
     elif fam == "string":
-        # Show the bare text (quotes/escapes are a codegen artifact).
-        value = string_const_display(raw)
+        # Show the bare text (quotes/escapes are a codegen artifact); empty
+        # for an unset field.
+        value = string_const_display(raw) if raw is not None else ""
     else:
         value = str(raw) if raw is not None else ""
     # String constants word-wrap to fill their (already content-sized) box.
@@ -455,12 +460,17 @@ def _cluster_field_values(value: object) -> dict[str, object]:
     if isinstance(value, dict):
         return value
     if isinstance(value, str) and value:
-        try:
-            parsed = ast.literal_eval(value)
-        except (ValueError, SyntaxError):
-            return {}
-        if isinstance(parsed, dict):
-            return parsed
+        # The repr can carry non-literal tokens like ``Variant()`` for a variant
+        # field, which ast.literal_eval rejects — dropping the WHOLE dict and
+        # blanking every field. Neutralize those to None (a variant field draws
+        # from its TYPE anyway) so the other fields still parse.
+        for candidate in (value, re.sub(r"\b[A-Z]\w*\(\)", "None", value)):
+            try:
+                parsed = ast.literal_eval(candidate)
+            except (ValueError, SyntaxError):
+                continue
+            if isinstance(parsed, dict):
+                return parsed
     return {}
 
 
@@ -474,7 +484,28 @@ def _cluster_const_glyph(node: ConstantNode, is_error: bool) -> Glyph | None:
     composed = tuple(
         (f.name, _leaf_const_glyph(f.type, values.get(f.name))) for f in fields
     )
-    return ClusterConstantGlyph(composed, is_error=is_error)
+    summary = "\n".join(
+        f"{f.name}: {_field_summary_value(f.type, values.get(f.name))}"
+        for f in fields
+    )
+    return ClusterConstantGlyph(composed, is_error=is_error, value_summary=summary)
+
+
+def _field_summary_value(lv_type: LVType | None, raw: object) -> str:
+    """A cluster field's value as short text for the hover tooltip — mirrors
+    what ``_leaf_const_glyph`` draws (type defaults for an unset field)."""
+    fam = type_family(lv_type)
+    if fam == "bool":
+        return "True" if _bool_value(raw) else "False"
+    if fam == "variant":
+        return "Variant"
+    if fam == "enum":
+        return _enum_const_name(lv_type, 0 if raw is None else raw)
+    if numeric_repr(lv_type) is not None:
+        return _format_const(0 if raw is None else raw)
+    if fam == "string":
+        return string_const_display(raw) if raw is not None else ""
+    return str(raw) if raw is not None else ""
 
 
 class GeneratedGlyphResolver:
