@@ -32,10 +32,26 @@ def _collect_library_vis(library_path: Path) -> list[Path]:
 
     vi_paths: list[Path] = []
     for member in library.members:
-        if member.member_type == "VI":
-            vi_path = base_path / member.url
-            if vi_path.exists():
-                vi_paths.append(vi_path.resolve())
+        if member.member_type != "VI":
+            continue
+        vi_path = base_path / member.url
+        if vi_path.exists():
+            vi_paths.append(vi_path.resolve())
+            continue
+        # The lvlib's stored relative path may not match the on-disk layout
+        # (extracted samples get flattened/reorganized, so a member listed as
+        # "../foo.vi" actually sits beside the lvlib). Resolve by the bare file
+        # name — first in the library's own directory, then anywhere beneath it.
+        name = Path(member.url).name
+        candidate: Path | None = base_path / name
+        if not candidate.exists():
+            candidate = next(iter(base_path.rglob(name)), None)
+        if candidate is not None and candidate.exists():
+            vi_paths.append(candidate.resolve())
+        else:
+            logger.warning(
+                "lvlib member not found: %r (listed as %r)", name, member.url,
+            )
 
     return vi_paths
 
