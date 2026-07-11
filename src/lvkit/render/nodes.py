@@ -44,7 +44,6 @@ from ..vilib_resolver import get_resolver as get_vilib_resolver
 from .glyph import (
     ArithGlyph,
     BooleanConstantGlyph,
-    BracketGlyph,
     BundleGlyph,
     CenteredSvgGlyph,
     CompoundArithGlyph,
@@ -331,10 +330,10 @@ class OriginalGlyphResolver:
     """Clean-room ORIGINAL glyphs for primitives whose SHAPE we draw ourselves
     (roadmap #14). Each matched primitive gets a glyph that reproduces the real
     LabVIEW outline + footprint (looked up from NI's function-reference images)
-    with OUR OWN interior symbol — never NI's pixel artwork. Placed BEFORE
-    ``PdfIconResolver`` so these take precedence over the pixel-matched icon
-    assets; every primitive NOT listed here returns ``None`` and keeps its
-    existing rendering, so un-migrated prims never regress.
+    with OUR OWN interior symbol — never NI's pixel artwork. Placed FIRST in the
+    resolver list so these take precedence over every NI-derived icon asset
+    (extracted, JSON, or PDF); every primitive NOT listed here returns ``None``
+    and falls through to those resolvers, so un-migrated prims never regress.
 
     Migrated so far:
 
@@ -344,6 +343,8 @@ class OriginalGlyphResolver:
     - The six comparison functions (Equal?, Not Equal?, Greater?, Less?,
       Greater Or Equal?, Less Or Equal?) — the arithmetic ``ArithGlyph``
       triangle with the comparison symbol.
+    - Build Array (``aBuild``) — the name in a box, replacing the noisy
+      vectorized NI pixel icon (no distinctive clean-room shape yet).
     """
 
     def resolve(self, node: AnyGraphNode, ctx: GlyphContext) -> Glyph | None:
@@ -354,6 +355,12 @@ class OriginalGlyphResolver:
         symbol = _COMPARE_SYMBOL.get(node.name or "")
         if symbol is not None:
             return ArithGlyph(symbol)
+        if node.node_type == "aBuild" or node.name == "Build Array":
+            # No distinctive clean-room shape yet; the vectorized NI pixel icon
+            # read as a noisy little grid. The name in a box is clearer and
+            # matches the neighbouring text-box prims (Add Array Elements,
+            # Random Number). Swap in a real glyph here later.
+            return WrappedBoxGlyph("Build Array", "prim_fill", "prim_stroke", 1.0)
         return None
 
     @staticmethod
@@ -511,8 +518,6 @@ class GeneratedGlyphResolver:
         sym = _ARITH_SYMBOL.get(node.operation or node.name or "")
         if sym:
             return ArithGlyph(sym)
-        if node.node_type == "aBuild" or node.name == "Build Array":
-            return BracketGlyph()
         # No icon yet: wrap the primitive's name inside the box (up to 4 lines,
         # adaptive font) — same treatment as an icon-less subVI.
         return WrappedBoxGlyph(node.name or "?", "prim_fill", "prim_stroke", 1.0)
@@ -530,9 +535,12 @@ class FallbackBoxResolver:
 # Add a resolver here to extend the mechanism; add an icon/asset/JSON entry
 # to extend WITHOUT touching this list at all.
 _RESOLVERS: list[NodeGlyphResolver] = [
+    # Clean-room ORIGINAL glyphs win over every NI-derived asset (roadmap #14):
+    # it returns None for any primitive it hasn't migrated, so un-migrated prims
+    # still fall through to the icon resolvers below and never regress.
+    OriginalGlyphResolver(),
     ExtractedIconResolver(),
     JsonGlyphResolver(),
-    OriginalGlyphResolver(),
     PdfIconResolver(),
     GeneratedGlyphResolver(),
     FallbackBoxResolver(),
