@@ -104,7 +104,8 @@ figcaption {{ padding:10px 14px; border-bottom:1px solid var(--line);
   display:flex; gap:12px; align-items:baseline; }}
 figcaption b {{ font-size:14px; }}
 figcaption span {{ color:var(--muted); font-size:12px; }}
-.stage {{ padding:14px; overflow-x:auto; }}
+.stage {{ padding:14px; overflow:hidden; cursor:grab; touch-action:none; }}
+.stage.grabbing {{ cursor:grabbing; }}
 .stage svg {{ max-width:100%; height:auto; display:block; }}
 .fail {{ color:#c0392b; padding:10px 14px; font-size:13px; }}
 </style>
@@ -112,11 +113,65 @@ figcaption span {{ color:var(--muted); font-size:12px; }}
   <h1>lvkit renderer — VI gallery</h1>
   <p>{count} VIs · regenerate with
   <code>uv run python scripts/render_gallery.py</code>
+  · <code>ctrl/⌘ + scroll</code> to zoom · drag to pan · double-click to reset
   · click a case's <code>◄ value ▼ ►</code> selector to flip frames</p>
 </header>
 <div class="grid">
 {cards}
 </div>
+"""
+
+
+# Per-diagram pan/zoom by editing the SVG's own viewBox (NOT a CSS transform,
+# which rasterizes and blurs on zoom) — the browser re-renders vectors crisply
+# at every level. Kept out of _PAGE so raw JS braces don't fight str.format.
+# ctrl/⌘+wheel zooms toward the cursor; plain wheel is left alone so the page
+# scrolls; drag pans; double-click resets. Zoom preserves the viewBox aspect so
+# the on-screen box stays stable and screen->user mapping never drifts.
+_SCRIPT = """
+<script>/*<![CDATA[*/
+(function(){
+  document.querySelectorAll('.stage').forEach(function(stage){
+    var svg = stage.querySelector('svg');
+    if(!svg || !svg.getAttribute('viewBox')) return;
+    var vb0 = svg.getAttribute('viewBox').split(/\\s+/).map(Number);
+    var vb = vb0.slice();
+    var aspect = vb0[3]/vb0[2];
+    var minW = vb0[2]/40, maxW = vb0[2]*2;
+    function set(){ svg.setAttribute('viewBox', vb[0]+' '+vb[1]+' '+vb[2]+' '+vb[3]); }
+    stage.addEventListener('wheel', function(e){
+      if(!(e.ctrlKey || e.metaKey)) return;   // plain wheel scrolls the page
+      e.preventDefault();
+      var r = svg.getBoundingClientRect();
+      var fx=(e.clientX-r.left)/r.width, fy=(e.clientY-r.top)/r.height;
+      var ux=vb[0]+fx*vb[2], uy=vb[1]+fy*vb[3];
+      var f=Math.exp(-e.deltaY*0.0015);
+      var nw=Math.min(maxW, Math.max(minW, vb[2]/f)), nh=nw*aspect;
+      vb[2]=nw; vb[3]=nh; vb[0]=ux-fx*nw; vb[1]=uy-fy*nh; set();
+    }, {passive:false});
+    var drag=false, sx=0, sy=0, sox=0, soy=0;
+    stage.addEventListener('pointerdown', function(e){
+      if(e.button!==0) return;
+      if(e.target.closest('.lv-selector,.lv-option')) return;
+      drag=true; sx=e.clientX; sy=e.clientY; sox=vb[0]; soy=vb[1];
+      stage.classList.add('grabbing');
+      try{ stage.setPointerCapture(e.pointerId); }catch(_){}
+    });
+    stage.addEventListener('pointermove', function(e){
+      if(!drag) return;
+      var r=svg.getBoundingClientRect();
+      vb[0]=sox-(e.clientX-sx)*(vb[2]/r.width);
+      vb[1]=soy-(e.clientY-sy)*(vb[3]/r.height); set();
+    });
+    function end(){ drag=false; stage.classList.remove('grabbing'); }
+    stage.addEventListener('pointerup', end);
+    stage.addEventListener('pointercancel', end);
+    stage.addEventListener('dblclick', function(e){
+      e.preventDefault(); vb=vb0.slice(); set();
+    });
+  });
+})();
+/*]]>*/</script>
 """
 
 
@@ -157,7 +212,7 @@ def main() -> int:
         ok += 1
 
     index = out / "index.html"
-    index.write_text(_PAGE.format(count=ok, cards="\n".join(cards)))
+    index.write_text(_PAGE.format(count=ok, cards="\n".join(cards)) + _SCRIPT)
 
     print(f"\n{ok} rendered, {skipped} skipped, {failed} failed")
     print(f"\nOpen: {index.resolve()}")
