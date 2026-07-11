@@ -1,14 +1,16 @@
-"""Code generator for compound operations (cpdArith, aBuild, aInit, aReplace)."""
+"""Code generator for compound operations (cpdArith, aBuild, aInit, aReplace,
+aInsert, aReshape)."""
 
 from __future__ import annotations
 
 import ast
 
-from lvkit.models import PrimitiveOperation, Terminal
+from lvkit.models import LVType, PrimitiveOperation, Terminal
 
 from ..ast_utils import build_assign, parse_expr, parse_stmt, to_var_name
 from ..context import CodeGenContext
 from ..fragment import CodeFragment
+from .base import CodeGenError
 
 _MUTABLE_KINDS = ("array", "cluster")
 
@@ -409,3 +411,257 @@ def _is_array_type(term: Terminal | None) -> bool:
     return bool(
         term is not None and term.lv_type is not None and term.lv_type.kind == "array"
     )
+
+
+def generate_array_insert(
+    node: PrimitiveOperation, ctx: CodeGenContext,
+) -> CodeFragment:
+    """Generate code for Insert Into Array (aInsert).
+
+    Per the real connector-pane layout (verified against Reserve cDAQ.vi's
+    aInsDCO terminals -- terminal 2 resolves to a plain numeric type and
+    terminal 3 resolves to the array's own element type, e.g. a String
+    array's terminal 3 is String): terminal 0 = array in, 1 = output
+    array; among the remaining INPUT terminals sorted by ascending index,
+    the LAST one is always "new element/subarray" and every terminal
+    before it is an "index" input (LabVIEW shows one index terminal per
+    array dimension when the node is resized, but "you can wire only one
+    index input" at a time -- NI docs, Insert Into Array). This also
+    matches the NI docs' own Inputs/Outputs prose order (array, index,
+    new element/subarray, output array).
+
+    NOTE: primitives.json's aInsert template labels terminal 2 "element"
+    and terminal 3 "index" (with a "-1" default on the index) -- that
+    template is unused (this dedicated handler intercepts before it) and
+    is transposed relative to the terminal ROLES actually observed in
+    real dataflow; left as-is (dead code) rather than edited, matching
+    how aInit/aReplace's equally-unused templates were left untouched.
+
+    Only the 1-D case (a single index terminal) is verified against real
+    sample data; N-D insert along an inner axis (more than one index
+    terminal present) is out of scope here and raises a diagnostic
+    instead of guessing.
+
+    Semantics (NI docs): if no index is wired, the new element/subarray
+    is appended to the end of the array. If the (wired) index is beyond
+    the array's current length, the function does NOT insert anything --
+    unlike Replace Array Subset, this is a true no-op, not a clip.
+    """
+    inputs = sorted(
+        (t for t in node.terminals if t.direction == "input"), key=lambda t: t.index,
+    )
+    outputs = [t for t in node.terminals if t.direction == "output"]
+    if not outputs or len(inputs) < 2:
+        return CodeFragment()
+    output_term = outputs[0]
+
+    array_term = inputs[0]
+    index_terms = inputs[1:-1]
+    element_term = inputs[-1]
+
+    if len(index_terms) > 1:
+        raise CodeGenError(
+            f"Insert Into Array with {len(index_terms)} index terminals "
+            "(N-D array, inner-axis insert) is not supported -- only the "
+            "1-D case (a single index terminal) is verified against real "
+            "sample data.",
+            node,
+        )
+
+    array_val = ctx.resolve(array_term.id) or "[]"
+    index_term = index_terms[0] if index_terms else None
+    index_val = ctx.resolve(index_term.id) if index_term else None
+    idx_str = index_val if index_val else f"len({array_val})"
+
+    is_subset = _is_array_type(element_term)
+    elem_val = ctx.resolve(element_term.id)
+    if elem_val is None:
+        elem_val = "[]" if is_subset else "None"
+    items_str = elem_val if is_subset else f"[{elem_val}]"
+
+    expr_str = (
+        f"({array_val}[:{idx_str}] + ({items_str}) + {array_val}[{idx_str}:]) "
+        f"if 0 <= ({idx_str}) <= len({array_val}) else list({array_val})"
+    )
+
+    var_name = ctx.make_output_var(
+        "output_array", node.id, terminal_id=output_term.id,
+    )
+    stmt = build_assign(var_name, parse_expr(expr_str))
+
+    return CodeFragment(
+        statements=[stmt],
+        bindings={output_term.id: var_name},
+    )
+
+
+def generate_array_reshape(
+    node: PrimitiveOperation, ctx: CodeGenContext,
+) -> CodeFragment:
+    """Generate code for Reshape Array (aReshape).
+
+    Reshape Array flattens ALL elements of the source array (regardless
+    of its own dimensionality) in row-major order, then re-chunks that
+    flat sequence into the shape given by the "dimension size" input(s)
+    -- one input per dimension of the OUTPUT, ascending index = outermost
+    to innermost (same convention as aInit's dimension terminals).
+    Verified against a real 2-D-to-1-D reshape in OpenG's "1D Array of
+    VArrays to MultiD Array.vi" (2-D source array, ONE dimension-size
+    terminal, 1-D output) -- confirming dimension-terminal COUNT tracks
+    the requested OUTPUT rank, not the source's rank.
+
+    If the source has fewer elements than the requested shape needs,
+    LabVIEW pads with the array element type's default (zero) value; if
+    it has more, the extras are truncated. This is implemented generically
+    for any source rank (flattening is a straightforward nested
+    comprehension for any known depth) but only 1-D and 2-D TARGET shapes
+    are implemented -- higher-rank targets raise a diagnostic instead of
+    guessing at the reshape-nesting code, since no 3-D+ sample exists to
+    verify against.
+    """
+    inputs = sorted(
+        (t for t in node.terminals if t.direction == "input"), key=lambda t: t.index,
+    )
+    outputs = [t for t in node.terminals if t.direction == "output"]
+    if not outputs or not inputs:
+        return CodeFragment()
+    output_term = outputs[0]
+
+    array_term = inputs[0]
+    dim_terms = [t for t in inputs if t.index >= 2]
+    target_ndim = len(dim_terms)
+    if target_ndim == 0:
+        raise CodeGenError(
+            "Reshape Array has no dimension-size terminal to reshape "
+            f"into (node {node.id}).",
+            node,
+        )
+    if target_ndim > 2:
+        raise CodeGenError(
+            f"Reshape Array with {target_ndim} target dimensions is not "
+            "supported -- only 1-D and 2-D target shapes are implemented "
+            "(no 3-D+ sample exists to verify the reshape-nesting code "
+            "against).",
+            node,
+        )
+
+    lv_type = array_term.lv_type
+    if lv_type is None or lv_type.kind != "array" or not lv_type.dimensions:
+        raise CodeGenError(
+            "Reshape Array requires the source array's resolved LabVIEW "
+            f"type (to know its dimensionality) for node {node.id}, but "
+            "type info is unavailable for this terminal.",
+            node,
+        )
+    source_ndim = lv_type.dimensions
+
+    array_val = ctx.resolve(array_term.id) or "[]"
+    flat_expr = _build_flatten_expr(array_val, source_ndim)
+
+    dim_exprs: list[ast.expr] = []
+    for dt in dim_terms:
+        val = ctx.resolve(dt.id)
+        dim_exprs.append(parse_expr(val) if val else ast.Constant(value=0))
+
+    default_expr = _reshape_default_element(lv_type.element_type)
+
+    flat_var = "_flat"
+    flat_stmt = build_assign(flat_var, flat_expr)
+
+    needed_expr = dim_exprs[0]
+    for dim_expr in dim_exprs[1:]:
+        needed_expr = ast.BinOp(left=needed_expr, op=ast.Mult(), right=dim_expr)
+    needed_var = "_needed"
+    needed_stmt = build_assign(needed_var, needed_expr)
+
+    pad_expr_str = (
+        f"{flat_var}[:{needed_var}] + "
+        f"[{ast.unparse(default_expr)}] * max(0, {needed_var} - len({flat_var}))"
+    )
+    pad_stmt = build_assign(flat_var, parse_expr(pad_expr_str))
+
+    var_name = ctx.make_output_var(
+        "reshaped_array", node.id, terminal_id=output_term.id,
+    )
+
+    if target_ndim == 1:
+        final_stmt = build_assign(var_name, ast.Name(id=flat_var, ctx=ast.Load()))
+    else:
+        d0_str = ast.unparse(dim_exprs[0])
+        d1_str = ast.unparse(dim_exprs[1])
+        expr_str = (
+            f"[{flat_var}[_ri*{d1_str}:(_ri+1)*{d1_str}] "
+            f"for _ri in range({d0_str})]"
+        )
+        final_stmt = build_assign(var_name, parse_expr(expr_str))
+
+    return CodeFragment(
+        statements=[flat_stmt, needed_stmt, pad_stmt, final_stmt],
+        bindings={output_term.id: var_name},
+    )
+
+
+def _build_flatten_expr(array_val: str, source_ndim: int) -> ast.expr:
+    """Row-major-flatten a (possibly N-D nested-list) array expression.
+
+    LabVIEW nested arrays already flatten in traversal (row-major) order
+    when walked as Python nested lists, so a chain of ``for`` clauses over
+    successive nesting levels reproduces LabVIEW's flatten order exactly.
+    """
+    base = parse_expr(array_val)
+    if source_ndim <= 1:
+        return ast.Call(
+            func=ast.Name(id="list", ctx=ast.Load()), args=[base], keywords=[],
+        )
+
+    loop_vars = [f"_lv{i}" for i in range(source_ndim)]
+    generators = []
+    for i, var in enumerate(loop_vars):
+        iter_expr = base if i == 0 else ast.Name(id=loop_vars[i - 1], ctx=ast.Load())
+        generators.append(
+            ast.comprehension(
+                target=ast.Name(id=var, ctx=ast.Store()),
+                iter=iter_expr,
+                ifs=[],
+                is_async=0,
+            )
+        )
+    return ast.ListComp(
+        elt=ast.Name(id=loop_vars[-1], ctx=ast.Load()),
+        generators=generators,
+    )
+
+
+def _reshape_default_element(elem_type: LVType | None) -> ast.expr:
+    """Python literal AST for a LabVIEW element type's default (zero) value.
+
+    Used to pad a reshaped array when the source has fewer elements than
+    the requested shape -- LabVIEW pads with the array element type's
+    default rather than growing/erroring.
+    """
+    if elem_type is None:
+        return ast.Constant(value=None)
+
+    kind = elem_type.kind
+    underlying = elem_type.underlying_type
+
+    if kind == "array":
+        return ast.List(elts=[], ctx=ast.Load())
+    if kind == "cluster":
+        return ast.Constant(value=None)
+    if kind in ("enum", "ring"):
+        return ast.Constant(value=0)
+    if kind == "primitive":
+        if underlying == "String":
+            return ast.Constant(value="")
+        if underlying == "Boolean":
+            return ast.Constant(value=False)
+        if underlying in (
+            "NumInt8", "NumInt16", "NumInt32", "NumInt64",
+            "NumUInt8", "NumUInt16", "NumUInt32", "NumUInt64",
+        ):
+            return ast.Constant(value=0)
+        if underlying in ("NumFloat32", "NumFloat64"):
+            return ast.Constant(value=0.0)
+
+    return ast.Constant(value=None)

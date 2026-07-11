@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
@@ -873,4 +874,43 @@ def test_every_registered_handler_is_reachable_by_extraction() -> None:
     assert not unreachable, (
         f"Node handlers registered but not in OPERATION_NODE_CLASSES "
         f"(they will be silently dropped by _extract_nodes): {unreachable}"
+    )
+
+
+def test_every_dco_keyed_primitive_template_is_reachable() -> None:
+    """Guard against the OTHER half of the drop class (#55): a
+    primitives.json node_types entry can be wrong in TWO independent ways --
+    (1) its XML class was never added to OPERATION_NODE_CLASSES (nodes are
+    silently dropped by the parser, the previous test's job), or (2) it was
+    added but its template ("python_code") encodes the wrong semantics
+    (aInsert/aReshape both had this on top of (1) -- see #55). This test
+    only guards (1), generalized: any node_types entry that documents real
+    per-terminal ``dco_ref`` tags is, by construction, a genuine XML
+    block-diagram node class keyed to DCO terminals (aBuild, aDelete,
+    aIndx, aInit, aInsert, aReplace, aReshape, subset) -- as opposed to the
+    other node_types entries (cpdArith, bundle, unbundle, arrayIdx,
+    arrayRepl, strIdx, strRepl, strLen, concat, split), which are name-only
+    stubs with no ``terminals`` list at all, used for primResID-keyed
+    primitive display names rather than XML-class extraction. Every
+    dco_ref-carrying entry's class name MUST be in OPERATION_NODE_CLASSES,
+    or its node is silently dropped exactly like aInsert/aReshape were.
+    """
+    from lvkit._data import data_dir
+    from lvkit.parser.constants import OPERATION_NODE_CLASSES
+
+    with open(data_dir() / "primitives.json") as f:
+        data = json.load(f)
+
+    dco_keyed_classes = sorted(
+        node_class
+        for node_class, info in data.get("node_types", {}).items()
+        if any("dco_ref" in t for t in info.get("terminals", []))
+    )
+    assert dco_keyed_classes, "sanity: expected some dco_ref-keyed entries"
+
+    unreachable = sorted(set(dco_keyed_classes) - set(OPERATION_NODE_CLASSES))
+    assert not unreachable, (
+        "primitives.json node_types entries with real dco_ref terminals "
+        f"but missing from OPERATION_NODE_CLASSES (silently dropped): "
+        f"{unreachable}"
     )

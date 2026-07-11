@@ -479,6 +479,20 @@ def _process_element_terminals(
             type_desc_elem.text if type_desc_elem is not None
             else None
         )
+        if not type_desc_str and dco_uid:
+            # Some node classes (e.g. aReshape) declare the terminal's real
+            # dco definition (with its own typeDesc) at the *node* level
+            # under named tags (srcDCO, dcoAgg, dcoList/...), and the
+            # termList entry's <dco> is a bare uid reference with no
+            # embedded type of its own. Resolve by following the uid to
+            # wherever the real definition lives in the node's subtree.
+            for candidate in elem.iter():
+                if candidate is dco or candidate.get("uid") != dco_uid:
+                    continue
+                candidate_type_desc = candidate.find("typeDesc")
+                if candidate_type_desc is not None and candidate_type_desc.text:
+                    type_desc_str = candidate_type_desc.text
+                    break
         parsed_type = None
         if type_desc_str and type_map:
             lv_type = resolve_type_rich(type_desc_str, type_map)

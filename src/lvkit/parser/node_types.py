@@ -937,6 +937,8 @@ _HANDLERS: list[NodeTypeHandler] = [
     # Concatenate Strings node rendered/generated as a subtraction.
     _BuiltinPrimitiveHandler("aInit", "Initialize Array", None),
     _BuiltinPrimitiveHandler("aReplace", "Replace Array Subset", None),
+    _BuiltinPrimitiveHandler("aInsert", "Insert Into Array", None),
+    _BuiltinPrimitiveHandler("aReshape", "Reshape Array", None),
     _BuiltinPrimitiveHandler("concat", "Concatenate Strings", None),
 ]
 

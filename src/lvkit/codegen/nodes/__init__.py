@@ -94,6 +94,10 @@ def _generate_primitive(
             return compound.generate_array_init(node, ctx)
         case "aReplace":
             return compound.generate_array_replace(node, ctx)
+        case "aInsert":
+            return compound.generate_array_insert(node, ctx)
+        case "aReshape":
+            return compound.generate_array_reshape(node, ctx)
         case "nMux" | "mux" | "demux":
             return nmux.generate(node, ctx)
         case "printf":

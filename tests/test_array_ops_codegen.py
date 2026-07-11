@@ -1,4 +1,4 @@
-"""Tests for array-op code generation (aInit, aReplace).
+"""Tests for array-op code generation (aInit, aReplace, aInsert, aReshape).
 
 Mirrors the pattern in tests/test_compound_codegen.py: build a
 PrimitiveOperation + CodeGenContext by hand, generate the fragment, then
@@ -323,3 +323,215 @@ class TestArrayReplaceSubset:
             fragment.statements, {"data": [1, 2, 3], "sub": [], "i": 1},
         )
         assert result[fragment.bindings["out"]] == [1, 2, 3]
+
+
+# ── Insert Into Array (aInsert) ─────────────────────────────────────
+#
+# Real terminal layout verified against Reserve cDAQ.vi (DCAF-DAQModule):
+# 0 = array in, 1 = output array, 2 = index (numeric), 3 = new
+# element/subarray (matches the array's own element type) -- the LAST
+# input terminal is always the element, confirmed by its resolved LVType
+# matching the array's element type (String, in the real sample).
+
+
+def _insert_op(elem_type: LVType | None = None) -> PrimitiveOperation:
+    return PrimitiveOperation(
+        id="ins1",
+        name="Insert Into Array",
+        labels=["ArrayInsert"],
+        node_type="aInsert",
+        terminals=[
+            Terminal(id="arr", index=0, direction="input"),
+            Terminal(id="out", index=1, direction="output"),
+            Terminal(id="idx", index=2, direction="input"),
+            Terminal(id="elem", index=3, direction="input", lv_type=elem_type),
+        ],
+    )
+
+
+class TestArrayInsertScalar:
+    """Real sample (Reserve cDAQ.vi) only exercises the scalar-element
+    insert form (new-element terminal typed String, not Array)."""
+
+    def test_inserts_scalar_at_index_and_grows_array(self):
+        ctx = make_ctx("arr", "idx", "elem", "out")
+        ctx.bind("arr", "data")
+        ctx.bind("idx", "i")
+        ctx.bind("elem", "val")
+
+        op = _insert_op()
+        fragment = compound.generate_array_insert(op, ctx)
+
+        result = _compile_and_run(
+            fragment.statements, {"data": [1, 2, 3], "i": 1, "val": 99},
+        )
+        out = result[fragment.bindings["out"]]
+        assert out == [1, 99, 2, 3]
+        assert len(out) == 4
+
+    def test_unwired_index_appends_to_end(self):
+        """NI docs: if no index is wired, the new element/subarray is
+        appended to the end of the array."""
+        ctx = make_ctx("arr", "idx", "elem", "out")
+        ctx.bind("arr", "data")
+        ctx.bind("elem", "val")
+        # "idx" deliberately left unbound -- ctx.resolve(idx) returns None.
+
+        op = _insert_op()
+        fragment = compound.generate_array_insert(op, ctx)
+
+        result = _compile_and_run(
+            fragment.statements, {"data": [1, 2, 3], "val": 99},
+        )
+        assert result[fragment.bindings["out"]] == [1, 2, 3, 99]
+
+    def test_index_beyond_array_length_is_a_true_noop(self):
+        """Unlike Replace Array Subset (which clips), Insert Into Array
+        does NOT insert anything when the index is beyond the array's
+        current length -- the output is the unchanged input array.
+        """
+        ctx = make_ctx("arr", "idx", "elem", "out")
+        ctx.bind("arr", "data")
+        ctx.bind("idx", "i")
+        ctx.bind("elem", "val")
+
+        op = _insert_op()
+        fragment = compound.generate_array_insert(op, ctx)
+
+        result = _compile_and_run(
+            fragment.statements, {"data": [1, 2, 3], "i": 10, "val": 99},
+        )
+        assert result[fragment.bindings["out"]] == [1, 2, 3]
+
+
+class TestArrayInsertSubarray:
+    """Array-typed "new element" input -- inserting a subarray/row."""
+
+    def test_inserts_subarray_at_index(self):
+        ctx = make_ctx("arr", "idx", "elem", "out")
+        ctx.bind("arr", "data")
+        ctx.bind("idx", "i")
+        ctx.bind("elem", "sub")
+
+        op = _insert_op(elem_type=ARRAY_TYPE)
+        fragment = compound.generate_array_insert(op, ctx)
+
+        result = _compile_and_run(
+            fragment.statements, {"data": [1, 2, 3], "i": 1, "sub": [8, 9]},
+        )
+        out = result[fragment.bindings["out"]]
+        assert out == [1, 8, 9, 2, 3]
+        assert len(out) == 5
+
+
+# ── Reshape Array (aReshape) ────────────────────────────────────────
+#
+# Verified against a real 2-D-to-1-D reshape in OpenG's "1D Array of
+# VArrays to MultiD Array.vi": a 2-D source array, ONE dimension-size
+# terminal, 1-D output -- dimension-terminal count tracks the requested
+# OUTPUT rank, not the source array's own rank.
+
+INT_TYPE = LVType(kind="primitive", underlying_type="NumInt32")
+
+
+def _reshape_op(source_ndim: int, *dim_ids: str) -> PrimitiveOperation:
+    array_type = LVType(kind="array", element_type=INT_TYPE, dimensions=source_ndim)
+    terminals = [
+        Terminal(id="arr", index=0, direction="input", lv_type=array_type),
+        Terminal(id="out", index=1, direction="output"),
+    ]
+    terminals += [
+        Terminal(id=did, index=2 + i, direction="input")
+        for i, did in enumerate(dim_ids)
+    ]
+    return PrimitiveOperation(
+        id="rshp1",
+        name="Reshape Array",
+        labels=["ArrayReshape"],
+        node_type="aReshape",
+        terminals=terminals,
+    )
+
+
+class TestArrayReshape1Dto1D:
+    """1-D source reshaped to a (possibly different-length) 1-D target --
+    truncating or zero-padding to fit."""
+
+    def test_truncates_when_source_has_too_many_elements(self):
+        ctx = make_ctx("arr", "dim0", "out")
+        ctx.bind("arr", "data")
+        ctx.bind("dim0", "n")
+
+        op = _reshape_op(1, "dim0")
+        fragment = compound.generate_array_reshape(op, ctx)
+
+        result = _compile_and_run(
+            fragment.statements, {"data": [1, 2, 3, 4, 5], "n": 3},
+        )
+        assert result[fragment.bindings["out"]] == [1, 2, 3]
+
+    def test_pads_with_zero_default_when_source_has_too_few_elements(self):
+        ctx = make_ctx("arr", "dim0", "out")
+        ctx.bind("arr", "data")
+        ctx.bind("dim0", "n")
+
+        op = _reshape_op(1, "dim0")
+        fragment = compound.generate_array_reshape(op, ctx)
+
+        result = _compile_and_run(
+            fragment.statements, {"data": [1, 2], "n": 5},
+        )
+        assert result[fragment.bindings["out"]] == [1, 2, 0, 0, 0]
+
+
+class TestArrayReshape1Dto2D:
+    """1-D source reshaped (row-major) into a 2-D target shape."""
+
+    def test_reshapes_flat_array_into_rows(self):
+        ctx = make_ctx("arr", "dim0", "dim1", "out")
+        ctx.bind("arr", "data")
+        ctx.bind("dim0", "rows")
+        ctx.bind("dim1", "cols")
+
+        op = _reshape_op(1, "dim0", "dim1")
+        fragment = compound.generate_array_reshape(op, ctx)
+
+        result = _compile_and_run(
+            fragment.statements,
+            {"data": [1, 2, 3, 4, 5, 6], "rows": 2, "cols": 3},
+        )
+        assert result[fragment.bindings["out"]] == [[1, 2, 3], [4, 5, 6]]
+
+    def test_pads_last_row_when_source_has_too_few_elements(self):
+        ctx = make_ctx("arr", "dim0", "dim1", "out")
+        ctx.bind("arr", "data")
+        ctx.bind("dim0", "rows")
+        ctx.bind("dim1", "cols")
+
+        op = _reshape_op(1, "dim0", "dim1")
+        fragment = compound.generate_array_reshape(op, ctx)
+
+        result = _compile_and_run(
+            fragment.statements,
+            {"data": [1, 2, 3, 4], "rows": 2, "cols": 3},
+        )
+        assert result[fragment.bindings["out"]] == [[1, 2, 3], [4, 0, 0]]
+
+
+class TestArrayReshape2DSource:
+    """2-D source flattened (row-major) before re-chunking -- the real
+    shape verified against OpenG's "1D Array of VArrays to MultiD
+    Array.vi" (2-D source, 1-D target)."""
+
+    def test_flattens_2d_source_into_1d_target(self):
+        ctx = make_ctx("arr", "dim0", "out")
+        ctx.bind("arr", "data")
+        ctx.bind("dim0", "n")
+
+        op = _reshape_op(2, "dim0")
+        fragment = compound.generate_array_reshape(op, ctx)
+
+        result = _compile_and_run(
+            fragment.statements, {"data": [[1, 2], [3, 4], [5]], "n": 5},
+        )
+        assert result[fragment.bindings["out"]] == [1, 2, 3, 4, 5]
