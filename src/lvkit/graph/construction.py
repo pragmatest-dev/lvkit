@@ -82,6 +82,27 @@ _STATIC_SUBVI_CALL_NODE_TYPES: frozenset[str] = frozenset({
     "iUse", "polyIUse", "dynIUse", "callParentDynIUse",
 })
 
+# Dynamic-dispatch calls: the callee is a class method, so the owning class is
+# the dispatch object's type (carried on the call's class-typed terminals)
+# rather than a statically-linked path.
+_DYNAMIC_DISPATCH_NODE_TYPES: frozenset[str] = frozenset({
+    "dynIUse", "callParentDynIUse",
+})
+
+
+def _dispatch_class_names(terminals: list) -> list[str]:
+    """Distinct owning-class names (``X.lvclass``) carried on a dynamic-dispatch
+    call's terminals — the object type wired to the dispatch input/output. The
+    generic root ("LabVIEW Object", which has no ``.lvclass`` suffix) is skipped,
+    so only concrete classes are returned, most-specific first as they appear."""
+    out: list[str] = []
+    for t in terminals:
+        lt = getattr(t, "lv_type", None)
+        cls = getattr(lt, "classname", None) if lt is not None else None
+        if cls and cls.endswith(".lvclass") and cls not in out:
+            out.append(cls)
+    return out
+
 
 def decode_constant(
     const: ParsedConstant,
@@ -715,6 +736,8 @@ class ConstructionMixin:
                     if resolved_q and resolved_q in self._graph
                     else node_name
                 )
+                # Dynamic-dispatch calls get their class-qualified target after
+                # type propagation — see _resolve_dispatch_qnames.
                 graph_node: AnyGraphNode = VINode(
                     id=q_node_uid,
                     vi=vi_name,
@@ -1113,6 +1136,32 @@ class ConstructionMixin:
         # Populate terminal ownership from term_lookup
         for _raw_tid, wire_end in term_lookup.items():
             self._term_to_node[wire_end.terminal_id] = wire_end.node_id
+
+    def resolve_dispatch_qnames(self) -> None:
+        """Class-qualify dynamic-dispatch calls across the whole graph.
+
+        A dispatch call carries only the bare method name; the owning class is
+        the dispatch object's static type, which lands on the call's terminals
+        only after every VI is loaded and types have propagated (the object may
+        itself come from another dispatch call — a cross-VI fixpoint). So this
+        runs ONCE after loading finishes: link an ``addError.vi`` call whose
+        object is typed ``TestResult.lvclass`` to ``TestResult.lvclass:addError.vi``
+        when that method VI is loaded. Idempotent."""
+        g = self._graph
+        for _nid, data in g.nodes(data=True):
+            gnode = data.get("node")
+            if (
+                not isinstance(gnode, VINode)
+                or gnode.node_type not in _DYNAMIC_DISPATCH_NODE_TYPES
+                or not gnode.name
+                or gnode.qualified_name != gnode.name
+            ):
+                continue
+            for cls in _dispatch_class_names(gnode.terminals):
+                cand = self.resolve_vi_name(f"{cls}:{gnode.name}")
+                if cand and cand in g:
+                    gnode.qualified_name = cand
+                    break
 
     def _connect_subvi_calls(
         self,

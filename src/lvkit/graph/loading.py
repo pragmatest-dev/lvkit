@@ -92,6 +92,7 @@ class LoadingMixin:
             iuse_to_qname: dict[str, str] | None = None,
             iuse_to_qpath: dict[str, str] | None = None,
         ) -> None: ...
+        def resolve_dispatch_qnames(self) -> None: ...
 
     def load_vi(
         self,
@@ -155,6 +156,12 @@ class LoadingMixin:
             visited=set(),
             source_dir=source_dir,
         )
+
+        # Class-qualify dynamic-dispatch callees now that this VI and all its
+        # callees are loaded and the dispatch object's class type has propagated.
+        # Graph-level so every consumer (docs, render, MCP) sees the qualified
+        # name; idempotent, so the redundant calls from batch loaders are cheap.
+        self.resolve_dispatch_qnames()
 
     def load_lvlib(
         self,
