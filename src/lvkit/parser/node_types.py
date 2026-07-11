@@ -60,6 +60,18 @@ class ArrayBuildNode(ParsedNode):
 
 
 @dataclass
+class ArrayInitNode(ParsedNode):
+    """Initialize Array node (class="aInit").
+
+    Builds an N-dimensional array from an element value and one size input per
+    dimension. Terminals (element + dimension sizes → array) carry on the base
+    ParsedNode; no extra fields.
+    """
+
+    pass
+
+
+@dataclass
 class FormulaNode(ParsedNode):
     """A Formula Node (class="fBox") with an embedded C-like script.
 
@@ -380,6 +392,17 @@ class ArrayBuildHandler(NodeTypeHandler):
     def parse(self, elem: ET.Element) -> ArrayBuildNode:
         common = self._extract_common(elem)
         return ArrayBuildNode(**common)
+
+
+class ArrayInitHandler(NodeTypeHandler):
+    """Handler for Initialize Array nodes (class="aInit")."""
+
+    xml_class = "aInit"
+    display_name = "Initialize Array"
+
+    def parse(self, elem: ET.Element) -> ArrayInitNode:
+        common = self._extract_common(elem)
+        return ArrayInitNode(**common)
 
 
 class WhileLoopHandler(NodeTypeHandler):
@@ -880,6 +903,7 @@ _HANDLERS: list[NodeTypeHandler] = [
     CallByRefHandler(),
     CpdArithHandler(),
     ArrayBuildHandler(),
+    ArrayInitHandler(),
     WhileLoopHandler(),
     ForLoopHandler(),
     SelectHandler(),
