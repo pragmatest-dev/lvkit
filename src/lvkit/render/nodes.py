@@ -463,6 +463,21 @@ def _cpd_arith_operation(node: PrimitiveNode) -> str:
     return operation
 
 
+def _enum_const_name(lv_type: LVType | None, raw: object) -> str:
+    """An enum/ring constant's item NAME for its stored value, or the raw value
+    as text when the members aren't known (or the value is out of range). The
+    type already tells us it's an enum — show the string, not the ordinal."""
+    text = str(raw) if raw is not None else ""
+    values = getattr(lv_type, "values", None)
+    if not values or raw is None:
+        return text
+    try:
+        idx = int(str(raw))
+    except (ValueError, TypeError):
+        return text
+    return next((name for name, ev in values.items() if ev.value == idx), text)
+
+
 def _leaf_const_glyph(lv_type: LVType | None, raw: object) -> Glyph:
     """One non-cluster constant's glyph, from its type + raw value. Shared by
     top-level constants and by each field of a composed cluster constant."""
@@ -472,6 +487,10 @@ def _leaf_const_glyph(lv_type: LVType | None, raw: object) -> Glyph:
     if fam == "bool":
         return BooleanConstantGlyph(_bool_value(raw))
     color = wire_style(lv_type).color
+    if fam == "enum":
+        # We know the type is an enum: show the item-name string, keeping the
+        # enum/numeric wire color the box already uses (wire_int).
+        return ConstantGlyph(_enum_const_name(lv_type, raw), color)
     if numeric_repr(lv_type) is not None:
         value = _format_const(raw)
     elif fam == "string":
