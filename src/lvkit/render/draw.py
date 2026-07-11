@@ -239,6 +239,34 @@ def _terminal_label(t: Terminal) -> str:
     return t.display_name or t.name or f"terminal {t.index}"
 
 
+def _lv_type_label(lv_type: LVType | None) -> str:
+    """A LabVIEW-faithful type name for tooltips: ``Cluster``/``Error`` for
+    clusters, ``[<elem>]`` (one bracket pair per dimension) for arrays,
+    ``<Kind> Refnum`` for references, ``Enum``/``Variant``, and the LV scalar
+    token (``DBL``/``I32``/``Boolean``/``String``/``Path``) otherwise. NOT the
+    Python type — a cluster reads "Cluster", never ``dict[str, Any]``."""
+    if lv_type is None:
+        return "?"
+    fam = type_family(lv_type)
+    if fam == "error_cluster":
+        return "Error"
+    if fam == "cluster":
+        return "Cluster"
+    if fam == "array":
+        dims = lv_type.dimensions or 1
+        return "[" * dims + _lv_type_label(lv_type.element_type) + "]" * dims
+    if fam == "enum":
+        return "Enum"
+    if fam == "variant":
+        return "Variant"
+    ut = lv_type.underlying_type or ""
+    if ut == "Refnum":
+        return f"{lv_type.ref_type} Refnum" if lv_type.ref_type else "Refnum"
+    if ut in ("Boolean", "String", "Path"):
+        return ut
+    return type_repr(lv_type) or ut or "?"
+
+
 def _terminal_is_informative(t: Terminal) -> bool:
     """Whether a terminal is worth showing in context help. Skips pure EMPTY
     connector-pane slots — a position with no label AND no meaningful type
@@ -246,8 +274,7 @@ def _terminal_is_informative(t: Terminal) -> bool:
     any labeled or typed terminal is kept."""
     if t.display_name or t.name:
         return True
-    ty = t.lv_type.to_python() if t.lv_type else None
-    return ty not in (None, "None", "Any")
+    return t.lv_type is not None and _lv_type_label(t.lv_type) != "?"
 
 
 def _terminal_help_lines(node: AnyGraphNode) -> list[str]:
@@ -261,7 +288,7 @@ def _terminal_help_lines(node: AnyGraphNode) -> list[str]:
     ]
 
     def fmt(t: Terminal) -> str:
-        ty = t.lv_type.to_python() if t.lv_type else "?"
+        ty = _lv_type_label(t.lv_type)
         return f"  {_terminal_label(t)}: {ty}"
 
     ins = sorted((t for t in terms if t.direction == "input"), key=lambda t: t.index)
@@ -391,7 +418,7 @@ def _pane_label(rt: RenderTerminal, side: str, frac: float,
                  backend: Backend, theme: Theme) -> _PaneLabel:
     t = rt.terminal
     name = _terminal_label(t)
-    type_str = f" ({t.lv_type.to_python() if t.lv_type else '?'})"
+    type_str = f" ({_lv_type_label(t.lv_type)})"
     name_w = backend.measure_text(name, _PANE_LABEL_SIZE)
     type_w = backend.measure_text(type_str, _PANE_TYPE_SIZE)
     if name_w + type_w > _PANE_MAX_LABEL_W:
