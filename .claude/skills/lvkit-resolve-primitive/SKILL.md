@@ -218,6 +218,21 @@ output type tracks the input element type is a reduction. One instance over a
 `DBL` array (where sum and size both look plausible) is ambiguous; instances
 over mixed element types are decisive.
 
+**A Refnum's `ref_type` IS the identity — read it FIRST, don't guess.** When a
+terminal resolves to `Refnum`, the parser also carries **`ref_type`** on that
+type (`parsed_type.ref_type` / the graph terminal's `lv_type.ref_type`): `Queue`,
+`Notifier`, `DVR`, `Occurrence`, `Semaphore`, etc. That single field tells you
+the whole family — a `Queue` refnum threaded through with error clusters, a
+value cluster (the element subtype), and a timeout int is Obtain/Enqueue/Dequeue/
+Get-Queue-Status, NOT some "VI Server variant" op. Dump the FULL parsed_type of
+the reference terminal (`vars(ti.parsed_type)`), see `ref_type`, then read that
+family's function pages (Step 5) and match by connector pane. **Real example
+(2026-07-11):** primResIDs 9108/9111/9113/9129/9109 in an XML "Fast Parser Stack"
+were flailed at as "Open/Call Variant" for ages — the idx8 refnum's
+`ref_type` was `Queue` the entire time; they are Obtain Queue / Enqueue Element /
+Dequeue Element / Enqueue At Opposite End / Get Queue Status. Never label a
+refnum op without checking `ref_type`.
+
 **Watch for resID collisions across XML classes.** The same primResID can be
 assigned to two different operations depending on the node's XML class. Codegen
 resolves `node_type` (XML class) BEFORE `primResID`, so an expandable node
@@ -251,14 +266,47 @@ Search queries that work well:
 - `site:ni.com/docs <CANDIDATE FUNCTION NAME>` — restrict to NI docs
 - `LabVIEW <CATEGORY from Step 4> primitives` — when you only know the category
 
-When you find a candidate page, use WebFetch to read the full Inputs/Outputs section. Confirm:
+### Read NI docs RELIABLY via the backend API (do this — don't fight the SPA)
+
+`https://www.ni.com/docs/...` and `https://labviewwiki.org/...` are JS single-page
+apps: `WebFetch` on them returns the nav shell / a stub, NOT the connector pane.
+Every LabVIEW function DOES have a full page — fetch it from the **content
+backend** instead. The SPA loads each page as JSON from:
+
+```
+https://docs-be.ni.com/api/bundle/<bundle>/page/<page-path>.html
+```
+
+- `<bundle>` for LabVIEW functions is `labview-api-ref` (the "LabVIEW Programming
+  Reference Manual"). Other bundles exist (e.g. `labview`) — the SPA URL's
+  `/bundle/<X>/page/<Y>` segments map 1:1 onto the backend path.
+- The response is JSON. The connector pane is in the **`topic_html`** field
+  (full Inputs/Outputs prose); `breadcrumbs` give the palette category (e.g.
+  "Programming ▸ Cluster, Class, & Variant ▸ Variant").
+
+Do it with `curl` + a tiny parse (WebFetch also works on the backend URL):
+
+```bash
+curl -sL "https://docs-be.ni.com/api/bundle/labview-api-ref/page/functions/get-variant-attribute.html" \
+  | python3 -c "import json,sys,re,html; d=json.load(sys.stdin); \
+    t=re.sub(r'<[^>]+>',' ',d['topic_html']); print(html.unescape(re.sub(r'\s+',' ',t)))"
+```
+
+**Finding the page path when you only know the function name:** the path mirrors
+the palette, e.g. `functions/<kebab-name>.html` (`get-variant-attribute.html`,
+`look-in-map.html`). Confirm the exact slug via a WebSearch for the function on
+`ni.com/docs` (search finds it fine — it's only *reading* the SPA that fails),
+then read the real content from the backend URL above. To browse a category's
+functions, fetch its menu: `.../page/menus/categories/programming/cluster/variant-mnu.html`.
+
+When you have the page, use it to confirm:
 
 - The terminal TYPES match the actual types from Step 1
 - The terminal NAMES and DIRECTIONS match the documentation
 - The diagnostic lists the FULL connector pane (every terminal, each marked wired/UNWIRED, with its type) — the whole signature should match the documentation, not just the wired terminals.
 - The CONTEXT (Step 3) makes sense for what the function does
 
-If WebSearch is unavailable or returns nothing useful:
+If the backend + WebSearch still turn up nothing useful:
 
 - **lvkit mode**: cross-reference the `samples/` corpus more aggressively (Step 2), and ask the user
 - **user-project mode**: ask the user to open the calling VI in LabVIEW and read the primitive's context menu / quick help. The qualified VI path from the diagnostic tells you which file to point them at.

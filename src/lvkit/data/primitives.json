@@ -714,7 +714,9 @@
           "type": "polymorphic"
         }
       ],
-      "python_code": {"sign": "(in_1 > 0) - (in_1 < 0)"},
+      "python_code": {
+        "sign": "(in_1 > 0) - (in_1 < 0)"
+      },
       "inline": true,
       "verified": true
     },
@@ -1126,9 +1128,24 @@
     "1081": {
       "name": "Logical Shift",
       "terminals": [
-        {"index": 0, "direction": "out", "name": "shifted", "type": "polymorphic"},
-        {"index": 1, "direction": "in", "name": "x", "type": "polymorphic"},
-        {"index": 2, "direction": "in", "name": "y", "type": "NumInt32"}
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "shifted",
+          "type": "polymorphic"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "x",
+          "type": "polymorphic"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "y",
+          "type": "NumInt32"
+        }
       ],
       "python_code": {
         "shifted": "(in_1 << in_2) if in_2 >= 0 else (in_1 >> -in_2)"
@@ -1142,9 +1159,24 @@
       "name": "Divide",
       "elementwise": true,
       "terminals": [
-        {"index": 0, "direction": "out", "name": "quotient", "type": "polymorphic"},
-        {"index": 1, "direction": "in", "name": "x", "type": "polymorphic"},
-        {"index": 2, "direction": "in", "name": "y", "type": "polymorphic"}
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "quotient",
+          "type": "polymorphic"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "x",
+          "type": "polymorphic"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "y",
+          "type": "polymorphic"
+        }
       ],
       "python_code": {
         "quotient": "in_1 / in_2"
@@ -1158,9 +1190,24 @@
       "name": "Less Or Equal?",
       "elementwise": true,
       "terminals": [
-        {"index": 0, "direction": "out", "name": "x_less_or_equal_y", "type": "Boolean"},
-        {"index": 1, "direction": "in", "name": "x", "type": "polymorphic"},
-        {"index": 2, "direction": "in", "name": "y", "type": "polymorphic"}
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "x_less_or_equal_y",
+          "type": "Boolean"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "x",
+          "type": "polymorphic"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "y",
+          "type": "polymorphic"
+        }
       ],
       "python_code": {
         "x_less_or_equal_y": "in_1 <= in_2"
@@ -1173,14 +1220,54 @@
     "8056": {
       "name": "File Dialog",
       "terminals": [
-        {"index": 0, "direction": "out", "name": "error_out", "type": "Cluster"},
-        {"index": 1, "direction": "out", "name": "cancelled", "type": "Boolean"},
-        {"index": 3, "direction": "out", "name": "selected_path", "type": "Path"},
-        {"index": 7, "direction": "in", "name": "prompt", "type": "String"},
-        {"index": 8, "direction": "in", "name": "error_in", "type": "Cluster"},
-        {"index": 9, "direction": "in", "name": "select_mode_a", "type": "Boolean"},
-        {"index": 10, "direction": "in", "name": "select_mode_b", "type": "Boolean"},
-        {"index": 11, "direction": "in", "name": "start_path", "type": "Path"}
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error_out",
+          "type": "Cluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "cancelled",
+          "type": "Boolean"
+        },
+        {
+          "index": 3,
+          "direction": "out",
+          "name": "selected_path",
+          "type": "Path"
+        },
+        {
+          "index": 7,
+          "direction": "in",
+          "name": "prompt",
+          "type": "String"
+        },
+        {
+          "index": 8,
+          "direction": "in",
+          "name": "error_in",
+          "type": "Cluster"
+        },
+        {
+          "index": 9,
+          "direction": "in",
+          "name": "select_mode_a",
+          "type": "Boolean"
+        },
+        {
+          "index": 10,
+          "direction": "in",
+          "name": "select_mode_b",
+          "type": "Boolean"
+        },
+        {
+          "index": 11,
+          "direction": "in",
+          "name": "start_path",
+          "type": "Path"
+        }
       ],
       "python_code": {
         "selected_path": "Path(input(in_7 or 'Select file path: '))",
@@ -1190,7 +1277,7 @@
       "inline": true,
       "verified": true,
       "pdf_page": 1770,
-      "note": "Interactive UI primitive. Original LabVIEW intent was to ask the user, so we map to Python's input() — runs in CLI, easy to swap with hardcoded Path() or tkinter.filedialog. Configuration Booleans (idx=9, 10) for file/folder/new-or-existing modes are not implemented."
+      "note": "Interactive UI primitive. Original LabVIEW intent was to ask the user, so we map to Python's input() \u2014 runs in CLI, easy to swap with hardcoded Path() or tkinter.filedialog. Configuration Booleans (idx=9, 10) for file/folder/new-or-existing modes are not implemented."
     },
     "1113": {
       "name": "Equal To 0?",
@@ -2268,25 +2355,25 @@
       "pdf_page": 1472
     },
     "9111": {
-      "name": "Unknown VI Server Primitive 9111",
+      "name": "Enqueue Element",
       "placeholder": true,
       "terminals": [
         {
           "index": 0,
           "direction": "in",
-          "name": "refnum_in",
+          "name": "queue",
           "type": "Refnum"
         },
         {
           "index": 1,
           "direction": "in",
-          "name": "data_in",
+          "name": "element",
           "type": "Cluster"
         },
         {
           "index": 2,
           "direction": "in",
-          "name": "index",
+          "name": "timeout_ms",
           "type": "NumInt32"
         },
         {
@@ -2298,62 +2385,13 @@
         {
           "index": 8,
           "direction": "out",
-          "name": "refnum_out",
+          "name": "queue_out",
           "type": "Refnum"
         },
         {
           "index": 10,
           "direction": "out",
-          "name": "found",
-          "type": "Boolean"
-        }
-      ],
-      "python_code": "pass"
-    },
-    "9108": {
-      "name": "Unknown VI Server Primitive (Open Variant)",
-      "placeholder": true,
-      "terminals": [
-        {
-          "index": 0,
-          "direction": "in",
-          "name": "vi_path",
-          "type": "String"
-        },
-        {
-          "index": 1,
-          "direction": "in",
-          "name": "type_specifier",
-          "type": "String"
-        },
-        {
-          "index": 2,
-          "direction": "in",
-          "name": "prepare_for_call",
-          "type": "Boolean"
-        },
-        {
-          "index": 3,
-          "direction": "in",
-          "name": "error_in",
-          "type": "Cluster"
-        },
-        {
-          "index": 4,
-          "direction": "in",
-          "name": "options",
-          "type": "NumInt32"
-        },
-        {
-          "index": 8,
-          "direction": "out",
-          "name": "vi_refnum",
-          "type": "Refnum"
-        },
-        {
-          "index": 10,
-          "direction": "out",
-          "name": "found",
+          "name": "timed_out",
           "type": "Boolean"
         },
         {
@@ -2363,22 +2401,135 @@
           "type": "Cluster"
         }
       ],
-      "python_code": "pass"
+      "python_code": "pass",
+      "note": "Queue op. Stateful; codegen TBD."
     },
-    "9109": {
-      "name": "Unknown VI Server Primitive (Call Variant)",
+    "9113": {
+      "name": "Dequeue Element",
       "placeholder": true,
       "terminals": [
         {
           "index": 0,
           "direction": "in",
-          "name": "vi_refnum",
+          "name": "queue",
           "type": "Refnum"
         },
         {
           "index": 2,
           "direction": "in",
-          "name": "auto_dispose",
+          "name": "timeout_ms",
+          "type": "NumInt32"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "error_in",
+          "type": "Cluster"
+        },
+        {
+          "index": 8,
+          "direction": "out",
+          "name": "queue_out",
+          "type": "Refnum"
+        },
+        {
+          "index": 9,
+          "direction": "out",
+          "name": "element",
+          "type": "Cluster"
+        },
+        {
+          "index": 10,
+          "direction": "out",
+          "name": "timed_out",
+          "type": "Boolean"
+        },
+        {
+          "index": 11,
+          "direction": "out",
+          "name": "error_out",
+          "type": "Cluster"
+        }
+      ],
+      "python_code": "pass",
+      "note": "Queue op. Stateful; codegen TBD."
+    },
+    "9129": {
+      "name": "Enqueue Element At Opposite End",
+      "placeholder": true,
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "queue",
+          "type": "Refnum"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "element",
+          "type": "Cluster"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "timeout_ms",
+          "type": "NumInt32"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "error_in",
+          "type": "Cluster"
+        },
+        {
+          "index": 8,
+          "direction": "out",
+          "name": "queue_out",
+          "type": "Refnum"
+        },
+        {
+          "index": 10,
+          "direction": "out",
+          "name": "timed_out",
+          "type": "Boolean"
+        },
+        {
+          "index": 11,
+          "direction": "out",
+          "name": "error_out",
+          "type": "Cluster"
+        }
+      ],
+      "python_code": "pass",
+      "note": "Queue op (LIFO push for the parser stack). Stateful; codegen TBD."
+    },
+    "9108": {
+      "name": "Obtain Queue",
+      "placeholder": true,
+      "terminals": [
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "max_queue_size",
+          "type": "NumInt32"
+        },
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "name",
+          "type": "String"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "element_data_type",
+          "type": "Cluster"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "create_if_not_found",
           "type": "Boolean"
         },
         {
@@ -2390,13 +2541,57 @@
         {
           "index": 8,
           "direction": "out",
-          "name": "result_string",
+          "name": "queue_out",
+          "type": "Refnum"
+        },
+        {
+          "index": 10,
+          "direction": "out",
+          "name": "created",
+          "type": "Boolean"
+        },
+        {
+          "index": 11,
+          "direction": "out",
+          "name": "error_out",
+          "type": "Cluster"
+        }
+      ],
+      "python_code": "pass",
+      "note": "Queue op (ref_type=Queue on idx8). Stateful; codegen TBD."
+    },
+    "9109": {
+      "name": "Get Queue Status",
+      "placeholder": true,
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "queue",
+          "type": "Refnum"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "return_elements",
+          "type": "Boolean"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "error_in",
+          "type": "Cluster"
+        },
+        {
+          "index": 8,
+          "direction": "out",
+          "name": "name",
           "type": "String"
         },
         {
           "index": 9,
           "direction": "out",
-          "name": "result_array",
+          "name": "elements",
           "type": "Array"
         },
         {
@@ -2406,7 +2601,8 @@
           "type": "Cluster"
         }
       ],
-      "python_code": "pass"
+      "python_code": "pass",
+      "note": "Queue op. Stateful; codegen TBD."
     },
     "9101": {
       "name": "Open VI Reference",
