@@ -46,66 +46,65 @@ Write down the EXACT diagnostic output:
 
 For a **polymorphic/adaptive** primitive, an UNWIRED terminal may show its adapt/placeholder type rather than a concrete one — count, direction, and position stay reliable; concrete types come from the wired terminals.
 
-## Step 2: Get more instances of this primResID
+## Step 2: Get more instances of this primResID — grep the XML, DON'T parse the corpus
 
-This step is mode-dependent.
+**NEVER parse every VI in the corpus to find instances.** The sample tree is thousands of
+VIs / ~1 GB of XML; `rglob('*.vi')` + `parse_vi` on all of them loads everything into memory at
+once and can exhaust RAM and CRASH the machine (WSL especially — this has happened). Instead:
+**grep the already-dumped block-diagram XML** for the primResID, then parse ONLY the matched VIs
+— and only those VIs, **not their subVIs**.
 
-### lvkit mode: cross-reference lvkit's samples
+The primResID is serialized verbatim as `<primResID>PRIM_ID</primResID>` in each VI's
+`*_BDHb.xml` (grep is what reliably found prim 1907's real call sites — including one in a
+*subVI* of the failing VI that a shape-based parse would have missed).
 
-Search for ALL instances across lvkit's sample corpus to see terminal variations:
+**1. Ensure the block-diagram XML is dumped (pylabview — no LabVIEW license needed).**
+- lvkit mode: `samples/` is already extracted — every VI has a `*_BDHb.xml` beside it. Nothing to do.
+- user-project mode: extract each VI's XML once — ONE subprocess per VI, so memory stays flat:
+  ```bash
+  # <root> = the user's project root
+  python3 -c "
+  from pathlib import Path
+  from lvkit.extractor import extract_vi_xml
+  for vi in Path('<root>').rglob('*.vi'):
+      try: extract_vi_xml(str(vi))   # writes *_BDHb.xml beside the VI (cached); no subVIs
+      except Exception as e: print('skip', vi.name, e)
+  "
+  ```
 
+**2. Grep the dumped XML for the primResID (memory-flat, instant):**
 ```bash
-python3 -c "
-import sys; sys.path.insert(0, 'src')
-from pathlib import Path
-from lvkit.parser.vi import parse_vi
-from lvkit.parser.node_types import PrimitiveNode
-count = 0
-for vi_path in Path('samples').rglob('*.vi'):
-    try:
-        parsed = parse_vi(str(vi_path))
-    except Exception:
-        continue
-    for node in parsed.block_diagram.nodes:
-        if isinstance(node, PrimitiveNode) and node.prim_res_id == PRIM_ID:
-            terms = [(uid, ti) for uid, ti in parsed.block_diagram.terminal_info.items() if ti.parent_uid == node.uid]
-            types = [f'{\"out\" if ti.is_output else \"in\"}:idx={ti.index}:{ti.parsed_type.type_name if ti.parsed_type else \"?\"}' for _, ti in sorted(terms, key=lambda x: x[1].index)]
-            print(f'{vi_path.name}: primIdx={node.prim_index} {types}')
-            count += 1
-            if count >= 10:
-                break
-    if count >= 10:
-        break
-print(f'Total: {count}')
-" 2>/dev/null
+# <root> = samples (lvkit mode) or the user's project root
+grep -rl "<primResID>PRIM_ID</primResID>" <root> --include=*_BDHb.xml
 ```
+This lists exactly the VIs that contain the primitive — usually a handful.
 
-### User-project mode: search the user's own VI tree
-
-Run the same parser sweep against the user's project root (substitute the actual root):
-
+**3. Parse ONLY those matched VIs — no subVIs, no dependency loading.** Feed the matched
+`*_BDHb.xml` paths straight to `parse_vi(bd_xml=...)`, which parses just that ONE VI's block
+diagram (it does NOT load subVIs or dependencies). Cap the count and `del` each parse so memory
+never accumulates:
 ```bash
-python3 -c "
-from pathlib import Path
+# grep -rlZ (null-delimited) pipes matches to the parser — handles SPACES in paths
+# (sample paths like "File Group 0" break unquoted $(grep ...)). Caps at 10; frees each parse.
+grep -rlZ "<primResID>PRIM_ID</primResID>" <root> --include=*_BDHb.xml | python3 -c "
+import sys
 from lvkit.parser.vi import parse_vi
 from lvkit.parser.node_types import PrimitiveNode
-count = 0
-for vi_path in Path('<project-root>').rglob('*.vi'):
-    try:
-        parsed = parse_vi(str(vi_path))
-    except Exception:
-        continue
-    for node in parsed.block_diagram.nodes:
+PRIM_ID = <PRIM_ID>
+paths = [p.decode() for p in sys.stdin.buffer.read().split(b'\0') if p]
+for bd in paths[:10]:                             # matched _BDHb.xml paths, capped
+    diagram = parse_vi(bd_xml=bd).block_diagram   # this VI ONLY — no subVIs
+    for node in diagram.nodes:
         if isinstance(node, PrimitiveNode) and node.prim_res_id == PRIM_ID:
-            print(f'{vi_path}: {node.prim_index}')
-            count += 1
-            if count >= 10:
-                break
-    if count >= 10:
-        break
-print(f'Total: {count}')
+            terms = sorted((ti for ti in diagram.terminal_info.values() if ti.parent_uid == node.uid), key=lambda t: t.index)
+            sig = [f'{\"out\" if ti.is_output else \"in\"}:idx{ti.index}:{ti.parsed_type.type_name if ti.parsed_type else \"?\"}' for ti in terms]
+            print(f'{bd.split(\"/\")[-1]}: primIdx={node.prim_index} {sig}')
+    del diagram
 "
 ```
+Same command for both modes — only `<root>` differs. Grep first, parse only the matches, never
+`rglob('*.vi')` + parse, and never expand subVIs. (Verified: on prim 1907 this parses ~6 matched
+VIs at 48 MB peak / 0.5 s, vs a multi-GB whole-corpus parse.)
 
 ## Step 3: Examine graph context
 
@@ -117,40 +116,34 @@ The fastest way to see context is `lvkit describe` on the calling VI:
 lvkit describe "<path-to-calling-vi>" --search-path "<library-path>"
 ```
 
-Or programmatically:
+Or programmatically — parse ONLY the matched `*_BDHb.xml` from Step 2 (no rglob, no subVIs):
 
 ```bash
 python3 -c "
-import sys; sys.path.insert(0, 'src')
-from pathlib import Path
 from lvkit.parser.vi import parse_vi
 from lvkit.parser.node_types import PrimitiveNode
-
-for vi_path in Path('<search-root>').rglob('<vi-name>'):
-    try:
-        parsed = parse_vi(str(vi_path))
-    except Exception:
-        continue
-    for node in parsed.block_diagram.nodes:
-        if isinstance(node, PrimitiveNode) and node.prim_res_id == PRIM_ID:
-            my_terms = {uid for uid, ti in parsed.block_diagram.terminal_info.items() if ti.parent_uid == node.uid}
-            for w in parsed.block_diagram.wires:
-                if w.from_term in my_terms or w.to_term in my_terms:
-                    other_uid = w.to_term if w.from_term in my_terms else w.from_term
-                    other_ti = parsed.block_diagram.terminal_info.get(other_uid)
-                    if other_ti:
-                        other_node = next((n for n in parsed.block_diagram.nodes if n.uid == other_ti.parent_uid), None)
-                        direction = 'output →' if w.from_term in my_terms else 'input ←'
-                        name = other_node.name if other_node else other_ti.parent_uid
-                        print(f'  {direction} {name}')
-            break
-    break
+BD = '<matched _BDHb.xml from Step 2>'
+PRIM_ID = <PRIM_ID>
+bd = parse_vi(bd_xml=BD).block_diagram        # this VI ONLY — subVIs are NOT loaded
+for node in bd.nodes:
+    if isinstance(node, PrimitiveNode) and node.prim_res_id == PRIM_ID:
+        my_terms = {uid for uid, ti in bd.terminal_info.items() if ti.parent_uid == node.uid}
+        for w in bd.wires:
+            if w.from_term in my_terms or w.to_term in my_terms:
+                other_uid = w.to_term if w.from_term in my_terms else w.from_term
+                other_ti = bd.terminal_info.get(other_uid)
+                if other_ti:
+                    other_node = next((n for n in bd.nodes if n.uid == other_ti.parent_uid), None)
+                    direction = 'output →' if w.from_term in my_terms else 'input ←'
+                    print(f'  {direction} {other_node.name if other_node else other_ti.parent_uid}')
+        break
 "
 ```
 
-If immediate neighbors are generic (nMux, structure boundaries, constants), trace further:
+If immediate neighbors are generic (nMux, structure boundaries, constants), trace further —
+staying within THIS VI's XML (do not load subVIs; their name in the caller is enough context):
 - What VI contains this primitive? The VI's name and purpose give context.
-- What do the connected SubVIs do? Check their names.
+- What are the connected SubVIs *named*? The caller's XML carries each subVI-call node's name — read that; you don't need to open the subVI.
 - What primitives feed into or consume from this one? Check their primResIDs against known entries.
 
 The connected operations, their names, and the data types flowing through reveal what this primitive does.
