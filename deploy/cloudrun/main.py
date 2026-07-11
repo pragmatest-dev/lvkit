@@ -15,9 +15,15 @@ from __future__ import annotations
 import pathlib
 import tempfile
 
-from flask import Flask, Response, request, send_from_directory
+from flask import Flask, Response, request
 
 from lvkit.render import render_vi_file
+from lvkit.render.style import css_var_theme
+from lvkit.render.theme_web import (
+    THEME_TOGGLE_BUTTON,
+    THEME_TOGGLE_SCRIPT,
+    theme_style_block,
+)
 
 app = Flask(__name__)
 _STATIC = pathlib.Path(__file__).parent / "static"
@@ -35,7 +41,16 @@ def _cors(resp: Response) -> Response:
 
 @app.get("/")
 def index() -> Response:
-    return send_from_directory(_STATIC, "index.html")
+    # Inject the image-only theme (CSS + toggle button + script) into the
+    # static page — the diagram area toggles dark/light, the page chrome
+    # (defined once in index.html's own <style>, no data-theme overrides)
+    # never does. See lvkit.render.theme_web for why this is scoped to
+    # svg[data-lv-theme="dark"].
+    page = (_STATIC / "index.html").read_text()
+    page = page.replace("/* {{THEME_VARS}} */", theme_style_block())
+    page = page.replace("{{THEME_TOGGLE_BUTTON}}", THEME_TOGGLE_BUTTON)
+    page = page.replace("{{THEME_TOGGLE_SCRIPT}}", THEME_TOGGLE_SCRIPT)
+    return Response(page, mimetype="text/html")
 
 
 @app.get("/health")
@@ -62,7 +77,14 @@ def render() -> Response:
             # expand_subvis=False: a standalone upload has no sibling subVI
             # files to resolve, so this stays entirely off the filesystem for
             # dependencies and renders unknown subVIs as fallback boxes.
-            svg = render_vi_file(vi_path, expand_subvis=False)
+            # theme=css_var_theme(): every hex color becomes
+            # var(--lv-<role>, <light-hex>) so the served page's injected
+            # theme_style_block() CSS can recolor the diagram; with no such
+            # CSS present the var() falls back to the same light hex as
+            # before, so this is a no-op for any other caller.
+            svg = render_vi_file(
+                vi_path, expand_subvis=False, theme=css_var_theme(),
+            )
         except Exception as exc:  # noqa: BLE001 - report, never 500 opaquely
             return _cors(Response(f"render failed: {exc}", 422))
 

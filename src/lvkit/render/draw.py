@@ -277,7 +277,11 @@ def _terminal_is_informative(t: Terminal) -> bool:
     """Whether a terminal is worth showing in context help. Skips pure EMPTY
     connector-pane slots — a position with no label AND no meaningful type
     (unwired, unnamed pane slots, e.g. a big DAQmx SubVI's spare terminals);
-    any labeled or typed terminal is kept."""
+    any labeled or typed terminal is kept. A ``Void`` terminal is a dead pane
+    slot with no data — LabVIEW draws neither a wire stub nor a label for it, so
+    it is never shown even if it carries a leftover name."""
+    if t.lv_type is not None and _lv_type_label(t.lv_type) == "Void":
+        return False
     if t.display_name or t.name:
         return True
     return t.lv_type is not None and _lv_type_label(t.lv_type) != "?"

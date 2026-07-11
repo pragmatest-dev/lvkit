@@ -21,12 +21,25 @@
     overflow:auto;padding:1rem;min-height:6rem}
   .out svg{display:block;max-width:100%;height:auto}
   .err{color:#b4462f;font-size:.9rem;white-space:pre-wrap}
+  .topline{display:flex;justify-content:space-between;align-items:flex-start;gap:1rem}
+  #lv-theme-toggle{flex:none;font:.85rem/1.4 ui-sans-serif,system-ui,sans-serif;
+    padding:.4rem .8rem;border-radius:6px;border:1px solid var(--line);
+    background:var(--panel);color:var(--ink);cursor:pointer}
+  #lv-theme-toggle:hover{border-color:var(--muted)}
+  /* Image-only diagram theme (scoped to svg[data-lv-theme="dark"]); this
+     page's own chrome above is fixed and never toggles. */
+  /* {{THEME_VARS}} */
 </style>
 </head>
 <body>
 <main>
-  <h1>VI → block diagram</h1>
-  <p>Drop a <code>.vi</code> file (or click) to render it as an SVG. No LabVIEW required.</p>
+  <div class="topline">
+    <div>
+      <h1>VI → block diagram</h1>
+      <p>Drop a <code>.vi</code> file (or click) to render it as an SVG. No LabVIEW required.</p>
+    </div>
+    {{THEME_TOGGLE_BUTTON}}
+  </div>
   <label class="drop" id="drop">
     <input type="file" id="file" accept=".vi">
     <span id="label">Choose or drop a .vi file</span>
@@ -73,5 +86,6 @@
   }));
   drop.addEventListener('drop', e => send(e.dataTransfer.files[0]));
 </script>
+{{THEME_TOGGLE_SCRIPT}}
 </body>
 </html>
