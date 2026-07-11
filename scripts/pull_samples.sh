@@ -44,14 +44,27 @@ for entry in "${GIT_SETS[@]}"; do
   fi
 done
 
-# OpenG Toolkit (BSD-3-Clause, OSI-approved) is not distributed as a plain git
-# repo — it ships via VIPM (JKI VI Package Manager) and SourceForge. Install it
-# through LabVIEW/VIPM, then place the extracted VIs under samples/OpenG.
-if [[ ! -d "$DEST/OpenG" ]]; then
-  echo "MANUAL OpenG — BSD-3-Clause — obtain via VIPM (https://www.vipm.io/package/openg.org_lib_openg_toolkit/)"
-  echo "       or SourceForge (https://sourceforge.net/projects/opengtoolkit/); extract into samples/OpenG"
-else
+# OpenG Toolkit (BSD-3-Clause, OSI-approved). Not a git repo — it ships as a
+# VIPM ".vip" package, which is a ZIP whose internal "File Group N/" layout is
+# exactly samples/OpenG/extracted/. Reproduce it fully from the public download:
+#   1. download the .vip below,
+#   2. unzip it into samples/OpenG/extracted/  (gives the File Group N/ tree),
+#   3. let lvkit turn each VI into the *_BDHb.xml the tests load, via
+#      lvkit.extractor.extract_llb (LLBs are zips) + extract_vi_xml.
+# No LabVIEW/VIPM install and no redistribution — pulled straight from source.
+OPENG_VIP_URL="https://sourceforge.net/projects/opengtoolkit/files/lib_openg_toolkit/4.x/openg.org_lib_openg_toolkit-4.0.1.9.vip/download"
+if [[ "$FORCE" == "--force" ]]; then rm -rf "$DEST/OpenG"; fi
+if [[ -d "$DEST/OpenG/extracted" ]]; then
   echo "skip   OpenG (already present) — BSD-3-Clause — https://sourceforge.net/projects/opengtoolkit/"
+else
+  echo "fetch  OpenG Toolkit 4.0.1.9 (.vip) — BSD-3-Clause — sourceforge.net/projects/opengtoolkit"
+  mkdir -p "$DEST/OpenG/extracted"
+  tmp="$(mktemp -d)"
+  curl -sL "$OPENG_VIP_URL" -o "$tmp/openg.vip"
+  python3 -c "import zipfile,sys; zipfile.ZipFile(sys.argv[1]).extractall(sys.argv[2])" \
+    "$tmp/openg.vip" "$DEST/OpenG/extracted"
+  rm -rf "$tmp"
+  echo "       unzipped; run the lvkit LLB/VI extraction to produce *_BDHb.xml (see comment above)"
 fi
 
 echo
