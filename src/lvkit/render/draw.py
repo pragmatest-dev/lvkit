@@ -192,6 +192,12 @@ def _node_identity(node: AnyGraphNode) -> tuple[str, str | None] | None:
         header = f"Local Variable: {name}" if name else "Local Variable"
     elif isinstance(node, VINode | PrimitiveNode):
         header = node.name or None
+        # Unresolved primitive: the hover header matches the box — "#<prim_id>"
+        # instead of the verbose "unknown_primitive_N" placeholder. The
+        # connector-pane panel below still lists every terminal we know.
+        if (isinstance(node, PrimitiveNode) and node.prim_id is not None
+                and node.name == f"unknown_primitive_{node.prim_id}"):
+            header = f"#{node.prim_id}"
     if header is None:
         return None
     desc = getattr(node, "description", None)

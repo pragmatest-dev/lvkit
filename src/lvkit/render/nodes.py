@@ -560,6 +560,13 @@ class GeneratedGlyphResolver:
         sym = _ARITH_SYMBOL.get(node.operation or node.name or "")
         if sym:
             return ArithGlyph(sym)
+        # Unresolved primitive: show a compact "#<prim_id>" rather than the
+        # verbose "unknown_primitive_N" placeholder (the hover still lists the
+        # terminals we do know). Display-only — node.name is left for codegen.
+        if node.prim_id is not None and (
+            node.name == f"unknown_primitive_{node.prim_id}"
+        ):
+            return WrappedBoxGlyph(f"#{node.prim_id}", "prim_fill", "prim_stroke", 1.0)
         # No icon yet: wrap the primitive's name inside the box (up to 4 lines,
         # adaptive font) — same treatment as an icon-less subVI.
         return WrappedBoxGlyph(node.name or "?", "prim_fill", "prim_stroke", 1.0)
