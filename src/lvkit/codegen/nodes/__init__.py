@@ -83,6 +83,10 @@ def _generate_primitive(
             return compound.generate_compound_arith(node, ctx)
         case "aBuild":
             return compound.generate_array_build(node, ctx)
+        case "aInit":
+            return compound.generate_array_init(node, ctx)
+        case "aReplace":
+            return compound.generate_array_replace(node, ctx)
         case "nMux" | "mux" | "demux":
             return nmux.generate(node, ctx)
         case "printf":

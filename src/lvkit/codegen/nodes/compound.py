@@ -1,14 +1,30 @@
-"""Code generator for compound operations (cpdArith, aBuild)."""
+"""Code generator for compound operations (cpdArith, aBuild, aInit, aReplace)."""
 
 from __future__ import annotations
 
 import ast
 
-from lvkit.models import PrimitiveOperation
+from lvkit.models import PrimitiveOperation, Terminal
 
-from ..ast_utils import build_assign, parse_expr, to_var_name
+from ..ast_utils import build_assign, parse_expr, parse_stmt, to_var_name
 from ..context import CodeGenContext
 from ..fragment import CodeFragment
+
+_MUTABLE_KINDS = ("array", "cluster")
+
+
+def _is_mutable(term: Terminal | None) -> bool:
+    """True if the terminal's LabVIEW type is a mutable aggregate.
+
+    Array/cluster values need an independent copy per array slot;
+    sharing one Python object reference across slots (e.g. `[x] * n`)
+    would let mutating one slot corrupt every other slot.
+    """
+    return bool(
+        term is not None
+        and term.lv_type is not None
+        and term.lv_type.kind in _MUTABLE_KINDS
+    )
 
 
 def _is_boolean(term: object) -> bool:
@@ -241,3 +257,155 @@ def _make_array_var_name(input_names: list[str]) -> str:
                 return base + "s"
 
     return "items"
+
+
+def generate_array_init(
+    node: PrimitiveOperation, ctx: CodeGenContext,
+) -> CodeFragment:
+    """Generate code for Initialize Array (aInit).
+
+    LabVIEW's Initialize Array builds an N-dimensional array from one
+    "element" input (terminal index 0) and one "dimension size" input per
+    dimension (terminal index >= 2, ascending index = outermost to
+    innermost, matching LabVIEW's terminal order when the node is resized
+    to add dimensions). Uses nested list comprehensions rather than
+    `[element] * n`: at 2-D+, `[[x] * d1] * d0` would alias every row to
+    the SAME inner list object, so mutating one row would corrupt every
+    row. A comprehension re-evaluates (and rebuilds) each row.
+
+    A mutable element (array/cluster) is independently deep-copied into
+    every slot, matching LabVIEW's copy-on-write array-of-values
+    semantics; scalar elements share the (immutable) value directly.
+    """
+    terminals = node.terminals
+    inputs = sorted(
+        (t for t in terminals if t.direction == "input"), key=lambda t: t.index,
+    )
+    outputs = [t for t in terminals if t.direction == "output"]
+    if not outputs:
+        return CodeFragment()
+    output_term = outputs[0]
+
+    element_term = next((t for t in inputs if t.index < 2), None)
+    dim_terms = [t for t in inputs if t.index >= 2]
+
+    imports: set[str] = set()
+
+    elem_val = ctx.resolve(element_term.id) if element_term is not None else None
+    elem_expr: ast.expr
+    if elem_val:
+        elem_expr = parse_expr(elem_val)
+        if _is_mutable(element_term):
+            imports.add("import copy")
+            elem_expr = ast.Call(
+                func=ast.Attribute(
+                    value=ast.Name(id="copy", ctx=ast.Load()),
+                    attr="deepcopy",
+                    ctx=ast.Load(),
+                ),
+                args=[elem_expr],
+                keywords=[],
+            )
+    else:
+        elem_expr = ast.Constant(value=None)
+
+    dim_exprs: list[ast.expr] = []
+    for dt in dim_terms:
+        val = ctx.resolve(dt.id)
+        dim_exprs.append(parse_expr(val) if val else ast.Constant(value=0))
+
+    if not dim_exprs:
+        expr: ast.expr = ast.List(elts=[], ctx=ast.Load())
+    else:
+        expr = elem_expr
+        for dim_expr in reversed(dim_exprs):
+            expr = ast.ListComp(
+                elt=expr,
+                generators=[
+                    ast.comprehension(
+                        target=ast.Name(id="_", ctx=ast.Store()),
+                        iter=ast.Call(
+                            func=ast.Name(id="range", ctx=ast.Load()),
+                            args=[dim_expr],
+                            keywords=[],
+                        ),
+                        ifs=[],
+                        is_async=0,
+                    )
+                ],
+            )
+
+    var_name = ctx.make_output_var(
+        "initialized_array", node.id, terminal_id=output_term.id,
+    )
+    stmt = build_assign(var_name, expr)
+
+    return CodeFragment(
+        statements=[stmt],
+        bindings={output_term.id: var_name},
+        imports=imports,
+    )
+
+
+def generate_array_replace(
+    node: PrimitiveOperation, ctx: CodeGenContext,
+) -> CodeFragment:
+    """Generate code for Replace Array Subset (aReplace).
+
+    Per LabVIEW's connector pane: terminal 0 = array in, 1 = output
+    array, 2 = new element (or subarray), 3 = index.
+
+    Replace Array Subset never changes the array's length: a replacement
+    that would extend past the original array's bounds is clipped to
+    fit, and an index at/past the end of the array is a no-op (NI docs:
+    "the sub array is cropped to fit ... will not insert elements that
+    are outside the bounds of the original array"). This handles both
+    forms in one formula:
+    - scalar "new element" -> replaces exactly the one element at index
+    - array-typed "new element" (subset) -> replaces a contiguous run
+      starting at index, clipped to the array's existing length
+    """
+    by_index = {t.index: t for t in node.terminals}
+    array_term = by_index.get(0)
+    new_elem_term = by_index.get(2)
+    index_term = by_index.get(3)
+    outputs = [t for t in node.terminals if t.direction == "output"]
+    if not outputs or array_term is None:
+        return CodeFragment()
+    output_term = outputs[0]
+
+    array_val = ctx.resolve(array_term.id) or "[]"
+    index_val = ctx.resolve(index_term.id) if index_term else None
+    index_val = index_val or "0"
+
+    is_subset = _is_array_type(new_elem_term)
+    new_elem_val = ctx.resolve(new_elem_term.id) if new_elem_term else None
+    if new_elem_val is None:
+        new_elem_val = "[]" if is_subset else "None"
+    subset_str = new_elem_val if is_subset else f"[{new_elem_val}]"
+
+    body_str = (
+        f"_n = max(0, min(len({subset_str}), len({array_val}) - ({index_val})))"
+    )
+    expr_str = (
+        f"{array_val}[:{index_val}] + ({subset_str})[:_n] "
+        f"+ {array_val}[({index_val}) + _n:]"
+    )
+
+    var_name = ctx.make_output_var(
+        "output_array", node.id, terminal_id=output_term.id,
+    )
+    body_stmt = parse_stmt(body_str)
+    assign_stmt = build_assign(var_name, parse_expr(expr_str))
+
+    return CodeFragment(
+        statements=[body_stmt, assign_stmt],
+        bindings={output_term.id: var_name},
+    )
+
+
+def _is_array_type(term: Terminal | None) -> bool:
+    """True if the terminal's LabVIEW type is an array."""
+    return bool(
+        term is not None and term.lv_type is not None and term.lv_type.kind == "array"
+    )
