@@ -4,6 +4,8 @@ Read, document, diff, and convert LabVIEW VI files — no LabVIEW license requir
 
 lvkit parses `.vi`, `.ctl`, `.lvclass`, and `.lvlib` files directly into queryable dependency and dataflow graphs. Use it to document code, track changes in CI, feed VI structure to AI tools, or generate equivalent Python.
 
+> **Independent, clean-room project — not affiliated with NI.** lvkit was built using **only publicly available information**: public NI documentation, the open-source [pylabview](https://github.com/mefistotelis/pylabview) project, and observation of VI files. It was developed **without installing or running LabVIEW or any NI software**, and with **no NI source code, internal or non-public specifications, or confidential or proprietary materials**. LabVIEW, NI, and National Instruments are trademarks of National Instruments Corporation, used here only to identify the format lvkit interoperates with; lvkit is not affiliated with, authorized by, endorsed by, or sponsored by NI. See [Cleanroom approach](#cleanroom-approach), [`NOTICE`](NOTICE), and [`PROVENANCE.md`](PROVENANCE.md).
+
 ## Contents
 
 - [Quick Start](#quick-start)
@@ -133,7 +135,22 @@ Five workflows ship: `lvkit-describe`, `lvkit-convert`, `lvkit-resolve-primitive
 
 ## Cleanroom approach
 
-lvkit has no access to LabVIEW source code or runtime. LabVIEW's built-in primitives and standard library VIs are **semantically replaced**: each operation is mapped to an equivalent Python implementation in JSON data files (`src/lvkit/data/primitives.json`, `src/lvkit/data/vilib/`). These mappings are built from published documentation and observed behavior.
+lvkit has no access to LabVIEW source code or runtime. LabVIEW's built-in primitives and standard library VIs are **semantically replaced**: each operation is mapped to an equivalent Python implementation in open, inspectable JSON data files (`src/lvkit/data/primitives.json`, `src/lvkit/data/vilib/`).
+
+These mappings are **lvkit's own definitions, derived purely by inference** from two public inputs and nothing else:
+
+1. **Public NI documentation** — pages published openly on ni.com, accessed with no login, partner portal, or NDA gate.
+2. **The VI XML produced by [pylabview](https://github.com/mefistotelis/pylabview)** — the open-source parser that extracts the VI binary to XML. That XML is lvkit's *only* window into the format; lvkit has no other view of it.
+
+The definitions are open source and fully inspectable, and many carry a note recording how each was inferred (the public doc consulted, the observed terminal signature, a `verified`/`guess_reason` marker). They are **best-effort inferences, not authoritative** — they have been wrong and corrected over time. That imperfection is a direct consequence of working from *only* public documentation and the pylabview XML, with **no access to any internal or authoritative NI specification** — an insider would not need to infer.
+
+### Provenance
+
+lvkit was developed **using only publicly available information** and clean-room methods. It was built **without installing or running LabVIEW or any NI software**, and with **no NI source code, internal or non-public specifications, or confidential or proprietary materials**. Facts about LabVIEW's behavior are used as facts; no NI documentation prose or artwork is copied or redistributed — primitive glyphs are drawn procedurally, and the shipped data contains no NI text or images. See [`PROVENANCE.md`](PROVENANCE.md).
+
+### Trademarks
+
+LabVIEW, NI, and National Instruments are trademarks of National Instruments Corporation. lvkit is an independent project and is not affiliated with, authorized by, endorsed by, or sponsored by NI. Those names are used only to identify the file format and software lvkit interoperates with (nominative use).
 
 Coverage is incremental. When `lvkit generate` encounters an unmapped primitive or vi.lib VI, it raises an error with diagnostic context so the mapping can be added. `describe`, `docs`, `diff`, and `visualize` are unaffected — they work from the graph, not the semantic mappings.
 

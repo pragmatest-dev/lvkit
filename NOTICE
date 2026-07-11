@@ -1,0 +1,26 @@
+lvkit
+Copyright 2025-2026 Pragmatest
+
+This product is an independent, clean-room project. It is not affiliated with,
+authorized by, endorsed by, or sponsored by National Instruments Corporation.
+
+LabVIEW, NI, and National Instruments are trademarks of National Instruments
+Corporation, used herein only to identify the file format and software with
+which lvkit interoperates (nominative use).
+
+lvkit was developed using only publicly available information: public NI
+documentation, the open-source pylabview project, and observation of VI files.
+It was built without installing or running LabVIEW or any NI software, and
+without the use of any NI source code, internal or non-public specifications,
+or confidential or proprietary materials.
+
+lvkit's mappings of LabVIEW primitives and standard-library VIs (in
+src/lvkit/data/) are lvkit's own definitions, derived purely by inference from
+public documentation and from the VI XML produced by pylabview. They are
+best-effort inferences, not authoritative reproductions of any NI
+specification, and they contain no NI documentation text or artwork.
+
+lvkit depends on, but does not include, pylabview
+(https://github.com/mefistotelis/pylabview).
+
+See PROVENANCE.md for detail.
