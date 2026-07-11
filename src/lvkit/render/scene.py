@@ -9,6 +9,7 @@ touches the graph or the raw heap XML again.
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 from dataclasses import dataclass, field, replace
 from pathlib import Path
 
@@ -24,10 +25,13 @@ from ..graph.models import (
     WireEnd,
 )
 from ..models import (
+    CaseFrame,
     FPTerminal,
     LVType,
+    SelectorRange,
     Terminal,
     TunnelTerminal,
+    _is_error_cluster,
 )
 from .backend import SvgBackend
 from .glyph import ArithGlyph, Glyph, wrap_label
@@ -191,6 +195,14 @@ class Scene:
     # __init__.py's JS).
     default_frame: dict[str, str] = field(default_factory=dict)
     frame_values: dict[str, list[str]] = field(default_factory=dict)
+    # raw struct uid -> {selector-value identity -> faithful DISPLAY label}
+    # (enum item names, "No Error"/"Error", quoted strings, "a, b", "a..b").
+    # Keyed by the same identity strings as ``frame_values`` so the JS/frame
+    # paths stay stable; only the shown text differs.
+    frame_labels: dict[str, dict[str, str]] = field(default_factory=dict)
+    # raw struct uid of ERROR-cluster case structures -> {selector value ->
+    # True if that frame is the No-Error (green) case, else False (red)}.
+    error_frame_no_error: dict[str, dict[str, bool]] = field(default_factory=dict)
 
     @property
     def obstacles(self) -> list[Rect]:
@@ -275,11 +287,66 @@ def _is_default_visible(path: FramePath, default_frame: dict[str, str]) -> bool:
     return all(default_frame.get(s) == v for s, v in path)
 
 
+def _format_ranges(ranges: list[SelectorRange], fmt: Callable[[int], str]) -> str:
+    """Render a frame's selector ranges the way LabVIEW builds the label:
+    singles as ``fmt(v)``, closed ranges as ``a..b``, open ranges as ``a..``
+    / ``..b``, joined with ``, `` (e.g. ``1, 3, 5..8``)."""
+    parts: list[str] = []
+    for r in ranges:
+        if r.open_start:
+            parts.append(f"..{fmt(r.end)}")
+        elif r.open_end:
+            parts.append(f"{fmt(r.start)}..")
+        elif r.is_single:
+            parts.append(fmt(r.start))
+        else:
+            parts.append(f"{fmt(r.start)}..{fmt(r.end)}")
+    return ", ".join(parts)
+
+
+def _selector_label(frame: CaseFrame, lv_type: LVType | None, is_error: bool) -> str:
+    """The faithful case-selector text for one frame, by selector type:
+    ``Default``; error cluster → ``No Error``/``Error``; enum → item name(s);
+    integer → value(s)/range(s); string → quoted; boolean → ``True``/``False``.
+    """
+    sv = str(frame.selector_value)
+    if is_error:
+        # The error-cluster case switches on the status boolean: 0 = no error,
+        # anything else is an error (LabVIEW: "No Error" / "Error", plus code
+        # ranges like "Error 3..10" since 2019). The Error frame is often the
+        # structure's default — LabVIEW still labels it "Error", not "Default",
+        # so this precedes the plain-default branch below.
+        if sv == "0":
+            return "No Error"
+        codes = [r for r in frame.selector_ranges if not (r.is_single and r.start == 1)]
+        if codes:
+            return f"Error {_format_ranges(codes, str)}"
+        return "Error"
+    if frame.is_default or sv == "Default":
+        return "Default"
+    if lv_type and lv_type.kind in ("enum", "ring") and lv_type.values \
+            and frame.selector_ranges:
+        int_to_name = {ev.value: name for name, ev in lv_type.values.items()}
+        return _format_ranges(
+            frame.selector_ranges, lambda i: int_to_name.get(i, str(i)),
+        )
+    if frame.selector_ranges:  # integer selector
+        return _format_ranges(frame.selector_ranges, str)
+    if lv_type and lv_type.underlying_type == "String":
+        return f'"{sv}"'
+    return sv  # boolean True/False, or an already-display token
+
+
 def _frame_info(
-    nodes: list[AnyGraphNode], vi_name: str,
-) -> tuple[dict[str, str], dict[str, list[str]]]:
-    """raw struct uid -> default frame value, and -> the ordered list of ALL
-    frame values — the selector chrome's click-to-cycle metadata.
+    nodes: list[AnyGraphNode], vi_name: str, graph: InMemoryVIGraph,
+) -> tuple[
+    dict[str, str], dict[str, list[str]],
+    dict[str, dict[str, str]], dict[str, dict[str, bool]],
+]:
+    """raw struct uid -> default frame value, -> the ordered list of ALL frame
+    values (selector chrome click-to-cycle metadata), -> faithful DISPLAY
+    labels per value, and -> for error-cluster cases, which values are the
+    No-Error (green) frame.
 
     Cases key by selector value (with ``is_default``/first-frame fallback);
     stacked sequences key by frame index and default to frame 0 here — but
@@ -288,12 +355,30 @@ def _frame_info(
     """
     default_frame: dict[str, str] = {}
     frame_values: dict[str, list[str]] = {}
+    frame_labels: dict[str, dict[str, str]] = {}
+    error_no_error: dict[str, dict[str, bool]] = {}
     for node in nodes:
         if isinstance(node, CaseStructureNode) and node.frames:
             raw = _strip_prefix(node.id, vi_name)
             frame_values[raw] = [str(f.selector_value) for f in node.frames]
             shown = next((f for f in node.frames if f.is_default), node.frames[0])
             default_frame[raw] = str(shown.selector_value)
+            sel_t = graph.get_terminal(node.selector_terminal) \
+                if node.selector_terminal else None
+            lv_type = sel_t.lv_type if sel_t else None
+            is_error = bool(lv_type and _is_error_cluster(lv_type))
+            frame_labels[raw] = {
+                str(f.selector_value): _selector_label(f, lv_type, is_error)
+                for f in node.frames
+            }
+            if is_error:
+                # The No-Error (green) frame is the status==False case, value
+                # "0"; every other frame — the "Error" frame, including when it
+                # is the structure's default — is red.
+                error_no_error[raw] = {
+                    str(f.selector_value): str(f.selector_value) == "0"
+                    for f in node.frames
+                }
         elif (
             isinstance(node, SequenceNode)
             and node.node_type != "flatSequence"
@@ -302,7 +387,7 @@ def _frame_info(
             raw = _strip_prefix(node.id, vi_name)
             frame_values[raw] = [str(i) for i in range(len(node.frames))]
             default_frame[raw] = "0"
-    return default_frame, frame_values
+    return default_frame, frame_values, frame_labels, error_no_error
 
 
 # String-constant glyph text metrics — keep in sync with
@@ -1103,7 +1188,9 @@ def build_scene(graph: InMemoryVIGraph, vi_name: str) -> Scene | None:
         )
     all_nodes = graph.iter_nodes(vi_name)
     by_id: dict[str, AnyGraphNode] = {n.id: n for n in all_nodes}
-    default_frame, frame_values = _frame_info(all_nodes, vi_name)
+    default_frame, frame_values, frame_labels, error_frame_no_error = _frame_info(
+        all_nodes, vi_name, graph,
+    )
     glyph_ctx = GlyphContext(graph=graph, vi_name=vi_name)
 
     render_nodes: list[RenderNode] = []
@@ -1244,4 +1331,6 @@ def build_scene(graph: InMemoryVIGraph, vi_name: str) -> Scene | None:
         icon_png=layout.icon_png,
         default_frame=default_frame,
         frame_values=frame_values,
+        frame_labels=frame_labels,
+        error_frame_no_error=error_frame_no_error,
     )

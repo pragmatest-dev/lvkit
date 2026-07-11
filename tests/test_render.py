@@ -35,7 +35,9 @@ from lvkit.render.nodes import string_const_display
 from lvkit.render.scene import (
     Scene,
     _exit_side,
+    _format_ranges,
     _frame_compatible,
+    _selector_label,
     _structure_borders,
     _trim_string_const_geom,
     build_scene,
@@ -43,6 +45,80 @@ from lvkit.render.scene import (
 )
 from lvkit.render.style import DEFAULT_THEME, coercion_key, wire_style
 from lvkit.render.wire_router import RouterConfig, WireRouter, _compress, path_d
+
+# --------------------------------------------------------------------------- #
+# Case-selector faithful labels (#16) — pure functions over CaseFrame + LVType
+# --------------------------------------------------------------------------- #
+
+
+def _frame(value, ranges=(), is_default=False):
+    from lvkit.models import CaseFrame, SelectorRange
+
+    return CaseFrame(
+        selector_value=value,
+        is_default=is_default,
+        selector_ranges=[SelectorRange(start=s, end=e) for s, e in ranges],
+    )
+
+
+def _enum_type(names):
+    from lvkit.models import EnumValue, LVType
+
+    return LVType(
+        kind="enum",
+        underlying_type="UnitUInt16",
+        values={n: EnumValue(value=i) for i, n in enumerate(names)},
+    )
+
+
+def test_format_ranges_single_range_and_list():
+    from lvkit.models import SelectorRange
+
+    single = [SelectorRange(start=3, end=3)]
+    rng = [SelectorRange(start=3, end=10)]
+    lst = [SelectorRange(start=1, end=1), SelectorRange(start=3, end=3),
+           SelectorRange(start=5, end=8)]
+    assert _format_ranges(single, str) == "3"
+    assert _format_ranges(rng, str) == "3..10"
+    assert _format_ranges(lst, str) == "1, 3, 5..8"
+
+
+def test_selector_label_boolean_and_default():
+    from lvkit.models import LVType
+
+    bool_t = LVType(kind="primitive", underlying_type="Boolean")
+    assert _selector_label(_frame("True"), bool_t, False) == "True"
+    assert _selector_label(_frame("False"), bool_t, False) == "False"
+    assert _selector_label(_frame("Default", is_default=True), bool_t, False) \
+        == "Default"
+
+
+def test_selector_label_enum_names_ranges_and_list():
+    names = ["Digital Input", "Digital Output", "Voltage Input", "PWM"]
+    t = _enum_type(names)
+    assert _selector_label(_frame("3", [(3, 3)]), t, False) == "PWM"
+    assert _selector_label(_frame("0", [(0, 1)]), t, False) \
+        == "Digital Input..Digital Output"
+    assert _selector_label(_frame("0", [(0, 0), (2, 2)]), t, False) \
+        == "Digital Input, Voltage Input"
+
+
+def test_selector_label_string_quoted():
+    from lvkit.models import LVType
+
+    t = LVType(kind="primitive", underlying_type="String")
+    assert _selector_label(_frame("Stop"), t, False) == '"Stop"'
+
+
+def test_selector_label_error_no_error_and_error():
+    from lvkit.models import LVType
+
+    t = LVType(kind="cluster")
+    assert _selector_label(_frame("0", [(0, 0)]), t, True) == "No Error"
+    assert _selector_label(_frame("1", [(1, 1)]), t, True) == "Error"
+    # Error frame that is the structure's default is still "Error", not "Default"
+    assert _selector_label(_frame("Default", is_default=True), t, True) == "Error"
+
 
 # --------------------------------------------------------------------------- #
 # Wire router (pure geometry — unaffected by the graph-driven rewrite)

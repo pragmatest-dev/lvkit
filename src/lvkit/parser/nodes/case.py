@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import xml.etree.ElementTree as ET
 
-from lvkit.models import CaseFrame, Tunnel
+from lvkit.models import CaseFrame, SelectorRange, Tunnel
 
 from ..constants import STRUCTURE_NODE_CLASSES, TERMINAL_CLASS
 from ..models import ParsedCaseStructure, ParsedTerminalInfo
@@ -174,18 +174,25 @@ def _extract_one_case_structure(
                 ti.parsed_type.type_name,
             )
 
-    # Extract selector value mapping from SelectRangeArray32.
-    # Maps diagramIdx → integer index.
-    selector_values_by_diag: dict[int, int] = {}
+    # Extract selector ranges from SelectRangeArray32, keyed by diagramIdx.
+    # A frame can match SEVERAL ranges (e.g. ``1, 3, 5..8``); LabVIEW stores
+    # each as start/end (a single value has start == end). We preserve them
+    # all — the label is reconstructed from ranges, there is no stored label.
+    ranges_by_diag: dict[int, list[SelectorRange]] = {}
     select_range = case_elem.find("SelectRangeArray32")
     if select_range is not None:
         for sr_elem in select_range.findall(
             "SL__arrayElement[@class='SelectorRange']"
         ):
             start = sr_elem.findtext("start")
+            end = sr_elem.findtext("end")
             diag_idx = sr_elem.findtext("diagramIdx")
             if start is not None and diag_idx is not None:
-                selector_values_by_diag[int(diag_idx)] = int(start)
+                rng = SelectorRange(
+                    start=int(start),
+                    end=int(end) if end is not None else int(start),
+                )
+                ranges_by_diag.setdefault(int(diag_idx), []).append(rng)
 
     # For string selectors, the start values in SelectRangeArray32 are
     # indices into SelectStringArray (hex-encoded string labels).
@@ -202,8 +209,11 @@ def _extract_one_case_structure(
                 except (ValueError, UnicodeDecodeError):
                     string_labels.append(hex_text)
 
-    # Detect default case: SelectDefaultCase holds the hex diagram index
-    # of the default frame (FF = no default).
+    # Detect default case: SelectDefaultCase holds the hex diagram index of
+    # the default frame (FF = none). When it is absent/FF but a diagram has
+    # NO selector range, that diagram IS the implicit default (it catches all
+    # values the explicit frames don't) — LabVIEW labels it "Default". Missing
+    # this is what made non-boolean default frames fall through to "False".
     default_diag_idx: int | None = None
     default_case_elem = case_elem.findtext("SelectDefaultCase")
     if default_case_elem and default_case_elem.upper() != "FF":
@@ -211,29 +221,40 @@ def _extract_one_case_structure(
             default_diag_idx = int(default_case_elem, 16)
         except ValueError:
             pass
+    if default_diag_idx is None:
+        missing = [i for i in range(num_frames) if i not in ranges_by_diag]
+        if missing:
+            default_diag_idx = missing[0]
 
     # Extract diagram frames (cases)
     if diag_list is not None:
         for idx, diag_elem in enumerate(
             diag_list.findall("SL__arrayElement[@class='diag']")
         ):
+            is_default = idx == default_diag_idx
+            ranges = ranges_by_diag.get(idx, [])
             resolved_selector: str | None = None
-            if idx in selector_values_by_diag:
-                sv = selector_values_by_diag[idx]
+            if not is_default and ranges:
+                sv = ranges[0].start
                 if selector_type == "boolean":
                     resolved_selector = "True" if sv == 1 else "False"
                 elif selector_type == "string" and sv < len(string_labels):
                     resolved_selector = string_labels[sv]
                 else:
-                    # Integer, enum, error — use raw value
+                    # Integer, enum, error — semantic identity is the raw
+                    # first-range start; faithful display is built later from
+                    # ``selector_ranges`` against the resolved selector type.
                     resolved_selector = str(sv)
-
-            is_default = idx == default_diag_idx
 
             frame = _extract_frame(
                 diag_elem, idx, resolved_selector, is_default,
             )
             if frame:
+                # Ranges are display metadata for numeric/enum selectors; a
+                # boolean/string frame's ``selector_value`` already is the
+                # display token, and the default frame has no range.
+                if not is_default and selector_type not in ("boolean", "string"):
+                    frame.selector_ranges = ranges
                 frames.append(frame)
 
     return ParsedCaseStructure(

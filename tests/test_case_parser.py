@@ -39,13 +39,20 @@ def _build_case_xml(
     })
     ET.SubElement(term, "dco", attrib={"class": "cSelDCO"})
 
-    # SelectRangeArray32
+    # SelectRangeArray32. Each entry is (start, diagramIdx) — a single value —
+    # or (start, end, diagramIdx) for a closed range.
     sra = ET.SubElement(case, "SelectRangeArray32")
-    for start, diag_idx in select_ranges:
+    for entry in select_ranges:
+        if len(entry) == 3:
+            start, end, diag_idx = entry
+        else:
+            start, diag_idx = entry
+            end = start
         sr = ET.SubElement(sra, "SL__arrayElement", attrib={
             "class": "SelectorRange",
         })
         ET.SubElement(sr, "start").text = str(start)
+        ET.SubElement(sr, "end").text = str(end)
         ET.SubElement(sr, "diagramIdx").text = str(diag_idx)
 
     # SelectStringArray
@@ -214,3 +221,51 @@ class TestDefaultCase:
 
         for frame in cases[0].frames:
             assert frame.is_default is False
+
+    def test_implicit_default_when_frame_has_no_range(self):
+        """A non-boolean frame with NO SelectorRange is the implicit default
+        (LabVIEW labels it "Default"), not a spurious "False". Regression for
+        the boolean-fallback bug on enum/integer selectors."""
+        # Two diagrams, but only diag 1 has an explicit range (value 9).
+        root = _build_case_xml(
+            "cs1", "sel1",
+            select_ranges=[(9, 1)],
+            num_diags=2,
+        )
+        ti = _make_terminal_info("sel1", "NumInt32")
+        cases = extract_case_structures(root, ti)
+
+        cs = cases[0]
+        assert cs.frames[0].is_default is True
+        assert cs.frames[0].selector_value == "Default"
+        assert cs.frames[1].selector_value == "9"
+
+
+class TestSelectorRanges:
+    def test_single_range_and_multi_range_preserved(self):
+        """selector_ranges carries start/end faithfully, including several
+        ranges on one frame (e.g. ``1, 3, 5..8``)."""
+        root = _build_case_xml(
+            "cs1", "sel1",
+            # diag 0: 0..1 ; diag 1: 9 ; diag 2: 2..8
+            select_ranges=[(0, 1, 0), (9, 9, 1), (2, 8, 2)],
+            num_diags=3,
+        )
+        ti = _make_terminal_info("sel1", "NumInt32")
+        cs = extract_case_structures(root, ti)[0]
+
+        f0 = cs.frames[0]
+        assert [(r.start, r.end) for r in f0.selector_ranges] == [(0, 1)]
+        assert f0.selector_ranges[0].is_single is False
+        f1 = cs.frames[1]
+        assert [(r.start, r.end) for r in f1.selector_ranges] == [(9, 9)]
+        assert f1.selector_ranges[0].is_single is True
+        f2 = cs.frames[2]
+        assert [(r.start, r.end) for r in f2.selector_ranges] == [(2, 8)]
+
+    def test_boolean_frames_have_no_ranges(self):
+        """Booleans keep True/False in selector_value and carry no ranges."""
+        root = _build_case_xml("cs1", "sel1", select_ranges=[(0, 0), (1, 1)])
+        ti = _make_terminal_info("sel1", "Boolean")
+        cs = extract_case_structures(root, ti)[0]
+        assert all(f.selector_ranges == [] for f in cs.frames)

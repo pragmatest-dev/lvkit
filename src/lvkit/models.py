@@ -244,6 +244,26 @@ class PropertyDef(BaseModel):
 # ============================================================
 
 
+class SelectorRange(BaseModel):
+    """One selector range a case frame matches, from SelectRangeArray32.
+
+    A frame can match several: a single value (``start == end``, e.g. ``3``),
+    a closed range (``start..end``, e.g. ``3..10``), or an open range
+    (``open_start``/``open_end`` for ``..5`` / ``3..``). LabVIEW reconstructs
+    the selector label from these live — there is no stored per-frame label —
+    so we preserve them faithfully for the renderer to format by type
+    (enum item names, quoted strings, ``a, b``, ``a..b``)."""
+
+    start: int
+    end: int
+    open_start: bool = False  # "..end" — no lower bound
+    open_end: bool = False    # "start.." — no upper bound
+
+    @property
+    def is_single(self) -> bool:
+        return self.start == self.end and not self.open_start and not self.open_end
+
+
 class Frame(BaseModel):
     """Base frame — common fields for any structure frame."""
 
@@ -259,6 +279,11 @@ class CaseFrame(Frame):
 
     selector_value: str | int = 0
     is_default: bool = False
+    # Faithful selector ranges from SelectRangeArray32 (numeric/enum
+    # selectors). Empty for the default frame, booleans, and strings —
+    # there ``selector_value`` already holds the display token. The renderer
+    # formats these against the selector's resolved type.
+    selector_ranges: list[SelectorRange] = []
 
 
 class SequenceFrame(Frame):

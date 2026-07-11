@@ -30,6 +30,8 @@ class Theme:
     subvi_stroke: str = "#7a7d63"
     case_bar_fill: str = "#e9e6d2"
     case_bar_text: str = "#4a4636"
+    case_no_error_border: str = "#2e9e3f"  # green — error-cluster "No Error" frame
+    case_error_border: str = "#d32f2f"     # red — error-cluster "Error" frame
     selector_fill: str = "#e6f4d9"
     selector_stroke: str = "#5a8f3a"
     selector_text: str = "#3f6b28"

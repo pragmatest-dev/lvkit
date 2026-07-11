@@ -797,12 +797,15 @@ class _SelectorGeom:
 def _frame_display(structure: RenderStructure, scene: Scene, value: str) -> str:
     """Selector text for one frame value. A stacked sequence shows the frame
     number WITH the full range — ``N [0..M]`` (e.g. ``2 [0..2]``) — LabVIEW's
-    signature sequence label; a case shows its plain selector value."""
+    signature sequence label; a case shows its faithful, typed selector label
+    (enum item name, ``No Error``/``Error``, quoted string, ``a, b``, ``a..b``,
+    ``Default``) resolved in ``scene.frame_labels``, falling back to the raw
+    value."""
     if isinstance(structure.node, SequenceNode):  # flat isn't interactive
         values = scene.frame_values.get(structure.raw_uid, [])
         last = len(values) - 1 if values else 0
         return f"{value} [0..{last}]"
-    return value
+    return scene.frame_labels.get(structure.raw_uid, {}).get(value, value)
 
 
 def _selector_geom(
@@ -839,16 +842,41 @@ def _selector_geom(
     )
 
 
+def _error_border_color(
+    scene: Scene, raw_uid: str, value: str, theme: Theme,
+) -> str | None:
+    """Green (No Error) / red (Error) border color for an error-cluster case's
+    frame, or ``None`` if this structure isn't an error case. LabVIEW colors the
+    case border by the shown frame: green for the No-Error case, red otherwise.
+    """
+    err = scene.error_frame_no_error.get(raw_uid)
+    if err is None:
+        return None
+    return (
+        theme.case_no_error_border if err.get(value, False)
+        else theme.case_error_border
+    )
+
+
 def _draw_frame_border(
-    structure: RenderStructure, backend: Backend, theme: Theme,
+    structure: RenderStructure, scene: Scene, backend: Backend, theme: Theme,
 ) -> None:
     """The interactive structure's outer box only. LabVIEW draws NO header
     band — the selector is a compact ``◄ value ▼ ►`` widget that sits inside
     the top of the frame (drawn by ``_draw_frame_selector``), not a full-width
-    bar. The value text lives in the per-frame value-label groups (draw_scene)."""
+    bar. The value text lives in the per-frame value-label groups (draw_scene).
+
+    For an ERROR-cluster case the border is colored by the DEFAULT frame here
+    (green No Error / red Error) so the static SVG is correct; per-frame colored
+    borders drawn in ``draw_scene`` recolor it as the viewer switches frames."""
     x1, y1, x2, y2 = structure.bounds
-    backend.rect(x1, y1, x2, y2, fill="none", stroke=theme.struct_border,
-                 stroke_width=1.2)
+    default = scene.default_frame.get(structure.raw_uid, "")
+    color = _error_border_color(scene, structure.raw_uid, default, theme)
+    if color is not None:
+        backend.rect(x1, y1, x2, y2, fill="none", stroke=color, stroke_width=1.6)
+    else:
+        backend.rect(x1, y1, x2, y2, fill="none", stroke=theme.struct_border,
+                     stroke_width=1.2)
 
 
 def _draw_frame_selector(
@@ -989,7 +1017,8 @@ def _draw_sequence_border(
 
 
 def draw_structure(
-    structure: RenderStructure, backend: Backend, theme: Theme = DEFAULT_THEME,
+    structure: RenderStructure, scene: Scene, backend: Backend,
+    theme: Theme = DEFAULT_THEME,
 ) -> None:
     """A structure's border (and film-strip/selector chrome), drawn AFTER wires
     so it sits over the wire casing and is never notched by it. Every structure
@@ -1003,7 +1032,7 @@ def draw_structure(
     elif kind == "whileLoop":
         _draw_while_loop_border(x1, y1, x2, y2, backend, theme)
     elif kind in ("case", "stackedSequence"):
-        _draw_frame_border(structure, backend, theme)
+        _draw_frame_border(structure, scene, backend, theme)
     elif kind == "flatSequence":
         _draw_sequence_border(structure, backend, theme)
     else:
@@ -1216,7 +1245,7 @@ def _draw_layer_content(
     # Pass 2 — structure OUTLINES + selector chrome, then boundary terminals
     # (tunnels/SR/N-i), all ON TOP of the wires.
     for structure in structures:
-        draw_structure(structure, backend, theme)
+        draw_structure(structure, scene, backend, theme)
         if _is_interactive_structure(structure.node):
             _draw_frame_selector(structure, scene, backend, theme)
     for structure in structures:
@@ -1346,6 +1375,17 @@ def draw_scene(scene: Scene, backend: Backend, theme: Theme = DEFAULT_THEME) -> 
                 style=style,
             )
             _draw_frame_value_label(structure, scene, value, backend, theme)
+            # Error-cluster case: recolor the whole frame border green (No
+            # Error) / red (Error) with the shown frame. Drawn in this per-frame
+            # group so it flips with the selector; overlays the static default
+            # border painted by draw_structure.
+            err_color = _error_border_color(
+                scene, structure.raw_uid, value, theme,
+            )
+            if err_color is not None:
+                bx1, by1, bx2, by2 = structure.bounds
+                backend.rect(bx1, by1, bx2, by2, fill="none", stroke=err_color,
+                             stroke_width=1.6)
             backend.end_group()
 
     # Dropdown menus LAST so they overlay the whole diagram when opened (they
