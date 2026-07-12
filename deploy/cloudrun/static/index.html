@@ -13,24 +13,56 @@
   main{max-width:60rem;margin:0 auto;padding:clamp(1rem,4vw,2.5rem)}
   h1{font-size:1.3rem;margin:0 0 .3rem}
   p{color:var(--muted);margin:.2rem 0 1.2rem;font-size:.9rem}
-  .drop{border:2px dashed var(--line);border-radius:10px;padding:2.5rem 1rem;text-align:center;
-    background:var(--panel);cursor:pointer;transition:border-color .15s}
-  .drop.hot{border-color:var(--accent)}
-  .drop input{display:none}
-  .out{margin-top:1.4rem;background:var(--panel);border:1px solid var(--line);border-radius:10px;
-    overflow:auto;padding:1rem;min-height:6rem}
-  .out svg{display:block;max-width:100%;height:auto}
-  .err{color:#b4462f;font-size:.9rem;white-space:pre-wrap}
+  button{font:.85rem/1.4 ui-sans-serif,system-ui,sans-serif;
+    padding:.4rem .7rem;border-radius:6px;border:1px solid var(--line);
+    background:var(--panel);color:var(--ink);cursor:pointer}
+  button:hover{border-color:var(--muted)}
+  button[hidden]{display:none}
+  .topline{display:flex;justify-content:space-between;align-items:flex-start;gap:1rem}
+  .controls{display:flex;gap:.5rem;flex:none;align-items:flex-start}
+  /* Zoom/pan toolbar OVER the frame. */
+  .toolbar{display:flex;justify-content:space-between;align-items:center;gap:1rem;
+    flex-wrap:wrap;margin:.6rem 0 .35rem}
+  .toolbar[hidden]{display:none}
+  .zoom{display:flex;gap:.3rem;align-items:center}
+  .zoom button{padding:.25rem .55rem;min-width:2rem}
+  .zoom .lvl{min-width:3.4em;text-align:center;font-size:.82rem;color:var(--muted);
+    cursor:pointer;font-variant-numeric:tabular-nums;user-select:none}
+  .toolbar .tip{color:var(--muted);font-size:.76rem}
+  /* One unified stage: it IS the drop target AND the SVG viewer — no separate,
+     overlapping boxes. Shows the prompt when empty, the diagram once rendered. */
+  .stage{position:relative;background:var(--panel);border:2px dashed var(--line);
+    border-radius:10px;min-height:15rem;padding:1rem;overflow:auto;transition:border-color .15s}
+  .stage.hot{border-color:var(--accent)}
+  .stage.has-svg{border-style:solid;padding:0;max-height:72vh;cursor:grab}
+  .stage.grabbing{cursor:grabbing}
+  /* Fit-to-width by default; applySize() overrides with explicit px + maxWidth:none
+     when zooming, so if sizing ever fails the diagram still fits (no runaway scroll). */
+  .stage svg{display:block;max-width:100%;height:auto;margin:0 auto}
+  .placeholder{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+    text-align:center;color:var(--muted);cursor:pointer;padding:1.5rem}
+  .stage.has-svg .placeholder{display:none}
+  .placeholder b{color:var(--accent)}
+  .placeholder.err{color:#b4462f;white-space:pre-wrap;cursor:default}
+  /* Controls legend UNDER the frame. */
+  .legend{display:flex;flex-wrap:wrap;gap:.4rem 1.1rem;margin:.55rem 0 0;
+    color:var(--muted);font-size:.78rem}
+  .legend[hidden]{display:none}
+  .legend b{color:var(--ink);font-weight:600}
+  .legend kbd{font:inherit;border:1px solid var(--line);border-radius:4px;
+    padding:0 .3em;background:var(--bg)}
+  /* Minimap / navigation overlay (RTS-style), pinned over the stage corner. */
+  .stage-wrap{position:relative}
+  .minimap{position:absolute;right:10px;bottom:10px;width:180px;max-width:45%;
+    background:var(--panel);border:1px solid var(--line);border-radius:6px;
+    box-shadow:0 2px 12px rgba(0,0,0,.28);overflow:hidden;z-index:5;cursor:pointer}
+  .minimap[hidden]{display:none}
+  .mm-img{display:block;width:100%;height:auto;pointer-events:none;opacity:.92}
+  .mm-view{position:absolute;border:2px solid var(--accent);border-radius:2px;
+    background:var(--accent);opacity:.22;pointer-events:none}
   footer.disclaimer{margin-top:1.6rem;padding-top:1rem;border-top:1px solid var(--line);
     color:var(--muted);font-size:.78rem;line-height:1.5}
   footer.disclaimer a{color:var(--muted)}
-  .topline{display:flex;justify-content:space-between;align-items:flex-start;gap:1rem}
-  #lv-theme-toggle{flex:none;font:.85rem/1.4 ui-sans-serif,system-ui,sans-serif;
-    padding:.4rem .8rem;border-radius:6px;border:1px solid var(--line);
-    background:var(--panel);color:var(--ink);cursor:pointer}
-  #lv-theme-toggle:hover{border-color:var(--muted)}
-  /* Image-only diagram theme (scoped to svg[data-lv-theme="dark"]); this
-     page's own chrome above is fixed and never toggles. */
   /* {{THEME_VARS}} */
 </style>
 </head>
@@ -41,13 +73,45 @@
       <h1>VI → block diagram</h1>
       <p>Drop a <code>.vi</code> file (or click) to render it as an SVG. No LabVIEW required.</p>
     </div>
-    {{THEME_TOGGLE_BUTTON}}
+    <div class="controls">
+      <button id="open" type="button">Open .vi</button>
+      <button id="dl" type="button" hidden>Download SVG</button>
+      {{THEME_TOGGLE_BUTTON}}
+    </div>
   </div>
-  <label class="drop" id="drop">
-    <input type="file" id="file" accept=".vi">
-    <span id="label">Choose or drop a .vi file</span>
-  </label>
-  <div class="out" id="out"></div>
+
+  <div class="toolbar" id="toolbar" hidden>
+    <div class="zoom">
+      <button id="zout" type="button" title="Zoom out">&minus;</button>
+      <span class="lvl" id="zlvl" title="Click to reset to 100%">100%</span>
+      <button id="zin" type="button" title="Zoom in">+</button>
+      <button id="zfit" type="button" title="Fit to width">Fit</button>
+    </div>
+    <div class="tip">Drag to pan · Ctrl/⌘ + scroll to zoom</div>
+  </div>
+
+  <div class="stage-wrap">
+    <div class="stage" id="stage">
+      <div class="out" id="out"></div>
+      <label class="placeholder" id="ph">
+        <input type="file" id="file" accept=".vi" hidden>
+        <span id="phmsg">Choose or <b>drop a .vi file</b> here</span>
+      </label>
+    </div>
+    <div class="minimap" id="minimap" hidden>
+      <img class="mm-img" id="mmImg" alt="Diagram overview">
+      <div class="mm-view" id="mmView"></div>
+    </div>
+  </div>
+
+  <div class="legend" id="legend" hidden>
+    <span><b>Zoom</b> &minus;/+ buttons or <kbd>Ctrl</kbd>/<kbd>⌘</kbd> + scroll</span>
+    <span><b>Pan</b> drag the diagram, or scroll</span>
+    <span><b>Navigate</b> drag the box on the minimap</span>
+    <span><b>Details</b> hover a node or wire</span>
+    <span><b>Frames</b> click a structure's ◄ ▼ ► selector</span>
+  </div>
+
   <footer class="disclaimer">
     lvkit is an independent, clean-room project — <b>not affiliated with, endorsed by, or sponsored by NI</b>.
     It reads VI files using only publicly available information; no LabVIEW or NI software is required.
@@ -56,44 +120,202 @@
   </footer>
 </main>
 <script>
-  const drop = document.getElementById('drop');
+  const stage = document.getElementById('stage');
   const file = document.getElementById('file');
   const out = document.getElementById('out');
-  const label = document.getElementById('label');
+  const dl = document.getElementById('dl');
+  const openBtn = document.getElementById('open');
+  const ph = document.getElementById('ph');
+  const phmsg = document.getElementById('phmsg');
+  const toolbar = document.getElementById('toolbar');
+  const legend = document.getElementById('legend');
+  const zlvl = document.getElementById('zlvl');
+  const minimap = document.getElementById('minimap');
+  const mmImg = document.getElementById('mmImg');
+  const mmView = document.getElementById('mmView');
+  let lastSvg = '', lastName = 'diagram';
+  let svgEl = null, baseW = 0, baseH = 0, zoom = 1;
 
+  const esc = s => String(s).replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+  const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+
+  function idle(html, isErr){
+    // Clear any previously-rendered diagram: without this, uploading a second
+    // VI leaves the OLD svg in #out (with stale zoom sizing) showing *through*
+    // the transparent placeholder while the new one renders — oversized, no
+    // controls. idle() means "no diagram shown", so wipe it.
+    out.innerHTML = '';
+    stage.classList.remove('has-svg');
+    ph.classList.toggle('err', !!isErr);
+    phmsg.innerHTML = html;
+    toolbar.hidden = true; legend.hidden = true; dl.hidden = true;
+    minimap.hidden = true;
+    svgEl = null;
+  }
+
+  // ---- zoom / pan -------------------------------------------------------
+  function applySize(){
+    if(!svgEl) return;
+    svgEl.style.width = (baseW * zoom) + 'px';
+    svgEl.style.height = (baseH * zoom) + 'px';
+    svgEl.style.maxWidth = 'none';
+    svgEl.style.margin = '0 auto';
+    zlvl.textContent = Math.round(zoom * 100) + '%';
+    updateMmView();
+  }
+  function fitZoom(){
+    return baseW > 0 ? stage.clientWidth / baseW : 1;
+  }
+  // nz = new zoom; (ax, ay) = anchor point in stage-viewport coords (keeps
+  // the content under the cursor fixed). Defaults to the viewport centre.
+  function zoomTo(nz, ax, ay){
+    if(!svgEl) return;
+    nz = clamp(nz, 0.1, 8);
+    if(ax == null){ ax = stage.clientWidth / 2; ay = stage.clientHeight / 2; }
+    const rx = (stage.scrollLeft + ax) / (baseW * zoom);
+    const ry = (stage.scrollTop + ay) / (baseH * zoom);
+    zoom = nz;
+    applySize();
+    stage.scrollLeft = rx * baseW * zoom - ax;
+    stage.scrollTop = ry * baseH * zoom - ay;
+  }
+  function initZoom(){
+    const vb = (svgEl.getAttribute('viewBox') || '').trim().split(/[\s,]+/).map(Number);
+    if(vb.length === 4){ baseW = vb[2]; baseH = vb[3]; }
+    else {
+      const r = svgEl.getBoundingClientRect();
+      baseW = parseFloat(svgEl.getAttribute('width')) || r.width;
+      baseH = parseFloat(svgEl.getAttribute('height')) || r.height;
+    }
+    zoom = clamp(Math.min(1, fitZoom()), 0.1, 8);  // show full width, never upscale
+    applySize();
+    stage.scrollTop = 0; stage.scrollLeft = 0;
+  }
+
+  document.getElementById('zin').addEventListener('click', () => zoomTo(zoom * 1.25));
+  document.getElementById('zout').addEventListener('click', () => zoomTo(zoom / 1.25));
+  document.getElementById('zfit').addEventListener('click', () => { zoomTo(fitZoom()); stage.scrollTop = 0; });
+  zlvl.addEventListener('click', () => zoomTo(1));
+
+  stage.addEventListener('wheel', e => {
+    if(!svgEl || !(e.ctrlKey || e.metaKey)) return;   // plain wheel = native scroll
+    e.preventDefault();
+    const rect = stage.getBoundingClientRect();
+    const factor = e.deltaY < 0 ? 1.15 : 1 / 1.15;
+    zoomTo(zoom * factor, e.clientX - rect.left, e.clientY - rect.top);
+  }, {passive: false});
+
+  // Drag-to-pan. A small movement threshold lets a stationary press still
+  // click through to the SVG's own interactive chrome (frame selector).
+  let panning = false, sx = 0, sy = 0, sl = 0, st = 0, moved = false;
+  stage.addEventListener('pointerdown', e => {
+    if(!svgEl || e.button !== 0) return;
+    panning = true; moved = false;
+    sx = e.clientX; sy = e.clientY; sl = stage.scrollLeft; st = stage.scrollTop;
+  });
+  stage.addEventListener('pointermove', e => {
+    if(!panning) return;
+    const dx = e.clientX - sx, dy = e.clientY - sy;
+    if(!moved && Math.hypot(dx, dy) < 4) return;
+    moved = true; stage.classList.add('grabbing');
+    stage.scrollLeft = sl - dx; stage.scrollTop = st - dy;
+  });
+  window.addEventListener('pointerup', () => { panning = false; stage.classList.remove('grabbing'); });
+  // Swallow the click that fires after a real drag so it doesn't hit the SVG.
+  stage.addEventListener('click', e => {
+    if(moved){ e.stopPropagation(); e.preventDefault(); moved = false; }
+  }, true);
+
+  // ---- minimap / navigation --------------------------------------------
+  // Thumbnail is an <img> data-URI: renders the SVG in isolation, so it can't
+  // collide with the live diagram's element IDs or re-run its scripts.
+  function buildMinimap(text){
+    mmImg.onload = updateMmView;
+    mmImg.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(text);
+  }
+  function updateMmView(){
+    if(!svgEl){ minimap.hidden = true; return; }
+    const contentW = baseW * zoom, contentH = baseH * zoom;
+    const fx = Math.min(1, stage.clientWidth / contentW);
+    const fy = Math.min(1, stage.clientHeight / contentH);
+    if(fx >= 0.999 && fy >= 0.999){ minimap.hidden = true; return; }  // whole thing visible
+    minimap.hidden = false;
+    const mmW = minimap.clientWidth, mmH = minimap.clientHeight;
+    mmView.style.left   = (stage.scrollLeft / contentW) * mmW + 'px';
+    mmView.style.top    = (stage.scrollTop  / contentH) * mmH + 'px';
+    mmView.style.width  = fx * mmW + 'px';
+    mmView.style.height = fy * mmH + 'px';
+  }
+  // Click/drag anywhere on the minimap centres the main view there.
+  function mmJump(e){
+    const r = minimap.getBoundingClientRect();
+    const contentW = baseW * zoom, contentH = baseH * zoom;
+    stage.scrollLeft = ((e.clientX - r.left) / r.width)  * contentW - stage.clientWidth / 2;
+    stage.scrollTop  = ((e.clientY - r.top)  / r.height) * contentH - stage.clientHeight / 2;
+  }
+  let mmDrag = false;
+  minimap.addEventListener('pointerdown', e => { mmDrag = true; mmJump(e); e.preventDefault(); });
+  minimap.addEventListener('pointermove', e => { if(mmDrag) mmJump(e); });
+  window.addEventListener('pointerup', () => { mmDrag = false; });
+  stage.addEventListener('scroll', updateMmView);
+
+  // ---- render -----------------------------------------------------------
   async function send(f){
     if(!f) return;
-    label.textContent = 'Rendering ' + f.name + '…';
-    out.innerHTML = '';
+    idle('Rendering ' + esc(f.name) + '…', false);
     const fd = new FormData(); fd.append('vi', f);
     try{
       const r = await fetch('/render', {method:'POST', body: fd});
       const text = await r.text();
-      if(!r.ok){ out.innerHTML = '<div class="err">'+text+'</div>'; }
-      else {
-        out.innerHTML = text;
-        // A <script> inside an SVG inserted via innerHTML does NOT execute, so
-        // the hover panels + frame selector stay dead. Re-create each script
-        // element so the browser runs it and the diagram becomes interactive.
+      if(!r.ok){ idle(esc(text), true); return; }
+      out.innerHTML = text;
+      // A <script> inside an SVG inserted via innerHTML does NOT execute, so
+      // re-create each one so the diagram's hover panels + frame selector work.
+      // Guarded: a faulty embedded script must not break the viewer chrome.
+      try {
         out.querySelectorAll('script').forEach(old => {
           const s = document.createElement('script');
           for(const a of old.attributes) s.setAttribute(a.name, a.value);
           s.textContent = old.textContent;
           old.replaceWith(s);
         });
-      }
-    }catch(e){ out.innerHTML = '<div class="err">'+e+'</div>'; }
-    label.textContent = f.name + ' — choose another';
+      } catch (_) { /* diagram interactivity is best-effort */ }
+      svgEl = out.querySelector('svg');
+      lastSvg = text;
+      lastName = f.name.replace(/\.vi$/i, '') || 'diagram';
+      // Reveal the chrome BEFORE sizing so a sizing hiccup can never leave a
+      // control-less view; zoom-fit and minimap are then best-effort.
+      stage.classList.add('has-svg');
+      toolbar.hidden = false; legend.hidden = false; dl.hidden = false;
+      try { if (svgEl) initZoom(); } catch (_) { /* keeps chrome + fit-by-CSS svg */ }
+      try { buildMinimap(text); } catch (_) { /* minimap optional */ }
+    }catch(e){ out.innerHTML = ''; idle(esc(e), true); }
   }
 
+  openBtn.addEventListener('click', () => file.click());
   file.addEventListener('change', e => send(e.target.files[0]));
-  ['dragover','dragenter'].forEach(ev => drop.addEventListener(ev, e => {
-    e.preventDefault(); drop.classList.add('hot');
+
+  dl.addEventListener('click', () => {
+    if(!lastSvg) return;
+    const blob = new Blob([lastSvg], {type:'image/svg+xml;charset=utf-8'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = lastName + '.svg';
+    document.body.appendChild(a); a.click(); a.remove();
+    URL.revokeObjectURL(url);
+  });
+
+  // Drag-and-drop a FILE onto the whole stage (empty or showing a diagram).
+  ['dragover','dragenter'].forEach(ev => stage.addEventListener(ev, e => {
+    e.preventDefault(); stage.classList.add('hot');
   }));
-  ['dragleave','drop'].forEach(ev => drop.addEventListener(ev, e => {
-    e.preventDefault(); drop.classList.remove('hot');
+  ['dragleave','dragend'].forEach(ev => stage.addEventListener(ev, e => {
+    e.preventDefault(); stage.classList.remove('hot');
   }));
-  drop.addEventListener('drop', e => send(e.dataTransfer.files[0]));
+  stage.addEventListener('drop', e => {
+    e.preventDefault(); stage.classList.remove('hot');
+    if(e.dataTransfer.files && e.dataTransfer.files.length) send(e.dataTransfer.files[0]);
+  });
 </script>
 {{THEME_TOGGLE_SCRIPT}}
 </body>
