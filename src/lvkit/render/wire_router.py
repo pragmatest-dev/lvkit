@@ -183,6 +183,24 @@ class WireRouter:
             (o[0] - c, o[1] - c, o[2] + c, o[3] + c) for o in interiors
         ]
 
+        # Spatial buckets over the (small) per-route obstacle lists so the
+        # point-in-rect and segment-vs-rect tests below scan only nearby rects
+        # rather than every obstacle. Results are identical: both tests are an
+        # OR over rects, so which rects get *checked* cannot change the answer,
+        # and bucketing by full rect extent is a safe superset of any hit.
+        cell = 48.0
+
+        def _index(rects: list[Rect]) -> dict[tuple[int, int], list[Rect]]:
+            grid: dict[tuple[int, int], list[Rect]] = {}
+            for r in rects:
+                for cx in range(int(r[0] // cell), int(r[2] // cell) + 1):
+                    for cy in range(int(r[1] // cell), int(r[3] // cell) + 1):
+                        grid.setdefault((cx, cy), []).append(r)
+            return grid
+
+        interior_grid = _index(interiors)
+        inflated_grid = _index(inflated)
+
         def clamp(v: float, lo: float, hi: float) -> float:
             return lo if v < lo else hi if v > hi else v
 
@@ -199,7 +217,8 @@ class WireRouter:
         ys_l = sorted(ys)
 
         def strictly_inside_inflated(x: float, y: float) -> bool:
-            for (ix1, iy1, ix2, iy2) in inflated:
+            cell_key = (int(x // cell), int(y // cell))
+            for (ix1, iy1, ix2, iy2) in inflated_grid.get(cell_key, ()):
                 if ix1 < x < ix2 and iy1 < y < iy2:
                     return True
             return False
@@ -220,12 +239,19 @@ class WireRouter:
             (sx, sy), (tx, ty) = a, b
             lo_x, hi_x = min(sx, tx), max(sx, tx)
             lo_y, hi_y = min(sy, ty), max(sy, ty)
-            for (ox1, oy1, ox2, oy2) in interiors:
-                # axis-aligned segment vs rect interior (1px inset so touching
-                # an edge is allowed)
-                if hi_x > ox1 + 1 and lo_x < ox2 - 1 and \
-                        hi_y > oy1 + 1 and lo_y < oy2 - 1:
-                    return True
+            seen: set[Rect] = set()
+            for cx in range(int(lo_x // cell), int(hi_x // cell) + 1):
+                for cy in range(int(lo_y // cell), int(hi_y // cell) + 1):
+                    for obstacle in interior_grid.get((cx, cy), ()):
+                        if obstacle in seen:
+                            continue
+                        seen.add(obstacle)
+                        ox1, oy1, ox2, oy2 = obstacle
+                        # axis-aligned segment vs rect interior (1px inset so
+                        # touching an edge is allowed)
+                        if hi_x > ox1 + 1 and lo_x < ox2 - 1 and \
+                                hi_y > oy1 + 1 and lo_y < oy2 - 1:
+                            return True
             return False
 
         # Build orthogonal adjacency: each node connects to its immediate
