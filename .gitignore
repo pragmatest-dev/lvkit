@@ -124,3 +124,6 @@ src/lvkit/data/glyphs/*.svg
 
 # Local-only experiment/scratch VIs (unprovable provenance — never redistribute)
 experiments/
+
+# Claude Code agent worktrees (transient)
+.claude/worktrees/
