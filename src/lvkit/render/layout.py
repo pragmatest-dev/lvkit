@@ -87,6 +87,12 @@ class Layout:
     # ``dIdx``) — the faithful initial view (frame 0 is often an empty setup
     # frame).
     sequence_shown_frame: dict[str, int] = field(default_factory=dict)
+    # Constant raw uid -> the absolute rect of its developer-authored OWNED
+    # LABEL (the ``partsList`` ``class="label"`` part). Kept apart from
+    # node_bounds (which is the value box, label EXCLUDED — task #77); the
+    # renderer draws the label text here only when the graph carries label
+    # text (``ConstantNode.label``) for the uid.
+    label_bounds: dict[str, Rect] = field(default_factory=dict)
     icon_png: Path | None = None
 
     def scene_bounds(self, pad: float = 30.0) -> Rect:
@@ -95,6 +101,7 @@ class Layout:
         ys: list[float] = []
         for x1, y1, x2, y2 in (
             *self.node_bounds.values(), *self.border_terminals.values(),
+            *self.label_bounds.values(),
         ):
             xs += [x1, x2]
             ys += [y1, y2]
@@ -112,9 +119,69 @@ def _rect(elem: ET.Element, tag: str = "bounds") -> Rect | None:
     return float(left), float(t), float(r), float(btm)  # x1, y1, x2, y2
 
 
+def _const_value_box(ddo: ET.Element) -> Rect | None:
+    """The DRAWABLE box of a constant DDO, EXCLUDING its caption ``label``
+    part.
+
+    A constant DDO's own ``<bounds>`` is the bounding box of every part it
+    owns — and when the developer gave the constant an inline caption, that
+    caption (``partsList`` entry ``class="label"``, the free text beside the
+    value) sits INSIDE those bounds and inflates them: a hex ``U32`` showing
+    ``x2`` reports a 139x69 rect whose left ~120px is the caption region, with
+    the real 19x19 value box (``cosm``/``numLabel`` parts) squeezed to the
+    right (task #77). Using the raw DDO bounds draws a giant empty box and
+    swallows the caption.
+
+    The value box is the union of the DDO's NON-caption parts (their bounds are
+    relative to the DDO's top-left origin). This can only ever match or SHRINK
+    the DDO box — the excluded caption is the sole part that extends it — so a
+    constant with no inline caption (the common case; its caption sits at a
+    negative offset, already outside the DDO bounds) is unchanged. Returns None
+    if the DDO has no usable part geometry, so callers fall back to the raw box.
+    """
+    box = _rect(ddo)
+    parts = ddo.find("partsList")
+    if box is None or parts is None:
+        return box
+    ox, oy = box[0], box[1]  # DDO origin; part bounds are relative to it
+    rects = [
+        r for p in parts.findall("SL__arrayElement")
+        if p.get("class") != "label" and (r := _rect(p)) is not None
+    ]
+    if not rects:
+        return box
+    # Union of the non-caption parts, CLAMPED to the DDO box so this can only
+    # ever SHRINK it (drop the caption region), never grow it — a caption-free
+    # constant whose value part happens to overhang the frame by a pixel stays
+    # byte-identical instead of being silently resized.
+    return (
+        max(box[0], ox + min(r[0] for r in rects)),
+        max(box[1], oy + min(r[1] for r in rects)),
+        min(box[2], ox + max(r[2] for r in rects)),
+        min(box[3], oy + max(r[3] for r in rects)),
+    )
+
+
+def _const_label_box(ddo: ET.Element) -> Rect | None:
+    """Absolute rect of a constant's caption (``partsList`` ``class="label"``
+    part), or None. Its bounds are relative to the DDO origin, exactly like the
+    value parts in :func:`_const_value_box`. Paired with the graph's caption
+    TEXT (``ConstantNode.label``) to draw the free label at its real position."""
+    box = _rect(ddo)
+    lab = ddo.find("partsList/SL__arrayElement[@class='label']")
+    if box is None or lab is None:
+        return None
+    r = _rect(lab)
+    if r is None:
+        return None
+    ox, oy = box[0], box[1]
+    return (ox + r[0], oy + r[1], ox + r[2], oy + r[3])
+
+
 class _LayoutBuilder:
     def __init__(self) -> None:
         self.node_bounds: dict[str, Rect] = {}
+        self.label_bounds: dict[str, Rect] = {}
         self.terminal_centers: dict[str, Point] = {}
         self.border_terminals: dict[str, Rect] = {}
         self.border_terminal_kind: dict[str, str] = {}
@@ -242,8 +309,9 @@ class _LayoutBuilder:
             tb = _rect(term, ".//termBounds")
             ddo = term.find(".//ddo")
             # A constant attached directly to this terminal (bDConstDCO) has
-            # NO termBounds of its own — only its nested ddo carries a box.
-            cb = _rect(ddo) if ddo is not None else None
+            # NO termBounds of its own — only its nested ddo carries a box. Use
+            # the value-only box (drop the inline caption region — task #77).
+            cb = _const_value_box(ddo) if ddo is not None else None
             if tb is None and cb is None:
                 continue
 
@@ -276,6 +344,15 @@ class _LayoutBuilder:
                 )
                 if term_uid:
                     self.node_bounds[term_uid] = abs_cb
+                    # Its caption (free label) rect, same offset frame as the
+                    # value box — the renderer draws text here iff the graph
+                    # carries caption text for this uid (task #77).
+                    capb = _const_label_box(ddo) if ddo is not None else None
+                    if capb is not None:
+                        self.label_bounds[term_uid] = (
+                            ox + capb[0] + off_x, oy + capb[1] + off_y,
+                            ox + capb[2] + off_x, oy + capb[3] + off_y,
+                        )
                 cx = (abs_cb[0] + abs_cb[2]) / 2
                 cy = (abs_cb[1] + abs_cb[3]) / 2
             for u in self._collect_uids(term):
@@ -438,5 +515,6 @@ def build_layout(vi_or_bd: Path) -> Layout:
         hidden_labels=builder.hidden_labels,
         sequence_dividers=builder.sequence_dividers,
         sequence_shown_frame=builder.sequence_shown_frame,
+        label_bounds=builder.label_bounds,
         icon_png=icon if icon.exists() else None,
     )

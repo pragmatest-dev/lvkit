@@ -61,6 +61,25 @@ def _extract_display_format(dco: ET.Element) -> str | None:
     return None
 
 
+def _extract_caption(dco: ET.Element) -> str | None:
+    """The constant's developer-authored CAPTION (its free-label text), or None.
+
+    LabVIEW keeps a constant's caption in its own ``ddo`` as a ``partsList``
+    part ``class="label"`` (NOT a ``<label>`` tag — the earlier selector looked
+    for the wrong element and always missed it, so every caption was dropped).
+    The text is quoted and may span multiple lines; ``clean_labview_string``
+    strips the quotes and drops binary ``&#xNN;`` byte-entities (so a caption
+    that is nothing but a control char, e.g. ``"&#x00;"``, cleans to empty and
+    is filtered out). ``objFlags`` bit ``0x8`` is NOT a visibility flag here
+    (most VISIBLE captions have it set), so it is deliberately not consulted.
+    """
+    text_el = dco.find("ddo/partsList/SL__arrayElement[@class='label']/textRec/text")
+    if text_el is None or not text_el.text:
+        return None
+    caption = clean_labview_string(text_el.text).strip()
+    return caption or None
+
+
 def extract_constants(root: ET.Element) -> list[ParsedConstant]:
     """Extract constants from the block diagram.
 
@@ -81,16 +100,7 @@ def extract_constants(root: ET.Element) -> list[ParsedConstant]:
         uid = term.get("uid")
         type_desc = dco.find("typeDesc")
         value_hex = _extract_const_value_hex(dco)
-
-        # Try to get label from nested ddo
-        label_elem = dco.find(".//multiLabel/buf")
-        label = label_elem.text if label_elem is not None else None
-
-        # Also check for regular labels
-        if label is None:
-            label_elem = dco.find(".//label/textRec/text")
-            if label_elem is not None and label_elem.text:
-                label = clean_labview_string(label_elem.text)
+        label = _extract_caption(dco)
 
         if value_hex is not None:
             constants.append(ParsedConstant(

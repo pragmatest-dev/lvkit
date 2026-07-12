@@ -19,6 +19,7 @@ import pytest
 from lvkit.graph.core import InMemoryVIGraph
 from lvkit.graph.models import (
     CaseStructureNode,
+    ConstantNode,
     LocalVariableNode,
     LoopNode,
     PrimitiveNode,
@@ -332,6 +333,15 @@ def test_measure_text_grows_with_length_and_size():
 
 GROUND_TRUTH_VI = Path(".tmp/array average 1.vi")
 
+# A VI with two captioned numeric constants: an I32 "Index" = 1 (decimal) and a
+# hex-format U32 = 0x02 labelled "0x02 => Open Templates for Editing…" — the
+# fixture for #59 (value + hex format) and #77 (value-box shrink + owned label).
+CONST_LABEL_VI = Path(
+    "samples/OpenG/extracted/File Group 0/user.lib/_OpenG.lib/appcontrol/"
+    "appcontrol.llb/Current VIs Reference__ogtk.vi"
+)
+OPENG_SEARCH = [Path("samples/OpenG/extracted")]
+
 # Small, pre-verified samples covering: plain leaf VI, SubVI calls, a Case
 # structure, and a Case structure NESTED inside another structure.
 CASE_VI = Path("samples/LabVIEW-DAQ/Fiber Photometry/TrackDroppedFrames_FP.vi")
@@ -478,6 +488,42 @@ def test_render_vi_file_matches_ground_truth_shape():
     assert ">N<" in svg  # loop count border terminal, from the graph tunnel
     assert ">+<" in svg and ">÷<" in svg  # Add / Divide primitives
     assert DEFAULT_THEME.wire_float in svg
+
+
+def test_constant_value_box_shrinks_past_caption_and_renders_owned_label():
+    """A captioned numeric constant draws a COMPACT value box (not the
+    caption-inflated DDO bounds) plus its owned label as free text — task #77,
+    built on the #59 value+format extraction. The hex constant also proves the
+    #59 radix format (0x02 -> ``x2``) survives the normal re-extraction path."""
+    if not CONST_LABEL_VI.exists():
+        pytest.skip(f"sample VI not available: {CONST_LABEL_VI}")
+    graph = InMemoryVIGraph()
+    graph.load_vi(CONST_LABEL_VI, expand_subvis=False, search_paths=OPENG_SEARCH)
+    name = graph.resolve_vi_name(CONST_LABEL_VI.name)
+    scene = build_scene(graph, name)
+
+    by_val = {
+        rn.node.value: rn
+        for rn in scene.nodes
+        if isinstance(rn.node, ConstantNode)
+    }
+    assert {"1", "2"} <= by_val.keys()
+    hexc = by_val["2"]
+    # Compact value cell, NOT the ~139x69 caption-inflated DDO box.
+    assert hexc.bounds[2] - hexc.bounds[0] < 40
+    assert hexc.bounds[3] - hexc.bounds[1] < 40
+    # Owned label carries the developer's free-text caption, drawn separately.
+    assert hexc.owned_label is not None
+    assert "Open Templates" in hexc.owned_label.text
+    assert by_val["1"].owned_label is not None
+    assert by_val["1"].owned_label.text == "Index"
+
+    svg = render_vi_file(
+        CONST_LABEL_VI, expand_subvis=False, search_paths=OPENG_SEARCH,
+    )
+    assert svg is not None
+    assert ">x2<" in svg   # #59 hex radix value survives re-extraction
+    assert "Index" in svg  # #77 owned label rendered
 
 
 def test_render_vi_file_determinism_same_process():

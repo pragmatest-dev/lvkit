@@ -101,6 +101,16 @@ FramePath = tuple[tuple[str, str], ...]
 
 
 @dataclass(frozen=True)
+class RenderLabel:
+    """A constant's developer-authored OWNED LABEL (free text) drawn at its heap
+    position (``Layout.label_bounds``). ``text`` may hold embedded newlines
+    (LabVIEW owned labels are multi-line)."""
+
+    text: str
+    bounds: Rect
+
+
+@dataclass(frozen=True)
 class RenderNode:
     """A non-structure graph node (primitive, SubVI call, constant, ...)."""
 
@@ -115,6 +125,8 @@ class RenderNode:
     terminals: list[RenderTerminal] = field(default_factory=list)
     label_visible: bool = True
     frame_path: FramePath = ()
+    # A constant's owned-label free text (task #77), when it has one.
+    owned_label: RenderLabel | None = None
 
 
 @dataclass(frozen=True)
@@ -1299,9 +1311,18 @@ def build_scene(graph: InMemoryVIGraph, vi_name: str) -> Scene | None:
             glyph = resolve_glyph(node, glyph_ctx)
             terminals = _render_terminals(node, layout, vi_name, bounds)
             label_visible = raw_uid not in layout.hidden_labels
+            # A constant's owned label (free text) draws at its own heap rect —
+            # present only when BOTH the graph carries the text and the layout
+            # carries its geometry (task #77).
+            owned_label = None
+            label_text = getattr(node, "label", None)
+            label_rect = layout.label_bounds.get(raw_uid)
+            if label_text and label_rect is not None:
+                owned_label = RenderLabel(text=label_text, bounds=label_rect)
             render_nodes.append(RenderNode(
                 node=node, bounds=bounds, glyph=glyph, terminals=terminals,
                 label_visible=label_visible, frame_path=fp_path,
+                owned_label=owned_label,
             ))
 
     fp_terminals: list[RenderFPTerminal] = []

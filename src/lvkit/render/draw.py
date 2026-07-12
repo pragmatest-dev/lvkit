@@ -34,6 +34,7 @@ from .nodes import _CLUSTER_MUX_TYPES, mux_display_name
 from .scene import (
     FramePath,
     RenderBorderTerminal,
+    RenderLabel,
     RenderNode,
     RenderStructure,
     RenderTerminal,
@@ -184,8 +185,31 @@ def draw_node(node: RenderNode, backend: Backend, theme: Theme = DEFAULT_THEME) 
             x1, y1, x2, y2 = node.bounds
             backend.text((x1 + x2) / 2, y2 + 9, name, 8.0, fill=theme.text)
 
+    if node.owned_label is not None:
+        _draw_owned_label(node.owned_label, backend, theme)
+
     if tooltip:
         backend.end_group()
+
+
+# Owned-label (constant free-label) text metrics — left-aligned, drawn top-down
+# inside the label's heap rect.
+_LABEL_TEXT_SIZE = 8.0
+_LABEL_LINE_H = _LABEL_TEXT_SIZE + 2.0
+
+
+def _draw_owned_label(
+    label: RenderLabel, backend: Backend, theme: Theme,
+) -> None:
+    """Draw a constant's developer-authored owned label (free text) at its heap
+    position — left-aligned, one line per embedded newline (LabVIEW owned labels
+    are multi-line). Text-color only, no box; LabVIEW draws these transparent."""
+    x1, y1, _, _ = label.bounds
+    for i, line in enumerate(label.text.split("\n")):
+        backend.text(
+            x1, y1 + _LABEL_TEXT_SIZE + i * _LABEL_LINE_H, line,
+            _LABEL_TEXT_SIZE, fill=theme.text, anchor="start",
+        )
 
 
 def _node_identity(node: AnyGraphNode) -> tuple[str, str | None] | None:
