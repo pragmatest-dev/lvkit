@@ -16,7 +16,6 @@ from ..models import (
     FPTerminal,
     LVType,
     PropertyDef,
-    SequenceFrame,
     Terminal,
     TunnelTerminal,
     control_type_to_lvtype,
@@ -48,14 +47,11 @@ from ..primitive_resolver import get_resolver as get_prim_resolver
 from ..primitive_resolver import resolve_primitive
 from ..type_defaults import get_default_for_type
 from ..vilib_resolver import get_resolver as get_vilib_resolver
+from .builders import STRUCTURE_BUILD_HANDLERS, GraphBuildContext
 from .models import (
     AnyGraphNode,
-    CaseStructureNode,
     ConstantNode,
-    InPlaceNode,
     LocalVariableNode,
-    LoopNode,
-    SequenceNode,
     StructureNode,
     VINode,
     WireEnd,
@@ -435,6 +431,14 @@ class ConstructionMixin:
         flatseq_by_uid = {fs.uid: fs for fs in bd.flat_sequences}
         decompose_by_uid = {ds.uid: ds for ds in bd.decompose_structures}
 
+        # Structure nodes (loop/case/sequence/IPES) are built by registered
+        # per-kind handlers rather than an inlined if/elif — see graph/builders/.
+        build_ctx = GraphBuildContext(
+            mixin=self, bd=bd, vi_name=vi_name, term_lookup=term_lookup,
+            loop_by_uid=loop_by_uid, case_by_uid=case_by_uid,
+            flatseq_by_uid=flatseq_by_uid, decompose_by_uid=decompose_by_uid,
+        )
+
         for node in bd.nodes:
             q_node_uid = self._qid(vi_name, node.uid)
 
@@ -750,177 +754,12 @@ class ConstructionMixin:
                     qualified_path=iuse_to_qpath.get(node.uid),
                     qualified_name=qualified_name,
                 )
-            elif node.node_type in ("whileLoop", "forLoop"):
-                # Loop structure
-                loop_struct = loop_by_uid.get(node.uid)
-                stop_cond: str | None = None
-                stop_cond_inverted = False
-
-                parser_tunnels: list = []
-                if loop_struct:
-                    parser_tunnels = loop_struct.tunnels
-                    if loop_struct.stop_condition_terminal_uid:
-                        stop_cond = self._qid(
-                            vi_name, loop_struct.stop_condition_terminal_uid
-                        )
-                    stop_cond_inverted = loop_struct.stop_condition_inverted
-
-                # Build terminals from tunnels + sRN terminals
-                structure_terminals = self._build_structure_terminals(
-                    bd, parser_tunnels, q_node_uid, term_lookup, vi_name,
-                )
-
-                graph_node = LoopNode(
-                    id=q_node_uid,
-                    vi=vi_name,
-                    name=node_name,
-                    node_type=node.node_type,
-                    terminals=structure_terminals,
-                    loop_type=node.node_type,
-                    stop_condition_terminal=stop_cond,
-                    stop_condition_inverted=stop_cond_inverted,
-                )
-            elif node.node_type in ("caseStruct", "select"):
-                # Case structure
-                case_struct = case_by_uid.get(node.uid)
-                case_frames: list[CaseFrame] = []
-                selector_term: str | None = None
-
-                parser_tunnels = []
-                if case_struct:
-                    parser_tunnels = case_struct.tunnels
-                    if case_struct.selector_terminal_uid:
-                        selector_term = self._qid(
-                            vi_name, case_struct.selector_terminal_uid
-                        )
-                    case_frames = list(case_struct.frames)
-
-                # Build terminals from tunnels + sRN terminals
-                structure_terminals = self._build_structure_terminals(
-                    bd, parser_tunnels, q_node_uid, term_lookup, vi_name,
-                    case_frames=case_frames,
-                )
-
-                # Mark the selector terminal. The caseSel tunnel already
-                # created a TunnelTerminal for this UID — find it and
-                # tag it as the selector. Only create a new Terminal if
-                # the tunnel wasn't found (shouldn't happen normally).
-                sel_uid = (
-                    case_struct.selector_terminal_uid if case_struct else None
-                )
-                if selector_term and sel_uid:
-                    existing = next(
-                        (t for t in structure_terminals
-                         if t.id == selector_term),
-                        None,
-                    )
-                    if existing:
-                        existing.name = "selector"
-                        sel_index = existing.index
-                    else:
-                        sel_ti = bd.terminal_info.get(sel_uid)
-                        sel_index = sel_ti.index if sel_ti else 0
-                        sel_terminal = Terminal(
-                            id=selector_term,
-                            index=sel_index,
-                            direction="input",
-                            name="selector",
-                        )
-                        structure_terminals.append(sel_terminal)
-                    # Register in term_lookup so wire edges resolve
-                    if sel_uid not in term_lookup:
-                        term_lookup[sel_uid] = WireEnd(
-                            terminal_id=selector_term,
-                            node_id=q_node_uid,
-                            index=sel_index,
-                            name="selector",
-                        )
-
-                graph_node = CaseStructureNode(
-                    id=q_node_uid,
-                    vi=vi_name,
-                    name=node_name,
-                    node_type=node.node_type,
-                    terminals=structure_terminals,
-                    frames=case_frames,
-                    selector_terminal=selector_term,
-                    displayed_frame=(
-                        case_struct.displayed_frame if case_struct else None
-                    ),
-                    case_insensitive=(
-                        case_struct.case_insensitive if case_struct else False
-                    ),
-                )
-            elif node.node_type in ("flatSequence", "seq", "sequence"):
-                # Flat sequence
-                flat_seq = flatseq_by_uid.get(node.uid)
-                seq_frames: list[SequenceFrame] = []
-
-                parser_tunnels = []
-                if flat_seq:
-                    parser_tunnels = flat_seq.tunnels
-                    seq_frames = list(flat_seq.frames)
-
-                # Build terminals from tunnels + sRN terminals
-                structure_terminals = self._build_structure_terminals(
-                    bd, parser_tunnels, q_node_uid, term_lookup, vi_name,
-                )
-
-                graph_node = SequenceNode(
-                    id=q_node_uid,
-                    vi=vi_name,
-                    name=node_name,
-                    node_type=node.node_type,
-                    terminals=structure_terminals,
-                    frames=seq_frames,
-                )
-            elif node.node_type == "decomposeRecomposeStructure":
-                # In Place Element Structure
-                decompose_struct = decompose_by_uid.get(node.uid)
-                if not decompose_struct:
-                    logger.warning(
-                        "VI %s: IPES %s not in parser structures"
-                        " — no tunnels extracted",
-                        vi_name, node.uid,
-                    )
-                parser_tunnels = decompose_struct.tunnels if decompose_struct else []
-                structure_terminals = self._build_structure_terminals(
-                    bd, parser_tunnels, q_node_uid, term_lookup, vi_name,
-                )
-                # Add non-tunnel IPES terminals (data I/O via decomposeClusterDCO).
-                # These terminals don't appear in parser_tunnels (which only tracks
-                # decomposeRecomposeTunnel DCOs) but carry the data in/out of
-                # the structure. Adding them lets codegen resolve the data variable.
-                already_captured = {t.id for t in structure_terminals}
-                for t_uid, t_info in bd.terminal_info.items():
-                    if t_info.parent_uid != node.uid:
-                        continue
-                    q_t_uid = self._qid(vi_name, t_uid)
-                    if q_t_uid in already_captured:
-                        continue
-                    extra_lv_type = None
-                    if t_info.parsed_type:
-                        extra_lv_type = self._enrich_type(t_info.parsed_type)
-                    structure_terminals.append(Terminal(
-                        id=q_t_uid,
-                        direction="output" if t_info.is_output else "input",
-                        index=t_info.index,
-                        lv_type=extra_lv_type,
-                        name=t_info.name,
-                    ))
-                    if t_uid not in term_lookup:
-                        term_lookup[t_uid] = WireEnd(
-                            terminal_id=q_t_uid,
-                            node_id=q_node_uid,
-                            index=t_info.index,
-                            name=t_info.name,
-                        )
-                graph_node = InPlaceNode(
-                    id=q_node_uid,
-                    vi=vi_name,
-                    name=node_name or "In Place Element",
-                    node_type=node.node_type,
-                    terminals=structure_terminals,
+            elif node.node_type in STRUCTURE_BUILD_HANDLERS:
+                # Loop / case / sequence / IPES — built by a registered
+                # per-kind handler (graph/builders/structures.py). Shared
+                # post-dispatch (nMux enrichment, g.add_node) is below.
+                graph_node = STRUCTURE_BUILD_HANDLERS[node.node_type].build(
+                    node, node_name, q_node_uid, build_ctx,
                 )
             elif node.node_type == "fBox":
                 # Formula Node — embedded C-like script over typed terminals.
