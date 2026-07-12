@@ -47,6 +47,7 @@ from lvkit.render.scene import (
 )
 from lvkit.render.style import DEFAULT_THEME, coercion_key, wire_style
 from lvkit.render.wire_router import RouterConfig, WireRouter, _compress, path_d
+from lvkit.render.wire_table import FAITHFUL_WIRE_TABLE, decode_wire_mid
 
 # --------------------------------------------------------------------------- #
 # Case-selector faithful labels (#16) — pure functions over CaseFrame + LVType
@@ -2429,3 +2430,48 @@ class TestDefaultIfUnwired:
         assert DEFAULT_THEME.canvas in self._draw({"b"}, frame_value="b")
         # In a wired frame -> solid, no hole.
         assert DEFAULT_THEME.canvas not in self._draw({"b"}, frame_value="a")
+
+
+# ---------------------------------------------------------------------------
+# compressedWireTable decoding (task #84) — validated corpus fixtures.
+# ---------------------------------------------------------------------------
+
+
+def _ortho(path: list[Point]) -> bool:
+    return all(
+        abs(p[0] - q[0]) < 0.01 or abs(p[1] - q[1]) < 0.01
+        for p, q in zip(path, path[1:])
+    )
+
+
+def test_faithful_wire_table_defaults_off():
+    # Guards against accidentally committing task #84's faithful-routing
+    # path flipped on — default output must stay byte-identical to the
+    # auto-router-only baseline.
+    assert FAITHFUL_WIRE_TABLE is False
+
+
+def test_decode_wire_mid_straight_wire_has_no_bends():
+    assert decode_wire_mid("0208", (10.0, 20.0), (60.0, 20.0)) == []
+
+
+def test_decode_wire_mid_fanout_blob_returns_none():
+    assert decode_wire_mid("0400080503200B18", (0.0, 0.0), (100.0, 100.0)) is None
+
+
+def test_decode_wire_mid_one_bend_l_shape():
+    # "2D U32 Array Changed__ogtk" corpus wire, uids 99->110.
+    start, end = (314.0, 175.0), (346.0, 162.0)
+    mid = decode_wire_mid("0308011F", start, end)
+    assert mid is not None
+    assert len(mid) == 1
+    assert _ortho([start, *mid, end])
+
+
+def test_decode_wire_mid_two_bend_z_shape():
+    # "2D U32 Array Changed__ogtk" corpus wire, uids 78->84.
+    start, end = (181.0, 145.0), (264.5, 164.5)
+    mid = decode_wire_mid("04040000114F", start, end)
+    assert mid is not None
+    assert len(mid) == 2
+    assert _ortho([start, *mid, end])

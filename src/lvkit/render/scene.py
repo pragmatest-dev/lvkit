@@ -41,6 +41,7 @@ from .layout import Layout, Point, Rect, build_layout
 from .nodes import _CLUSTER_MUX_TYPES, GlyphContext, resolve_glyph, string_const_display
 from .style import WireStyle, numeric_repr, type_family, wire_style
 from .wire_router import WireRouter, _compress
+from .wire_table import FAITHFUL_WIRE_TABLE, decode_wire_mid
 
 logger = logging.getLogger(__name__)
 
@@ -1189,9 +1190,28 @@ def _build_wire_nets(
             # anyway); plain node endpoints keep their own-box exemption.
             src_route_owner = None if src_border else src_owner
             dst_route_owner = None if dst_border else dst_owner
-            mid = router.route(
-                src_out, dst_in, all_points, src_route_owner, dst_route_owner,
-            )
+            # FAITHFUL_WIRE_TABLE: when a signal's compressedWireTable heap
+            # blob decodes (2-endpoint, non-fan-out), use LabVIEW's own
+            # routed geometry instead of the auto-router. src_out/dst_in are
+            # still computed above regardless — the coercion-dot placement
+            # below (_entry_edge_point) needs dst_in even in the faithful
+            # case. Default False -> this lookup never runs, so `mid` is
+            # always `router.route(...)`, byte-identical to before task #84.
+            faithful = None
+            if FAITHFUL_WIRE_TABLE:
+                key = (
+                    (int(round(src_center[0])), int(round(src_center[1]))),
+                    (int(round(dst_center[0])), int(round(dst_center[1]))),
+                )
+                blob = layout.wire_geometry.get(key)
+                if blob is not None:
+                    faithful = decode_wire_mid(blob, src_center, dst_center)
+            if faithful is not None:
+                mid = faithful
+            else:
+                mid = router.route(
+                    src_out, dst_in, all_points, src_route_owner, dst_route_owner,
+                )
             # Drop redundant collinear points (the directional stubs are often
             # collinear with the first/last leg) so we don't add kinks LabVIEW
             # wouldn't draw.

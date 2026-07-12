@@ -233,9 +233,31 @@ Real example (`Draw Image..._BDHb.xml:538-546`):
 | Field | Example | Meaning | Evidence | Confidence |
 |---|---|---|---|---|
 | `<termList>` | 2+ uids | Connected terminal uids: **first = source, rest = sinks**. lvkit fans out a multi-sink signal into one `ParsedWire` per sink (`from_term=source`). | `parser/vi.py:412-429` | confirmed |
-| `<compressedWireTable>` | `040800001E07` | Hex blob encoding the wire's routed geometry (bend points). **Not decoded** — lvkit auto-routes wires itself. | `parser/vi.py` comment; memory `project_lv_renderer.md` | unknown (geometry undecoded) |
+| `<compressedWireTable>` | `040800001E07` | Hex blob = the wire's LabVIEW-routed bend geometry. **Decoded** for 2-endpoint wires (see below); lvkit can draw either these faithful paths or its own auto-router (switchable). | task #84; `render/wire_table.py` | confirmed (2-endpoint); fan-out undecoded |
 | `<state>` | `1` | Wire state flag; unused. | sample `:534` | unknown |
 | `<lastSignalKind>` | `517` | Last-known signal/data-kind hint; unused. | sample `:536` | unknown |
+
+### `compressedWireTable` encoding (2-endpoint wires)
+
+Decoded and validated on 5,742 corpus wires (task #84). A single-net wire is an
+orthogonal polyline; the blob stores it compactly:
+
+| Bytes | Meaning |
+|---|---|
+| `byte[0]` | vertex count **V** → `V-1` segments (`02`=straight, `03`=one bend, `04`=two bends, …) |
+| `byte[1]` | segment-0 direction, full quadrant: `08`=E (+x), `04`=S (+y), `02`=W (−x), `01`=N (−y). Screen coords, y **down**. |
+| next `V-2` | per-bend **sign** bits: `00`=+axis (E if the segment is horizontal, S if vertical), `01`=−axis (W / N). Segment axes just **alternate** H↔V from segment 0, so only a 1-bit sign is stored per bend — this is the "compression". |
+| next `V-2` | **lengths** (px) of segments `0 … V-3`. The last segment's length is implied by the endpoint. |
+
+Invariant: `total_bytes = 2V − 2`. Example `040800001E07`: V=4 (2 bends), seg-0
+dir `08`=E; sign bytes `00 00`; lengths `1E`=30, `07`=7 → East 30px, then South
+7px (first bend, sign `00`), then East to the sink (implied last segment).
+
+Reconstruct: start at the source, walk the first `V-1` stored segments, then run
+the final segment to the sink. **Fan-out signals (>2 termList uids) are NOT
+decoded** — `byte[0]` becomes a vertex-total over a shared-trunk tree and the
+`2V-2` invariant breaks; lvkit falls back to its auto-router for those. Decoder:
+`render/wire_table.py::decode_wire_mid`.
 
 ---
 

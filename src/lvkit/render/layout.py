@@ -89,6 +89,16 @@ class Layout:
     # renderer draws the label text here only when the graph carries label
     # text (``ConstantNode.label``) for the uid.
     label_bounds: dict[str, Rect] = field(default_factory=dict)
+    # Pair of rounded-int endpoint centers ((x1,y1),(x2,y2)) -> the signal's
+    # ``compressedWireTable`` hex, for 2-endpoint signals only. Registered
+    # under BOTH orderings. Keyed by center because both the graph side
+    # (scene.py) and the heap signal resolve terminals through
+    # ``terminal_centers``, making the resolved center the common key;
+    # fan-out signals are intentionally NOT registered here (so they fall
+    # back to the router). See task #84.
+    wire_geometry: dict[tuple[tuple[int, int], tuple[int, int]], str] = field(
+        default_factory=dict
+    )
     icon_png: Path | None = None
 
     def scene_bounds(self, pad: float = 30.0) -> Rect:
@@ -189,6 +199,10 @@ class _LayoutBuilder:
         self.hidden_labels: set[str] = set()
         # flat-sequence raw uid -> inter-frame divider x-positions.
         self.sequence_dividers: dict[str, list[float]] = {}
+        # (termList uids, compressedWireTable hex) for every heap signal,
+        # collected raw during the walk; resolved to centers afterward by
+        # ``_resolve_wire_geometry`` once ``terminal_centers`` is complete.
+        self.raw_signals: list[tuple[list[str], str]] = []
 
     def _record_label_hidden(self, elem: ET.Element, uid: str | None) -> None:
         """Record uid whose ``<label>`` is hidden (objFlags bit 0x8), so the
@@ -399,6 +413,48 @@ class _LayoutBuilder:
                 if elem.get("class") == "sRN":
                     self._visit(elem, ox, oy)
 
+        # Each diagram (root or a structure's inner frame) carries its own
+        # signalList — the routed geometry for every wire whose endpoints
+        # live in this diagram. Collect the raw (uids, blob) pairs now;
+        # they're resolved to absolute centers once the whole heap has been
+        # walked and terminal_centers is complete (see
+        # ``_resolve_wire_geometry``).
+        sl = diag.find("signalList")
+        if sl is not None:
+            for sig in sl.findall("SL__arrayElement"):
+                if sig.get("class") != "signal":
+                    continue
+                tl = sig.find("termList")
+                cw = sig.find("compressedWireTable")
+                if tl is None or cw is None or not cw.text:
+                    continue
+                uids = [e.get("uid") for e in tl.findall("SL__arrayElement")]
+                uids = [u for u in uids if u]
+                self.raw_signals.append((uids, cw.text.strip()))
+
+    def _resolve_wire_geometry(
+        self,
+    ) -> dict[tuple[tuple[int, int], tuple[int, int]], str]:
+        """Resolve ``raw_signals`` into the ``Layout.wire_geometry`` map,
+        keyed by rounded-int endpoint centers (both orderings). Only
+        2-endpoint signals whose BOTH terminals resolve to a known center
+        are registered; fan-out and unresolved-terminal signals are skipped
+        so they fall back to the auto-router.
+        """
+        geo: dict[tuple[tuple[int, int], tuple[int, int]], str] = {}
+        for uids, blob in self.raw_signals:
+            if len(uids) != 2:
+                continue
+            ca = self.terminal_centers.get(uids[0])
+            cb = self.terminal_centers.get(uids[1])
+            if ca is None or cb is None:
+                continue
+            ka = (int(round(ca[0])), int(round(ca[1])))
+            kb = (int(round(cb[0])), int(round(cb[1])))
+            geo[(ka, kb)] = blob
+            geo[(kb, ka)] = blob
+        return geo
+
     def _visit(self, elem: ET.Element, ox: float, oy: float) -> None:
         bb = _rect(elem)
         if bb is None:
@@ -504,5 +560,6 @@ def build_layout(vi_or_bd: Path) -> Layout:
         hidden_labels=builder.hidden_labels,
         sequence_dividers=builder.sequence_dividers,
         label_bounds=builder.label_bounds,
+        wire_geometry=builder._resolve_wire_geometry(),
         icon_png=icon if icon.exists() else None,
     )
