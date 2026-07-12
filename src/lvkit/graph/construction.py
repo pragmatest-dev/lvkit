@@ -26,14 +26,11 @@ from ..parser import (
 )
 from ..parser.models import ParsedConstant, ParsedType
 from ..parser.node_types import (
-    CtlRefConstNode,
-    GRefNode,
-    SelectNode,
-    StatVIRefNode,
-    SubVINode,
+    PrimitiveNode as ParserPrimitiveNode,
 )
 from ..parser.node_types import (
-    PrimitiveNode as ParserPrimitiveNode,
+    SelectNode,
+    SubVINode,
 )
 from ..parser.vi import _decode_element
 from ..primitive_resolver import get_resolver as get_prim_resolver
@@ -43,6 +40,7 @@ from ..vilib_resolver import get_resolver as get_vilib_resolver
 from .builders import (
     DEFAULT_NODE_BUILD_HANDLER,
     NODE_BUILD_HANDLERS,
+    REF_BUILD_HANDLERS,
     STRUCTURE_BUILD_HANDLERS,
     SUBVI_CALL_NODE_TYPES,
     GraphBuildContext,
@@ -50,7 +48,6 @@ from .builders import (
 from .models import (
     AnyGraphNode,
     ConstantNode,
-    LocalVariableNode,
     StructureNode,
     VINode,
     WireEnd,
@@ -429,175 +426,22 @@ class ConstructionMixin:
             loop_by_uid=loop_by_uid, case_by_uid=case_by_uid,
             flatseq_by_uid=flatseq_by_uid, decompose_by_uid=decompose_by_uid,
             iuse_to_qname=iuse_to_qname or {}, iuse_to_qpath=iuse_to_qpath,
+            fp=fp, ddo_to_fpdco=ddo_to_fpdco,
+            param_wire_ends=param_wire_ends, vi_node_uids=vi_node_uids,
         )
 
         for node in bd.nodes:
             q_node_uid = self._qid(vi_name, node.uid)
 
-            # ctlRefConst: alias FP control references into the dataflow graph.
-            # If ddo_uid resolves to an FP terminal, alias this node's output
-            # terminal to that WireEnd so downstream wires connect directly to
-            # the FP variable. No graph node is created for ctlRefConst.
-            # Built-in refs (ddo_uid absent) are deferred — skip silently.
-            if isinstance(node, CtlRefConstNode):
-                if node.ddo_uid:
-                    fpdco_uid = ddo_to_fpdco.get(node.ddo_uid)
-                    if fpdco_uid:
-                        fp_wire_end = None
-                        for fp_term in bd.fp_terminals:
-                            if fp_term.fp_dco_uid == fpdco_uid:
-                                fp_wire_end = term_lookup.get(fp_term.uid)
-                                break
-                        if fp_wire_end:
-                            for term_uid, t_info in bd.terminal_info.items():
-                                if t_info.parent_uid == node.uid:
-                                    term_lookup[term_uid] = fp_wire_end
-                                    break
-                continue  # No graph node for ctlRefConst
-
-            # gRef: Local Variable reference. Unlike ctlRefConst, a local
-            # variable is a POSITIONED diagram node (its own icon, its own
-            # heap bounds) — NOT a passthrough. It gets a real graph node so
-            # wires to/from it originate at ITS position, not the referenced
-            # control's (possibly cross-frame, hidden) FP terminal.
-            #
-            # The referenced control is resolved via paramIdx — the control's
-            # position in the VI's FULL front-panel control list (covers
-            # non-conpane controls too; see param_wire_ends above). A synthetic
-            # dataflow edge to/from the control's FP terminal WireEnd (mirrors
-            # _connect_subvi_calls's cross-VI enrichment edges) lets
-            # ctx.resolve() walk through the local variable to the control's
-            # bound value exactly as the old aliasing did, while the node
-            # itself still owns its own terminal for real wire connections.
-            if isinstance(node, GRefNode):
-                fp_wire_end = (
-                    param_wire_ends.get(node.param_idx)
-                    if node.param_idx is not None
-                    else None
-                )
-                control_name: str | None = None
-                if (
-                    fp is not None
-                    and node.param_idx is not None
-                    and 0 <= node.param_idx < len(fp.controls)
-                ):
-                    control_name = fp.controls[node.param_idx].name
-
-                if fp_wire_end is None:
-                    logger.debug(
-                        "VI %s: gRef %s param_idx=%s did not resolve to a "
-                        "front-panel control — creating with fallback name",
-                        vi_name, node.uid, node.param_idx,
-                    )
-
-                gref_term_uid: str | None = None
-                gref_t_info = None
-                for term_uid, t_info in bd.terminal_info.items():
-                    if t_info.parent_uid == node.uid:
-                        gref_term_uid = term_uid
-                        gref_t_info = t_info
-                        break
-
-                is_write = bool(gref_t_info) and not gref_t_info.is_output
-                direction = "input" if is_write else "output"
-                lv_type = None
-                if gref_t_info and gref_t_info.parsed_type:
-                    lv_type = self._enrich_type(gref_t_info.parsed_type)
-
-                q_gref_term_uid = (
-                    self._qid(vi_name, gref_term_uid)
-                    if gref_term_uid
-                    else q_node_uid
-                )
-                gref_terminal = Terminal(
-                    id=q_gref_term_uid,
-                    index=0,
-                    direction=direction,
-                    name=control_name,
-                    lv_type=lv_type,
-                )
-
-                local_var_node = LocalVariableNode(
-                    id=q_node_uid,
-                    vi=vi_name,
-                    name=control_name or node.name or "Local Variable",
-                    node_type=node.node_type,
-                    terminals=[gref_terminal],
-                    control_name=control_name,
-                    control_terminal_id=(
-                        fp_wire_end.terminal_id if fp_wire_end else None
-                    ),
-                    is_write=is_write,
-                )
-                g.add_node(q_node_uid, node=local_var_node)
-                vi_node_uids.add(q_node_uid)
-
-                if gref_term_uid:
-                    my_wire_end = WireEnd(
-                        terminal_id=q_gref_term_uid,
-                        node_id=q_node_uid,
-                        index=0,
-                        name=control_name,
-                    )
-                    term_lookup[gref_term_uid] = my_wire_end
-
-                    # Synthetic (non-drawn) dataflow edge to the referenced
-                    # control, direction-matched to read vs write — TODO:
-                    # WRITE is not yet consumed by codegen (kind
-                    # "local_variable" is excluded from operation dispatch),
-                    # this only wires the value for future write support.
-                    if fp_wire_end is not None:
-                        if is_write:
-                            g.add_edge(
-                                q_node_uid, vi_name,
-                                source=my_wire_end, dest=fp_wire_end,
-                            )
-                        else:
-                            g.add_edge(
-                                vi_name, q_node_uid,
-                                source=fp_wire_end, dest=my_wire_end,
-                            )
-                continue  # gRef fully handled — skip generic node path below
-
-            # statVIRef: Static VI Reference constant.
-            # Creates a ConstantNode whose value is the referenced VI name.
-            # The VIRefnum LVType signals _format_constant to convert it
-            # to a Python function name (bare identifier, not a string).
-            if isinstance(node, StatVIRefNode):
-                vi_ref_name = node.name
-                if not vi_ref_name or vi_ref_name == "Static VI Reference":
-                    logger.warning(
-                        "VI %s: statVIRef %s has no label — skipping",
-                        vi_name, node.uid,
-                    )
-                    continue
-                vi_ref_type = LVType(
-                    kind="primitive", underlying_type="VIRefnum",
-                )
-                const_node = ConstantNode(
-                    id=q_node_uid,
-                    vi=vi_name,
-                    value=vi_ref_name,
-                    lv_type=vi_ref_type,
-                    raw_value=vi_ref_name,
-                    label=vi_ref_name,
-                    terminals=[Terminal(
-                        id=q_node_uid, index=0,
-                        direction="output", lv_type=vi_ref_type,
-                    )],
-                )
-                g.add_node(q_node_uid, node=const_node)
-                vi_node_uids.add(q_node_uid)
-                for term_uid, t_info in bd.terminal_info.items():
-                    if t_info.parent_uid == node.uid:
-                        term_lookup[term_uid] = WireEnd(
-                            terminal_id=q_node_uid,
-                            node_id=q_node_uid,
-                            index=0,
-                            name=vi_ref_name,
-                        )
-                        break
-                continue  # No operation node for statVIRef
+            # Reference-style nodes (ctlRefConst / gRef / statVIRef) fully
+            # resolve here — aliasing an FP terminal, adding a LocalVariable/
+            # Constant node — then the loop skips normal node building. See
+            # graph/builders/refs.py.
+            ref_handler = REF_BUILD_HANDLERS.get(node.node_type)
+            if ref_handler is not None and ref_handler.handle(
+                node, q_node_uid, build_ctx,
+            ):
+                continue
 
             # Get known terminal layout for index matching.
             # Same system for all node types: primitives, node_types, vilib SubVIs.

@@ -10,6 +10,7 @@ from .operations import (
     SUBVI_CALL_NODE_TYPES,
     NodeBuildHandler,
 )
+from .refs import REF_BUILD_HANDLERS, RefBuildHandler
 from .structures import STRUCTURE_BUILD_HANDLERS, StructureBuildHandler
 
 __all__ = [
@@ -20,4 +21,6 @@ __all__ = [
     "DEFAULT_NODE_BUILD_HANDLER",
     "NodeBuildHandler",
     "SUBVI_CALL_NODE_TYPES",
+    "REF_BUILD_HANDLERS",
+    "RefBuildHandler",
 ]

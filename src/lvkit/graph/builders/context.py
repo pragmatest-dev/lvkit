@@ -26,6 +26,11 @@ class GraphBuildContext:
     decompose_by_uid: dict[str, Any]
     iuse_to_qname: dict[str, str]   # iUse uid -> qualified callee name
     iuse_to_qpath: dict[str, str]   # iUse uid -> qualified on-disk path
+    # For the early ref handlers (ctlRefConst / gRef / statVIRef):
+    fp: Any                         # ParsedFrontPanel | None
+    ddo_to_fpdco: dict[str, str]    # inner ddo uid -> fPDCO uid
+    param_wire_ends: dict[int, Any]  # control-list index -> FP terminal WireEnd
+    vi_node_uids: set[str]          # graph node uids for this VI (mutated)
 
     # --- thin pass-throughs to the mixin helpers (keep call sites readable) ---
     def qid(self, uid: str) -> str:
