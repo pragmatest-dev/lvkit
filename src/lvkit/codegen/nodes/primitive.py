@@ -6,6 +6,7 @@ import ast
 import re
 
 from lvkit.models import PrimitiveOperation, Terminal
+from lvkit.parser.constants import OPERATION_NODE_CLASSES
 from lvkit.primitive_resolver import (
     PrimitiveResolutionNeeded,
     ResolvedPrimitive,
@@ -61,9 +62,20 @@ def generate(node: PrimitiveOperation, ctx: CodeGenContext) -> CodeFragment:
     if not resolved and prim_id is not None:
         resolved = resolver.resolve(prim_id=prim_id)
     if not resolved:
-        if prim_id is None:
+        # A node class captured GENERICALLY (not in the handled allowlist —
+        # e.g. decimate, interLeave, extFunc, exprNode) reaches here with no
+        # primResID. Fail loudly via _emit_unknown rather than silently drop it
+        # to empty code. Known-but-unimplemented classes (concat, …) keep prior
+        # behavior — their missing handler is a separate, pre-existing gap.
+        is_generic_unknown = bool(
+            prim_id is None
+            and node_type
+            and node_type != "prim"
+            and node_type not in OPERATION_NODE_CLASSES
+        )
+        if prim_id is None and not is_generic_unknown:
             return CodeFragment.empty()
-        return _emit_unknown(node, prim_id, ctx)
+        return _emit_unknown(node, prim_id or 0, ctx)
 
     # Placeholder: emit warning comment + pass, don't raise
     if resolved.confidence == "placeholder":

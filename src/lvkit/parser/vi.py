@@ -355,14 +355,52 @@ def _parse_front_panel(
 # === Helper functions ===
 
 
+# Node-SHAPED heap elements (they carry a class + bounds + termList) that are
+# NOT dataflow operation nodes, so the generic "unknown node" capture below must
+# skip them: shift-register nodes (handled via their structure), sequence frames
+# (structure frames, not nodes), and free-label comment nodes.
+_NON_OPERATION_NODE_CLASSES = frozenset({
+    NODE_CLASS_SHIFT_REG, "sequenceFrame", "commentNode",
+})
+
+
+def _is_generic_operation_node(elem: ET.Element) -> bool:
+    """An unhandled but node-shaped block-diagram element — has a ``class``, a
+    ``bounds``, and a ``termList``, and its class is neither in the handled
+    allowlist nor a known non-operation node. Captured generically so it renders
+    as a labelled box with its terminals (and its wires connect) instead of
+    being silently dropped — codegen still fails loudly on it."""
+    cls = elem.get("class")
+    return bool(
+        cls
+        and cls not in OPERATION_NODE_CLASSES
+        and cls not in _NON_OPERATION_NODE_CLASSES
+        and elem.find("bounds") is not None
+        and elem.find("termList") is not None
+    )
+
+
 def _extract_nodes(root: ET.Element) -> list[ParsedNode]:
     """Extract nodes from the block diagram using node type factory."""
     nodes = []
+    seen_uids: set[str] = set()
 
     for cls in OPERATION_NODE_CLASSES:
         for elem in root.findall(f".//*[@class='{cls}']"):
             node = parse_node(elem)
             nodes.append(node)
+            if node.uid:
+                seen_uids.add(node.uid)
+
+    # Generic capture: node-shaped elements the allowlist above misses (e.g.
+    # decimate, interLeave, extFunc, exprNode). parse_node falls back to
+    # GenericHandler for unknown classes, so they become real ParsedNodes that
+    # render as boxes with wired terminals rather than vanishing.
+    for elem in root.iter("SL__arrayElement"):
+        uid = elem.get("uid")
+        if uid and uid not in seen_uids and _is_generic_operation_node(elem):
+            nodes.append(parse_node(elem))
+            seen_uids.add(uid)
 
     return nodes
 
@@ -574,8 +612,11 @@ def _walk_and_extract_terminals(
     elem_uid = elem.get("uid")
     elem_class = elem.get("class", "")
 
-    # Extract terminals from this element if it's a terminal container
-    if elem_uid and elem_class in TERMINAL_CONTAINER_CLASSES:
+    # Extract terminals from this element if it's a terminal container — known
+    # operation nodes, or a generically-captured unknown node (so its wires
+    # still connect through the placeholder box).
+    if elem_uid and (elem_class in TERMINAL_CONTAINER_CLASSES
+                     or _is_generic_operation_node(elem)):
         _process_element_terminals(
             elem, wire_sources, wire_sinks, type_map, terminal_info,
         )
