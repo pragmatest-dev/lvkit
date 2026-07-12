@@ -30,6 +30,7 @@ from decimal import Decimal
 import pylabview.LVblock as _lv_block  # type: ignore[import-untyped]
 import pylabview.LVmisc as _lv_misc  # type: ignore[import-untyped]
 import pylabview.LVrsrcontainer as _lv_rsrc  # type: ignore[import-untyped]
+import pylabview.LVxml as _lv_xml  # type: ignore[import-untyped]
 
 _installed = False
 
@@ -149,5 +150,39 @@ def install_pylabview_patches() -> None:
             return None
 
     _lv_block.TypeDescListBase.commentSpecialTypes = _safe_comment
+
+    # (5) LVxml control-char escaping — pylabview emits ``&#xNN;`` for every
+    # control char 0-31, but XML 1.0 cannot hold 0x00-0x08 / 0x0B / 0x0C /
+    # 0x0E-0x1F even as references (pylabview's own comment admits the parse
+    # then fails). So binary bytes in string constants / object-name attributes
+    # produce INVALID XML that aborts the downstream read. Replace those
+    # unrepresentable chars with U+FFFD before escaping. Only strings that
+    # CONTAIN such chars are touched — and those currently fail to parse — so
+    # working VIs are byte-identical; the affected bytes are binary metadata /
+    # edge-case constants we never round-trip.
+    _xml_invalid = [i for i in range(32) if i not in (9, 10, 13)]
+
+    def _strip_xml_invalid(text):  # type: ignore[no-untyped-def]
+        for i in _xml_invalid:
+            if chr(i) in text:
+                text = text.replace(chr(i), "�")
+        return text
+
+    _orig_attr = _lv_xml.escape_attribute_control_chars
+    _orig_cdata = _lv_xml.escape_cdata_control_chars
+
+    def _safe_attr(text):  # type: ignore[no-untyped-def]
+        return _orig_attr(_strip_xml_invalid(text))
+
+    def _safe_cdata(text):  # type: ignore[no-untyped-def]
+        # Split any ``]]>`` so string data containing it (e.g. a constant that is
+        # itself an XML document) can't close the CDATA section early — the
+        # standard CDATA escape. pylabview omits this, producing mismatched-tag
+        # XML for such constants.
+        text = _strip_xml_invalid(text).replace("]]>", "]]]]><![CDATA[>")
+        return _orig_cdata(text)
+
+    _lv_xml.escape_attribute_control_chars = _safe_attr
+    _lv_xml.escape_cdata_control_chars = _safe_cdata
 
     _installed = True
