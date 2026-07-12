@@ -469,6 +469,26 @@ def test_local_variable_glyph_badge_and_read_write_border_weight():
     assert "<polygon" not in plain.render((0, 0, 90, 25))
 
 
+def test_formula_node_glyph_draws_monospace_script_text():
+    """A Formula Node's box draws its ``script`` as monospace, multi-line,
+    left-aligned text (task #61) — leading blank lines (common in the decoded
+    XML) are stripped, interior lines are kept verbatim and one per source
+    line."""
+    from lvkit.render.glyph import FormulaNodeGlyph
+    from lvkit.render.style import DEFAULT_THEME
+
+    script = "\n\n  x = a + b;\n\n  y = x * 2;\n"
+    backend = SvgBackend()
+    FormulaNodeGlyph(script).draw(backend, (0.0, 0.0, 200.0, 100.0), DEFAULT_THEME)
+    svg = backend.render((0.0, 0.0, 200.0, 100.0))
+
+    assert "x = a + b;" in svg
+    assert "y = x * 2;" in svg
+    assert 'font-family="monospace"' in svg
+    # The box itself is drawn as a flat structure-styled rect.
+    assert "<rect" in svg
+
+
 def test_measure_text_grows_with_length_and_size():
     backend = SvgBackend()
     short = backend.measure_text("hi", 10)

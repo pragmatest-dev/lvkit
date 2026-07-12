@@ -53,10 +53,10 @@ from .glyph import (
     CompoundArithGlyph,
     ConstantGlyph,
     ErrorClusterGlyph,
+    FormulaNodeGlyph,
     Glyph,
     IconImageGlyph,
     InlineSvgGlyph,
-    LabeledBoxGlyph,
     LocalVariableGlyph,
     UnbundleGlyph,
     VariantGlyph,
@@ -649,9 +649,7 @@ class GeneratedGlyphResolver:
             raw = node.raw_value if node.value is None else node.value
             return _leaf_const_glyph(node.lv_type, raw, node.display_format)
         if isinstance(node, FormulaNode):
-            return LabeledBoxGlyph(
-                node.name or "Formula", "prim_fill", "prim_stroke", 1.5,
-            )
+            return FormulaNodeGlyph(node.script or "")
         if isinstance(node, LocalVariableNode):
             # LabVIEW's Local Variable glyph: the referenced control's NAME in a
             # box marked by a ▶ badge (so it's not mistaken for a constant box),
