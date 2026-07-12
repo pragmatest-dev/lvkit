@@ -6,7 +6,6 @@ import argparse
 import hashlib
 import io
 import re
-import subprocess
 import sys
 import tempfile
 import zipfile
@@ -133,23 +132,17 @@ def extract_vi_xml(
                     main_xml if main_xml.exists() else None,
                 )
 
-    # Cache miss - extract in-process. Fall back to the readRSRC subprocess
-    # only if the in-process path raises, so a pylabview edge case can never
-    # regress extraction availability.
+    # Cache miss - extract in-process, surfacing the real pylabview error on
+    # failure. There is deliberately NO subprocess fallback: it runs UNPATCHED
+    # pylabview (so it re-hits bugs we've patched), fails identically on genuine
+    # pylabview crashes, and only masks the true cause behind a wrapped error.
+    # The byte-identical gate confirmed in-process == subprocess output.
     try:
         _extract_in_process(vi_path, output_dir, vi_stem)
     except Exception as exc:
-        result = subprocess.run(
-            [sys.executable, "-m", "pylabview.readRSRC", "-i", str(vi_path), "-x"],
-            capture_output=True,
-            text=True,
-            cwd=output_dir,
-        )
-        if result.returncode != 0:
-            raise RuntimeError(
-                f"pylabview extraction failed (in-process error: {exc}): "
-                f"{result.stderr}"
-            ) from exc
+        raise RuntimeError(
+            f"pylabview extraction failed for {vi_path.name}: {exc}"
+        ) from exc
 
     if not bd_xml.exists():
         raise RuntimeError(f"Block diagram XML not found: {bd_xml}")
