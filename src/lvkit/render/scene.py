@@ -554,20 +554,24 @@ def _reposition_mux_aggregates(
     input source cluster and an output assembled cluster) that share one DCO
     uid. In the heap, the agg-input often carries no ``termBounds`` of its
     own, so both aggregate terminals resolve to the SAME center point —
-    collapsing the incoming and outgoing cluster wires onto one spot. Anchor
-    the output aggregate to the node's right edge and the input aggregate to
-    its left edge (both vertically centered); FIELD (``nmux_role=="list"``)
-    terminals keep their heap-derived centers.
+    collapsing the incoming and outgoing cluster wires onto one spot. LabVIEW
+    draws the input (source) cluster entering at the TOP-CENTER of the node and
+    the assembled output cluster exiting at the right edge; FIELD
+    (``nmux_role=="list"``) terminals keep their heap-derived centers.
     """
     left_x, top_y, right_x, bottom_y = node_bounds
+    mid_x = (left_x + right_x) / 2
     mid_y = (top_y + bottom_y) / 2
     out: list[RenderTerminal] = []
     for rt in terminals:
         if rt.terminal.nmux_role != "agg":
             out.append(rt)
             continue
-        x = right_x if rt.terminal.direction == "output" else left_x
-        out.append(replace(rt, center=(x, mid_y)))
+        if rt.terminal.direction == "output":
+            center = (right_x, mid_y)   # assembled cluster exits right-middle
+        else:
+            center = (mid_x, top_y)     # source cluster enters top-center
+        out.append(replace(rt, center=center))
     return out
 
 
