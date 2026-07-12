@@ -59,6 +59,33 @@ def fit_label(text: str, width: float, backend: Backend, size: float) -> str:
     return text[:lo] + "…" if lo else "…"
 
 
+def _is_plain_decimal(s: str) -> bool:
+    """``s`` is a plain decimal literal (optional sign, one dot) — the only
+    shape ``fit_value`` sheds precision on. Excludes hex/octal (``xFF``),
+    exponent, and paths (``a.vi``)."""
+    body = s[1:] if s[:1] in "+-" else s
+    return body.count(".") == 1 and body.replace(".", "").isdigit()
+
+
+def fit_value(text: str, width: float, backend: Backend, size: float) -> str:
+    """Fit a scalar VALUE to ``width``. A plain decimal number sheds trailing
+    fractional digits to fit (``3.00`` → ``3.0`` → ``3``) rather than
+    ellipsizing — an ellipsis is no narrower than a digit, so ``3…`` wastes the
+    space. Anything else (or an integer part that still won't fit) falls back to
+    the generic ellipsizing ``fit_label``."""
+    if not text or backend.measure_text(text, size) <= width:
+        return text
+    if _is_plain_decimal(text):
+        s = text
+        while "." in s and backend.measure_text(s, size) > width:
+            s = s[:-1]
+        s = s.rstrip(".")
+        if backend.measure_text(s, size) <= width:
+            return s
+        text = s
+    return fit_label(text, width, backend, size)
+
+
 def wrap_label(
     text: str, width: float, backend: Backend, size: float, max_lines: int,
 ) -> list[str]:
@@ -307,9 +334,8 @@ class LocalVariableGlyph:
     The badge sits on the DATAFLOW side: a READ variable is a source (data
     leaves to the right), so its ▶ is right-justified on the output edge; a
     WRITE variable is a sink (data enters from the left), so its ▶ is on the
-    left input edge. Read vs write is ALSO shown the way LabVIEW distinguishes a
-    control from an indicator: a READ (``is_write=False``) gets a THICK border,
-    a WRITE a THIN one — per NI's "Read and Write Variables" documentation."""
+    left input edge — that side IS the read/write signal. Both get a BOLD border
+    so a local variable stands out from a plain constant/subVI box."""
 
     label: str
     is_write: bool = False
@@ -319,8 +345,7 @@ class LocalVariableGlyph:
     max_lines: int = 2
     text_size: float = 7.0
 
-    _READ_STROKE_W = 2.5   # thick, like a control
-    _WRITE_STROKE_W = 1.0  # thin, like an indicator
+    _STROKE_W = 2.5   # bold border for both read and write
 
     def draw(self, backend: Backend, bounds: Rect, theme: Theme) -> None:
         x1, y1, x2, y2 = bounds
@@ -328,7 +353,7 @@ class LocalVariableGlyph:
         backend.rect(
             x1, y1, x2, y2,
             fill=getattr(theme, self.fill_attr), stroke=stroke,
-            stroke_width=self._WRITE_STROKE_W if self.is_write else self._READ_STROKE_W,
+            stroke_width=self._STROKE_W,
         )
         # A small filled right-pointing triangle on the dataflow side: right
         # (output) edge for a read, left (input) edge for a write.
@@ -598,7 +623,7 @@ class ConstantGlyph:
         else:
             backend.text(
                 (x1 + x2) / 2, (y1 + y2) / 2 + 3,
-                fit_label(self.value, x2 - x1, backend, self.text_size),
+                fit_value(self.value, x2 - x1, backend, self.text_size),
                 self.text_size,
                 fill=getattr(theme, self.text_attr),
             )

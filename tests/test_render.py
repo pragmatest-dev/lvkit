@@ -471,9 +471,11 @@ def test_cluster_constant_collapses_when_box_too_small_for_field_rows():
 
 def test_local_variable_glyph_badge_and_read_write_border_weight():
     """A Local Variable node draws the ▶ badge (a filled triangle polygon) that
-    tells it apart from a same-shaped constant box, with a read=thick /
-    write=thin border — task #48, grounded in NI's Local Variable node image +
-    Read/Write Variables docs."""
+    tells it apart from a same-shaped constant box, with a BOLD border on both
+    read and write and the badge on the dataflow side (read=right, write=left)
+    — task #48, grounded in NI's Local Variable node image."""
+    import re
+
     from lvkit.render.glyph import LocalVariableGlyph, WrappedBoxGlyph
     from lvkit.render.style import DEFAULT_THEME
 
@@ -484,11 +486,14 @@ def test_local_variable_glyph_badge_and_read_write_border_weight():
     LocalVariableGlyph("flag", is_write=True).draw(write, (0, 0, 90, 25), DEFAULT_THEME)
     write_svg = write.render((0, 0, 90, 25))
 
-    # Badge present on both (a <polygon> — the ▶ triangle).
+    # Badge present on both (a <polygon> — the ▶ triangle), both BOLD-bordered.
     assert "<polygon" in read_svg and "<polygon" in write_svg
-    # Read gets the thick control-style border; write the thin indicator-style one.
-    assert 'stroke-width="2.5"' in read_svg
-    assert 'stroke-width="1.0"' in write_svg
+    assert 'stroke-width="2.5"' in read_svg and 'stroke-width="2.5"' in write_svg
+
+    # Badge is on the dataflow side: read's ▶ is right of write's ▶.
+    def _badge_x(svg):
+        return float(re.search(r'points="([\d.]+),', svg).group(1))
+    assert _badge_x(read_svg) > _badge_x(write_svg)
 
     # A plain constant/subVI box has NO badge — that's the whole distinction.
     plain = SvgBackend()
