@@ -204,6 +204,19 @@ class WrappedBoxGlyph:
         return best if best is not None else (self.text_size, self.text_size, [])
 
 
+def _truncate_to_width(
+    backend: Backend, s: str, size: float, max_w: float,
+) -> str:
+    """``s`` shortened with a trailing ellipsis until it fits ``max_w`` px at
+    ``size`` (via the backend's own text metrics), or ``s`` unchanged if it
+    already fits. Empty when even one char + ellipsis won't fit."""
+    if not s or backend.measure_text(s, size) <= max_w:
+        return s
+    while s and backend.measure_text(s + "…", size) > max_w:
+        s = s[:-1]
+    return (s + "…") if s else ""
+
+
 @dataclass(frozen=True)
 class FormulaNodeGlyph:
     """A Formula Node (fBox): a flat, structure-styled box (same outline
@@ -234,6 +247,10 @@ class FormulaNodeGlyph:
     pad: float = 7.0
 
     def draw(self, backend: Backend, bounds: Rect, theme: Theme) -> None:
+        self.draw_box(backend, bounds, theme)
+        self.draw_script(backend, bounds, theme, self.pad, self.pad)
+
+    def draw_box(self, backend: Backend, bounds: Rect, theme: Theme) -> None:
         x1, y1, x2, y2 = bounds
         backend.rect(
             x1, y1, x2, y2,
@@ -241,23 +258,40 @@ class FormulaNodeGlyph:
             stroke=getattr(theme, self.stroke_attr),
             stroke_width=self.stroke_width,
         )
+
+    def draw_script(
+        self, backend: Backend, bounds: Rect, theme: Theme,
+        left_inset: float, right_inset: float,
+    ) -> None:
+        """Draw the C source as monospace text, inset from the box's LEFT and
+        RIGHT edges by the given amounts so it clears the input-tunnel column on
+        the left and the output-tunnel column on the right (roadmap #61 — the
+        variables live on the border, so the code must not run under them). Each
+        line is truncated to the remaining width; lines past the bottom edge are
+        clipped, matching how LabVIEW clips a Formula Node's script to its size."""
+        x1, y1, x2, y2 = bounds
         lines = self.script.split("\n")
         while lines and not lines[0].strip():
             lines.pop(0)
         if not lines:
             return
+        tx = x1 + left_inset
+        max_w = (x2 - right_inset) - tx
+        if max_w <= 4:
+            return
         line_h = self.text_size + 2.0
-        tx = x1 + self.pad
         ty = y1 + self.pad + self.text_size
         text_fill = getattr(theme, self.text_attr)
         bottom = y2 - self.pad * 0.5
         for line in lines:
             if ty > bottom:
                 break
-            backend.text(
-                tx, ty, line, self.text_size, anchor="start", fill=text_fill,
-                mono=True,
-            )
+            s = _truncate_to_width(backend, line, self.text_size, max_w)
+            if s:
+                backend.text(
+                    tx, ty, s, self.text_size, anchor="start", fill=text_fill,
+                    mono=True,
+                )
             ty += line_h
 
 

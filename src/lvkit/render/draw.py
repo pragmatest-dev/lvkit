@@ -27,6 +27,7 @@ from .glyph import (
     ClusterConstantGlyph,
     ConstantGlyph,
     ErrorClusterGlyph,
+    FormulaNodeGlyph,
     IconImageGlyph,
     InlineSvgGlyph,
     VariantGlyph,
@@ -109,70 +110,78 @@ def _draw_invert_bubbles(node: RenderNode, backend: Backend, theme: Theme) -> No
         )
 
 
-# A Formula Node's own terminals are named tunnels sitting ON the box
-# border — nothing else in the render pipeline marks a plain (non-structure)
-# node's terminals at all (an Add primitive's wires just touch its triangle),
-# so the tunnel box + name are drawn here, once per terminal, after the node's
-# own box+script glyph. Per the NI reference image a Formula Node tunnel is a
-# small box containing the VARIABLE NAME, straddling the border in the wire's
-# type color (orange for a DBL, blue for an integer, ...). The box has an
-# OPAQUE (canvas) fill so it occludes the script text behind it — the name
-# stays readable even where a tunnel lands on a line of code. It is drawn
-# centered on the box edge, like the other border glyphs in this file (a
-# loop's N/i box is likewise centered on its structure's edge).
-_FORMULA_TUNNEL_MIN = 10.0        # min box side (short names / no name)
-_FORMULA_TUNNEL_PAD_X = 2.5       # horizontal padding around the name
+# A Formula Node's variables are named tunnels on the box border. LabVIEW lays
+# them out as two justified COLUMNS — INPUTS flush against the left edge, OUTPUTS
+# flush against the right edge (grounded: the heap already clusters input centers
+# near the left edge and output centers near the right, and every terminal
+# carries a reliable ``direction``). So the side comes from direction (never from
+# a nearest-edge guess, which mis-files a top-corner input onto the top edge),
+# the vertical position from the terminal's real heap ``center``, and the box
+# sits INSIDE the border (its outer edge ON the border line — the border never
+# bisects it). The script text is then inset past both columns so code and
+# tunnels never overlap. Each box is canvas-filled with a wire-type-colored
+# outline + name (a Formula Node's ``vblName`` fontcolor IS its type color, the
+# same table ``wire_style`` encodes; cf. ``draw_fp_terminal``).
+_FORMULA_TUNNEL_MIN = 12.0        # min box width (short names / no name)
+_FORMULA_TUNNEL_PAD_X = 3.0       # horizontal padding around the name
 _FORMULA_TUNNEL_PAD_Y = 1.5       # vertical padding around the name
+_FORMULA_TUNNEL_GAP = 3.0         # gap between a tunnel column and the script
 _FORMULA_TUNNEL_TEXT_SIZE = 7.0
 
 
-def _draw_formula_tunnels(
+def _draw_formula_node(
     node: RenderNode, bounds: tuple[float, float, float, float],
     backend: Backend, theme: Theme,
 ) -> None:
-    """Draw each Formula Node terminal as a named border tunnel.
-
-    Each tunnel is a wire-type-colored, canvas-filled box holding the variable
-    name, centered on whichever box edge the terminal sits nearest (from its
-    real heap ``center`` — left/right/top/bottom, not an assumed side). The
-    box color is the wire's type color; the name text uses it too, matching the
-    VI's own stored appearance (a Formula Node's ``vblName`` carries a
-    per-terminal ``fontcolor`` equal to its type color, the same table
-    ``wire_style`` encodes) and the precedent of ``draw_fp_terminal`` (a
-    front-panel terminal's type label is drawn in its wire color). The opaque
-    fill keeps the name legible where the tunnel overlaps the script.
-    """
+    """Draw a Formula Node: the box, its C source (inset past the tunnel
+    columns), then the named input/output tunnels justified to the borders."""
+    glyph = node.glyph
+    if not isinstance(glyph, FormulaNodeGlyph):
+        return
     x1, y1, x2, y2 = bounds
     size = _FORMULA_TUNNEL_TEXT_SIZE
-    bh = size + 2 * _FORMULA_TUNNEL_PAD_Y
-    for rt in node.terminals:
-        cx, cy = rt.center
-        color = wire_style(rt.terminal.lv_type, theme).color
-        name = rt.terminal.name or ""
-        gaps = {
-            "left": abs(cx - x1), "right": abs(cx - x2),
-            "top": abs(cy - y1), "bottom": abs(cy - y2),
-        }
-        edge = min(gaps, key=lambda k: gaps[k])
-        if edge == "left":
-            bcx, bcy = x1, cy
-        elif edge == "right":
-            bcx, bcy = x2, cy
-        elif edge == "top":
-            bcx, bcy = cx, y1
-        else:
-            bcx, bcy = cx, y2
-        text_w = backend.measure_text(name, size) if name else 0.0
-        bw = max(_FORMULA_TUNNEL_MIN, text_w + 2 * _FORMULA_TUNNEL_PAD_X)
-        box_h = max(_FORMULA_TUNNEL_MIN, bh) if not name else bh
-        backend.rect(
-            bcx - bw / 2, bcy - box_h / 2, bcx + bw / 2, bcy + box_h / 2,
-            fill=theme.canvas, stroke=color, stroke_width=1.0,
+    box_h = size + 2 * _FORMULA_TUNNEL_PAD_Y
+
+    def width(name: str) -> float:
+        w = backend.measure_text(name, size) if name else 0.0
+        return max(_FORMULA_TUNNEL_MIN, w + 2 * _FORMULA_TUNNEL_PAD_X)
+
+    inputs = [rt for rt in node.terminals if rt.terminal.direction != "output"]
+    outputs = [rt for rt in node.terminals if rt.terminal.direction == "output"]
+    left_w = max((width(rt.terminal.name or "") for rt in inputs), default=0.0)
+    right_w = max((width(rt.terminal.name or "") for rt in outputs), default=0.0)
+
+    glyph.draw_box(backend, bounds, theme)
+    left_inset = glyph.pad + (left_w + _FORMULA_TUNNEL_GAP if inputs else 0.0)
+    right_inset = glyph.pad + (right_w + _FORMULA_TUNNEL_GAP if outputs else 0.0)
+    glyph.draw_script(backend, bounds, theme, left_inset, right_inset)
+
+    for rt in inputs:
+        w = width(rt.terminal.name or "")
+        _draw_formula_tunnel(backend, theme, rt, x1, x1 + w, box_h, size, y1, y2)
+    for rt in outputs:
+        w = width(rt.terminal.name or "")
+        _draw_formula_tunnel(backend, theme, rt, x2 - w, x2, box_h, size, y1, y2)
+
+
+def _draw_formula_tunnel(
+    backend: Backend, theme: Theme, rt: RenderTerminal,
+    bx1: float, bx2: float, box_h: float, size: float, y1: float, y2: float,
+) -> None:
+    """One tunnel box (edges ``bx1``/``bx2`` already justified to a border) at
+    the terminal's heap height, clamped inside the box."""
+    color = wire_style(rt.terminal.lv_type, theme).color
+    cy = min(max(rt.center[1], y1 + box_h / 2), y2 - box_h / 2)
+    backend.rect(
+        bx1, cy - box_h / 2, bx2, cy + box_h / 2,
+        fill=theme.canvas, stroke=color, stroke_width=1.0,
+    )
+    name = rt.terminal.name or ""
+    if name:
+        backend.text(
+            (bx1 + bx2) / 2, cy + size * 0.34, name, size, anchor="middle",
+            fill=color,
         )
-        if name:
-            backend.text(
-                bcx, bcy + size * 0.34, name, size, anchor="middle", fill=color,
-            )
 
 
 def _inset(bounds, frac: float = 0.075):
@@ -278,10 +287,14 @@ def draw_node(node: RenderNode, backend: Backend, theme: Theme = DEFAULT_THEME) 
     if tooltip:
         backend.begin_group(cls="lv-node", data={"node": node.node.id}, title=tooltip)
 
-    node.glyph.draw(backend, bounds, theme)
-    _draw_invert_bubbles(node, backend, theme)
     if isinstance(node.node, FormulaNode):
-        _draw_formula_tunnels(node, bounds, backend, theme)
+        # A Formula Node lays out its own box + gutter-inset script + border
+        # tunnels together (the script inset depends on the tunnel column
+        # widths), so it takes the whole draw rather than the generic glyph.
+        _draw_formula_node(node, bounds, backend, theme)
+    else:
+        node.glyph.draw(backend, bounds, theme)
+        _draw_invert_bubbles(node, backend, theme)
 
     # Name below the box — ONLY when it isn't already drawn inside: a subVI
     # with no icon now wraps its name into the box (WrappedBoxGlyph), so a
