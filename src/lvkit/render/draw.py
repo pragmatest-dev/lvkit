@@ -859,10 +859,16 @@ def draw_help_overlay(
 
 def _draw_border_terminal(
     bt: RenderBorderTerminal, backend: Backend, theme: Theme,
+    frame_value: str | None = None,
 ) -> None:
     """Draw a structure border glyph from its fixed ``glyph_kind`` — a
     geometry-side decoration (see ``scene._structure_borders``), never
-    re-derived from heap class strings here."""
+    re-derived from heap class strings here.
+
+    ``frame_value`` is the case/sequence frame this glyph is being drawn for
+    (the border terminal is redrawn once per container frame — see
+    ``draw_scene``); an output tunnel unwired in that frame draws with a hole.
+    """
     x1, y1, x2, y2 = _inset(bt.bounds)
     cx, cy = (x1 + x2) / 2, (y1 + y2) / 2
     kind = bt.glyph_kind
@@ -940,10 +946,18 @@ def _draw_border_terminal(
                      stroke=col, stroke_width=1.3)
         return
     if kind == "tunnel":
-        # Last-value passthrough: a solid block filled in the wire type color.
-        fill = bt.color or theme.wire_default
-        backend.rect(x1, y1, x2, y2, fill=fill, stroke="#333333", stroke_width=0.75)
-        return
+        # Normal data tunnel: a solid block filled in the wire type color.
+        col = bt.color or theme.wire_default
+        backend.rect(x1, y1, x2, y2, fill=col, stroke="#333333",
+                     stroke_width=0.75)
+        # "Use Default If Unwired": in a frame that leaves this output tunnel
+        # unwired, LabVIEW punches a small canvas HOLE in the block (the frame
+        # emits the type default). Per-frame — solid in the frames that wire it.
+        if frame_value is not None and frame_value in bt.unwired_frames:
+            hw = (x2 - x1) * 0.17
+            hh = (y2 - y1) * 0.17
+            backend.rect(cx - hw, cy - hh, cx + hw, cy + hh,
+                         fill=theme.canvas, stroke="none")
         return
     # A border DCO the fixed glyph table doesn't cover — undecorated box
     # rather than a guessed glyph.
@@ -1487,8 +1501,12 @@ def _draw_layer_content(
         if _is_interactive_structure(structure.node):
             _draw_frame_selector(structure, scene, backend, theme)
     for structure in structures:
+        # Border terminals show their DEFAULT-frame state here (this layer isn't
+        # inside one of the structure's own frames); the per-frame redraw in
+        # draw_scene overrides with the selected frame's state.
+        fv = scene.default_frame.get(structure.raw_uid)
         for bt in structure.border_terminals:
-            _draw_border_terminal(bt, backend, theme)
+            _draw_border_terminal(bt, backend, theme, fv)
 
     # Pass 3 — nodes on top.
     for node in nodes:
@@ -1571,8 +1589,11 @@ def draw_scene(scene: Scene, backend: Backend, theme: Theme = DEFAULT_THEME) -> 
         # The container draws its own tunnels on top of this frame's inner wires.
         enclosing = by_raw_uid.get(path[-1][0])
         if enclosing is not None:
+            # This IS one of the enclosing container's frames — its tunnels draw
+            # for THIS frame value, so an output tunnel unwired here shows a hole.
+            frame_value = path[-1][1]
             for bt in enclosing.border_terminals:
-                _draw_border_terminal(bt, backend, theme)
+                _draw_border_terminal(bt, backend, theme, frame_value)
         for fp in fps:
             draw_fp_terminal(fp.terminal, fp.bounds, backend, theme, fp.label_visible)
         _draw_layer_coercion_dots(nets, dots, backend, theme)

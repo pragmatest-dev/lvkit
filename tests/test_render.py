@@ -2370,3 +2370,62 @@ class TestCaseInsensitiveBadge:
 
     def test_no_badge_when_case_sensitive(self):
         assert "A=a" not in _draw_case_border_svg(False)
+
+
+# ---------------------------------------------------------------------------
+# "Use Default If Unwired" — output tunnel drawn hollow when a case frame
+# leaves it unwired (per-frame inner-tunnel wiredness).
+# ---------------------------------------------------------------------------
+
+def _case_with_output_tunnel(frames: list[str], wired: list[str]):
+    """A case output tunnel with one inner per frame; ``wired`` names the frames
+    whose inner IS a wire destination."""
+    from lvkit.models import TunnelTerminal
+    outer = TunnelTerminal(id="vi::out", index=0, direction="output",
+                           tunnel_type="csTun", boundary="outer")
+    inners = [
+        TunnelTerminal(id=f"vi::in_{f}", index=0, direction="input",
+                       tunnel_type="csTun", boundary="inner",
+                       paired_id="vi::out", frame=f)
+        for f in frames
+    ]
+    node = CaseStructureNode(id="vi::c", vi="vi", name="Case", node_type="select",
+                             terminals=[outer, *inners])
+    wired_dest = frozenset(f"vi::in_{f}" for f in wired)
+    return node, wired_dest
+
+
+class TestDefaultIfUnwired:
+    def _bt(self, frames, wired):
+        from lvkit.render.scene import _structure_borders
+        node, wired_dest = _case_with_output_tunnel(frames, wired)
+        layout = Layout(node_bounds={"out": (10.0, 10.0, 19.0, 19.0)})
+        bts = _structure_borders(node, layout, "vi", wired_dest)
+        return next(b for b in bts if b.glyph_kind == "tunnel")
+
+    def test_unwired_frames_collected(self):
+        bt = self._bt(frames=["a", "b", "c"], wired=["a", "c"])
+        assert bt.unwired_frames == frozenset({"b"})
+
+    def test_all_wired_is_empty(self):
+        bt = self._bt(frames=["a", "b"], wired=["a", "b"])
+        assert bt.unwired_frames == frozenset()
+
+    def _draw(self, unwired_frames, frame_value):
+        from lvkit.render.draw import _draw_border_terminal
+        from lvkit.render.scene import RenderBorderTerminal
+        from lvkit.render.style import DEFAULT_THEME
+        bt = RenderBorderTerminal(
+            terminal=None, bounds=(0.0, 0.0, 12.0, 12.0), glyph_kind="tunnel",
+            color="#e05fa0", unwired_frames=frozenset(unwired_frames),
+        )
+        backend = SvgBackend()
+        _draw_border_terminal(bt, backend, DEFAULT_THEME, frame_value)
+        return backend.render((0.0, 0.0, 12.0, 12.0))
+
+    def test_hole_only_in_unwired_frame(self):
+        from lvkit.render.style import DEFAULT_THEME
+        # In the unwired frame -> canvas hole punched.
+        assert DEFAULT_THEME.canvas in self._draw({"b"}, frame_value="b")
+        # In a wired frame -> solid, no hole.
+        assert DEFAULT_THEME.canvas not in self._draw({"b"}, frame_value="a")

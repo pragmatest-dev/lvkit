@@ -154,6 +154,12 @@ class RenderBorderTerminal:
     # Continue-if-True (draw green) rather than the default Stop-if-True (red).
     # Sourced from the loop node's ``stop_condition_inverted`` (heap bit 16).
     cond_continue: bool = False
+    # For an OUTPUT "tunnel": the set of frame VALUES (str(selector_value)) in
+    # which this tunnel is left unwired. LabVIEW's "Use Default If Unwired" —
+    # the tunnel draws with a hole (default value) ONLY in those frames, solid
+    # in the frames that do wire it. Empty = always solid. Per-frame because the
+    # border terminal is redrawn inside each frame group (see draw.draw_scene).
+    unwired_frames: frozenset[str] = frozenset()
     # Inner tunnels aren't drawn as glyphs today (see _structure_borders) —
     # this field exists for symmetry with the other frame-tagged dataclasses
     # and future inner-tunnel-per-frame work; it is currently always ()
@@ -590,10 +596,21 @@ _LOOP_GUARANTEED_KINDS: dict[str, tuple[str, ...]] = {
 
 def _structure_borders(
     node: StructureNode, layout: Layout, vi_name: str,
+    wired_dest: frozenset[str] = frozenset(),
 ) -> list[RenderBorderTerminal]:
     result: list[RenderBorderTerminal] = []
     consumed: set[str] = set()
     kinds_present: set[str] = set()
+
+    # Per-frame inner tunnel terminals, grouped by their outer tunnel — used to
+    # detect "Use Default If Unwired" output tunnels (an output tunnel left
+    # unwired in some frame). A valid VI must have the option enabled for such a
+    # tunnel, so unwired-in-a-frame is a sound, data-only signal.
+    inner_by_outer: dict[str, list[TunnelTerminal]] = {}
+    for t in node.terminals:
+        if (isinstance(t, TunnelTerminal) and t.boundary == "inner"
+                and t.paired_id):
+            inner_by_outer.setdefault(t.paired_id, []).append(t)
 
     # 1. Border terminals the graph models as real Terminals (N/lMax, shift
     # registers, auto-index tunnels, case selector).
@@ -624,9 +641,19 @@ def _structure_borders(
                  if glyph_kind in ("autoindex", "tunnel", "sr_down", "sr_up",
                                    "selector")
                  else None)
+        # OUTPUT data tunnel: the frame VALUES whose per-frame inner terminal is
+        # not a wire destination → unwired in that frame → hollow there only.
+        unwired_frames: frozenset[str] = frozenset()
+        if glyph_kind == "tunnel" and t.direction == "output":
+            unwired_frames = frozenset(
+                str(inner.frame)
+                for inner in inner_by_outer.get(t.id, [])
+                if inner.frame is not None and inner.id not in wired_dest
+            )
         result.append(
             RenderBorderTerminal(
                 terminal=t, bounds=rect, glyph_kind=glyph_kind, color=color,
+                unwired_frames=unwired_frames,
             )
         )
         consumed.add(raw)
@@ -1330,6 +1357,13 @@ def build_scene(graph: InMemoryVIGraph, vi_name: str) -> Scene | None:
     default_frame, frame_values, frame_labels, error_frame_no_error = _frame_info(
         all_nodes, vi_name, graph,
     )
+    # Every terminal that RECEIVES a wire — an output tunnel's per-frame inner
+    # terminal absent from this set is unwired in that frame ("Use Default If
+    # Unwired"). include_internal so structure outer<->inner edges count.
+    wired_dest = frozenset(
+        w.dest.terminal_id
+        for w in graph.get_wires(vi_name, include_internal=True)
+    )
     glyph_ctx = GlyphContext(graph=graph, vi_name=vi_name)
 
     render_nodes: list[RenderNode] = []
@@ -1358,7 +1392,9 @@ def build_scene(graph: InMemoryVIGraph, vi_name: str) -> Scene | None:
             structures.append(RenderStructure(
                 node=node,
                 bounds=bounds,
-                border_terminals=_structure_borders(node, layout, vi_name),
+                border_terminals=_structure_borders(
+                    node, layout, vi_name, wired_dest,
+                ),
                 frame_path=fp_path,
                 raw_uid=raw_uid,
                 dividers=layout.sequence_dividers.get(raw_uid, []),
