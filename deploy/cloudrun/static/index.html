@@ -21,6 +21,9 @@
     overflow:auto;padding:1rem;min-height:6rem}
   .out svg{display:block;max-width:100%;height:auto}
   .err{color:#b4462f;font-size:.9rem;white-space:pre-wrap}
+  footer.disclaimer{margin-top:1.6rem;padding-top:1rem;border-top:1px solid var(--line);
+    color:var(--muted);font-size:.78rem;line-height:1.5}
+  footer.disclaimer a{color:var(--muted)}
   .topline{display:flex;justify-content:space-between;align-items:flex-start;gap:1rem}
   #lv-theme-toggle{flex:none;font:.85rem/1.4 ui-sans-serif,system-ui,sans-serif;
     padding:.4rem .8rem;border-radius:6px;border:1px solid var(--line);
@@ -45,6 +48,12 @@
     <span id="label">Choose or drop a .vi file</span>
   </label>
   <div class="out" id="out"></div>
+  <footer class="disclaimer">
+    lvkit is an independent, clean-room project — <b>not affiliated with, endorsed by, or sponsored by NI</b>.
+    It reads VI files using only publicly available information; no LabVIEW or NI software is required.
+    LabVIEW and NI are trademarks of National Instruments Corporation.
+    <a href="https://github.com/pragmatest-dev/lvkit">github.com/pragmatest-dev/lvkit</a>
+  </footer>
 </main>
 <script>
   const drop = document.getElementById('drop');
