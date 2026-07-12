@@ -8,6 +8,7 @@ No classes — each module exposes generate(node, ctx) + helpers.
 from __future__ import annotations
 
 import ast
+from collections.abc import Callable
 
 from lvkit.models import (
     CaseOperation,
@@ -75,6 +76,25 @@ def generate(node: Operation, ctx: CodeGenContext) -> CodeFragment:
             return _generate_unknown(node)
 
 
+# node_type -> codegen function, for a PrimitiveOperation. The bodies already
+# live in per-type modules (compound/nmux/printf); this registry replaces the
+# inlined match so a new prim node type registers here instead of editing a
+# switch. The default (primitive.generate) is the "GenericHandler" of this stage.
+_PrimGen = Callable[[PrimitiveOperation, CodeGenContext], CodeFragment]
+_PRIM_CODEGEN: dict[str, _PrimGen] = {
+    "cpdArith": compound.generate_compound_arith,
+    "aBuild": compound.generate_array_build,
+    "aInit": compound.generate_array_init,
+    "aReplace": compound.generate_array_replace,
+    "aInsert": compound.generate_array_insert,
+    "aReshape": compound.generate_array_reshape,
+    "nMux": nmux.generate,
+    "mux": nmux.generate,
+    "demux": nmux.generate,
+    "printf": printf.generate,
+}
+
+
 def _generate_primitive(
     node: PrimitiveOperation, ctx: CodeGenContext,
 ) -> CodeFragment:
@@ -82,28 +102,11 @@ def _generate_primitive(
     # Queue Operations (Obtain/Enqueue/Dequeue/Get Queue Status) are
     # generic `class="prim"` XML nodes distinguished only by primResID
     # (verified against JKI-VI-Tester samples) -- node_type alone can't
-    # tell them apart, so dispatch by primResID before the node_type match.
+    # tell them apart, so dispatch by primResID before the node_type registry.
     if node.node_type == "prim" and node.primResID in queue_ops.QUEUE_PRIM_IDS:
         return queue_ops.generate(node, ctx)
-    match node.node_type:
-        case "cpdArith":
-            return compound.generate_compound_arith(node, ctx)
-        case "aBuild":
-            return compound.generate_array_build(node, ctx)
-        case "aInit":
-            return compound.generate_array_init(node, ctx)
-        case "aReplace":
-            return compound.generate_array_replace(node, ctx)
-        case "aInsert":
-            return compound.generate_array_insert(node, ctx)
-        case "aReshape":
-            return compound.generate_array_reshape(node, ctx)
-        case "nMux" | "mux" | "demux":
-            return nmux.generate(node, ctx)
-        case "printf":
-            return printf.generate(node, ctx)
-        case _:
-            return primitive.generate(node, ctx)
+    handler = _PRIM_CODEGEN.get(node.node_type or "", primitive.generate)
+    return handler(node, ctx)
 
 
 def _generate_unknown(node: Operation) -> CodeFragment:
