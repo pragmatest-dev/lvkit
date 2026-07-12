@@ -38,6 +38,7 @@ from lvkit.render.scene import (
     _exit_side,
     _format_ranges,
     _frame_compatible,
+    _frame_info,
     _selector_label,
     _structure_borders,
     _trim_string_const_geom,
@@ -1037,19 +1038,10 @@ def test_stacked_sequence_svg_has_lv_frame_and_selector():
                 else:
                     visible += 1
         assert visible >= 1
-        # Initial view = the heap's saved displayed frame (dIdx), not frame 0
-        # (often an empty setup frame) — so a big stacked sequence doesn't open
-        # blank. dIdx can be stale (point past the structure's current frame
-        # count, e.g. after frames were deleted post-save) — the renderer
-        # falls back to frame 0 in that case (see scene.py's own
-        # ``str(shown) in frame_values.get(raw, [])`` guard), so only assert
-        # the match when dIdx is actually one of the structure's real frames.
-        from lvkit.render.layout import build_layout
-        shown = build_layout(
-            graph.get_vi_source_path(vi),
-        ).sequence_shown_frame.get(structure.raw_uid)
-        if shown is not None and str(shown) in values:
-            assert default == str(shown)
+        # Stacked sequences open on frame 0. The heap ``dIdx`` is NOT a frame
+        # index (it resolves to a diagram outside the structure's own frames),
+        # so it cannot drive the initial view — see #81.
+        assert default == "0"
 
 
 def test_render_vi_file_determinism_across_hash_seeds_stacked_seq():
@@ -2315,3 +2307,39 @@ def test_nmux_on_class_private_data_draws_field_name():
     glyph = rn[raw_uid].glyph
     assert isinstance(glyph, BundleByNameGlyph)
     assert glyph.names == ("testsRun",)
+
+
+# ---------------------------------------------------------------------------
+# Case displayed-frame — the initial frame shown in the SVG is the one LabVIEW
+# last displayed (dataspace), not just the default/frame-0 fallback (#81).
+# ---------------------------------------------------------------------------
+
+def _case_node_with_frames(displayed_frame):
+    from lvkit.models import CaseFrame
+    frames = [
+        CaseFrame(selector_value="a"),
+        CaseFrame(selector_value="b"),
+        CaseFrame(selector_value="c", is_default=True),
+    ]
+    return CaseStructureNode(
+        id="vi::case1", vi="vi", name="Case", node_type="select",
+        frames=frames, selector_terminal=None,
+        displayed_frame=displayed_frame,
+    )
+
+
+class TestCaseDisplayedFrame:
+    def test_displayed_frame_selects_initial(self):
+        node = _case_node_with_frames(displayed_frame=1)
+        default_frame, _, _, _ = _frame_info([node], "vi", None)
+        assert default_frame["case1"] == "b"
+
+    def test_no_displayed_frame_falls_back_to_default(self):
+        node = _case_node_with_frames(displayed_frame=None)
+        default_frame, _, _, _ = _frame_info([node], "vi", None)
+        assert default_frame["case1"] == "c"  # the is_default frame
+
+    def test_out_of_range_displayed_frame_falls_back(self):
+        node = _case_node_with_frames(displayed_frame=9)
+        default_frame, _, _, _ = _frame_info([node], "vi", None)
+        assert default_frame["case1"] == "c"

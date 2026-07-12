@@ -844,6 +844,9 @@ class ConstructionMixin:
                     terminals=structure_terminals,
                     frames=case_frames,
                     selector_terminal=selector_term,
+                    displayed_frame=(
+                        case_struct.displayed_frame if case_struct else None
+                    ),
                 )
             elif node.node_type in ("flatSequence", "seq", "sequence"):
                 # Flat sequence

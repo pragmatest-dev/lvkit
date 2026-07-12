@@ -393,7 +393,16 @@ def _frame_info(
         if isinstance(node, CaseStructureNode) and node.frames:
             raw = _strip_prefix(node.id, vi_name)
             frame_values[raw] = [str(f.selector_value) for f in node.frames]
-            shown = next((f for f in node.frames if f.is_default), node.frames[0])
+            # Open on the frame LabVIEW last displayed (from the dataspace
+            # selector table), else the default frame, else frame 0.
+            shown = None
+            if node.displayed_frame is not None \
+                    and 0 <= node.displayed_frame < len(node.frames):
+                shown = node.frames[node.displayed_frame]
+            if shown is None:
+                shown = next(
+                    (f for f in node.frames if f.is_default), node.frames[0],
+                )
             default_frame[raw] = str(shown.selector_value)
             sel_t = graph.get_terminal(node.selector_terminal) \
                 if node.selector_terminal else None
@@ -1441,14 +1450,10 @@ def build_scene(graph: InMemoryVIGraph, vi_name: str) -> Scene | None:
 
     structures.sort(key=lambda s: _depth(s.node))
 
-    # A stacked sequence saves its displayed frame in the heap (``dIdx``); open
-    # on that faithful frame, not frame 0 (often an empty setup frame).
-    for node in all_nodes:
-        if isinstance(node, SequenceNode) and node.node_type != "flatSequence":
-            raw = _strip_prefix(node.id, vi_name)
-            shown = layout.sequence_shown_frame.get(raw)
-            if shown is not None and str(shown) in frame_values.get(raw, []):
-                default_frame[raw] = str(shown)
+    # Stacked sequences open on frame 0. (The heap ``dIdx`` is NOT a frame
+    # index — verified: a 3-frame sequence carries dIdx=17, which resolves to a
+    # diagram outside the structure's own frames — so it cannot drive the
+    # initial view. See #81.)
 
     # Tight viewBox: the bbox of everything actually DRAWN (rendered elements +
     # routed wires), padded. ``layout.scene_bounds()`` is computed from raw

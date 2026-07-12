@@ -103,6 +103,10 @@ class CaseStructureNode(StructureNode):
 
     selector_terminal: str | None = None
     frames: list[CaseFrame] = []
+    # Frame LabVIEW last displayed (the faithful initial view), recovered from
+    # the dataspace selector table. None when not correlated → renderer falls
+    # back to the default frame, then frame 0.
+    displayed_frame: int | None = None
 
 
 class LoopNode(StructureNode):
