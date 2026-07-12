@@ -17,6 +17,7 @@ from lvkit.parser.node_types import (
     CpdArithNode,
     InvokeNode,
     PropertyNode,
+    SubVINode,
 )
 from lvkit.parser.node_types import (
     FormulaNode as ParserFormulaNode,
@@ -25,10 +26,17 @@ from lvkit.parser.node_types import (
     PrimitiveNode as ParserPrimitiveNode,
 )
 
-from ..models import AnyGraphNode
+from ..models import AnyGraphNode, VINode
 from ..models import FormulaNode as GraphFormulaNode
 from ..models import PrimitiveNode as GraphPrimitiveNode
 from .context import GraphBuildContext
+
+# Node types that represent a SubVI call (dynamic or static). Single source of
+# truth — construction.py imports this (it also drives name/description
+# resolution and _connect_subvi_calls).
+SUBVI_CALL_NODE_TYPES: frozenset[str] = frozenset({
+    "iUse", "polyIUse", "dynIUse", "callParentDynIUse", "callByRefNode",
+})
 
 
 class NodeBuildHandler(ABC):
@@ -99,7 +107,43 @@ class PrimitiveBuildHandler(NodeBuildHandler):
         )
 
 
+class SubVIBuildHandler(NodeBuildHandler):
+    """SubVI call (iUse/poly/dyn/callParent/callByRef) → VINode."""
+
+    def build(self, node, node_name, q_node_uid, node_terminals, description, ctx):
+        poly_variant = None
+        if isinstance(node, SubVINode) and node.poly_variant_name:
+            poly_variant = node.poly_variant_name
+        # Persist the FULLY QUALIFIED callee name (e.g.
+        # "TestCase.lvclass:CallTestMethod.vi"): prefer the iUse->qname map,
+        # then the graph's own resolution (mirroring _connect_subvi_calls);
+        # falls back to the bare name — never None.
+        callee_q = ctx.iuse_to_qname.get(node.uid) or node_name
+        resolved_q = ctx.resolve_vi_name(callee_q) if callee_q else None
+        qualified_name = (
+            resolved_q
+            if resolved_q and resolved_q in ctx.graph
+            else node_name
+        )
+        # Dynamic-dispatch calls get their class-qualified target after type
+        # propagation — see _resolve_dispatch_qnames.
+        return VINode(
+            id=q_node_uid,
+            vi=ctx.vi_name,
+            name=node_name,
+            node_type=node.node_type,
+            terminals=node_terminals,
+            description=description,
+            poly_variant_name=poly_variant,
+            qualified_path=ctx.iuse_to_qpath.get(node.uid),
+            qualified_name=qualified_name,
+        )
+
+
+_subvi_handler = SubVIBuildHandler()
+
 NODE_BUILD_HANDLERS: dict[str, NodeBuildHandler] = {
     "fBox": FormulaBuildHandler(),
+    **{nt: _subvi_handler for nt in SUBVI_CALL_NODE_TYPES},
 }
 DEFAULT_NODE_BUILD_HANDLER: NodeBuildHandler = PrimitiveBuildHandler()

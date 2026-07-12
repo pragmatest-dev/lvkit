@@ -7,6 +7,7 @@ from .context import GraphBuildContext
 from .operations import (
     DEFAULT_NODE_BUILD_HANDLER,
     NODE_BUILD_HANDLERS,
+    SUBVI_CALL_NODE_TYPES,
     NodeBuildHandler,
 )
 from .structures import STRUCTURE_BUILD_HANDLERS, StructureBuildHandler
@@ -18,4 +19,5 @@ __all__ = [
     "NODE_BUILD_HANDLERS",
     "DEFAULT_NODE_BUILD_HANDLER",
     "NodeBuildHandler",
+    "SUBVI_CALL_NODE_TYPES",
 ]

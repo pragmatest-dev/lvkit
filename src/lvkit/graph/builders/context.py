@@ -24,10 +24,19 @@ class GraphBuildContext:
     case_by_uid: dict[str, Any]
     flatseq_by_uid: dict[str, Any]
     decompose_by_uid: dict[str, Any]
+    iuse_to_qname: dict[str, str]   # iUse uid -> qualified callee name
+    iuse_to_qpath: dict[str, str]   # iUse uid -> qualified on-disk path
 
     # --- thin pass-throughs to the mixin helpers (keep call sites readable) ---
     def qid(self, uid: str) -> str:
         return self.mixin._qid(self.vi_name, uid)
+
+    def resolve_vi_name(self, name: str) -> str:
+        return self.mixin.resolve_vi_name(name)
+
+    @property
+    def graph(self) -> Any:
+        return self.mixin._graph
 
     def build_structure_terminals(
         self, tunnels: list, q_node_uid: str, **kwargs: Any,

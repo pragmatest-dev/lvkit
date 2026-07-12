@@ -44,6 +44,7 @@ from .builders import (
     DEFAULT_NODE_BUILD_HANDLER,
     NODE_BUILD_HANDLERS,
     STRUCTURE_BUILD_HANDLERS,
+    SUBVI_CALL_NODE_TYPES,
     GraphBuildContext,
 )
 from .models import (
@@ -57,13 +58,11 @@ from .models import (
 
 logger = logging.getLogger(__name__)
 
-# All node types that represent a SubVI call (dynamic or static).
-# callByRefNode is included for node creation/name resolution but excluded
-# from _connect_subvi_calls — its callee is runtime-determined, no static
-# enrichment is possible.
-_SUBVI_CALL_NODE_TYPES: frozenset[str] = frozenset({
-    "iUse", "polyIUse", "dynIUse", "callParentDynIUse", "callByRefNode",
-})
+# All node types that represent a SubVI call (dynamic or static). Single source
+# of truth lives with the SubVI build handler; callByRefNode is included for node
+# creation/name resolution but excluded from _connect_subvi_calls (its callee is
+# runtime-determined, no static enrichment is possible).
+_SUBVI_CALL_NODE_TYPES = SUBVI_CALL_NODE_TYPES
 
 # Subset of _SUBVI_CALL_NODE_TYPES that allow static callee enrichment.
 _STATIC_SUBVI_CALL_NODE_TYPES: frozenset[str] = frozenset({
@@ -429,6 +428,7 @@ class ConstructionMixin:
             mixin=self, bd=bd, vi_name=vi_name, term_lookup=term_lookup,
             loop_by_uid=loop_by_uid, case_by_uid=case_by_uid,
             flatseq_by_uid=flatseq_by_uid, decompose_by_uid=decompose_by_uid,
+            iuse_to_qname=iuse_to_qname or {}, iuse_to_qpath=iuse_to_qpath,
         )
 
         for node in bd.nodes:
@@ -708,45 +708,12 @@ class ConstructionMixin:
                 if vi_entry and vi_entry.description:
                     description = vi_entry.description
 
-            # Determine what kind of graph node to create
-            if node.node_type in _SUBVI_CALL_NODE_TYPES:
-                # SubVI call — stored as VINode
-                poly_variant = None
-                if isinstance(node, SubVINode) and node.poly_variant_name:
-                    poly_variant = node.poly_variant_name
-                # Persist the FULLY QUALIFIED callee name (e.g.
-                # "TestCase.lvclass:CallTestMethod.vi"). The graph already
-                # resolves this to wire up cross-VI edges (see
-                # _connect_subvi_calls); store it on the node too so consumers
-                # can identify the exact callee instead of the ambiguous bare
-                # file name. None when the callee can't be resolved to a loaded
-                # VI (unresolved vilib, call-by-ref, ...).
-                # The callee's fully-qualified name (e.g.
-                # "TestCase.lvclass:CallTestMethod.vi"). Prefer the iUse->qname
-                # map, then the graph's own resolution (mirroring
-                # _connect_subvi_calls); when there's no known container it is
-                # simply the bare name — never None.
-                callee_q = (iuse_to_qname or {}).get(node.uid) or node_name
-                resolved_q = self.resolve_vi_name(callee_q) if callee_q else None
-                qualified_name = (
-                    resolved_q
-                    if resolved_q and resolved_q in self._graph
-                    else node_name
-                )
-                # Dynamic-dispatch calls get their class-qualified target after
-                # type propagation — see _resolve_dispatch_qnames.
-                graph_node: AnyGraphNode = VINode(
-                    id=q_node_uid,
-                    vi=vi_name,
-                    name=node_name,
-                    node_type=node.node_type,
-                    terminals=node_terminals,
-                    description=description,
-                    poly_variant_name=poly_variant,
-                    qualified_path=iuse_to_qpath.get(node.uid),
-                    qualified_name=qualified_name,
-                )
-            elif node.node_type in STRUCTURE_BUILD_HANDLERS:
+            # Determine what kind of graph node to create. SubVI calls, fBox,
+            # and primitives/cpdArith/property/invoke all go through the
+            # operation registry (subvi + fBox keyed; default = primitive);
+            # loop/case/sequence/IPES go through the structure registry.
+            graph_node: AnyGraphNode
+            if node.node_type in STRUCTURE_BUILD_HANDLERS:
                 # Loop / case / sequence / IPES — built by a registered
                 # per-kind handler (graph/builders/structures.py). Shared
                 # post-dispatch (nMux enrichment, g.add_node) is below.
