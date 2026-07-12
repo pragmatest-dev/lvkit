@@ -436,10 +436,11 @@ def test_knockout_keeps_interior_white_drops_exterior():
 
 def test_cluster_constant_collapses_when_box_too_small_for_field_rows():
     """A cluster constant whose real heap bounds are too small to fit legible
-    ``name: value`` rows draws ONLY the box (values move to the hover tooltip);
-    a comfortably-sized one draws the inline field rows — task #50. The switch
-    is driven purely by the drawn ``bounds`` (LabVIEW's ground-truth size), not
-    a heap "collapsed" flag (none exists)."""
+    ``name: value`` rows drops the field-NAME labels but still draws the field
+    VALUES (never a blank box; names move to the hover tooltip); a comfortably-
+    sized one draws the full inline rows — task #50. The switch is driven purely
+    by the drawn ``bounds`` (LabVIEW's ground-truth size), not a heap
+    "collapsed" flag (none exists)."""
     from lvkit.render.glyph import ClusterConstantGlyph
     from lvkit.render.style import DEFAULT_THEME
 
@@ -461,9 +462,11 @@ def test_cluster_constant_collapses_when_box_too_small_for_field_rows():
     small = SvgBackend()
     glyph.draw(small, (0.0, 0.0, 17.0, 42.0), DEFAULT_THEME)
     small_svg = small.render((0.0, 0.0, 17.0, 42.0))
-    # Collapsed: field names/values are NOT drawn inline (only the cluster box).
+    # Too small for labeled rows: field NAMES are dropped, but both field
+    # VALUE glyphs (the _Dot "V") are still drawn — never a blank box.
     assert "Horizontal" not in small_svg and "Vertical" not in small_svg
     assert "<rect" in small_svg
+    assert small_svg.count(">V<") == 2
 
 
 def test_local_variable_glyph_badge_and_read_write_border_weight():

@@ -825,14 +825,13 @@ class ClusterConstantGlyph:
     # is drawn small/collapsed and the inline values aren't legible.
     value_summary: str = ""
 
-    # Below these, a stacked "name: value" row is unreadable, so the cluster
-    # is drawn as a plain box and the field values move to the hover tooltip
+    # Below these, a stacked "name: value" row can't fit both a name AND a
+    # value cell, so we drop the field-NAME labels and draw the field VALUES
+    # alone (stacked, scaled to the box) — never a blank box, since LabVIEW
+    # always shows a cluster constant's contents (the names are the toggleable
+    # part; see the field-label discussion). Names stay on the hover tooltip
     # (``value_summary``). These are legibility floors tied to ``label_size``
-    # (a 7px row needs a couple px of breathing room; a field needs room for a
-    # short name AND a value cell) — NOT a semantic "collapsed" flag, which the
-    # heap does not carry. LabVIEW's real drawn ``bounds`` are the ground truth:
-    # a cluster it drew this small simply cannot show its fields inline, and a
-    # collapsed cluster is just what a too-small real size looks like.
+    # — NOT a semantic "collapsed" flag, which the heap does not carry.
     _MIN_ROW_H = 9.0
     _MIN_FIELD_W = 40.0
 
@@ -844,13 +843,22 @@ class ClusterConstantGlyph:
             fill=getattr(theme, self.fill_attr), stroke=border, stroke_width=1.5,
         )
         if not self.fields:
-            return
+            return  # a genuinely empty cluster (no elements) — box only
         pad = 3.0
         label_size = 7.0
         row_h = (y2 - y1 - 2 * pad) / len(self.fields)
         if row_h < self._MIN_ROW_H or (x2 - x1 - 2 * pad) < self._MIN_FIELD_W:
-            # Collapsed: the box alone stands in for the cluster; field values
-            # are on hover. Nothing more to draw.
+            # Too small for labeled rows: draw just the field VALUES, stacked
+            # and scaled to fit, so the box is never blank. Names on hover.
+            vpad = 1.0
+            vrow = (y2 - y1 - 2 * vpad) / len(self.fields)
+            for i, (_name, field_glyph) in enumerate(self.fields):
+                ry1 = y1 + vpad + i * vrow
+                ry2 = ry1 + vrow
+                if x2 - vpad > x1 + vpad and ry2 - 0.5 > ry1 + 0.5:
+                    field_glyph.draw(
+                        backend, (x1 + vpad, ry1 + 0.5, x2 - vpad, ry2 - 0.5), theme,
+                    )
             return
         label_w = min(
             0.4 * (x2 - x1),
