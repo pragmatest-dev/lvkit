@@ -57,7 +57,12 @@ from .nodes import (
 )
 from .type_mapping import parse_type_map_rich
 from .type_resolution import resolve_type_rich
-from .utils import clean_labview_string, extract_label, safe_int
+from .utils import (
+    clean_labview_string,
+    decode_xml_entities_to_bytes,
+    extract_label,
+    safe_int,
+)
 
 
 def _load_node_dco_maps() -> dict[str, dict[str, int]]:
@@ -816,30 +821,6 @@ def _parse_ddo(
     )
 
 
-def _decode_xml_entities_to_bytes(data: str) -> bytes:
-    """Convert a string with XML character entities to raw bytes."""
-    result = bytearray()
-    i = 0
-    while i < len(data):
-        if data[i:i+3] == '&#x':
-            end = data.find(';', i)
-            if end != -1:
-                hex_val = data[i+3:end]
-                result.append(int(hex_val, 16))
-                i = end + 1
-                continue
-        elif data[i:i+2] == '&#':
-            end = data.find(';', i)
-            if end != -1:
-                dec_val = data[i+2:end]
-                result.append(int(dec_val))
-                i = end + 1
-                continue
-        result.append(ord(data[i]) & 0xFF)
-        i += 1
-    return bytes(result)
-
-
 def _decode_default_data(
     raw_data: str,
     control_type: str,
@@ -855,7 +836,7 @@ def _decode_default_data(
         return None
 
     try:
-        raw_bytes = _decode_xml_entities_to_bytes(raw_data)
+        raw_bytes = decode_xml_entities_to_bytes(raw_data)
     except (ValueError, UnicodeError):
         return None
 

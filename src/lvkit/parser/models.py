@@ -54,6 +54,13 @@ class ParsedConstant:
     type_desc: str
     value: str
     label: str | None = None
+    # Raw printf-style display-format string from the constant's own numeric
+    # label part (e.g. '%.0x' = hex, '%.2f' = 2 decimal digits), verbatim
+    # from the DCO's ddo/partsList/numLabel/format XML element. None when
+    # the constant isn't numeric or carries no explicit format (LabVIEW
+    # default decimal display). Interpreted at render time — the parser
+    # does not decide what it means.
+    display_format: str | None = None
 
 
 @dataclass

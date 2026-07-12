@@ -151,15 +151,21 @@ def install_pylabview_patches() -> None:
 
     _lv_block.TypeDescListBase.commentSpecialTypes = _safe_comment
 
-    # (5) LVxml control-char escaping — pylabview emits ``&#xNN;`` for every
-    # control char 0-31, but XML 1.0 cannot hold 0x00-0x08 / 0x0B / 0x0C /
-    # 0x0E-0x1F even as references (pylabview's own comment admits the parse
-    # then fails). So binary bytes in string constants / object-name attributes
-    # produce INVALID XML that aborts the downstream read. Replace those
-    # unrepresentable chars with U+FFFD before escaping. Only strings that
-    # CONTAIN such chars are touched — and those currently fail to parse — so
-    # working VIs are byte-identical; the affected bytes are binary metadata /
-    # edge-case constants we never round-trip.
+    # (5) LVxml control-char escaping. pylabview escapes control chars 0-31 as
+    # ``&#xNN;``, but that token means two DIFFERENT things by context:
+    #   * inside CDATA it is LITERAL TEXT — valid, and recoverable (pylabview's
+    #     own ``unescape_cdata_control_chars`` and lvkit's constant-value
+    #     decoder both turn it back into the exact byte). So the CDATA path is
+    #     already lossless and must be LEFT ALONE — we only split ``]]>`` there.
+    #   * inside an ATTRIBUTE it is a genuine ENTITY REFERENCE, and XML 1.0
+    #     cannot hold 0x00-0x08 / 0x0B / 0x0C / 0x0E-0x1F even as a reference
+    #     (pylabview's own comment admits the parse then fails) — so binary
+    #     bytes in object-name attributes produce INVALID XML that aborts the
+    #     read (the #75 ParseError). Only the attribute path replaces those
+    #     unrepresentable chars with U+FFFD.
+    # An earlier version stripped BOTH paths, which silently corrupted binary
+    # constant VALUES (they live in CDATA ``DefaultData``) — a hex ``U32 0x02``
+    # became ``xFDFDFDFD`` — so the strip is now attribute-only (task #59).
     _xml_invalid = [i for i in range(32) if i not in (9, 10, 13)]
 
     def _strip_xml_invalid(text):  # type: ignore[no-untyped-def]
@@ -179,7 +185,19 @@ def install_pylabview_patches() -> None:
         # itself an XML document) can't close the CDATA section early — the
         # standard CDATA escape. pylabview omits this, producing mismatched-tag
         # XML for such constants.
-        text = _strip_xml_invalid(text).replace("]]>", "]]]]><![CDATA[>")
+        #
+        # Do NOT U+FFFD-strip control chars in the CDATA path: pylabview's own
+        # ``escape_cdata_control_chars`` (``_orig_cdata``) already renders every
+        # control byte as recoverable ``&#xNN;`` LITERAL TEXT, which is valid
+        # inside CDATA and round-trips (``unescape_cdata_control_chars`` /
+        # lvkit's constant-value decoder both recover the exact bytes). The
+        # earlier blanket strip ran BEFORE that escaper, so it clobbered binary
+        # constant values before they could be encoded — a hex ``U32 0x02``
+        # constant serialized as ``����`` and rendered ``xFDFDFDFD`` instead of
+        # ``x2`` (task #59). U+FFFD is only needed on the ATTRIBUTE path, where
+        # ``&#xNN;`` is a genuine ENTITY REFERENCE and XML 1.0 rejects it for
+        # control chars (the real #75 ParseError).
+        text = text.replace("]]>", "]]]]><![CDATA[>")
         return _orig_cdata(text)
 
     _lv_xml.escape_attribute_control_chars = _safe_attr

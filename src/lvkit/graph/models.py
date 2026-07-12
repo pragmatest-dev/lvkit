@@ -154,6 +154,10 @@ class ConstantNode(GraphNode):
     lv_type: LVType | None = None
     raw_value: str | None = None
     label: str | None = None
+    # Raw printf-style numeric display-format string from the parser
+    # (``ParsedConstant.display_format``, e.g. ``%.0x`` for hex), threaded
+    # through unchanged — render/nodes.py is where it's interpreted.
+    display_format: str | None = None
 
 
 class LocalVariableNode(GraphNode):

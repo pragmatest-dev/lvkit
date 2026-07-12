@@ -595,6 +595,46 @@ class TestParseVI:
         assert const.type_desc == "stdNum"
         assert const.value == "3F800000"
 
+    def test_parse_constant_from_default_data(self, tmp_path: Path):
+        """Real-world VIs carry a constant's value in ``DefaultData``, not
+        ``ConstValue`` (task #59 finding — pylabview never emits
+        ``ConstValue`` for a ``bDConstDCO`` in any corpus VI checked).
+        ``DefaultData`` is a quoted string mixing literal printable bytes
+        with ``&#xNN;``-entity-encoded non-printable ones (already
+        unescaped once by XML parsing, so ``&amp;#x00;`` in the source
+        arrives here as literal ``&#x00;``) — must decode to hex, not be
+        used as hex text directly. Also covers the numeric display-format
+        string (``%.0x`` = hex), which lives on the same DCO's
+        ``ddo/partsList/numLabel/format``."""
+        xml_content = """<?xml version="1.0"?>
+<root>
+    <nodeList>
+        <SL__arrayElement class="term" uid="const1">
+            <dco class="bDConstDCO">
+                <typeDesc>TypeID(1)</typeDesc>
+                <ddo class="stdNum" uid="1">
+                    <partsList elements="1">
+                        <SL__arrayElement class="numLabel" uid="2">
+                            <format>"%.0x"</format>
+                        </SL__arrayElement>
+                    </partsList>
+                </ddo>
+                <DefaultData>"&amp;#x00;&amp;#x00;&amp;#x00;&amp;#x02;"</DefaultData>
+            </dco>
+        </SL__arrayElement>
+    </nodeList>
+    <signalList></signalList>
+</root>"""
+        xml_file = tmp_path / "test_BDHb.xml"
+        xml_file.write_text(xml_content)
+
+        vi = parse_vi(bd_xml=xml_file)
+        bd = vi.block_diagram
+        assert len(bd.constants) == 1
+        const = bd.constants[0]
+        assert const.value == "00000002"
+        assert const.display_format == "%.0x"
+
     def test_parse_with_fp_terminals(self, tmp_path: Path):
         """Test parsing a block diagram with front panel terminals."""
         xml_content = """<?xml version="1.0"?>

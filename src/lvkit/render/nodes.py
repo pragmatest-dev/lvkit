@@ -61,9 +61,67 @@ from .glyph import (
     VariantGlyph,
     WrappedBoxGlyph,
 )
-from .style import numeric_repr, type_family, wire_style
+from .style import int_byte_width, numeric_repr, type_family, wire_style
 
 logger = logging.getLogger(__name__)
+
+# A LabVIEW numeric constant's display-format string, verbatim off the
+# DCO's ``numLabel/format`` XML field — a printf-style spec (LabVIEW's own
+# "Display Format" dialog writes these). Only the plain forms
+# ``%[flags][width].<precision><conv>`` are matched; anything else (e.g.
+# LabVIEW's ``%<%.3X\n%x>T`` timestamp syntax, or the engineering-notation
+# ``%#_13g`` seen once in the corpus with a non-numeric width token) is left
+# for the caller to fall back on default formatting rather than guess at.
+_NUMERIC_FORMAT_RE = re.compile(
+    r"^%[#0\- +]*\d*\.(?P<prec>\d+)(?P<conv>[fFeEgGxXob])$"
+)
+# LabVIEW prefixes a non-decimal numeric constant with a lowercase letter —
+# "x" for hex, "o" for octal, "b" for binary — never a "0x"/"0o"/"0b" style
+# prefix (verified against the task's own example: U8 31 -> "x1F").
+_RADIX_PREFIX = {"x": "x", "X": "x", "o": "o", "b": "b"}
+_RADIX_FORMAT_SPEC = {"x": "X", "X": "X", "o": "o", "b": "b"}
+
+
+def _format_numeric_const(
+    lv_type: LVType | None, value: object, display_format: str | None,
+) -> str | None:
+    """Apply a numeric constant's DCO-provided display-format string to its
+    decoded value: hex/octal/binary radix (with LabVIEW's lowercase x/o/b
+    prefix, negative values two's-complemented to the type's bit width) or
+    float precision (``%.Nf``/``%.Ng``/``%.Ne`` -> N digits).
+
+    Returns None — caller falls back to the default decimal display —
+    when there's no format string, or it doesn't match the plain printf
+    spec this function understands (see ``_NUMERIC_FORMAT_RE``)."""
+    if not display_format:
+        return None
+    m = _NUMERIC_FORMAT_RE.match(display_format)
+    if not m:
+        return None
+    conv = m.group("conv")
+    prec = int(m.group("prec"))
+    try:
+        fval = float(value)  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        return None
+
+    if conv in _RADIX_PREFIX:
+        ival = int(fval)
+        width = int_byte_width(lv_type)
+        if ival < 0:
+            if width is None:
+                # Can't two's-complement without a known bit width — don't
+                # guess a width, fall back to default formatting instead.
+                return None
+            ival &= (1 << (width * 8)) - 1
+        digits = format(ival, _RADIX_FORMAT_SPEC[conv])
+        if len(digits) < prec:
+            digits = digits.rjust(prec, "0")
+        return _RADIX_PREFIX[conv] + digits
+
+    # f/F/e/E/g/G — printf precision digits; Python's format mini-language
+    # uses the identical conversion letters and semantics.
+    return format(fval, f".{prec}{conv}")
 
 
 def _format_const(value: object) -> str:
@@ -470,9 +528,17 @@ def _enum_const_name(lv_type: LVType | None, raw: object) -> str:
     return next((name for name, ev in values.items() if ev.value == idx), text)
 
 
-def _leaf_const_glyph(lv_type: LVType | None, raw: object) -> Glyph:
+def _leaf_const_glyph(
+    lv_type: LVType | None, raw: object, display_format: str | None = None,
+) -> Glyph:
     """One non-cluster constant's glyph, from its type + raw value. Shared by
-    top-level constants and by each field of a composed cluster constant."""
+    top-level constants and by each field of a composed cluster constant.
+
+    ``display_format`` is the constant's own DCO-provided printf-style
+    numeric display-format string (top-level constants only for now — a
+    cluster constant's individual FIELDS carry their own format too, but
+    extracting those isn't implemented, so field callers pass None and get
+    the default decimal display; see ``ParsedConstant.display_format``)."""
     fam = type_family(lv_type)
     if fam == "variant":
         return VariantGlyph()
@@ -487,7 +553,11 @@ def _leaf_const_glyph(lv_type: LVType | None, raw: object) -> Glyph:
         return ConstantGlyph(name, color)
     if numeric_repr(lv_type) is not None:
         # An unset numeric cluster field shows its default 0, never "None".
-        value = _format_const(0 if raw is None else raw)
+        value_raw = 0 if raw is None else raw
+        value = (
+            _format_numeric_const(lv_type, value_raw, display_format)
+            or _format_const(value_raw)
+        )
     elif fam == "string":
         # Show the bare text (quotes/escapes are a codegen artifact); empty
         # for an unset field.
@@ -576,7 +646,7 @@ class GeneratedGlyphResolver:
                 if fam == "error_cluster":
                     return ErrorClusterGlyph()
             raw = node.raw_value if node.value is None else node.value
-            return _leaf_const_glyph(node.lv_type, raw)
+            return _leaf_const_glyph(node.lv_type, raw, node.display_format)
         if isinstance(node, FormulaNode):
             return LabeledBoxGlyph(
                 node.name or "Formula", "prim_fill", "prim_stroke", 1.5,

@@ -414,6 +414,7 @@ class ConstructionMixin:
                 lv_type=lv_type,
                 raw_value=const.value,
                 label=const.label,
+                display_format=const.display_format,
                 terminals=[const_terminal],
             )
             g.add_node(q_const_uid, node=const_node)

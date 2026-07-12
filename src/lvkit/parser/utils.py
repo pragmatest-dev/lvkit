@@ -35,6 +35,40 @@ def clean_labview_string(s: str | None) -> str:
     return s
 
 
+def decode_xml_entities_to_bytes(data: str) -> bytes:
+    """Convert a LabVIEW ``DefaultData``/``ConstValue``-style string to raw
+    bytes. The value is emitted as a quoted string where printable bytes are
+    literal characters and non-printable bytes are ``&#xNN;``/``&#N;``
+    entities (already un-escaped once by ElementTree, so ``&amp;#x00;`` in
+    the source XML arrives here as the literal text ``&#x00;``).
+
+    NOTE: do not run this string through ``clean_labview_string`` first —
+    that function DELETES ``&#xNN;`` sequences (it is meant for display
+    text), which would silently drop every encoded byte before this
+    function ever sees it.
+    """
+    result = bytearray()
+    i = 0
+    while i < len(data):
+        if data[i:i + 3] == "&#x":
+            end = data.find(";", i)
+            if end != -1:
+                hex_val = data[i + 3:end]
+                result.append(int(hex_val, 16))
+                i = end + 1
+                continue
+        elif data[i:i + 2] == "&#":
+            end = data.find(";", i)
+            if end != -1:
+                dec_val = data[i + 2:end]
+                result.append(int(dec_val))
+                i = end + 1
+                continue
+        result.append(ord(data[i]) & 0xFF)
+        i += 1
+    return bytes(result)
+
+
 def safe_text(elem: ET.Element | None, default: str = "") -> str:
     """Safely get text content from an XML element.
 

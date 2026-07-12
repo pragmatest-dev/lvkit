@@ -31,7 +31,7 @@ from lvkit.render.backend import SvgBackend
 from lvkit.render.draw import draw_fp_terminal, draw_node
 from lvkit.render.glyph import CompoundArithGlyph
 from lvkit.render.layout import Layout, Point, Rect, build_layout
-from lvkit.render.nodes import string_const_display
+from lvkit.render.nodes import _format_numeric_const, string_const_display
 from lvkit.render.scene import (
     Scene,
     _exit_side,
@@ -1257,6 +1257,50 @@ def test_string_const_display_strips_quotes_and_unescapes():
     assert string_const_display("'line1\nline2'") == "line1\nline2"  # newlines kept
     assert string_const_display("novalue") == "novalue"  # non-quoted passthrough
     assert string_const_display(None) == ""
+
+
+def test_format_numeric_const_hex_octal_binary_decimal():
+    # LabVIEW prefixes a non-decimal numeric constant with a lowercase
+    # letter (x/o/b), uppercase hex digits, no zero-padding at precision 0 —
+    # verified against the "Current VIs Reference.vi" corpus VI's own label
+    # ("0x02 => ...") documenting its own constant's value (task #59).
+    u8 = LVType(kind="primitive", underlying_type="NumUInt8")
+    assert _format_numeric_const(u8, "31", "%.0x") == "x1F"
+    u16 = LVType(kind="primitive", underlying_type="NumUInt16")
+    assert _format_numeric_const(u16, "237", "%.0b") == "b11101101"
+    i32 = LVType(kind="primitive", underlying_type="NumInt32")
+    assert _format_numeric_const(i32, "2", "%.0x") == "x2"
+    # No format string (LabVIEW default decimal) -> caller falls back.
+    assert _format_numeric_const(i32, "31", None) is None
+
+
+def test_format_numeric_const_negative_twos_complement_by_bit_width():
+    # A negative value hex-displayed shows the type's own two's-complement
+    # bit pattern (I16 -1 -> xFFFF), not a Python-style "-x1".
+    i16 = LVType(kind="primitive", underlying_type="NumInt16")
+    assert _format_numeric_const(i16, "-1", "%.0x") == "xFFFF"
+    i32 = LVType(kind="primitive", underlying_type="NumInt32")
+    assert _format_numeric_const(i32, "-1", "%.0x") == "xFFFFFFFF"
+    # Unknown/unresolved type: can't determine the bit width to
+    # two's-complement against — don't guess, fall back instead.
+    assert _format_numeric_const(None, "-1", "%.0x") is None
+
+
+def test_format_numeric_const_float_precision():
+    dbl = LVType(kind="primitive", underlying_type="NumFloat64")
+    assert _format_numeric_const(dbl, "1.9375", "%.2f") == "1.94"
+    assert _format_numeric_const(dbl, "3.0", "%.1f") == "3.0"
+    assert _format_numeric_const(dbl, "31", "%.0f") == "31"
+
+
+def test_format_numeric_const_unrecognized_format_falls_back():
+    # LabVIEW's timestamp format ('%<...>T') and other specs this function
+    # doesn't understand return None rather than a guessed rendering.
+    i32 = LVType(kind="primitive", underlying_type="NumInt32")
+    assert _format_numeric_const(i32, "5", "%<%.3X\n%x>T") is None
+    assert _format_numeric_const(i32, "5", "%#_13g") is None
+    assert _format_numeric_const(i32, "5", None) is None
+    assert _format_numeric_const(i32, "5", "") is None
 
 
 def test_string_constant_boxes_trimmed_top_left_anchored():
