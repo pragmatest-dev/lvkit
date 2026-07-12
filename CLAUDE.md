@@ -110,6 +110,25 @@ This preserves LabVIEW's semantics where:
 
 Implementation: `src/lvkit/codegen/error_handler.py`
 
+## Searching for Code in VIs
+
+A `.vi` is a binary — you cannot grep it directly. Finding a construct (a
+`primResID`, a node class, a structure) is **two steps**:
+
+1. **Extract the XML** with pylabview. `lvkit.extractor.extract_vi_xml(vi_path)`
+   runs one pylabview subprocess per VI and writes `*_BDHb.xml` (block diagram) +
+   `*_FPHb.xml` (front panel) beside the VI. Many corpus VIs are already extracted
+   — check for an existing `*_BDHb.xml` before re-extracting.
+2. **Grep the XML.** e.g. `<primResID>1234</primResID>` for a primitive, or
+   `class="whileLoop"` / `class="caseStruct"` / `class="flatSequence"` /
+   `class="fBox"` for a structure.
+
+**NEVER run the full parser (`parse_vi` / graph build) across the whole corpus
+just to locate a known element** — that OOM-crashes WSL. Extraction is
+memory-flat (per-VI subprocess); parsing/graph-building accumulates. So:
+extract-then-grep the XML, and only `parse_vi(bd_xml=...)` the handful of VIs that
+matched. Cap the scan and `del` each VI's text before the next.
+
 ## Adding New Primitives
 
 LabVIEW primitives are identified by `primResID`. When a conversion fails with `PrimitiveResolutionNeeded`, add an entry to `src/lvkit/data/primitives.json`:

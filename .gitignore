@@ -79,6 +79,7 @@ dmypy.json
 
 # Sample LabVIEW projects (external test data)
 samples/
+samples.bak/
 
 # Model files
 models/
