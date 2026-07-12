@@ -13,89 +13,14 @@ import zipfile
 from pathlib import Path
 from typing import Any
 
-import pylabview.LVblock as _lv_block  # type: ignore[import-untyped]
-import pylabview.LVdatatype as _lv_datatype  # type: ignore[import-untyped]
-import pylabview.LVmisc as _lv_misc  # type: ignore[import-untyped]
 import pylabview.LVrsrcontainer as _lv_rsrc  # type: ignore[import-untyped]
 import pylabview.LVxml as _lv_xml  # type: ignore[import-untyped]
 
+from lvkit._pylabview_patches import install_pylabview_patches
 
-def _install_pylabview_patches() -> None:
-    """Patch three pylabview code paths — two pathologically slow, one a crash —
-    that only affect *writing*/validation, not the read-only extract lvkit
-    performs. All are output-identical for rendering and codegen (gated on the
-    block-diagram XML); the third (a None-guard) prevents an abort entirely:
-
-    1. ``frexpQuadFloat`` — an O(exponent) ``Decimal``-halving loop that runs its
-       full 16384-iteration safety cap (~1.2s each) on out-of-quad-range EXT
-       constants. Replaced with an O(1) log jump for extreme magnitudes; the
-       exact original loop is kept for normal magnitudes, so their output is
-       unchanged by construction.
-    2. ``BDPW.scanForHashSalt`` — brute-forces the block-diagram password salt
-       over 256**3 MD5s (~30s on LVOOP/interface VIs whose salt source lives in
-       an external class). The salt is password/round-trip metadata we never
-       read, so it is stubbed to a fixed value; the ``BDHb``/``FPHb`` block XML
-       (all render/codegen consume) is unaffected.
-    """
-    from decimal import Decimal
-
-    _orig_frexp = _lv_misc.frexpQuadFloat
-    _ln2 = Decimal(2).ln()
-
-    def _fast_frexp(d, e_largest=16384):  # type: ignore[no-untyped-def]
-        # Delegate to the exact original loop for zero/NaN and any normal
-        # magnitude (|d| within ~1e280), so those results are byte-identical.
-        if d == 0 or d != d or -280 < abs(d).adjusted() < 280:
-            return _orig_frexp(d, e_largest)
-        neg = d < 0
-        ad = -d if neg else d
-        e = int(ad.ln() / _ln2) + 1
-        f = ad / (Decimal(2) ** e)
-        while f >= 1:
-            f /= 2
-            e += 1
-        while f < Decimal("0.5"):
-            f *= 2
-            e -= 1
-        return (-f, e) if neg else (f, e)
-
-    _lv_misc.frexpQuadFloat = _fast_frexp
-
-    def _skip_salt_scan(  # type: ignore[no-untyped-def]
-        self, section_num, presalt_data=b"", postsalt_data=b""
-    ):
-        section = self.sections[section_num]
-        section.salt_td_flat_idx = None
-        section.salt = b"\x00" * 12
-        section.salt_source = None
-        return section.salt
-
-    _lv_block.BDPW.scanForHashSalt = _skip_salt_scan
-
-    # (3) CRASH GUARD (not perf): TDObjectNumber.checkSanity does
-    # ``self.prop1 & ~1`` with no None guard, while every other method on the
-    # class guards ``if self.prop1 is not None`` (exportXML, buildData). prop1
-    # stays None for a numeric type descriptor that references an external
-    # class (LVOOP) — pylabview parses the VI in isolation and never reads it —
-    # so ``None & ~1`` raises TypeError and aborts the whole VI parse (seen on
-    # the fresh corpus's LabVIEW-DAQ camera VIs). Guard it the same way: treat
-    # None as valid for the duration of the check, then restore None so
-    # exportXML still omits Prop1 and the emitted XML is unchanged.
-    _orig_checksanity = _lv_datatype.TDObjectNumber.checkSanity
-
-    def _safe_checksanity(self):  # type: ignore[no-untyped-def]
-        if self.prop1 is None:
-            self.prop1 = 0
-            try:
-                return _orig_checksanity(self)
-            finally:
-                self.prop1 = None
-        return _orig_checksanity(self)
-
-    _lv_datatype.TDObjectNumber.checkSanity = _safe_checksanity
-
-
-_install_pylabview_patches()
+# All pylabview monkeypatches live in _pylabview_patches.py. Apply them before
+# any extraction runs (idempotent).
+install_pylabview_patches()
 
 _CACHE_ROOT = Path(tempfile.gettempdir()) / "lvkit" / "extract"
 _LLB_CACHE_ROOT = Path(tempfile.gettempdir()) / "lvkit" / "llb"
