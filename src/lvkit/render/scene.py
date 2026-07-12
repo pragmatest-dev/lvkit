@@ -18,6 +18,7 @@ from ..graph.models import (
     AnyGraphNode,
     CaseStructureNode,
     ConstantNode,
+    FormulaNode,
     LoopNode,
     SequenceNode,
     StructureNode,
@@ -482,6 +483,31 @@ def _trim_string_const_geom(
         # edge, not empty space. (Output exits right, so x2 is the attach x.)
         centers_out[raw] = (x2, (y1 + new_bottom) / 2)
     return bounds_out, centers_out
+
+
+def _formula_border_centers(
+    by_id: dict[str, AnyGraphNode], vi_name: str, layout: Layout,
+) -> dict[str, tuple[float, float]]:
+    """New attach points for every Formula Node terminal: its heap Y kept, but X
+    snapped to the box's LEFT border (inputs) or RIGHT border (outputs) so the
+    wire ends on the tunnel drawn there rather than at the terminal's interior
+    heap point (which the opaque box would cover)."""
+    out: dict[str, tuple[float, float]] = {}
+    for node in by_id.values():
+        if not isinstance(node, FormulaNode):
+            continue
+        raw = _strip_prefix(node.id, vi_name)
+        bounds = layout.node_bounds.get(raw)
+        if bounds is None:
+            continue
+        x1, _, x2, _ = bounds
+        for t in node.terminals:
+            key = _strip_prefix(t.id, vi_name)
+            center = layout.terminal_centers.get(key)
+            if center is None:
+                continue
+            out[key] = (x1 if t.direction != "output" else x2, center[1])
+    return out
 
 
 def _render_terminals(
@@ -1279,6 +1305,17 @@ def build_scene(graph: InMemoryVIGraph, vi_name: str) -> Scene | None:
         )
     all_nodes = graph.iter_nodes(vi_name)
     by_id: dict[str, AnyGraphNode] = {n.id: n for n in all_nodes}
+    # A Formula Node's variables attach at the BOX BORDER (inputs left, outputs
+    # right — matching draw._draw_formula_node's justified tunnel columns), not
+    # at their interior heap center. Move the router/attach point there so each
+    # wire visibly lands on its tunnel instead of routing INTO the box, where
+    # the opaque box fill (painted over wires) would hide it.
+    fbox_centers = _formula_border_centers(by_id, vi_name, layout)
+    if fbox_centers:
+        layout = replace(
+            layout,
+            terminal_centers={**layout.terminal_centers, **fbox_centers},
+        )
     default_frame, frame_values, frame_labels, error_frame_no_error = _frame_info(
         all_nodes, vi_name, graph,
     )
