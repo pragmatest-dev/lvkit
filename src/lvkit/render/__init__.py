@@ -237,6 +237,13 @@ def render_vi(
     return _render_scene_svg(scene, vi_name, theme)
 
 
+# Base CSS emitted with every rendered SVG: SVG <text> defaults to the text
+# (I-beam) cursor because it's selectable — a diagram should read as a normal
+# pointer surface, so force the default cursor and make the text un-selectable
+# (dragging/panning over labels shouldn't start a text selection).
+_BASE_CSS = "text{cursor:default;-webkit-user-select:none;user-select:none}"
+
+
 def _render_scene_svg(scene: Scene, vi_name: str, theme: Theme = DEFAULT_THEME) -> str:
     """Draw an already-built ``Scene`` to a self-contained interactive SVG."""
     backend = SvgBackend()
@@ -255,8 +262,9 @@ def _render_scene_svg(scene: Scene, vi_name: str, theme: Theme = DEFAULT_THEME) 
         script = "\n".join(scripts).replace("__ROOT_ID__", json.dumps(root_id))
         return backend.render(
             scene.bounds, title=vi_name, script=script, root_id=root_id,
+            style=_BASE_CSS,
         )
-    return backend.render(scene.bounds, title=vi_name)
+    return backend.render(scene.bounds, title=vi_name, style=_BASE_CSS)
 
 
 def render_vi_with_subvis(
