@@ -1097,6 +1097,18 @@ def _draw_frame_border(
         backend.rect(x1, y1, x2, y2, fill="none", stroke=theme.struct_border,
                      stroke_width=1.2)
 
+    # "Case Insensitive Match" badge — LabVIEW 2015+ draws "A=a" at the
+    # bottom-left corner of a string case structure when the match is
+    # case-insensitive (the non-default mode). See CaseStructureNode.
+    node = structure.node
+    if isinstance(node, CaseStructureNode) and node.case_insensitive:
+        # "A=a" is drawn in the string wire color (pink) — it is an attribute
+        # of the string selector, matching LabVIEW's own coloring.
+        backend.text(
+            x1 + 4.0, y2 - 3.5, "A=a", 8.5,
+            fill=theme.wire_string, anchor="start",
+        )
+
 
 def _draw_frame_selector(
     structure: RenderStructure, scene: Scene, backend: Backend, theme: Theme,

@@ -847,6 +847,9 @@ class ConstructionMixin:
                     displayed_frame=(
                         case_struct.displayed_frame if case_struct else None
                     ),
+                    case_insensitive=(
+                        case_struct.case_insensitive if case_struct else False
+                    ),
                 )
             elif node.node_type in ("flatSequence", "seq", "sequence"):
                 # Flat sequence

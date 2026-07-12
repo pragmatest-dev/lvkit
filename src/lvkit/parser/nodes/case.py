@@ -20,6 +20,17 @@ SELECTOR_DCO_CLASSES = ("cSelDCO", "caseSel")
 # All tunnel DCO classes
 ALL_TUNNEL_CLASSES = ("csTun", "selTun", "commentTun")
 
+# objFlags bit marking a string case structure as "Case Insensitive Match".
+_CASE_INSENSITIVE_BIT = 24
+
+
+def _objflags_bit(elem: ET.Element, bit: int) -> bool:
+    """Whether ``elem``'s ``objFlags`` integer has ``bit`` set."""
+    of = elem.findtext("objFlags")
+    if of and of.lstrip("-").isdigit():
+        return bool(int(of) >> bit & 1)
+    return False
+
 
 def _find_own_descendants(
     elem: ET.Element,
@@ -98,6 +109,15 @@ def _extract_one_case_structure(
     selector_vctp_index: int | None = None
     frames: list[CaseFrame] = []
     tunnels: list[Tunnel] = []
+
+    # Case Insensitive Match (string selectors): the select node's objFlags
+    # bit 24. Default matching is case-SENSITIVE (bit clear); LabVIEW 2015+
+    # shows an "A=a" badge at the bottom-left when this is enabled. Verified
+    # against the sample corpus: set only on the one string case that must
+    # match case-insensitively (Draw Image's file-extension switch, which
+    # has no lowercasing before it), clear on the empty-vs-nonempty string
+    # checks where case is irrelevant.
+    case_insensitive = _objflags_bit(case_elem, _CASE_INSENSITIVE_BIT)
 
     # Count frames first (needed for selTun expansion)
     diag_list = case_elem.find("diagramList")
@@ -276,6 +296,8 @@ def _extract_one_case_structure(
         selector_terminal_uid=selector_terminal_uid,
         selector_type=selector_type,
         selector_vctp_index=selector_vctp_index,
+        # Case Insensitive Match only applies to string selectors.
+        case_insensitive=case_insensitive and selector_type == "string",
         frames=frames,
         tunnels=tunnels,
     )

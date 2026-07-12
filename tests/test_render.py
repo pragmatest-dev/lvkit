@@ -2343,3 +2343,30 @@ class TestCaseDisplayedFrame:
         node = _case_node_with_frames(displayed_frame=9)
         default_frame, _, _, _ = _frame_info([node], "vi", None)
         assert default_frame["case1"] == "c"
+
+
+# ---------------------------------------------------------------------------
+# "A=a" Case Insensitive Match badge (#58) — bottom-left of a string case.
+# ---------------------------------------------------------------------------
+
+def _draw_case_border_svg(case_insensitive: bool) -> str:
+    from lvkit.render.draw import draw_structure
+    from lvkit.render.scene import RenderStructure
+    node = CaseStructureNode(
+        id="vi::c", vi="vi", name="Case", node_type="select",
+        frames=[], case_insensitive=case_insensitive,
+    )
+    struct = RenderStructure(node=node, bounds=(0.0, 0.0, 120.0, 90.0),
+                             raw_uid="c")
+    scene = Scene(bounds=(0.0, 0.0, 120.0, 90.0), structures=[struct])
+    backend = SvgBackend()
+    draw_structure(struct, scene, backend)
+    return backend.render((0.0, 0.0, 120.0, 90.0))
+
+
+class TestCaseInsensitiveBadge:
+    def test_badge_drawn_when_case_insensitive(self):
+        assert "A=a" in _draw_case_border_svg(True)
+
+    def test_no_badge_when_case_sensitive(self):
+        assert "A=a" not in _draw_case_border_svg(False)

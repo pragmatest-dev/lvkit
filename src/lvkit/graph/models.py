@@ -107,6 +107,9 @@ class CaseStructureNode(StructureNode):
     # the dataspace selector table. None when not correlated → renderer falls
     # back to the default frame, then frame 0.
     displayed_frame: int | None = None
+    # "Case Insensitive Match" enabled (string selectors) → renderer draws the
+    # "A=a" badge. Default string matching is case-sensitive.
+    case_insensitive: bool = False
 
 
 class LoopNode(StructureNode):

@@ -414,3 +414,25 @@ def _ds_selector_table_obj(
 ) -> SelectorTable:
     return SelectorTable(type_id=type_id, displayed_frame=displayed,
                          ranges=list(ranges), strings=list(strings or []))
+
+
+class TestCaseInsensitiveFlag:
+    def _case_with_objflags(self, objflags, type_name="String"):
+        root = _build_case_xml("cs1", "sel1", select_ranges=[(0, 0)],
+                               string_array=["616263"], default_diag=1)
+        case = root.find(".//*[@class='select']")
+        ET.SubElement(case, "objFlags").text = str(objflags)
+        ti = _make_terminal_info("sel1", type_name)
+        return extract_case_structures(root, ti)[0]
+
+    def test_bit24_set_string_is_case_insensitive(self):
+        cs = self._case_with_objflags(1 << 24)
+        assert cs.case_insensitive is True
+
+    def test_bit24_clear_is_case_sensitive(self):
+        cs = self._case_with_objflags(1 << 16)  # some other bit
+        assert cs.case_insensitive is False
+
+    def test_bit24_on_non_string_selector_ignored(self):
+        cs = self._case_with_objflags(1 << 24, type_name="NumInt32")
+        assert cs.case_insensitive is False

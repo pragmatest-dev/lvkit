@@ -199,6 +199,9 @@ class ParsedCaseStructure:
     # Frame LabVIEW last displayed (from the correlated SelectorTable). None if
     # no table correlated. Consumed by the renderer's faithful initial view.
     displayed_frame: int | None = None
+    # "Case Insensitive Match" enabled (string selectors). Default matching is
+    # case-sensitive; LabVIEW 2015+ shows an "A=a" badge when this is set.
+    case_insensitive: bool = False
 
 
 @dataclass
