@@ -46,6 +46,7 @@ from .models import (
     ParsedVI,
     ParsedVIMetadata,
     ParsedWire,
+    SelectorTable,
 )
 from .node_types import parse_node
 from .nodes import (
@@ -54,6 +55,7 @@ from .nodes import (
     extract_decompose_structures,
     extract_flat_sequences,
     extract_loops,
+    parse_selector_tables,
 )
 from .type_mapping import parse_type_map_rich
 from .type_resolution import resolve_type_rich
@@ -137,8 +139,15 @@ def parse_vi(
     # Parse metadata from main XML
     metadata = _parse_metadata(main_xml, source_path_str)
 
+    # Parse case-structure selector-value tables from the dataspace XML. These
+    # carry the real per-frame selector labels, which the block-diagram heap
+    # does not (see parse_selector_tables / _apply_selector_tables).
+    selector_tables = _parse_selector_tables(main_xml)
+
     # Parse block diagram
-    block_diagram = _parse_block_diagram(bd_xml, fp_xml, metadata.type_map)
+    block_diagram = _parse_block_diagram(
+        bd_xml, fp_xml, metadata.type_map, selector_tables,
+    )
 
     # Parse front panel
     front_panel = _parse_front_panel(fp_xml, block_diagram, metadata.type_map)
@@ -211,10 +220,23 @@ def _parse_metadata(
     )
 
 
+def _parse_selector_tables(
+    main_xml_path: Path | str | None,
+) -> list[SelectorTable]:
+    """Parse case selector-value tables from the main dataspace XML."""
+    if main_xml_path is None:
+        return []
+    main_xml = Path(main_xml_path)
+    if not main_xml.exists():
+        return []
+    return parse_selector_tables(ET.parse(main_xml).getroot())
+
+
 def _parse_block_diagram(
     bd_xml: Path,
     fp_xml: Path | str | None,
     type_map: dict[int, LVType] | None,
+    selector_tables: list[SelectorTable] | None = None,
 ) -> ParsedBlockDiagram:
     """Parse block diagram from BD XML."""
     tree = ET.parse(bd_xml)
@@ -231,7 +253,9 @@ def _parse_block_diagram(
         srn_to_structure=srn_to_structure,
     )
     loops = extract_loops(root)
-    case_structures = extract_case_structures(root, terminal_info)
+    case_structures = extract_case_structures(
+        root, terminal_info, selector_tables,
+    )
     flat_sequences = extract_flat_sequences(root)
     decompose_structures = extract_decompose_structures(root)
 

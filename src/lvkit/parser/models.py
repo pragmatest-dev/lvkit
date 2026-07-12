@@ -152,6 +152,37 @@ class ParsedDecomposeRecomposeStructure:
 
 
 @dataclass
+class SelectorTable:
+    """A case structure's stored selector-value table from the dataspace DFDS.
+
+    LabVIEW does not store per-frame selector labels in the block-diagram heap;
+    it stores them once, in the default-data space (the main ``*.xml``), as a
+    ``DataFill`` cluster of shape::
+
+        {I32 displayed_frame, I32 range_count,
+         Array[Cluster{I32 start, I32 end, U8, U8, I16 diagram_idx}],
+         Array[String] value_strings,
+         Cluster trailer}
+
+    For a STRING selector ``start``/``end`` index ``value_strings`` (a frame can
+    match several strings); otherwise they are literal numeric/enum values. A
+    frame's index is ``diagram_idx``; the frame that appears in no range is the
+    (implicit) Default. ``displayed_frame`` is the frame LabVIEW last showed.
+    """
+
+    type_id: int
+    displayed_frame: int
+    #: (start, end, diagram_idx) — inclusive value range → frame index
+    ranges: list[tuple[int, int, int]] = field(default_factory=list)
+    #: value strings for a string selector; empty for numeric/enum/boolean
+    strings: list[str] = field(default_factory=list)
+
+    @property
+    def has_strings(self) -> bool:
+        return bool(self.strings)
+
+
+@dataclass
 class ParsedCaseStructure:
     """A case structure on the block diagram."""
 
@@ -160,6 +191,14 @@ class ParsedCaseStructure:
     selector_type: str | None = None
     frames: list[CaseFrame] = field(default_factory=list)
     tunnels: list[Tunnel] = field(default_factory=list)
+    # VCTP index of the caseSel selector-value type (``typeDesc TypeID(N)``).
+    # Assigned in DCO-enumeration order, so it orders cases consistently with
+    # the dataspace ``DataFill`` TypeID order — used to correlate each case to
+    # its ``SelectorTable``.
+    selector_vctp_index: int | None = None
+    # Frame LabVIEW last displayed (from the correlated SelectorTable). None if
+    # no table correlated. Consumed by the renderer's faithful initial view.
+    displayed_frame: int | None = None
 
 
 @dataclass

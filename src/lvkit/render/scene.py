@@ -362,6 +362,8 @@ def _selector_label(frame: CaseFrame, lv_type: LVType | None, is_error: bool) ->
         )
     if frame.selector_ranges:  # integer selector
         return _format_ranges(frame.selector_ranges, str)
+    if frame.selector_strings:  # string selector — one frame, several strings
+        return ", ".join(f'"{s}"' for s in frame.selector_strings)
     if lv_type and lv_type.underlying_type == "String":
         return f'"{sv}"'
     return sv  # boolean True/False, or an already-display token

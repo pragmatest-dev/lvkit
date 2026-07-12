@@ -4,8 +4,11 @@ from __future__ import annotations
 
 import xml.etree.ElementTree as ET
 
-from lvkit.parser.models import ParsedTerminalInfo, ParsedType
-from lvkit.parser.nodes.case import extract_case_structures
+from lvkit.parser.models import ParsedTerminalInfo, ParsedType, SelectorTable
+from lvkit.parser.nodes.case import (
+    extract_case_structures,
+    parse_selector_tables,
+)
 
 
 def _build_case_xml(
@@ -16,6 +19,7 @@ def _build_case_xml(
     string_array: list[str] | None = None,
     default_diag: int | None = None,
     num_diags: int = 2,
+    sel_type_id: int | None = None,
 ) -> ET.Element:
     """Build minimal XML for a case structure.
 
@@ -37,7 +41,9 @@ def _build_case_xml(
     term = ET.SubElement(term_list, "SL__arrayElement", attrib={
         "class": "term", "uid": selector_uid,
     })
-    ET.SubElement(term, "dco", attrib={"class": "cSelDCO"})
+    sel_dco = ET.SubElement(term, "dco", attrib={"class": "cSelDCO"})
+    if sel_type_id is not None:
+        ET.SubElement(sel_dco, "typeDesc").text = f"TypeID({sel_type_id})"
 
     # SelectRangeArray32. Each entry is (start, diagramIdx) — a single value —
     # or (start, end, diagramIdx) for a closed range.
@@ -269,3 +275,142 @@ class TestSelectorRanges:
         ti = _make_terminal_info("sel1", "Boolean")
         cs = extract_case_structures(root, ti)[0]
         assert all(f.selector_ranges == [] for f in cs.frames)
+
+
+# ---------------------------------------------------------------------------
+# Dataspace selector-value tables (#82): the real per-frame selector values
+# live in the main *.xml DFDS, not the block-diagram heap.
+# ---------------------------------------------------------------------------
+
+def _ds_selector_table(
+    type_id: int,
+    displayed_frame: int,
+    ranges: list[tuple[int, int, int]],
+    strings: list[str] | None = None,
+) -> ET.Element:
+    """Build one dataspace <DataFill> with the selector-table cluster shape:
+    {I32 displayed, I32 count, Array[range clusters], Array[String], trailer}.
+    """
+    df = ET.Element("DataFill", attrib={"TypeID": str(type_id)})
+    cl = ET.SubElement(df, "Cluster")
+    ET.SubElement(cl, "I32").text = str(displayed_frame)
+    ET.SubElement(cl, "I32").text = str(len(ranges))
+    range_arr = ET.SubElement(cl, "Array")
+    ET.SubElement(range_arr, "dim").text = str(len(ranges))
+    for start, end, diag in ranges:
+        rc = ET.SubElement(range_arr, "Cluster")
+        ET.SubElement(rc, "I32").text = str(start)
+        ET.SubElement(rc, "I32").text = str(end)
+        ET.SubElement(rc, "U8").text = "0"
+        ET.SubElement(rc, "U8").text = "0"
+        ET.SubElement(rc, "I16").text = str(diag)
+    str_arr = ET.SubElement(cl, "Array")
+    ET.SubElement(str_arr, "dim").text = str(len(strings or []))
+    for s in strings or []:
+        ET.SubElement(str_arr, "String").text = s
+    trailer = ET.SubElement(cl, "Cluster")
+    ET.SubElement(trailer, "I32").text = "0"
+    ET.SubElement(trailer, "I32").text = "0"
+    return df
+
+
+def _ds_root(*datafills: ET.Element) -> ET.Element:
+    root = ET.Element("root")
+    for df in datafills:
+        root.append(df)
+    return root
+
+
+class TestParseSelectorTables:
+    def test_decode_string_and_numeric_tables(self):
+        root = _ds_root(
+            _ds_selector_table(33, 4, [(0, 0, 0), (2, 4, 1)],
+                               strings=["bmp", "jpe", "jpeg", "jpg", "png"]),
+            _ds_selector_table(35, 2, [(2, 3, 0), (5, 7, 1)]),
+        )
+        tables = parse_selector_tables(root)
+        assert [t.type_id for t in tables] == [33, 35]
+        assert tables[0].has_strings and tables[0].displayed_frame == 4
+        assert tables[0].ranges == [(0, 0, 0), (2, 4, 1)]
+        assert tables[1].strings == [] and tables[1].ranges == [(2, 3, 0), (5, 7, 1)]
+
+    def test_dedupe_identical_pairs_keeps_lowest_type_id(self):
+        """pylabview emits each default twice (edit + run copy)."""
+        def t(tid: int) -> ET.Element:
+            return _ds_selector_table(tid, 0, [(0, 0, 0), (1, 1, 1)])
+        tables = parse_selector_tables(_ds_root(t(31), t(70)))
+        assert [t.type_id for t in tables] == [31]
+
+    def test_ignores_non_selector_datafills(self):
+        other = ET.Element("DataFill", attrib={"TypeID": "9"})
+        ET.SubElement(other, "I32").text = "42"
+        tables = parse_selector_tables(_ds_root(
+            other, _ds_selector_table(33, 0, [(0, 0, 0), (1, 1, 1)])))
+        assert [t.type_id for t in tables] == [33]
+
+
+class TestApplySelectorTables:
+    def test_string_multi_value_frame_and_displayed(self):
+        # Extension case: bmp -> f0 ; jpe/jpeg/jpg -> f1 ; gif -> f2 ; default f3
+        root = _build_case_xml(
+            "cs1", "sel1", select_ranges=[], num_diags=4, sel_type_id=42,
+        )
+        tables = [_ds_selector_table_obj(
+            33, 3,
+            [(0, 0, 0), (2, 2, 1), (3, 3, 1), (4, 4, 1), (1, 1, 2)],
+            ["bmp", "gif", "jpe", "jpeg", "jpg"])]
+        ti = _make_terminal_info("sel1", "String")
+        cs = extract_case_structures(root, ti, tables)[0]
+        assert cs.displayed_frame == 3
+        assert cs.frames[0].selector_strings == ["bmp"]
+        assert cs.frames[1].selector_strings == ["jpe", "jpeg", "jpg"]
+        assert cs.frames[1].selector_value == "jpe"
+        assert cs.frames[2].selector_strings == ["gif"]
+        assert cs.frames[3].is_default and cs.frames[3].selector_value == "Default"
+
+    def test_integer_ranges_applied(self):
+        root = _build_case_xml(
+            "cs1", "sel1", select_ranges=[], num_diags=3, sel_type_id=50,
+        )
+        tables = [_ds_selector_table_obj(35, 2, [(2, 3, 0), (5, 7, 1)])]
+        ti = _make_terminal_info("sel1", "NumInt32")
+        cs = extract_case_structures(root, ti, tables)[0]
+        assert [(r.start, r.end) for r in cs.frames[0].selector_ranges] == [(2, 3)]
+        assert cs.frames[0].selector_value == "2..3"
+        assert [(r.start, r.end) for r in cs.frames[1].selector_ranges] == [(5, 7)]
+        assert cs.frames[2].is_default
+
+    def test_kind_mismatch_aborts_application(self):
+        """A string table must not be applied to an integer case."""
+        root = _build_case_xml(
+            "cs1", "sel1", select_ranges=[], num_diags=2, sel_type_id=42,
+        )
+        tables = [_ds_selector_table_obj(33, 0, [(0, 0, 0), (1, 1, 1)],
+                                         ["a", "b"])]
+        ti = _make_terminal_info("sel1", "NumInt32")
+        cs = extract_case_structures(root, ti, tables)[0]
+        # No string values applied; falls back to frame-index placeholders.
+        assert cs.frames[0].selector_strings == []
+        assert cs.displayed_frame is None
+
+    def test_boolean_case_excluded_keeps_true_false(self):
+        """A boolean case stores no table; adding one (count mismatch) must not
+        touch its True/False frames."""
+        root = _build_case_xml(
+            "cs1", "sel1", select_ranges=[(0, 0), (1, 1)], sel_type_id=42,
+        )
+        tables = [_ds_selector_table_obj(33, 0, [(0, 0, 0), (1, 1, 1)])]
+        ti = _make_terminal_info("sel1", "Boolean")
+        cs = extract_case_structures(root, ti, tables)[0]
+        assert cs.frames[0].selector_value == "False"
+        assert cs.frames[1].selector_value == "True"
+
+
+def _ds_selector_table_obj(
+    type_id: int,
+    displayed: int,
+    ranges: list[tuple[int, int, int]],
+    strings: list[str] | None = None,
+) -> SelectorTable:
+    return SelectorTable(type_id=type_id, displayed_frame=displayed,
+                         ranges=list(ranges), strings=list(strings or []))

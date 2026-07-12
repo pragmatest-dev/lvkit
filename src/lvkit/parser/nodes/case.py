@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
+import re
 import xml.etree.ElementTree as ET
 
 from lvkit.models import CaseFrame, SelectorRange, Tunnel
 
 from ..constants import STRUCTURE_NODE_CLASSES, TERMINAL_CLASS
-from ..models import ParsedCaseStructure, ParsedTerminalInfo
+from ..models import ParsedCaseStructure, ParsedTerminalInfo, SelectorTable
 from .base import extract_tunnel_mapping
 
 # Tunnel DCO classes used in case structures
@@ -48,6 +49,7 @@ def _find_own_descendants(
 def extract_case_structures(
     root: ET.Element,
     terminal_info: dict[str, ParsedTerminalInfo] | None = None,
+    selector_tables: list[SelectorTable] | None = None,
 ) -> list[ParsedCaseStructure]:
     """Extract case structures with frame mappings.
 
@@ -56,6 +58,10 @@ def extract_case_structures(
     Args:
         root: XML root element
         terminal_info: Terminal info dict (uid → ParsedTerminalInfo) for type lookup
+        selector_tables: Stored selector-value tables from the dataspace DFDS
+            (parsed from the main ``*.xml``). When present and consistent, they
+            supply the real per-frame selector values that are absent from the
+            block-diagram heap.
 
     Returns:
         List of ParsedCaseStructure with frame mappings
@@ -75,6 +81,9 @@ def extract_case_structures(
         if cs:
             case_structures.append(cs)
 
+    if selector_tables:
+        _apply_selector_tables(case_structures, selector_tables)
+
     return case_structures
 
 
@@ -86,6 +95,7 @@ def _extract_one_case_structure(
     """Extract a single case structure from an XML element."""
     selector_terminal_uid: str | None = None
     selector_type: str | None = None
+    selector_vctp_index: int | None = None
     frames: list[CaseFrame] = []
     tunnels: list[Tunnel] = []
 
@@ -112,6 +122,9 @@ def _extract_one_case_structure(
                     if dco is not None:
                         selector_terminal_uid = term_uid
                         selector_type = _infer_selector_type(dco)
+                        selector_vctp_index = _parse_type_id(
+                            dco.findtext("typeDesc"),
+                        )
                         break
 
             # Check for tunnel DCO
@@ -248,6 +261,7 @@ def _extract_one_case_structure(
 
             frame = _extract_frame(
                 diag_elem, idx, resolved_selector, is_default,
+                selector_type,
             )
             if frame:
                 # Ranges are display metadata for numeric/enum selectors; a
@@ -261,6 +275,7 @@ def _extract_one_case_structure(
         uid=case_uid,
         selector_terminal_uid=selector_terminal_uid,
         selector_type=selector_type,
+        selector_vctp_index=selector_vctp_index,
         frames=frames,
         tunnels=tunnels,
     )
@@ -316,6 +331,7 @@ def _extract_frame(
     index: int,
     selector_value: str | None = None,
     is_default: bool = False,
+    selector_type: str | None = None,
 ) -> CaseFrame | None:
     """Extract a single case frame from a diagram element.
 
@@ -324,6 +340,10 @@ def _extract_frame(
         index: Index of the frame in the diagramList
         selector_value: Pre-resolved selector value from SelectRangeArray
         is_default: Whether this frame is the default case
+        selector_type: Resolved selector category ("boolean", "string", ...);
+            gates the boolean fallback so non-boolean cases don't get fake
+            True/False tokens (the real values arrive via the dataspace
+            SelectorTable correlation)
 
     Returns:
         Frame or None if invalid
@@ -338,9 +358,16 @@ def _extract_frame(
         if sel_str_elem is not None and sel_str_elem.text:
             selector_value = sel_str_elem.text
 
-    # Last resort: index-based default (0=False, 1=True)
+    # Last resort: no stored label in the heap. For a boolean selector the
+    # frames ARE False/True by index; for any other type, emitting True/False
+    # is wrong (that was the #82 bug), so use the frame index as a neutral,
+    # unique placeholder — the dataspace SelectorTable overrides it when it
+    # correlates.
     if not selector_value:
-        selector_value = "True" if index == 1 else "False"
+        if selector_type == "boolean" or selector_type is None:
+            selector_value = "True" if index == 1 else "False"
+        else:
+            selector_value = str(index)
 
     if is_default:
         selector_value = "Default"
@@ -385,6 +412,157 @@ def _type_name_to_selector_type(type_name: str) -> str | None:
         # Error cluster selector
         return "error"
     return None
+
+
+def _parse_type_id(type_desc: str | None) -> int | None:
+    """Parse the integer from a ``typeDesc`` text like ``TypeID(42)``."""
+    if not type_desc:
+        return None
+    m = re.search(r"TypeID\((\d+)\)", type_desc)
+    return int(m.group(1)) if m else None
+
+
+def parse_selector_tables(main_root: ET.Element) -> list[SelectorTable]:
+    """Extract case-structure selector-value tables from the dataspace XML.
+
+    LabVIEW stores each case structure's per-frame selector values once, in the
+    default-data space (the main ``*.xml``), as a ``DataFill`` with the
+    :class:`SelectorTable` cluster shape. pylabview emits each such default
+    twice (an edit-time and a run-time copy); we deduplicate by content and
+    return the surviving tables sorted by ``DataFill`` ``TypeID`` — the order in
+    which LabVIEW assigned them, matching the case structures' selector-type
+    VCTP order (see :func:`_apply_selector_tables`).
+    """
+    tables: list[SelectorTable] = []
+    seen: set[tuple[object, ...]] = set()
+    for df in main_root.iter("DataFill"):
+        tid = df.get("TypeID")
+        cluster = df.find("Cluster")
+        if tid is None or cluster is None:
+            continue
+        table = _decode_selector_table(int(tid), cluster)
+        if table is None:
+            continue
+        key = (tuple(table.ranges), tuple(table.strings))
+        if key in seen:
+            continue
+        seen.add(key)
+        tables.append(table)
+    tables.sort(key=lambda t: t.type_id)
+    return tables
+
+
+def _decode_selector_table(
+    type_id: int, cluster: ET.Element,
+) -> SelectorTable | None:
+    """Decode one ``DataFill`` cluster into a SelectorTable, or None if it does
+    not have the selector-table shape."""
+    kids = list(cluster)
+    # Shape: I32 displayed_frame, I32 range_count, Array ranges, Array strings, ...
+    if len(kids) < 4:
+        return None
+    if kids[0].tag != "I32" or kids[1].tag != "I32":
+        return None
+    if kids[2].tag != "Array" or kids[3].tag != "Array":
+        return None
+    range_clusters = kids[2].findall("Cluster")
+    ranges: list[tuple[int, int, int]] = []
+    for rc in range_clusters:
+        fields = list(rc)
+        if [f.tag for f in fields] != ["I32", "I32", "U8", "U8", "I16"]:
+            return None
+        start = int(fields[0].text or "0")
+        end = int(fields[1].text or "0")
+        diag = int(fields[4].text or "0")
+        ranges.append((start, end, diag))
+    # A genuine selector table always has at least one range.
+    if not ranges:
+        return None
+    strings = [s.text or "" for s in kids[3].findall("String")]
+    displayed = int(kids[0].text or "0")
+    return SelectorTable(
+        type_id=type_id,
+        displayed_frame=displayed,
+        ranges=ranges,
+        strings=strings,
+    )
+
+
+def _apply_selector_tables(
+    cases: list[ParsedCaseStructure],
+    tables: list[SelectorTable],
+) -> None:
+    """Correlate dataspace selector tables to case structures and apply values.
+
+    The correlation is deterministic and self-checking, never a guess: cases
+    ordered by their selector-type VCTP index (``selector_vctp_index``) line up
+    one-to-one with tables ordered by ``DataFill`` TypeID, because LabVIEW
+    assigns both indices in the same DCO-enumeration pass. Boolean cases store
+    no table (their True/False frames are implicit), so they are excluded from
+    the correlation and keep their existing labels.
+
+    Application only proceeds if the counts match AND every zipped pair is
+    kind-consistent (a string table iff a string case) AND every frame index /
+    displayed frame lies in range. Any inconsistency aborts the WHOLE
+    application (leaving fallback values) rather than risk a wrong label.
+    """
+    corr_cases = [
+        c for c in cases
+        if c.selector_type != "boolean" and c.selector_vctp_index is not None
+    ]
+    if len(corr_cases) != len(tables):
+        return
+    corr_cases.sort(key=lambda c: c.selector_vctp_index or 0)
+
+    # Validate every pair before mutating anything.
+    for case, table in zip(corr_cases, tables):
+        is_string = case.selector_type == "string"
+        if is_string != table.has_strings:
+            return
+        n_frames = len(case.frames)
+        if table.displayed_frame >= n_frames:
+            return
+        for _start, _end, diag in table.ranges:
+            if not (0 <= diag < n_frames):
+                return
+
+    for case, table in zip(corr_cases, tables):
+        _apply_one_table(case, table)
+
+
+def _apply_one_table(case: ParsedCaseStructure, table: SelectorTable) -> None:
+    """Overwrite a case's frame selector values from its correlated table."""
+    case.displayed_frame = table.displayed_frame
+    covered: set[int] = {diag for _s, _e, diag in table.ranges}
+    for idx, frame in enumerate(case.frames):
+        my_ranges = [(s, e) for s, e, d in table.ranges if d == idx]
+        if not my_ranges:
+            # No value maps here → this is the implicit Default frame.
+            frame.is_default = True
+            frame.selector_value = "Default"
+            frame.selector_ranges = []
+            frame.selector_strings = []
+            continue
+        frame.is_default = idx not in covered  # never, but keep flag honest
+        if table.has_strings:
+            strings: list[str] = []
+            for start, end in my_ranges:
+                for i in range(start, end + 1):
+                    if 0 <= i < len(table.strings):
+                        strings.append(table.strings[i])
+            frame.selector_strings = strings
+            frame.selector_ranges = []
+            frame.selector_value = strings[0] if strings else str(idx)
+        else:
+            frame.selector_ranges = [
+                SelectorRange(start=s, end=e) for s, e in my_ranges
+            ]
+            frame.selector_strings = []
+            first = my_ranges[0]
+            frame.selector_value = (
+                str(first[0]) if first[0] == first[1]
+                else f"{first[0]}..{first[1]}"
+            )
 
 
 def _infer_selector_type(dco: ET.Element) -> str | None:

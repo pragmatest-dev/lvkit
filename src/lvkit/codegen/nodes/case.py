@@ -134,18 +134,18 @@ def _generate_match_case(
 
     for frame in node.frames:
         selector_str = str(frame.selector_value)
-        pattern: ast.pattern
         if frame.is_default or selector_str.lower() == "default":
-            pattern = ast.MatchAs(pattern=None, name=None)
+            pattern: ast.pattern = ast.MatchAs(pattern=None, name=None)
+            guard: ast.expr | None = None
         else:
-            pattern = _build_match_pattern(selector_str)
+            pattern, guard = _build_frame_pattern(frame, selector_var)
 
         inner_fragment = _generate_frame_body(frame, ctx)
         body = inner_fragment.statements or [ast.Pass()]
         bindings.update(inner_fragment.bindings)
         all_imports.update(inner_fragment.imports)
 
-        cases.append(ast.match_case(pattern=pattern, guard=None, body=body))
+        cases.append(ast.match_case(pattern=pattern, guard=guard, body=body))
 
     output_bindings = _bind_output_tunnels(node, ctx)
     bindings.update(output_bindings)
@@ -164,13 +164,58 @@ def _generate_match_case(
 
 
 def _build_match_pattern(selector_value: str) -> ast.pattern:
-    """Build AST pattern for match case."""
+    """Build AST pattern for a single match value (int if it parses, else str)."""
     try:
         int_val = int(selector_value)
         return ast.MatchValue(value=ast.Constant(value=int_val))
     except ValueError:
         pass
     return ast.MatchValue(value=ast.Constant(value=selector_value))
+
+
+def _build_frame_pattern(
+    frame: CaseFrame, selector_var: str,
+) -> tuple[ast.pattern, ast.expr | None]:
+    """Build the match pattern (and optional guard) for one non-default frame.
+
+    A frame can match several selector values: a string selector matches a set
+    of strings (``"jpe" | "jpeg" | "jpg"``); a numeric/enum selector matches a
+    set of singletons and/or closed ranges. Singletons become an OR-pattern;
+    any true range (``start != end``) is expressed as a ``case _ if`` guard,
+    OR-combined with the singletons.
+    """
+    # String selector: OR of the matched string literals.
+    if frame.selector_strings:
+        pats: list[ast.pattern] = [
+            ast.MatchValue(value=ast.Constant(value=s))
+            for s in frame.selector_strings
+        ]
+        return (pats[0] if len(pats) == 1 else ast.MatchOr(patterns=pats)), None
+
+    # Numeric/enum selector with faithful ranges.
+    if frame.selector_ranges:
+        singles = [r for r in frame.selector_ranges if r.start == r.end]
+        spans = [r for r in frame.selector_ranges if r.start != r.end]
+        if not spans:
+            pats = [
+                ast.MatchValue(value=ast.Constant(value=r.start))
+                for r in singles
+            ]
+            return (
+                pats[0] if len(pats) == 1 else ast.MatchOr(patterns=pats)
+            ), None
+        # At least one true range → wildcard pattern with a boolean guard.
+        clauses: list[str] = [
+            f"{selector_var} == {r.start}" for r in singles
+        ]
+        clauses += [
+            f"{r.start} <= {selector_var} <= {r.end}" for r in spans
+        ]
+        guard = parse_expr(" or ".join(clauses))
+        return ast.MatchAs(pattern=None, name=None), guard
+
+    # Fallback: the single display token.
+    return _build_match_pattern(str(frame.selector_value)), None
 
 
 def _generate_frame_body(

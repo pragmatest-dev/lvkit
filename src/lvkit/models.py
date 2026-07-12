@@ -284,6 +284,11 @@ class CaseFrame(Frame):
     # there ``selector_value`` already holds the display token. The renderer
     # formats these against the selector's resolved type.
     selector_ranges: list[SelectorRange] = []
+    # Faithful selector strings for STRING selectors (a frame can match
+    # several, e.g. ``"jpe", "jpeg", "jpg"``). Empty for non-string frames and
+    # the default frame — there ``selector_value``/``selector_ranges`` carry
+    # the token. ``selector_value`` holds the first string as the unique key.
+    selector_strings: list[str] = []
 
 
 class SequenceFrame(Frame):

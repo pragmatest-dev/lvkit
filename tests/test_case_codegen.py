@@ -228,3 +228,49 @@ class TestPreDeclareSkipsInvalidTargets:
         stmts = _pre_declare_outputs(node, output_bindings, ctx)
 
         assert "my_result" in _declared_names(stmts)
+
+
+# ---------------------------------------------------------------------------
+# _build_frame_pattern (#82): OR-patterns for multi-value string/int frames,
+# guards for true ranges.
+# ---------------------------------------------------------------------------
+
+from lvkit.codegen.nodes.case import _build_frame_pattern  # noqa: E402
+from lvkit.models import CaseFrame, SelectorRange  # noqa: E402
+
+
+def _pattern_src(frame: CaseFrame, selector_var: str = "sel") -> str:
+    pattern, guard = _build_frame_pattern(frame, selector_var)
+    case = ast.match_case(pattern=pattern, guard=guard, body=[ast.Pass()])
+    mod = ast.Match(subject=ast.Name(id=selector_var, ctx=ast.Load()), cases=[case])
+    return ast.unparse(ast.fix_missing_locations(
+        ast.Module(body=[mod], type_ignores=[])))
+
+
+class TestBuildFramePattern:
+    def test_single_string(self):
+        f = CaseFrame(selector_value="bmp", selector_strings=["bmp"])
+        assert "case 'bmp':" in _pattern_src(f)
+
+    def test_multi_string_or_pattern(self):
+        f = CaseFrame(
+            selector_value="jpe", selector_strings=["jpe", "jpeg", "jpg"])
+        assert "case 'jpe' | 'jpeg' | 'jpg':" in _pattern_src(f)
+
+    def test_multi_singleton_int_or_pattern(self):
+        f = CaseFrame(selector_value="1", selector_ranges=[
+            SelectorRange(start=1, end=1), SelectorRange(start=4, end=4),
+            SelectorRange(start=8, end=8)])
+        assert "case 1 | 4 | 8:" in _pattern_src(f)
+
+    def test_true_range_uses_guard(self):
+        f = CaseFrame(selector_value="2..3", selector_ranges=[
+            SelectorRange(start=2, end=3)])
+        src = _pattern_src(f)
+        assert "case _ if 2 <= sel <= 3:" in src
+
+    def test_mixed_singletons_and_range_guard(self):
+        f = CaseFrame(selector_value="1", selector_ranges=[
+            SelectorRange(start=1, end=1), SelectorRange(start=5, end=7)])
+        src = _pattern_src(f)
+        assert "case _ if sel == 1 or 5 <= sel <= 7:" in src
