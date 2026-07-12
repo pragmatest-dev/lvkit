@@ -29,7 +29,8 @@ class Theme:
     loop_term: str = "#1f3fbf"           # N / i border terminal
     loop_term_fill: str = "#ffffcc"      # pale-yellow fill of the N/i box (per GT)
     loop_term_text: str = "#1a1a1a"      # "N"/"i" glyph text on loop_term_fill
-    cond_stop: str = "#c62828"           # while-loop conditional terminal
+    cond_stop: str = "#c62828"           # while-loop cond terminal: Stop-if-True
+    cond_continue: str = "#2e7d32"       # while-loop cond terminal: Continue-if-True
     subvi_fill: str = "#eef0e6"
     subvi_stroke: str = "#7a7d63"
     subvi_text: str = "#1a1a1a"      # wrapped subVI name text on subvi_fill

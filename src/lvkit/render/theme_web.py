@@ -38,6 +38,7 @@ DARK_PALETTE: dict[str, str] = {
     "loop_term_fill": "#34331d",
     "loop_term_text": "#f2ecd8",
     "cond_stop": "#ff5b5b",
+    "cond_continue": "#5bd06a",
     "subvi_fill": "#2a2c26",
     "subvi_stroke": "#a9ac8f",
     "subvi_text": "#e9e9e0",

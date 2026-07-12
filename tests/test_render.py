@@ -259,6 +259,31 @@ def test_primitive_with_own_aspect_icon_keeps_node_bounds():
     assert _glyph_bounds(node) == (0.0, 0.0, 32.0, 32.0)
 
 
+def test_while_loop_conditional_terminal_color_by_polarity():
+    """The conditional terminal draws RED for Stop-if-True and GREEN for
+    Continue-if-True (#57), keyed on ``cond_continue`` (heap bit 16)."""
+    from lvkit.render.backend import SvgBackend
+    from lvkit.render.draw import _draw_border_terminal
+    from lvkit.render.scene import RenderBorderTerminal
+    from lvkit.render.style import DEFAULT_THEME
+
+    def _svg(cond_continue):
+        bt = RenderBorderTerminal(
+            terminal=None, bounds=(0.0, 0.0, 14.0, 14.0),
+            glyph_kind="cond", cond_continue=cond_continue,
+        )
+        b = SvgBackend()
+        _draw_border_terminal(bt, b, DEFAULT_THEME)
+        return b.render((0.0, 0.0, 14.0, 14.0))
+
+    stop = _svg(False)
+    cont = _svg(True)
+    assert DEFAULT_THEME.cond_stop in stop
+    assert DEFAULT_THEME.cond_continue not in stop
+    assert DEFAULT_THEME.cond_continue in cont
+    assert DEFAULT_THEME.cond_stop not in cont
+
+
 def test_non_primitive_keeps_node_bounds():
     """A subVI (VINode) name-box is never shrunk to the terminal span — its
     bounds are already its true drawn size and it needs room for the name."""

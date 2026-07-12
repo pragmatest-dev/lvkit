@@ -873,12 +873,28 @@ def _draw_border_terminal(
         backend.text(cx, cy + 4, kind, 11, fill=theme.loop_term_text, italic=True)
         return
     if kind == "cond":
-        # Judgment call: LabVIEW distinguishes "Stop if True" (red stop
-        # circle) from "Continue if True" (green arrow) — that mode isn't
-        # captured anywhere in the graph, so this always draws the more
-        # common default (Stop if True).
+        # LabVIEW's conditional terminal shows its mode by color: RED for
+        # Stop-if-True (the default) and GREEN for Continue-if-True. The mode
+        # is the loop's ``stop_condition_inverted`` (heap ``loopTestDCO``
+        # objFlags bit 16), carried here as ``bt.cond_continue``. Continue also
+        # gets a small in-glyph loop arc so the two read apart without color.
         r = min(x2 - x1, y2 - y1) / 2
-        backend.circle(cx, cy, r, fill=theme.cond_stop)
+        if bt.cond_continue:
+            backend.circle(cx, cy, r, fill=theme.cond_continue)
+            # a white looping arrow arc (↻) — the "keep going" cue
+            a = r * 0.55
+            backend.path(
+                [(cx - a, cy + a * 0.2), (cx - a, cy - a), (cx + a, cy - a),
+                 (cx + a, cy + a)],
+                stroke="#ffffff", stroke_width=1.2,
+            )
+            backend.polygon(
+                [(cx + a - 1.6, cy + a - 1.8), (cx + a + 1.6, cy + a - 1.8),
+                 (cx + a, cy + a + 1.4)],
+                fill="#ffffff", stroke=None,
+            )
+        else:
+            backend.circle(cx, cy, r, fill=theme.cond_stop)
         return
     if kind == "selector":
         # The selector terminal takes the WIRE TYPE COLOR of whatever feeds it

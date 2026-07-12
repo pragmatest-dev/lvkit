@@ -149,6 +149,10 @@ class RenderBorderTerminal:
     bounds: Rect
     glyph_kind: str | None = None
     color: str | None = None
+    # For a "cond" (while-loop conditional) terminal: True when the loop is
+    # Continue-if-True (draw green) rather than the default Stop-if-True (red).
+    # Sourced from the loop node's ``stop_condition_inverted`` (heap bit 16).
+    cond_continue: bool = False
     # Inner tunnels aren't drawn as glyphs today (see _structure_borders) —
     # this field exists for symmetry with the other frame-tagged dataclasses
     # and future inner-tunnel-per-frame work; it is currently always ()
@@ -616,6 +620,10 @@ def _structure_borders(
             result.append(RenderBorderTerminal(
                 terminal=None, bounds=layout.border_terminals[match],
                 glyph_kind=kind,
+                cond_continue=(
+                    kind == "cond"
+                    and getattr(node, "stop_condition_inverted", False)
+                ),
             ))
             consumed.add(match)
             kinds_present.add(kind)
