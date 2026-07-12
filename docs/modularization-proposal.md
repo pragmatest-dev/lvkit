@@ -53,15 +53,29 @@ in codegen).
 Recommended, because it mirrors the existing per-stage structure (parser handlers
 + codegen modules are already per-stage) and keeps stages independent:
 
-| New abstraction | Replaces | Keyed by | Fallback |
-|-----------------|----------|----------|----------|
-| `GraphBuildHandler` + `BUILD_HANDLERS` (new `graph/build/`) | the 19 branches of `_add_vi_to_graph` | `node_type` | generic passthrough node |
-| `CodegenHandler` + `CODEGEN_HANDLERS` (in `codegen/nodes/`) | the `match node.node_type:` string switch | `node_type` | `_emit_unknown` (already loud) |
-| `GlyphHandler` + `GLYPH_HANDLERS` (in `render/`) | `nodes.py` isinstance/`node_type` scatter | `node_type` | labelled-box glyph |
+| Abstraction | Replaces | Keyed by | Fallback | Status |
+|-------------|----------|----------|----------|--------|
+| `StructureBuildHandler` / `NodeBuildHandler` / `RefBuildHandler` (`graph/builders/`) | the 19 branches of `_add_vi_to_graph` | `node_type` | `DEFAULT_NODE_BUILD_HANDLER` (primitive) | ✅ **done** (slices 1–4) |
+| `_PRIM_CODEGEN` registry (`codegen/nodes/__init__.py`) | the `match node.node_type:` string switch | `node_type` | `primitive.generate` → `_emit_unknown` (loud) | ✅ **done** (slice 5) |
+| ~~`GlyphHandler`~~ (`render/nodes.py`) | — | — | — | **not needed** — see below |
 
-Each handler is small, single-node, and unit-testable in isolation. `_add_vi_to_graph`
-collapses to a dispatch loop; `_generate_primitive`'s switch becomes a dict lookup
-over the modules that **already exist**.
+Each handler is small, single-node, and unit-testable. `_add_vi_to_graph`
+collapsed from ~885 to ~505 lines (a dispatch loop over three registries);
+`_generate_primitive`'s switch became a dict lookup over the modules that
+**already existed**. Every migration was verified **byte-identical** (render SVG
++ codegen hashes over a 31-VI/method gate).
+
+### Render already has the right pattern — leave it
+
+On inspection, `render/nodes.py` is **not** a missing abstraction: it is a
+deliberate, documented **Chain-of-Responsibility resolver chain**
+(`ExtractedIconResolver → JsonGlyphResolver → GeneratedGlyphResolver →
+FallbackBoxResolver`, first non-`None` wins). Its `isinstance`/`node_type` checks
+are each resolver's internal matching, not scatter. Glyph choice legitimately
+depends on more than `node_type` (a shipped `_ICON.png`, a `primitives.json`
+`icon` field, an lv-type family, error/cluster detection), so a `node_type`→glyph
+registry would be **less** expressive. This stage is already extensible the right
+way; forcing a registry on it would be a regression. No change.
 
 > **North-star option (not recommended now):** one class per node type owning
 > *all* stages (`class DecimateNode: parse/build/codegen/glyph`). Maximal
@@ -88,19 +102,19 @@ For each stage, then each node kind within it:
 Because both paths coexist mid-migration, the tree is always shippable and every
 step is independently revertable.
 
-## Sequencing (value × leverage)
+## Sequencing (value × leverage) — DONE
 
-1. **`_add_vi_to_graph` → `GraphBuildHandler` registry.** The flagship: an
-   885-line untestable method becomes N small handlers. Highest value; the
-   byte-identical codegen gate makes it safe.
-2. **Codegen switch → `CODEGEN_HANDLERS`.** Cheapest — the handler bodies are
-   *already* separate modules, so this is just formalizing the dispatch as a
-   dict. Do it right after #1 to lock the pattern in.
-3. **Render glyph dispatch → `GLYPH_HANDLERS`.** Medium; consolidates the
-   scattered isinstance checks.
+1. ✅ **`_add_vi_to_graph` → build handlers** (slices 1–4). The flagship: an
+   885-line untestable method became small per-kind handlers (structure /
+   operation / ref) over a `GraphBuildContext`. ~885 → ~505 lines.
+2. ✅ **Codegen switch → `_PRIM_CODEGEN`** (slice 5). Cheapest — the bodies were
+   *already* separate modules, so it was just formalizing the dispatch as a dict.
+3. ~~Render glyph dispatch~~ — **not needed**; render already uses a resolver
+   chain (above).
 
-Each new node type afterwards registers into these three (plus the existing
-parser handler) — four small registrations, zero god-code edits.
+Every new node type now registers a handler in the parser, graph-build, and
+codegen stages (render is a resolver already) — small registrations, zero
+god-code edits. Each of the five migrations landed **byte-identical**.
 
 ## Benefits
 
