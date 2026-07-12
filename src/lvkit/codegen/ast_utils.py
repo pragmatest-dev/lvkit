@@ -7,9 +7,39 @@ import builtins
 import keyword
 import logging
 
-from lvkit.models import ScalarValue
+from lvkit.models import LVType, ScalarValue
 
 logger = logging.getLogger(__name__)
+
+
+def default_value_expr(lv_type: LVType | None) -> ast.expr:
+    """A conservative Python default value (as an AST expr) for a LabVIEW type.
+
+    Scalars get their real default (int→0, float→0.0, bool→False, string→"",
+    enum/ring→0); mutable/complex types (array, cluster, path, typedef) get
+    ``None`` to stay import-free and avoid the mutable-default-argument
+    anti-pattern. Used for connector-pane parameter defaults AND for
+    pre-declaring case/sequence output tunnels that a frame may leave unwired
+    (LabVIEW's "Use Default If Unwired" emits the type default, not None)."""
+    if lv_type is None:
+        return ast.Constant(value=None)
+    kind = lv_type.kind
+    underlying = lv_type.underlying_type
+    if kind == "array":
+        return ast.Constant(value=None)
+    if kind == "primitive":
+        if underlying == "String":
+            return ast.Constant(value="")
+        if underlying == "Boolean":
+            return ast.Constant(value=False)
+        if underlying in ("NumInt8", "NumInt16", "NumInt32", "NumInt64",
+                          "NumUInt8", "NumUInt16", "NumUInt32", "NumUInt64"):
+            return ast.Constant(value=0)
+        if underlying in ("NumFloat32", "NumFloat64"):
+            return ast.Constant(value=0.0)
+    elif kind in ("enum", "ring"):
+        return ast.Constant(value=0)
+    return ast.Constant(value=None)
 
 
 def parse_expr(template: str) -> ast.expr:

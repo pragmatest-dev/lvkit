@@ -12,7 +12,12 @@ from lvkit.graph.models import VIContext
 from lvkit.models import Operation, Terminal
 
 from .ast_optimizer import optimize_module
-from .ast_utils import parse_expr, to_function_name, to_var_name
+from .ast_utils import (
+    default_value_expr,
+    parse_expr,
+    to_function_name,
+    to_var_name,
+)
 from .context import CodeGenContext
 from .elementwise import LV_IMPORT, arrayify_module
 from .error_handler import (
@@ -706,7 +711,7 @@ def build_args(inputs: list[Terminal]) -> ast.arguments:
         args.append(arg)
 
         if is_optional:
-            defaults.append(_get_default_for_type(inp.lv_type))
+            defaults.append(default_value_expr(inp.lv_type))
 
     return ast.arguments(
         posonlyargs=[],
@@ -717,41 +722,6 @@ def build_args(inputs: list[Terminal]) -> ast.arguments:
         kwarg=None,
         defaults=defaults,
     )
-
-
-def _get_default_for_type(lv_type) -> ast.expr:
-    """Get appropriate default value for a LabVIEW type.
-
-    Note: Uses None for mutable types (list, dict) to avoid Python's mutable
-    default argument anti-pattern. Callers should handle None appropriately.
-    """
-    if lv_type is None:
-        return ast.Constant(value=None)
-
-    kind = lv_type.kind
-    underlying = lv_type.underlying_type
-
-    # Use None for mutable types to avoid mutable default argument anti-pattern
-    if kind == "array":
-        return ast.Constant(value=None)
-    elif kind == "primitive":
-        if underlying == "Path":
-            return ast.Constant(value=None)
-        elif underlying == "String":
-            return ast.Constant(value="")
-        elif underlying == "Boolean":
-            return ast.Constant(value=False)
-        elif underlying in ("NumInt8", "NumInt16", "NumInt32", "NumInt64",
-                           "NumUInt8", "NumUInt16", "NumUInt32", "NumUInt64"):
-            return ast.Constant(value=0)
-        elif underlying in ("NumFloat32", "NumFloat64"):
-            return ast.Constant(value=0.0)
-    elif kind == "cluster":
-        return ast.Constant(value=None)
-    elif kind in ("enum", "ring"):
-        return ast.Constant(value=0)
-
-    return ast.Constant(value=None)
 
 
 def build_result_class_name(vi_name: str) -> str:

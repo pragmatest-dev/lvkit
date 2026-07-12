@@ -274,3 +274,58 @@ class TestBuildFramePattern:
             SelectorRange(start=1, end=1), SelectorRange(start=5, end=7)])
         src = _pattern_src(f)
         assert "case _ if sel == 1 or 5 <= sel <= 7:" in src
+
+
+# ---------------------------------------------------------------------------
+# Type-default pre-declaration for output tunnels (#2 / Use Default If Unwired):
+# an unwired frame emits the LabVIEW type default, not None.
+# ---------------------------------------------------------------------------
+
+from lvkit.codegen.ast_utils import default_value_expr  # noqa: E402
+from lvkit.models import LVType, TunnelTerminal  # noqa: E402
+
+
+def _lv(underlying, kind="primitive"):
+    return LVType(kind=kind, underlying_type=underlying)
+
+
+class TestDefaultValueExpr:
+    def test_scalar_defaults(self):
+        assert ast.unparse(default_value_expr(_lv("NumInt32"))) == "0"
+        assert ast.unparse(default_value_expr(_lv("NumFloat64"))) == "0.0"
+        assert ast.unparse(default_value_expr(_lv("Boolean"))) == "False"
+        assert ast.unparse(default_value_expr(_lv("String"))) == "''"
+
+    def test_enum_default_is_zero(self):
+        assert ast.unparse(default_value_expr(_lv("", kind="enum"))) == "0"
+
+    def test_complex_and_unknown_default_none(self):
+        assert ast.unparse(default_value_expr(_lv("", kind="array"))) == "None"
+        assert ast.unparse(default_value_expr(None)) == "None"
+
+
+class TestPreDeclareOutputsTypeDefault:
+    def _pre(self, underlying):
+        outer = TunnelTerminal(
+            id="o", index=0, direction="output", boundary="outer",
+            tunnel_type="csTun", lv_type=_lv(underlying),
+        )
+        node = CaseOperation(
+            id="c", name="Case", labels=[], selector_terminal=None,
+            terminals=[outer],
+            tunnels=[Tunnel(outer_terminal_uid="o", inner_terminal_uid="i",
+                            tunnel_type="csTun")],
+        )
+        ctx = make_ctx()
+        stmts = _pre_declare_outputs(node, {"o": "result"}, ctx)
+        mod = ast.fix_missing_locations(ast.Module(body=stmts, type_ignores=[]))
+        return ast.unparse(mod)
+
+    def test_int_tunnel_predeclared_zero(self):
+        assert self._pre("NumInt32") == "result = 0"
+
+    def test_bool_tunnel_predeclared_false(self):
+        assert self._pre("Boolean") == "result = False"
+
+    def test_string_tunnel_predeclared_empty(self):
+        assert self._pre("String") == "result = ''"

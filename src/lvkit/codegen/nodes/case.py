@@ -8,7 +8,12 @@ import logging
 
 from lvkit.models import CaseFrame, CaseOperation, _is_error_cluster
 
-from ..ast_utils import build_assign, parse_expr, to_var_name
+from ..ast_utils import (
+    build_assign,
+    default_value_expr,
+    parse_expr,
+    to_var_name,
+)
 from ..context import CodeGenContext
 from ..fragment import CodeFragment
 
@@ -357,9 +362,13 @@ def _pre_declare_outputs(
         if not var_name.isidentifier() or keyword.iskeyword(var_name):
             continue
         declared.add(var_name)
-        pre_decls.append(
-            build_assign(var_name, ast.Constant(value=None))
-        )
+        # LabVIEW's "Use Default If Unwired": a frame that doesn't wire this
+        # output tunnel emits the TYPE default (0/False/""/…), not None. Seed
+        # the pre-declaration with that default so an unwired frame is faithful.
+        # (Always-wired tunnels overwrite it, so this is safe in all cases.)
+        outer = outer_id_to_term.get(_outer_term)
+        default = default_value_expr(outer.lv_type if outer else None)
+        pre_decls.append(build_assign(var_name, default))
 
     return pre_decls
 
