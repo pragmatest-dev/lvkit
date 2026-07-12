@@ -335,10 +335,16 @@ class LocalVariableGlyph:
     leaves to the right), so its ▶ is right-justified on the output edge; a
     WRITE variable is a sink (data enters from the left), so its ▶ is on the
     left input edge — that side IS the read/write signal. Both get a BOLD border
-    so a local variable stands out from a plain constant/subVI box."""
+    so a local variable stands out from a plain constant/subVI box.
+
+    ``border_color`` (a literal color, like ``ConstantGlyph.color``) is the
+    variable's DATA-TYPE wire color — LabVIEW colors a local variable's border
+    by its type (boolean green, string pink, ...). It's None only when the type
+    is unresolved, falling back to the neutral ``stroke_attr``."""
 
     label: str
     is_write: bool = False
+    border_color: str | None = None
     fill_attr: str = "localvar_fill"
     stroke_attr: str = "localvar_stroke"
     text_attr: str = "localvar_text"
@@ -349,7 +355,7 @@ class LocalVariableGlyph:
 
     def draw(self, backend: Backend, bounds: Rect, theme: Theme) -> None:
         x1, y1, x2, y2 = bounds
-        stroke = getattr(theme, self.stroke_attr)
+        stroke = self.border_color or getattr(theme, self.stroke_attr)
         backend.rect(
             x1, y1, x2, y2,
             fill=getattr(theme, self.fill_attr), stroke=stroke,

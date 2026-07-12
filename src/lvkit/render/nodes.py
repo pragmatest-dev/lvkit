@@ -653,10 +653,16 @@ class GeneratedGlyphResolver:
         if isinstance(node, LocalVariableNode):
             # LabVIEW's Local Variable glyph: the referenced control's NAME in a
             # box marked by a ▶ badge (so it's not mistaken for a constant box),
-            # with a read=thick / write=thin border.
+            # bold-bordered in the referenced control's DATA-TYPE wire color
+            # (boolean green, string pink, ...) — LabVIEW type-colors a local
+            # variable's border. The type comes off its own terminal.
+            lv_type = next(
+                (t.lv_type for t in node.terminals if t.lv_type is not None), None
+            )
             return LocalVariableGlyph(
                 node.control_name or node.name or "Local Variable",
                 is_write=node.is_write,
+                border_color=wire_style(lv_type).color if lv_type is not None else None,
             )
         return None
 
