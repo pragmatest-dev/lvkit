@@ -298,16 +298,18 @@ class FormulaNodeGlyph:
 @dataclass(frozen=True)
 class LocalVariableGlyph:
     """A Local/Global Variable node: a bordered box with the referenced
-    control's NAME, marked by a small filled right-pointing triangle badge to
-    the left of the name — the marker that tells it apart from a same-shaped
-    constant/subVI box (a constant has no badge). Grounded in NI's public
-    "Local Variable" function-reference node image (a ``▶`` glyph beside the
-    control name); the triangle is our own clean-room shape, not NI artwork.
+    control's NAME, marked by a small filled right-pointing triangle badge —
+    the marker that tells it apart from a same-shaped constant/subVI box (a
+    constant has no badge). Grounded in NI's public "Local Variable"
+    function-reference node image (a ``▶`` glyph beside the control name); the
+    triangle is our own clean-room shape, not NI artwork.
 
-    Read vs write is shown the way LabVIEW distinguishes a control from an
-    indicator: a READ variable (a source, ``is_write=False``) gets a THICK
-    border, a WRITE variable (a sink) a THIN one — per NI's "Read and Write
-    Variables" documentation."""
+    The badge sits on the DATAFLOW side: a READ variable is a source (data
+    leaves to the right), so its ▶ is right-justified on the output edge; a
+    WRITE variable is a sink (data enters from the left), so its ▶ is on the
+    left input edge. Read vs write is ALSO shown the way LabVIEW distinguishes a
+    control from an indicator: a READ (``is_write=False``) gets a THICK border,
+    a WRITE a THIN one — per NI's "Read and Write Variables" documentation."""
 
     label: str
     is_write: bool = False
@@ -328,26 +330,34 @@ class LocalVariableGlyph:
             fill=getattr(theme, self.fill_attr), stroke=stroke,
             stroke_width=self._WRITE_STROKE_W if self.is_write else self._READ_STROKE_W,
         )
-        # Badge cell on the left: a small filled right-pointing triangle.
+        # A small filled right-pointing triangle on the dataflow side: right
+        # (output) edge for a read, left (input) edge for a write.
         pad = 2.0
         cy = (y1 + y2) / 2
         tri_h = min(8.0, (y2 - y1) - 2 * pad)
-        badge_w = 0.0
+        left_pad = right_pad = 0.0
         if tri_h >= 4.0 and (x2 - x1) > 2 * pad + 6.0:
-            tx = x1 + pad + 1.0
             tw = tri_h * 0.72
+            fill = getattr(theme, self.text_attr)
+            if self.is_write:
+                tx = x1 + pad + 1.0        # left input edge
+                left_pad = pad + 1.0 + tw
+            else:
+                tx = x2 - pad - 1.0 - tw   # right output edge
+                right_pad = pad + 1.0 + tw
             backend.polygon(
                 [(tx, cy - tri_h / 2), (tx + tw, cy), (tx, cy + tri_h / 2)],
-                fill=getattr(theme, self.text_attr), stroke=None,
+                fill=fill, stroke=None,
             )
-            badge_w = pad + 1.0 + tw
-        # Name fills the width to the right of the badge.
+        # Name fills the width remaining beside the badge.
         text_glyph = WrappedBoxGlyph(
             self.label, self.fill_attr, self.stroke_attr,
             max_lines=self.max_lines, text_size=self.text_size,
             text_attr=self.text_attr,
         )
-        text_glyph.draw_wrapped_text(backend, (x1 + badge_w, y1, x2, y2), theme)
+        text_glyph.draw_wrapped_text(
+            backend, (x1 + left_pad, y1, x2 - right_pad, y2), theme,
+        )
 
 
 @dataclass(frozen=True)
