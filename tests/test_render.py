@@ -319,6 +319,38 @@ def test_knockout_keeps_interior_white_drops_exterior():
 # --------------------------------------------------------------------------- #
 
 
+def test_cluster_constant_collapses_when_box_too_small_for_field_rows():
+    """A cluster constant whose real heap bounds are too small to fit legible
+    ``name: value`` rows draws ONLY the box (values move to the hover tooltip);
+    a comfortably-sized one draws the inline field rows — task #50. The switch
+    is driven purely by the drawn ``bounds`` (LabVIEW's ground-truth size), not
+    a heap "collapsed" flag (none exists)."""
+    from lvkit.render.glyph import ClusterConstantGlyph
+    from lvkit.render.style import DEFAULT_THEME
+
+    class _Dot:
+        def draw(self, backend, bounds, theme):  # noqa: ANN001
+            x1, y1, x2, y2 = bounds
+            backend.text((x1 + x2) / 2, (y1 + y2) / 2, "V", 7.0)
+
+    glyph = ClusterConstantGlyph(
+        fields=(("Horizontal", _Dot()), ("Vertical", _Dot())),
+        value_summary="Horizontal: 0\nVertical: 0",
+    )
+
+    big = SvgBackend()
+    glyph.draw(big, (0.0, 0.0, 90.0, 42.0), DEFAULT_THEME)
+    big_svg = big.render((0.0, 0.0, 90.0, 42.0))
+    assert "Horizontal" in big_svg and "Vertical" in big_svg  # inline rows shown
+
+    small = SvgBackend()
+    glyph.draw(small, (0.0, 0.0, 17.0, 42.0), DEFAULT_THEME)
+    small_svg = small.render((0.0, 0.0, 17.0, 42.0))
+    # Collapsed: field names/values are NOT drawn inline (only the cluster box).
+    assert "Horizontal" not in small_svg and "Vertical" not in small_svg
+    assert "<rect" in small_svg
+
+
 def test_measure_text_grows_with_length_and_size():
     backend = SvgBackend()
     short = backend.measure_text("hi", 10)

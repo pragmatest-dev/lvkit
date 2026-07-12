@@ -661,6 +661,17 @@ class ClusterConstantGlyph:
     # is drawn small/collapsed and the inline values aren't legible.
     value_summary: str = ""
 
+    # Below these, a stacked "name: value" row is unreadable, so the cluster
+    # is drawn as a plain box and the field values move to the hover tooltip
+    # (``value_summary``). These are legibility floors tied to ``label_size``
+    # (a 7px row needs a couple px of breathing room; a field needs room for a
+    # short name AND a value cell) — NOT a semantic "collapsed" flag, which the
+    # heap does not carry. LabVIEW's real drawn ``bounds`` are the ground truth:
+    # a cluster it drew this small simply cannot show its fields inline, and a
+    # collapsed cluster is just what a too-small real size looks like.
+    _MIN_ROW_H = 9.0
+    _MIN_FIELD_W = 40.0
+
     def draw(self, backend: Backend, bounds: Rect, theme: Theme) -> None:
         x1, y1, x2, y2 = bounds
         border = theme.wire_error if self.is_error else theme.wire_cluster
@@ -673,6 +684,10 @@ class ClusterConstantGlyph:
         pad = 3.0
         label_size = 7.0
         row_h = (y2 - y1 - 2 * pad) / len(self.fields)
+        if row_h < self._MIN_ROW_H or (x2 - x1 - 2 * pad) < self._MIN_FIELD_W:
+            # Collapsed: the box alone stands in for the cluster; field values
+            # are on hover. Nothing more to draw.
+            return
         label_w = min(
             0.4 * (x2 - x1),
             max(backend.measure_text(nm, label_size) for nm, _ in self.fields) + 4.0,
