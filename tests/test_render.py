@@ -259,6 +259,20 @@ def test_primitive_with_own_aspect_icon_keeps_node_bounds():
     assert _glyph_bounds(node) == (0.0, 0.0, 32.0, 32.0)
 
 
+def test_substring_type_colors_as_string_not_unknown():
+    """A ``SubString`` primitive (e.g. Search/Split String's outputs, a shift
+    register carrying one) is a string for color/glyph purposes — it must map
+    to the string family/color, not fall through to grey ``unknown`` (#80)."""
+    from lvkit.models import LVType
+    from lvkit.render.style import DEFAULT_THEME, type_family, wire_style
+
+    sub = LVType(kind="primitive", underlying_type="SubString")
+    string = LVType(kind="primitive", underlying_type="String")
+    assert type_family(sub) == "string"
+    assert wire_style(sub).color == wire_style(string).color
+    assert wire_style(sub).color != DEFAULT_THEME.wire_default
+
+
 def test_while_loop_conditional_terminal_color_by_polarity():
     """The conditional terminal draws RED for Stop-if-True and GREEN for
     Continue-if-True (#57), keyed on ``cond_continue`` (heap bit 16)."""

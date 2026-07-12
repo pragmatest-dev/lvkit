@@ -252,7 +252,11 @@ def type_family(lv_type: LVType | None) -> str:
             return "int"
         if ut == "Boolean":
             return "bool"
-        if ut == "String":
+        if ut in ("String", "SubString"):
+            # "SubString" is a string subtype (e.g. Search/Split String's
+            # outputs) — a string for color/glyph purposes, as the rest of the
+            # codebase already treats it (graph.construction._TYPE_CATEGORIES,
+            # type_defaults). Without this it fell through to grey "unknown".
             return "string"
         if ut == "Path":
             return "path"
