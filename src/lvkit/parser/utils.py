@@ -35,6 +35,21 @@ def clean_labview_string(s: str | None) -> str:
     return s
 
 
+def strip_surrounding_quotes(text: str) -> str:
+    """Strip ONE layer of surrounding double quotes, if present.
+
+    For ``DefaultData``/``ConstValue`` values that must then be passed to
+    :func:`decode_xml_entities_to_bytes`: it removes only the wrapping quotes,
+    leaving embedded ``&#xNN;`` byte-entities intact (unlike
+    :func:`clean_labview_string`, which DELETES those entities and so destroys
+    every non-printable byte — including the null bytes in a string/numeric/
+    path default's length prefix)."""
+    text = text.strip()
+    if len(text) >= 2 and text[0] == '"' and text[-1] == '"':
+        return text[1:-1]
+    return text
+
+
 def decode_xml_entities_to_bytes(data: str) -> bytes:
     """Convert a LabVIEW ``DefaultData``/``ConstValue``-style string to raw
     bytes. The value is emitted as a quoted string where printable bytes are

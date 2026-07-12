@@ -27,9 +27,28 @@ from lvkit.parser import (
     parse_vi,
     parse_vi_metadata,
 )
-from lvkit.parser.vi import _process_element_terminals
+from lvkit.parser.utils import clean_labview_string, strip_surrounding_quotes
+from lvkit.parser.vi import _decode_default_data, _process_element_terminals
 
 # === Model Dataclass Tests ===
+
+
+def test_fp_default_with_null_bytes_not_corrupted():
+    """Task #78: an FP control's ``DefaultData`` is a length-prefixed binary
+    blob whose null/control bytes are serialized as ``&#xNN;``. It must reach
+    ``decode_xml_entities_to_bytes`` with those entities intact (quotes stripped
+    only). The old path ran it through ``clean_labview_string`` first, which
+    DELETES ``&#xNN;`` — dropping the string's 4-byte length prefix and
+    corrupting every non-trivial default."""
+    # LabVIEW string "hi": 4-byte big-endian length (2) + the bytes.
+    serialized = '"&#x00;&#x00;&#x00;&#x02;hi"'
+    assert _decode_default_data(
+        strip_surrounding_quotes(serialized), "stdString",
+    ) == '"hi"'
+    # Old path deletes the length prefix -> len < 4 -> value lost.
+    assert _decode_default_data(
+        clean_labview_string(serialized), "stdString",
+    ) != '"hi"'
 
 
 class TestNode:

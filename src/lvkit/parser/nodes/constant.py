@@ -6,17 +6,13 @@ import xml.etree.ElementTree as ET
 
 from ..constants import CONSTANT_DCO_CLASS, TERMINAL_CLASS
 from ..models import ParsedConstant
-from ..utils import clean_labview_string, decode_xml_entities_to_bytes
-
-
-def _strip_quotes(text: str) -> str:
-    """Strip one layer of surrounding double quotes, if present. Unlike
-    ``clean_labview_string`` this does NOT touch ``&#xNN;`` byte entities —
-    callers that need raw value bytes must decode those separately."""
-    text = text.strip()
-    if len(text) >= 2 and text[0] == '"' and text[-1] == '"':
-        return text[1:-1]
-    return text
+from ..utils import (
+    clean_labview_string,
+    decode_xml_entities_to_bytes,
+)
+from ..utils import (
+    strip_surrounding_quotes as _strip_quotes,
+)
 
 
 def _extract_const_value_hex(dco: ET.Element) -> str | None:

@@ -62,6 +62,7 @@ from .utils import (
     decode_xml_entities_to_bytes,
     extract_label,
     safe_int,
+    strip_surrounding_quotes,
 )
 
 
@@ -300,7 +301,12 @@ def _parse_front_panel(
         default_value = None
         default_elem = fpdco.find("DefaultData")
         if default_elem is not None and default_elem.text:
-            raw_data = clean_labview_string(default_elem.text)
+            # Strip only the wrapping quotes — NOT clean_labview_string, which
+            # deletes &#xNN; byte-entities (including the null bytes in a
+            # string/numeric/path default's length prefix) before
+            # _decode_default_data's decode_xml_entities_to_bytes ever sees
+            # them, corrupting the value (task #78).
+            raw_data = strip_surrounding_quotes(default_elem.text)
             control_type = ddo.get("class", "unknown")
 
             # Resolve type for array/cluster decoding
