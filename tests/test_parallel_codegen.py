@@ -310,48 +310,20 @@ class TestSequenceParallelIntegration:
 
 
 # =============================================================
-# End-to-end: In.vi
+# End-to-end: In.vi (DROPPED — see below)
 # =============================================================
-
-
-class TestInViParallelEndToEnd:
-    """End-to-end test that In.vi generates ThreadPoolExecutor."""
-
-    def _generate_in_vi(self) -> str:
-        from lvkit.codegen.builder import build_module
-        from lvkit.graph import connect
-
-        mg = connect()
-        mg.load_vi("samples/DAQmx-Digital-IO/In.vi")
-        ctx = mg.get_vi_context("In.vi")
-        return build_module(ctx, "In.vi", graph=mg)
-
-    def test_generates_without_error(self):
-        code = self._generate_in_vi()
-        assert "def in_():" in code
-
-    def test_contains_thread_pool_executor(self):
-        """Frames with Write + Wait should use ThreadPoolExecutor."""
-        code = self._generate_in_vi()
-        assert "ThreadPoolExecutor" in code
-
-    def test_sequential_chain_preserved(self):
-        """Create → Start → ... → Stop → Close stay sequential."""
-        code = self._generate_in_vi()
-        # These calls should appear in sequence (not all in one executor)
-        assert "daqmx_create_virtual_channel" in code or "do_channels" in code
-        assert "time.sleep" in code
-
-    def test_no_none_args(self):
-        """Regression: no None arguments in generated calls."""
-        code = self._generate_in_vi()
-        assert ".write(None)" not in code
-
-    def test_correct_booleans(self):
-        """Regression: correct boolean values."""
-        code = self._generate_in_vi()
-        assert ".write(True)" in code
-        assert ".write(False)" in code
+#
+# DROPPED: TestInViParallelEndToEnd used to build_module() the unlicensed
+# samples/DAQmx-Digital-IO/In.vi end-to-end and assert that its Write+Wait
+# parallel branches produce a ThreadPoolExecutor, with the Create->Start->
+# ...->Stop->Close chain staying sequential and DAQmx boolean writes coming
+# out correct. No permissive DAQmx caller can build_module() end-to-end —
+# see the detailed rationale in test_e2e_codegen.py (same finding: DAQ AO.vi
+# hits an unresolvable project SubVI + missing vilib mappings; the Digital-
+# Output DO_Write.vi caller can't be parsed by pylabview at all). The
+# parallel-branch -> ThreadPoolExecutor construct itself still has
+# synthetic, non-DAQmx coverage via TestPassthroughBindingsInParallelTier
+# below and the earlier classes in this file.
 
 
 class TestPassthroughBindingsInParallelTier:

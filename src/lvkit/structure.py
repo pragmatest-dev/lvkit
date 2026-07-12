@@ -9,6 +9,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from lvkit.extractor import extract_vi_xml
 from lvkit.models import _LV_TO_PYTHON_TYPE
 
 
@@ -135,8 +136,29 @@ def _detect_accessor(method_name: str) -> tuple[str | None, str | None]:
     return (None, None)
 
 
+def _fields_from_xml(xml_path: Path) -> list[LVPrivateDataField] | None:
+    """Look for the "Cluster of class private data" TypeDesc in one main XML.
+
+    Returns the resolved fields, or None if this XML doesn't carry the
+    private-data TypeDesc (not every method VI references "this").
+    """
+    try:
+        tree = ET.parse(xml_path)
+    except ET.ParseError:
+        return None
+    root = tree.getroot()
+    for typedesc in root.iter("TypeDesc"):
+        label = typedesc.get("Label", "")
+        if "class private data" in label.lower():
+            type_ids = [td.get("TypeID") for td in typedesc.findall("TypeDesc")]
+            fields = _resolve_type_ids(root, type_ids)
+            if fields:
+                return fields
+    return None
+
+
 def _parse_private_data_fields(lvclass_path: Path) -> list[LVPrivateDataField]:
-    """Parse private data fields from any extracted VI XML in the class directory.
+    """Parse private data fields from a method VI's XML in the class directory.
 
     Any method VI that uses the class object will have the
     "Cluster of class private data" type definition in its VCTP section.
@@ -145,28 +167,33 @@ def _parse_private_data_fields(lvclass_path: Path) -> list[LVPrivateDataField]:
     For user-defined field types (classes, typedefs), the LV type name here
     is bare (e.g. "Refnum"). Full qualification happens at the dep_graph
     level where ownership context is known.
+
+    Prefers already-extracted ``*.xml`` sidecars sitting next to the
+    ``.vi`` files (fast path — common when the whole corpus has been run
+    through the pipeline before). Falls back to extracting method VIs
+    on-demand (one at a time, memory-flat) when no sidecar XML exists yet —
+    e.g. a class pulled fresh via ``scripts/pull_samples.sh`` with nothing
+    pre-extracted.
     """
     class_dir = lvclass_path.parent
 
     for xml_path in class_dir.glob("*.xml"):
         if "_BDHb" in xml_path.name or "_FPHb" in xml_path.name:
             continue
+        fields = _fields_from_xml(xml_path)
+        if fields:
+            return fields
 
+    for vi_path in sorted(class_dir.glob("*.vi")):
         try:
-            tree = ET.parse(xml_path)
-            root = tree.getroot()
-
-            # Find "Cluster of class private data" TypeDesc
-            for typedesc in root.iter("TypeDesc"):
-                label = typedesc.get("Label", "")
-                if "class private data" in label.lower():
-                    type_ids = [td.get("TypeID") for td in typedesc.findall("TypeDesc")]
-                    fields = _resolve_type_ids(root, type_ids)
-                    if fields:
-                        return fields
-
-        except ET.ParseError:
+            _bd_xml, _fp_xml, main_xml = extract_vi_xml(vi_path)
+        except RuntimeError:
             continue
+        if main_xml is None:
+            continue
+        fields = _fields_from_xml(main_xml)
+        if fields:
+            return fields
 
     return []
 
@@ -401,6 +428,18 @@ def _find_parent_class_by_path(lvclass_path: Path) -> str | None:
     init_xml_path = class_dir / f"{class_name}_Init.xml"
     if init_xml_path.exists():
         return _extract_parent_from_vi_xml(init_xml_path, class_name)
+
+    # Fall back to extracting the _Init.vi on-demand (memory-flat, one VI)
+    # when no pre-extracted sidecar XML exists yet — e.g. a class pulled
+    # fresh via scripts/pull_samples.sh with nothing pre-extracted.
+    init_vi_path = class_dir / f"{class_name}_Init.vi"
+    if init_vi_path.exists():
+        try:
+            _bd_xml, _fp_xml, main_xml = extract_vi_xml(init_vi_path)
+        except RuntimeError:
+            return None
+        if main_xml is not None:
+            return _extract_parent_from_vi_xml(main_xml, class_name)
 
     return None
 

@@ -21,7 +21,7 @@ from lvkit.models import (
 )
 
 SEARCH_PATHS = [Path("samples/OpenG/extracted")]
-DAQMX_IN_VI = Path("samples/DAQmx-Digital-IO/In.vi")
+DAQMX_CALLER_VI = Path("samples/lv-flex-channel-examples/DAQmx AO/DAQ AO.vi")
 TESTCASE_CLASS = Path(
     "samples/JKI-VI-Tester/source/Classes/TestCase/TestCase.lvclass"
 )
@@ -36,9 +36,9 @@ def _skip_if_missing(*paths: Path) -> None:
 
 @pytest.fixture(scope="module")
 def daqmx_graph() -> InMemoryVIGraph:
-    _skip_if_missing(DAQMX_IN_VI)
+    _skip_if_missing(DAQMX_CALLER_VI)
     g = InMemoryVIGraph()
-    g.load_vi(str(DAQMX_IN_VI), search_paths=SEARCH_PATHS)
+    g.load_vi(str(DAQMX_CALLER_VI), expand_subvis=False, search_paths=SEARCH_PATHS)
     return g
 
 
@@ -84,7 +84,7 @@ def test_stub_deps_carry_path_tokens(testcase_graph):
 def test_vilib_iuses_carry_qualified_path(daqmx_graph):
     """DAQmx (vilib) iuses carry qualified_path via the LIbd/BDHP parser fix."""
     g = daqmx_graph
-    ctx = g.get_vi_context(g.resolve_vi_name("In.vi"))
+    ctx = g.get_vi_context(g.resolve_vi_name("DAQ AO.vi"))
     paths = [
         op.qualified_path
         for op in _walk_ops(ctx.operations)

@@ -32,7 +32,7 @@ from lvkit.models import (
     Terminal,
 )
 
-IN_VI = Path("samples/DAQmx-Digital-IO/In.vi")
+IN_VI = Path("samples/lv-flex-channel-examples/DAQmx AO/DAQ AO.vi")
 
 
 def _error_cluster_type() -> LVType:

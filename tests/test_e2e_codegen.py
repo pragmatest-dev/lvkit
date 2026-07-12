@@ -29,8 +29,6 @@ GET_SETTINGS_PATH_VI = Path(
     "Graphical Test Runner/Graphical Test Runner Support/"
     "Get Settings Path.vi"
 )
-DAQMX_IN_VI = Path("samples/DAQmx-Digital-IO/In.vi")
-DAQMX_OUT_VI = Path("samples/DAQmx-Digital-IO/Out.vi")
 TESTCASE_DIR = Path("samples/JKI-VI-Tester/source/Classes/TestCase")
 DCAF_CONFIG_DIR = Path("samples/DCAF-DAQModule/source/module/configuration")
 DELETE_LINE_VI = DCAF_CONFIG_DIR / "Delete Line.vi"
@@ -82,15 +80,6 @@ def get_settings_path_graph() -> InMemoryVIGraph:
 
 
 @pytest.fixture(scope="module")
-def daqmx_graph() -> InMemoryVIGraph:
-    _skip_if_missing(DAQMX_IN_VI, DAQMX_OUT_VI)
-    g = InMemoryVIGraph()
-    g.load_vi(str(DAQMX_IN_VI), search_paths=SEARCH_PATHS)
-    g.load_vi(str(DAQMX_OUT_VI), search_paths=SEARCH_PATHS)
-    return g
-
-
-@pytest.fixture(scope="module")
 def testcase_graph() -> InMemoryVIGraph:
     _skip_if_missing(TESTCASE_DIR)
     g = InMemoryVIGraph()
@@ -138,95 +127,32 @@ class TestGetSettingsPath:
         assert "mkdir" in code
 
 
-# ── DAQmx In.vi ─────────────────────────────────────────────
-
-
-class TestDAQmxIn:
-    """E2E: In.vi — flat sequence, parallel branches, inline DAQmx SubVIs."""
-
-    VI_NAME = "In.vi"
-
-    def test_valid_python(self, daqmx_graph):
-        code = _generate(daqmx_graph, self.VI_NAME)
-        assert_valid_python(code, self.VI_NAME)
-
-    def test_no_garbage(self, daqmx_graph):
-        code = _generate(daqmx_graph, self.VI_NAME)
-        assert_no_garbage(code, self.VI_NAME)
-
-    def test_correct_operation_order(self, daqmx_graph):
-        """Create Task must come before Start, which must come before Stop."""
-        code = _generate(daqmx_graph, self.VI_NAME)
-        task_pos = code.index("nidaqmx.Task")
-        start_pos = code.index(".start()")
-        stop_pos = code.index(".stop()")
-        close_pos = code.index(".close()")
-        assert task_pos < start_pos < stop_pos < close_pos
-
-    def test_has_time_sleep(self, daqmx_graph):
-        code = _generate(daqmx_graph, self.VI_NAME)
-        assert "time.sleep" in code
-
-    def test_no_none_method_calls(self, daqmx_graph):
-        """Regression: operations used to execute before task creation."""
-        code = _generate(daqmx_graph, self.VI_NAME)
-        assert "None.write" not in code
-        assert "None.start" not in code
-
-    def test_no_undefined_samples_written(self, daqmx_graph):
-        """Regression: ref_terminal output with no upstream binding."""
-        code = _generate(daqmx_graph, self.VI_NAME)
-        assert "daqmx_write_samples_written" not in code
-
-    def test_has_parallel_branches(self, daqmx_graph):
-        code = _generate(daqmx_graph, self.VI_NAME)
-        assert "concurrent.futures" in code
-
-
-# ── DAQmx Out.vi ────────────────────────────────────────────
-
-
-class TestDAQmxOut:
-    """E2E: Out.vi — while loop, boolean params, DAQmx Read."""
-
-    VI_NAME = "Out.vi"
-
-    def test_valid_python(self, daqmx_graph):
-        code = _generate(daqmx_graph, self.VI_NAME)
-        assert_valid_python(code, self.VI_NAME)
-
-    def test_no_garbage(self, daqmx_graph):
-        code = _generate(daqmx_graph, self.VI_NAME)
-        assert_no_garbage(code, self.VI_NAME)
-
-    def test_has_while_loop(self, daqmx_graph):
-        code = _generate(daqmx_graph, self.VI_NAME)
-        assert "while " in code
-
-    def test_no_param_overwrite(self, daqmx_graph):
-        """Regression: stop = False overwrote the function parameter."""
-        code = _generate(daqmx_graph, self.VI_NAME)
-        # The function has 'stop' as a parameter — it should NOT be re-assigned
-        # to False before the while loop
-        lines = code.split("\n")
-        for i, line in enumerate(lines):
-            stripped = line.strip()
-            if stripped == "stop = False":
-                pytest.fail(
-                    f"Line {i+1}: 'stop = False' overwrites function parameter"
-                )
-
-    def test_has_read_call(self, daqmx_graph):
-        code = _generate(daqmx_graph, self.VI_NAME)
-        assert ".read()" in code
-
-    def test_has_task_creation(self, daqmx_graph):
-        code = _generate(daqmx_graph, self.VI_NAME)
-        assert "nidaqmx.Task" in code
-
-    def test_has_time_sleep(self, daqmx_graph):
-        code = _generate(daqmx_graph, self.VI_NAME)
-        assert "time.sleep" in code
+# ── DAQmx In.vi / Out.vi (DROPPED — see below) ────────────────
+#
+# DROPPED: TestDAQmxIn and TestDAQmxOut used to build_module() the
+# unlicensed samples/DAQmx-Digital-IO/{In,Out}.vi end-to-end and assert
+# DAQmx->nidaqmx driver-specific codegen ("nidaqmx.Task", ".start()"/
+# ".stop()"/".close()"/".read()" call ordering, parallel-branch
+# ThreadPoolExecutor/concurrent.futures from Write+Wait branches, while-loop
+# codegen for the Digital-Input Out.vi).
+#
+# No permissive replacement caller was found: illuminated-g/
+# lv-flex-channel-examples' "DAQmx AO/DAQ AO.vi" (MIT) is the only real
+# permissive DAQmx caller located (see docs/test-corpus-sources.md), but it
+# cannot build_module() end-to-end — it calls a project-local "Read Event.vi"
+# unreachable via any shippable search path, and its Analog-Output poly
+# variants ("AO Voltage", "Analog 1D Wfm ...") have no vilib_resolver.json
+# mapping yet (a separate effort — see "Adding New VILib VIs" in
+# CLAUDE.md). ismet55555/LabVIEW-OOP-Classes' Digital-Output caller
+# ("DAQ/Digital Output/DO_class/utils/DO_Write.vi", MIT) can't be parsed at
+# all: pylabview raises "AttributeError: 'TDObjectCluster' object has no
+# attribute 'getNumRepeats'" on its VITS block (a pylabview bug).
+#
+# The generic constructs these tests incidentally covered (parallel
+# branches -> ThreadPoolExecutor, while-loop codegen) still have dedicated
+# non-DAQmx coverage: see test_parallel_codegen.py's synthetic
+# TestPassthroughBindingsInParallelTier / earlier classes in that file, and
+# TestGetSettingsPath above for a real-VI E2E build_module() smoke test.
 
 
 # ── TestCase.lvclass ─────────────────────────────────────────

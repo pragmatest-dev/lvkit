@@ -31,7 +31,7 @@ from lvkit.graph.describe import (
 )
 from lvkit.graph.diff import diff_structured, diff_text
 
-SAMPLE_VI = Path("samples/DAQmx-Digital-IO/In.vi")
+SAMPLE_VI = Path("samples/lv-flex-channel-examples/DAQmx AO/DAQ AO.vi")
 
 
 def _samples_available() -> bool:
@@ -40,7 +40,7 @@ def _samples_available() -> bool:
 
 pytestmark = pytest.mark.skipif(
     not _samples_available(),
-    reason="Requires samples/DAQmx-Digital-IO/In.vi",
+    reason="Requires samples/lv-flex-channel-examples/DAQmx AO/DAQ AO.vi",
 )
 
 

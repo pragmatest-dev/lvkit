@@ -17,7 +17,7 @@ import ast
 from lvkit.codegen.ast_optimizer import eliminate_dead_code
 from lvkit.codegen.context import _format_constant
 from lvkit.graph.models import Constant
-from lvkit.models import LVType
+from lvkit.models import LVType, SubVIOperation
 
 # =============================================================
 # Boolean constant formatting
@@ -191,31 +191,53 @@ class TestWaitMsPrimitive:
 # =============================================================
 
 
+DAQMX_CALLER_VI = "samples/lv-flex-channel-examples/DAQmx AO/DAQ AO.vi"
+
+
+def _walk_ops(ops):
+    """Yield every operation, recursing into structure frames + inner nodes.
+
+    DAQ AO.vi's DAQmx calls live inside Case structures (an event-loop
+    pattern), so unlike the old flat-sequence In.vi they aren't top-level —
+    the plain top-level ``get_operations()`` list won't contain them.
+    """
+    for op in ops:
+        yield op
+        if hasattr(op, "frames"):
+            for frame in op.frames:
+                yield from _walk_ops(frame.operations)
+        yield from _walk_ops(getattr(op, "inner_nodes", []))
+
+
 class TestPolyVariantExtraction:
     """polySelector variant names should be extracted from polyIUse nodes."""
 
     def test_poly_variant_parsed_from_vi(self):
-        """In.vi's Create Virtual Channel should resolve to 'Digital Output'."""
+        """DAQ AO.vi's Create Virtual Channel should resolve to 'AO Voltage'."""
         from lvkit.graph import connect
         mg = connect()
-        mg.load_vi("samples/DAQmx-Digital-IO/In.vi")
+        mg.load_vi(DAQMX_CALLER_VI, expand_subvis=False)
 
-        for op in mg.get_operations("In.vi"):
-            if op.name == "DAQmx Create Virtual Channel.vi":
-                assert op.poly_variant_name == "Digital Output"
+        for op in _walk_ops(mg.get_operations("DAQ AO.vi")):
+            is_target = (
+                isinstance(op, SubVIOperation)
+                and op.name == "DAQmx Create Virtual Channel.vi"
+            )
+            if is_target:
+                assert op.poly_variant_name == "AO Voltage"
                 return
         raise AssertionError("DAQmx Create Virtual Channel.vi not found")
 
     def test_write_variant_parsed(self):
-        """In.vi's Write should have a Digital Bool variant name."""
+        """DAQ AO.vi's Write should have an Analog variant name."""
         from lvkit.graph import connect
         mg = connect()
-        mg.load_vi("samples/DAQmx-Digital-IO/In.vi")
+        mg.load_vi(DAQMX_CALLER_VI, expand_subvis=False)
 
-        for op in mg.get_operations("In.vi"):
-            if op.name == "DAQmx Write.vi":
+        for op in _walk_ops(mg.get_operations("DAQ AO.vi")):
+            if isinstance(op, SubVIOperation) and op.name == "DAQmx Write.vi":
                 assert op.poly_variant_name is not None
-                assert "Digital" in op.poly_variant_name
+                assert "Analog" in op.poly_variant_name
                 return
         raise AssertionError("DAQmx Write.vi not found")
 
@@ -223,10 +245,10 @@ class TestPolyVariantExtraction:
         """Non-polymorphic nodes should have poly_variant_name=None."""
         from lvkit.graph import connect
         mg = connect()
-        mg.load_vi("samples/DAQmx-Digital-IO/In.vi")
+        mg.load_vi(DAQMX_CALLER_VI, expand_subvis=False)
 
-        for op in mg.get_operations("In.vi"):
-            if op.name == "DAQmx Start Task.vi":
+        for op in _walk_ops(mg.get_operations("DAQ AO.vi")):
+            if isinstance(op, SubVIOperation) and op.name == "DAQmx Start Task.vi":
                 assert op.poly_variant_name is None
                 return
         raise AssertionError("DAQmx Start Task.vi not found")
@@ -280,44 +302,33 @@ class TestPolyResolverLookup:
 
 
 # =============================================================
-# End-to-end: In.vi generates correct output
+# End-to-end: DAQmx Digital-Output codegen (DROPPED — see below)
 # =============================================================
-
-
-class TestInViEndToEnd:
-    """End-to-end test that In.vi generates correct Python."""
-
-    def _build_in_vi(self):
-        from lvkit.codegen.builder import build_module
-        from lvkit.graph import connect
-
-        mg = connect()
-        mg.load_vi("samples/DAQmx-Digital-IO/In.vi")
-        ctx = mg.get_vi_context("In.vi")
-        return build_module(ctx, "In.vi", graph=mg)
-
-    def test_generates_without_error(self):
-        code = self._build_in_vi()
-        assert "def in_():" in code
-
-    def test_uses_do_channel(self):
-        code = self._build_in_vi()
-        assert "do_channels.add_do_chan" in code
-        assert "ai_channels" not in code
-
-    def test_has_time_sleep(self):
-        code = self._build_in_vi()
-        assert "import time" in code
-        assert "time.sleep(500 / 1000)" in code
-
-    def test_boolean_values(self):
-        code = self._build_in_vi()
-        assert ".write(True)" in code
-        assert ".write(False)" in code
-        assert ".write(None)" not in code
-        assert ".write('True')" not in code
-
-    def test_no_path_wrapping(self):
-        code = self._build_in_vi()
-        assert "Path(" not in code
-        assert "'Dev1/port0/line0'" in code
+#
+# DROPPED: TestInViEndToEnd used to build_module() the unlicensed
+# samples/DAQmx-Digital-IO/In.vi end-to-end and assert Digital-Output-
+# specific codegen (do_channels.add_do_chan, boolean .write(True/False),
+# the Wait (ms) -> time.sleep mapping, and the "Dev1/port0/line0" channel
+# string not being Path()-wrapped).
+#
+# No permissive replacement caller was found for this specific mapping:
+#   - illuminated-g/lv-flex-channel-examples' "DAQmx AO/DAQ AO.vi" (MIT,
+#     the only real permissive DAQmx caller located — see
+#     docs/test-corpus-sources.md) calls Analog Output (AO Voltage /
+#     Sample Clock timing / "Analog 1D Wfm" write), not Digital Output —
+#     it never exercises do_channels/boolean-write/Wait(ms) at all. It also
+#     doesn't build_module() end-to-end: it calls a project-local
+#     "Read Event.vi" that isn't reachable via any search path we can ship,
+#     and its AO-specific poly variants ("AO Voltage", "Analog 1D Wfm ...")
+#     have no vilib_resolver.json mapping yet (out of scope here — see
+#     "Adding New VILib VIs" in CLAUDE.md for that separate effort).
+#   - ismet55555/LabVIEW-OOP-Classes' "DAQ/Digital Output/DO_class/utils/
+#     DO_Write.vi" (MIT) IS a Digital-Output DAQmx caller, but it cannot be
+#     parsed at all: pylabview raises
+#     "AttributeError: 'TDObjectCluster' object has no attribute
+#     'getNumRepeats'" (a pylabview bug, not an lvkit issue) on this VI's
+#     VITS block.
+#
+# The graph-level poly-variant-extraction coverage (TestPolyVariantExtraction
+# above) still runs against DAQ AO.vi's real AO-Voltage/Analog-Write variants
+# — only this full-codegen, Digital-Output-specific class is dropped.

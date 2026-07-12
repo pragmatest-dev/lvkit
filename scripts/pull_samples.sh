@@ -30,6 +30,9 @@ GIT_SETS=(
   "LabVIEW-DAQ|https://github.com/KL-Turner/LabVIEW-DAQ.git|MIT|https://github.com/KL-Turner/LabVIEW-DAQ"
   "pylabview-full|https://github.com/mefistotelis/pylabview.git|MIT|https://github.com/mefistotelis/pylabview"
   "DCAF-DAQModule|https://github.com/LabVIEW-DCAF/DAQModule.git|Apache-2.0|https://github.com/LabVIEW-DCAF/DAQModule"
+  "measurement-plugin-labview|https://github.com/ni/measurement-plugin-labview.git|MIT|https://github.com/ni/measurement-plugin-labview"
+  "lv-flex-channel-examples|https://github.com/illuminated-g/lv-flex-channel-examples.git|MIT|https://github.com/illuminated-g/lv-flex-channel-examples"
+  "LabVIEW-OOP-Classes|https://github.com/ismet55555/LabVIEW-OOP-Classes.git|MIT|https://github.com/ismet55555/LabVIEW-OOP-Classes"
 )
 
 for entry in "${GIT_SETS[@]}"; do
@@ -44,27 +47,25 @@ for entry in "${GIT_SETS[@]}"; do
   fi
 done
 
-# OpenG Toolkit (BSD-3-Clause, OSI-approved). Not a git repo — it ships as a
-# VIPM ".vip" package, which is a ZIP whose internal "File Group N/" layout is
-# exactly samples/OpenG/extracted/. Reproduce it fully from the public download:
-#   1. download the .vip below,
-#   2. unzip it into samples/OpenG/extracted/  (gives the File Group N/ tree),
-#   3. let lvkit turn each VI into the *_BDHb.xml the tests load, via
-#      lvkit.extractor.extract_llb (LLBs are zips) + extract_vi_xml.
-# No LabVIEW/VIPM install and no redistribution — pulled straight from source.
-OPENG_VIP_URL="https://sourceforge.net/projects/opengtoolkit/files/lib_openg_toolkit/4.x/openg.org_lib_openg_toolkit-4.0.1.9.vip/download"
+# OpenG Toolkit (BSD-3-Clause, OSI-approved). Not a git repo — each library
+# ships as its own VIPM ".vip" package (a ZIP) on SourceForge, whose internal
+# "File Group 0/user.lib/_OpenG.lib/<lib>/<lib>.llb/" layout is exactly what
+# samples/OpenG/extracted/ needs. NOTE: the combined "openg.org_lib_openg_
+# toolkit" meta-package (formerly fetched here) contains no VI content at all
+# — it is a VIPM dependency-resolution stub. scripts/reproduce_openg_corpus.py
+# instead downloads each individual oglib_*.vip library package, unzips them
+# all (they merge cleanly — no filename collisions across libraries), and
+# runs lvkit.extractor.extract_llb (for the few that ship a true binary LLB
+# container) + extract_vi_xml (one VI at a time, memory-flat) to produce the
+# *_BDHb.xml the tests load. No LabVIEW/VIPM install and no redistribution —
+# pulled straight from source.
 if [[ "$FORCE" == "--force" ]]; then rm -rf "$DEST/OpenG"; fi
 if [[ -d "$DEST/OpenG/extracted" ]]; then
   echo "skip   OpenG (already present) — BSD-3-Clause — https://sourceforge.net/projects/opengtoolkit/"
 else
-  echo "fetch  OpenG Toolkit 4.0.1.9 (.vip) — BSD-3-Clause — sourceforge.net/projects/opengtoolkit"
+  echo "fetch  OpenG Toolkit libraries (.vip x17) — BSD-3-Clause — sourceforge.net/projects/opengtoolkit"
   mkdir -p "$DEST/OpenG/extracted"
-  tmp="$(mktemp -d)"
-  curl -sL "$OPENG_VIP_URL" -o "$tmp/openg.vip"
-  python3 -c "import zipfile,sys; zipfile.ZipFile(sys.argv[1]).extractall(sys.argv[2])" \
-    "$tmp/openg.vip" "$DEST/OpenG/extracted"
-  rm -rf "$tmp"
-  echo "       unzipped; run the lvkit LLB/VI extraction to produce *_BDHb.xml (see comment above)"
+  python3 "$ROOT/scripts/reproduce_openg_corpus.py" "$DEST/OpenG/extracted"
 fi
 
 echo

@@ -6,8 +6,14 @@ order, parallel-tier membership, inner-structure ordering, variable naming)
 iterates such a set, the generated source changes from run to run. This test
 generates the same VI under several hash seeds and asserts identical output.
 
-`In.vi` is chosen because it emits a concurrent.futures parallel tier — the
-exact path where independent operations used to come out in set order.
+``test TCX read (installed 71).vi`` is chosen because it emits a
+concurrent.futures parallel tier — the exact path where independent
+operations used to come out in set order. (It's a plain VI, not a class
+member — .lvclass entry points make generate_python.py expand and emit a
+wrapper for the *whole* class, which as of this writing has a real,
+independently-tracked hashseed-order bug in one sibling method's parallel-
+tier grouping; using a plain VI here keeps this test scoped to the ordering
+path it's meant to cover.)
 """
 
 from __future__ import annotations
@@ -21,14 +27,22 @@ import pytest
 
 REPO = Path(__file__).resolve().parent.parent
 SCRIPT = REPO / "scripts" / "generate_python.py"
-# A bundled VI that emits a parallel (ThreadPoolExecutor) tier.
-PARALLEL_VI = REPO / "samples" / "DAQmx-Digital-IO" / "In.vi"
+# A permissively-licensed (BSD-3-Clause) VI that emits a parallel
+# (ThreadPoolExecutor) tier.
+PARALLEL_VI = (
+    REPO / "samples" / "JKI-EasyXML" / "Source" / "Fast Parser"
+    / "test TCX read (installed 71).vi"
+)
+PARALLEL_VI_SEARCH_PATH = REPO / "samples" / "JKI-EasyXML" / "Source"
 
 
 def _generate(vi: Path, out_dir: Path, hashseed: str) -> str:
     env = {**os.environ, "PYTHONHASHSEED": hashseed}
     subprocess.run(
-        [sys.executable, str(SCRIPT), str(vi), "-o", str(out_dir)],
+        [
+            sys.executable, str(SCRIPT), str(vi), "-o", str(out_dir),
+            "--search-path", str(PARALLEL_VI_SEARCH_PATH),
+        ],
         check=True, capture_output=True, env=env, cwd=REPO,
     )
     return "\n".join(
