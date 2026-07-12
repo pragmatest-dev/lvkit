@@ -99,6 +99,35 @@
       "verified": true,
       "pdf_page": 411
     },
+    "1061": {
+      "name": "Or",
+      "elementwise": true,
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "result",
+          "type": "boolean"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "x",
+          "type": "boolean"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "y",
+          "type": "boolean"
+        }
+      ],
+      "python_code": {
+        "result": "in_1 or in_2"
+      },
+      "inline": true,
+      "verified": true
+    },
     "1062": {
       "name": "And",
       "elementwise": true,
