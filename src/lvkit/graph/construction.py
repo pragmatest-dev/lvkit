@@ -15,7 +15,6 @@ from ..models import (
     CaseFrame,
     FPTerminal,
     LVType,
-    PropertyDef,
     Terminal,
     TunnelTerminal,
     control_type_to_lvtype,
@@ -27,17 +26,11 @@ from ..parser import (
 )
 from ..parser.models import ParsedConstant, ParsedType
 from ..parser.node_types import (
-    CpdArithNode,
     CtlRefConstNode,
     GRefNode,
-    InvokeNode,
-    PropertyNode,
     SelectNode,
     StatVIRefNode,
     SubVINode,
-)
-from ..parser.node_types import (
-    FormulaNode as ParserFormulaNode,
 )
 from ..parser.node_types import (
     PrimitiveNode as ParserPrimitiveNode,
@@ -47,7 +40,12 @@ from ..primitive_resolver import get_resolver as get_prim_resolver
 from ..primitive_resolver import resolve_primitive
 from ..type_defaults import get_default_for_type
 from ..vilib_resolver import get_resolver as get_vilib_resolver
-from .builders import STRUCTURE_BUILD_HANDLERS, GraphBuildContext
+from .builders import (
+    DEFAULT_NODE_BUILD_HANDLER,
+    NODE_BUILD_HANDLERS,
+    STRUCTURE_BUILD_HANDLERS,
+    GraphBuildContext,
+)
 from .models import (
     AnyGraphNode,
     ConstantNode,
@@ -55,12 +53,6 @@ from .models import (
     StructureNode,
     VINode,
     WireEnd,
-)
-from .models import (
-    FormulaNode as GraphFormulaNode,
-)
-from .models import (
-    PrimitiveNode as GraphPrimitiveNode,
 )
 
 logger = logging.getLogger(__name__)
@@ -761,54 +753,16 @@ class ConstructionMixin:
                 graph_node = STRUCTURE_BUILD_HANDLERS[node.node_type].build(
                     node, node_name, q_node_uid, build_ctx,
                 )
-            elif node.node_type == "fBox":
-                # Formula Node — embedded C-like script over typed terminals.
-                # The "fBox" class is only ever parsed into a ParserFormulaNode;
-                # anything else here means the parser dispatch is broken, so
-                # fail loud rather than silently drop the script.
-                if not isinstance(node, ParserFormulaNode):
-                    raise TypeError(
-                        f"fBox node {q_node_uid!r} is {type(node).__name__}, "
-                        "expected ParserFormulaNode (script would be lost)"
-                    )
-                graph_node = GraphFormulaNode(
-                    id=q_node_uid,
-                    vi=vi_name,
-                    name=node_name,
-                    node_type=node.node_type,
-                    terminals=node_terminals,
-                    description=description,
-                    script=node.script,
-                )
             else:
-                # Primitive or generic operation node
-                prim_kwargs: dict[str, Any] = {}
-                if isinstance(node, ParserPrimitiveNode):
-                    prim_kwargs["prim_id"] = node.prim_res_id
-                    prim_kwargs["prim_index"] = node.prim_index
-                if isinstance(node, CpdArithNode):
-                    prim_kwargs["operation"] = node.operation
-                if isinstance(node, (PropertyNode, InvokeNode)):
-                    prim_kwargs["object_name"] = node.object_name
-                    prim_kwargs["object_method_id"] = node.object_method_id
-                    if isinstance(node, PropertyNode):
-                        prim_kwargs["properties"] = [
-                            PropertyDef(name=p.get("name", ""))
-                            if isinstance(p, dict) else p
-                            for p in node.properties
-                        ]
-                    elif isinstance(node, InvokeNode):
-                        prim_kwargs["method_name"] = node.method_name
-                        prim_kwargs["method_code"] = node.method_code
-
-                graph_node = GraphPrimitiveNode(
-                    id=q_node_uid,
-                    vi=vi_name,
-                    name=node_name,
-                    node_type=node.node_type,
-                    terminals=node_terminals,
-                    description=description,
-                    **prim_kwargs,
+                # Operation node (formula box, primitive, cpdArith, property/
+                # invoke) — built by a registered handler off the ordinary
+                # node_terminals, else the default primitive handler.
+                op_handler = NODE_BUILD_HANDLERS.get(
+                    node.node_type, DEFAULT_NODE_BUILD_HANDLER,
+                )
+                graph_node = op_handler.build(
+                    node, node_name, q_node_uid, node_terminals, description,
+                    build_ctx,
                 )
 
             # Mark nMux terminal roles (agg vs list) and field indices
