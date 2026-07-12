@@ -709,9 +709,11 @@ def test_render_vi_file_matches_ground_truth_shape():
 
 def test_constant_value_box_shrinks_past_caption_and_renders_owned_label():
     """A captioned numeric constant draws a COMPACT value box (not the
-    caption-inflated DDO bounds) plus its owned label as free text — task #77,
-    built on the #59 value+format extraction. The hex constant also proves the
-    #59 radix format (0x02 -> ``x2``) survives the normal re-extraction path."""
+    caption-inflated DDO bounds) plus its VISIBLE owned label as free text —
+    task #77, built on the #59 value+format extraction. A caption whose HIDDEN
+    bit (objFlags 0x8) is set — LabVIEW's auto-created terminal-name label like
+    "Index"/"offset (0)" — must NOT render. The hex constant also proves the #59
+    radix format (0x02 -> ``x2``) survives the normal re-extraction path."""
     if not CONST_LABEL_VI.exists():
         pytest.skip(f"sample VI not available: {CONST_LABEL_VI}")
     graph = InMemoryVIGraph()
@@ -729,18 +731,20 @@ def test_constant_value_box_shrinks_past_caption_and_renders_owned_label():
     # Compact value cell, NOT the ~139x69 caption-inflated DDO box.
     assert hexc.bounds[2] - hexc.bounds[0] < 40
     assert hexc.bounds[3] - hexc.bounds[1] < 40
-    # Owned label carries the developer's free-text caption, drawn separately.
+    # The VISIBLE caption (0x8 clear) carries the developer's free text.
     assert hexc.owned_label is not None
     assert "Open Templates" in hexc.owned_label.text
-    assert by_val["1"].owned_label is not None
-    assert by_val["1"].owned_label.text == "Index"
+    # The "1" constant's caption is "Index" with the HIDDEN bit (0x8) set — an
+    # auto-created terminal-name label LabVIEW hides, so it must NOT surface.
+    assert by_val["1"].owned_label is None
 
     svg = render_vi_file(
         CONST_LABEL_VI, expand_subvis=False, search_paths=OPENG_SEARCH,
     )
     assert svg is not None
-    assert ">x2<" in svg   # #59 hex radix value survives re-extraction
-    assert "Index" in svg  # #77 owned label rendered
+    assert ">x2<" in svg              # #59 hex radix value survives re-extraction
+    assert "Open Templates" in svg   # visible owned label rendered
+    assert "Index" not in svg        # hidden auto-label NOT rendered
 
 
 def test_render_vi_file_determinism_same_process():

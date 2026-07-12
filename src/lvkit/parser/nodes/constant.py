@@ -58,18 +58,34 @@ def _extract_display_format(dco: ET.Element) -> str | None:
 
 
 def _extract_caption(dco: ET.Element) -> str | None:
-    """The constant's developer-authored CAPTION (its free-label text), or None.
+    """The constant's VISIBLE developer-authored CAPTION (free-label text), or None.
 
     LabVIEW keeps a constant's caption in its own ``ddo`` as a ``partsList``
     part ``class="label"`` (NOT a ``<label>`` tag — the earlier selector looked
     for the wrong element and always missed it, so every caption was dropped).
+
+    The label part's ``objFlags`` bit ``0x8`` is its HIDDEN flag and IS honored:
+    when you "Create Constant" from a terminal, LabVIEW auto-labels the constant
+    with the terminal's name + default (``offset (0)``, ``length (rest)``,
+    ``Substring``, ...) and hides it (0x8 set). Only a caption the developer made
+    visible (0x8 clear — e.g. ``largeNamesDict``) is shown. (An earlier note here
+    had the bit backwards; the corpus is unambiguous: 0x8 set = hidden.)
+
     The text is quoted and may span multiple lines; ``clean_labview_string``
     strips the quotes and drops binary ``&#xNN;`` byte-entities (so a caption
     that is nothing but a control char, e.g. ``"&#x00;"``, cleans to empty and
-    is filtered out). ``objFlags`` bit ``0x8`` is NOT a visibility flag here
-    (most VISIBLE captions have it set), so it is deliberately not consulted.
+    is filtered out).
     """
-    text_el = dco.find("ddo/partsList/SL__arrayElement[@class='label']/textRec/text")
+    label_el = dco.find("ddo/partsList/SL__arrayElement[@class='label']")
+    if label_el is None:
+        return None
+    try:
+        flags = int((label_el.findtext("objFlags") or "0").strip())
+    except ValueError:
+        flags = 0
+    if flags & 0x8:
+        return None  # hidden auto-label (terminal name + default) — LabVIEW hides it
+    text_el = label_el.find("textRec/text")
     if text_el is None or not text_el.text:
         return None
     caption = clean_labview_string(text_el.text).strip()
