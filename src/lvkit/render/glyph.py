@@ -155,6 +155,14 @@ class WrappedBoxGlyph:
             stroke=getattr(theme, self.stroke_attr),
             stroke_width=self.stroke_width,
         )
+        self.draw_wrapped_text(backend, bounds, theme)
+
+    def draw_wrapped_text(self, backend: Backend, bounds: Rect, theme: Theme) -> None:
+        """Draw only the word-wrapped, best-fit-sized label centered in
+        ``bounds`` (no box) — shared by ``draw`` and by other glyphs that own
+        their own frame (e.g. ``LocalVariableGlyph``, which draws a badge in a
+        left cell and delegates the remaining width to this)."""
+        x1, y1, x2, y2 = bounds
         if not self.label:
             return
         pad = 2.0
@@ -194,6 +202,61 @@ class WrappedBoxGlyph:
                 return best  # full name shown at this (largest passing) size
         # Nothing fit without truncation — use the smallest tried (ellipsized).
         return best if best is not None else (self.text_size, self.text_size, [])
+
+
+@dataclass(frozen=True)
+class LocalVariableGlyph:
+    """A Local/Global Variable node: a bordered box with the referenced
+    control's NAME, marked by a small filled right-pointing triangle badge to
+    the left of the name — the marker that tells it apart from a same-shaped
+    constant/subVI box (a constant has no badge). Grounded in NI's public
+    "Local Variable" function-reference node image (a ``▶`` glyph beside the
+    control name); the triangle is our own clean-room shape, not NI artwork.
+
+    Read vs write is shown the way LabVIEW distinguishes a control from an
+    indicator: a READ variable (a source, ``is_write=False``) gets a THICK
+    border, a WRITE variable (a sink) a THIN one — per NI's "Read and Write
+    Variables" documentation."""
+
+    label: str
+    is_write: bool = False
+    fill_attr: str = "localvar_fill"
+    stroke_attr: str = "localvar_stroke"
+    text_attr: str = "localvar_text"
+    max_lines: int = 2
+    text_size: float = 7.0
+
+    _READ_STROKE_W = 2.5   # thick, like a control
+    _WRITE_STROKE_W = 1.0  # thin, like an indicator
+
+    def draw(self, backend: Backend, bounds: Rect, theme: Theme) -> None:
+        x1, y1, x2, y2 = bounds
+        stroke = getattr(theme, self.stroke_attr)
+        backend.rect(
+            x1, y1, x2, y2,
+            fill=getattr(theme, self.fill_attr), stroke=stroke,
+            stroke_width=self._WRITE_STROKE_W if self.is_write else self._READ_STROKE_W,
+        )
+        # Badge cell on the left: a small filled right-pointing triangle.
+        pad = 2.0
+        cy = (y1 + y2) / 2
+        tri_h = min(8.0, (y2 - y1) - 2 * pad)
+        badge_w = 0.0
+        if tri_h >= 4.0 and (x2 - x1) > 2 * pad + 6.0:
+            tx = x1 + pad + 1.0
+            tw = tri_h * 0.72
+            backend.polygon(
+                [(tx, cy - tri_h / 2), (tx + tw, cy), (tx, cy + tri_h / 2)],
+                fill=getattr(theme, self.text_attr), stroke=None,
+            )
+            badge_w = pad + 1.0 + tw
+        # Name fills the width to the right of the badge.
+        text_glyph = WrappedBoxGlyph(
+            self.label, self.fill_attr, self.stroke_attr,
+            max_lines=self.max_lines, text_size=self.text_size,
+            text_attr=self.text_attr,
+        )
+        text_glyph.draw_wrapped_text(backend, (x1 + badge_w, y1, x2, y2), theme)
 
 
 @dataclass(frozen=True)

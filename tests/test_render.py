@@ -351,6 +351,34 @@ def test_cluster_constant_collapses_when_box_too_small_for_field_rows():
     assert "<rect" in small_svg
 
 
+def test_local_variable_glyph_badge_and_read_write_border_weight():
+    """A Local Variable node draws the ▶ badge (a filled triangle polygon) that
+    tells it apart from a same-shaped constant box, with a read=thick /
+    write=thin border — task #48, grounded in NI's Local Variable node image +
+    Read/Write Variables docs."""
+    from lvkit.render.glyph import LocalVariableGlyph, WrappedBoxGlyph
+    from lvkit.render.style import DEFAULT_THEME
+
+    read = SvgBackend()
+    LocalVariableGlyph("flag", is_write=False).draw(read, (0, 0, 90, 25), DEFAULT_THEME)
+    read_svg = read.render((0, 0, 90, 25))
+    write = SvgBackend()
+    LocalVariableGlyph("flag", is_write=True).draw(write, (0, 0, 90, 25), DEFAULT_THEME)
+    write_svg = write.render((0, 0, 90, 25))
+
+    # Badge present on both (a <polygon> — the ▶ triangle).
+    assert "<polygon" in read_svg and "<polygon" in write_svg
+    # Read gets the thick control-style border; write the thin indicator-style one.
+    assert 'stroke-width="2.5"' in read_svg
+    assert 'stroke-width="1.0"' in write_svg
+
+    # A plain constant/subVI box has NO badge — that's the whole distinction.
+    plain = SvgBackend()
+    WrappedBoxGlyph("Boolean", "const_fill", "localvar_stroke", 1.0).draw(
+        plain, (0, 0, 90, 25), DEFAULT_THEME)
+    assert "<polygon" not in plain.render((0, 0, 90, 25))
+
+
 def test_measure_text_grows_with_length_and_size():
     backend = SvgBackend()
     short = backend.measure_text("hi", 10)

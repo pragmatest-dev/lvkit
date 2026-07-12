@@ -57,6 +57,7 @@ from .glyph import (
     IconImageGlyph,
     InlineSvgGlyph,
     LabeledBoxGlyph,
+    LocalVariableGlyph,
     UnbundleGlyph,
     VariantGlyph,
     WrappedBoxGlyph,
@@ -652,12 +653,12 @@ class GeneratedGlyphResolver:
                 node.name or "Formula", "prim_fill", "prim_stroke", 1.5,
             )
         if isinstance(node, LocalVariableNode):
-            # LabVIEW's Local Variable glyph: a plain box with the
-            # referenced control's NAME inside — no icon, unlike a subVI.
-            return WrappedBoxGlyph(
+            # LabVIEW's Local Variable glyph: the referenced control's NAME in a
+            # box marked by a ▶ badge (so it's not mistaken for a constant box),
+            # with a read=thick / write=thin border.
+            return LocalVariableGlyph(
                 node.control_name or node.name or "Local Variable",
-                "localvar_fill", "localvar_stroke", 1.0,
-                max_lines=2, text_size=7.0, text_attr="localvar_text",
+                is_write=node.is_write,
             )
         return None
 
