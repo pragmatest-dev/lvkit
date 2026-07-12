@@ -22,10 +22,12 @@ from ..graph.models import (
 from ..models import FPTerminal, LVType, Terminal
 from .backend import Backend, Point
 from .glyph import (
-    ArithGlyph,
+    CenteredSvgGlyph,
     ClusterConstantGlyph,
     ConstantGlyph,
     ErrorClusterGlyph,
+    IconImageGlyph,
+    InlineSvgGlyph,
     VariantGlyph,
     WrappedBoxGlyph,
     fit_label,
@@ -114,22 +116,63 @@ def _inset(bounds, frac: float = 0.075):
     dx, dy = (x2 - x1) * frac, (y2 - y1) * frac
     return x1 + dx, y1 + dy, x2 - dx, y2 - dy
 
+# A primitive whose glyph is drawn as one of these keeps its own aspect ratio
+# (a real extracted raster icon or a declared/procedural SVG designed for a
+# fixed shape) — those are NOT resized to the terminal span.
+_OWN_ASPECT_GLYPHS = (IconImageGlyph, InlineSvgGlyph, CenteredSvgGlyph)
+
+# Floor for the recovered icon footprint: a unary primitive (one input, one
+# output at the same height) has a terminal-span that collapses to a few px in
+# one axis; don't let the glyph shrink below this (centered on the span).
+_MIN_GLYPH_EXTENT = 14.0
+
+
 def _glyph_bounds(node: RenderNode) -> tuple[float, float, float, float]:
-    """The rect a node's glyph is ACTUALLY drawn at — same special case as
-    ``draw_node`` for arithmetic primitives (see its docstring): the union of
-    terminal ``termBounds``, not the full 32x32 clickable box. Shared with
-    the connector-panel drawer (``_draw_connector_panel``) so the panel's
-    terminal geometry (fx/fy) is computed against the SAME rect the glyph is
-    actually drawn in, not a different one."""
+    """The rect a node's glyph is ACTUALLY drawn at. For a PRIMITIVE this is the
+    union of its terminal ``termBounds`` — the real icon extent LabVIEW draws —
+    not the full (often 32x32-padded) clickable box (roadmap #41). So a thin
+    primitive (``String Length`` 32x17, ``To Lower Case`` 29x13) renders thin
+    instead of square, with the shape flush to its terminals and no guessed
+    size. Primitives with their own fixed-aspect art (``_OWN_ASPECT_GLYPHS``)
+    keep their node bounds, as do subVIs/constants/local-vars (whose bounds are
+    already their true drawn size). Shared with the connector-panel drawer
+    (``_draw_connector_panel``) so the panel's terminal geometry (fx/fy) is
+    computed against the SAME rect the glyph is actually drawn in."""
     bounds = node.bounds
-    if isinstance(node.glyph, ArithGlyph):
-        rects = [t.bounds for t in node.terminals if t.bounds is not None]
-        if rects:
-            bounds = (
-                min(r[0] for r in rects), min(r[1] for r in rects),
-                max(r[2] for r in rects), max(r[3] for r in rects),
-            )
-    return bounds
+    if not isinstance(node.node, PrimitiveNode):
+        return bounds
+    if isinstance(node.glyph, _OWN_ASPECT_GLYPHS):
+        return bounds
+    rects = [t.bounds for t in node.terminals if t.bounds is not None]
+    if not rects:
+        return bounds
+    ux1 = min(r[0] for r in rects)
+    uy1 = min(r[1] for r in rects)
+    ux2 = max(r[2] for r in rects)
+    uy2 = max(r[3] for r in rects)
+    # Floor each axis (centered on the span, capped by the node box) so a
+    # same-height in/out pair can't collapse the glyph to a sliver.
+    nx1, ny1, nx2, ny2 = node.bounds
+    if ux2 - ux1 < _MIN_GLYPH_EXTENT:
+        ux1, ux2 = _expand_axis(ux1, ux2, _MIN_GLYPH_EXTENT, nx1, nx2)
+    if uy2 - uy1 < _MIN_GLYPH_EXTENT:
+        uy1, uy2 = _expand_axis(uy1, uy2, _MIN_GLYPH_EXTENT, ny1, ny2)
+    return (ux1, uy1, ux2, uy2)
+
+
+def _expand_axis(
+    lo: float, hi: float, target: float, cap_lo: float, cap_hi: float,
+) -> tuple[float, float]:
+    """Grow ``[lo, hi]`` symmetrically to length ``target`` about its center,
+    clamped inside ``[cap_lo, cap_hi]``. Returns the (possibly shifted) span."""
+    center = (lo + hi) / 2
+    half = target / 2
+    lo2, hi2 = center - half, center + half
+    if lo2 < cap_lo:
+        lo2, hi2 = cap_lo, min(cap_hi, cap_lo + target)
+    if hi2 > cap_hi:
+        hi2, lo2 = cap_hi, max(cap_lo, cap_hi - target)
+    return lo2, hi2
 
 
 def draw_node(node: RenderNode, backend: Backend, theme: Theme = DEFAULT_THEME) -> None:

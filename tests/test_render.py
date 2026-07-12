@@ -187,6 +187,96 @@ def test_no_coercion_dot_on_boxed_primitive():
 
 
 # --------------------------------------------------------------------------- #
+# Primitive icon sizing from termBounds (#41) — a primitive's glyph is drawn at
+# the union of its terminal termBounds (its true icon extent), not the padded
+# ~32x32 clickable box.
+# --------------------------------------------------------------------------- #
+
+
+def _term(index, direction, bounds):
+    from lvkit.models import Terminal
+    from lvkit.render.scene import RenderTerminal
+
+    t = Terminal(id=f"t{index}", index=index, direction=direction)
+    cx = (bounds[0] + bounds[2]) / 2
+    cy = (bounds[1] + bounds[3]) / 2
+    return RenderTerminal(terminal=t, center=(cx, cy), bounds=bounds)
+
+
+def _prim_render_node(glyph, terminals, node_bounds=(0.0, 0.0, 32.0, 32.0)):
+    from lvkit.graph.models import PrimitiveNode
+    from lvkit.render.scene import RenderNode
+
+    return RenderNode(
+        node=PrimitiveNode(id="p1", name="String Length", vi="v"),
+        bounds=node_bounds, glyph=glyph, terminals=terminals,
+    )
+
+
+def test_primitive_glyph_sized_to_termbounds_union():
+    """A thin primitive whose clickable box is padded to 32x32 is drawn at the
+    union of its terminal termBounds — a thin wide rect, not a square."""
+    from lvkit.render.draw import _glyph_bounds
+    from lvkit.render.glyph import WrappedBoxGlyph
+
+    node = _prim_render_node(
+        WrappedBoxGlyph("String Length"),
+        [_term(0, "input", (0.0, 8.0, 4.0, 12.0)),
+         _term(1, "output", (28.0, 20.0, 32.0, 24.0))],
+    )
+    assert _glyph_bounds(node) == (0.0, 8.0, 32.0, 24.0)  # 32x16, not 32x32
+
+
+def test_primitive_glyph_floor_prevents_sliver():
+    """A unary primitive with its in/out terminals at the SAME height would give
+    a near-zero-height union; the axis is floored (centered) so the glyph can't
+    collapse to a sliver."""
+    from lvkit.render.draw import _MIN_GLYPH_EXTENT, _glyph_bounds
+    from lvkit.render.glyph import WrappedBoxGlyph
+
+    node = _prim_render_node(
+        WrappedBoxGlyph("Not"),
+        [_term(0, "input", (0.0, 14.0, 4.0, 18.0)),
+         _term(1, "output", (28.0, 14.0, 32.0, 18.0))],
+    )
+    x1, y1, x2, y2 = _glyph_bounds(node)
+    assert (x1, x2) == (0.0, 32.0)
+    assert y2 - y1 == _MIN_GLYPH_EXTENT   # floored, not 4px
+    assert (y1 + y2) / 2 == 16.0          # centered on the terminal span
+
+
+def test_primitive_with_own_aspect_icon_keeps_node_bounds():
+    """A primitive drawn with real/declared art (InlineSvgGlyph) keeps its node
+    bounds — only the shape/box glyphs are resized to the terminal span."""
+    from lvkit.render.draw import _glyph_bounds
+    from lvkit.render.glyph import InlineSvgGlyph
+
+    node = _prim_render_node(
+        InlineSvgGlyph("<g/>"),
+        [_term(0, "input", (0.0, 8.0, 4.0, 12.0)),
+         _term(1, "output", (28.0, 20.0, 32.0, 24.0))],
+    )
+    assert _glyph_bounds(node) == (0.0, 0.0, 32.0, 32.0)
+
+
+def test_non_primitive_keeps_node_bounds():
+    """A subVI (VINode) name-box is never shrunk to the terminal span — its
+    bounds are already its true drawn size and it needs room for the name."""
+    from lvkit.graph.models import VINode
+    from lvkit.render.draw import _glyph_bounds
+    from lvkit.render.glyph import WrappedBoxGlyph
+    from lvkit.render.scene import RenderNode
+
+    node = RenderNode(
+        node=VINode(id="v1", name="My SubVI", vi="v"),
+        bounds=(0.0, 0.0, 32.0, 32.0),
+        glyph=WrappedBoxGlyph("My SubVI"),
+        terminals=[_term(0, "input", (0.0, 8.0, 4.0, 12.0))],
+    )
+    assert _glyph_bounds(node) == (0.0, 0.0, 32.0, 32.0)
+
+
+# --------------------------------------------------------------------------- #
 # Wire router (pure geometry — unaffected by the graph-driven rewrite)
 # --------------------------------------------------------------------------- #
 
