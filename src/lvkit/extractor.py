@@ -13,6 +13,66 @@ import zipfile
 from pathlib import Path
 from typing import Any
 
+import pylabview.LVblock as _lv_block  # type: ignore[import-untyped]
+import pylabview.LVmisc as _lv_misc  # type: ignore[import-untyped]
+import pylabview.LVrsrcontainer as _lv_rsrc  # type: ignore[import-untyped]
+import pylabview.LVxml as _lv_xml  # type: ignore[import-untyped]
+
+
+def _install_pylabview_perf_patches() -> None:
+    """Neutralise two pathologically slow pylabview code paths that only matter
+    for *writing* VIs, not the read-only extract lvkit performs. Both are
+    output-identical for rendering and codegen (gated on the block-diagram XML):
+
+    1. ``frexpQuadFloat`` — an O(exponent) ``Decimal``-halving loop that runs its
+       full 16384-iteration safety cap (~1.2s each) on out-of-quad-range EXT
+       constants. Replaced with an O(1) log jump for extreme magnitudes; the
+       exact original loop is kept for normal magnitudes, so their output is
+       unchanged by construction.
+    2. ``BDPW.scanForHashSalt`` — brute-forces the block-diagram password salt
+       over 256**3 MD5s (~30s on LVOOP/interface VIs whose salt source lives in
+       an external class). The salt is password/round-trip metadata we never
+       read, so it is stubbed to a fixed value; the ``BDHb``/``FPHb`` block XML
+       (all render/codegen consume) is unaffected.
+    """
+    from decimal import Decimal
+
+    _orig_frexp = _lv_misc.frexpQuadFloat
+    _ln2 = Decimal(2).ln()
+
+    def _fast_frexp(d, e_largest=16384):  # type: ignore[no-untyped-def]
+        # Delegate to the exact original loop for zero/NaN and any normal
+        # magnitude (|d| within ~1e280), so those results are byte-identical.
+        if d == 0 or d != d or -280 < abs(d).adjusted() < 280:
+            return _orig_frexp(d, e_largest)
+        neg = d < 0
+        ad = -d if neg else d
+        e = int(ad.ln() / _ln2) + 1
+        f = ad / (Decimal(2) ** e)
+        while f >= 1:
+            f /= 2
+            e += 1
+        while f < Decimal("0.5"):
+            f *= 2
+            e -= 1
+        return (-f, e) if neg else (f, e)
+
+    _lv_misc.frexpQuadFloat = _fast_frexp
+
+    def _skip_salt_scan(  # type: ignore[no-untyped-def]
+        self, section_num, presalt_data=b"", postsalt_data=b""
+    ):
+        section = self.sections[section_num]
+        section.salt_td_flat_idx = None
+        section.salt = b"\x00" * 12
+        section.salt_source = None
+        return section.salt
+
+    _lv_block.BDPW.scanForHashSalt = _skip_salt_scan
+
+
+_install_pylabview_perf_patches()
+
 _CACHE_ROOT = Path(tempfile.gettempdir()) / "lvkit" / "extract"
 _LLB_CACHE_ROOT = Path(tempfile.gettempdir()) / "lvkit" / "llb"
 
@@ -27,6 +87,47 @@ def _default_cache_dir(vi_path: Path) -> Path:
     """
     digest = hashlib.sha256(str(vi_path).encode("utf-8")).hexdigest()[:12]
     return _CACHE_ROOT / f"{vi_path.stem}_{digest}"
+
+
+def _extract_in_process(vi_path: Path, output_dir: Path, vi_stem: str) -> None:
+    """Extract a VI to XML in-process, matching ``readRSRC -i <vi> -x``.
+
+    pylabview places each block's sidecar XML (``_BDHb.xml`` etc.) in
+    ``os.path.dirname(po.xml)`` and records only the basename in the
+    ``File=`` attribute (``LVblock.exportFilesBase``). Setting ``po.xml`` to an
+    absolute path inside ``output_dir`` therefore lands every file there with
+    byte-identical content and **no** ``chdir`` — safe under the render app's
+    request concurrency. This avoids the per-call interpreter boot + pylabview
+    re-import that the subprocess path pays on every extraction.
+
+    Mirrors the option set that ``readRSRC.main()`` builds for the ``-x``
+    (extract) subcommand via argparse.
+    """
+    xml_path = output_dir / f"{vi_stem}.xml"
+    po = argparse.Namespace(
+        verbose=0,
+        rsrc=str(vi_path),
+        xml=str(xml_path),
+        textcp="mac_roman",
+        raw_connectors=False,
+        print_map=None,
+        keep_names=False,
+        filebase=vi_stem,
+        list=False,
+        dump=False,
+        extract=True,
+        create=False,
+        password=None,
+        typedesc_list_limit=4095,
+        array_data_limit=(2**28) - 1,
+        store_as_data_above=4095,
+    )
+    with open(vi_path, "rb") as rsrc_fh:
+        vi = _lv_rsrc.VI(po, rsrc_fh=rsrc_fh, text_encoding=po.textcp)
+        root = vi.exportXMLTree()
+    tree = _lv_xml.ElementTree(root)
+    with open(xml_path, "wb") as xml_fh:
+        tree.write(xml_fh, encoding="utf-8", xml_declaration=True)
 
 
 def extract_vi_xml(
@@ -83,16 +184,23 @@ def extract_vi_xml(
                     main_xml if main_xml.exists() else None,
                 )
 
-    # Cache miss - extract using pylabview
-    result = subprocess.run(
-        [sys.executable, "-m", "pylabview.readRSRC", "-i", str(vi_path), "-x"],
-        capture_output=True,
-        text=True,
-        cwd=output_dir,
-    )
-
-    if result.returncode != 0:
-        raise RuntimeError(f"pylabview extraction failed: {result.stderr}")
+    # Cache miss - extract in-process. Fall back to the readRSRC subprocess
+    # only if the in-process path raises, so a pylabview edge case can never
+    # regress extraction availability.
+    try:
+        _extract_in_process(vi_path, output_dir, vi_stem)
+    except Exception as exc:
+        result = subprocess.run(
+            [sys.executable, "-m", "pylabview.readRSRC", "-i", str(vi_path), "-x"],
+            capture_output=True,
+            text=True,
+            cwd=output_dir,
+        )
+        if result.returncode != 0:
+            raise RuntimeError(
+                f"pylabview extraction failed (in-process error: {exc}): "
+                f"{result.stderr}"
+            ) from exc
 
     if not bd_xml.exists():
         raise RuntimeError(f"Block diagram XML not found: {bd_xml}")
