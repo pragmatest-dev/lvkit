@@ -2225,7 +2225,8 @@ def test_string_constant_has_full_text_tooltip():
 
 def test_bundle_by_name_glyph_draws_field_names():
     """Bundle/Unbundle By Name draws one row per field, each LABELED with the
-    field name (not the compact arrow glyph)."""
+    field name, AND the cluster-direction arrow cell (task #89) — matching
+    LabVIEW's real Bundle/Unbundle By Name glyph."""
     from lvkit.render.glyph import BundleByNameGlyph
     bounds = (0.0, 0.0, 90.0, 60.0)
     b = SvgBackend()
@@ -2235,7 +2236,25 @@ def test_bundle_by_name_glyph_draws_field_names():
     svg = b.render(bounds)
     for name in ("level", "parent name", "xml index"):
         assert name in svg
-    assert "▶" not in svg  # By Name is named rows, not the compact arrow
+    assert "▶" in svg  # By Name carries the same direction arrow as positional
+
+
+def test_bundle_by_name_arrow_side_follows_direction():
+    """The arrow cell sits on the cluster side: RIGHT for Bundle By Name
+    (fields in -> cluster out), LEFT for Unbundle By Name (task #89)."""
+    from lvkit.render.glyph import BundleByNameGlyph
+    bounds = (0.0, 0.0, 100.0, 40.0)
+
+    def arrow_x(bundling: bool) -> float:
+        b = SvgBackend()
+        BundleByNameGlyph(names=("a", "b"), bundling=bundling).draw(
+            b, bounds, DEFAULT_THEME)
+        m = re.search(r'<text x="([\d.]+)"[^>]*>▶</text>', b.render(bounds))
+        assert m is not None
+        return float(m.group(1))
+
+    assert arrow_x(True) > 50.0    # Bundle By Name -> arrow on the RIGHT half
+    assert arrow_x(False) < 50.0   # Unbundle By Name -> arrow on the LEFT half
 
 
 def test_nmux_renders_as_bundle_by_name_and_skips_boundary_mux():

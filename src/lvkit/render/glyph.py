@@ -422,6 +422,7 @@ def draw_split_box(
     symbol: str, num_cells: int, symbol_side: str,
     fill_attr: str = "prim_fill", stroke_attr: str = "prim_stroke",
     text_attr: str = "prim_text", stroke_width: float = 1.2,
+    cell_labels: tuple[str, ...] | None = None, sym_w: float | None = None,
 ) -> None:
     """Reusable clean-room glyph body: a bordered rectangle split by a vertical
     divider into a narrow SYMBOL cell (spanning the full height, holding one
@@ -444,7 +445,10 @@ def draw_split_box(
     backend.rect(x1, y1, x2, y2, fill=fill, stroke=stroke, stroke_width=stroke_width)
 
     width, height = x2 - x1, y2 - y1
-    sym_w = min(width * 0.5, max(8.0, height))
+    if sym_w is None:
+        sym_w = min(width * 0.5, max(8.0, height))
+    else:
+        sym_w = max(6.0, min(sym_w, width * 0.5))
     if symbol_side == "left":
         x_div = x1 + sym_w
         sym_x1, sym_x2 = x1, x_div
@@ -459,6 +463,22 @@ def draw_split_box(
     for i in range(1, cells):
         y = y1 + i * height / cells
         backend.line(cell_x1, y, cell_x2, y, stroke=stroke, stroke_width=1.0)
+
+    # Bundle/Unbundle By Name label each cell row with the accessed field name
+    # (left-aligned, fit to the cell width). Positional Bundle/Unbundle pass no
+    # labels — their rows are blank (terminals only).
+    if cell_labels:
+        lpad = 3.0
+        lsize = max(6.0, min(9.0, (height / cells) * 0.62))
+        for i in range(cells):
+            ry1 = y1 + i * height / cells
+            ry2 = y1 + (i + 1) * height / cells
+            raw = cell_labels[i] if i < len(cell_labels) else ""
+            label = fit_label(raw, (cell_x2 - cell_x1) - 2 * lpad, backend, lsize)
+            backend.text(
+                cell_x1 + lpad, (ry1 + ry2) / 2 + lsize * 0.34, label, lsize,
+                anchor="start", fill=getattr(theme, text_attr),
+            )
 
     size = max(6.0, min(15.0, height * 0.62, sym_w * 0.85))
     backend.text(
@@ -575,26 +595,21 @@ class BundleByNameGlyph:
     text_attr: str = "prim_text"
 
     def draw(self, backend: Backend, bounds: Rect, theme: Theme) -> None:
+        # Same skeleton as positional Bundle/Unbundle: a narrow cluster-direction
+        # arrow cell (RIGHT when bundling, LEFT when unbundling) plus one row per
+        # field — here the rows are LABELED with the field names. The arrow cell
+        # is kept thin (~one row tall) since By-Name boxes grow with field count.
         x1, y1, x2, y2 = bounds
-        fill = getattr(theme, self.fill_attr)
-        stroke = getattr(theme, self.stroke_attr)
-        text_fill = getattr(theme, self.text_attr)
-        backend.rect(x1, y1, x2, y2, fill=fill, stroke=stroke, stroke_width=1.2)
         rows = self.names or ("",)
         n = len(rows)
-        h = y2 - y1
-        pad = 3.0
-        size = max(6.0, min(9.0, (h / n) * 0.62))
-        for i, name in enumerate(rows):
-            ry1 = y1 + i * h / n
-            ry2 = y1 + (i + 1) * h / n
-            if i > 0:
-                backend.line(x1, ry1, x2, ry1, stroke=stroke, stroke_width=0.75)
-            label = fit_label(name, (x2 - x1) - 2 * pad, backend, size)
-            backend.text(
-                x1 + pad, (ry1 + ry2) / 2 + size * 0.34, label, size, anchor="start",
-                fill=text_fill,
-            )
+        arrow_w = min((x2 - x1) * 0.33, max(10.0, (y2 - y1) / n))
+        draw_split_box(
+            backend, bounds, theme,
+            symbol=_CLUSTER_ARROW, num_cells=n,
+            symbol_side="right" if self.bundling else "left",
+            fill_attr=self.fill_attr, stroke_attr=self.stroke_attr,
+            text_attr=self.text_attr, cell_labels=rows, sym_w=arrow_w,
+        )
 
 
 @dataclass(frozen=True)
