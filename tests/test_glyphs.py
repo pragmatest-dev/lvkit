@@ -349,3 +349,41 @@ def test_ground_truth_add_still_resolves_to_arith_glyph():
     ]
     assert add_nodes
     assert all(isinstance(n.glyph, ArithGlyph) for n in add_nodes)
+
+
+# --------------------------------------------------------------------------- #
+# Node-as-link: a resolvable node's group is wrapped in an <a> to its NI docs
+# (task #67) so the doc_url is clickable, not just shown in the <title>.
+# --------------------------------------------------------------------------- #
+
+
+def test_backend_group_href_wraps_in_anchor():
+    b = SvgBackend()
+    b.begin_group(cls="lv-node", href="https://ni.com/docs/x.html", title="X")
+    b.rect(0, 0, 1, 1, fill="#000")
+    b.end_group()
+    svg = "".join(b._elements)
+    assert '<a href="https://ni.com/docs/x.html" target="_blank" rel="noopener">' in svg
+    assert svg.index("<a ") < svg.index('<g class="lv-node"')
+    assert svg.rstrip().endswith("</a>")
+    assert svg.count("<a ") == svg.count("</a>") == 1
+
+
+def test_backend_group_without_href_has_no_anchor():
+    b = SvgBackend()
+    b.begin_group(cls="lv-node")
+    b.end_group()
+    assert "<a " not in "".join(b._elements)
+
+
+def test_backend_nested_groups_balance_anchors():
+    """An inner (anchor-less) group closes its </g> before the outer </a>."""
+    b = SvgBackend()
+    b.begin_group(href="u")       # outer: opens <a>
+    b.begin_group(cls="inner")    # inner: no anchor
+    b.end_group()
+    b.end_group()
+    assert "".join(b._elements) == (
+        '<a href="u" target="_blank" rel="noopener"><g>'
+        '<g class="inner"></g></g></a>'
+    )

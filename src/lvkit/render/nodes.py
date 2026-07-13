@@ -229,6 +229,28 @@ def mux_display_name(node: AnyGraphNode) -> str:
     return _MUX_TYPE_DEFAULT_NAMES.get(node_type, "Bundle/Unbundle By Name")
 
 
+# NI docs pages for the cluster-mux family. nMux/mux/demux carry no primResID
+# (the node-type primitive flavor) AND are direction-polymorphic — one node_type
+# resolves to Bundle vs Unbundle by field direction — so a single node_type->url
+# entry can't express them. Their doc link keys off the resolved DISPLAY name.
+_MUX_DOC_BASE = (
+    "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/"
+)
+_MUX_DOC_URL = {
+    "Bundle By Name": _MUX_DOC_BASE + "bundle-by-name.html",
+    "Unbundle By Name": _MUX_DOC_BASE + "unbundle-by-name.html",
+    "Bundle": _MUX_DOC_BASE + "bundle.html",
+    "Unbundle": _MUX_DOC_BASE + "unbundle.html",
+}
+
+
+def mux_doc_url(node: AnyGraphNode) -> str | None:
+    """NI docs URL for a cluster-mux node, keyed by its resolved display name
+    (Bundle vs Unbundle is direction-dependent — the raw node name can't tell
+    them apart). None for the ambiguous fallback name (direction undetermined)."""
+    return _MUX_DOC_URL.get(mux_display_name(node))
+
+
 @dataclass(frozen=True)
 class GlyphContext:
     """Context available to node glyph resolvers.

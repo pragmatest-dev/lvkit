@@ -101,12 +101,15 @@ class Backend(Protocol):
     def begin_group(
         self, *, cls: str | None = None, data: dict[str, str] | None = None,
         style: str | None = None, title: str | None = None,
+        href: str | None = None,
     ) -> None:
         """Open a grouping container (``<g>``) — used for the interactive
         case-frame layering (``lv-frame``) and click targets (``lv-selector``).
         ``data`` becomes ``data-*`` attributes (keys sorted for determinism).
         ``title``, when given, is emitted as a ``<title>`` child so the whole
-        group shows a native hover tooltip. Must be paired with ``end_group()``."""
+        group shows a native hover tooltip. ``href``, when given, wraps the
+        group in an ``<a>`` (opens in a new tab) — e.g. a node linking to its
+        NI docs page. Must be paired with ``end_group()``."""
         ...
 
     def end_group(self) -> None:
@@ -119,6 +122,9 @@ class SvgBackend:
 
     def __init__(self) -> None:
         self._elements: list[str] = []
+        # Parallel to the open-group stack: whether each begin_group() also
+        # opened an <a> wrapper (href given), so end_group() closes it too.
+        self._anchor_stack: list[bool] = []
 
     @staticmethod
     def _attrs(**attrs: str | float | None) -> str:
@@ -226,7 +232,14 @@ class SvgBackend:
     def begin_group(
         self, *, cls: str | None = None, data: dict[str, str] | None = None,
         style: str | None = None, title: str | None = None,
+        href: str | None = None,
     ) -> None:
+        if href is not None:
+            self._elements.append(
+                f"<a href={quoteattr(href)} target=\"_blank\" "
+                f"rel=\"noopener\">"
+            )
+        self._anchor_stack.append(href is not None)
         attrs = []
         if cls is not None:
             attrs.append(f"class={quoteattr(cls)}")
@@ -242,6 +255,8 @@ class SvgBackend:
 
     def end_group(self) -> None:
         self._elements.append("</g>")
+        if self._anchor_stack and self._anchor_stack.pop():
+            self._elements.append("</a>")
 
     def render(
         self, bounds: tuple[float, float, float, float], *, title: str | None = None,

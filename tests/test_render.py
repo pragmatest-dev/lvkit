@@ -2525,3 +2525,29 @@ def test_decode_wire_mid_escaped_length():
     # first bend advances East by 9 px, staying on the source row
     assert mid[0] == (9.0, 0.0)
     assert _ortho([start, *mid, end])
+
+
+def test_mux_doc_url_resolves_by_field_direction():
+    """A direction-polymorphic cluster-mux node links by its RESOLVED display
+    name, not its ambiguous raw name: fields-out -> Unbundle By Name,
+    fields-in -> Bundle By Name (task #67)."""
+    from lvkit.render.draw import _node_doc_url
+    unbundle = _prim("nMux", "Bundle/Unbundle By Name",
+                     dirs=("input", "output", "output"),
+                     roles=("agg", "list", "list"))
+    assert _node_doc_url(unbundle).endswith("/functions/unbundle-by-name.html")
+    bundle = _prim("nMux", "Bundle/Unbundle By Name",
+                   dirs=("output", "input", "input"),
+                   roles=("agg", "list", "list"))
+    assert _node_doc_url(bundle).endswith("/functions/bundle-by-name.html")
+
+
+def test_node_type_flavor_carries_doc_url():
+    """resolve_by_node_type surfaces doc_url so node-type primitives (no
+    primResID: Build Array, Compound Arithmetic, ...) link to NI docs (#67)."""
+    from lvkit.primitive_resolver import get_resolver
+    r = get_resolver()
+    assert r.resolve_by_node_type("aBuild").doc_url.endswith(
+        "/functions/build-array.html")
+    assert r.resolve_by_node_type("cpdArith").doc_url.endswith(
+        "/functions/compound-arithmetic.html")

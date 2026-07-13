@@ -36,7 +36,7 @@ from .glyph import (
     WrappedBoxGlyph,
     fit_label,
 )
-from .nodes import _CLUSTER_MUX_TYPES, mux_display_name
+from .nodes import _CLUSTER_MUX_TYPES, mux_display_name, mux_doc_url
 from .scene import (
     FramePath,
     RenderBorderTerminal,
@@ -287,7 +287,14 @@ def draw_node(node: RenderNode, backend: Backend, theme: Theme = DEFAULT_THEME) 
         # then unreadable inline, so show them all on hover.
         tooltip = node.glyph.value_summary or None
     if tooltip:
-        backend.begin_group(cls="lv-node", data={"node": node.node.id}, title=tooltip)
+        # A resolvable node (primitive / vi.lib VI) links to its NI docs page
+        # (opens a new tab) — so the doc_url shown in the tooltip is actually
+        # reachable, not just displayed (task #67). Non-resolvable nodes get a
+        # plain group.
+        backend.begin_group(
+            cls="lv-node", data={"node": node.node.id}, title=tooltip,
+            href=_node_doc_url(node.node),
+        )
 
     if isinstance(node.node, FormulaNode):
         # A Formula Node lays out its own box + gutter-inset script + border
@@ -398,8 +405,21 @@ def _node_doc_url(node: AnyGraphNode) -> str | None:
     as the last line of the hover ``<title>`` (task #67). None when the node has
     no catalog page (unresolved prim, user subVI, structure, constant)."""
     if isinstance(node, PrimitiveNode):
-        resolved = get_prim_resolver().resolve(prim_id=node.prim_id, name=node.name)
-        return resolved.doc_url if resolved else None
+        # Cluster-mux: node-type flavor, but direction-polymorphic — link by the
+        # resolved DISPLAY name (Bundle vs Unbundle), not the raw ambiguous name.
+        if node.node_type in _CLUSTER_MUX_TYPES:
+            return mux_doc_url(node)
+        resolver = get_prim_resolver()
+        # primResID flavor first (prim_id / name), then the node-type flavor
+        # (Build Array, Index Array, Compound Arithmetic, ... resolve_by_node_type).
+        resolved = resolver.resolve(prim_id=node.prim_id, name=node.name)
+        if resolved is not None and resolved.doc_url:
+            return resolved.doc_url
+        if node.node_type:
+            nt = resolver.resolve_by_node_type(node.node_type)
+            if nt is not None and nt.doc_url:
+                return nt.doc_url
+        return None
     if isinstance(node, VINode):
         entry = get_vilib_resolver().resolve_by_name(node.name or "")
         return entry.doc_url if entry else None

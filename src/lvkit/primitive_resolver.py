@@ -523,6 +523,7 @@ class PrimitiveResolver:
                 imports=_collect_imports(info),
                 elementwise=info.get("elementwise", False),
                 icon=_collect_icon(info),
+                doc_url=info.get("doc_url"),
             )
         return None
 

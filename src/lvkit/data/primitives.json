@@ -3429,6 +3429,7 @@
   "node_types": {
     "aBuild": {
       "name": "Build Array",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/build-array.html",
       "terminals": [
         {
           "index": 0,
@@ -3449,6 +3450,7 @@
     },
     "aDelete": {
       "name": "Delete From Array",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/delete-from-array.html",
       "terminals": [
         {
           "index": 0,
@@ -3494,6 +3496,7 @@
     },
     "aIndx": {
       "name": "Index Array",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/index-array.html",
       "terminals": [
         {
           "index": 0,
@@ -3522,6 +3525,7 @@
     },
     "aInit": {
       "name": "Initialize Array",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/initialize-array.html",
       "terminals": [
         {
           "index": 0,
@@ -3548,6 +3552,7 @@
     },
     "aInsert": {
       "name": "Insert Into Array",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/insert-into-array.html",
       "terminals": [
         {
           "index": 0,
@@ -3581,6 +3586,7 @@
     },
     "aReplace": {
       "name": "Replace Array Subset",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/replace-array-subset.html",
       "terminals": [
         {
           "index": 0,
@@ -3614,6 +3620,7 @@
     },
     "aReshape": {
       "name": "Reshape Array",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/reshape-array.html",
       "terminals": [
         {
           "index": 0,
@@ -3640,6 +3647,7 @@
     },
     "subset": {
       "name": "Array Subset",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/array-subset.html",
       "terminals": [
         {
           "index": 0,
@@ -3676,28 +3684,35 @@
       "python_code": "array[index:index + length]"
     },
     "cpdArith": {
-      "name": "Compound Arithmetic"
+      "name": "Compound Arithmetic",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/compound-arithmetic.html"
     },
     "unbundle": {
-      "name": "Unbundle"
+      "name": "Unbundle",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/unbundle.html"
     },
     "bundle": {
-      "name": "Bundle"
+      "name": "Bundle",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/bundle.html"
     },
     "arrayIdx": {
-      "name": "Index Array"
+      "name": "Index Array",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/index-array.html"
     },
     "arrayRepl": {
-      "name": "Replace Array Subset"
+      "name": "Replace Array Subset",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/replace-array-subset.html"
     },
     "strIdx": {
       "name": "String Index"
     },
     "strRepl": {
-      "name": "Replace Substring"
+      "name": "Replace Substring",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/replace-substring.html"
     },
     "strLen": {
-      "name": "String Length"
+      "name": "String Length",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/string-length.html"
     },
     "concat": {
       "name": "Concatenate"
