@@ -2491,12 +2491,19 @@ def test_decode_fanout_two_sink_tree():
     assert mids[1] == []  # straight run along the trunk
 
 
-def test_decode_fanout_flag_byte_falls_back():
-    # b[1] != 0 marks the mid-wire-tap sub-format we don't model -> None.
+def test_decode_fanout_straight_through_terminal_tap():
+    # b[1]=0x01 marks a straight-through terminal tap: a sink sits ON the path
+    # (the 0x02 token continues straight through it). Both sinks must resolve to
+    # clean orthogonal branches -- the mid-wire tap is a prefix of the trunk.
     from lvkit.render.wire_table import decode_fanout
 
-    assert decode_fanout("0501000802010012040f05", (0.0, 0.0),
-                         [(18.0, 0.0), (27.0, -15.0)]) is None
+    sinks = [(18.0, 0.0), (27.0, -15.0)]
+    mids = decode_fanout("0501000802010012040f05", (0.0, 0.0), sinks)
+    assert mids is not None
+    assert len(mids) == 2
+    for mid, sink in zip(mids, sinks):
+        assert _ortho([(0.0, 0.0), *mid, sink])
+    assert mids[0] == []  # sink on the trunk -> straight branch, no bends
 
 
 def test_decode_wire_mid_escaped_length():

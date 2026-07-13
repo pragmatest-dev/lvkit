@@ -163,27 +163,34 @@ def decode_fanout(
     Returns a list aligned with ``sinks``: for each sink, the INTERMEDIATE bend
     points (absolute, excluding ``source`` and that sink) of the branch reaching
     it — ready for ``_compress([source, *mid, sink])`` just like the single-net
-    path. Returns ``None`` for the mid-wire-tap sub-format, a malformed blob, or
-    when no fork-direction assignment reproduces every sink (caller falls back).
+    path. Handles the ``b[1]=0x01`` straight-through-terminal-tap sub-format too.
+    Returns ``None`` for a malformed blob or when no fork-direction assignment
+    reproduces every sink (caller falls back to the auto-router).
     """
     try:
         b = [int(blob[i : i + 2], 16) for i in range(0, len(blob), 2)]
     except ValueError:
         return None
-    if len(b) < 3 or b[1] != 0:
-        return None  # flagged mid-wire-tap sub-format -> fallback
+    if len(b) < 4 or b[1] not in (0x00, 0x01):
+        return None  # unknown flag byte -> fallback
+    # b[1]=0x01 marks a wire with a straight-through TERMINAL TAP: a sink sits on
+    # the path (not at a leaf), the `0x02` token continues straight through it,
+    # and one extra header byte is inserted before dir0. Otherwise plain fan-out.
+    tapped = b[1] == 0x01
+    dir0i = 3 if tapped else 2
     v = b[0]
     ntok = v - 2
-    tokens = b[3 : 3 + ntok]
+    tokens = b[dir0i + 1 : dir0i + 1 + ntok]
     if len(tokens) != ntok or ntok < 1:
         return None
-    lengths = _decode_lengths(b[3 + ntok :], v - 1)
+    lengths = _decode_lengths(b[dir0i + 1 + ntok :], v - 1)
     if lengths is None or len(lengths) < 1:
         return None
-    if b[2] in DIR:
-        starts = [(DIR[b[2]], None)]
+    d0b = b[dir0i]
+    if d0b in DIR:
+        starts = [(DIR[d0b], None)]
     else:
-        bits = [DIR[m] for m in (0x08, 0x04, 0x02, 0x01) if b[2] & m]
+        bits = [DIR[m] for m in (0x08, 0x04, 0x02, 0x01) if d0b & m]
         # compound dir0 = source-branch; try both orderings of seg0 vs sibling
         starts = [(bits[0], bits[1]), (bits[1], bits[0])] if len(bits) == 2 else []
     if not starts:
@@ -193,45 +200,58 @@ def decode_fanout(
     result: list[list[list[Point]]] = []  # boxed single result
     budget = [_FANOUT_REC_BUDGET]
 
+    def finish(path_rel: list[Point], sx: float, sy: float) -> list[Point] | None:
+        """Turn a source-relative vertex path (ending ~at the sink) into the
+        absolute mid-points for source -> mids -> TRUE sink, snapped orthogonal;
+        None if the drawn wire can't be made axis-aligned."""
+        full = _drop_collinear([(0.0, 0.0), *path_rel])
+        if len(full) >= 2:
+            px, py = full[-2]
+            # snap the last real bend so its segment to the TRUE sink keeps the
+            # axis it already had: vertical final -> match sink x; horizontal -> y
+            full[-2] = (sx, py) if px == full[-1][0] else (px, sy)
+        mid_rel = full[1:-1]  # exclude source and the (approx-sink) endpoint
+        drawn = [(0.0, 0.0), *mid_rel, (sx, sy)]
+        for (x0, y0), (x1, y1) in zip(drawn, drawn[1:]):
+            if abs(x1 - x0) > 0.5 and abs(y1 - y0) > 0.5:
+                return None  # a loose match smuggled in a diagonal
+        return [(source[0] + mx, source[1] + my) for mx, my in mid_rel]
+
     def build(leaves: list[tuple[list[Point], Point]]) -> list[list[Point]] | None:
-        """Match each sink to a leaf endpoint; emit per-sink absolute mids."""
-        if len(leaves) != len(sinks_rel):
-            return None
-        used = [False] * len(leaves)
-        chosen: list[list[Point] | None] = [None] * len(sinks_rel)
-        for si, (sx, sy) in enumerate(sinks_rel):
-            for li, (path, _fd) in enumerate(leaves):
-                if used[li]:
+        """Emit per-sink absolute mids. Plain fan-out matches each sink to a leaf
+        ENDPOINT; a tapped wire matches each sink to ANY vertex on the path (a
+        tap terminal sits mid-wire) and the branch is the prefix up to it."""
+        if not tapped and len(leaves) != len(sinks_rel):
+            return None  # a plain fan-out leaf that reaches no terminal is wrong
+        # candidate (endpoint-or-vertex, prefix-path) list, deduped by position
+        cands: list[tuple[Point, list[Point]]] = []
+        seen: set[tuple[int, int]] = set()
+        for path, _fd in leaves:
+            idxs = range(len(path)) if tapped else (len(path) - 1,)
+            for j in idxs:
+                vp = path[j]
+                key = (int(round(vp[0])), int(round(vp[1])))
+                if key in seen:
                     continue
-                ex, ey = path[-1]
-                if abs(ex - sx) < _FANOUT_TOL and abs(ey - sy) < _FANOUT_TOL:
-                    used[li] = True
-                    chosen[si] = path
-                    break
+                seen.add(key)
+                cands.append((vp, path[: j + 1]))
+        if len(cands) < len(sinks_rel):
+            return None
+        used = [False] * len(cands)
+        out: list[list[Point]] = []
+        for sx, sy in sinks_rel:
+            for ci, (vp, pref) in enumerate(cands):
+                if used[ci] or abs(vp[0] - sx) >= _FANOUT_TOL or \
+                        abs(vp[1] - sy) >= _FANOUT_TOL:
+                    continue
+                mid = finish(pref, sx, sy)
+                if mid is None:
+                    continue
+                used[ci] = True
+                out.append(mid)
+                break
             else:
                 return None
-        out: list[list[Point]] = []
-        for si, path in enumerate(chosen):
-            assert path is not None
-            sx, sy = sinks_rel[si]
-            # full source-relative polyline; drop points where the wire passes
-            # straight through a junction so the final bend is a real corner
-            full = _drop_collinear([(0.0, 0.0), *path])
-            if len(full) >= 2:
-                px, py = full[-2]
-                # snap the last real bend so its segment to the TRUE sink keeps
-                # the axis it already had: vertical final -> match sink x;
-                # horizontal final -> match sink y
-                full[-2] = (sx, py) if px == full[-1][0] else (px, sy)
-            mid_rel = full[1:-1]  # exclude source and the (approx-sink) endpoint
-            # verify the wire actually drawn -- source -> mids -> TRUE sink -- is
-            # orthogonal; a loose endpoint match can otherwise smuggle in a
-            # diagonal. Reject the whole assignment so the search keeps looking.
-            drawn = [(0.0, 0.0), *mid_rel, (sx, sy)]
-            for (x0, y0), (x1, y1) in zip(drawn, drawn[1:]):
-                if abs(x1 - x0) > 0.5 and abs(y1 - y0) > 0.5:
-                    return None
-            out.append([(source[0] + mx, source[1] + my) for mx, my in mid_rel])
         return out
 
     def rec(ti, pos, d, stack, leaves, path):
@@ -269,6 +289,9 @@ def decode_fanout(
                     leaves, path + [npos])
                 if result:
                     return
+        elif tok == 0x02:  # STRAIGHT: continue through a terminal tap (no kink)
+            npos = (pos[0] + d[0] * L, pos[1] + d[1] * L)
+            rec(ti + 1, npos, d, stack, leaves, path + [npos])
         else:  # BEND: deterministic (sign = bit0)
             nd = _flip(d, not (tok & 1))
             npos = (pos[0] + nd[0] * L, pos[1] + nd[1] * L)
