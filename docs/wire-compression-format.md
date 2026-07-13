@@ -116,6 +116,19 @@ Each token advances the current leaf by the next length, or forks/terminates:
 | `0x04`        | **BRANCH**, multi-way junction (may spawn several children)    |
 | `0x05`/`0x06`/`0x07` | **BRANCH** (`0x04` \| low bits) — single-use fork        |
 
+**The token alphabet is exactly `0x00`–`0x07` (8 values). Bit `0x08` is never
+set in a token** — verified across every fan-out in the reference set, including
+the ones that fail to decode (so it is a real absence, not a decode-filter
+artifact). `0x02` STRAIGHT is vanishingly rare (2 occurrences). Note the
+contrast with `dir0`, which DOES use bit `0x08`: `dir0` is a
+`{N=0x01, W=0x02, S=0x04, E=0x08}` direction **bitset** and is not mutually
+exclusive (`dir0 = 0x0D` = E|S|N sets three bits at once — that is the compound
+source-tee). Fork tokens use a **different** scheme: reading a fork token's low
+bits as that same direction bitset does NOT reproduce the observed eastbound-trunk
+directions (it would give `0x05 → {N,S}` where the corpus shows `0x05 → {S,E}`),
+so the fork's low 2 bits are not absolute direction bits — see the open problem
+below.
+
 A leaf is a chain of BEND/STRAIGHT segments ending at a POP (or end-of-stream).
 A BRANCH pushes a junction (resumed later by a POP) and continues the current
 leaf. **Every direction is deterministic from the bytes** — bend turns from a
@@ -140,11 +153,19 @@ terminal positions at decode time — the branch token maps to a fixed pair of
 **immediate** child (continues the current leaf now) and the **sibling**
 (deferred, spawned when this subtree POPs):
 
-| token  | immediate child | sibling |
-|--------|-----------------|---------|
-| `0x05` | **S**           | **E**   |
-| `0x06` | **N**           | **E**   |
-| `0x07` | **N**           | **S**   |
+| token  | immediate child | sibling(s)  |
+|--------|-----------------|-------------|
+| `0x04` | **N**           | **S**, **E** (3-way) |
+| `0x05` | **S**           | **E**       |
+| `0x06` | **N**           | **E**       |
+| `0x07` | **N**           | **S**       |
+
+`0x04` is the **3-way** junction `{N, S, E}` (low 2 bits `00`): continue E, tap N,
+tap S. So the low 2 bits select which of the priority-ordered directions
+`[N, S, E]` the junction takes — `0x04`→all three, `0x05`→`{S,E}`, `0x06`→`{N,E}`,
+`0x07`→`{N,S}` — and `W` (bit `0x02`) is the direction never used here. Verified:
+`Slice 1D Array (I32)__ogtk.vi` blob `0800080400030001030F...` is a clean 3-way
+off an eastbound trunk.
 
 The direction is **absolute, not relative to the incoming wire.** It only *looks*
 relative because block diagrams flow left-to-right, so ~99% of the corpus is
@@ -165,6 +186,37 @@ miss are terminal-attach-point offsets (~4.5px) or a few genuinely mis-placed
 terminals, not decode errors. What `#84` read as "recomputed from terminal
 positions" was really "LV computed it from positions **at save time** and baked
 the absolute direction into the token."
+
+**Absolute vs relative — settled by measurement (2026-07-13).** A relative
+reading (immediate/sibling ∈ {left, right, straight} of the incoming direction)
+was tested against this absolute table on a 10-VI reference set: it **regressed**
+the deterministic faithful rate from **98.6% → 92.4%**. Absolute wins decisively.
+It only *coincides* with a relative reading because ~99% of the corpus forks off
+an **eastbound** trunk, where `left/right/straight ≡ N/S/E`.
+
+**OPEN PROBLEM — the southbound-trunk comb (`0x07` tap flips N→W).** The absolute
+table above is validated for eastbound trunks. On a trunk that has turned
+**south** (deep "comb" fan-ins, e.g. `MasterAcquisitionFile_PCO_IOS.vi` blob
+`190008060103...`), the `0x07` tap must go **WEST**, not North, while the sibling
+still continues **S** — so the absolute `0x07 → (N, S)` mis-fires (tap N instead
+of W) and the whole comb mis-decodes:
+
+| token | E-trunk (validated) | S-trunk comb (observed) |
+|-------|---------------------|-------------------------|
+| `0x05` | tap S, cont E      | —                       |
+| `0x06` | tap N, cont E      | —                       |
+| `0x07` | tap **N**, cont S  | tap **W**, cont S       |
+
+The *sibling/continuation* is stable, but the *tap* is context-dependent
+(N when the trunk runs E, W when it runs S) in a way that is neither pure-absolute
+nor pure-relative. These deep S-trunk combs are the residual ~1.4% that the
+deterministic walk still gets wrong; the shipped search-based decoder handles them
+(its `_perp3` search can turn either way). Until the tap encoding is cracked, the
+deterministic walk is a research harness (`scripts/wire_decode_probe.py`), not a
+drop-in replacement — swapping it in would regress the combs. The token alphabet
+carries no extra unused bit to distinguish these cases (bit `0x08` is unused in
+tokens; see "Tokens"), so the differentiator must be the incoming trunk axis, the
+length signs, or a bit interaction not yet identified.
 
 ### Source branch is the same rule at the source
 
