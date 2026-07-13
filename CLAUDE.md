@@ -170,7 +170,7 @@ When the code generator encounters a vilib VI with missing terminal indices, it 
 2. When a VI lacks terminal index info, exception is raised with:
    - Terminal names from the vilib JSON
    - Wire types from the caller's dataflow (shows actual indices being used)
-   - PDF documentation reference
+   - Public NI docs reference (when known)
 3. Use the **caller's dataflow** to determine correct indices - DO NOT GUESS
 4. Update `data/vilib/<category>.json` with the correct terminal indices
 5. Re-run to verify

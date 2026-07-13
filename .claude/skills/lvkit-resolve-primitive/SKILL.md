@@ -323,11 +323,21 @@ Add under the `primitives` key:
     "python_code": {"output_name": "in_N op in_M"},
     "inline": true,
     "verified": true,
-    "pdf_page": PAGE_NUMBER
+    "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/<slug>.html"
 }
 ```
 
+For a **node-type** primitive (resolved by XML class, e.g. `aBuild`/`cpdArith`
+— see Step 4.5), add the entry under the top-level `node_types` key instead of
+`primitives`, keyed by the class name; `doc_url` works there the same way (the
+resolver surfaces it for hover/render links).
+
 Rules:
+- **`doc_url`**: the PUBLIC NI docs URL of the page you identified in Step 5.
+  Reuse that page's exact `nav_path` from the docs backend — the public URL is
+  `https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/<nav_path>` (usually
+  `functions/<kebab-name>.html`). Include it whenever the primitive has a public
+  NI page; a constant or internal op with no page simply has no `doc_url`.
 - Terminal **indices** MUST be confirmed from observed wiring (Steps 2-3), NEVER assumed from documentation order. The documentation lists terminals in a different order than the connector pane indices. Example: Split 1D Array docs list "array, index" but the connector pane has index=2 for the numeric index and index=3 for the array.
 - Terminal **directions** MUST be confirmed from observed `is_output` flags in the parser data, not from documentation
 - Terminal names MUST be valid Python identifiers (no `x=y?`, no `NaN/Path/Refnum?`)

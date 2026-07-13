@@ -113,12 +113,19 @@ Add the entry:
       }
     ],
     "python_code": "python_equivalent_expression",
-    "inline": true
+    "inline": true,
+    "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/<nav_path>"
   }
 }
 ```
 
 Rules:
+- **`doc_url`**: the PUBLIC NI docs URL of the page you read for this VI. Reuse
+  the exact `nav_path` from the docs backend you fetched (vi.lib VIs live under
+  `vi-lib/...`, built-in functions under `functions/...`); public URL is
+  `https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/<nav_path>`. It
+  feeds the rendered node's hover/click docs link. An OpenG/community VI or an
+  internal impl VI with no public NI page simply has no `doc_url`.
 - Terminal names come from the DOCUMENTATION (lvkit mode) or SOURCE FILE (user mode), not guesses
 - `python_param` must be a valid Python identifier
 - Include ALL terminals including error clusters
