@@ -73,7 +73,7 @@
       },
       "inline": true,
       "verified": true,
-      "pdf_page": 745,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/greater.html",
       "note": "Same as 1102 but for arrays/clusters. Same semantics."
     },
     "1054": {
@@ -97,7 +97,7 @@
       },
       "inline": true,
       "verified": true,
-      "pdf_page": 411
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/absolute-value.html"
     },
     "1061": {
       "name": "Or",
@@ -185,7 +185,7 @@
       },
       "inline": true,
       "verified": true,
-      "pdf_page": 517
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/subtract.html"
     },
     "1141": {
       "name": "To Word Integer",
@@ -208,7 +208,7 @@
       },
       "inline": true,
       "verified": true,
-      "pdf_page": 529
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/to-word-integer.html"
     },
     "1142": {
       "name": "Type Conversion",
@@ -267,7 +267,7 @@
       },
       "inline": true,
       "verified": true,
-      "pdf_page": 689
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/format-value.html"
     },
     "1050": {
       "name": "Add",
@@ -297,7 +297,7 @@
       },
       "inline": true,
       "verified": true,
-      "pdf_page": 517
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/add.html"
     },
     "1052": {
       "name": "Multiply",
@@ -327,7 +327,7 @@
       },
       "inline": true,
       "verified": true,
-      "pdf_page": 517
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/multiply.html"
     },
     "1057": {
       "name": "Absolute Value",
@@ -387,7 +387,7 @@
       },
       "inline": true,
       "verified": true,
-      "pdf_page": 412,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/split-1d-array.html",
       "note": "Connector pane: idx=2 is index (numeric), idx=3 is array. Confirmed from pco.camera_FloatingMean_Example.vi instances."
     },
     "1103": {
@@ -420,7 +420,7 @@
       },
       "inline": true,
       "verified": true,
-      "pdf_page": 750
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/greater-or-equal.html"
     },
     "1112": {
       "name": "Empty String/Path?",
@@ -466,7 +466,7 @@
       },
       "inline": true,
       "verified": true,
-      "pdf_page": 532
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/to-unsigned-word-integer.html"
     },
     "1145": {
       "name": "Coerce To Type",
@@ -512,7 +512,7 @@
       },
       "inline": true,
       "verified": true,
-      "pdf_page": 649
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/string-length.html"
     },
     "1510": {
       "name": "Pick Line",
@@ -582,7 +582,7 @@
       },
       "inline": true,
       "verified": true,
-      "pdf_page": 754,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/select.html",
       "note": "Select function: result = t_value if selector else f_value. primResID=1516 primIndex=136. All 334 class='prim' instances are Select; real Array Subset uses class='subset' (node_type resolution)."
     },
     "1608": {
@@ -623,7 +623,7 @@
       },
       "inline": true,
       "verified": true,
-      "pdf_page": 1495,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/constants/not-a-path-constant.html",
       "note": "Constant that returns the <Not A Path> value. In Python, None represents an invalid/empty path."
     },
     "2076": {
@@ -721,7 +721,7 @@
       },
       "inline": true,
       "verified": true,
-      "pdf_page": 817
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/merge-errors.html"
     },
     "1809": {
       "name": "Array Size",
@@ -824,7 +824,7 @@
       },
       "inline": true,
       "verified": true,
-      "pdf_page": 650
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/string-subset.html"
     },
     "1535": {
       "name": "Match Pattern",
@@ -882,7 +882,7 @@
         "offset_past_match": "(in_2 + _m.end()) if _m else -1"
       },
       "verified": true,
-      "pdf_page": 657
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/match-pattern.html"
     },
     "1076": {
       "name": "Round Toward +Infinity",
@@ -928,7 +928,7 @@
       },
       "inline": true,
       "verified": true,
-      "pdf_page": 665
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/path-to-string.html"
     },
     "1058": {
       "name": "Increment",
@@ -952,7 +952,7 @@
       },
       "inline": true,
       "verified": true,
-      "pdf_page": 544
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/increment.html"
     },
     "1069": {
       "name": "Negate",
@@ -976,7 +976,7 @@
       },
       "inline": true,
       "verified": true,
-      "pdf_page": 584
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/negate.html"
     },
     "1070": {
       "name": "Random Number (0-1)",
@@ -993,7 +993,7 @@
       },
       "_import": "import random",
       "verified": true,
-      "pdf_page": 618
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/random-number-0-1.html"
     },
     "1078": {
       "name": "String To Path",
@@ -1016,7 +1016,7 @@
       },
       "inline": true,
       "verified": true,
-      "pdf_page": 666
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/string-to-path.html"
     },
     "1110": {
       "name": "Not Equal?",
@@ -1048,7 +1048,7 @@
       },
       "inline": true,
       "verified": true,
-      "pdf_page": 747
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/not-equal.html"
     },
     "1108": {
       "name": "Quotient & Remainder",
@@ -1084,7 +1084,7 @@
       },
       "inline": true,
       "verified": true,
-      "pdf_page": 521
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/quotient-remainder.html"
     },
     "1105": {
       "name": "Less?",
@@ -1116,7 +1116,7 @@
       },
       "inline": true,
       "verified": true,
-      "pdf_page": 749
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/less.html"
     },
     "1114": {
       "name": "Greater Or Equal?",
@@ -1147,7 +1147,7 @@
       },
       "inline": true,
       "verified": true,
-      "pdf_page": 750
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/greater-or-equal.html"
     },
     "1167": {
       "name": "Boolean To (0,1)",
@@ -1170,7 +1170,7 @@
       },
       "inline": true,
       "verified": true,
-      "pdf_page": 538,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/boolean-to-0-1.html",
       "note": "Polymorphic: Boolean -> I16 (1 or 0). Array of Boolean -> Array of I16. primIndex=69."
     },
     "1081": {
@@ -1200,7 +1200,7 @@
       },
       "inline": true,
       "verified": true,
-      "pdf_page": 560,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/logical-shift.html",
       "note": "primIndex=101. Polymorphic on x (any int type). y = shift count: positive=left, negative=right (LabVIEW semantics; Python `<<` only does left)."
     },
     "1053": {
@@ -1231,7 +1231,7 @@
       },
       "inline": true,
       "verified": true,
-      "pdf_page": 520,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/divide.html",
       "note": "primIndex=106. Polymorphic. Per docs: int/int produces Float64 (matches our 22+ observed instances of NumInt32/NumInt32 -> NumFloat64). Python `/` operator has same semantics."
     },
     "1111": {
@@ -1262,7 +1262,7 @@
       },
       "inline": true,
       "verified": true,
-      "pdf_page": 750,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/less-or-equal.html",
       "note": "primIndex=114. Polymorphic numeric comparison. 7 observed signatures across all integer/float type pairs."
     },
     "8056": {
@@ -1324,7 +1324,7 @@
       },
       "inline": true,
       "verified": true,
-      "pdf_page": 1770,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/express/express-input/filedialogblock-llb/file-dialog-source-vi.html",
       "note": "Interactive UI primitive. Original LabVIEW intent was to ask the user, so we map to Python's input() \u2014 runs in CLI, easy to swap with hardcoded Path() or tkinter.filedialog. Configuration Booleans (idx=9, 10) for file/folder/new-or-existing modes are not implemented."
     },
     "1113": {
@@ -1348,7 +1348,7 @@
       },
       "inline": true,
       "verified": true,
-      "pdf_page": 751,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/equal-to-0.html",
       "note": "Polymorphic variant of 1115. Output is Boolean for scalar, Boolean array for array input."
     },
     "1115": {
@@ -1372,7 +1372,7 @@
       },
       "inline": true,
       "verified": true,
-      "pdf_page": 751
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/equal-to-0.html"
     },
     "1117": {
       "name": "Not Equal To 0?",
@@ -1395,7 +1395,7 @@
       },
       "inline": true,
       "verified": true,
-      "pdf_page": 752
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/not-equal-to-0.html"
     },
     "1143": {
       "name": "To Unsigned Byte Integer",
@@ -1418,7 +1418,7 @@
       },
       "inline": true,
       "verified": true,
-      "pdf_page": 533
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/to-unsigned-byte-integer.html"
     },
     "1189": {
       "name": "Flatten To String",
@@ -1441,7 +1441,7 @@
       },
       "inline": true,
       "verified": true,
-      "pdf_page": 553
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/flatten-to-string.html"
     },
     "1422": {
       "name": "Array Of Strings To Path",
@@ -1470,7 +1470,7 @@
       },
       "inline": true,
       "verified": true,
-      "pdf_page": 665
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/array-of-strings-to-path.html"
     },
     "1609": {
       "name": "Unflatten From String",
@@ -1493,7 +1493,7 @@
       },
       "inline": true,
       "verified": false,
-      "pdf_page": 704
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/unflatten-from-string.html"
     },
     "1300": {
       "name": "Tick Count (ms)",
@@ -1510,7 +1510,7 @@
       },
       "_import": "import time",
       "verified": true,
-      "pdf_page": 1834
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/tick-count-ms.html"
     },
     "1423": {
       "name": "Path To Array Of Strings",
@@ -1539,7 +1539,7 @@
         "names": "list(in_0.parts) if in_0 else []"
       },
       "verified": true,
-      "pdf_page": 664
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/path-to-array-of-strings.html"
     },
     "1164": {
       "name": "Get Type Information",
@@ -1591,8 +1591,7 @@
         "names": "[]",
         "name": "''"
       },
-      "verified": false,
-      "pdf_page": null
+      "verified": false
     },
     "3914": {
       "name": "Match Regular Expression",
@@ -1677,7 +1676,7 @@
         "offset": "(in_9 + _result.start()) if _result else -1"
       },
       "verified": false,
-      "pdf_page": 660
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/regexp/match-regular-expression-xnode.html"
     },
     "8070": {
       "name": "List Folder",
@@ -1738,7 +1737,7 @@
       },
       "_import": "from pathlib import Path",
       "verified": false,
-      "pdf_page": 1794
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/list-folder.html"
     },
     "1537": {
       "name": "To Lower Case",
@@ -1809,7 +1808,7 @@
         "match_rest_of_string": "in_4[in_4.find(in_5, in_3):] if in_4.find(in_5, in_3) >= 0 else ''"
       },
       "verified": true,
-      "pdf_page": 719
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/search-split-string.html"
     },
     "1102": {
       "name": "Equal?",
@@ -1841,7 +1840,7 @@
       },
       "inline": true,
       "verified": true,
-      "pdf_page": 745
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/equal.html"
     },
     "1116": {
       "name": "Call Chain",
@@ -1937,7 +1936,7 @@
       },
       "inline": true,
       "verified": true,
-      "pdf_page": 653
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/replace-substring.html"
     },
     "1904": {
       "name": "Multiply Array Elements",
@@ -1984,7 +1983,7 @@
       },
       "inline": true,
       "verified": true,
-      "pdf_page": 642
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/or-array-elements.html"
     },
     "1911": {
       "name": "And Array Elements",
@@ -2007,7 +2006,7 @@
       },
       "inline": true,
       "verified": true,
-      "pdf_page": 641
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/and-array-elements.html"
     },
     "1903": {
       "name": "Add Array Elements",
@@ -2053,7 +2052,7 @@
       },
       "inline": true,
       "verified": true,
-      "pdf_page": 406,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/sort-1d-array.html",
       "note": "primIndex=206. In OpenG Sort wrappers, sorts ascending; the separately-located 1900 primitive applies Reverse 1D Array to flip to descending. Semantics confirmed: Frame 0 (ascending) passes through 1120 output; Frame 1 (descending) applies 1900 Reverse after 1120 Sort."
     },
     "1900": {
@@ -2077,7 +2076,7 @@
       },
       "inline": true,
       "verified": true,
-      "pdf_page": 411,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/reverse-1d-array.html",
       "note": "Polymorphic variant of 1902 (Reverse 1D Array). primIndex=207. Used in OpenG Sort wrappers to flip ascending sort to descending (case frame labeled \"descending\")."
     },
     "1901": {
@@ -2122,7 +2121,7 @@
       },
       "inline": true,
       "verified": true,
-      "pdf_page": 398
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/delete-from-array.html"
     },
     "1902": {
       "name": "Reverse 1D Array",
@@ -2145,7 +2144,7 @@
       },
       "inline": true,
       "verified": true,
-      "pdf_page": 411
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/reverse-1d-array.html"
     },
     "1128": {
       "name": "Not A Number/Path/Refnum?",
@@ -2168,7 +2167,7 @@
       },
       "inline": true,
       "verified": true,
-      "pdf_page": 759,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/not-a-number-path-refnum.html",
       "note": "Polymorphic variant of 1112 for Refnum type."
     },
     "1064": {
@@ -2192,7 +2191,7 @@
       },
       "inline": true,
       "verified": true,
-      "pdf_page": 635
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/not.html"
     },
     "1419": {
       "name": "Build Path",
@@ -2223,7 +2222,7 @@
       },
       "inline": true,
       "verified": true,
-      "pdf_page": 1490
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/build-path.html"
     },
     "1303": {
       "name": "Get Date/Time In Seconds",
@@ -2244,7 +2243,7 @@
       ],
       "inline": true,
       "verified": true,
-      "pdf_page": 1840
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/get-date-time-in-seconds.html"
     },
     "1420": {
       "name": "Strip Path",
@@ -2275,7 +2274,7 @@
       },
       "inline": true,
       "verified": true,
-      "pdf_page": 1491
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/strip-path.html"
     },
     "1426": {
       "name": "Current VI's Path",
@@ -2293,7 +2292,7 @@
       },
       "inline": true,
       "verified": false,
-      "pdf_page": 1493
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/current-vi-s-path.html"
     },
     "1302": {
       "name": "Wait (ms)",
@@ -2321,7 +2320,7 @@
       ],
       "inline": false,
       "verified": true,
-      "pdf_page": 1835
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/wait-ms.html"
     },
     "8010": {
       "name": "Open/Create/Replace File",
@@ -2371,7 +2370,7 @@
       },
       "inline": false,
       "verified": true,
-      "pdf_page": 1470
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/open-create-replace-file.html"
     },
     "8011": {
       "name": "Close File",
@@ -2400,7 +2399,7 @@
       },
       "inline": false,
       "verified": true,
-      "pdf_page": 1472
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/close-file.html"
     },
     "9111": {
       "name": "Enqueue Element",
@@ -2719,7 +2718,7 @@
       ],
       "inline": false,
       "verified": true,
-      "pdf_page": 2366
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/open-vi-reference.html"
     },
     "9102": {
       "name": "Close Reference",
@@ -2769,7 +2768,7 @@
       },
       "inline": false,
       "verified": true,
-      "pdf_page": 2375,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/close-reference.html",
       "note": "Close Reference variant with path output. Same as 9104 but returns path."
     },
     "9105": {
@@ -2832,7 +2831,7 @@
       },
       "inline": false,
       "verified": true,
-      "pdf_page": 2382,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/call-by-reference.html",
       "note": "Calls a VI by reference. In Python, equivalent to calling the loaded module's function."
     },
     "9104": {
@@ -2876,7 +2875,7 @@
       },
       "inline": false,
       "verified": true,
-      "pdf_page": 2375
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/close-reference.html"
     },
     "8017": {
       "name": "Preserve Run-Time Class",
@@ -2905,7 +2904,7 @@
       },
       "inline": true,
       "verified": true,
-      "pdf_page": 470
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/preserve-run-time-class.html"
     },
     "1118": {
       "name": "Greater Than 0?",
@@ -3008,7 +3007,7 @@
       },
       "inline": true,
       "verified": true,
-      "pdf_page": 478,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/variant-to-data.html",
       "note": "primResID 8003 is file I/O range but this instance has variant terminals. Variant To Data confirmed by terminal signature and PDF."
     },
     "8100": {
@@ -3044,7 +3043,7 @@
       },
       "inline": true,
       "verified": true,
-      "pdf_page": 675
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/format-date-time-string.html"
     },
     "8201": {
       "name": "To Variant",
@@ -3067,7 +3066,7 @@
       },
       "inline": true,
       "verified": true,
-      "pdf_page": 477
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/to-variant.html"
     },
     "1165": {
       "name": "Flatten To String",
@@ -3126,7 +3125,7 @@
       },
       "inline": true,
       "verified": true,
-      "pdf_page": 553
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/flatten-to-string.html"
     },
     "8205": {
       "name": "Get Variant Attribute",
@@ -3186,7 +3185,7 @@
       },
       "inline": true,
       "verified": true,
-      "pdf_page": 481
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/get-variant-attribute.html"
     },
     "8204": {
       "name": "Delete Variant Attribute",
@@ -3234,7 +3233,7 @@
       },
       "inline": false,
       "verified": true,
-      "pdf_page": 484
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/delete-variant-attribute.html"
     },
     "8202": {
       "name": "Set Variant Attribute",
@@ -3275,7 +3274,7 @@
       },
       "inline": false,
       "verified": true,
-      "pdf_page": 483
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/set-variant-attribute.html"
     },
     "8203": {
       "name": "Get Type Information",
@@ -3305,7 +3304,7 @@
       },
       "inline": true,
       "verified": true,
-      "pdf_page": 488
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/data-type/get-type-information-vi.html"
     },
     "23063": {
       "name": "Empty Array?",
@@ -3328,7 +3327,7 @@
       },
       "inline": true,
       "verified": true,
-      "pdf_page": 760
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/empty-array.html"
     },
     "8016": {
       "name": "To More Generic Class",
@@ -3369,7 +3368,7 @@
       },
       "inline": true,
       "verified": true,
-      "pdf_page": 2390
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/to-more-generic-class.html"
     }
   },
   "node_types": {
