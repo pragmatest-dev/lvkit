@@ -118,9 +118,10 @@ Each token advances the current leaf by the next length, or forks/terminates:
 
 A leaf is a chain of BEND/STRAIGHT segments ending at a POP (or end-of-stream).
 A BRANCH pushes a junction (resumed later by a POP) and continues the current
-leaf. **Every direction — bends AND forks — is deterministic and relative to the
-current wire direction** (next section). There is no search and no tolerance: the
-whole geometry is recovered from the bytes.
+leaf. **Every direction is deterministic from the bytes** — bend turns from a
+sign bit (relative to the running axis), fork directions from the branch token
+(absolute; next section). There is no search and no tolerance: the whole geometry
+is recovered from the bytes.
 
 ### Source branch (compound `dir0`)
 
@@ -131,38 +132,39 @@ successive POPs back to it. Verified on a real 3-way source (`dir0 = 0x0D` =
 E|S|N, a 6-sink signal in `MasterAcquisitionFile_PCO_IOS.vi`, task #76). This
 generalizes to any N; a 2-way source is just N=2.
 
-### Fork direction — RELATIVE turn, fully in the bytes
+### Fork direction — ABSOLUTE direction per token, fully in the bytes
 
 The fork direction is **not** under-determined and is **not** re-derived from
-terminal positions at decode time — it is stored in the branch token's low two
-bits as a **turn relative to the incoming wire direction**. Relative encoding is
-why two bits suffice: you never store an absolute heading, only the turn off the
-current one, so the same three tokens serve a wire flowing any direction.
+terminal positions at decode time — the branch token maps to a fixed pair of
+**absolute (screen) directions**, one for each of the two children it spawns: the
+**immediate** child (continues the current leaf now) and the **sibling**
+(deferred, spawned when this subtree POPs):
 
-Let `d` be the incoming direction, `cw(d)` its 90° clockwise perpendicular
-(`E→S`), `ccw(d)` its counter-clockwise perpendicular (`E→N`). A branch produces
-two children — the **immediate** child (continues the current leaf now) and the
-**sibling** (deferred, spawned when this subtree POPs):
+| token  | immediate child | sibling |
+|--------|-----------------|---------|
+| `0x05` | **S**           | **E**   |
+| `0x06` | **N**           | **E**   |
+| `0x07` | **N**           | **S**   |
 
-| token  | bits   | immediate child | sibling            |
-|--------|--------|-----------------|--------------------|
-| `0x05` | CW     | `cw(d)`         | `d` (straight)     |
-| `0x06` | CCW    | `ccw(d)`        | `d` (straight)     |
-| `0x07` | CW+CCW | `ccw(d)`        | `cw(d)`            |
-
-Rule: **bit0 (`0x01`) = a branch goes CW-perp, bit1 (`0x02`) = a branch goes
-CCW-perp**; the immediate child is the CCW-perp when bit1 is set, else the
-CW-perp; the sibling is the other perpendicular when both bits are set, else it
-continues straight. A 180° reverse never occurs. The sibling's direction is thus
-**known the instant the branch byte is read** and travels with the junction on
-the stack — the POP does not need to encode it (POP is always `0x03`).
+The direction is **absolute, not relative to the incoming wire.** It only *looks*
+relative because block diagrams flow left-to-right, so ~99% of the corpus is
+`dir0=E`, and for incoming=E the absolute values coincide exactly with a
+CW/CCW-of-incoming reading (`cw(E)=S`, `ccw(E)=N`). A `dir0=S` fan-out breaks the
+relative reading and proves the rule is absolute (e.g. `Conditional Auto-Indexing
+Tunnel__ogtk.vi`: a `0x05` branch off a southbound trunk continues **S** and taps
+**E** — not the westward turn a relative rule predicts). Corpus fork directions
+are always in `{N, S, E}` (a left-to-right diagram forks up/down/onward, never
+back west). The sibling's direction is **known the instant the branch byte is
+read** and travels with the junction on the stack — the POP carries no direction
+(it is always `0x03`).
 
 Verified deterministically across the corpus: this rule reproduces the geometry
-of 277/351 fan-outs byte-for-byte with **zero regressions and zero search**; the
-remaining ~70 differed only where the earlier tolerance-search had picked a
-valid-but-wrong path, and 240/351 land sub-pixel-exactly on their terminal. What
-`#84` read as "recomputed from terminal positions" was really "LV computed it
-from positions **at save time** and baked the relative turn into the token."
+of **331/351** fan-outs byte-for-byte with **zero regressions and zero search**,
+and **265/351** land sub-pixel-exactly on their terminal. The handful that still
+miss are terminal-attach-point offsets (~4.5px) or a few genuinely mis-placed
+terminals, not decode errors. What `#84` read as "recomputed from terminal
+positions" was really "LV computed it from positions **at save time** and baked
+the absolute direction into the token."
 
 ### Source branch is the same rule at the source
 
