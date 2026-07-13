@@ -194,29 +194,54 @@ the deterministic faithful rate from **98.6% → 92.4%**. Absolute wins decisive
 It only *coincides* with a relative reading because ~99% of the corpus forks off
 an **eastbound** trunk, where `left/right/straight ≡ N/S/E`.
 
-**OPEN PROBLEM — the southbound-trunk comb (`0x07` tap flips N→W).** The absolute
-table above is validated for eastbound trunks. On a trunk that has turned
-**south** (deep "comb" fan-ins, e.g. `MasterAcquisitionFile_PCO_IOS.vi` blob
-`190008060103...`), the `0x07` tap must go **WEST**, not North, while the sibling
-still continues **S** — so the absolute `0x07 → (N, S)` mis-fires (tap N instead
-of W) and the whole comb mis-decodes:
+**Fork = (sibling, tap), mined from ground truth.** A validating search over the
+reference set (try each perpendicular/straight at every fork, keep the decode
+whose leaves land on the known sinks) recovers each fork's two absolute
+directions. The **sibling** (how the trunk turns / continues after the fork) is
+**fully absolute and token-determined**, every sample agreeing:
 
-| token | E-trunk (validated) | S-trunk comb (observed) |
-|-------|---------------------|-------------------------|
-| `0x05` | tap S, cont E      | —                       |
-| `0x06` | tap N, cont E      | —                       |
-| `0x07` | tap **N**, cont S  | tap **W**, cont S       |
+| token | sibling (trunk turn) | tap (branch) |
+|-------|----------------------|--------------|
+| `0x05` | **E** | **S** (absolute; E- and S-trunk agree) |
+| `0x06` | **E** | **N** (absolute; E- and N-trunk agree) |
+| `0x07` | **S** | **N** on an E-trunk, **W** on an S-trunk *(open)* |
 
-The *sibling/continuation* is stable, but the *tap* is context-dependent
-(N when the trunk runs E, W when it runs S) in a way that is neither pure-absolute
-nor pure-relative. These deep S-trunk combs are the residual ~1.4% that the
-deterministic walk still gets wrong; the shipped search-based decoder handles them
-(its `_perp3` search can turn either way). Until the tap encoding is cracked, the
-deterministic walk is a research harness (`scripts/wire_decode_probe.py`), not a
-drop-in replacement — swapping it in would regress the combs. The token alphabet
-carries no extra unused bit to distinguish these cases (bit `0x08` is unused in
-tokens; see "Tokens"), so the differentiator must be the incoming trunk axis, the
-length signs, or a bit interaction not yet identified.
+So `0x05`/`0x06` are fully determined (sibling E; tap S/N absolute — confirmed
+across E/S/N trunks with strong sample counts). `0x07`'s sibling is absolute S,
+but its **tap is the one unresolved degree of freedom**.
+
+**OPEN PROBLEM — the `0x07` tap side.** On an eastbound trunk the `0x07` tap goes
+**N**; on a southbound trunk (deep "comb" fan-ins, e.g.
+`MasterAcquisitionFile_PCO_IOS.vi` blob `190008060103...`, 4 teeth) it goes
+**W**. Both are perpendicular to the trunk, but the side flips (visual-CCW for E,
+visual-CW for S) — no rigid rotation reproduces both. Candidate explanations not
+yet tested: (a) the tap is genuinely endpoint-derived for `0x07` only (LV picks
+the side toward the sink, so it is NOT fully in the bytes); (b) a **length sign**
+bit on the tap segment encodes the side (the length stream is read unsigned
+today). These deep S-trunk combs are the residual ~1.4% the deterministic walk
+still misses; the shipped search-based decoder handles them (its `_perp3` search
+turns either way). Until the `0x07` tap side is cracked, the deterministic walk is
+a research harness (`scripts/wire_decode_probe.py`), not a drop-in replacement —
+swapping it in would regress the combs. The token alphabet carries no extra
+unused bit here (bit `0x08` is never set in a token; see "Tokens").
+
+**Error budget (reference set, 2026-07-13).** The deterministic walk's failures
+partition cleanly into exactly two causes:
+
+* **Turned-trunk forks — 7 of 11 failing fan-outs.** Every decode-error fan-out
+  contains a fork that fires on a **non-eastbound** trunk (3 are the `0x07`→W
+  combs; 4 are `0x05`/`0x06` mis-turning on N/S trunks). **Zero** correctly-decoded
+  fan-outs contain a non-E `0x07` fork — perfect separation, so the turned-trunk
+  fork rule IS the decode-error budget.
+* **Misplaced terminals — the other 4.** No non-E fork at all; these terminate on
+  degenerate-bounds `sRN`/`rSR` terminals (task #96) — a terminal-position bug,
+  not a decode bug.
+* **Compound `dir0` is NOT a failure source.** All compound multi-bit `dir0`
+  source-tees decode correctly; it is the turned trunk *axis*, not the direction
+  bitset, that breaks forks.
+
+So the path to ~99.9% deterministic is quantified: crack the `0x07`/turned-trunk
+tap side (+7) and fix the `sRN`/`rSR` terminal centers, #96 (+4).
 
 ### Source branch is the same rule at the source
 
