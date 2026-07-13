@@ -26,11 +26,11 @@ from __future__ import annotations
 Point = tuple[float, float]
 DIR = {0x08: (1, 0), 0x04: (0, 1), 0x02: (-1, 0), 0x01: (0, -1)}
 
-# When True, wires whose heap `compressedWireTable` decodes are drawn from
-# LabVIEW's own routed geometry; undecodable/fan-out wires fall back to the
-# auto-router. Default False = byte-identical to the auto-router-only output
-# (the A/B baseline). See task #84.
-FAITHFUL_WIRE_TABLE = False
+# When True (default), wires whose heap `compressedWireTable` decodes are drawn
+# from LabVIEW's own routed geometry (single-net + fan-out + straight-through
+# taps, ~99.7% of wires); the rest fall back to the auto-router. Set False to get
+# the pure auto-router output (the A/B baseline). See task #84.
+FAITHFUL_WIRE_TABLE = True
 
 
 def _decode_lengths(stream: list[int], n: int) -> list[int] | None:
@@ -199,11 +199,16 @@ def decode_fanout(
     sinks_rel = [(sx - source[0], sy - source[1]) for sx, sy in sinks]
     result: list[list[list[Point]]] = []  # boxed single result
     budget = [_FANOUT_REC_BUDGET]
+    jog = [False]  # second pass: allow a short final jog instead of rejecting
+
+    def _diagonal(pts: list[Point]) -> bool:
+        return any(abs(x1 - x0) > 0.5 and abs(y1 - y0) > 0.5
+                   for (x0, y0), (x1, y1) in zip(pts, pts[1:]))
 
     def finish(path_rel: list[Point], sx: float, sy: float) -> list[Point] | None:
         """Turn a source-relative vertex path (ending ~at the sink) into the
         absolute mid-points for source -> mids -> TRUE sink, snapped orthogonal;
-        None if the drawn wire can't be made axis-aligned."""
+        None if the drawn wire can't be made axis-aligned (unless jog pass)."""
         full = _drop_collinear([(0.0, 0.0), *path_rel])
         if len(full) >= 2:
             px, py = full[-2]
@@ -211,11 +216,19 @@ def decode_fanout(
             # axis it already had: vertical final -> match sink x; horizontal -> y
             full[-2] = (sx, py) if px == full[-1][0] else (px, sy)
         mid_rel = full[1:-1]  # exclude source and the (approx-sink) endpoint
-        drawn = [(0.0, 0.0), *mid_rel, (sx, sy)]
-        for (x0, y0), (x1, y1) in zip(drawn, drawn[1:]):
-            if abs(x1 - x0) > 0.5 and abs(y1 - y0) > 0.5:
-                return None  # a loose match smuggled in a diagonal
-        return [(source[0] + mx, source[1] + my) for mx, my in mid_rel]
+        if not _diagonal([(0.0, 0.0), *mid_rel, (sx, sy)]):
+            return [(source[0] + mx, source[1] + my) for mx, my in mid_rel]
+        if not jog[0]:
+            return None  # strict pass: a loose match smuggled in a diagonal
+        # jog pass (only reached when NO clean assignment exists for the whole
+        # tree): keep the faithful decoded bends to their own endpoint, then add
+        # one short orthogonal segment to reach the genuinely-offset terminal.
+        base = _drop_collinear([(0.0, 0.0), *path_rel])
+        ex, ey = base[-1]
+        mids = base[1:] + [(ex, sy)]  # end -> (ex, sink_y) vertical, then -> sink
+        if _diagonal([(0.0, 0.0), *mids, (sx, sy)]):
+            return None
+        return [(source[0] + mx, source[1] + my) for mx, my in mids]
 
     def build(leaves: list[tuple[list[Point], Point]]) -> list[list[Point]] | None:
         """Emit per-sink absolute mids. Plain fan-out matches each sink to a leaf
@@ -297,10 +310,15 @@ def decode_fanout(
             npos = (pos[0] + nd[0] * L, pos[1] + nd[1] * L)
             rec(ti + 1, npos, nd, stack, leaves, path + [npos])
 
-    for d0, other in starts:
-        p0 = (d0[0] * lengths[0], d0[1] * lengths[0])
-        st = [((0.0, 0.0), other, False, [])] if other else []
-        rec(0, p0, d0, st, [], [p0])
-        if result:
-            break
-    return result[0] if result else None
+    # Pass 1 strict (clean orthogonal decode); pass 2 allows a short final jog to
+    # reach a genuinely-offset terminal instead of falling back. Clean-first, so
+    # a wire that decodes cleanly never gets a jog.
+    for jog[0] in (False, True):
+        budget[0] = _FANOUT_REC_BUDGET
+        for d0, other in starts:
+            p0 = (d0[0] * lengths[0], d0[1] * lengths[0])
+            st = [((0.0, 0.0), other, False, [])] if other else []
+            rec(0, p0, d0, st, [], [p0])
+            if result:
+                return result[0]
+    return None

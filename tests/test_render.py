@@ -2444,11 +2444,10 @@ def _ortho(path: list[Point]) -> bool:
     )
 
 
-def test_faithful_wire_table_defaults_off():
-    # Guards against accidentally committing task #84's faithful-routing
-    # path flipped on — default output must stay byte-identical to the
-    # auto-router-only baseline.
-    assert FAITHFUL_WIRE_TABLE is False
+def test_faithful_wire_table_default_on():
+    # Task #84: faithful compressedWireTable routing is the default rendered
+    # output. Set False for the pure auto-router baseline (A/B testing).
+    assert FAITHFUL_WIRE_TABLE is True
 
 
 def test_decode_wire_mid_straight_wire_has_no_bends():
