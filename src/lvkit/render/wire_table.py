@@ -81,7 +81,15 @@ def decode_wire_mid(blob: str, start: Point, end: Point) -> list[Point] | None:
     v = b[0]
     nseg = v - 1
     nbend = v - 2
-    if nseg < 1 or b[1] not in DIR or len(b) < 2 + nbend:
+    if nseg == 0:
+        # Single-vertex signal (blob `01`): a degenerate/zero-length wire whose
+        # two terminals resolve to the same center (a co-located terminal pair).
+        # There is no geometry to route — connect the endpoints directly. Every
+        # such signal observed has coincident endpoints, so this draws a point,
+        # not a stray diagonal. Handled BEFORE the `b[1]` gate (the blob is one
+        # byte, so b[1] doesn't exist).
+        return []
+    if nseg < 1 or len(b) < 2 or b[1] not in DIR or len(b) < 2 + nbend:
         return None  # fan-out / malformed
     if nseg == 1:
         return []  # straight: scene connects the two centers directly

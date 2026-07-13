@@ -2487,6 +2487,15 @@ def test_decode_wire_mid_fanout_blob_returns_none():
     assert decode_wire_mid("0400080503200B18", (0.0, 0.0), (100.0, 100.0)) is None
 
 
+def test_decode_wire_mid_single_vertex_is_direct_connection():
+    # Blob "01" = vertex count 1 (no segments): a degenerate/zero-length wire
+    # whose two terminals resolve to the same center. Decodes to no bends so
+    # the scene connects the endpoints directly instead of invoking the router.
+    # (62 such signals in MasterAcquisitionFile_PCO_IOS.vi, all endpoints
+    # coincident -- see #76.)
+    assert decode_wire_mid("01", (-1214.5, -390.5), (-1214.5, -390.5)) == []
+
+
 def test_decode_wire_mid_one_bend_l_shape():
     # "2D U32 Array Changed__ogtk" corpus wire, uids 99->110.
     start, end = (314.0, 175.0), (346.0, 162.0)
