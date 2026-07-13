@@ -2528,6 +2528,31 @@ def test_decode_fanout_two_sink_tree():
     assert mids[1] == []  # straight run along the trunk
 
 
+def test_decode_fanout_three_way_source_branch():
+    # Compound dir0=0x0D (E|S|N) => the SOURCE itself is a 3-way junction: seg0
+    # leaves in one bit direction and the other two leave as deferred branches.
+    # Real 6-sink signal from MasterAcquisitionFile_PCO_IOS.vi (#76); before the
+    # N-way generalization this returned None (len(bits)!=2) and fell to the
+    # router. Every branch must decode to a clean orthogonal run to its sink.
+    from lvkit.render.wire_table import decode_fanout
+
+    blob = "0E000D000300000505050003030303FF03D5190CFF012C1ABF22199898989844"
+    src = (-2253.0, 497.0)
+    sinks = [
+        (-2228.5, -484.0),
+        (-2185.5, 497.0),
+        (-1801.5, 725.5),
+        (-1801.5, 760.0),
+        (-1801.5, 785.0),
+        (-1801.5, 534.5),
+    ]
+    mids = decode_fanout(blob, src, sinks)
+    assert mids is not None
+    assert len(mids) == len(sinks)
+    for mid, sink in zip(mids, sinks):
+        assert _ortho([src, *mid, sink])
+
+
 def test_decode_fanout_straight_through_terminal_tap():
     # b[1]=0x01 marks a straight-through terminal tap: a sink sits ON the path
     # (the 0x02 token continues straight through it). Both sinks must resolve to

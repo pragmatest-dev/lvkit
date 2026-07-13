@@ -24,7 +24,7 @@ any other sense — it is a pure decode of already-validated corpus geometry
 from __future__ import annotations
 
 Point = tuple[float, float]
-DIR = {0x08: (1, 0), 0x04: (0, 1), 0x02: (-1, 0), 0x01: (0, -1)}
+DIR: dict[int, Point] = {0x08: (1, 0), 0x04: (0, 1), 0x02: (-1, 0), 0x01: (0, -1)}
 
 # When True (default), wires whose heap `compressedWireTable` decodes are drawn
 # from LabVIEW's own routed geometry (single-net + fan-out + straight-through
@@ -196,11 +196,20 @@ def decode_fanout(
         return None
     d0b = b[dir0i]
     if d0b in DIR:
-        starts = [(DIR[d0b], None)]
+        starts: list[tuple[Point, list[Point]]] = [(DIR[d0b], [])]
     else:
         bits = [DIR[m] for m in (0x08, 0x04, 0x02, 0x01) if d0b & m]
-        # compound dir0 = source-branch; try both orderings of seg0 vs sibling
-        starts = [(bits[0], bits[1]), (bits[1], bits[0])] if len(bits) == 2 else []
+        # Compound dir0 = the source itself is an N-way junction: seg0 leaves in
+        # one bit direction, the remaining N-1 leave as deferred branches — one
+        # junction per remaining bit, pushed at the source and spawned on
+        # successive POPs back to it. Try each bit as seg0; the _perp3 search +
+        # sink validation resolve the exact directions. (For N=2 this reduces to
+        # the two seg0/sibling orderings, unchanged.)
+        starts = (
+            [(bits[i], bits[:i] + bits[i + 1 :]) for i in range(len(bits))]
+            if len(bits) >= 2
+            else []
+        )
     if not starts:
         return None
 
@@ -323,9 +332,12 @@ def decode_fanout(
     # a wire that decodes cleanly never gets a jog.
     for jog[0] in (False, True):
         budget[0] = _FANOUT_REC_BUDGET
-        for d0, other in starts:
+        for d0, others in starts:
             p0 = (d0[0] * lengths[0], d0[1] * lengths[0])
-            st = [((0.0, 0.0), other, False, [])] if other else []
+            # One deferred junction at the source per remaining bit direction;
+            # each is single-use (mw=False) and spawns its branch on a POP back
+            # to the source. Empty for a plain single-direction source.
+            st = [((0.0, 0.0), od, False, []) for od in others]
             rec(0, p0, d0, st, [], [p0])
             if result:
                 return result[0]
