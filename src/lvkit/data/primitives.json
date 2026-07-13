@@ -9,12 +9,38 @@
   "primitives": {
     "1907": {
       "name": "Array Max & Min",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/array-max-min.html",
       "terminals": [
-        {"index": 0, "direction": "in", "name": "array", "type": "polymorphic"},
-        {"index": 1, "direction": "out", "name": "max value", "type": "polymorphic"},
-        {"index": 2, "direction": "out", "name": "max index", "type": "NumInt32"},
-        {"index": 3, "direction": "out", "name": "min value", "type": "polymorphic"},
-        {"index": 4, "direction": "out", "name": "min index", "type": "NumInt32"}
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "array",
+          "type": "polymorphic"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "max value",
+          "type": "polymorphic"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "max index",
+          "type": "NumInt32"
+        },
+        {
+          "index": 3,
+          "direction": "out",
+          "name": "min value",
+          "type": "polymorphic"
+        },
+        {
+          "index": 4,
+          "direction": "out",
+          "name": "min index",
+          "type": "NumInt32"
+        }
       ],
       "python_code": {
         "max_value": "(max(in_0) if in_0 else 0)",
@@ -101,6 +127,7 @@
     },
     "1061": {
       "name": "Or",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/or.html",
       "elementwise": true,
       "terminals": [
         {
@@ -133,6 +160,7 @@
     },
     "1062": {
       "name": "And",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/and.html",
       "elementwise": true,
       "terminals": [
         {
@@ -337,6 +365,7 @@
     },
     "1057": {
       "name": "Absolute Value",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/absolute-value.html",
       "guess_reason": "Was mislabeled 'Array Size'. It is unary scalar X -> scalar X (same type), not an array op, and sits in the numeric cluster (1050-1064), not the array-size range. Confirmed by usage: Subtract -> 1057 -> Increment -> ROI coordinate computes |x1-x0|+1 (a pixel span). This is the integer-typed Absolute Value; 1054 is the same op for extended float (verified by the |a-b|>tolerance compare in failUnlessEqual/passIfEqual), and the two never co-occur. Array inputs would need element-wise handling.",
       "terminals": [
         {
@@ -430,6 +459,7 @@
     },
     "1112": {
       "name": "Empty String/Path?",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/empty-string-path.html",
       "terminals": [
         {
           "index": 0,
@@ -476,6 +506,7 @@
     },
     "1145": {
       "name": "Coerce To Type",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/coerce-to-type.html",
       "terminals": [
         {
           "index": 0,
@@ -522,6 +553,7 @@
     },
     "1510": {
       "name": "Pick Line",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/pick-line.html",
       "terminals": [
         {
           "index": 0,
@@ -593,6 +625,7 @@
     },
     "1608": {
       "name": "Flatten To String",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/flatten-to-string.html",
       "terminals": [
         {
           "index": 0,
@@ -731,6 +764,7 @@
     },
     "1809": {
       "name": "Array Size",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/array-size.html",
       "guess_reason": "class=prim primResID 1809 is Array Size (Array[X] -> NumInt32), verified across many samples with varied element types (Path/Refnum/String/Cluster/NumInt32) all yielding a single I32 output. The expandable Index Array is XML class aIndx (resolved by node_type), not this primResID.",
       "terminals": [
         {
@@ -752,6 +786,7 @@
     },
     "1049": {
       "name": "Sign",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/sign.html",
       "elementwise": true,
       "guess_reason": "Unary, type-preserving numeric op (DBL->DBL, Array[DBL]->Array[DBL]); raw typeDescs confirm both ends NumFloat64. Forced by this VI's direction detection: consecutive angle deltas -> Sign(each) -> Add Array Elements(sum) -> Sign(sum) -> To Byte Integer -> xcreasing in {-1,0,+1}. Only Sign (returns 1/0/-1, type-preserving) collapses the sum to a +/-1 direction; sum (not product) makes it a wrap-robust majority vote. Array inputs would need element-wise handling.",
       "terminals": [
@@ -776,6 +811,7 @@
     },
     "1140": {
       "name": "To Byte Integer",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/to-byte-integer.html",
       "guess_reason": "Conversion to signed 8-bit integer: output is always NumInt8 (or Array[NumInt8]) regardless of input numeric type, verified across corpus (NumInt8/NumInt64/NumInt32/Array[NumFloat64] inputs). NI docs: rounds float to nearest (ties to even) and saturates to [-128, 127]. Scalar template; array inputs would need element-wise handling.",
       "terminals": [
         {
@@ -1331,7 +1367,7 @@
       "inline": true,
       "verified": true,
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/express/express-input/filedialogblock-llb/file-dialog-source-vi.html",
-      "note": "Interactive UI primitive. Original LabVIEW intent was to ask the user, so we map to Python's input() \u2014 runs in CLI, easy to swap with hardcoded Path() or tkinter.filedialog. Configuration Booleans (idx=9, 10) for file/folder/new-or-existing modes are not implemented."
+      "note": "Interactive UI primitive. Original LabVIEW intent was to ask the user, so we map to Python's input() — runs in CLI, easy to swap with hardcoded Path() or tkinter.filedialog. Configuration Booleans (idx=9, 10) for file/folder/new-or-existing modes are not implemented."
     },
     "1113": {
       "name": "Equal To 0?",
@@ -1549,6 +1585,7 @@
     },
     "1164": {
       "name": "Get Type Information",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/data-type/get-type-information-vi.html",
       "terminals": [
         {
           "index": 0,
@@ -1747,6 +1784,7 @@
     },
     "1537": {
       "name": "To Lower Case",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/to-lower-case.html",
       "terminals": [
         {
           "index": 0,
@@ -1850,6 +1888,7 @@
     },
     "1116": {
       "name": "Call Chain",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/call-chain.html",
       "terminals": [
         {
           "index": 0,
@@ -1869,10 +1908,11 @@
       },
       "inline": true,
       "verified": false,
-      "note": "1in/1out numeric\u2192boolean. In comparison range but exact function unconfirmed. Passthrough for now."
+      "note": "1in/1out numeric→boolean. In comparison range but exact function unconfirmed. Passthrough for now."
     },
     "1170": {
       "name": "Split Number",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/split-number.html",
       "terminals": [
         {
           "index": 0,
@@ -1899,7 +1939,7 @@
       },
       "inline": true,
       "verified": false,
-      "note": "1in/2out array\u2192array+array. Could be Split Number or type-specific split. Unconfirmed."
+      "note": "1in/2out array→array+array. Could be Split Number or type-specific split. Unconfirmed."
     },
     "1503": {
       "name": "Replace Substring",
@@ -1946,6 +1986,7 @@
     },
     "1904": {
       "name": "Multiply Array Elements",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/multiply-array-elements.html",
       "guess_reason": "Was mislabeled 'Array Size'. Output tracks the element type (Array[UInt32]->UInt32, Array[Int32]->Int32), so it is a numeric reduction, not an I32 count. Sibling of Add Array Elements (1903) in the array-reduction cluster (1910 Or, 1911 And Array Elements). Sum-vs-product settled by context: in 'MultiD Array to 1D Array', 1904(dimension_sizes) feeds a For Loop count -- the total element count of an n-D array is the PRODUCT of its dimension sizes. Empty array -> 1 (math.prod identity), matching LabVIEW.",
       "terminals": [
         {
@@ -2016,6 +2057,7 @@
     },
     "1903": {
       "name": "Add Array Elements",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/add-array-elements.html",
       "guess_reason": "Was mislabeled 'Array Size'. Raw typeDesc proves the output is element-typed (Array[NumFloat64] -> NumFloat64), not an I32 count, so it is a numeric reduction, not Array Size (the real Array Size is primResID 1809, Array[X] -> I32). Sits in the array-reduction cluster (1910 Or Array Elements, 1911 And Array Elements). Forced by this VI's logic: sum of per-step Sign(deltas) gives a wrap-robust direction vote. Corpus I32-array instances (sum of int array -> int) are consistent.",
       "terminals": [
         {
@@ -2409,6 +2451,7 @@
     },
     "9111": {
       "name": "Enqueue Element",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/enqueue-element.html",
       "verified": true,
       "terminals": [
         {
@@ -2461,6 +2504,7 @@
     },
     "9113": {
       "name": "Dequeue Element",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/dequeue-element.html",
       "verified": true,
       "terminals": [
         {
@@ -2513,6 +2557,7 @@
     },
     "9129": {
       "name": "Enqueue Element At Opposite End",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/enqueue-element-at-opposite-end.html",
       "verified": true,
       "terminals": [
         {
@@ -2565,6 +2610,7 @@
     },
     "9108": {
       "name": "Obtain Queue",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/obtain-queue.html",
       "verified": true,
       "terminals": [
         {
@@ -2623,6 +2669,7 @@
     },
     "9109": {
       "name": "Get Queue Status",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/get-queue-status.html",
       "verified": true,
       "terminals": [
         {
@@ -2914,6 +2961,7 @@
     },
     "1118": {
       "name": "Greater Than 0?",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/greater-than-0.html",
       "terminals": [
         {
           "index": 0,
@@ -2936,6 +2984,7 @@
     },
     "8018": {
       "name": "To More Specific Class",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/to-more-specific-class.html",
       "terminals": [
         {
           "index": 0,
