@@ -2475,3 +2475,15 @@ def test_decode_wire_mid_two_bend_z_shape():
     assert mid is not None
     assert len(mid) == 2
     assert _ortho([start, *mid, end])
+
+
+def test_decode_wire_mid_escaped_length():
+    # A long segment (>=256 px) is stored as 0xff hi lo, so the blob is longer
+    # than the old 2V-2 invariant. V=4, dir0=E, signs 00 00, lengths [9, 0x0464].
+    start, end = (0.0, 0.0), (1124.0, 50.0)
+    mid = decode_wire_mid("0408000009ff0464", start, end)
+    assert mid is not None
+    assert len(mid) == 2
+    # first bend advances East by 9 px, staying on the source row
+    assert mid[0] == (9.0, 0.0)
+    assert _ortho([start, *mid, end])

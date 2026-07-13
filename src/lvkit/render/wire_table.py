@@ -9,7 +9,10 @@ East/South, ``0x01``=-axis West/North — segment directions alternate
 horizontal/vertical, so only a sign needs to be stored, not a full
 direction), and the final ``V-2`` bytes are the lengths of segments
 ``0..V-3`` (the last segment's length is implied by the endpoint that the
-caller already knows).
+caller already knows). A length of 256 or more is escaped as ``0xff`` followed
+by the value as a 16-bit big-endian pair, so the length section is a
+variable-width stream rather than one byte per segment (this is why the total
+blob length is not always ``2V-2``).
 
 Only single-net (2-endpoint) signals are decodable this way; a fan-out
 signal (3+ endpoints) returns ``None`` and the caller falls back to the
@@ -28,6 +31,29 @@ DIR = {0x08: (1, 0), 0x04: (0, 1), 0x02: (-1, 0), 0x01: (0, -1)}
 # auto-router. Default False = byte-identical to the auto-router-only output
 # (the A/B baseline). See task #84.
 FAITHFUL_WIRE_TABLE = False
+
+
+def _decode_lengths(stream: list[int], n: int) -> list[int] | None:
+    """Decode a variable-width length stream into exactly ``n`` values.
+
+    A byte below ``0xff`` is a one-byte length; ``0xff hi lo`` is a 16-bit
+    big-endian length (used when a segment is 256 px or longer). Returns
+    ``None`` unless exactly ``n`` values consume the whole stream.
+    """
+    out: list[int] = []
+    i = 0
+    while i < len(stream) and len(out) < n:
+        if stream[i] == 0xFF:
+            if i + 2 >= len(stream):
+                return None
+            out.append((stream[i + 1] << 8) | stream[i + 2])
+            i += 3
+        else:
+            out.append(stream[i])
+            i += 1
+    if len(out) != n or i != len(stream):
+        return None
+    return out
 
 
 def decode_wire_mid(blob: str, start: Point, end: Point) -> list[Point] | None:
@@ -49,12 +75,14 @@ def decode_wire_mid(blob: str, start: Point, end: Point) -> list[Point] | None:
     v = b[0]
     nseg = v - 1
     nbend = v - 2
-    if nseg < 1 or b[1] not in DIR or len(b) != 2 + 2 * nbend:
+    if nseg < 1 or b[1] not in DIR or len(b) < 2 + nbend:
         return None  # fan-out / malformed
     if nseg == 1:
         return []  # straight: scene connects the two centers directly
-    lengths = b[2 + nbend : 2 + 2 * nbend]
     signs = b[2 : 2 + nbend]
+    lengths = _decode_lengths(b[2 + nbend :], nbend)
+    if lengths is None:
+        return None  # length stream did not consume cleanly
     dx0, dy0 = DIR[b[1]]
     horiz0 = dx0 != 0
     mid: list[Point] = []
