@@ -196,6 +196,16 @@ _HOVER_PANEL_JS = """(function() {
     var nodeEl = nodes[i];
     var help = helpByNode[nodeEl.getAttribute("data-node")];
     if (!help) continue;
+    // This node has a visual connector panel, so its native <title> tooltip
+    // would double up with the panel (a text hover AND a rendered box). Move
+    // the title text to aria-label (keeps the accessible name for screen
+    // readers) and drop the <title>, so JS users see ONLY the panel. Nodes
+    // without a panel (constants) keep their <title> -- it's their only hover.
+    var titleEl = nodeEl.querySelector("title");
+    if (titleEl) {
+      nodeEl.setAttribute("aria-label", titleEl.textContent);
+      nodeEl.removeChild(titleEl);
+    }
     (function(nodeEl, help) {
       nodeEl.addEventListener("mouseenter", function() {
         place(nodeEl, help);
