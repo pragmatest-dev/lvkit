@@ -214,12 +214,19 @@ but its **tap is the one unresolved degree of freedom**.
 **N**; on a southbound trunk (deep "comb" fan-ins, e.g.
 `MasterAcquisitionFile_PCO_IOS.vi` blob `190008060103...`, 4 teeth) it goes
 **W**. Both are perpendicular to the trunk, but the side flips (visual-CCW for E,
-visual-CW for S) — no rigid rotation reproduces both. Candidate explanations not
-yet tested: (a) the tap is genuinely endpoint-derived for `0x07` only (LV picks
-the side toward the sink, so it is NOT fully in the bytes); (b) a **length sign**
-bit on the tap segment encodes the side (the length stream is read unsigned
-today). These deep S-trunk combs are the residual ~1.4% the deterministic walk
-still misses; the shipped search-based decoder handles them (its `_perp3` search
+visual-CW for S) — no rigid rotation reproduces both. Candidate explanations:
+(a) the tap is genuinely endpoint-derived for `0x07` only (LV picks the side
+toward the sink, so it is NOT fully in the bytes); (b) a **length sign** bit on
+the tap segment encodes the side. **(b) is disproven (2026-07-13):** the tap
+length's high bit is just the magnitude boundary (128–254 = one byte with bit7
+set; ≥256 uses the `0xFF` escape), not a sign — E-trunk N-taps carry bit7 whenever
+they are long (`0x8d`, `0xa8`, …) and still go N, and S-trunk W-taps are all
+≥`0x80` only because western comb jumps are physically long (151–610 px). No token
+bit and no length bit distinguishes the side, which leaves **(a)**: for a
+turned-trunk `0x07`, the tap side is endpoint-derived and not recoverable from the
+bytes alone. "Draw without knowing the endpoint" holds for ~99.6% of wires; the
+turned-trunk `0x07` combs (~0.4%) are the genuine exception. These deep S-trunk
+combs are the residual ~1.4% the deterministic walk still misses; the shipped search-based decoder handles them (its `_perp3` search
 turns either way). Until the `0x07` tap side is cracked, the deterministic walk is
 a research harness (`scripts/wire_decode_probe.py`), not a drop-in replacement —
 swapping it in would regress the combs. The token alphabet carries no extra
