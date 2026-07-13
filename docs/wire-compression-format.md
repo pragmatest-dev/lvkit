@@ -270,10 +270,17 @@ residual (not a fork-rule error). Observed samples:
 050102080000023F010952  v=5 flag=1 b[2]=0x02 tokens=[0x00,0x00,0x02]  n=2
 ```
 
-The extra header byte `b[2]` differs (`0x00` vs `0x02`) between them — it is not
-yet decoded; it likely indicates which vertex carries the tap (or a tap count).
-Cracking `b[2]` + mid-wire sink matching is the remaining work for the tapped
-sub-format.
+**`b[2]` is the tap-position index (2026-07-13).** Mined 8 validated tapped
+fan-outs corpus-wide: in 6 of them `b[2]` equals the **token index of the `0x02`
+STRAIGHT** exactly (e.g. `b[2]=0` ↔ `0x02` at token 0; `b[2]=2` ↔ `0x02` at token
+2; a `v=10` case: `b[2]=2`, tokens `[0,0,2,6,0,3,1,0]`). So `b[2]` marks **which
+vertex on the path carries the mid-wire sink**, and the `0x02` STRAIGHT is how
+that vertex is drawn when the trunk passes straight through it. The 2 exceptions
+have no `0x02` token at all (all-bend streams like `[0,0,1]`) — either a
+tapped-*chain* variant where the tap sits at a bend vertex `b[2]` still points to,
+or regex mis-pairings in the mining (20 of 28 candidates were discarded as
+mis-paired, so the clean sample is small). Remaining work for the sub-format:
+match the sink at vertex `b[2]` and continue the trunk (mid-wire sink matching).
 
 ## Failure modes (→ auto-router fallback)
 
