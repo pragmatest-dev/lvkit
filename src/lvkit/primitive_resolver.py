@@ -202,6 +202,11 @@ class ResolvedPrimitive(BaseModel):
     prim_id: str | None = None
     name: str = ""
     python_code: str | dict[str, str] | None = None
+    # Alternate template used when the wired operands are INTEGERS — LabVIEW's
+    # boolean-logic prims (And/Or) are bitwise on ints. Codegen selects this over
+    # ``python_code`` when an input carries an integer type. (Not/negations need
+    # width-masking, so they're handled in codegen, not here.)
+    python_code_int: str | dict[str, str] | None = None
     inline: bool = True
     terminals: list[PrimitiveTerminal] = Field(default_factory=list)
     confidence: str = "unknown"
@@ -422,6 +427,7 @@ class PrimitiveResolver:
                     prim_id=prim_id_str,
                     name=prim.get("name", f"primitive_{prim_id}"),
                     python_code=prim.get("python_code", ""),
+                    python_code_int=prim.get("python_code_int"),
                     inline=prim.get("inline", True),
                     terminals=[
                         PrimitiveTerminal.model_validate(t)

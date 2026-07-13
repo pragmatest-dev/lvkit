@@ -7,7 +7,7 @@ import ast
 
 from lvkit.models import LVType, PrimitiveOperation, Terminal
 
-from ..ast_utils import build_assign, parse_expr, parse_stmt, to_var_name
+from ..ast_utils import build_assign, parse_expr, parse_stmt, to_var_name, uint_mask
 from ..context import CodeGenContext
 from ..fragment import CodeFragment
 from .base import CodeGenError
@@ -35,11 +35,29 @@ def _is_boolean(term: object) -> bool:
     return bool(lv_type is not None and lv_type.underlying_type == "Boolean")
 
 
-def _invert_expr(expr: ast.expr, boolean: bool) -> ast.expr:
-    """Wrap an expression with the terminal's "Not" invert."""
+def _is_integer(term: object) -> bool:
+    """Check whether a terminal carries a LabVIEW integer value."""
+    lv_type = getattr(term, "lv_type", None)
+    ut = (lv_type.underlying_type or "") if lv_type is not None else ""
+    return ut.startswith("NumInt") or ut.startswith("NumUInt")
+
+
+def _invert_expr(
+    expr: ast.expr, boolean: bool, lv_type: LVType | None = None
+) -> ast.expr:
+    """Wrap an expression with the terminal's "Not" invert.
+
+    Boolean -> logical ``not``; integer -> bitwise ``~``, masked to the type
+    width for unsigned ints (Python's ``~`` would otherwise yield a negative)."""
     if boolean:
         return ast.UnaryOp(op=ast.Not(), operand=expr)
-    return ast.UnaryOp(op=ast.Invert(), operand=expr)
+    inv: ast.expr = ast.UnaryOp(op=ast.Invert(), operand=expr)
+    mask = uint_mask(lv_type)
+    if mask is not None:
+        inv = ast.BinOp(
+            left=inv, op=ast.BitAnd(), right=ast.Constant(value=mask)
+        )
+    return inv
 
 
 def generate_compound_arith(
@@ -64,6 +82,12 @@ def generate_compound_arith(
     output_term = outputs[0]
     output_id = output_term.id
     boolean = _is_boolean(output_term) or any(_is_boolean(t) for t in inputs)
+    # LabVIEW And/Or/Xor are bitwise on integer operands. Only go bitwise when
+    # an operand is KNOWN to be an integer; unknown/boolean stays logical (both
+    # idiomatic and behaviour-preserving).
+    bitwise = not boolean and (
+        _is_integer(output_term) or any(_is_integer(t) for t in inputs)
+    )
 
     # Boolean-context translation: add -> or, multiply -> and.
     if boolean:
@@ -80,7 +104,7 @@ def generate_compound_arith(
         if val:
             expr = parse_expr(val)
             if inp.inverted:
-                expr = _invert_expr(expr, boolean)
+                expr = _invert_expr(expr, boolean, inp.lv_type)
                 val = ast.unparse(expr)
             input_exprs.append(val)
             input_names.append(val)
@@ -98,7 +122,7 @@ def generate_compound_arith(
     if len(input_exprs) == 1:
         combined = parse_expr(input_exprs[0])
         if output_term.inverted:
-            combined = _invert_expr(combined, boolean)
+            combined = _invert_expr(combined, boolean, output_term.lv_type)
             stmt = build_assign(var_name, combined)
             return CodeFragment(
                 statements=[stmt],
@@ -110,16 +134,19 @@ def generate_compound_arith(
 
     if operation == "or":
         for expr_str in input_exprs[1:]:
-            combined = ast.BoolOp(
-                op=ast.Or(),
-                values=[combined, parse_expr(expr_str)],
-            )
+            right = parse_expr(expr_str)
+            # integer operands -> BITWISE or (LabVIEW polymorphism); else logical
+            if bitwise:
+                combined = ast.BinOp(left=combined, op=ast.BitOr(), right=right)
+            else:
+                combined = ast.BoolOp(op=ast.Or(), values=[combined, right])
     elif operation == "and":
         for expr_str in input_exprs[1:]:
-            combined = ast.BoolOp(
-                op=ast.And(),
-                values=[combined, parse_expr(expr_str)],
-            )
+            right = parse_expr(expr_str)
+            if bitwise:
+                combined = ast.BinOp(left=combined, op=ast.BitAnd(), right=right)
+            else:
+                combined = ast.BoolOp(op=ast.And(), values=[combined, right])
     elif operation == "add":
         for expr_str in input_exprs[1:]:
             combined = ast.BinOp(
@@ -157,7 +184,7 @@ def generate_compound_arith(
             )
 
     if output_term.inverted:
-        combined = _invert_expr(combined, boolean)
+        combined = _invert_expr(combined, boolean, output_term.lv_type)
 
     stmt = build_assign(var_name, combined)
     return CodeFragment(

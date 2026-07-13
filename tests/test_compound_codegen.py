@@ -104,6 +104,44 @@ class TestCompoundArithGenerate:
         code = ast.unparse(fragment.statements[0])
         assert " and " in code
 
+    def _int_cpd(self, operation, inverted_in=False, inverted_out=False):
+        ctx = make_ctx("t1", "t2", "tout")
+        ctx.bind("t1", "a")
+        ctx.bind("t2", "b")
+        u32 = LVType(kind="primitive", underlying_type="NumUInt32")
+        op = PrimitiveOperation(
+            id="cpd", name="Compound", labels=["Compound"],
+            node_type="cpdArith", operation=operation,
+            terminals=[
+                Terminal(id="t1", index=1, direction="input", lv_type=u32,
+                         inverted=inverted_in),
+                Terminal(id="t2", index=2, direction="input", lv_type=u32),
+                Terminal(id="tout", index=0, direction="output", lv_type=u32,
+                         inverted=inverted_out),
+            ],
+        )
+        frag = compound.generate_compound_arith(op, ctx)
+        ast.fix_missing_locations(frag.statements[0])
+        return ast.unparse(frag.statements[0])
+
+    def test_generate_or_integer_is_bitwise(self):
+        """Integer operands -> bitwise OR, not logical `or`."""
+        code = self._int_cpd("or")
+        assert "a | b" in code
+        assert " or " not in code
+
+    def test_generate_and_integer_is_bitwise(self):
+        """Integer operands -> bitwise AND, not logical `and`."""
+        code = self._int_cpd("and")
+        assert "a & b" in code
+        assert " and " not in code
+
+    def test_generate_integer_invert_is_width_masked(self):
+        """A per-input Not on a U32 -> ~ masked to 32 bits (not a signed ~)."""
+        code = self._int_cpd("or", inverted_in=True)
+        assert "4294967295" in code  # 0xFFFFFFFF mask
+        assert "~a" in code
+
     def test_generate_add_multiple_inputs(self):
         """Test generating addition of multiple inputs."""
         ctx = make_ctx("term1", "term2", "term3", "term_out")

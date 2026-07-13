@@ -19,6 +19,7 @@ from ..ast_utils import (
     parse_expr,
     parse_stmt,
     to_var_name,
+    uint_mask,
 )
 from ..context import CodeGenContext
 from ..elementwise import LV_IMPORT, arrayify
@@ -33,6 +34,20 @@ def _has_array_input(node: PrimitiveOperation) -> bool:
         and t.lv_type.kind == "array"
         for t in node.terminals
     )
+
+
+def _int_input_terminal(node: PrimitiveOperation) -> Terminal | None:
+    """First input terminal carrying a LabVIEW integer type, else None.
+
+    LabVIEW's boolean-logic prims (And/Or/Not) are BITWISE on integer operands;
+    this drives that dispatch (mirrors _has_array_input for the array case)."""
+    for t in node.terminals:
+        if t.direction != "input" or t.lv_type is None:
+            continue
+        ut = t.lv_type.underlying_type or ""
+        if ut.startswith("NumInt") or ut.startswith("NumUInt"):
+            return t
+    return None
 
 
 def generate(node: PrimitiveOperation, ctx: CodeGenContext) -> CodeFragment:
@@ -80,6 +95,22 @@ def generate(node: PrimitiveOperation, ctx: CodeGenContext) -> CodeFragment:
     # Placeholder: emit warning comment + pass, don't raise
     if resolved.confidence == "placeholder":
         return _emit_placeholder(node, resolved, ctx)
+
+    # LabVIEW And/Or/Not are BITWISE on integer operands. When an input carries
+    # an integer type, prefer the primitive's integer template; Not (1064) needs
+    # a width-masked complement no static template can express, so build it here.
+    int_in = _int_input_terminal(node)
+    if int_in is not None:
+        if prim_id == 1064:  # Not -> ~x, masked to width for UNSIGNED ints
+            m = uint_mask(int_in.lv_type)
+            expr = f"(~in_1) & 0x{m:X}" if m is not None else "~in_1"
+            if isinstance(resolved.python_code, dict) and resolved.python_code:
+                key = next(iter(resolved.python_code))
+                resolved.python_code = {key: expr}
+            else:
+                resolved.python_code = expr
+        elif resolved.python_code_int is not None:
+            resolved.python_code = resolved.python_code_int
 
     # Check if primitive is truly unknown (no code, unknown confidence, or comment)
     code = resolved.python_code if resolved else None

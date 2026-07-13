@@ -12,6 +12,24 @@ from lvkit.models import LVType, ScalarValue
 logger = logging.getLogger(__name__)
 
 
+def uint_mask(lv_type: LVType | None) -> int | None:
+    """The bit-mask for a LabVIEW UNSIGNED integer type, else ``None``.
+
+    A bitwise complement (LabVIEW ``Not``, or a Compound Arithmetic per-terminal
+    "Not") on an unsigned int must be masked to the type width: Python's ``~x``
+    yields a signed value (``~5 == -6``), whereas U32 ``Not(5)`` is
+    ``0xFFFFFFFA``. Signed ints need no mask — Python's ``~`` is already
+    two's-complement-correct for them, so this returns ``None`` for them.
+    """
+    ut = (lv_type.underlying_type or "") if lv_type else ""
+    return {
+        "NumUInt8": 0xFF,
+        "NumUInt16": 0xFFFF,
+        "NumUInt32": 0xFFFFFFFF,
+        "NumUInt64": 0xFFFFFFFFFFFFFFFF,
+    }.get(ut)
+
+
 def default_value_expr(lv_type: LVType | None) -> ast.expr:
     """A conservative Python default value (as an AST expr) for a LabVIEW type.
 

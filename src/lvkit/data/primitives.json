@@ -125,6 +125,9 @@
       "python_code": {
         "result": "in_1 or in_2"
       },
+      "python_code_int": {
+        "result": "in_1 | in_2"
+      },
       "inline": true,
       "verified": true
     },
@@ -153,6 +156,9 @@
       ],
       "python_code": {
         "result": "in_1 and in_2"
+      },
+      "python_code_int": {
+        "result": "in_1 & in_2"
       },
       "inline": true,
       "verified": true
