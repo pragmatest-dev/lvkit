@@ -2477,6 +2477,28 @@ def test_decode_wire_mid_two_bend_z_shape():
     assert _ortho([start, *mid, end])
 
 
+def test_decode_fanout_two_sink_tree():
+    # V=4, dir0=E, tokens [05 branch, 03 pop], lengths [32, 11, 24]:
+    # E32 to a junction, tap S11 -> sink A, resume E24 -> sink B.
+    from lvkit.render.wire_table import decode_fanout
+
+    mids = decode_fanout("0400080503200b18", (0.0, 0.0), [(32.0, 11.0), (56.0, 0.0)])
+    assert mids is not None
+    assert len(mids) == 2
+    for mid, sink in zip(mids, [(32.0, 11.0), (56.0, 0.0)]):
+        assert _ortho([(0.0, 0.0), *mid, sink])
+    assert mids[0] == [(32.0, 0.0)]  # L-shape via the junction
+    assert mids[1] == []  # straight run along the trunk
+
+
+def test_decode_fanout_flag_byte_falls_back():
+    # b[1] != 0 marks the mid-wire-tap sub-format we don't model -> None.
+    from lvkit.render.wire_table import decode_fanout
+
+    assert decode_fanout("0501000802010012040f05", (0.0, 0.0),
+                         [(18.0, 0.0), (27.0, -15.0)]) is None
+
+
 def test_decode_wire_mid_escaped_length():
     # A long segment (>=256 px) is stored as 0xff hi lo, so the blob is longer
     # than the old 2V-2 invariant. V=4, dir0=E, signs 00 00, lengths [9, 0x0464].

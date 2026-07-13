@@ -1203,9 +1203,13 @@ def _build_wire_nets(
                     (int(round(src_center[0])), int(round(src_center[1]))),
                     (int(round(dst_center[0])), int(round(dst_center[1]))),
                 )
-                blob = layout.wire_geometry.get(key)
-                if blob is not None:
-                    faithful = decode_wire_mid(blob, src_center, dst_center)
+                fan_mid = layout.fanout_geometry.get(key)
+                if fan_mid is not None:
+                    faithful = list(fan_mid)  # pre-decoded fan-out branch polyline
+                else:
+                    blob = layout.wire_geometry.get(key)
+                    if blob is not None:
+                        faithful = decode_wire_mid(blob, src_center, dst_center)
             if faithful is not None:
                 mid = faithful
             else:

@@ -99,6 +99,15 @@ class Layout:
     wire_geometry: dict[tuple[tuple[int, int], tuple[int, int]], str] = field(
         default_factory=dict
     )
+    # Fan-out (3+ endpoint) signals, pre-decoded because a tree can't be decoded
+    # one branch at a time: (source center, one sink center) -> that branch's
+    # intermediate bend points (absolute), ready for the same
+    # ``_compress([src, *mid, dst])`` path the single-net case uses. Only the
+    # source->sink ordering is registered (branches always run source->sink).
+    # See task #84 / ``wire_table.decode_fanout``.
+    fanout_geometry: dict[
+        tuple[tuple[int, int], tuple[int, int]], list[tuple[float, float]]
+    ] = field(default_factory=dict)
     icon_png: Path | None = None
 
     def scene_bounds(self, pad: float = 30.0) -> Rect:
@@ -455,6 +464,40 @@ class _LayoutBuilder:
             geo[(kb, ka)] = blob
         return geo
 
+    def _resolve_fanout_geometry(
+        self,
+    ) -> dict[tuple[tuple[int, int], tuple[int, int]], list[tuple[float, float]]]:
+        """Decode 3+-endpoint ``raw_signals`` into per-branch bend polylines.
+
+        A fan-out tree is decoded once (``decode_fanout`` needs the source and
+        ALL sink centers to resolve fork directions), then each resulting branch
+        is registered by (source center, that sink's center) so ``scene.py`` can
+        look it up per drawn wire exactly like the single-net map. Signals with
+        an unresolved terminal, or that don't cleanly decode, are skipped and
+        fall back to the auto-router.
+        """
+        from .wire_table import decode_fanout
+
+        geo: dict[
+            tuple[tuple[int, int], tuple[int, int]], list[tuple[float, float]]
+        ] = {}
+        for uids, blob in self.raw_signals:
+            if len(uids) < 3:
+                continue
+            src = self.terminal_centers.get(uids[0])
+            sinks = [self.terminal_centers.get(u) for u in uids[1:]]
+            if src is None or any(s is None for s in sinks):
+                continue
+            resolved = [s for s in sinks if s is not None]
+            mids = decode_fanout(blob, src, resolved)
+            if mids is None:
+                continue
+            ks = (int(round(src[0])), int(round(src[1])))
+            for sink, mid in zip(resolved, mids):
+                kd = (int(round(sink[0])), int(round(sink[1])))
+                geo[(ks, kd)] = mid
+        return geo
+
     def _visit(self, elem: ET.Element, ox: float, oy: float) -> None:
         bb = _rect(elem)
         if bb is None:
@@ -561,5 +604,6 @@ def build_layout(vi_or_bd: Path) -> Layout:
         sequence_dividers=builder.sequence_dividers,
         label_bounds=builder.label_bounds,
         wire_geometry=builder._resolve_wire_geometry(),
+        fanout_geometry=builder._resolve_fanout_geometry(),
         icon_png=icon if icon.exists() else None,
     )

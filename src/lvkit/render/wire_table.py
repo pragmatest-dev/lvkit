@@ -110,3 +110,174 @@ def decode_wire_mid(blob: str, start: Point, end: Point) -> list[Point] | None:
     lx, ly = mid[-1]
     mid[-1] = (lx, end[1]) if final_horiz else (end[0], ly)
     return mid
+
+
+# -- fan-out (3+ endpoint) decode -----------------------------------------
+# A fan-out signal's compressedWireTable is a recursive tree, encoded as a DFS
+# token stream. A leaf is a CHAIN of segments that runs until a POP terminator;
+# a BRANCH forks (a 0x04 branch is a MULTI-WAY junction that keeps taking
+# children); compound dir0 = the source itself branches. Bends are deterministic
+# (sign = bit0); the direction taken at each FORK is under-determined by the
+# bytes (LabVIEW re-derives it from terminal positions), so we resolve it by
+# validating leaf endpoints against the known sink centers. A `b[1]` flag marks
+# a mid-wire-tap sub-format we don't model -> fall back. See task #84.
+
+_FANOUT_TOL = 10.0          # px; residual is the terminal center-vs-attach offset
+_FANOUT_REC_BUDGET = 3_000_000  # hard cap on the validated fork search (safety)
+
+
+def _flip(d: Point, plus: bool) -> Point:
+    s = 1 if plus else -1
+    return (0, s) if d[0] != 0 else (s, 0)
+
+
+def _perp3(d: Point) -> list[Point]:
+    # a fork continues straight or turns onto either perpendicular; never a 180
+    # reverse (unobserved in the corpus, and it only bloats the search)
+    if d[0] != 0:
+        return [d, (0, 1), (0, -1)]
+    return [d, (1, 0), (-1, 0)]
+
+
+def _drop_collinear(pts: list[Point]) -> list[Point]:
+    """Remove interior points that lie on the straight segment between their
+    neighbours (a wire passing straight through a junction leaves such a point)."""
+    if len(pts) < 3:
+        return list(pts)
+    out = [pts[0]]
+    for p, q in zip(pts[1:-1], pts[2:]):
+        a = out[-1]
+        # keep q's predecessor p only if it is a real corner (a != p != q bend)
+        if (a[0] == p[0] == q[0]) or (a[1] == p[1] == q[1]):
+            continue  # collinear -> drop p
+        out.append(p)
+    out.append(pts[-1])
+    return out
+
+
+def decode_fanout(
+    blob: str, source: Point, sinks: list[Point]
+) -> list[list[Point]] | None:
+    """Decode a fan-out ``compressedWireTable`` into per-sink bend polylines.
+
+    Returns a list aligned with ``sinks``: for each sink, the INTERMEDIATE bend
+    points (absolute, excluding ``source`` and that sink) of the branch reaching
+    it — ready for ``_compress([source, *mid, sink])`` just like the single-net
+    path. Returns ``None`` for the mid-wire-tap sub-format, a malformed blob, or
+    when no fork-direction assignment reproduces every sink (caller falls back).
+    """
+    try:
+        b = [int(blob[i : i + 2], 16) for i in range(0, len(blob), 2)]
+    except ValueError:
+        return None
+    if len(b) < 3 or b[1] != 0:
+        return None  # flagged mid-wire-tap sub-format -> fallback
+    v = b[0]
+    ntok = v - 2
+    tokens = b[3 : 3 + ntok]
+    if len(tokens) != ntok or ntok < 1:
+        return None
+    lengths = _decode_lengths(b[3 + ntok :], v - 1)
+    if lengths is None or len(lengths) < 1:
+        return None
+    if b[2] in DIR:
+        starts = [(DIR[b[2]], None)]
+    else:
+        bits = [DIR[m] for m in (0x08, 0x04, 0x02, 0x01) if b[2] & m]
+        # compound dir0 = source-branch; try both orderings of seg0 vs sibling
+        starts = [(bits[0], bits[1]), (bits[1], bits[0])] if len(bits) == 2 else []
+    if not starts:
+        return None
+
+    sinks_rel = [(sx - source[0], sy - source[1]) for sx, sy in sinks]
+    result: list[list[list[Point]]] = []  # boxed single result
+    budget = [_FANOUT_REC_BUDGET]
+
+    def build(leaves: list[tuple[list[Point], Point]]) -> list[list[Point]] | None:
+        """Match each sink to a leaf endpoint; emit per-sink absolute mids."""
+        if len(leaves) != len(sinks_rel):
+            return None
+        used = [False] * len(leaves)
+        chosen: list[list[Point] | None] = [None] * len(sinks_rel)
+        for si, (sx, sy) in enumerate(sinks_rel):
+            for li, (path, _fd) in enumerate(leaves):
+                if used[li]:
+                    continue
+                ex, ey = path[-1]
+                if abs(ex - sx) < _FANOUT_TOL and abs(ey - sy) < _FANOUT_TOL:
+                    used[li] = True
+                    chosen[si] = path
+                    break
+            else:
+                return None
+        out: list[list[Point]] = []
+        for si, path in enumerate(chosen):
+            assert path is not None
+            sx, sy = sinks_rel[si]
+            # full source-relative polyline; drop points where the wire passes
+            # straight through a junction so the final bend is a real corner
+            full = _drop_collinear([(0.0, 0.0), *path])
+            if len(full) >= 2:
+                px, py = full[-2]
+                # snap the last real bend so its segment to the TRUE sink keeps
+                # the axis it already had: vertical final -> match sink x;
+                # horizontal final -> match sink y
+                full[-2] = (sx, py) if px == full[-1][0] else (px, sy)
+            mid_rel = full[1:-1]  # exclude source and the (approx-sink) endpoint
+            # verify the wire actually drawn -- source -> mids -> TRUE sink -- is
+            # orthogonal; a loose endpoint match can otherwise smuggle in a
+            # diagonal. Reject the whole assignment so the search keeps looking.
+            drawn = [(0.0, 0.0), *mid_rel, (sx, sy)]
+            for (x0, y0), (x1, y1) in zip(drawn, drawn[1:]):
+                if abs(x1 - x0) > 0.5 and abs(y1 - y0) > 0.5:
+                    return None
+            out.append([(source[0] + mx, source[1] + my) for mx, my in mid_rel])
+        return out
+
+    def rec(ti, pos, d, stack, leaves, path):
+        if result or budget[0] <= 0:
+            return
+        budget[0] -= 1
+        if ti == len(tokens):
+            built = build(leaves + [(path, d)])
+            if built is not None:
+                result.append(built)
+            return
+        tok = tokens[ti]
+        L = lengths[ti + 1]
+        if tok == 0x03:  # POP: terminate leaf, resume last junction
+            if not stack:
+                built = build(leaves + [(path, d)])
+                if built is not None:
+                    result.append(built)
+                return
+            jpos, jdir, mw, jpath = stack[-1]
+            keeps = (False, True) if mw else (False,)
+            for keep in keeps:
+                newstack = stack if keep else stack[:-1]
+                for nd in _perp3(jdir):
+                    npos = (jpos[0] + nd[0] * L, jpos[1] + nd[1] * L)
+                    rec(ti + 1, npos, nd, newstack,
+                        leaves + [(path, d)], jpath + [npos])
+                    if result:
+                        return
+        elif tok & 0x04:  # BRANCH (0x04 => multi-way junction)
+            mw = tok == 0x04
+            for nd in _perp3(d):
+                npos = (pos[0] + nd[0] * L, pos[1] + nd[1] * L)
+                rec(ti + 1, npos, nd, stack + [(pos, d, mw, path)],
+                    leaves, path + [npos])
+                if result:
+                    return
+        else:  # BEND: deterministic (sign = bit0)
+            nd = _flip(d, not (tok & 1))
+            npos = (pos[0] + nd[0] * L, pos[1] + nd[1] * L)
+            rec(ti + 1, npos, nd, stack, leaves, path + [npos])
+
+    for d0, other in starts:
+        p0 = (d0[0] * lengths[0], d0[1] * lengths[0])
+        st = [((0.0, 0.0), other, False, [])] if other else []
+        rec(0, p0, d0, st, [], [p0])
+        if result:
+            break
+    return result[0] if result else None
