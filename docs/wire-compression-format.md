@@ -226,6 +226,33 @@ was the trunk-relative remap, not endpoints.
 trunk it just came from*. When a base direction would double back, LV deflects it
 to the perpendicular. So the geometry is recoverable without the endpoint.
 
+**Corpus-wide verification (764 VIs, 2026-07-13).** A validating search mined the
+fork set per `(trunk, token)` across every extracted VI. `backward → neg_perp`
+holds at scale, with strong counts:
+
+```
+0x5  E:{S,E}×511  S:{S,E}×279
+0x6  E:{N,E}×374  N:{N,E}×93   S:{E,W}×34   <- S-trunk N->W = backward->neg_perp
+0x7  E:{N,S}×184  S:{W,S}(combs)  W:{N,W}(1 sample)
+```
+
+The new `0x6` S-trunk `{E,W}` (34×) is precisely `{N,E}` with the backward `N`
+deflected to `neg_perp(S)=W` — independent confirmation. **The sole holdout in
+764 VIs is `0x7` on a W-trunk** (1 sample): backward→neg_perp predicts `{N,S}`
+but the truth is `{N,W}` (the pos-perp `S` deflects to straight `W`), which no
+backward rule explains; and there are **zero** N-trunk `0x7` samples in the
+corpus. So `0x5`/`0x6`/`0x7`-on-E/S trunks are fully byte-determined (~99.5%),
+while `0x7` on W/N trunks is genuinely underdetermined by the bytes at the sample
+size available — deriving a universal formula from n=1 would be guessing.
+
+**Completeness without guessing.** "Every case accounted for" means the decoder
+never emits a wrong wire, not that a one-sample formula is invented. The robust
+production rule: apply `backward → neg_perp` (the verified 99.5%); at any fork
+whose deterministic branch lands on **no known sink**, try the other perpendicular
+(bounded, instant, using the `termList` uids we already have — not the old blind
+tolerance search); if still nothing lands, fall back to the auto-router. That is
+correct-or-safe for any uploaded VI, including the rare W/N-trunk `0x7`.
+
 **Error budget (reference set, 2026-07-13).** After the remap, the deterministic
 walk's residual (~0.5%, 10 branches) is:
 
