@@ -108,6 +108,18 @@ class Layout:
     fanout_geometry: dict[
         tuple[tuple[int, int], tuple[int, int]], list[tuple[float, float]]
     ] = field(default_factory=dict)
+    # IDENTITY lookup: a wire's geometry keyed by its DESTINATION terminal uid
+    # (the sink the branch reaches). The graph knows a drawn wire's exact
+    # destination uid, and the heap signal lists that same uid — so this is an
+    # exact match with no center rounding/tolerance. It recovers wires the
+    # center-pair key misses when the graph's net-SOURCE terminal is a different
+    # (co-located) uid than the heap signal's source (the two resolve to centers
+    # ~a terminal-width apart, so the (src,dst) center pair never matches even
+    # though the geometry decoded fine). ``wire_by_uid`` maps a 2-endpoint
+    # signal's blob under BOTH its uids (direction is the caller's to supply);
+    # ``fanout_by_uid`` maps each decoded branch under its sink uid. See #84/#76.
+    wire_by_uid: dict[str, str] = field(default_factory=dict)
+    fanout_by_uid: dict[str, list[tuple[float, float]]] = field(default_factory=dict)
     icon_png: Path | None = None
 
     def scene_bounds(self, pad: float = 30.0) -> Rect:
@@ -443,17 +455,21 @@ class _LayoutBuilder:
 
     def _resolve_wire_geometry(
         self,
-    ) -> dict[tuple[tuple[int, int], tuple[int, int]], str]:
-        """Resolve ``raw_signals`` into the ``Layout.wire_geometry`` map,
-        keyed by rounded-int endpoint centers (both orderings). Only
-        2-endpoint signals whose BOTH terminals resolve to a known center
-        are registered; fan-out and unresolved-terminal signals are skipped
-        so they fall back to the auto-router.
+    ) -> tuple[dict[tuple[tuple[int, int], tuple[int, int]], str], dict[str, str]]:
+        """Resolve ``raw_signals`` into the center-keyed ``Layout.wire_geometry``
+        map (both orderings) AND the identity-keyed ``Layout.wire_by_uid`` map
+        (the blob under each of its two terminal uids). Only 2-endpoint signals
+        are registered; fan-out and >2 signals are handled by
+        ``_resolve_fanout_geometry``. The center map needs both centers resolved;
+        the uid map does not (the caller supplies the drawn endpoints).
         """
         geo: dict[tuple[tuple[int, int], tuple[int, int]], str] = {}
+        by_uid: dict[str, str] = {}
         for uids, blob in self.raw_signals:
             if len(uids) != 2:
                 continue
+            by_uid[uids[0]] = blob
+            by_uid[uids[1]] = blob
             ca = self.terminal_centers.get(uids[0])
             cb = self.terminal_centers.get(uids[1])
             if ca is None or cb is None:
@@ -462,11 +478,14 @@ class _LayoutBuilder:
             kb = (int(round(cb[0])), int(round(cb[1])))
             geo[(ka, kb)] = blob
             geo[(kb, ka)] = blob
-        return geo
+        return geo, by_uid
 
     def _resolve_fanout_geometry(
         self,
-    ) -> dict[tuple[tuple[int, int], tuple[int, int]], list[tuple[float, float]]]:
+    ) -> tuple[
+        dict[tuple[tuple[int, int], tuple[int, int]], list[tuple[float, float]]],
+        dict[str, list[tuple[float, float]]],
+    ]:
         """Decode 3+-endpoint ``raw_signals`` into per-branch bend polylines.
 
         A fan-out tree is decoded once (``decode_fanout`` needs the source and
@@ -481,11 +500,13 @@ class _LayoutBuilder:
         geo: dict[
             tuple[tuple[int, int], tuple[int, int]], list[tuple[float, float]]
         ] = {}
+        by_uid: dict[str, list[tuple[float, float]]] = {}
         for uids, blob in self.raw_signals:
             if len(uids) < 3:
                 continue
             src = self.terminal_centers.get(uids[0])
-            sinks = [self.terminal_centers.get(u) for u in uids[1:]]
+            sink_uids = uids[1:]
+            sinks = [self.terminal_centers.get(u) for u in sink_uids]
             if src is None or any(s is None for s in sinks):
                 continue
             resolved = [s for s in sinks if s is not None]
@@ -493,10 +514,11 @@ class _LayoutBuilder:
             if mids is None:
                 continue
             ks = (int(round(src[0])), int(round(src[1])))
-            for sink, mid in zip(resolved, mids):
+            for sink_uid, sink, mid in zip(sink_uids, resolved, mids):
                 kd = (int(round(sink[0])), int(round(sink[1])))
                 geo[(ks, kd)] = mid
-        return geo
+                by_uid[sink_uid] = mid  # identity key: the branch's sink uid
+        return geo, by_uid
 
     def _visit(self, elem: ET.Element, ox: float, oy: float) -> None:
         bb = _rect(elem)
@@ -593,6 +615,8 @@ def build_layout(vi_or_bd: Path) -> Layout:
     builder.walk(root, 0.0, 0.0)
 
     icon = bd.parent / f"{bd.stem.replace('_BDHb', '')}_ICON.png"
+    wire_geometry, wire_by_uid = builder._resolve_wire_geometry()
+    fanout_geometry, fanout_by_uid = builder._resolve_fanout_geometry()
     return Layout(
         node_bounds=builder.node_bounds,
         terminal_centers=builder.terminal_centers,
@@ -603,7 +627,9 @@ def build_layout(vi_or_bd: Path) -> Layout:
         hidden_labels=builder.hidden_labels,
         sequence_dividers=builder.sequence_dividers,
         label_bounds=builder.label_bounds,
-        wire_geometry=builder._resolve_wire_geometry(),
-        fanout_geometry=builder._resolve_fanout_geometry(),
+        wire_geometry=wire_geometry,
+        fanout_geometry=fanout_geometry,
+        wire_by_uid=wire_by_uid,
+        fanout_by_uid=fanout_by_uid,
         icon_png=icon if icon.exists() else None,
     )

@@ -1210,6 +1210,21 @@ def _build_wire_nets(
                     blob = layout.wire_geometry.get(key)
                     if blob is not None:
                         faithful = decode_wire_mid(blob, src_center, dst_center)
+                # IDENTITY recovery: the center-pair key misses when the graph's
+                # net-SOURCE terminal is a co-located-but-different uid than the
+                # heap signal's source (their centers sit ~a terminal-width apart,
+                # so the (src,dst) center pair never matches even though the wire
+                # decoded fine). The DESTINATION uid is exact, though — it's the
+                # heap sink the branch reaches — so follow the wire to its known
+                # endpoint and connect there. No tolerance, no router fallback.
+                if faithful is None:
+                    fan_mid = layout.fanout_by_uid.get(raw_dst)
+                    if fan_mid is not None:
+                        faithful = list(fan_mid)
+                    else:
+                        blob = layout.wire_by_uid.get(raw_dst)
+                        if blob is not None:
+                            faithful = decode_wire_mid(blob, src_center, dst_center)
             if faithful is not None:
                 mid = faithful
             else:
