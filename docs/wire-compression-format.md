@@ -258,6 +258,23 @@ A sink that sits **on** the wire (not at a leaf tip): the `0x02` token runs the
 trunk straight through the terminal. One extra header byte precedes `dir0`.
 Handled by matching a sink to any vertex on a leaf's path, not only its tip.
 
+**`0x02` STRAIGHT is the tapped-format marker (2026-07-13).** Across the whole
+reference set the `0x02` token appears exactly twice, and both occurrences are in
+`flag=0x01` blobs — so `0x02` STRAIGHT essentially only occurs in the tapped
+sub-format. The deterministic walk (`scripts/wire_decode_probe.py`) does not yet
+match a sink to a mid-wire vertex, so tapped blobs are the two `None`s in the
+residual (not a fork-rule error). Observed samples:
+
+```
+03010008024852          v=3 flag=1 b[2]=0x00 tokens=[0x02]            n=2
+050102080000023F010952  v=5 flag=1 b[2]=0x02 tokens=[0x00,0x00,0x02]  n=2
+```
+
+The extra header byte `b[2]` differs (`0x00` vs `0x02`) between them — it is not
+yet decoded; it likely indicates which vertex carries the tap (or a tap count).
+Cracking `b[2]` + mid-wire sink matching is the remaining work for the tapped
+sub-format.
+
 ## Failure modes (→ auto-router fallback)
 
 `decode_signal` returns `None` (and the caller routes the wire) when:
