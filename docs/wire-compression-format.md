@@ -118,7 +118,9 @@ Each token advances the current leaf by the next length, or forks/terminates:
 
 A leaf is a chain of BEND/STRAIGHT segments ending at a POP (or end-of-stream).
 A BRANCH pushes a junction (resumed later by a POP) and continues the current
-leaf. Bends are deterministic; **fork directions are not** (next section).
+leaf. **Every direction — bends AND forks — is deterministic and relative to the
+current wire direction** (next section). There is no search and no tolerance: the
+whole geometry is recovered from the bytes.
 
 ### Source branch (compound `dir0`)
 
@@ -129,25 +131,44 @@ successive POPs back to it. Verified on a real 3-way source (`dir0 = 0x0D` =
 E|S|N, a 6-sink signal in `MasterAcquisitionFile_PCO_IOS.vi`, task #76). This
 generalizes to any N; a 2-way source is just N=2.
 
-### Fork direction is under-determined — solved against known endpoints
+### Fork direction — RELATIVE turn, fully in the bytes
 
-The token stream says *that* the wire forks and *where the bends are*, but **not
-which way each fork turns**. LabVIEW recomputes fork direction from terminal
-positions at draw time; it is not stored (confirmed: mining the corpus, a fork's
-turn is not a clean function of the bytes under a loose match). `_perp3` offers
-each fork three candidates — continue straight, or turn onto either
-perpendicular — and **never a 180° reverse** (unobserved; LV appears to never
-double back at a fork). The decoder picks the assignment under which **every
-leaf lands exactly on a known sink**, then snaps. Because the endpoints are
-known and exact (no proximity tolerance), the assignment is unique and the
-search prunes hard (an otherwise-exponential comb of 8+ forks collapses).
+The fork direction is **not** under-determined and is **not** re-derived from
+terminal positions at decode time — it is stored in the branch token's low two
+bits as a **turn relative to the incoming wire direction**. Relative encoding is
+why two bits suffice: you never store an absolute heading, only the turn off the
+current one, so the same three tokens serve a wire flowing any direction.
 
-Partial knowledge of the fork bytes: with an exact endpoint constraint the
-**branch-continue** direction *does* come out uniquely per `(token, incoming
-dir)` — i.e. the low bits of `0x05/0x06/0x07` plus the incoming direction
-determine the continuation. The **sibling** (POP-resume) direction remains the
-part solved by the endpoint constraint rather than read off the bytes. This is
-recorded but not yet turned into a closed-form rule.
+Let `d` be the incoming direction, `cw(d)` its 90° clockwise perpendicular
+(`E→S`), `ccw(d)` its counter-clockwise perpendicular (`E→N`). A branch produces
+two children — the **immediate** child (continues the current leaf now) and the
+**sibling** (deferred, spawned when this subtree POPs):
+
+| token  | bits   | immediate child | sibling            |
+|--------|--------|-----------------|--------------------|
+| `0x05` | CW     | `cw(d)`         | `d` (straight)     |
+| `0x06` | CCW    | `ccw(d)`        | `d` (straight)     |
+| `0x07` | CW+CCW | `ccw(d)`        | `cw(d)`            |
+
+Rule: **bit0 (`0x01`) = a branch goes CW-perp, bit1 (`0x02`) = a branch goes
+CCW-perp**; the immediate child is the CCW-perp when bit1 is set, else the
+CW-perp; the sibling is the other perpendicular when both bits are set, else it
+continues straight. A 180° reverse never occurs. The sibling's direction is thus
+**known the instant the branch byte is read** and travels with the junction on
+the stack — the POP does not need to encode it (POP is always `0x03`).
+
+Verified deterministically across the corpus: this rule reproduces the geometry
+of 277/351 fan-outs byte-for-byte with **zero regressions and zero search**; the
+remaining ~70 differed only where the earlier tolerance-search had picked a
+valid-but-wrong path, and 240/351 land sub-pixel-exactly on their terminal. What
+`#84` read as "recomputed from terminal positions" was really "LV computed it
+from positions **at save time** and baked the relative turn into the token."
+
+### Source branch is the same rule at the source
+
+The compound-`dir0` source tee (previous section) is just this fork rule applied
+with the source as the first junction: the extra `dir0` bits are the perpendicular
+turns leaving the source. It is not a special case.
 
 ### Straight-through tap (`flag = 0x01`)
 
