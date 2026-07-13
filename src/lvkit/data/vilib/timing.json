@@ -4,7 +4,7 @@
   "entries": [
     {
       "name": "UNC Filename Support of File I/O VIs on Windows",
-      "page": 1832,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/unc-filename-support-of-file-io-vis-on-windows.html",
       "category": "Timing",
       "description": "UNC filenames provide the primary means for specifying the location of a file or directory in a networked environment. In LabVIEW, you can enter and view UNC filenames in path controls, indicators, and constants in a file dialog box. UNC filenames use the following path form. \\\\<machine>\\<share name>\\<dir>\\...\\<file or dir> where <machine> is the name of the computer that you want to access on the network, <share name> is the name of a shared drive on that machine, <dir>\\... consists of the name",
       "vi_path": null,
@@ -15,7 +15,7 @@
     },
     {
       "name": "Tick Count (ms) Function",
-      "page": 1834,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/tick-count-ms.html",
       "category": "Timing",
       "description": "Returns the value of the millisecond timer. The base reference time (millisecond zero) is undefined. That is, you cannot convert millisecond timer value to a real-world time or date. Be careful when you use this function in comparisons because the value of the millisecond timer wraps from Functions 1834 ni.com (2^32)–1 to 0.",
       "vi_path": null,
@@ -34,7 +34,7 @@
     },
     {
       "name": "High Resolution Relative Seconds",
-      "page": 1835,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/high-resolution-relative-seconds-vi.html",
       "category": "Timing",
       "description": "Returns the relative current time in seconds. Use the difference between two successive values to measure the elapsed time between the calls. Use this VI to measure time spans with much higher resolution than you can obtain from the Tick Count (ms) function. The time resolution of this VI may vary with different operating systems and CPU types.",
       "vi_path": null,
@@ -67,7 +67,7 @@
     },
     {
       "name": "Wait (ms) Function",
-      "page": 1835,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/wait-ms.html",
       "category": "Timing",
       "description": "Waits the specified number of milliseconds and returns the value of the millisecond Note The operating system clock this VI uses is not tied to any absolute time reference and may drift over time when compared to absolute time sources. Avoid using this VI across long periods of time. Functions © National Instruments 1835 timer. (Windows) The actual wait time may be up to 1 ms shorter than the requested wait time. This function makes asynchronous system calls, but the nodes on the block diagram e",
       "vi_path": null,
@@ -93,7 +93,7 @@
     },
     {
       "name": "Wait Until Next ms Multiple Function",
-      "page": 1837,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/wait-until-next-ms-multiple.html",
       "category": "Timing",
       "description": "Waits until the value of the millisecond timer becomes a multiple of the specified millisecond multiple. Use this function to synchronize activities. You can call this function in a loop to control the loop execution rate. However, it is possible that the first loop period might be short. Wiring a value of 0 to the milliseconds multiple input forces the current thread to yield control of the CPU. This function makes asynchronous system calls, but the nodes themselves function synchronously. Ther",
       "vi_path": null,
@@ -119,7 +119,7 @@
     },
     {
       "name": "Get Date/Time String Function",
-      "page": 1838,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/get-date-time-string.html",
       "category": "Timing",
       "description": "Converts a timestamp value or a numeric value to a date and time string in the time zone configured for the computer. The function interprets timestamp and numeric values as the time-zone-independent number of seconds that have elapsed since Functions 1838 ni.com 12:00 a.m., Friday, January 1, 1904, Universal Time.",
       "vi_path": null,
@@ -179,7 +179,7 @@
     },
     {
       "name": "Stall Data Flow",
-      "page": 1838,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/stall-data-flow-vim.html",
       "category": "Timing",
       "description": "Delays the data flow of the wire for a specified period of time.",
       "vi_path": null,
@@ -226,7 +226,7 @@
     },
     {
       "name": "Date/Time To Seconds Function",
-      "page": 1840,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/date-time-to-seconds.html",
       "category": "Timing",
       "description": "Creates a timestamp from a set of individual values that specify a date and time. Use the To Double Precision Float function to convert the timestamp value to a lower precision, floating-point number. The number is measured as the number of seconds that have elapsed since 12:00 a.m., Friday, January 1, 1904, Universal Time, assuming DST is set to 1. Functions 1840 ni.com",
       "vi_path": null,
@@ -308,7 +308,7 @@
     },
     {
       "name": "Get Date/Time In Seconds Function",
-      "page": 1840,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/get-date-time-in-seconds.html",
       "category": "Timing",
       "description": "Returns a timestamp of the current time. LabVIEW calculates this timestamp using the number of seconds elapsed since 12:00 a.m., Friday, January 1, 1904, Universal Time. Use the To Double Precision Float function to convert the timestamp value to a lower precision, floating-point number.",
       "vi_path": null,
@@ -327,7 +327,7 @@
     },
     {
       "name": "Seconds To Date/Time Function",
-      "page": 1842,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/seconds-to-date-time.html",
       "category": "Timing",
       "description": "Converts a timestamp value or a numeric value to a cluster of time values. This function loses fractional seconds of precision when converting the timestamp. If you convert date time rec back into a time stamp, the timestamp may not display the exactly correct value.",
       "vi_path": null,
@@ -409,7 +409,7 @@
     },
     {
       "name": "To Time Stamp Function",
-      "page": 1844,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/to-time-stamp.html",
       "category": "Timing",
       "description": "Converts a number to a timestamp.",
       "vi_path": null,
@@ -435,7 +435,7 @@
     },
     {
       "name": "Tick Count",
-      "page": 1845,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/express/rvi/timing/nirvigettickcount-vi.html",
       "category": "Timing",
       "description": "Returns the value of a free running counter in the units specified. The output and internal counter are both of the configured width. Functions © National Instruments 1845 If you do not have the FPGA, Real-Time, or DSP modules, you can use the Tick Count (ms) function instead. Dialog Box Options Option Description Counter Units Unit of time the VI uses for the counter. • Ticks—Sets the counter units to a single clock cycle, the length of which is determined by the clock rate for which the VI is ",
       "vi_path": null,
@@ -454,7 +454,7 @@
     },
     {
       "name": "Time Delay",
-      "page": 1845,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/express/express-execution-control/timedelayblock-llb/ex-inst-time-delay-vi.html",
       "category": "Timing",
       "description": "Inserts a time delay into the calling VI. Dialog Box Options Option Description Time delay (seconds) Specifies how many seconds to delay running the calling VI. The default is 1.000.",
       "vi_path": null,
@@ -487,7 +487,7 @@
     },
     {
       "name": "Elapsed Time",
-      "page": 1848,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/express/express-execution-control/elapsedtimeblock-llb/ex-inst-elapsed-time-vi.html",
       "category": "Timing",
       "description": "Indicates the amount of time that has elapsed since the specified start time. Note (Real-Time Module, Windows) When the Wait Express VI runs inside a timed structure or a VI set to time-critical priority, it blocks the execution of all other code in the same timed structure or VI because timed structures and time-critical VIs are single-threaded. In all other cases, the Wait Express VI sleeps while other code in the calling VI runs in parallel on separate threads. Functions 1848 ni.com Dialog Bo",
       "vi_path": null,
@@ -590,7 +590,7 @@
     },
     {
       "name": "High Resolution Polling Wait",
-      "page": 1851,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/high-resolution-polling-wait-vi.html",
       "category": "Timing",
       "description": "Waits the specified number of seconds with higher resolution than you can obtain with the Wait (ms) function. For example, use this VI in applications that require waiting with sub-millisecond resolution between steps. The resolution of the timer this VI uses varies with different operating systems and CPU types. Unlike the Wait (ms) function, if the number of seconds you specify is 0, this VI does not force the current thread to yield control of the CPU. Use this VI with caution if you are conc",
       "vi_path": null,
@@ -623,7 +623,7 @@
     },
     {
       "name": "Format Date/Time String Function",
-      "page": 1852,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/format-date-time-string.html",
       "category": "Timing",
       "description": "Displays a timestamp value or a numeric value as time in the format you specify using time format codes.",
       "vi_path": null,

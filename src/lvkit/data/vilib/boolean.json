@@ -4,7 +4,7 @@
   "entries": [
     {
       "name": "And Function",
-      "page": 632,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/and.html",
       "category": "Boolean",
       "description": "Computes the logical AND of the inputs. Both inputs must be Boolean values, numeric values, or error clusters. If both inputs are TRUE, the function returns TRUE. Otherwise, it returns FALSE. The connector pane displays the default data types for this polymorphic function.",
       "vi_path": null,
@@ -23,7 +23,7 @@
     },
     {
       "name": "Or Function",
-      "page": 633,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/or.html",
       "category": "Boolean",
       "description": "Computes the logical OR of the inputs. Both inputs must be Boolean values, numeric values, or error clusters. If both inputs are FALSE, the function returns FALSE. Otherwise, it returns TRUE. The connector pane displays the default data types for this polymorphic function.",
       "vi_path": null,
@@ -34,7 +34,7 @@
     },
     {
       "name": "Exclusive Or Function",
-      "page": 634,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/exclusive-or.html",
       "category": "Boolean",
       "description": "Computes the logical exclusive or (XOR) of the inputs. Both inputs must be Boolean values, numeric values, or error clusters. If both inputs are TRUE or both inputs are FALSE, the function returns FALSE. Otherwise, it returns TRUE. The connector pane displays the default data types for this polymorphic function.",
       "vi_path": null,
@@ -53,7 +53,7 @@
     },
     {
       "name": "Not Function",
-      "page": 635,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/not.html",
       "category": "Boolean",
       "description": "Computes the logical negation of the input. If x is FALSE, the function returns TRUE. If x is TRUE, the function returns FALSE. Note This function performs bitwise operations on numeric inputs. Functions © National Instruments 635 The connector pane displays the default data types for this polymorphic function.",
       "vi_path": null,
@@ -72,7 +72,7 @@
     },
     {
       "name": "Not And Function",
-      "page": 636,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/not-and.html",
       "category": "Boolean",
       "description": "Computes the logical NAND of the inputs. Both inputs must be Boolean values, numeric values, or error clusters. If both inputs are TRUE, the function returns FALSE. Otherwise, it returns TRUE. Note This function performs bitwise operations on numeric inputs. Functions 636 ni.com The connector pane displays the default data types for this polymorphic function.",
       "vi_path": null,
@@ -91,7 +91,7 @@
     },
     {
       "name": "Not Or Function",
-      "page": 638,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/not-or.html",
       "category": "Boolean",
       "description": "Computes the logical NOR of the inputs. Both inputs must be Boolean values, numeric values, or error clusters. If both inputs are FALSE, the function returns TRUE. Otherwise, it returns FALSE. The connector pane displays the default data types for this polymorphic function.",
       "vi_path": null,
@@ -110,7 +110,7 @@
     },
     {
       "name": "Not Exclusive Or Function",
-      "page": 639,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/not-exclusive-or.html",
       "category": "Boolean",
       "description": "Computes the logical negation of the logical exclusive or (XOR) of the inputs. Both inputs must be Boolean values, numeric values, or error clusters. If both inputs are TRUE or both inputs are FALSE, the function returns TRUE. Otherwise, it returns FALSE. The connector pane displays the default data types for this polymorphic function.",
       "vi_path": null,
@@ -121,7 +121,7 @@
     },
     {
       "name": "Implies Function",
-      "page": 640,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/implies.html",
       "category": "Boolean",
       "description": "Negates x and then computes the logical OR of y and the negated x. Both inputs must be Boolean values, numeric values, or error clusters. If x is TRUE and y is FALSE, the function returns FALSE. Otherwise, it returns TRUE. The connector pane displays the default data types for this polymorphic function.",
       "vi_path": null,
@@ -140,7 +140,7 @@
     },
     {
       "name": "And Array Elements Function",
-      "page": 641,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/and-array-elements.html",
       "category": "Boolean",
       "description": "Returns TRUE if all the elements in Boolean array are TRUE or if Boolean array is empty. Otherwise, the function returns FALSE. This function accepts an array of any size but returns only a single value based on all values in Boolean array. The connector pane displays the default data types for this polymorphic function. Functions © National Instruments 641",
       "vi_path": null,
@@ -166,7 +166,7 @@
     },
     {
       "name": "Number To Boolean Array Function",
-      "page": 642,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/number-to-boolean-array.html",
       "category": "Boolean",
       "description": "Converts an integer or fixed-point number to a Boolean array. If you wire an integer to number, Boolean array returns an array of 8, 16, 32, or 64 elements, depending on the Functions 642 ni.com number of bits in the integer. If you wire a fixed-point number to number, the size of the array that Boolean array returns equals the word length of the fixed-point number. The 0th element of the array corresponds to the least significant bit of the two's complement representation of the integer.",
       "vi_path": null,
@@ -192,7 +192,7 @@
     },
     {
       "name": "Or Array Elements Function",
-      "page": 642,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/or-array-elements.html",
       "category": "Boolean",
       "description": "Returns FALSE if all the elements in Boolean array are FALSE or if Boolean array is empty. Otherwise, the function returns TRUE. This function accepts an array of any size but returns only a single value based on all values in Boolean array. The connector pane displays the default data types for this polymorphic function.",
       "vi_path": null,
@@ -218,7 +218,7 @@
     },
     {
       "name": "Boolean Array To Number Function",
-      "page": 643,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/boolean-array-to-number.html",
       "category": "Boolean",
       "description": "Converts a Boolean array to an integer or a fixed-point number by interpreting the array as the binary representation of the number. The first element of the array corresponds to the least significant bit in the number.",
       "vi_path": null,
@@ -279,7 +279,7 @@
     },
     {
       "name": "Boolean To (0,1) Function",
-      "page": 644,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/boolean-to-0-1.html",
       "category": "Boolean",
       "description": "Converts a Boolean FALSE or TRUE value to a 16-bit integer with a value of 0 or 1, respectively. Functions 644 ni.com",
       "vi_path": null,

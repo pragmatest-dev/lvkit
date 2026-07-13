@@ -4,7 +4,7 @@
   "entries": [
     {
       "name": "For Loop",
-      "page": 331,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/structures/for-loop.html",
       "category": "Structures",
       "description": "Executes its subdiagram n times, where n is the value wired to the count (N) terminal. The iteration (i) terminal provides the current loop iteration count, which ranges from 0 to n-1. Functions © National Instruments 331 Terminal Inputs • —The count terminal specifies the number of times to execute the code inside the For Loop. If you wire 0 or a negative number to the count terminal, the loop does not execute. This terminal is displayed by default. • —(Optional) The parallel instances terminal",
       "vi_path": null,
@@ -15,7 +15,7 @@
     },
     {
       "name": "While Loop",
-      "page": 334,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/structures/while-loop.html",
       "category": "Structures",
       "description": "Repeats the code within its subdiagram until a specific condition occurs. A While Loop always executes at least one time. Components of a While Loop • —Subdiagram—Contains code that the While Loop executes once per iteration. • —Iteration Terminal (i)—Provides the current loop iteration count. The loop count always starts at zero for the first iteration. If the iteration count exceeds 2,147,483,647, or 231-1, the iteration terminal remains at 2,147,483,647 for all further iterations. If you need",
       "vi_path": null,
@@ -26,7 +26,6 @@
     },
     {
       "name": "Timed Structures",
-      "page": 335,
       "category": "Structures",
       "description": "Use the Timed Structures and VIs to control the rate and priority at which a timed structure executes its subdiagram, synchronize the start time of timed structures, create timing sources, and establish a hierarchy of timing sources. The VIs and functions on this palette can return Timed Loop Error Codes. Palette Object Description Timed Loop Executes one or more subdiagrams, or frames, sequentially each iteration of the loop at the period you specify. Use the Timed Loop when you want to develop",
       "vi_path": null,
@@ -37,7 +36,7 @@
     },
     {
       "name": "Timed Loop",
-      "page": 337,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/structures/timed-loop.html",
       "category": "Structures",
       "description": "Executes one or more subdiagrams, or frames, sequentially each iteration of the loop at the period you specify. Use the Timed Loop when you want to develop VIs with multirate timing capabilities, precise timing, feedback on loop execution, timing characteristics that change dynamically, or several levels of execution priority. Right- click the structure border to add, delete, insert, and merge frames. Components of a Timed Loop The iteration (i) terminal provides the current loop iteration count",
       "vi_path": null,
@@ -48,7 +47,7 @@
     },
     {
       "name": "Timed Sequence",
-      "page": 345,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/structures/timed-sequence.html",
       "category": "Structures",
       "description": "A Timed Sequence structure consists of one or more subdiagrams, or frames, timed by an internal or external timing source that execute sequentially. A Timed Sequence structure executes each frame only once and, unlike a Timed Loop, does not repeat iterations. Use the Timed Sequence structure when you want to develop VIs that execute only once with precise timing, execution feedback, timing characteristics that change dynamically, or several levels of execution priority. Right-click the Timed Seq",
       "vi_path": null,
@@ -59,7 +58,7 @@
     },
     {
       "name": "Create Timing Source",
-      "page": 350,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/platform/timedloop/scheduler/lvuserapi/create-timing-source-vi.html",
       "category": "Structures",
       "description": "Creates a 1 kHz, 1MHz, or software-triggered timing source you can use to control the execution of a timed structure. Each timing source has its own unit of timing and/or start time and does not start until the first timed structure that uses the timing source starts. You must manually select the polymorphic instance you want to use. • Create 1kHz Source • Create 1MHz Source • Create Software-Triggered Timing Source Create 1kHz Source Create 1kHz Source Creates a 1 kHz, 1MHz, or software-trigger",
       "vi_path": null,
@@ -99,7 +98,7 @@
     },
     {
       "name": "Fire Software-Triggered Timing Source",
-      "page": 352,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/platform/timedloop/scheduler/lvuserapi/fire-software-triggered-timing-source-vi.html",
       "category": "Structures",
       "description": "Fires a software-triggered timing source. Use the Create Timing Source VI to create a software-triggered timing source. Functions 352 ni.com",
       "vi_path": null,
@@ -146,7 +145,7 @@
     },
     {
       "name": "Clear Timing Source",
-      "page": 353,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/platform/timedloop/scheduler/lvuserapi/clear-timing-source-vi.html",
       "category": "Structures",
       "description": "Stops and deletes the timing source you created or specified for use by another resource. The VI clears the timing source when the current iterations of all active timed structures that reference the timing source complete. Functions © National Instruments 353 If the timing source is associated with a DAQmx task, the VI also clears the task.",
       "vi_path": null,
@@ -186,7 +185,7 @@
     },
     {
       "name": "Synchronize Timed Structure Starts",
-      "page": 354,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/platform/timedloop/scheduler/lvuserapi/synchronize-timed-structure-starts-vi.html",
       "category": "Structures",
       "description": "Synchronizes the start of Timed Loops or Timed Sequence structures you enter in timed structure names by adding the names to the synchronization group you specify in synchronization group name. All timed structures in a synchronization group wait until all the structures are ready to execute. Functions 354 ni.com",
       "vi_path": null,
@@ -240,7 +239,7 @@
     },
     {
       "name": "Stop Timed Structure",
-      "page": 356,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/platform/timedloop/scheduler/lvuserapi/stop-timed-structure-vi.html",
       "category": "Structures",
       "description": "Aborts the execution of the Timed Loop or Timed Sequence structure you enter in name. If you attempt to abort a running Timed Loop, the Timed Loop immediately executes the current iteration and returns Aborted in the Wakeup Reason output of the Left Data node. Related Information Aborting the Execution of a Timed Structure (Real-Time, Windows)",
       "vi_path": null,
@@ -287,7 +286,7 @@
     },
     {
       "name": "Build Timing Source Hierarchy",
-      "page": 357,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/platform/timedloop/scheduler/lvuserapi/build-timing-source-hierarchy-vi.html",
       "category": "Structures",
       "description": "Creates a hierarchy of timing sources based on the names you enter in timing source names.",
       "vi_path": null,
@@ -341,7 +340,7 @@
     },
     {
       "name": "Case Structure",
-      "page": 358,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/structures/case-structure.html",
       "category": "Structures",
       "description": "Contains one or more subdiagrams, or cases, exactly one of which executes when the structure executes. The value wired to the case selector determines which case to execute. Functions 358 ni.com Components of a Case Structure • Selector label—Displays the value(s) for which the associated case executes. You can specify a single value or a range of values. You also can use the selector label to specify a default case. • Subdiagram(case)—Contains the code that executes when the value wired to the ",
       "vi_path": null,
@@ -352,7 +351,6 @@
     },
     {
       "name": "Event Structure",
-      "page": 360,
       "category": "Structures",
       "description": "Waits until an event occurs, then executes the appropriate case to handle that event. The Event structure has one or more subdiagrams, or event cases, exactly one of which executes when the structure executes to handle an event. This structure can time out while waiting for notification of an event. Wire a value to the Timeout terminal at the top left of the Event structure to specify the number of milliseconds the Event structure waits for an event. The default is -1, which indicates never to t",
       "vi_path": null,
@@ -363,7 +361,7 @@
     },
     {
       "name": "In Place Element Structure",
-      "page": 363,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/structures/in-place-element-structure.html",
       "category": "Structures",
       "description": "Controls how the LabVIEW compiler performs certain operations and, in some cases, increases memory and VI efficiency. Use the In Place Element structure when you operate on a data element within an array, cluster, variant, or waveform without requiring the LabVIEW compiler to copy data values and maintain those values in memory. You also can use this structure to operate on any data type that you want to maintain within the same data space in memory. Right-click the border of the structure and s",
       "vi_path": null,
@@ -417,7 +415,7 @@
     },
     {
       "name": "Array Index / Replace Elements",
-      "page": 364,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/array-index-replace-elements.html",
       "category": "Structures",
       "description": "Right-click the border of an In Place Element structure and select the Add Array Index / Replace Elements option from the shortcut menu to place this border node on the In Place Element structure.",
       "vi_path": null,
@@ -471,7 +469,7 @@
     },
     {
       "name": "Unbundle / Bundle Elements",
-      "page": 365,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/unbundle-bundle-elements.html",
       "category": "Structures",
       "description": "Right-click the border of an In Place Element structure and select the Add Unbundle / Bundle Elements option from the shortcut menu to place this border node on the In Place Element structure.",
       "vi_path": null,
@@ -511,7 +509,7 @@
     },
     {
       "name": "Variant To / From Element",
-      "page": 366,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/variant-to-from-element.html",
       "category": "Structures",
       "description": "Right-click the border of an In Place Element structure and select the Add Variant To / From Element option from the shortcut menu to place this border node on the In Place Element structure.",
       "vi_path": null,
@@ -572,7 +570,7 @@
     },
     {
       "name": "In Place In / Out Element",
-      "page": 367,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/in-place-in-out-element.html",
       "category": "Structures",
       "description": "Right-click the border of an In Place Element structure and select the Add In Place In / Out Element option from the shortcut menu to place this border node on the In Place Element structure.",
       "vi_path": null,
@@ -583,7 +581,7 @@
     },
     {
       "name": "Waveform Unbundle / Bundle Elements",
-      "page": 368,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/waveform-unbundle-bundle-elements.html",
       "category": "Structures",
       "description": "Right-click the border of an In Place Element structure and select the Add Waveform Unbundle / Bundle Elements option from the shortcut menu to place this border node on the In Place Element structure.",
       "vi_path": null,
@@ -609,7 +607,7 @@
     },
     {
       "name": "Data Value Reference Read / Write Element",
-      "page": 369,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/data-value-reference-read-write-element.html",
       "category": "Structures",
       "description": "Accepts a data value reference or an external data value reference as an input, allows you to operate on the data within the In Place Element structure, and replaces that data in the original memory space. You can enable read-only access to the data value reference by right-clicking the border node on the right of the structure and selecting Allow Parallel Read-only Access. When the border node on the right is unwired, LabVIEW allows multiple, concurrent read-only operations and does not modify ",
       "vi_path": null,
@@ -663,7 +661,7 @@
     },
     {
       "name": "Array Split / Replace Subarrays",
-      "page": 371,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/array-split-replace-subarrays.html",
       "category": "Structures",
       "description": "Split an array into subarrays along a dimension you specify and operate on the subarrays in place within the structure. Right-click the border of an In Place Element structure and select the Add Array Split / Replace Subarrays option from the shortcut menu to place this border node on the In Place Element structure.",
       "vi_path": null,
@@ -724,7 +722,7 @@
     },
     {
       "name": "Variant Attribute Get / Replace",
-      "page": 372,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/variant-attribute-get-replace.html",
       "category": "Structures",
       "description": "Right-click the border of an In Place Element structure and select the Add Variant Attribute Get / Replace option from the shortcut menu to place this border node on the In Place Element structure.",
       "vi_path": null,
@@ -792,7 +790,7 @@
     },
     {
       "name": "Map Get / Replace Value",
-      "page": 374,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/map-get-replace-value.html",
       "category": "Structures",
       "description": "Use this border node to access and modify a value in a map without copying the value out of the map. Use the border node on the left side of the structure to retrieve a value in a map. Use the border node on the right side of the structure to modify or discard the retrieved value. To place this border node on the In Place Element structure, right-click the border of an In Place Element structure and select the Add Map Get / Replace Value option from the shortcut menu. Alternatively, you can use ",
       "vi_path": null,
@@ -880,7 +878,7 @@
     },
     {
       "name": "Flat Sequence Structure",
-      "page": 376,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/structures/flat-sequence.html",
       "category": "Structures",
       "description": "Consists of one or more subdiagrams, or frames, that execute sequentially. Use the Flat Sequence structure to ensure that a subdiagram executes before or after another subdiagram. Data flow for the Flat Sequence structure differs from data flow for other structures. Frames in a Flat Sequence structure execute from left to right and when all data values wired to a frame are available. The data leaves each frame as the frame finishes executing. This means the input of one frame can depend on the o",
       "vi_path": null,
@@ -891,7 +889,7 @@
     },
     {
       "name": "Diagram Disable Structure",
-      "page": 378,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/structures/diagram-disable-structure.html",
       "category": "Structures",
       "description": "Has one or more subdiagrams, or cases, of which only the Enabled subdiagram executes. Use the Diagram Disable structure to disable a section of the block diagram. Place a Diagram Disable structure around the code you want to disable. In the Enabled Functions 378 ni.com subdiagram, include any code that you want to enable in place of the code in the Disabled subdiagram. After you create a Diagram Disable structure, you can add, duplicate, rearrange, or delete the subdiagrams. To scroll through th",
       "vi_path": null,
@@ -902,7 +900,7 @@
     },
     {
       "name": "Formula Node",
-      "page": 378,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/formula-node.html",
       "category": "Structures",
       "description": "Evaluates mathematical formulas and expressions similar to C on the block diagram. The following built-in functions are allowed in formulas: abs, acos, acosh, asin, asinh, atan, atan2, atanh, ceil, cos, cosh, cot, csc, exp, expm1, floor, getexp, getman, int, intrz, ln, lnp1, log, log2, max, min, mod, pow, rand, rem, sec, sign, sin, sinc, sinh, sizeOfDim, sqrt, tan, tanh. There are some differences between the parser in the Mathematics VIs and the Formula Node. Refer to Creating Formula Nodes and",
       "vi_path": null,
@@ -913,7 +911,7 @@
     },
     {
       "name": "Conditional Disable Structure",
-      "page": 379,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/structures/conditional-disable-structure.html",
       "category": "Structures",
       "description": "Has one or more subdiagrams, exactly one of which LabVIEW uses for the duration of execution, depending on the configuration of the conditions of the subdiagram. Use this structure when you want to disable specific sections of code on the block diagram based on some user-defined condition. Right-click the structure border to add or delete a subdiagram. When you add a subdiagram or right-click the structure border and select Edit Condition For This Subdiagram from the shortcut menu, you can Funct",
       "vi_path": null,
@@ -924,7 +922,7 @@
     },
     {
       "name": "Type Specialization Structure",
-      "page": 380,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/structures/type-specialization-structure.html",
       "category": "Structures",
       "description": "Has one or more subdiagrams, exactly one of which LabVIEW compiles and executes, depending on the order and the compilation result of the subdiagram. LabVIEW Functions 380 ni.com declines subdiagrams in order if they have syntax errors. LabVIEW accepts the first subdiagram that does not have syntax errors and ignores the remaining subdiagrams. If all subdiagrams have syntax errors, this structure accepts the last subdiagram. Syntax errors are errors within the structure, such as broken wires, no",
       "vi_path": null,
@@ -950,7 +948,7 @@
     },
     {
       "name": "Shared Variable",
-      "page": 382,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/shared-variable.html",
       "category": "Structures",
       "description": "Represents a shared variable on the block diagram. To bind a Shared Variable node to a shared variable from the active project, add a Shared Variable node to the block diagram and double-click or right-click the node and select Select Variable>>Browse from the shortcut menu to display the Browse for Variable dialog box. You also can drag a shared variable from the Project Explorer window onto the block diagram of a VI in the same project to create a Shared Variable node.",
       "vi_path": null,
@@ -997,7 +995,7 @@
     },
     {
       "name": "Global Variable",
-      "page": 385,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/global-variable.html",
       "category": "Structures",
       "description": "Use global variables to access and pass data among several VIs. When you create a global variable, LabVIEW automatically creates a special global VI, which has a front panel but no block diagram. Note You can right-click a Shared Variable node and select Replace with Programmatic Access from the shortcut menu to switch to programmatic access. By using programmatic shared variable access, you can create clean, scalable block diagrams. Functions © National Instruments 385",
       "vi_path": null,
@@ -1008,7 +1006,7 @@
     },
     {
       "name": "Local Variable",
-      "page": 385,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/local-variable.html",
       "category": "Structures",
       "description": "Use local variables to read or write to one of the controls or indicators on the front panel of a VI. When you create a local variable, a local variable icon for the object appears on the block diagram. Writing to a local variable is similar to passing data to any other terminal. However, you can write to a local variable even if it is a control or read from a local variable even if it is an indicator. In effect, with a local variable, you can access a front panel object as both an input and an ",
       "vi_path": null,
@@ -1019,7 +1017,7 @@
     },
     {
       "name": "Feedback Node",
-      "page": 386,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/feedback-node.html",
       "category": "Structures",
       "description": "Stores data from one VI execution or loop iteration to the next. A Feedback Node is analogous to a z-1 block in feedback control theory and digital signal processing. You can change the appearance of the Feedback Node to look like that of a z-1 block by right-clicking the Feedback Node and selecting Z-Transform View from the shortcut menu. Changing the appearance to z-transform view, shown as follows, changes only the cosmetic appearance of the Feedback Node. The Feedback Node uses the value you",
       "vi_path": null,

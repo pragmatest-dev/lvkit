@@ -4,7 +4,7 @@
   "entries": [
     {
       "name": "Call Library Function Node",
-      "page": 5530,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/call-library-function-node.html",
       "category": "Connectivity",
       "description": "Calls a DLL or shared library function directly. The Call Library Function Node is expandable and shows data types for the wired inputs and outputs, similar to the Bundle function. You can configure the Call Library Function Node to specify the library, function, parameters, return value for the node, calling conventions, and function callbacks.",
       "vi_path": null,
@@ -44,7 +44,7 @@
     },
     {
       "name": "System Exec",
-      "page": 5532,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/platform/system-llb/system-exec-vi.html",
       "category": "Connectivity",
       "description": "Executes a system command. Use the System Exec VI to execute or launch other Windows–based applications, command-line applications, (Windows) batch files, or Note LabVIEW reserves Windows messages WM_USER through WM_USER+99 for internal use only. Functions 5532 ni.com (macOS and Linux) script files from within VIs. With the System Exec VI, you can include any parameters within your command string that the executing command supports.",
       "vi_path": null,
@@ -91,7 +91,7 @@
     },
     {
       "name": "Run AppleScript Code",
-      "page": 5535,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/platform/run-applescript-code-vi.html",
       "category": "Connectivity",
       "description": "Executes AppleScript code to communicate with external macOS applications from LabVIEW. AppleScript is a scripting language that enables you to control macOS applications as well as different parts of the OS. Use the Run AppleScript Code VI to request actions or return information from macOS applications external to LabVIEW using AppleScript code. For example, you can use this VI to communicate with Finder to set window settings or export data to a Microsoft Excel file.",
       "vi_path": null,
@@ -145,7 +145,7 @@
     },
     {
       "name": "Open Pipe",
-      "page": 5537,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/platform/system-llb/open-pipe-vi.html",
       "category": "Connectivity",
       "description": "Opens a named pipe and returns file descriptor, which you pass to subsequent Pipes VIs. A named pipe is a special file that can be used to communicate between separate Linux processes. Unlike a normal file, you must open a pipe in read mode, usually from another process or application, before you open the pipe in write mode so data written to the pipe can be passed to the reading process. Otherwise, an I/O error occurs and the open process fails. Functions © National Instruments 5537",
       "vi_path": null,
@@ -192,7 +192,7 @@
     },
     {
       "name": "Open System Command Pipe",
-      "page": 5538,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/platform/system-llb/open-system-command-pipe-vi.html",
       "category": "Connectivity",
       "description": "Opens a pipe to a system shell command and returns file descriptors that you can pass to subsequent Pipes VIs. You must use the Close Pipe VI to close all returned file descriptors. Functions 5538 ni.com",
       "vi_path": null,
@@ -267,7 +267,7 @@
     },
     {
       "name": "Close Pipe",
-      "page": 5540,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/platform/system-llb/close-pipe-vi.html",
       "category": "Connectivity",
       "description": "Closes a pipe. Other processes reading the pipe will receive EOF (end-of-file).",
       "vi_path": null,
@@ -307,7 +307,7 @@
     },
     {
       "name": "Read From Pipe",
-      "page": 5540,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/platform/system-llb/read-from-pipe-vi.html",
       "category": "Connectivity",
       "description": "Reads a number of bytes from a pipe, returning the results in the data string output. For this VI, you must have opened the pipe as a read pipe. The VI does not wait for data, so if the amount of data is not available, the VI returns any available data. Functions 5540 ni.com",
       "vi_path": null,
@@ -375,7 +375,7 @@
     },
     {
       "name": "Write To Pipe",
-      "page": 5541,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/platform/system-llb/write-to-pipe-vi.html",
       "category": "Connectivity",
       "description": "Writes a data string to a pipe. For this VI, you must have opened the pipe as a write pipe. Functions © National Instruments 5541",
       "vi_path": null,
@@ -429,7 +429,7 @@
     },
     {
       "name": "SCC Compare VIs",
-      "page": 5563,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/sourcecontrol/sccapi/scc-compare-vis-vi.html",
       "category": "Connectivity",
       "description": "Returns the difference between the specified VI and by default, the latest version of the VI in source control. Use this VI with LabVIEW file types, such as VIs, control, and global variables. The VI returns an error if you specify file types not specific to LabVIEW, such as text files or HTML files. Use the SCC Compare Files VI to compare text or binary files.",
       "vi_path": null,
@@ -560,7 +560,7 @@
     },
     {
       "name": "Read Form Data",
-      "page": 5568,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/wsapi/class/read-form-data-vi.html",
       "category": "Connectivity",
       "description": "Reads a single form data value associated with the current HTTP request. Use this VI for requests that use the multipart/form-data encoding type. Note For more information about concepts in this topic, refer to the Web services introduction and tutorial. Functions 5568 ni.com",
       "vi_path": null,
@@ -621,7 +621,6 @@
     },
     {
       "name": "Related Information",
-      "page": 5568,
       "category": "Connectivity",
       "description": "",
       "vi_path": null,
@@ -682,7 +681,7 @@
     },
     {
       "name": "Read All Form Data",
-      "page": 5570,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/wsapi/class/read-all-form-data-vi.html",
       "category": "Connectivity",
       "description": "Reads the form data values received from the specified HTTP request. This VI processes that form data and assigns those values to elements in 1D arrays. Use this VI for requests that use the multipart/form-data encoding type.",
       "vi_path": null,
@@ -743,7 +742,7 @@
     },
     {
       "name": "Read Uploaded Files Info",
-      "page": 5571,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/wsapi/class/read-uploaded-files-info-vi.html",
       "category": "Connectivity",
       "description": "Returns an array of clusters that contains information about all uploaded files associated with the specified HTTP request. This information includes the client filename, the path to the temporary storage location, the content type, and the size in bytes.",
       "vi_path": null,
@@ -818,7 +817,7 @@
     },
     {
       "name": "Read Postdata",
-      "page": 5573,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/wsapi/class/read-postdata-vi.html",
       "category": "Connectivity",
       "description": "Reads any POST data associated with the current HTTP request. This VI does not handle POST data with the multipart/form-data encoding type. Use the Read Form Data VI to handle this encoding type.",
       "vi_path": null,
@@ -858,7 +857,7 @@
     },
     {
       "name": "Read Request Variable",
-      "page": 5574,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/wsapi/class/read-request-variable-vi.html",
       "category": "Connectivity",
       "description": "Returns the value for a single request variable associated with the current HTTP request. Web services include over 30 request variables that provide information such as server label, remote address, and cache control related to an HTTP request.",
       "vi_path": null,
@@ -912,7 +911,7 @@
     },
     {
       "name": "Read All Request Variables",
-      "page": 5575,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/wsapi/class/read-all-request-variables-vi.html",
       "category": "Connectivity",
       "description": "Reads all request variables associated with the current HTTP request. Web services include over 30 request variables that provide information such as server label, remote address, and cache control related to an HTTP request.",
       "vi_path": null,
@@ -931,7 +930,7 @@
     },
     {
       "name": "Get Auth Details for NI Web Server",
-      "page": 5577,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/wsapi/class/get-auth-details-for-ni-web-server-vi.html",
       "category": "Connectivity",
       "description": "Returns the authentication details associated with the current HTTP request. The authentication details indicate which user account is logged in to the NI Web Server.",
       "vi_path": null,
@@ -964,7 +963,7 @@
     },
     {
       "name": "Read Service Attribute",
-      "page": 5579,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/wsapi/class/read-service-attribute-vi.html",
       "category": "Connectivity",
       "description": "Returns information about the current Web service. Use this VI to programmatically access the contents of the public and private folders of the Web service.",
       "vi_path": null,
@@ -1018,7 +1017,7 @@
     },
     {
       "name": "Get Web Service Status",
-      "page": 5580,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/wsapi/class/get-web-service-status-vi.html",
       "category": "Connectivity",
       "description": "Returns whether or not the Web service is stopping. Use this VI in a startup VI to monitor the execution of the Web service and to stop the startup VI when the Web service stops. Note For more information about concepts in this topic, refer to the Web services introduction and tutorial. Functions 5580 ni.com",
       "vi_path": null,
@@ -1065,7 +1064,7 @@
     },
     {
       "name": "Set HTTP Response MIME Type",
-      "page": 5583,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/wsapi/class/set-http-response-mime-type-vi.html",
       "category": "Connectivity",
       "description": "Sets the MIME response type for the current HTTP request. The MIME is a standard method used to indicate the format of the response including text, images, or other application-specific data.",
       "vi_path": null,
@@ -1105,7 +1104,7 @@
     },
     {
       "name": "Set HTTP Response Code",
-      "page": 5584,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/wsapi/class/set-http-response-code-vi.html",
       "category": "Connectivity",
       "description": "Sets the HTTP status code to return to the Web client for the current HTTP request. The response code indicates the outcome or status of the request. The default is HTTP code 200, which indicates a successful request.",
       "vi_path": null,
@@ -1152,7 +1151,7 @@
     },
     {
       "name": "Set HTTP Redirect",
-      "page": 5585,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/wsapi/class/set-http-redirect-vi.html",
       "category": "Connectivity",
       "description": "Sets an HTTP header in the response stream of the current HTTP request that redirects the Web client to another URL. You must configure the HTTP method VI to use streaming.",
       "vi_path": null,
@@ -1171,7 +1170,7 @@
     },
     {
       "name": "Set HTTP Header",
-      "page": 5586,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/wsapi/class/set-http-header-vi.html",
       "category": "Connectivity",
       "description": "Sets an HTTP header in the response stream of the current HTTP request. The top-level VI must be configured to use streaming. Refer to the World Wide Web Consortium website at www.w3.org for header field definitions along with example headers, descriptions, and syntax. Note For more information about concepts in this topic, refer to the Web services introduction and tutorial. Functions 5586 ni.com",
       "vi_path": null,
@@ -1225,7 +1224,7 @@
     },
     {
       "name": "Write Response",
-      "page": 5588,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/wsapi/class/write-response-vi.html",
       "category": "Connectivity",
       "description": "Writes a streaming response string for top-level VIs configured to use stream output mode on the HTTP Method VI Settings page of the Web Service Properties dialog box. You can write the response to a buffer in memory or to the socket, and the response can be either buffered or unbuffered. If the response is buffered, use the Flush Output VI after this VI to send any remaining data that remains in the buffer. The status of error in does not affect the functionality of this VI.",
       "vi_path": null,
@@ -1272,7 +1271,7 @@
     },
     {
       "name": "Flush Output",
-      "page": 5589,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/wsapi/class/flush-output-vi.html",
       "category": "Connectivity",
       "description": "Sends any remaining data written by the Write Response VI from the buffer to the socket. Use this VI when the top-level VI is configured to use streaming and buffering on the HTTP Method VI Settings page of the Web Service Properties dialog box. The status of error in does not affect the functionality of this VI.",
       "vi_path": null,
@@ -1298,7 +1297,7 @@
     },
     {
       "name": "Escape HTTP URL",
-      "page": 5591,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/wsapi/vis/escape-http-url-vi.html",
       "category": "Connectivity",
       "description": "Replaces special characters with the appropriate escape sequences according to the URL encoding specification RFC 1738.",
       "vi_path": null,
@@ -1324,7 +1323,7 @@
     },
     {
       "name": "Unescape HTTP URL",
-      "page": 5591,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/wsapi/vis/unescape-http-url-vi.html",
       "category": "Connectivity",
       "description": "Replaces escape sequences with the corresponding special characters according to the URL encoding specification RFC 1738.",
       "vi_path": null,
@@ -1350,7 +1349,6 @@
     },
     {
       "name": "Application Web Server",
-      "page": 5597,
       "category": "Connectivity",
       "description": "Use the Application Web Server VIs to support Web services deployed to the Application Web Server. Functions © National Instruments 5597 Palette Object Description Output Use the Output VIs to configure Embedded Server Pages (ESP) scripting on the Application Web Server. These VIs work only when you publish Web services to the Application Web Server. Sessions Use the Sessions VIs to manage HTTP sessions and session variables. You can create and destroy HTTP sessions, read and write session varia",
       "vi_path": null,
@@ -1361,7 +1359,7 @@
     },
     {
       "name": "Constructor Node",
-      "page": 5640,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/constructor-node.html",
       "category": "Connectivity",
       "description": "Creates an instance of a .NET object. This node identifies the constructor from which to create a .NET object. Functions 5640 ni.com",
       "vi_path": null,
@@ -1408,7 +1406,7 @@
     },
     {
       "name": "Property Node (.NET)",
-      "page": 5641,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/platform/mergedotnetpropnode-vi.html",
       "category": "Connectivity",
       "description": "Gets (reads) and/or sets (writes) properties of a reference. Tip If you encounter problems loading a particular assembly or accessing objects in an assembly, debug the assembly call or use the .NET Assemblies in Memory dialog box to verify that the correct version of the assembly is in memory. Functions © National Instruments 5641 The Property Node (.NET) is preconfigured to access VISA properties, .NET properties, and ActiveX properties. The node operates in the same way as a standard Property ",
       "vi_path": null,
@@ -1504,7 +1502,7 @@
     },
     {
       "name": "Invoke Node (.NET)",
-      "page": 5643,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/platform/mergedotnetinvokenode-vi.html",
       "category": "Connectivity",
       "description": "Invokes a method or action on a reference. Most methods have associated parameters. The node operates in the same way as a standard Invoke Node.",
       "vi_path": null,
@@ -1565,7 +1563,7 @@
     },
     {
       "name": "Close Reference Function",
-      "page": 5644,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/close-reference.html",
       "category": "Connectivity",
       "description": "Closes a refnum associated with an open VI, VI object, an open application instance, or a .NET, ActiveX or Python object.",
       "vi_path": null,
@@ -1626,7 +1624,7 @@
     },
     {
       "name": "To More Generic Class Function",
-      "page": 5645,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/to-more-generic-class.html",
       "category": "Connectivity",
       "description": "Typecasts a reference, such as a control or a type definition, to a more generic class or interface in the inheritance hierarchy. For example, if Class A inherits from Class B, the function upcasts a variable of type A to a variable of type B. You can use the To More Generic Class function for casting any class hierarchy in LabVIEW, including VI Server refnums, .NET/ActiveX refnums, and LabVIEW classes or interfaces.",
       "vi_path": null,
@@ -1659,7 +1657,7 @@
     },
     {
       "name": "To More Specific Class Function",
-      "page": 5646,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/to-more-specific-class.html",
       "category": "Connectivity",
       "description": "Typecasts a reference, such as a control or a type definition, to a more specific class or interface in the inheritance hierarchy. For example, if Class A inherits from Class B, a variable of type B can hold a value of type A. You can use the function to downcast from type B to type A. If the typecast is invalid, this function returns an error at run time. You can use the To More Specific Class function for casting any class hierarchy in LabVIEW, including VI Server refnums, .NET/ActiveX refnums",
       "vi_path": null,
@@ -1706,7 +1704,7 @@
     },
     {
       "name": "To .NET Object",
-      "page": 5648,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/platform/dotnet-llb/to-net-object-vi.html",
       "category": "Connectivity",
       "description": "Converts a LabVIEW data type to a .NET object. You can convert numeric (except extended precision and complex), string, Boolean, timestamp, path, .NET refnum, and array data types. Functions 5648 ni.com",
       "vi_path": null,
@@ -1746,7 +1744,7 @@
     },
     {
       "name": "Register Event Callback",
-      "page": 5649,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/register-event-callback.html",
       "category": "Connectivity",
       "description": "Registers a VI to be called when an event occurs. You use this function to register and handle .NET and ActiveX events. LabVIEW uses the type of the input reference wired to each item to determine the events for which you can register. You can resize the function to register multiple event callbacks at once for the same .NET or ActiveX object or for a different object. Note If you wire Register Event Callback functions together by wiring the event callback ref out output of one function to the e",
       "vi_path": null,
@@ -1828,7 +1826,7 @@
     },
     {
       "name": "Unregister For Events Function",
-      "page": 5651,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/unregister-for-events.html",
       "category": "Connectivity",
       "description": "Unregisters all events associated with an event registration refnum. Event structures that use this event registration refnum no longer receive any dynamic events. National Instruments recommends that you unregister for events when you no longer need to handle them. If you do not unregister for events, LabVIEW continues to generate and queue the events as long as the VI runs, even if no Event structure is waiting to handle them, which consumes memory and can hang the VI if you enable front panel",
       "vi_path": null,
@@ -1861,7 +1859,7 @@
     },
     {
       "name": "Static VI Reference",
-      "page": 5652,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/static-vi-reference.html",
       "category": "Connectivity",
       "description": "Maintains a static reference to a VI. You can configure the Static VI Reference function to output a generic or strictly typed VI reference. After you place the Static VI Reference function on a block diagram, double-click the function to display a file dialog box where you can select a VI.",
       "vi_path": null,
@@ -1872,7 +1870,7 @@
     },
     {
       "name": "Initialize Joystick",
-      "page": 5655,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/inputdevices-llb/initialize-joystick-vi.html",
       "category": "Connectivity",
       "description": "Opens a reference to and initializes a joystick device at the index you specify. (Windows) You must have DirectX 8.0 or later to use this VI.",
       "vi_path": null,
@@ -1912,7 +1910,7 @@
     },
     {
       "name": "Initialize Keyboard",
-      "page": 5655,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/inputdevices-llb/intialize-keyboard-vi.html",
       "category": "Connectivity",
       "description": "Opens a reference to and initializes the keyboard connected to the computer. Functions © National Instruments 5655 (Windows) You must have DirectX 8.0 or later to use this VI.",
       "vi_path": null,
@@ -1945,7 +1943,7 @@
     },
     {
       "name": "Initialize Mouse",
-      "page": 5656,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/inputdevices-llb/initialize-mouse-vi.html",
       "category": "Connectivity",
       "description": "Opens a reference to and initializes the mouse connected to the computer. (Windows) You must have DirectX 8.0 or later to use this VI.",
       "vi_path": null,
@@ -1978,7 +1976,7 @@
     },
     {
       "name": "Query Input Devices",
-      "page": 5657,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/inputdevices-llb/query-input-devices-vi.html",
       "category": "Connectivity",
       "description": "Obtains information about the devices connected to the computer. (Windows) You must have DirectX 8.0 or later to use this VI.",
       "vi_path": null,
@@ -2025,7 +2023,7 @@
     },
     {
       "name": "Acquire Input Data",
-      "page": 5659,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/inputdevices-llb/acquire-input-data-vi.html",
       "category": "Connectivity",
       "description": "Returns data about the device connected to the computer. Wire data to the device ID input to determine the polymorphic instance to use or manually select the instance. (Windows) You must have DirectX 8.0 or later to use this VI. • joystickAcquire VI • keyboardAcquire VI • mouseAcquire VI Examples Refer to the following example files included with LabVIEW. • labview\\examples\\Connectivity\\Input Device Control\\ Monitoring Keyboard and Mouse Activity.vi joystickAcquire VI joystickAcquire VI Returns ",
       "vi_path": null,
@@ -2191,7 +2189,7 @@
     },
     {
       "name": "joystickAcquire VI",
-      "page": 5659,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/inputdevices-llb/joystickacquire-vi.html",
       "category": "Connectivity",
       "description": "Returns data about the device connected to the computer. Wire data to the device ID input to determine the polymorphic instance to use or manually select the instance. (Windows) You must have DirectX 8.0 or later to use this VI. Functions © National Instruments 5659",
       "vi_path": null,
@@ -2357,7 +2355,7 @@
     },
     {
       "name": "keyboardAcquire VI",
-      "page": 5663,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/inputdevices-llb/keyboardacquire-vi.html",
       "category": "Connectivity",
       "description": "Returns data about the device connected to the computer. Wire data to the device ID input to determine the polymorphic instance to use or manually select the instance. (Windows) You must have DirectX 8.0 or later to use this VI. Functions © National Instruments 5663",
       "vi_path": null,
@@ -2476,7 +2474,7 @@
     },
     {
       "name": "mouseAcquire VI",
-      "page": 5664,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/inputdevices-llb/mouseacquire-vi.html",
       "category": "Connectivity",
       "description": "Returns data about the device connected to the computer. Wire data to the device ID input to determine the polymorphic instance to use or manually select the instance. (Windows) You must have DirectX 8.0 or later to use this VI. Functions 5664 ni.com",
       "vi_path": null,
@@ -2553,7 +2551,7 @@
     },
     {
       "name": "Close Input Device",
-      "page": 5666,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/inputdevices-llb/close-input-device-vi.html",
       "category": "Connectivity",
       "description": "Closes the device you specify in device ID. Wire data to the device ID input to determine the polymorphic instance to use or manually select the instance. (Windows) You must have DirectX 8.0 or later to use this VI. • closeJoystick VI • closeKeyboard VI • closeMouse VI Functions 5666 ni.com Examples Refer to the following example files included with LabVIEW. • labview\\examples\\Connectivity\\Input Device Control\\ Monitoring Keyboard and Mouse Activity.vi closeJoystick VI closeJoystick VI Closes th",
       "vi_path": null,
@@ -2593,7 +2591,7 @@
     },
     {
       "name": "closeJoystick VI",
-      "page": 5667,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/inputdevices-llb/closejoystick-vi.html",
       "category": "Connectivity",
       "description": "Closes the device you specify in device ID. Wire data to the device ID input to determine the polymorphic instance to use or manually select the instance. (Windows) You must have DirectX 8.0 or later to use this VI.",
       "vi_path": null,
@@ -2633,7 +2631,7 @@
     },
     {
       "name": "closeKeyboard VI",
-      "page": 5668,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/inputdevices-llb/closekeyboard-vi.html",
       "category": "Connectivity",
       "description": "Closes the device you specify in device ID. Wire data to the device ID input to determine the polymorphic instance to use or manually select the instance. (Windows) You must have DirectX 8.0 or later to use this VI.",
       "vi_path": null,
@@ -2701,7 +2699,7 @@
     },
     {
       "name": "closeMouse VI",
-      "page": 5668,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/inputdevices-llb/closemouse-vi.html",
       "category": "Connectivity",
       "description": "Closes the device you specify in device ID. Wire data to the device ID input to determine the polymorphic instance to use or manually select the instance. (Windows) You must have DirectX 8.0 or later to use this VI. Functions 5668 ni.com",
       "vi_path": null,
@@ -2741,7 +2739,7 @@
     },
     {
       "name": "Automation Open Function",
-      "page": 5670,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/automation-open.html",
       "category": "Connectivity",
       "description": "Returns an automation refnum, which points to a specific ActiveX object. Functions 5670 ni.com",
       "vi_path": null,
@@ -2795,7 +2793,7 @@
     },
     {
       "name": "Close Reference Function",
-      "page": 5672,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/close-reference.html",
       "category": "Connectivity",
       "description": "Closes a refnum associated with an open VI, VI object, an open application instance, or a .NET, ActiveX or Python object.",
       "vi_path": null,
@@ -2856,7 +2854,7 @@
     },
     {
       "name": "To Variant Function",
-      "page": 5673,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/to-variant.html",
       "category": "Connectivity",
       "description": "Converts any LabVIEW data to variant data. You also can use this function to convert ActiveX data to variant data.",
       "vi_path": null,
@@ -2882,7 +2880,7 @@
     },
     {
       "name": "Variant To Data Function",
-      "page": 5673,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/variant-to-data.html",
       "category": "Connectivity",
       "description": "Converts variant data to a LabVIEW data type so LabVIEW can display or process the data. You also can use this function to convert variant data to ActiveX data. Functions © National Instruments 5673",
       "vi_path": null,
@@ -2964,7 +2962,7 @@
     },
     {
       "name": "Property Node (ActiveX)",
-      "page": 5675,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/platform/mergeactivexpropnode-vi.html",
       "category": "Connectivity",
       "description": "Gets (reads) and/or sets (writes) properties of a reference. The Property Node (ActiveX) is preconfigured to access ActiveX properties. The node operates in the same way as a standard Property Node.",
       "vi_path": null,
@@ -3011,7 +3009,7 @@
     },
     {
       "name": "Invoke Node (ActiveX)",
-      "page": 5676,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/platform/mergeactivexinvokenode-vi.html",
       "category": "Connectivity",
       "description": "Invokes a method or action on a reference. Most methods have associated parameters. The node operates in the same way as a standard Invoke Node.",
       "vi_path": null,
@@ -3072,7 +3070,7 @@
     },
     {
       "name": "Register Event Callback",
-      "page": 5677,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/register-event-callback.html",
       "category": "Connectivity",
       "description": "Registers a VI to be called when an event occurs. You use this function to register and handle .NET and ActiveX events. LabVIEW uses the type of the input reference wired to each item to determine the events for which you can register. You can resize the function to register multiple event callbacks at once for the same .NET or ActiveX object or for a different object. Note If you wire Register Event Callback functions together by wiring the event callback ref out output of one function to the e",
       "vi_path": null,
@@ -3154,7 +3152,7 @@
     },
     {
       "name": "Unregister For Events Function",
-      "page": 5679,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/unregister-for-events.html",
       "category": "Connectivity",
       "description": "Unregisters all events associated with an event registration refnum. Event structures that use this event registration refnum no longer receive any dynamic events. National Instruments recommends that you unregister for events when you no longer need to handle them. If you do not unregister for events, LabVIEW continues to generate and queue the events as long as the VI runs, even if no Event structure is waiting to handle them, which consumes memory and can hang the VI if you enable front panel",
       "vi_path": null,
@@ -3187,7 +3185,7 @@
     },
     {
       "name": "Static VI Reference",
-      "page": 5680,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/static-vi-reference.html",
       "category": "Connectivity",
       "description": "Maintains a static reference to a VI. You can configure the Static VI Reference function to output a generic or strictly typed VI reference. After you place the Static VI Reference function on a block diagram, double-click the function to display a file dialog box where you can select a VI.",
       "vi_path": null,
@@ -3198,7 +3196,6 @@
     },
     {
       "name": "Windows Registry Access VIs",
-      "page": 5681,
       "category": "Connectivity",
       "description": "Use the Windows Registry Access VIs to create, open, query, enumerate, close, and delete Windows registry keys. You also can enumerate, read, write, and delete the value of Windows registry keys. The VIs on this palette can return Windows registry access error codes. Note LabVIEW does not check whether the referenced VI can compile. If the referenced VI is broken, LabVIEW does not recognize that it is broken until you run the top-level VI. If you execute an Open VI Reference function that refere",
       "vi_path": null,
@@ -3224,7 +3221,7 @@
     },
     {
       "name": "Open Registry Key",
-      "page": 5683,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/registry/registry-llb/open-registry-key-vi.html",
       "category": "Connectivity",
       "description": "Opens a reference to a key or subkey in the Windows registry.",
       "vi_path": null,
@@ -3312,7 +3309,7 @@
     },
     {
       "name": "Create Registry Key",
-      "page": 5685,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/registry/registry-llb/create-registry-key-vi.html",
       "category": "Connectivity",
       "description": "Creates a key in the Windows registry or opens it, if it already exists.",
       "vi_path": null,
@@ -3421,7 +3418,7 @@
     },
     {
       "name": "Query Registry Key Info",
-      "page": 5688,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/registry/registry-llb/query-registry-key-info-vi.html",
       "category": "Connectivity",
       "description": "Retrieves information about keys.",
       "vi_path": null,
@@ -3524,7 +3521,7 @@
     },
     {
       "name": "Enum Registry Keys",
-      "page": 5689,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/registry/registry-llb/enum-registry-keys-vi.html",
       "category": "Connectivity",
       "description": "Enumerates subkeys of the specified key or subkey. Use the Enum Registry Keys VI with the Query Registry Key Info VI. Caution Incorrectly modifying the registry can damage Windows or prevent you from starting Windows. Functions © National Instruments 5689",
       "vi_path": null,
@@ -3599,7 +3596,7 @@
     },
     {
       "name": "Close Registry Key",
-      "page": 5691,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/registry/registry-llb/close-registry-key-vi.html",
       "category": "Connectivity",
       "description": "Closes a key in the Windows registry.",
       "vi_path": null,
@@ -3639,7 +3636,7 @@
     },
     {
       "name": "Delete Registry Key",
-      "page": 5691,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/registry/registry-llb/delete-registry-key-vi.html",
       "category": "Connectivity",
       "description": "Deletes the specified key or subkey. Caution Incorrectly modifying the registry can damage Windows or prevent you from starting Windows. Functions © National Instruments 5691",
       "vi_path": null,
@@ -3713,7 +3710,7 @@
     },
     {
       "name": "Enum Registry Values Simple",
-      "page": 5693,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/registry/registry-llb/enum-registry-values-simple-vi.html",
       "category": "Connectivity",
       "description": "Enumerates the values for the specified key or subkey. If retrieve data? is TRUE, the VI returns DWORD data and String/Binary data in addition to values and simple data types. Use this VI with the Query Registry Key Info VI.",
       "vi_path": null,
@@ -3816,7 +3813,7 @@
     },
     {
       "name": "Read Registry Value Simple",
-      "page": 5695,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/registry/registry-llb/read-registry-value-simple-vi.html",
       "category": "Connectivity",
       "description": "Reads data and the simplified data type from a registry value. If the key or value does not exist or an unrecoverable error occurs, the VI returns the default data. Wire data to the default data input to determine the polymorphic instance to use or manually select the instance. • Read Registry Value Simple STR • Read Registry Value Simple U32 VI Examples Refer to the following example files included with LabVIEW. • labview\\examples\\Connectivity\\Windows Registry Access\\ Windows Registry Manipulat",
       "vi_path": null,
@@ -3891,7 +3888,7 @@
     },
     {
       "name": "Read Registry Value Simple STR",
-      "page": 5695,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/registry/registry-llb/read-registry-value-simple-str-vi.html",
       "category": "Connectivity",
       "description": "Reads data and the simplified data type from a registry value. If the key or value does not exist or an unrecoverable error occurs, the VI returns the default data. Wire data to the default data input to determine the polymorphic instance to use or manually select the instance. Caution Incorrectly modifying the registry can damage Windows or prevent you from starting Windows. Caution Incorrectly modifying the registry can damage Windows or prevent you from starting Windows. Functions © National ",
       "vi_path": null,
@@ -3966,7 +3963,7 @@
     },
     {
       "name": "Read Registry Value Simple U32 VI",
-      "page": 5697,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/registry/registry-llb/read-registry-value-simple-u32-vi.html",
       "category": "Connectivity",
       "description": "Reads data and the simplified data type from a registry value. If the key or value does not exist or an unrecoverable error occurs, the VI returns the default data. Wire data to the default data input to determine the polymorphic instance to use or manually select the instance.",
       "vi_path": null,
@@ -4013,7 +4010,7 @@
     },
     {
       "name": "Write Registry Value Simple",
-      "page": 5698,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/registry/registry-llb/write-registry-value-simple-vi.html",
       "category": "Connectivity",
       "description": "Writes data to the registry value under the key specified by refnum. Wire data to the String/Binary data input to determine the polymorphic instance to use or manually select the instance. • Write Registry Value Simple STR • Write Registry Value Simple U32 VI Examples Refer to the following example files included with LabVIEW. Caution Incorrectly modifying the registry can damage Windows or prevent you from starting Windows. Functions 5698 ni.com • labview\\examples\\Connectivity\\Windows Registry ",
       "vi_path": null,
@@ -4081,7 +4078,7 @@
     },
     {
       "name": "Write Registry Value Simple STR",
-      "page": 5699,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/registry/registry-llb/write-registry-value-simple-str-vi.html",
       "category": "Connectivity",
       "description": "Writes data to the registry value under the key specified by refnum. Wire data to the String/Binary data input to determine the polymorphic instance to use or manually select the instance.",
       "vi_path": null,
@@ -4149,7 +4146,7 @@
     },
     {
       "name": "Write Registry Value Simple U32 VI",
-      "page": 5700,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/registry/registry-llb/write-registry-value-simple-u32-vi.html",
       "category": "Connectivity",
       "description": "Writes data to the registry value under the key specified by refnum. Wire data to the String/Binary data input to determine the polymorphic instance to use or manually select the instance.",
       "vi_path": null,
@@ -4217,7 +4214,7 @@
     },
     {
       "name": "Delete Registry Value",
-      "page": 5702,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/registry/registry-llb/delete-registry-value-vi.html",
       "category": "Connectivity",
       "description": "Deletes the specified value for the specified key.",
       "vi_path": null,
@@ -4264,7 +4261,7 @@
     },
     {
       "name": "Open Python Session Function",
-      "page": 5703,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/open-python-session.html",
       "category": "Connectivity",
       "description": "Opens a Python session with a specific version of Python. The Python session is necessary for configuring multiple Python Nodes to run in a specific version of Python and in the same process. Note NI recommends that you use supported versions of Python only, though unsupported versions might work with the LabVIEW Python functions. Visit ni.com/info and enter the Info Code python to learn more about the requirements for installing Python. Functions © National Instruments 5703",
       "vi_path": null,
@@ -4311,7 +4308,7 @@
     },
     {
       "name": "Python Node",
-      "page": 5704,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/python-node.html",
       "category": "Connectivity",
       "description": "Calls a Python function directly. The Python Node is expandable and shows data types for the wired inputs and outputs. You can configure the Python Node to specify the Python session, module path, and function name. The Python Node is not supported on real-time or FPGA targets. Functions 5704 ni.com",
       "vi_path": null,
@@ -4372,7 +4369,7 @@
     },
     {
       "name": "Close Python Session Function",
-      "page": 5707,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/close-python-session.html",
       "category": "Connectivity",
       "description": "Closes a Python session.",
       "vi_path": null,
@@ -4405,7 +4402,7 @@
     },
     {
       "name": "Close Reference Function",
-      "page": 5707,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/close-reference.html",
       "category": "Connectivity",
       "description": "Closes a refnum associated with an open VI, VI object, an open application instance, or a .NET, ActiveX or Python object. Functions © National Instruments 5707",
       "vi_path": null,
@@ -4466,7 +4463,7 @@
     },
     {
       "name": "Call MATLAB Function",
-      "page": 5709,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/call-matlab-function.html",
       "category": "Connectivity",
       "description": "Calls the top level MATLAB(R) function in the source file. The Call MATLAB Function is expandable and shows data types for the wired inputs and outputs. You can configure the Call MATLAB Function to specify the MATLAB session, source path, and function name. The Call MATLAB Function is not supported on real-time or FPGA targets. Functions © National Instruments 5709",
       "vi_path": null,
@@ -4569,7 +4566,7 @@
     },
     {
       "name": "Open MATLAB Session Function",
-      "page": 5709,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/open-matlab-session.html",
       "category": "Connectivity",
       "description": "Opens a MATLAB(R) session.",
       "vi_path": null,
@@ -4609,7 +4606,7 @@
     },
     {
       "name": "Close MATLAB Session Function",
-      "page": 5711,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/close-matlab-session.html",
       "category": "Connectivity",
       "description": "Closes a MATLAB(R) session.",
       "vi_path": null,

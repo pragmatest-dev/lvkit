@@ -4,7 +4,7 @@
   "entries": [
     {
       "name": "Array Size Function",
-      "page": 391,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/array-size.html",
       "category": "Array",
       "description": "Returns the number of elements in each dimension of array. The connector pane displays the default data types for this polymorphic function.",
       "vi_path": null,
@@ -30,7 +30,7 @@
     },
     {
       "name": "Index Array",
-      "page": 392,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/index-array.html",
       "category": "Array",
       "description": "Returns the element or subarray of n-dimension array at index. When you wire an array to this function, the function resizes automatically to display index inputs for each dimension in the array you wire to n-dimension array. You also can add additional element or subarray terminals by resizing the function. The connector pane displays the default data types for this polymorphic function.",
       "vi_path": null,
@@ -63,7 +63,7 @@
     },
     {
       "name": "Replace Array Subset",
-      "page": 395,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/replace-array-subset.html",
       "category": "Array",
       "description": "Replaces an element or subarray in an array at the point you specify in index. When you wire an array to this function, the function resizes automatically to display index inputs for each dimension in the array you wired. The connector pane displays the default data types for this polymorphic function.",
       "vi_path": null,
@@ -96,7 +96,7 @@
     },
     {
       "name": "Insert Into Array",
-      "page": 396,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/insert-into-array.html",
       "category": "Array",
       "description": "Inserts an element or subarray into n-dim array at the point you specify in index. When you wire an array to this function, the function resizes automatically to display index inputs for each dimension in the array. If you do not wire any index inputs, the function appends the new element or subarray to the end of the n-dim array. If the index input is larger than the array size, the function does not insert anything into the input array.",
       "vi_path": null,
@@ -136,7 +136,7 @@
     },
     {
       "name": "Delete From Array",
-      "page": 398,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/delete-from-array.html",
       "category": "Array",
       "description": "Deletes an element or subarray from n-dim array of length elements starting at index. Returns the edited array in array w/ subset deleted and the deleted element or subarray in deleted portion. When you wire an array to this function, the function resizes automatically to display index inputs for each dimension in the array.",
       "vi_path": null,
@@ -183,7 +183,7 @@
     },
     {
       "name": "Initialize Array",
-      "page": 399,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/initialize-array.html",
       "category": "Array",
       "description": "Creates an n-dimensional array in which every element is initialized to the value of element. Use the Positioning tool to resize the function and increase the number of dimensions (element, row, column, page, and so on) of the output array. The connector pane displays the default data types for this polymorphic function. Functions © National Instruments 399",
       "vi_path": null,
@@ -216,7 +216,7 @@
     },
     {
       "name": "Build Array",
-      "page": 400,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/build-array.html",
       "category": "Array",
       "description": "Concatenates multiple arrays or appends elements to an n-dimensional array. You also can use the Replace Array Subset function to modify an existing array. The connector pane displays the default data types for this polymorphic function.",
       "vi_path": null,
@@ -242,7 +242,7 @@
     },
     {
       "name": "Array Subset",
-      "page": 402,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/array-subset.html",
       "category": "Array",
       "description": "Returns a portion of array starting at index and containing length elements.",
       "vi_path": null,
@@ -282,7 +282,7 @@
     },
     {
       "name": "Array Max & Min Function",
-      "page": 403,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/array-max-min.html",
       "category": "Array",
       "description": "Returns the maximum and minimum values found in array, along with the indexes for each value. The connector pane displays the default data types for this polymorphic function.",
       "vi_path": null,
@@ -329,7 +329,7 @@
     },
     {
       "name": "Reshape Array",
-      "page": 404,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/reshape-array.html",
       "category": "Array",
       "description": "Changes the dimensions of an array according to the values of dimension size 0..m-1. This function reads the array data in memory from left to right, row by row and populates the reshaped array the same way. For example, if you pass a 2D array of 8 elements, 2 columns of {0,1,2, 3}, to this function with two dimensions defined with sizes of 2 and 4, respectively, the function returns an array containing {{0,0,1,1}, {2,2, 3, Functions 404 ni.com 3}}. The connector pane displays the default data t",
       "vi_path": null,
@@ -362,7 +362,7 @@
     },
     {
       "name": "Sort 1D Array Function",
-      "page": 406,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/sort-1d-array.html",
       "category": "Array",
       "description": "Returns a sorted version of array with the elements arranged in ascending order. If array is an array of clusters, the function sorts the elements by comparing the first elements. If the first elements match, the function compares the second and subsequent elements. The connector pane displays the default data types for this polymorphic function.",
       "vi_path": null,
@@ -388,7 +388,7 @@
     },
     {
       "name": "Sort 2D Array",
-      "page": 406,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/array/sort-2d-array-vim.html",
       "category": "Array",
       "description": "Rearranges the rows or columns of a 2D array by sorting the elements in the specified column or row in ascending order. This VI rearranges the elements in the specified column or row in ascending order by comparing the elements using comparison rules for different data types. Note To customize the sort order use the Sort 1D Array Malleable VI. Functions 406 ni.com",
       "vi_path": null,
@@ -444,7 +444,7 @@
     },
     {
       "name": "Shuffle 1D Array",
-      "page": 409,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/array/shuffle-1d-array-vim.html",
       "category": "Array",
       "description": "Rearranges the elements of a 1D array in a pseudorandom order. This VI uses a uniform shuffle so that every element has an equal chance of ending up in any position of the array. Technician , developer . Note If index is an array, this VI rearranges the elements in the indexed columns in order. In this example, this VI rearranges first the elements in column 2 to be ascending, and then the elements in column 0. Functions © National Instruments 409",
       "vi_path": null,
@@ -477,7 +477,7 @@
     },
     {
       "name": "Shuffle 2D Array",
-      "page": 410,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/array/shuffle-2d-array-vim.html",
       "category": "Array",
       "description": "Rearranges the elements of a 2D array in a pseudorandom order. This VI uses a uniform shuffle so that every element has an equal chance of ending up in any position of the array.",
       "vi_path": null,
@@ -503,7 +503,7 @@
     },
     {
       "name": "Reverse 1D Array Function",
-      "page": 411,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/reverse-1d-array.html",
       "category": "Array",
       "description": "Reverses the order of the elements in array, where array is of any type. The connector pane displays the default data types for this polymorphic function.",
       "vi_path": null,
@@ -529,7 +529,7 @@
     },
     {
       "name": "Search 1D Array Function",
-      "page": 411,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/search-1d-array.html",
       "category": "Array",
       "description": "Searches for an element in a 1D array starting at start index. Because the search is linear, you need not sort the array before calling this function. LabVIEW stops searching as soon as the element is found.",
       "vi_path": null,
@@ -569,7 +569,7 @@
     },
     {
       "name": "Split 1D Array Function",
-      "page": 412,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/split-1d-array.html",
       "category": "Array",
       "description": "Divides array at index and returns the two portions with the element of index at the beginning of second subarray. The connector pane displays the default data types.",
       "vi_path": null,
@@ -609,7 +609,7 @@
     },
     {
       "name": "Rotate 1D Array Function",
-      "page": 413,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/rotate-1d-array.html",
       "category": "Array",
       "description": "Rotates the elements of array the number of places and in the direction indicated by n. The connector pane displays the default data types for this polymorphic function.",
       "vi_path": null,
@@ -635,7 +635,7 @@
     },
     {
       "name": "Increment Array Element",
-      "page": 414,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/array/increment-array-element-vim.html",
       "category": "Array",
       "description": "Adds 1 to the specified elements of a 1D array. If the array is an array of timestamps, this VI increments the element by one second.",
       "vi_path": null,
@@ -696,7 +696,7 @@
     },
     {
       "name": "Decrement Array Element",
-      "page": 415,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/array/decrement-array-element-vim.html",
       "category": "Array",
       "description": "Subtracts 1 from the specified element of a 1D array. If the array is an array of timestamps, this VI decrements the element by one second.",
       "vi_path": null,
@@ -750,7 +750,7 @@
     },
     {
       "name": "Interpolate 1D Array Function",
-      "page": 415,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/interpolate-1d-array.html",
       "category": "Array",
       "description": "Linearly interpolates a decimal y value from an array of numbers or points using a fractional index or x value. The connector pane displays the default data types for this polymorphic function. Functions © National Instruments 415",
       "vi_path": null,
@@ -783,7 +783,7 @@
     },
     {
       "name": "Threshold 1D Array Function",
-      "page": 417,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/threshold-1d-array.html",
       "category": "Array",
       "description": "Interpolates points in a 1D array that represents a 2D non-descending graph. This function compares threshold y to the values in array of numbers or points starting at start index until it finds a pair of consecutive elements such that threshold y is greater than or equal to the value of the first element and less than or equal to the value of the second element. The connector pane displays the default data types for this polymorphic function.",
       "vi_path": null,
@@ -823,7 +823,7 @@
     },
     {
       "name": "Interleave 1D Arrays",
-      "page": 418,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/interleave-1d-arrays.html",
       "category": "Array",
       "description": "Interleaves corresponding elements from the input arrays into a single output array. Note Use this function only with arrays sorted in non-descending order. Functions 418 ni.com",
       "vi_path": null,
@@ -856,7 +856,7 @@
     },
     {
       "name": "Decimate 1D Array",
-      "page": 419,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/decimate-1d-array.html",
       "category": "Array",
       "description": "Divides the elements of array into the output arrays, placing elements into the outputs successively. This function drops any elements that cause the output arrays to have different lengths. You also can add additional output terminals by resizing the function. Functions © National Instruments 419",
       "vi_path": null,
@@ -889,7 +889,7 @@
     },
     {
       "name": "Transpose 2D Array Function",
-      "page": 420,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/transpose-2d-array.html",
       "category": "Array",
       "description": "Rearranges the elements of 2D array such that 2D array[i,j] becomes transposed array[j,i]. The connector pane displays the default data types for this polymorphic function.",
       "vi_path": null,
@@ -915,7 +915,7 @@
     },
     {
       "name": "Array To Cluster Function",
-      "page": 421,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/array-to-cluster.html",
       "category": "Array",
       "description": "Converts a 1D array to a cluster of elements of the same type as the array elements. Double-click the function to open the Cluster Size dialog box and set the number of elements in the cluster. The default is nine. The maximum cluster size for this function is 256. Use this function when you want to display elements of the same type in a front panel cluster indicator but want to manipulate the elements on the block diagram by their index values.",
       "vi_path": null,
@@ -948,7 +948,7 @@
     },
     {
       "name": "Cluster To Array Function",
-      "page": 422,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/cluster-to-array.html",
       "category": "Array",
       "description": "Converts a cluster of elements of the same data type to a 1D array of elements of the same data type. Functions 422 ni.com",
       "vi_path": null,
@@ -981,7 +981,7 @@
     },
     {
       "name": "Array To Matrix",
-      "page": 423,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/analysis/matrix/numeric/conversions/array-to-matrix-vi.html",
       "category": "Array",
       "description": "Converts an array to a matrix of elements of the same type as the array elements. Wire data to the Real 2D Array input to determine the polymorphic instance to use or manually select the instance. • Array To Matrix - RA2 VI • Array To Matrix - RA VI • Array To Matrix - CA2 VI • Array To Matrix - CA VI If the array elements are not real or complex double-precision floating-point numbers, Functions © National Instruments 423 LabVIEW converts the array elements to the closest data type. LabVIEW sto",
       "vi_path": null,
@@ -1021,7 +1021,7 @@
     },
     {
       "name": "Array To Matrix - RA2 VI",
-      "page": 424,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/analysis/matrix/numeric/conversions/array-to-matrix-ra2-vi.html",
       "category": "Array",
       "description": "Converts an array to a matrix of elements of the same type as the array elements. Wire data to the Real 2D Array input to determine the polymorphic instance to use or manually select the instance.",
       "vi_path": null,
@@ -1061,7 +1061,7 @@
     },
     {
       "name": "Array To Matrix - RA VI",
-      "page": 425,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/analysis/matrix/numeric/conversions/array-to-matrix-ra-vi.html",
       "category": "Array",
       "description": "Converts an array to a matrix of elements of the same type as the array elements. Wire data to the Real 2D Array input to determine the polymorphic instance to use or manually select the instance.",
       "vi_path": null,
@@ -1087,7 +1087,7 @@
     },
     {
       "name": "Array To Matrix - CA2 VI",
-      "page": 426,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/analysis/matrix/numeric/conversions/array-to-matrix-ca2-vi.html",
       "category": "Array",
       "description": "Converts an array to a matrix of elements of the same type as the array elements. Wire data to the Real 2D Array input to determine the polymorphic instance to use or manually select the instance.",
       "vi_path": null,
@@ -1127,7 +1127,7 @@
     },
     {
       "name": "Array To Matrix - CA VI",
-      "page": 427,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/analysis/matrix/numeric/conversions/array-to-matrix-ca-vi.html",
       "category": "Array",
       "description": "Converts an array to a matrix of elements of the same type as the array elements. Wire data to the Real 2D Array input to determine the polymorphic instance to use or manually select the instance.",
       "vi_path": null,
@@ -1167,7 +1167,7 @@
     },
     {
       "name": "Matrix To Array",
-      "page": 428,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/analysis/matrix/numeric/conversions/matrix-to-array-vi.html",
       "category": "Array",
       "description": "Converts a matrix of elements to an array of elements of the same data type. Wire data to the Real Matrix input to determine the polymorphic instance to use or manually select the instance. • Matrix To Array - RM VI • Matrix To Array - CM VI Examples Refer to the following example files included with LabVIEW. • labview\\examples\\Mathematics\\Linear Algebra\\Matrix Fundamentals.vi Matrix To Array - RM VI Matrix To Array - RM VI Converts a matrix of elements to an array of elements of the same data t",
       "vi_path": null,
@@ -1200,7 +1200,7 @@
     },
     {
       "name": "Matrix To Array - RM VI",
-      "page": 428,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/analysis/matrix/numeric/conversions/matrix-to-array-rm-vi.html",
       "category": "Array",
       "description": "Converts a matrix of elements to an array of elements of the same data type. Wire data to the Real Matrix input to determine the polymorphic instance to use or manually select the instance.",
       "vi_path": null,
@@ -1233,7 +1233,7 @@
     },
     {
       "name": "Matrix To Array - CM VI",
-      "page": 429,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/analysis/matrix/numeric/conversions/matrix-to-array-cm-vi.html",
       "category": "Array",
       "description": "Converts a matrix of elements to an array of elements of the same data type. Wire data to the Real Matrix input to determine the polymorphic instance to use or manually select the instance.",
       "vi_path": null,
@@ -1266,7 +1266,7 @@
     },
     {
       "name": "Remove Duplicates From 1D Array",
-      "page": 429,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/array/remove-duplicates-from-1d-array-vim.html",
       "category": "Array",
       "description": "Removes duplicate elements from a 1D array. This VI preserves the original order of the Functions © National Instruments 429 elements.",
       "vi_path": null,
@@ -1308,7 +1308,7 @@
     },
     {
       "name": "Search Unsorted 1D Array",
-      "page": 431,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/array/search-unsorted-1d-array-vim.html",
       "category": "Array",
       "description": "Searches for an element in an unsorted 1D array starting at start index. The search is linear and LabVIEW stops searching as soon as the element is found. The connector pane displays the default data types for this polymorphic function.",
       "vi_path": null,
@@ -1355,7 +1355,7 @@
     },
     {
       "name": "Sort 1D Array",
-      "page": 432,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/sort-1d-array.html",
       "category": "Array",
       "description": "Returns a sorted version of unsorted array with the elements arranged in ascending order. If unsorted array is an array of clusters, the function sorts the elements by comparing the first elements. If the first elements match, the function compares the second and subsequent elements. The connector pane displays the default data types for this polymorphic function. Functions 432 ni.com",
       "vi_path": null,
@@ -1409,7 +1409,7 @@
     },
     {
       "name": "Search Sorted 1D Array",
-      "page": 434,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/array/search-sorted-1d-array-vim.html",
       "category": "Array",
       "description": "Searches for the first instance of element in sorted 1D array. If the array is not sorted, the results will be incorrect. The connector pane displays the default data types for this polymorphic function.",
       "vi_path": null,
@@ -1470,7 +1470,6 @@
     },
     {
       "name": "Sorted Array",
-      "page": 434,
       "category": "Array",
       "description": "Use the Sorted Array functions to manipulate sorted arrays while maintaining the sorted order. Palette Object Description Search Sorted 1D Array Searches for the first instance of element in sorted 1D array. If the array is not sorted, the results will be incorrect. The connector pane displays the default data types for this polymorphic function. Insert Into Sorted Array Inserts element into sorted array in while maintaining sorted order. If the array is not sorted, the element may be inserted a",
       "vi_path": null,
@@ -1531,7 +1530,7 @@
     },
     {
       "name": "Insert Into Sorted Array",
-      "page": 436,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/array/insert-into-sorted-array-vim.html",
       "category": "Array",
       "description": "Inserts element into sorted array in while maintaining sorted order. If the array is not sorted, the element may be inserted at the wrong location. The connector pane displays the default data types for this polymorphic function.",
       "vi_path": null,
@@ -1592,7 +1591,7 @@
     },
     {
       "name": "Matrix Size Function",
-      "page": 438,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/matrix-size.html",
       "category": "Array",
       "description": "Returns the dimensions for the number of rows and columns of matrix. The connector pane displays the default data types for this polymorphic function.",
       "vi_path": null,
@@ -1625,7 +1624,7 @@
     },
     {
       "name": "Build Matrix",
-      "page": 439,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/build-matrix.html",
       "category": "Array",
       "description": "Appends elements to a matrix by rows or columns. You also can use the Set Matrix Elements and Set Submatrix functions to modify an existing matrix. The connector pane displays the default data types for this polymorphic function.",
       "vi_path": null,
@@ -1651,7 +1650,7 @@
     },
     {
       "name": "Resize Matrix Function",
-      "page": 440,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/resize-matrix.html",
       "category": "Array",
       "description": "Resizes matrix with new row and column dimensions based on the number of rows and columns you specify. The connector pane displays the default data types for this polymorphic function.",
       "vi_path": null,
@@ -1691,7 +1690,7 @@
     },
     {
       "name": "Transpose Matrix Function",
-      "page": 441,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/transpose-matrix.html",
       "category": "Array",
       "description": "Returns the conjugate transpose of matrix. The connector pane displays the default data types for this polymorphic function.",
       "vi_path": null,
@@ -1717,7 +1716,7 @@
     },
     {
       "name": "Get Matrix Diagonal",
-      "page": 442,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/get-matrix-diagonal.html",
       "category": "Array",
       "description": "Returns the diagonal of matrix beginning at the index (row, column). Add additional row and column inputs and matrix diagonal outputs by resizing the node. The connector pane displays the default data types for this polymorphic function.",
       "vi_path": null,
@@ -1757,7 +1756,7 @@
     },
     {
       "name": "Get Matrix Elements",
-      "page": 443,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/get-matrix-elements.html",
       "category": "Array",
       "description": "Returns the elements of matrix at row and column. The row and column inputs specify row and column indexes. If you wire scalar data to row and column, for example i for row and j for column, the function returns a scalar Functions © National Instruments 443 that contains the element at location (i, j). The connector pane displays the default data types for this polymorphic function.",
       "vi_path": null,
@@ -1797,7 +1796,7 @@
     },
     {
       "name": "Get Submatrix",
-      "page": 445,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/get-submatrix.html",
       "category": "Array",
       "description": "Returns a submatrix of matrix starting at (row 1, column 1) and ending at (row N, column N). To retrieve elements that are not next to each other in matrix, use the Get Matrix Elements function. The connector pane displays the default data types for this polymorphic function. Functions © National Instruments 445",
       "vi_path": null,
@@ -1851,7 +1850,7 @@
     },
     {
       "name": "Set Matrix Diagonal",
-      "page": 447,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/set-matrix-diagonal.html",
       "category": "Array",
       "description": "Sets the diagonal of matrix beginning at (row, column). Add additional row, column, and new diagonal inputs and output matrix outputs by resizing the node. The connector pane displays the default data types for this polymorphic function. Functions © National Instruments 447",
       "vi_path": null,
@@ -1898,7 +1897,7 @@
     },
     {
       "name": "Set Matrix Elements",
-      "page": 449,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/set-matrix-elements.html",
       "category": "Array",
       "description": "Sets one or more elements in matrix at the indexes you specify in row and column. The row and column inputs specify row and column indexes. For example, if you wire numeric scalar values i and j to row and column, respectively, these inputs correspond Functions © National Instruments 449 to a single matrix element at location (i, j). The connector pane displays the default data types for this polymorphic function.",
       "vi_path": null,
@@ -1945,7 +1944,7 @@
     },
     {
       "name": "Set Submatrix",
-      "page": 452,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/set-submatrix.html",
       "category": "Array",
       "description": "Adds a submatrix to matrix starting at (row 1, column 1) and ending at (row N, column N). Add additional row, column, and new submatrix inputs and output matrix outputs by resizing the node. The connector pane displays the default data types for this polymorphic function. Functions 452 ni.com",
       "vi_path": null,

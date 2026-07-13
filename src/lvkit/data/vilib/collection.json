@@ -4,7 +4,7 @@
   "entries": [
     {
       "name": "Build Map",
-      "page": 1413,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/build-map.html",
       "category": "Collection",
       "description": "Creates a map from the input key-value entries. For entries with duplicate keys, this function includes only the last entry in the resulting map.",
       "vi_path": null,
@@ -44,7 +44,7 @@
     },
     {
       "name": "Insert Into Map Function",
-      "page": 1414,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/insert-into-map.html",
       "category": "Collection",
       "description": "Inserts a key and its associated value into a map. If the key is already included in the map, this function replaces the original value of the key with the new associated value.",
       "vi_path": null,
@@ -105,7 +105,7 @@
     },
     {
       "name": "Remove From Map Function",
-      "page": 1415,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/remove-from-map.html",
       "category": "Collection",
       "description": "Removes a key and its associated value from a map.",
       "vi_path": null,
@@ -159,7 +159,7 @@
     },
     {
       "name": "Look In Map Function",
-      "page": 1416,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/look-in-map.html",
       "category": "Collection",
       "description": "Checks whether a map includes an entry with the specified key and returns the associated value of the key.",
       "vi_path": null,
@@ -220,7 +220,7 @@
     },
     {
       "name": "Read Map Max & Min Keys Function",
-      "page": 1417,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/read-map-max-min-keys.html",
       "category": "Collection",
       "description": "Returns the maximum and minimum keys in a map.",
       "vi_path": null,
@@ -253,7 +253,7 @@
     },
     {
       "name": "Collection Size Function",
-      "page": 1418,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/collection-size.html",
       "category": "Collection",
       "description": "Returns the number of elements or entries in a collection.",
       "vi_path": null,
@@ -314,7 +314,7 @@
     },
     {
       "name": "Convert Map To Array",
-      "page": 1419,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/set-and-map-palettes/convert-map-to-array-vi.html",
       "category": "Collection",
       "description": "Places the code that you can use to convert a map to an array. When you add this VI to the block diagram, a For Loop displays. Wire a map to the tunnel input and return an array through the tunnel output. Functions © National Instruments 1419 In Place Map Access In Place Map Access Places an In Place Element structure on the block diagram with the Map Get / Replace Value border node added. Registration Map Registration Map Use the Registration Map VIs to create and manipulate registration maps. ",
       "vi_path": null,
@@ -368,7 +368,7 @@
     },
     {
       "name": "Empty Collection? Function",
-      "page": 1419,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/empty-collection.html",
       "category": "Collection",
       "description": "Returns TRUE if the input collection contains zero elements or entries.",
       "vi_path": null,
@@ -415,7 +415,7 @@
     },
     {
       "name": "In Place Map Access",
-      "page": 1420,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/set-and-map-palettes/in-place-element-structure-map-border-nodes-vi.html",
       "category": "Collection",
       "description": "Places an In Place Element structure on the block diagram with the Map Get / Replace Value border node added. Registration Map Registration Map Use the Registration Map VIs to create and manipulate registration maps. A registration map is a map between a key and a set of elements with operations to signal when clients register or unregister for one or more services. Palette Object Description Registration Map:Register Adds a set element in a registration map. This VI signals the calling VI if it",
       "vi_path": null,
@@ -469,7 +469,6 @@
     },
     {
       "name": "Registration Map",
-      "page": 1420,
       "category": "Collection",
       "description": "Use the Registration Map VIs to create and manipulate registration maps. A registration map is a map between a key and a set of elements with operations to signal when clients register or unregister for one or more services. Palette Object Description Registration Map:Register Adds a set element in a registration map. This VI signals the calling VI if it is the first time any set element has registered for this key. Registration Map:Confirm Registration Checks if a set element is registered for ",
       "vi_path": null,
@@ -523,7 +522,7 @@
     },
     {
       "name": "Build Set",
-      "page": 1425,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/build-set.html",
       "category": "Collection",
       "description": "Creates a set from the input elements. Duplicate elements appear only once in the resulting set.",
       "vi_path": null,
@@ -549,7 +548,7 @@
     },
     {
       "name": "Insert Into Set Function",
-      "page": 1426,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/insert-into-set.html",
       "category": "Collection",
       "description": "Inserts an element into a set.",
       "vi_path": null,
@@ -603,7 +602,7 @@
     },
     {
       "name": "Remove From Set Function",
-      "page": 1427,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/remove-from-set.html",
       "category": "Collection",
       "description": "Removes an element from a set.",
       "vi_path": null,
@@ -650,7 +649,7 @@
     },
     {
       "name": "Element of Set? Function",
-      "page": 1428,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/element-of-set.html",
       "category": "Collection",
       "description": "Returns whether an element is a member of a set.",
       "vi_path": null,
@@ -683,7 +682,7 @@
     },
     {
       "name": "Read Set Max & Min Function",
-      "page": 1428,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/read-set-max-min.html",
       "category": "Collection",
       "description": "Returns the maximum and minimum elements in a set.",
       "vi_path": null,
@@ -716,7 +715,7 @@
     },
     {
       "name": "Collection Size Function",
-      "page": 1429,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/collection-size.html",
       "category": "Collection",
       "description": "Returns the number of elements or entries in a collection.",
       "vi_path": null,
@@ -777,7 +776,7 @@
     },
     {
       "name": "Empty Collection? Function",
-      "page": 1429,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/empty-collection.html",
       "category": "Collection",
       "description": "Returns TRUE if the input collection contains zero elements or entries. Functions © National Instruments 1429",
       "vi_path": null,
@@ -824,7 +823,7 @@
     },
     {
       "name": "Convert Set To Array",
-      "page": 1430,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/set-and-map-palettes/convert-set-to-array-vi.html",
       "category": "Collection",
       "description": "Places the code that you can use to convert a set to an array. When you add this VI to the block diagram, a For Loop displays. Wire a set to the tunnel input and return an array through the tunnel output. Functions 1430 ni.com Set Union Set Union Computes the union of two sets. The union is all elements that belong to either of the two sets.",
       "vi_path": null,
@@ -864,7 +863,7 @@
     },
     {
       "name": "Set Union",
-      "page": 1431,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/set-operations/set-union-vim.html",
       "category": "Collection",
       "description": "Computes the union of two sets. The union is all elements that belong to either of the two sets.",
       "vi_path": null,
@@ -904,7 +903,7 @@
     },
     {
       "name": "Set Intersection",
-      "page": 1432,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/set-operations/set-intersection-vim.html",
       "category": "Collection",
       "description": "Computes the intersection of two sets. The intersection is all the elements that belong to both sets.",
       "vi_path": null,
@@ -944,7 +943,7 @@
     },
     {
       "name": "Set Cartesian Product",
-      "page": 1433,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/set-operations/set-cartesian-product-vim.html",
       "category": "Collection",
       "description": "Computes the Cartesian product of two sets. The Cartesian product is a set of 2-element clusters which covers all possible combinations of elements from the two sets.",
       "vi_path": null,
@@ -977,7 +976,7 @@
     },
     {
       "name": "Set Difference",
-      "page": 1434,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/set-operations/set-difference-vim.html",
       "category": "Collection",
       "description": "Computes the difference of two sets. The difference is the elements from the first set that are not included in the second set.",
       "vi_path": null,
@@ -1017,7 +1016,7 @@
     },
     {
       "name": "Set Symmetric Difference",
-      "page": 1435,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/set-operations/set-symmetric-difference-vim.html",
       "category": "Collection",
       "description": "Computes the symmetric difference of two sets.",
       "vi_path": null,

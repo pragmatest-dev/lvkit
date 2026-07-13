@@ -4,7 +4,7 @@
   "entries": [
     {
       "name": "Instrument Drivers",
-      "page": 5908,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/instr-lib/dir-mnu.html",
       "category": "Express",
       "description": "Use Instrument Drivers VIs to configure, control, and retrieve data from GPIB, serial, modular, PXI, and other types of instruments. Use the NI Instrument Driver Finder to Functions 5908 ni.com search for and install instrument drivers. If an instrument driver is not available, you can use the Create New Instrument Driver Project wizard to create a new instrument driver. The VIs and controls that appear on this palette change depending on the instrument drivers you install. You can add new VIs a",
       "vi_path": null,
@@ -15,7 +15,7 @@
     },
     {
       "name": "Simulate Signal",
-      "page": 5909,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/express/express-input/simulatesignalblock-llb/ex-inst-simulate-signal-vi.html",
       "category": "Express",
       "description": "Simulates a sine wave, square wave, triangle wave, sawtooth wave, or noise signal. Dialog Box Options Option Description Signal Contains the following options: • Signal type— Type of waveform to simulate. You can simulate a sine wave, square wave, sawtooth wave, triangle wave, or noise (DC). • Frequency (Hz)— Frequency in hertz of the waveform. The default is 10.1. • Phase (deg)— Initial phase in degrees of the waveform. The default is 0. • Amplitude— Functions © National Instruments 5909 Option",
       "vi_path": null,
@@ -26,7 +26,7 @@
     },
     {
       "name": "Simulate Arbitrary Signal",
-      "page": 5917,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/express/express-input/simulatearbsignalblock-llb/ex-inst-simulate-arbitrary-signal-vi.html",
       "category": "Express",
       "description": "Simulates a signal that you define. Dialog Box Options Option Description Signal Specifications Contains the following options: • Define Signal— Displays the Define Signal dialog box, which you use to generate an arbitrary signal. • Start over when end of signal is reached— Continuously simulates the signal you defined. ◦ X values repeat (0, 1, 2, 0, 1, 2)— Repeats the x values when you select Start over when end of signal is reached. ◦ X values continue (0, 1, 2, 3, 4, 5)— Sequentially incremen",
       "vi_path": null,
@@ -80,7 +80,7 @@
     },
     {
       "name": "Acquire Sound",
-      "page": 5919,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/sound2/soundacquiresource-llb/sound-acquire-source-vi.html",
       "category": "Express",
       "description": "Acquires data from a sound device. This Express VI automatically configures an input task, acquires the data, and clears the task after the acquisition completes. (Windows) You must have DirectX 8.0 or later to use this VI. (Linux) You must have the Open Sound System (OSS) driver to use this VI. Dialog Box Options Option Description Device Lists the sound devices you have connected. #Channels Specifies the number of channels. 1 is Mono, and 2 is Stereo. Resolution (bits) Specifies the quality of",
       "vi_path": null,
@@ -148,7 +148,7 @@
     },
     {
       "name": "Read From Measurement File",
-      "page": 5921,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/express/express-input/exfilereadblock-llb/ex-inst-read-labview-measurement-file-vi.html",
       "category": "Express",
       "description": "Reads data from a text-based measurement file (.lvm) or binary measurement file (.tdm or .tdms). Dialog Box Options Option Description Filename Displays the full path to the file from which you want to read data. The Express VI reads data from the file that this parameter specifies only if the Filename input is unwired. If you wire the Filename input, the VI reads data from the file that this input specifies instead. File Format Contains the following options: • Text (LVM)— Sets the file format ",
       "vi_path": null,
@@ -159,7 +159,7 @@
     },
     {
       "name": "Prompt User for Input",
-      "page": 5926,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/express/express-input/promptuserblock-llb/ex-inst-prompt-user-for-input-vi.html",
       "category": "Express",
       "description": "Displays a standard dialog box that prompts users to enter information, such as a user name and password. Dialog Box Options Option Description Message to Display Contains the text to display in the dialog box. Buttons to Display Contains the following options: • First button name— Specifies the text that appears on the first button. By default, the text on the first button is OK. Note The behavior of this VI changes depending upon the target. If the current target does not or might not have a h",
       "vi_path": null,
@@ -199,7 +199,7 @@
     },
     {
       "name": "File Dialog",
-      "page": 5928,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/express/express-input/filedialogblock-llb/file-dialog-source-vi.html",
       "category": "Express",
       "description": "Displays a dialog box with which you can specify the path to a file or directory. You can use this dialog box to select existing files or directories or to select a location and name for a new file or directory. (macOS) This VI does not recognize macOS-specific means of specifying the default application for a file. However, you can use the pattern input to specify a file type for files that include an extension to the filename. Note The behavior of this VI changes depending upon the target. If ",
       "vi_path": null,
@@ -218,7 +218,7 @@
     },
     {
       "name": "Spectral Measurements",
-      "page": 5933,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/express/express-analysis/spectral/xnode/expressspectralmeasurementsblocknode-xnode.html",
       "category": "Express",
       "description": "Performs FFT-based spectral measurements, such as the averaged magnitude spectrum, power spectrum, and phase spectrum on a signal. Functions © National Instruments 5933 Dialog Box Options Option Description Selected Measurement Contains the following options: • Magnitude (peak)— Measures the spectrum and displays the results in terms of peak amplitude. You typically use this measurement with more advanced measurements that require magnitude and phase information. The magnitude of the spectrum is",
       "vi_path": null,
@@ -229,7 +229,7 @@
     },
     {
       "name": "Distortion Measurements",
-      "page": 5939,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/express/express-analysis/distortionblock-llb/ex-inst-distortion-measurements-vi.html",
       "category": "Express",
       "description": "Performs distortion measurements on a signal, such as tone analysis, total harmonic distortion (THD), and signal in noise and distortion (SINAD). Dialog Box Options Option Description Distortion Contains the following options: • SINAD (dB)— Calculates the measured signal in noise and distortion (SINAD). SINAD is defined as the dB of the ratio of the RMS energy of Signals to the RMS energy of Signals less the energy in the fundamental. To compute the THD Plus Noise in dB, negate the SINAD. • Tota",
       "vi_path": null,
@@ -269,7 +269,7 @@
     },
     {
       "name": "Tone Measurements",
-      "page": 5942,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/express/express-analysis/toneblock-llb/ex-inst-tone-measurements-vi.html",
       "category": "Express",
       "description": "Finds the single tone with the highest amplitude or searches a specified frequency range to find the single tone with the highest amplitude. You also can find the frequency and phase for a single tone. Dialog Box Options Option Description Single Tone Measurements Contains the following options: • Amplitude— Calculates the amplitude of the detected single tone in volts peak (Vp). • Frequency— Calculates the frequency of the detected single tone in Hertz. • Phase— Calculates the phase of the dete",
       "vi_path": null,
@@ -330,7 +330,7 @@
     },
     {
       "name": "Dual Channel Spectral Measurement",
-      "page": 5944,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/express/express-analysis/dualchannelspectralblock-llb/dual-channel-spectral-measurement-source-vi.html",
       "category": "Express",
       "description": "Measures the frequency response of the input signals and the coherence based on the current and previous input signals. This Express VI returns results such as Magnitude, Functions 5944 ni.com Phase, Coherence, Real, and Imaginary. Dialog Box Options Option Description Input Comparison Specifies how to handle multiple signals in each input. • Ordered pairs— Calculates the frequency response of the first channel in Input Signal A against the first channel in Input Signal B, then the second channe",
       "vi_path": null,
@@ -341,7 +341,7 @@
     },
     {
       "name": "Amplitude and Level Measurements",
-      "page": 5951,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/express/express-analysis/ampandlevelblock-llb/ex-inst-amplitude-and-level-measurements-vi.html",
       "category": "Express",
       "description": "Performs voltage measurements on a signal. Dialog Box Options Option Description Amplitude Measurements Contains the following options: Functions © National Instruments 5951 Option Description • Mean (DC)— Acquires a DC measurement of Signals. • RMS— Calculates the root mean square value of Signals. • Apply window— Applies a low side lobe window to Signals. This option is available only when you place a checkmark in the DC or RMS checkbox. Use smoothing windows to taper the sharp transitions in ",
       "vi_path": null,
@@ -381,7 +381,7 @@
     },
     {
       "name": "Timing and Transition Measurements",
-      "page": 5955,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/express/express-analysis/timing-transblock-llb/ex-inst-timing-and-transition-measurements-vi.html",
       "category": "Express",
       "description": "Performs timing and transition measurements, such as frequency, period, or duty cycle, on a signal, usually a pulse. Dialog Box Options Option Description Timing and Transition Measurements Contains the following options: • Frequency— Calculates the frequency of Signals in Hertz. Functions © National Instruments 5955 Option Description • Period— Calculates the time in seconds between adjacent middle reference level crossings in the same direction. The reciprocal of this value is the signal frequ",
       "vi_path": null,
@@ -428,7 +428,7 @@
     },
     {
       "name": "Curve Fitting",
-      "page": 5958,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/express/express-analysis/curvefittingblock-llb/ex-inst-curve-fitting-vi.html",
       "category": "Express",
       "description": "Computes the coefficients that best represent the input data based on the chosen model type. Dialog Box Options Option Description Model Type Displays the data and results according to a mathematical model type you specify. Functions 5958 ni.com Option Description The model type can be any of the following options: • Linear— Finds the slope and intercept of the line that best represents the input data set in the least-squares sense. • Quadratic— Finds the polynomial curve of order 2 that best re",
       "vi_path": null,
@@ -439,7 +439,7 @@
     },
     {
       "name": "Convolution and Correlation",
-      "page": 5974,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/express/express-analysis/convolution-corrblock-llb/ex-inst-convolution-and-correlation-vi.html",
       "category": "Express",
       "description": "Performs convolution, deconvolution, or correlation on the input signals. Dialog Box Options Option Description Signal Processing Contains the following options: • Convolution— Computes the convolution of the input signals. • Deconvolution— Computes the deconvolution of the input signals. • Autocorrelation— Computes the autocorrelation of the input signal. • Cross correlation— Computes the cross correlation of the input signals. • Ignore time stamp— Specifies to ignore the time stamp of the inpu",
       "vi_path": null,
@@ -479,7 +479,7 @@
     },
     {
       "name": "Simulate Signal",
-      "page": 5976,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/express/express-input/simulatesignalblock-llb/ex-inst-simulate-signal-vi.html",
       "category": "Express",
       "description": "Simulates a sine wave, square wave, triangle wave, sawtooth wave, or noise signal. Dialog Box Options Option Description Signal Contains the following options: • Signal type— Type of waveform to simulate. You can simulate a sine wave, square wave, sawtooth wave, triangle wave, or noise (DC). • Frequency (Hz)— Frequency in hertz of the waveform. The default is 10.1. • Phase (deg)— Initial phase in degrees of the waveform. The default is 0. • Amplitude— Amplitude of the waveform. The default is 1.",
       "vi_path": null,
@@ -490,7 +490,7 @@
     },
     {
       "name": "Mask and Limit Testing",
-      "page": 5983,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/express/express-analysis/masklimitblock-llb/ex-inst-mask-and-limit-testing-vi.html",
       "category": "Express",
       "description": "Performs limit testing on Signals. Functions © National Instruments 5983 Dialog Box Options Option Description Upper Limit Contains the following options: • Upper constant— Compares Signals to the value in Upper limit constant. This option is available only when you place a checkmark in the Upper Limit checkbox. ◦ Upper limit constant— Specifies the value of the Upper constant. The default is 0. This option is available only when you place a checkmark in the Upper Limit checkbox and select the U",
       "vi_path": null,
@@ -509,7 +509,7 @@
     },
     {
       "name": "Create Histogram",
-      "page": 5987,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/express/express-analysis/histogramblock-llb/ex-inst-histogram-vi.html",
       "category": "Express",
       "description": "Computes a histogram for Signal. Dialog Box Options Option Description Configuration Contains the following options: • Number of bins— Specifies the number of bins in the histogram. The default is 10. • Maximum value— Specifies the maximum value to include in the histogram. The default is 3. This is best used with floating-point inputs. The maximum value is not included, so values that match it exactly are not included in the histogram. • Minimum value— Specifies the minimum value to include in ",
       "vi_path": null,
@@ -570,7 +570,7 @@
     },
     {
       "name": "Instrument Drivers",
-      "page": 5990,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/instr-lib/dir-mnu.html",
       "category": "Express",
       "description": "Use Instrument Drivers VIs to configure, control, and retrieve data from GPIB, serial, modular, PXI, and other types of instruments. Use the NI Instrument Driver Finder to search for and install instrument drivers. If an instrument driver is not available, you Functions 5990 ni.com can use the Create New Instrument Driver Project wizard to create a new instrument driver. The VIs and controls that appear on this palette change depending on the instrument drivers you install. You can add new VIs a",
       "vi_path": null,
@@ -581,7 +581,7 @@
     },
     {
       "name": "Build Text",
-      "page": 5991,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/express/express-output/buildtextblock-llb/ex-inst-build-text-vi.html",
       "category": "Express",
       "description": "Creates an output string from a combination of text and parameterized inputs. If the input is not a string, this Express VI converts the input into a string based on the configuration of the Express VI. Dialog Box Options Option Description Text with Parameters in Percents (%parameter name%) Specifies the text you want to build. Define parameters by placing text between a pair of percent signs. You can use each parameter only once in the text that you build. To include a percent sign in the outp",
       "vi_path": null,
@@ -592,7 +592,7 @@
     },
     {
       "name": "Display Message to User",
-      "page": 5994,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/express/express-output/displaymessageblock-llb/ex-inst-display-message-to-user-vi.html",
       "category": "Express",
       "description": "Displays a standard dialog box that contains an alert or a message for users. Dialog Box Options Option Description Message to Display Contains the text to display in the dialog box. Buttons Contains the following options: Functions 5994 ni.com Option Description to Display • First button name— Specifies the text that appears on the first button. By default, the text on the first button is OK. • Second button name— Specifies the text that appears on the second button. By default, the text on the",
       "vi_path": null,
@@ -639,7 +639,7 @@
     },
     {
       "name": "Play Waveform",
-      "page": 5996,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/sound2/playwaveformsource-llb/playwaveform-source-vi.html",
       "category": "Express",
       "description": "Plays data from the sound output device using finite sampling. This Express VI automatically configures an output task and clears the task after the output completes. (Windows) You must have DirectX 8.0 or later to use this VI. (Linux) You must have the Open Sound System (OSS) driver to use this VI. Dialog Box Options Option Description Device Lists the sound devices you have connected. Device capabilities Contains the following options: • Min sample rate (Hz)— Returns the minimum output sample ",
       "vi_path": null,
@@ -679,7 +679,7 @@
     },
     {
       "name": "Write To Measurement File",
-      "page": 5997,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/express/express-output/exfilewriteblock-llb/ex-inst-write-labview-measurement-file-vi.html",
       "category": "Express",
       "description": "Writes data to text-based measurement files (.lvm), binary measurement files (.tdm or .tdms), or Microsoft Excel files (.xlsx). Use the Read From Measurement File Express VI to read data from the generated measurement file. Functions © National Instruments 5997 Dialog Box Options Option Description Filename Displays the full path to the file to which you want to write data. The Express VI writes data to the file that this parameter specifies only if the Filename input is unwired. If you wire the",
       "vi_path": null,
@@ -690,7 +690,7 @@
     },
     {
       "name": "Merge Signals",
-      "page": 6010,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/merge-signals.html",
       "category": "Express",
       "description": "Merges two or more supported signals, such as scalar numerics, 1D or 2D arrays of numerics, scalar Booleans, 1D or 2D arrays of Booleans, waveforms, or 1D arrays of waveforms, into a single output. Resize the function to add inputs. This function automatically appears on the block diagram when you wire a signal output to the wire branch of another signal. Functions 6010 ni.com",
       "vi_path": null,
@@ -723,7 +723,7 @@
     },
     {
       "name": "Split Signals",
-      "page": 6011,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/split-signals.html",
       "category": "Express",
       "description": "Splits two or more signals into component signals. Resize the function to add outputs. Each unit of the original signal contains the time information (t0 and dt) of the waveform. When LabVIEW splits the signal, each resulting signal retains the original information.",
       "vi_path": null,
@@ -749,7 +749,7 @@
     },
     {
       "name": "Select Signals",
-      "page": 6012,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/express/express-signal-manip/selectsignalsblock-llb/ex-inst-select-signals-vi.html",
       "category": "Express",
       "description": "Accepts multiple signals as inputs and returns only the signals you select. You can specify which signals to include in the output and change the order of the input signals. Dialog Box Options Option Description Select Signals Contains the following options: • Unselected signals— Lists all the input signals. The index number associated with each signal reflects the order of the input signals on the input wire. • Selected signals— Lists the signals in the order in which you selected them. The ori",
       "vi_path": null,
@@ -796,7 +796,7 @@
     },
     {
       "name": "Align and Resample",
-      "page": 6014,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/express/express-signal-manip/alignandresampleblock-llb/ex-inst-align-and-resample-vi.html",
       "category": "Express",
       "description": "Performs an alignment of signals by changing the start time or performs a resampling of signals by changing the time delta. This Express VI returns the adjusted signals. Dialog Box Options Option Description Acquisition Type Contains the following options: • Single segment— Aligns and/or resamples each iteration separately. • Continuous— Aligns and/or resamples all iterations as one continuous segment. Align Aligns the signals to have the same start time. Alignment Interval Contains the followin",
       "vi_path": null,
@@ -807,7 +807,7 @@
     },
     {
       "name": "Sample Compression",
-      "page": 6019,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/express/express-signal-manip/samplecompressionblock-llb/ex-inst-sample-compression-vi.html",
       "category": "Express",
       "description": "Acquires a large number of data points and compresses the data points into a smaller number of points. Functions © National Instruments 6019 Dialog Box Options Option Description Reduction Specifications Contains the following option: • Reduction factor— Number of points in the Signals input to reduce to one point in the resulting signal. The default is 10. Reduction Methods Contains the following options: • Minimum— Reduces the Signals input by using the lowest value in each segment. ◦ Minimum ",
       "vi_path": null,
@@ -826,7 +826,7 @@
     },
     {
       "name": "Trigger and Gate",
-      "page": 6024,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/express/express-signal-manip/triggerblock-llb/ex-inst-trigger-and-gate-vi.html",
       "category": "Express",
       "description": "Uses triggering to extract a segment out of a signal. The trigger conditions can be based on a start or stop trigger threshold or can be static. When a trigger condition is static, the trigger occurs immediately and this Express VI returns a predefined number of samples. Dialog Box Options Option Description Start Trigger Contains the following options: • Threshold— Uses a threshold to indicate when to start triggering. ◦ Start sense— Specifies on what edge of the signal to start taking samples.",
       "vi_path": null,
@@ -837,7 +837,7 @@
     },
     {
       "name": "Append Signals",
-      "page": 6030,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/express/express-signal-manip/append-signalssource-llb/append-signals-source-vi.html",
       "category": "Express",
       "description": "Appends signals to each other. You can use this Express VI to append a signal to the end of another signal, append signals in a combined signal to each other, append the Functions 6030 ni.com same signal to the end of each signal in a combined signal, or append a combined signal to another combined signal. Dialog Box Options Option Description Input Signal A Displays an input signal. If you wire data to the Express VI and run it, Input Signal A displays real data. If you close and reopen the Exp",
       "vi_path": null,
@@ -884,7 +884,7 @@
     },
     {
       "name": "Repack Values",
-      "page": 6033,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/express/express-signal-manip/repackblock-llb/ex-inst-repack-values-vi.html",
       "category": "Express",
       "description": "Accepts signals with any number of data points and produces packets of signals that use a packet size you specify. Dialog Box Options Option Description Output segment size Specifies the number of samples to include in each output segment. The Functions © National Instruments 6033 Option Description default is 100.",
       "vi_path": null,
@@ -938,7 +938,7 @@
     },
     {
       "name": "Extract Portion of Signal",
-      "page": 6035,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/express/express-signal-manip/extractblock-llb/ex-inst-extract-portion-of-signal-vi.html",
       "category": "Express",
       "description": "Extracts portions of data from the input signals and returns the extracted data. You can extract a single point or a range of data, and you can extract data by time or index. You also can find the time and index of the first occurrence of a value. Dialog Box Options Option Description Begin Contains the following options: • Begin at offset (x-axis units)— Starts the extraction when the signal crosses the value you specify in Offset. ◦ Offset— Value that Begin at offset (x-axis units) uses. The d",
       "vi_path": null,
@@ -1006,7 +1006,7 @@
     },
     {
       "name": "Delay Values",
-      "page": 6038,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/express/express-signal-manip/delayvaluesblock-llb/ex-inst-delay-values-vi.html",
       "category": "Express",
       "description": "Stores data from previous iterations of a loop and passes the data after the specified number of iterations occur. Functions 6038 ni.com Dialog Box Options Option Description History size Contains the number of iterations of the loop to delay the packet of data. The default is 1.",
       "vi_path": null,
@@ -1053,7 +1053,7 @@
     },
     {
       "name": "Convert from Dynamic Data",
-      "page": 6040,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/express/express-signal-manip/convertfromddtblocks-llb/ddt-to-1d-dbl-automatic-vi.html",
       "category": "Express",
       "description": "Converts the dynamic data type to numeric, Boolean, waveform, and array data types for use with other VIs and functions. Dialog Box Options Option Description Conversion Contains the following options: • Floating point numbers (double)— Formats numeric values as double-precision, floating-point numbers, including the values in arrays. • Boolean (TRUE and FALSE)— Formats numeric values as Boolean values, including the values in arrays. • Resulting data type— Specifies the data type that you want ",
       "vi_path": null,
@@ -1107,7 +1107,7 @@
     },
     {
       "name": "Convert to Dynamic Data",
-      "page": 6042,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/express/express-signal-manip/converttoddtblocks-llb/1d-dbl-1-channel-to-ddt-now-vi.html",
       "category": "Express",
       "description": "Converts numeric, Boolean, waveform and array data types to the dynamic data type for use with Express VIs. Dialog Box Options Option Description Conversion Contains the following option: • Input data type— Specifies the data type that you want to convert to the dynamic data type. Scalar Data Type Contains the following options: • Floating point numbers (double)— Specifies that numeric values are double-precision, floating-point numbers. • Boolean (TRUE and FALSE)— Specifies that numeric values ",
       "vi_path": null,
@@ -1168,7 +1168,7 @@
     },
     {
       "name": "Group Digital Signals",
-      "page": 6044,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/express/express-signal-manip/digitaldatagroupingxnode/digital-group-xnode.html",
       "category": "Express",
       "description": "Groups digital data into a digital data array and groups digital waveforms into a digital waveform array. LabVIEW treats ungrouped signals as individual groups. Dialog Box Options Option Description Number of signals Specifies the number of signals you want to wire to the Express VI. Configure this option first. This number must match the number of signals you wire to Digital Data In. Otherwise, LabVIEW returns an error. Use incoming waveform names Allows you to retain the original names of the ",
       "vi_path": null,
@@ -1208,7 +1208,7 @@
     },
     {
       "name": "Set Dynamic Data Attributes",
-      "page": 6046,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/express/express-signal-manip/getorsetddtattributes/set-ddt-attributes/set-ddt-properties-xnode.html",
       "category": "Express",
       "description": "Sets the attributes of the dynamic data you wire to Signals In. Dialog Box Options Option Description All Signals Contains the following options: • Start timestamp— Specifies whether to set the start timestamp of the signals. Signal Index Specifies the index of the signal whose attributes you want to set. The default is 0. Signal Index contains the following options: • Signal name— Specifies whether to set the name of the signal. ◦ Signal name value— Functions 6046 ni.com Option Description Spec",
       "vi_path": null,
@@ -1255,7 +1255,7 @@
     },
     {
       "name": "Get Dynamic Data Attributes",
-      "page": 6048,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/express/express-signal-manip/getorsetddtattributes/get-ddt-attributes/get-ddt-properties-xnode.html",
       "category": "Express",
       "description": "Retrieves the attributes of the dynamic data you wire to Signals In. Functions 6048 ni.com Dialog Box Options Option Description Signal Index Specifies the index of the signal whose attributes you want to retrieve. The default is 0. Signal Index contains the following options: • Start timestamp— Specifies whether to return the start timestamp of the signal. • Signal name— Specifies whether to return the name of the signal. • Time mode— Specifies whether to return the time mode of the signal. • T",
       "vi_path": null,
@@ -1344,7 +1344,7 @@
     },
     {
       "name": "Flat Sequence Structure",
-      "page": 6052,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/structures/flat-sequence.html",
       "category": "Express",
       "description": "Consists of one or more subdiagrams, or frames, that execute sequentially. Use the Flat Sequence structure to ensure that a subdiagram executes before or after another subdiagram. Data flow for the Flat Sequence structure differs from data flow for other structures. Frames in a Flat Sequence structure execute from left to right and when all data values wired to a frame are available. The data leaves each frame as the frame finishes executing. This means the input of one frame can depend on the o",
       "vi_path": null,
@@ -1355,7 +1355,7 @@
     },
     {
       "name": "While Loop with Button",
-      "page": 6052,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/structures/while-loop-2.html",
       "category": "Express",
       "description": "Repeats the subdiagram inside it until the conditional terminal, an input terminal, receives a particular Boolean value. When you place this While Loop on the block diagram, a stop button also appears on the block diagram and is wired to the conditional terminal. If you select a While Loop on the Structures palette and place it on the block diagram, a stop button does not appear. Flat Sequence Structure Flat Sequence Structure Consists of one or more subdiagrams, or frames, that execute sequenti",
       "vi_path": null,
@@ -1366,7 +1366,7 @@
     },
     {
       "name": "Case Structure",
-      "page": 6054,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/structures/case-structure.html",
       "category": "Express",
       "description": "Contains one or more subdiagrams, or cases, exactly one of which executes when the structure executes. The value wired to the case selector determines which case to execute. Components of a Case Structure • Selector label—Displays the value(s) for which the associated case executes. You Functions 6054 ni.com can specify a single value or a range of values. You also can use the selector label to specify a default case. • Subdiagram(case)—Contains the code that executes when the value wired to the",
       "vi_path": null,
@@ -1399,7 +1399,7 @@
     },
     {
       "name": "Elapsed Time",
-      "page": 6056,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/express/express-execution-control/elapsedtimeblock-llb/ex-inst-elapsed-time-vi.html",
       "category": "Express",
       "description": "Indicates the amount of time that has elapsed since the specified start time. Functions 6056 ni.com Dialog Box Options Option Description Elapsed time (seconds) Specifies how much time must elapse before the Time has Elapsed Boolean is set to TRUE. The default is 1.000. Automatically reset after time target Resets the elapsed time marker.",
       "vi_path": null,
@@ -1446,7 +1446,7 @@
     },
     {
       "name": "Time Delay",
-      "page": 6056,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/express/express-execution-control/timedelayblock-llb/ex-inst-time-delay-vi.html",
       "category": "Express",
       "description": "Inserts a time delay into the calling VI. Dialog Box Options Option Description Time delay (seconds) Specifies how many seconds to delay running the calling VI. The default is 1.000.",
       "vi_path": null,
@@ -1479,7 +1479,7 @@
     },
     {
       "name": "Scaling and Mapping",
-      "page": 6064,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/express/express-arith-compare/scaleandmapblock-llb/ex-inst-scaling-and-mapping-vi.html",
       "category": "Express",
       "description": "Changes the amplitude of a signal by scaling or mapping the signal. Dialog Box Options Option Description Scaling or Mapping Type Contains the following options: • Normalize— Determines the scale and offset necessary to transform the signal so that its maximum is Highest peak and its minimum is Lowest peak. ◦ Lowest peak— Specifies the minimum value used to normalize the signal. The default is 0. ◦ Highest peak— Specifies the maximum value used to normalize the signal. The default is 1. • Linear",
       "vi_path": null,
@@ -1526,7 +1526,7 @@
     },
     {
       "name": "Time Domain Math",
-      "page": 6066,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/express/express-arith-compare/timedomainmathblock-llb/ex-inst-time-domain-math-vi.html",
       "category": "Express",
       "description": "Performs one of several math functions on time domain signals. Dialog Box Options Option Description Mathematical Operation Contains the following options: • Derivative (dX/dt)— Returns the numeric derivative of the signal. LabVIEW computes the output sample of dX/dt at index i as yi=(xi– xi–1)/dt. • Difference (dX)— Returns the numeric difference of the signal. LabVIEW computes the output sample of dX at index i as yi=xi–xi–1. • Integral (Sum[Xdt])— Returns the numeric integral of the signal. L",
       "vi_path": null,
@@ -1566,7 +1566,6 @@
     },
     {
       "name": "Express Numeric",
-      "page": 6068,
       "category": "Express",
       "description": "Use the Express Numeric functions to create and perform arithmetic and complex mathematical operations on numbers and to convert numbers from one data type to another. Use the VIs and functions on the Elementary & Special Functions palette to perform trigonometric and logarithmic functions. You also can access the following constants from this palette: • positive infinity • negative infinity • machine epsilon Functions 6068 ni.com Palette Object Description Add Function Computes the sum of the i",
       "vi_path": null,
@@ -1577,7 +1576,7 @@
     },
     {
       "name": "Add Function",
-      "page": 6071,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/add.html",
       "category": "Express",
       "description": "Computes the sum of the inputs.",
       "vi_path": null,
@@ -1596,7 +1595,7 @@
     },
     {
       "name": "Subtract Function",
-      "page": 6072,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/subtract.html",
       "category": "Express",
       "description": "Computes the difference of the inputs. If you wire two waveform values or two dynamic data type values to this function, error in and error out terminals appear on the function. Subtracting two time stamp values yields a numeric value (difference in time), and subtracting a numeric value from a time stamp value yields a time stamp. You cannot subtract a time stamp value from a numeric value. The dimensions of two matrices that you want to subtract must be the same. Otherwise, this function retur",
       "vi_path": null,
@@ -1643,7 +1642,7 @@
     },
     {
       "name": "Multiply Function",
-      "page": 6074,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/multiply.html",
       "category": "Express",
       "description": "Returns the product of the inputs. If you wire two waveform values or two dynamic data type values to this function, error in and error out terminals appear on the function. The connector pane displays the default data types for this polymorphic function.",
       "vi_path": null,
@@ -1669,7 +1668,7 @@
     },
     {
       "name": "Divide Function",
-      "page": 6075,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/divide.html",
       "category": "Express",
       "description": "Computes the quotient of the inputs.",
       "vi_path": null,
@@ -1688,7 +1687,7 @@
     },
     {
       "name": "Increment Function",
-      "page": 6076,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/increment.html",
       "category": "Express",
       "description": "Adds 1 to the input value. The connector pane displays the default data types for this polymorphic function.",
       "vi_path": null,
@@ -1735,7 +1734,7 @@
     },
     {
       "name": "Decrement Function",
-      "page": 6077,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/decrement.html",
       "category": "Express",
       "description": "Subtracts 1 from the input value. The connector pane displays the default data types for this polymorphic function.",
       "vi_path": null,
@@ -1768,7 +1767,7 @@
     },
     {
       "name": "Compound Arithmetic",
-      "page": 6078,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/compound-arithmetic.html",
       "category": "Express",
       "description": "Performs arithmetic on one or more numeric, array, cluster, or Boolean inputs. To select the operation (Add, Multiply, AND, OR, or XOR), right-click the function and select Change Mode from the shortcut menu. When you select this function from the Numeric palette, the default mode is Add. When you select this function from the Boolean palette, the default mode is OR. The connector pane displays the default data types for this polymorphic function. Note You can manually configure this function to",
       "vi_path": null,
@@ -1801,7 +1800,7 @@
     },
     {
       "name": "Absolute Value Function",
-      "page": 6080,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/absolute-value.html",
       "category": "Express",
       "description": "Returns the absolute value of the input. The connector pane displays the default data types for this polymorphic function.",
       "vi_path": null,
@@ -1827,7 +1826,7 @@
     },
     {
       "name": "Round To Nearest Function",
-      "page": 6081,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/round-to-nearest.html",
       "category": "Express",
       "description": "Rounds the input to the nearest integer. If the value of the input is midway between two integers, the function returns the nearest even integer. For example, if number is 1.5 or 2.5, nearest integer value is 2. The connector pane displays the default data types for this polymorphic function.",
       "vi_path": null,
@@ -1853,7 +1852,6 @@
     },
     {
       "name": "Round Toward +Infinity Function",
-      "page": 6082,
       "category": "Express",
       "description": "Rounds the input to the next highest integer. For example, if the input is 3.1, the result is 4. If the input is –3.1, the result is –3. The connector pane displays the default data types for this polymorphic function. Functions 6082 ni.com",
       "vi_path": null,
@@ -1872,7 +1870,6 @@
     },
     {
       "name": "Round Toward -Infinity Function",
-      "page": 6082,
       "category": "Express",
       "description": "Truncates the input to the next lowest integer. For example, if the input is 3.8, the result is 3. If the input is –3.8, the result is –4. The connector pane displays the default data types for this polymorphic function.",
       "vi_path": null,
@@ -1898,7 +1895,7 @@
     },
     {
       "name": "Scale By Power Of 2 Function",
-      "page": 6083,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/scale-by-power-of-2.html",
       "category": "Express",
       "description": "Multiplies x by 2 raised to the power of n. If x is an integer or fixed-point number, this function is the equivalent of an arithmetic shift. The connector pane displays the default data types for this polymorphic function.",
       "vi_path": null,
@@ -1924,7 +1921,7 @@
     },
     {
       "name": "Square Root Function",
-      "page": 6084,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/square-root.html",
       "category": "Express",
       "description": "Computes the square root of the input value. If x is negative, the square root is NaN unless x is complex. If x is a matrix, this function takes the matrix square root of x. The connector pane displays the default data types for this polymorphic function.",
       "vi_path": null,
@@ -1943,7 +1940,7 @@
     },
     {
       "name": "Square Function",
-      "page": 6086,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/square.html",
       "category": "Express",
       "description": "Computes the square of the input value. The connector pane displays the default data types for this polymorphic function.",
       "vi_path": null,
@@ -1969,7 +1966,7 @@
     },
     {
       "name": "Negate Function",
-      "page": 6087,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/negate.html",
       "category": "Express",
       "description": "Negates the input value. The connector pane displays the default data types for this polymorphic function.",
       "vi_path": null,
@@ -1995,7 +1992,7 @@
     },
     {
       "name": "Reciprocal Function",
-      "page": 6087,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/reciprocal.html",
       "category": "Express",
       "description": "Divides 1 by the input value. The connector pane displays the default data types for this polymorphic function. Functions © National Instruments 6087",
       "vi_path": null,
@@ -2021,7 +2018,7 @@
     },
     {
       "name": "Sign Function",
-      "page": 6088,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/sign.html",
       "category": "Express",
       "description": "Returns the sign of number. Text-based programming languages typically call this function signum or sgn. The connector pane displays the default data types for this polymorphic function. Note For nonzero complex numbers, this function returns a complex value with the same phase as the input and with a magnitude of 1. Functions 6088 ni.com",
       "vi_path": null,
@@ -2054,7 +2051,7 @@
     },
     {
       "name": "Negative Infinity",
-      "page": 6090,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/constants/negative-infinity.html",
       "category": "Express",
       "description": "Returns the value -Inf (negative infinity). LabVIEW converts -Inf to the lowest value for a data type. For example, converting -Inf to a 16-bit signed integer returns the value -32,768, the lowest possible value for a 16-bit signed integer. Functions 6090 ni.com Machine Epsilon Machine Epsilon Represents the round-off error for a floating-point number with a given precision. Use the machine epsilon constant to compare whether two floating-point numbers are equivalent. Express Math & Scientific C",
       "vi_path": null,
@@ -2065,7 +2062,7 @@
     },
     {
       "name": "Positive Infinity",
-      "page": 6090,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/constants/positive-infinity.html",
       "category": "Express",
       "description": "Returns the value Inf (infinity). LabVIEW converts Inf to the highest value for a data type. For example, converting Inf to a 16-bit signed integer returns the value 32,767, the highest possible value for a 16-bit signed integer. Negative Infinity Negative Infinity Returns the value -Inf (negative infinity). LabVIEW converts -Inf to the lowest value for a data type. For example, converting -Inf to a 16-bit signed integer returns the value -32,768, the lowest possible value for a 16-bit signed in",
       "vi_path": null,
@@ -2076,7 +2073,7 @@
     },
     {
       "name": "Random Number (0-1) Function",
-      "page": 6090,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/random-number-0-1.html",
       "category": "Express",
       "description": "Produces a double-precision, floating-point number between 0 and 1. The number generated is greater than or equal to 0, but less than 1. The distribution is uniform. Alternatively, you can use several of the Signal Generation VIs or the Signal Generation PtByPt VIs to regenerate the same random sequence. For example, the Uniform White Noise VI allows you to set a seed number that you can use to initialize the generation of a pseudorandom pattern.",
       "vi_path": null,
@@ -2095,7 +2092,7 @@
     },
     {
       "name": "Machine Epsilon",
-      "page": 6091,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/constants/machine-epsilon.html",
       "category": "Express",
       "description": "Represents the round-off error for a floating-point number with a given precision. Use the machine epsilon constant to compare whether two floating-point numbers are equivalent. Express Math & Scientific Constants Express Math & Scientific Constants Use the Express Math & Scientific Constants to create LabVIEW applications. The following constants are Committee on Data for Science and Technology (CODATA) 2006 values. Some of the constants on this palette have units. Palette Object Description Pi",
       "vi_path": null,
@@ -2106,7 +2103,6 @@
     },
     {
       "name": "Express Math",
-      "page": 6095,
       "category": "Express",
       "description": "Use the Math functions to create and to perform logarithmic and trigonometric equations and to compute hyperbolic functions and their inverses. Functions © National Instruments 6095 Palette Object Description Express Trigonometric Functions Use the Express Trigonometric functions to create and to perform trigonometric equations. Express Exponential Functions Use the Express Exponential functions to create and perform exponential equations. Express Hyperbolic Functions Use the Express Hyperbolic ",
       "vi_path": null,
@@ -2125,7 +2121,6 @@
     },
     {
       "name": "Express Trigonometric Functions",
-      "page": 6096,
       "category": "Express",
       "description": "Use the Express Trigonometric functions to create and to perform trigonometric equations. Palette Object Description Sine Function Computes the sine of x, where x is in radians. Cosine Function Computes the cosine of x, where x is in radians. Tangent Function Computes the tangent of x, where x is in radians. Secant Function Computes the secant of x, where x is in radians. Secant is the reciprocal of cosine. Cosecant Function Computes the cosecant of x, where x is in radians. Cosecant is the reci",
       "vi_path": null,
@@ -2151,7 +2146,6 @@
     },
     {
       "name": "Express Exponential Functions",
-      "page": 6109,
       "category": "Express",
       "description": "Use the Express Exponential functions to create and perform exponential equations. Palette Object Description Exponential Function Computes the value of e raised to the x power, or the exponential of x. Exponential (Arg) -1 Function Computes 1 less than the value of e raised to the x power. Power Of 10 Function Computes 10 raised to the x power. Power Of 2 Function Computes 2 raised to the x power. Power Of X Function Computes x raised to the y power. Y-th Root of X Function Returns the yth root",
       "vi_path": null,
@@ -2184,7 +2178,6 @@
     },
     {
       "name": "Express Hyperbolic Functions",
-      "page": 6120,
       "category": "Express",
       "description": "Use the Express Hyperbolic functions to create and to perform hyperbolic equations. Palette Object Description Hyperbolic Sine Function Computes the hyperbolic sine of x. Hyperbolic Cosine Function Computes the hyperbolic cosine of x. Hyperbolic Tangent Function Computes the hyperbolic tangent of x. Hyperbolic Secant Function Computes the hyperbolic secant of x. Hyperbolic Cosecant Function Computes the hyperbolic cosecant of x. Hyperbolic Cotangent Function Computes the hyperbolic cotangent of ",
       "vi_path": null,
@@ -2210,7 +2203,6 @@
     },
     {
       "name": "Express Boolean",
-      "page": 6129,
       "category": "Express",
       "description": "Use the Express Boolean functions to perform logical operations on Boolean values. Functions © National Instruments 6129 Palette Object Description And Function Computes the logical AND of the inputs. Both inputs must be Boolean values, numeric values, or error clusters. If both inputs are TRUE, the function returns TRUE. Otherwise, it returns FALSE. Or Function Computes the logical OR of the inputs. Both inputs must be Boolean values, numeric values, or error clusters. If both inputs are FALSE,",
       "vi_path": null,
@@ -2229,7 +2221,7 @@
     },
     {
       "name": "And Function",
-      "page": 6131,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/and.html",
       "category": "Express",
       "description": "Computes the logical AND of the inputs. Both inputs must be Boolean values, numeric values, or error clusters. If both inputs are TRUE, the function returns TRUE. Otherwise, it returns FALSE. The connector pane displays the default data types for this polymorphic function.",
       "vi_path": null,
@@ -2248,7 +2240,7 @@
     },
     {
       "name": "Or Function",
-      "page": 6132,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/or.html",
       "category": "Express",
       "description": "Computes the logical OR of the inputs. Both inputs must be Boolean values, numeric values, or error clusters. If both inputs are FALSE, the function returns FALSE. Otherwise, it returns TRUE. The connector pane displays the default data types for this polymorphic function.",
       "vi_path": null,
@@ -2267,7 +2259,7 @@
     },
     {
       "name": "Exclusive Or Function",
-      "page": 6133,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/exclusive-or.html",
       "category": "Express",
       "description": "Computes the logical exclusive or (XOR) of the inputs. Both inputs must be Boolean values, numeric values, or error clusters. If both inputs are TRUE or both inputs are FALSE, the function returns FALSE. Otherwise, it returns TRUE. The connector pane displays the default data types for this polymorphic function.",
       "vi_path": null,
@@ -2286,7 +2278,7 @@
     },
     {
       "name": "Not Function",
-      "page": 6134,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/not.html",
       "category": "Express",
       "description": "Computes the logical negation of the input. If x is FALSE, the function returns TRUE. If x is TRUE, the function returns FALSE. Note This function performs bitwise operations on numeric inputs. Functions 6134 ni.com The connector pane displays the default data types for this polymorphic function.",
       "vi_path": null,
@@ -2305,7 +2297,7 @@
     },
     {
       "name": "Not And Function",
-      "page": 6135,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/not-and.html",
       "category": "Express",
       "description": "Computes the logical NAND of the inputs. Both inputs must be Boolean values, numeric values, or error clusters. If both inputs are TRUE, the function returns FALSE. Otherwise, it returns TRUE. Note This function performs bitwise operations on numeric inputs. Functions © National Instruments 6135 The connector pane displays the default data types for this polymorphic function.",
       "vi_path": null,
@@ -2324,7 +2316,7 @@
     },
     {
       "name": "Not Or Function",
-      "page": 6137,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/not-or.html",
       "category": "Express",
       "description": "Computes the logical NOR of the inputs. Both inputs must be Boolean values, numeric values, or error clusters. If both inputs are FALSE, the function returns TRUE. Otherwise, it returns FALSE. The connector pane displays the default data types for this polymorphic function.",
       "vi_path": null,
@@ -2343,7 +2335,7 @@
     },
     {
       "name": "Not Exclusive Or Function",
-      "page": 6138,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/not-exclusive-or.html",
       "category": "Express",
       "description": "Computes the logical negation of the logical exclusive or (XOR) of the inputs. Both inputs must be Boolean values, numeric values, or error clusters. If both inputs are TRUE or both inputs are FALSE, the function returns TRUE. Otherwise, it returns FALSE. The connector pane displays the default data types for this polymorphic function.",
       "vi_path": null,
@@ -2362,7 +2354,7 @@
     },
     {
       "name": "Implies Function",
-      "page": 6139,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/implies.html",
       "category": "Express",
       "description": "Negates x and then computes the logical OR of y and the negated x. Both inputs must be Boolean values, numeric values, or error clusters. If x is TRUE and y is FALSE, the function returns FALSE. Otherwise, it returns TRUE. The connector pane displays the default data types for this polymorphic function.",
       "vi_path": null,
@@ -2381,7 +2373,6 @@
     },
     {
       "name": "Express Comparison",
-      "page": 6141,
       "category": "Express",
       "description": "Use the Express Comparison VI and functions to compare Boolean values, strings, numeric values, arrays, and clusters. The Express Comparison VI and functions treat Boolean, string, numeric, array, and cluster values differently. You can change the comparison mode of some Express Comparison VI and functions. You also can use the character Comparison functions to compare characters. Palette Object Description Equal? Function Returns TRUE if x is equal to y. Otherwise, this function returns FALSE. ",
       "vi_path": null,
@@ -2400,7 +2391,7 @@
     },
     {
       "name": "Equal? Function",
-      "page": 6143,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/equal.html",
       "category": "Express",
       "description": "Returns TRUE if x is equal to y. Otherwise, this function returns FALSE. You can change the comparison mode of this function. If you compare two matrices, the default comparison mode is Compare Aggregates, and this function returns a scalar. You can compare an array or cluster of a data type to a scalar of the same data type and produce an array or cluster of Boolean values. The connector pane displays the default data types for this polymorphic function.",
       "vi_path": null,
@@ -2419,7 +2410,7 @@
     },
     {
       "name": "Not Equal? Function",
-      "page": 6144,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/not-equal.html",
       "category": "Express",
       "description": "Returns TRUE if x is not equal to y. Otherwise, this function returns FALSE. You can change the comparison mode of this function. If you compare two matrices, the default comparison mode is Compare Aggregates, and this function returns a scalar. You can compare an array or cluster of a data type to a scalar of the same data type and produce an array or cluster of Booleans. The connector pane displays the default data types for this polymorphic function.",
       "vi_path": null,
@@ -2438,7 +2429,7 @@
     },
     {
       "name": "Greater? Function",
-      "page": 6146,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/greater.html",
       "category": "Express",
       "description": "Returns TRUE if x is greater than y. Otherwise, this function returns FALSE. You can change the comparison mode of this function. You can compare an array or cluster of a data type to a scalar of the same data type and produce an array or cluster of Boolean values. The connector pane displays the default data types for this polymorphic function.",
       "vi_path": null,
@@ -2464,7 +2455,7 @@
     },
     {
       "name": "Less? Function",
-      "page": 6146,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/less.html",
       "category": "Express",
       "description": "Returns TRUE if x is less than y. Otherwise, this function returns FALSE. You can change the comparison mode of this function. Functions 6146 ni.com You can compare an array or cluster of a data type to a scalar of the same data type and produce an array or cluster of Boolean values. The connector pane displays the default data types for this polymorphic function.",
       "vi_path": null,
@@ -2483,7 +2474,7 @@
     },
     {
       "name": "Greater Or Equal? Function",
-      "page": 6147,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/greater-or-equal.html",
       "category": "Express",
       "description": "Returns TRUE if x is greater than or equal to y. Otherwise, this function returns FALSE. You can change the comparison mode of this function. You can compare an array or cluster of a data type to a scalar of the same data type and produce an array or cluster of Boolean values. The connector pane displays the default data types for this polymorphic function.",
       "vi_path": null,
@@ -2523,7 +2514,7 @@
     },
     {
       "name": "Less Or Equal? Function",
-      "page": 6148,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/less-or-equal.html",
       "category": "Express",
       "description": "Returns TRUE if x is less than or equal to y. Otherwise, this function returns FALSE. You can change the comparison mode of this function. You can compare an array or cluster of a data type to a scalar of the same data type and produce an array or cluster of Boolean values. The connector pane displays the default data types for this polymorphic function.",
       "vi_path": null,
@@ -2556,7 +2547,7 @@
     },
     {
       "name": "Equal To 0? Function",
-      "page": 6149,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/equal-to-0.html",
       "category": "Express",
       "description": "Returns TRUE if x is equal to 0. Otherwise, this function returns FALSE. The connector pane displays the default data types for this polymorphic function.",
       "vi_path": null,
@@ -2582,7 +2573,7 @@
     },
     {
       "name": "Not Equal To 0? Function",
-      "page": 6149,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/not-equal-to-0.html",
       "category": "Express",
       "description": "Returns TRUE if x is not equal to 0. Otherwise, this function returns FALSE. The connector pane displays the default data types for this polymorphic function.",
       "vi_path": null,
@@ -2629,7 +2620,7 @@
     },
     {
       "name": "Greater Than 0? Function",
-      "page": 6150,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/greater-than-0.html",
       "category": "Express",
       "description": "Returns TRUE if x is greater than 0. Otherwise, this function returns FALSE. The connector pane displays the default data types for this polymorphic function.",
       "vi_path": null,
@@ -2669,7 +2660,7 @@
     },
     {
       "name": "Less Than 0? Function",
-      "page": 6150,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/less-than-0.html",
       "category": "Express",
       "description": "Returns TRUE if x is less than 0. Otherwise, this function returns FALSE. The connector pane displays the default data types for this polymorphic function.",
       "vi_path": null,
@@ -2702,7 +2693,7 @@
     },
     {
       "name": "Greater Or Equal To 0? Function",
-      "page": 6151,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/greater-or-equal-to-0.html",
       "category": "Express",
       "description": "Returns TRUE if x is greater than or equal to 0. Otherwise, this function returns FALSE. The connector pane displays the default data types for this polymorphic function.",
       "vi_path": null,
@@ -2728,7 +2719,7 @@
     },
     {
       "name": "Less Or Equal To 0? Function",
-      "page": 6151,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/less-or-equal-to-0.html",
       "category": "Express",
       "description": "Returns TRUE if x is less than or equal to 0. Otherwise, this function returns FALSE. The connector pane displays the default data types for this polymorphic function.",
       "vi_path": null,
@@ -2747,7 +2738,7 @@
     },
     {
       "name": "Select Function",
-      "page": 6152,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/select.html",
       "category": "Express",
       "description": "Returns the value wired to the t input or f input, depending on the value of s. If s is TRUE, this function returns the value wired to t. If s is FALSE, this function returns the value wired to f. The connector pane displays the default data types for this polymorphic function.",
       "vi_path": null,
@@ -2766,7 +2757,6 @@
     },
     {
       "name": "Dialog Box Options",
-      "page": 6158,
       "category": "Express",
       "description": "",
       "vi_path": null,
@@ -2834,7 +2824,6 @@
     },
     {
       "name": "Dialog Box Options",
-      "page": 6160,
       "category": "Express",
       "description": "",
       "vi_path": null,

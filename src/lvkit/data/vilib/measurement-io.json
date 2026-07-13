@@ -4,7 +4,7 @@
   "entries": [
     {
       "name": "Synchronize to Scan Engine",
-      "page": 2634,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/niscanengine/scanengine/synchronize-to-scan-engine-vi.html",
       "category": "Measurement I/O",
       "description": "Synchronizes execution timing to the scan period of the NI Scan Engine. This VI waits for each scan to complete and triggers subsequent code to execute once the scan engine has updated all values. Use the Scan Engine page to configure the scan period. You also can use the Set Scan Engine Period VI to set the scan period programmatically.",
       "vi_path": null,
@@ -44,7 +44,7 @@
     },
     {
       "name": "Get Scan Engine Period",
-      "page": 2635,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/niscanengine/scanengine/get-scan-engine-period-vi.html",
       "category": "Measurement I/O",
       "description": "Returns the scan period of the NI Scan Engine on the target.",
       "vi_path": null,
@@ -84,7 +84,7 @@
     },
     {
       "name": "Set Scan Engine Period",
-      "page": 2635,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/niscanengine/scanengine/set-scan-engine-period-vi.html",
       "category": "Measurement I/O",
       "description": "Sets the scan period of the NI Scan Engine on the target.",
       "vi_path": null,
@@ -131,7 +131,7 @@
     },
     {
       "name": "Get Scan Engine Mode",
-      "page": 2636,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/niscanengine/scanengine/get-scan-engine-mode-vi.html",
       "category": "Measurement I/O",
       "description": "Returns the operating mode of the NI Scan Engine on the target. Note If the target includes an expansion I/O driver, you can set the scan period only when the NI Scan Engine is in Configuration Mode. You can use the Set Scan Engine Mode VI before this VI to put the NI Scan Engine on the target into Configuration Mode. Functions 2636 ni.com",
       "vi_path": null,
@@ -188,7 +188,7 @@
     },
     {
       "name": "Set Scan Engine Mode",
-      "page": 2637,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/niscanengine/scanengine/set-scan-engine-mode-vi.html",
       "category": "Measurement I/O",
       "description": "Sets the operating mode of the NI Scan Engine on the target.",
       "vi_path": null,
@@ -228,7 +228,7 @@
     },
     {
       "name": "Refresh Modules",
-      "page": 2638,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/niscanengine/scanengine/refresh-modules-vi.html",
       "category": "Measurement I/O",
       "description": "Discovers new I/O modules on any local or networked target. If a local I/O module is detected in a slot that was not previously deployed from a LabVIEW project, this VI creates new I/O variables for the I/O module. These automatically-created I/O variables use the default I/O variable settings. This VI does not add the new I/O variables to a LabVIEW project, and the new I/O variables do not persist when the target restarts.",
       "vi_path": null,
@@ -261,7 +261,7 @@
     },
     {
       "name": "Enable Variable Forcing",
-      "page": 2640,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/niscanengine/forcing/enable-variable-forcing-vi.html",
       "category": "Measurement I/O",
       "description": "Enables forcing for I/O variables and I/O aliases on the target.",
       "vi_path": null,
@@ -301,7 +301,7 @@
     },
     {
       "name": "Clear Variable Forcing",
-      "page": 2641,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/niscanengine/forcing/clear-variable-forcing-vi.html",
       "category": "Measurement I/O",
       "description": "Unforces all currently forced I/O variables and I/O aliases on the target. Functions © National Instruments 2641",
       "vi_path": null,
@@ -341,7 +341,7 @@
     },
     {
       "name": "Disable Variable Forcing",
-      "page": 2641,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/niscanengine/forcing/disable-variable-forcing-vi.html",
       "category": "Measurement I/O",
       "description": "Disables forcing for I/O variables and I/O aliases on the target. Unless you clear forcing, the previous forced values return when you re-enable forcing.",
       "vi_path": null,
@@ -374,7 +374,7 @@
     },
     {
       "name": "Force Variable",
-      "page": 2642,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/niscanengine/forcing/force-variable-vi.html",
       "category": "Measurement I/O",
       "description": "Forces an I/O variable or I/O alias to assume forced value until you disable forcing, reboot the target, or force the variable to assume a new forced value.",
       "vi_path": null,
@@ -421,7 +421,7 @@
     },
     {
       "name": "Unforce Variable",
-      "page": 2643,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/niscanengine/forcing/unforce-variable-vi.html",
       "category": "Measurement I/O",
       "description": "Discontinues forcing on an I/O variable or I/O alias and returns control of the I/O value to the NI Scan Engine. Functions © National Instruments 2643",
       "vi_path": null,
@@ -461,7 +461,7 @@
     },
     {
       "name": "Get Fault List",
-      "page": 2645,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/niscanengine/faults/get-fault-list-vi.html",
       "category": "Measurement I/O",
       "description": "Returns a list of active faults.",
       "vi_path": null,
@@ -529,7 +529,7 @@
     },
     {
       "name": "Set Fault",
-      "page": 2647,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/niscanengine/faults/set-fault-vi.html",
       "category": "Measurement I/O",
       "description": "Creates a fault. When the major fault input is TRUE, this VI triggers fault mode. Use the code element of the error in (user fault) input cluster to specify the fault code.",
       "vi_path": null,
@@ -569,7 +569,7 @@
     },
     {
       "name": "Clear Fault",
-      "page": 2648,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/niscanengine/faults/clear-fault-vi.html",
       "category": "Measurement I/O",
       "description": "Clears NI Scan Engine faults. If the fault you specify using the fault code input is active, this VI clears the fault. If the fault is not active, this VI takes no action and generates no error.",
       "vi_path": null,
@@ -616,7 +616,7 @@
     },
     {
       "name": "Clear All Faults",
-      "page": 2649,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/niscanengine/faults/clear-all-faults-vi.html",
       "category": "Measurement I/O",
       "description": "Clears all active faults on the target.",
       "vi_path": null,
@@ -649,7 +649,7 @@
     },
     {
       "name": "Fault Configuration",
-      "page": 2650,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/resource/objmgr/ni-var-rc/variableengine/iovariableengine/dynamic-iovarengine-faultconfig-p.html",
       "category": "Measurement I/O",
       "description": "Use the Fault Configuration VIs to view and configure the level and triggering behavior of system faults. Palette Object Description Set Fault Configuration Applies a custom fault configuration for a configurable fault. Clear Fault Configuration Clears the custom fault configuration for a configurable fault and applies the default configuration. Get All Fault Configurations Returns a list of custom fault configurations. Set Fault Configuration Set Fault Configuration Applies a custom fault confi",
       "vi_path": null,
@@ -723,7 +723,7 @@
     },
     {
       "name": "Set Fault Configuration",
-      "page": 2650,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/niscanengine/configurablefaults/set-fault-configuration-vi.html",
       "category": "Measurement I/O",
       "description": "Applies a custom fault configuration for a configurable fault. If the fault code you specify does not correspond to a configurable fault, this VI returns an error. Functions 2650 ni.com",
       "vi_path": null,
@@ -797,7 +797,7 @@
     },
     {
       "name": "Clear Fault Configuration",
-      "page": 2652,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/niscanengine/configurablefaults/clear-fault-configuration-vi.html",
       "category": "Measurement I/O",
       "description": "Clears the custom fault configuration for a configurable fault and applies the default configuration.",
       "vi_path": null,
@@ -837,7 +837,7 @@
     },
     {
       "name": "Get All Fault Configurations",
-      "page": 2653,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/niscanengine/configurablefaults/get-all-fault-configurations-vi.html",
       "category": "Measurement I/O",
       "description": "Returns a list of custom fault configurations.",
       "vi_path": null,

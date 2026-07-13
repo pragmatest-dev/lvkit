@@ -4,7 +4,7 @@
   "entries": [
     {
       "name": "VISA Write Function",
-      "page": 2656,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/visa-write.html",
       "category": "Instrument I/O",
       "description": "Writes the data from write buffer to the device or interface specified by VISA resource name.",
       "vi_path": null,
@@ -58,7 +58,7 @@
     },
     {
       "name": "VISA Read Function",
-      "page": 2658,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/visa-read.html",
       "category": "Instrument I/O",
       "description": "Reads the specified number of bytes from the device or interface specified by VISA resource name and returns the data in read buffer.",
       "vi_path": null,
@@ -140,7 +140,7 @@
     },
     {
       "name": "VISA Open Function",
-      "page": 2661,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/visa-open.html",
       "category": "Instrument I/O",
       "description": "Opens a session to the device specified by VISA resource name and returns a session identifier that can be used to call any other operations of that device.",
       "vi_path": null,
@@ -173,7 +173,7 @@
     },
     {
       "name": "VISA Close Function",
-      "page": 2663,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/visa-close.html",
       "category": "Instrument I/O",
       "description": "Closes a device session or event object specified by VISA resource name.",
       "vi_path": null,
@@ -206,7 +206,7 @@
     },
     {
       "name": "VISA Find Resource Function",
-      "page": 2664,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/visa-find-resource.html",
       "category": "Instrument I/O",
       "description": "Queries the system to locate the devices associated with a specified interface.",
       "vi_path": null,
@@ -225,7 +225,6 @@
     },
     {
       "name": "Bus/Interface Specific",
-      "page": 2669,
       "category": "Instrument I/O",
       "description": "Use the Bus/Interface Specific functions to program instruments that are interface specific. The functions on this palette can return VISA error codes. Functions © National Instruments 2669 Palette Object Description Serial Use the Serial VIs and functions to access the VISA VIs and functions that communicate with devices connected to a serial port. Additional functions are also available on the VISA palette. VISA USB Use the VISA USB VI and functions to control USB devices. VISA Set I/O Buffer ",
       "vi_path": null,
@@ -236,7 +235,7 @@
     },
     {
       "name": "VISA Write From File Function",
-      "page": 2710,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/visa-write-from-file.html",
       "category": "Instrument I/O",
       "description": "Takes data from the file specified by filename and writes it to the device synchronously. filename opens in binary mode and the function reads the amount of data specified by count. The data is then written to the device. This operation returns only when the transfer terminates.",
       "vi_path": null,
@@ -297,7 +296,7 @@
     },
     {
       "name": "VISA Read To File Function",
-      "page": 2711,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/visa-read-to-file.html",
       "category": "Instrument I/O",
       "description": "Reads byte count synchronously and stores the transferred data in the file specified by filename. filename opens in binary mode. Any existing contents are destroyed if you set the Message Based Settings:File Append Enable property to FALSE. The data is then written to the file. The operation returns only when the transfer terminates.",
       "vi_path": null,
@@ -358,7 +357,6 @@
     },
     {
       "name": "Event Handling",
-      "page": 2712,
       "category": "Instrument I/O",
       "description": "Use the Event Handling VIs and functions to use VISA events with your instruments. The VIs and functions on this palette can return VISA error codes. You also can access the Select Event Type constant from this palette. Palette Object Description VISA Enable Event Function Enables notification of a specified event type. VISA Wait on Event Function Suspends execution of an application thread and waits for an event type for a time period not to exceed that specified by timeout. VISA Disable Event ",
       "vi_path": null,
@@ -412,7 +410,7 @@
     },
     {
       "name": "VISA Unlock Function",
-      "page": 2725,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/visa-unlock.html",
       "category": "Instrument I/O",
       "description": "Relinquishes the lock previously obtained using the VISA Lock Async function.",
       "vi_path": null,
@@ -459,7 +457,6 @@
     },
     {
       "name": "Register Access",
-      "page": 2726,
       "category": "Instrument I/O",
       "description": "Use the Register Access functions to program in an address space at a high level. The functions on this palette can return VISA error codes. Palette Object Description VISA In 8 Function Reads an 8-bit block of data from the specified address space and offset. VISA In 16 Function Reads a 16-bit block of data from the specified address space and offset. VISA In 32 Function Reads a 32-bit block of data from the specified address space and offset. VISA In 64 Function Reads a 64-bit block of data fr",
       "vi_path": null,
@@ -485,7 +482,7 @@
     },
     {
       "name": "VISA Clear Function",
-      "page": 2777,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/visa-clear.html",
       "category": "Instrument I/O",
       "description": "Clears the input and output buffers of the device.",
       "vi_path": null,
@@ -525,7 +522,7 @@
     },
     {
       "name": "VISA Read STB Function",
-      "page": 2778,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/visa-read-stb.html",
       "category": "Instrument I/O",
       "description": "Reads a service request status byte byte from the message-based device specified by VISA resource name.",
       "vi_path": null,
@@ -593,7 +590,7 @@
     },
     {
       "name": "VISA Assert Trigger Function",
-      "page": 2779,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/visa-assert-trigger.html",
       "category": "Instrument I/O",
       "description": "Asserts a software or hardware trigger, depending on the interface type. For software triggers, Default (0) is the only valid protocol. For VXI hardware triggers, Default (0) is equivalent to Sync (5). For PXI triggers, PXI: Reserve (6) and PXI: Unreserve (7) are the only valid protocols. Functions © National Instruments 2779",
       "vi_path": null,
@@ -668,7 +665,6 @@
     },
     {
       "name": "Compatible GPIB Hardware",
-      "page": 2782,
       "category": "Instrument I/O",
       "description": "",
       "vi_path": null,
@@ -694,7 +690,7 @@
     },
     {
       "name": "GPIB Read Function",
-      "page": 2783,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/gpib-read.html",
       "category": "Instrument I/O",
       "description": "Reads byte count number of bytes from the GPIB device at address string. Right-click the node and select Synchronous I/O Mode»Synchronous from the shortcut menu to read data synchronously.",
       "vi_path": null,
@@ -720,7 +716,7 @@
     },
     {
       "name": "GPIB Write Function",
-      "page": 2786,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/gpib-write.html",
       "category": "Instrument I/O",
       "description": "Writes data to the GPIB device identified by address string. Right-click the node and select Synchronous I/O Mode»Synchronous from the shortcut menu to write data synchronously.",
       "vi_path": null,
@@ -774,7 +770,7 @@
     },
     {
       "name": "Wait for GPIB RQS Function",
-      "page": 2789,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/wait-for-gpib-rqs.html",
       "category": "Instrument I/O",
       "description": "Waits for the device indicated by address string to assert RQS. Use the GPIB Wait function to wait for a specified device to assert any state. Refer to GPIB Function Defaults for more information about the timeout and address defaults.",
       "vi_path": null,
@@ -800,7 +796,7 @@
     },
     {
       "name": "GPIB Trigger Function",
-      "page": 2790,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/gpib-trigger.html",
       "category": "Instrument I/O",
       "description": "Sends GET (Group Execute Trigger) to the device indicated by address string.",
       "vi_path": null,
@@ -833,7 +829,7 @@
     },
     {
       "name": "GPIB Clear Function",
-      "page": 2792,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/gpib-clear.html",
       "category": "Instrument I/O",
       "description": "Sends either SDC (Selected Device Clear) or DCL (Device Clear).",
       "vi_path": null,
@@ -873,7 +869,7 @@
     },
     {
       "name": "GPIB Serial Poll Function",
-      "page": 2793,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/gpib-serial-poll.html",
       "category": "Instrument I/O",
       "description": "Performs a serial poll of the device indicated by address string. Functions © National Instruments 2793",
       "vi_path": null,
@@ -920,7 +916,7 @@
     },
     {
       "name": "GPIB Initialization Function",
-      "page": 2795,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/gpib-initialization.html",
       "category": "Instrument I/O",
       "description": "Configures the GPIB interface at address string. Refer to GPIB Function Defaults for more information about the timeout and address defaults.",
       "vi_path": null,
@@ -988,7 +984,7 @@
     },
     {
       "name": "GPIB Status Function",
-      "page": 2796,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/gpib-status.html",
       "category": "Instrument I/O",
       "description": "Shows the present status of the GPIB Controller indicated by address string. Error I/O operates uniquely in this function. The function gets the status of the GPIB Controller Functions 2796 ni.com regardless of whether an error occurred in a preceding operation.",
       "vi_path": null,
@@ -1021,7 +1017,7 @@
     },
     {
       "name": "GPIB Wait Function",
-      "page": 2798,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/gpib-wait.html",
       "category": "Instrument I/O",
       "description": "Waits for the state(s) indicated by wait state vector at the device indicated by address string. Use the Wait for GPIB RQS function to wait for a device to assert RQS. Functions 2798 ni.com",
       "vi_path": null,
@@ -1054,7 +1050,7 @@
     },
     {
       "name": "GPIB Misc Function",
-      "page": 2801,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/gpib-misc.html",
       "category": "Instrument I/O",
       "description": "Performs the GPIB operation indicated by command string. Use this low-level function when the other high-level, traditional GPIB functions are not suitable.",
       "vi_path": null,
@@ -1073,7 +1069,7 @@
     },
     {
       "name": "Send Function",
-      "page": 2805,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/send.html",
       "category": "Instrument I/O",
       "description": "Sends data bytes to a single GPIB device. This function is similar to the SendList function, except that the Send function sends data to a single GPIB device. Refer to GPIB Function Defaults for more information about the timeout and address defaults.",
       "vi_path": null,
@@ -1141,7 +1137,7 @@
     },
     {
       "name": "Receive Function",
-      "page": 2807,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/receive.html",
       "category": "Instrument I/O",
       "description": "Reads data bytes from a GPIB device. Refer to GPIB Function Defaults for more information about the timeout and address defaults.",
       "vi_path": null,
@@ -1251,7 +1247,7 @@
     },
     {
       "name": "Trigger Function",
-      "page": 2809,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/trigger.html",
       "category": "Instrument I/O",
       "description": "Triggers a single device. Use the TriggerList function to send a single message that triggers several GPIB devices. Functions © National Instruments 2809 Refer to GPIB Function Defaults for more information about the timeout and address defaults.",
       "vi_path": null,
@@ -1298,7 +1294,7 @@
     },
     {
       "name": "DevClear Function",
-      "page": 2811,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/devclear.html",
       "category": "Instrument I/O",
       "description": "Clears a single device. Use the DevClearList function to send the Selected Device Clear (SDC) message to several GPIB devices. Refer to GPIB Function Defaults for more information about the timeout and address defaults.",
       "vi_path": null,
@@ -1345,7 +1341,7 @@
     },
     {
       "name": "ReadStatus Function",
-      "page": 2813,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/readstatus.html",
       "category": "Instrument I/O",
       "description": "Serial polls a single device to get its status byte. Refer to GPIB Function Defaults for more information about the timeout and address defaults.",
       "vi_path": null,
@@ -1392,7 +1388,7 @@
     },
     {
       "name": "PPollConfig Function",
-      "page": 2814,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/ppollconfig.html",
       "category": "Instrument I/O",
       "description": "Configures a device for parallel polls. Refer to GPIB Function Defaults for more information about the timeout and address defaults.",
       "vi_path": null,
@@ -1446,7 +1442,7 @@
     },
     {
       "name": "PPollUnconfig Function",
-      "page": 2816,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/ppollunconfig.html",
       "category": "Instrument I/O",
       "description": "Unconfigures devices for parallel polls. PPollUnconfig unconfigures the GPIB devices whose addresses are contained in the address list array for parallel polls. These devices no longer participate in polls. Refer to GPIB Function Defaults for more information about the timeout and address defaults.",
       "vi_path": null,
@@ -1493,7 +1489,7 @@
     },
     {
       "name": "PassControl Function",
-      "page": 2818,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/passcontrol.html",
       "category": "Instrument I/O",
       "description": "Passes control to another device with Controller capability. Refer to GPIB Function Defaults for more information about the timeout and address defaults.",
       "vi_path": null,
@@ -1540,7 +1536,7 @@
     },
     {
       "name": "SendList Function",
-      "page": 2819,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/sendlist.html",
       "category": "Instrument I/O",
       "description": "Sends data bytes to multiple GPIB devices. This function is similar to the Send function, except that SendList sends data to multiple listeners with only one transmission. Refer to GPIB Function Defaults for more information about the timeout and address defaults.",
       "vi_path": null,
@@ -1608,7 +1604,7 @@
     },
     {
       "name": "FindRQS Function",
-      "page": 2821,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/findrqs.html",
       "category": "Instrument I/O",
       "description": "Determines which device is requesting service. Refer to GPIB Function Defaults for more information about the timeout and address defaults.",
       "vi_path": null,
@@ -1669,7 +1665,7 @@
     },
     {
       "name": "TriggerList Function",
-      "page": 2823,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/triggerlist.html",
       "category": "Instrument I/O",
       "description": "Triggers multiple devices simultaneously. Refer to GPIB Function Defaults for more information about the timeout and address defaults.",
       "vi_path": null,
@@ -1695,7 +1691,7 @@
     },
     {
       "name": "DevClearList Function",
-      "page": 2824,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/devclearlist.html",
       "category": "Instrument I/O",
       "description": "Clears multiple devices simultaneously. Refer to GPIB Function Defaults for more information about the timeout and address defaults. Functions 2824 ni.com",
       "vi_path": null,
@@ -1735,7 +1731,7 @@
     },
     {
       "name": "AllSpoll Function",
-      "page": 2826,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/allspoll.html",
       "category": "Instrument I/O",
       "description": "Serial polls all devices. Although the AllSpoll function is general enough to serial poll any number of GPIB devices, use the ReadStatus function when you serial poll only one GPIB device. Refer to GPIB Function Defaults for more information about the timeout and address defaults.",
       "vi_path": null,
@@ -1789,7 +1785,7 @@
     },
     {
       "name": "PPoll Function",
-      "page": 2828,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/ppoll.html",
       "category": "Instrument I/O",
       "description": "Performs a parallel poll. Refer to GPIB Function Defaults for more information about the timeout and address defaults.",
       "vi_path": null,
@@ -1836,7 +1832,7 @@
     },
     {
       "name": "EnableRemote Function",
-      "page": 2829,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/enableremote.html",
       "category": "Instrument I/O",
       "description": "Enables remote programming of multiple GPIB devices. Refer to GPIB Function Defaults for more information about the timeout and address defaults. Functions © National Instruments 2829",
       "vi_path": null,
@@ -1883,7 +1879,7 @@
     },
     {
       "name": "EnableLocal Function",
-      "page": 2831,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/enablelocal.html",
       "category": "Instrument I/O",
       "description": "Enables local mode for multiple devices. Refer to GPIB Function Defaults for more information about the timeout and address defaults.",
       "vi_path": null,
@@ -1923,7 +1919,7 @@
     },
     {
       "name": "FindLstn Function",
-      "page": 2832,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/findlstn.html",
       "category": "Instrument I/O",
       "description": "Finds all Listeners on the GPIB. FindLstn detects the presence of devices at particular addresses because most GPIB devices have the ability to listen. When you detect the devices, you can usually interrogate them to determine their identity. Refer to GPIB Function Defaults for more information about the timeout and address defaults. Functions 2832 ni.com",
       "vi_path": null,
@@ -1977,7 +1973,7 @@
     },
     {
       "name": "TestSys Function",
-      "page": 2834,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/testsys.html",
       "category": "Instrument I/O",
       "description": "Directs multiple devices to conduct IEEE 488.2 self-tests. Refer to GPIB Function Defaults for more information about the timeout and address defaults.",
       "vi_path": null,
@@ -2024,7 +2020,7 @@
     },
     {
       "name": "ResetSys Function",
-      "page": 2836,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/resetsys.html",
       "category": "Instrument I/O",
       "description": "Performs bus initialization, message exchange initialization, and device initialization. Refer to GPIB Function Defaults for more information about the timeout and address defaults.",
       "vi_path": null,
@@ -2071,7 +2067,7 @@
     },
     {
       "name": "SendIFC Function",
-      "page": 2838,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/sendifc.html",
       "category": "Instrument I/O",
       "description": "Clears the GPIB functions with Interface Clear (IFC). When you issue the GPIB Device IFC message, the interface functions of all connected devices return to their cleared states. Refer to GPIB Function Defaults for more information about the timeout and address defaults.",
       "vi_path": null,
@@ -2111,7 +2107,7 @@
     },
     {
       "name": "TestSRQ Function",
-      "page": 2839,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/testsrq.html",
       "category": "Instrument I/O",
       "description": "Determines the current state of the SRQ line. This function is similar in format to the WaitSRQ function, except that WaitSRQ suspends itself while it waits for an occurrence of SRQ, and TestSRQ immediately returns the current SRQ state. Refer to GPIB Function Defaults for more information about the timeout and address defaults. Functions © National Instruments 2839",
       "vi_path": null,
@@ -2158,7 +2154,7 @@
     },
     {
       "name": "WaitSRQ Function",
-      "page": 2841,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/waitsrq.html",
       "category": "Instrument I/O",
       "description": "Waits until a device asserts Service Request. Refer to GPIB Function Defaults for more information about the timeout and address defaults.",
       "vi_path": null,
@@ -2198,7 +2194,7 @@
     },
     {
       "name": "SetRWLS Function",
-      "page": 2842,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/setrwls.html",
       "category": "Instrument I/O",
       "description": "Places particular devices in the Remote With Lockout State.",
       "vi_path": null,
@@ -2245,7 +2241,7 @@
     },
     {
       "name": "SendLLO Function",
-      "page": 2844,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/sendllo.html",
       "category": "Instrument I/O",
       "description": "Sends the Local Lockout (LLO) message to all devices. Refer to GPIB Function Defaults for more information about the timeout and address defaults.",
       "vi_path": null,
@@ -2285,7 +2281,7 @@
     },
     {
       "name": "SendDataBytes Function",
-      "page": 2845,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/senddatabytes.html",
       "category": "Instrument I/O",
       "description": "Sends data bytes to previously addressed devices. Refer to GPIB Function Defaults for more information about the timeout and address defaults. Functions © National Instruments 2845",
       "vi_path": null,
@@ -2346,7 +2342,7 @@
     },
     {
       "name": "SendSetup Function",
-      "page": 2847,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/sendsetup.html",
       "category": "Instrument I/O",
       "description": "Prepares particular devices to receive data bytes. You normally follow a call to this function with a call to a function such as SendDataBytes to actually transfer the data to the Listeners. This sequence eliminates the need to readdress the devices between blocks of sends. Refer to GPIB Function Defaults for more information about the timeout and address defaults. Functions © National Instruments 2847",
       "vi_path": null,
@@ -2393,7 +2389,7 @@
     },
     {
       "name": "SendCmds Function",
-      "page": 2849,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/sendcmds.html",
       "category": "Instrument I/O",
       "description": "Sends GPIB command bytes. You normally do not need to use SendCmds for GPIB operation. Use it when specialized command sequences, not provided for in other functions, must be sent over the GPIB. Refer to GPIB Function Defaults for more information about the timeout and address defaults. Refer to GPIB Multiline Interface Messages for more information about available commands.",
       "vi_path": null,
@@ -2447,7 +2443,7 @@
     },
     {
       "name": "RcvRespMsg Function",
-      "page": 2850,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/rcvrespmsg.html",
       "category": "Instrument I/O",
       "description": "Reads data bytes from a previously addressed device. RcvRespMsg assumes that another function, such as ReceiveSetup, Receive, or SendCmds, has already addressed the GPIB Talkers and Listeners. You use RcvRespMsg specifically to skip the addressing step of GPIB management. Use the Receive function to perform the entire sequence of addressing and then to receive the data bytes. Functions 2850 ni.com Refer to GPIB Function Defaults for more information about the timeout and address defaults.",
       "vi_path": null,
@@ -2501,7 +2497,7 @@
     },
     {
       "name": "ReceiveSetup Function",
-      "page": 2852,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/receivesetup.html",
       "category": "Instrument I/O",
       "description": "Prepares a device to send data bytes and prepares the GPIB controller to read data bytes. After you call this function, you can use a function such as RcvRespMsg to transfer the data from the Talker. In this way, you eliminate the need to readdress the devices between blocks of reads. Refer to GPIB Function Defaults for more information about the timeout and address defaults. Functions 2852 ni.com",
       "vi_path": null,
@@ -2541,7 +2537,7 @@
     },
     {
       "name": "SetTimeOut Function",
-      "page": 2854,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/settimeout.html",
       "category": "Instrument I/O",
       "description": "Changes the global timeout period for all GPIB 488.2 functions. This function also sets the default timeout period for all GPIB functions. This function defaults to the next higher ibtmo value. Refer to GPIB Function Defaults for more information about the timeout and address defaults.",
       "vi_path": null,
@@ -2567,7 +2563,7 @@
     },
     {
       "name": "MakeAddr Function",
-      "page": 2855,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/makeaddr.html",
       "category": "Instrument I/O",
       "description": "Combines primary address and secondary address in a specially formatted packed address for devices that require both a primary and secondary GPIB address. Refer to GPIB Function Defaults for more information about the timeout and address defaults.",
       "vi_path": null,
@@ -2614,7 +2610,7 @@
     },
     {
       "name": "Controller Functions",
-      "page": 2856,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/gpib-controller-functions.html",
       "category": "Instrument I/O",
       "description": "The controller functions configure the controller or send IEEE 488 commands to which all instruments respond. cac—Become Active Controller cmd—Send IEEE 488 Commands Functions 2856 ni.com dma—Set DMA Mode or Programmed I/O Mode gts—Go from Active Controller to Standby ist—Set Individual Status Bit llo—Local Lockout loc—Place Controller in Local State off—Take Controller Offline ppc—Parallel Poll Configure (Enable and Disable) ppu—Parallel Poll Unconfigure rpp—Conduct Parallel Poll rsc—Release or",
       "vi_path": null,
@@ -2625,7 +2621,7 @@
     },
     {
       "name": "GPIB Device and Controller Functions",
-      "page": 2856,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/gpib-device-and-controller-functions.html",
       "category": "Instrument I/O",
       "description": "The GPIB Device and Controller functions listed in the GPIB Misc function description are described here. Notice that there are both device and controller versions of the ppc and loc commands. The syntax and use of the commands are slightly different for each version. You can use these functions with all GPIB Controllers accessible by LabVIEW unless stated otherwise in the function description. An ECMD error (17) results when you execute a function for a GPIB Controller without the specified cap",
       "vi_path": null,
@@ -2636,7 +2632,7 @@
     },
     {
       "name": "Device Functions",
-      "page": 2863,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/gpib-device-functions.html",
       "category": "Instrument I/O",
       "description": "The device functions send configuration information to a specific instrument or device. loc—Go to local off—Take device offline pct—Pass control ppc—Parallel poll configure loc—Go to local syntax loc address loc temporarily moves devices from a remote program mode to a local mode. address is the GPIB address of the device. This argument indicates both primary and secondary addresses if you use the form primary+secondary, where primary and secondary are the decimal values of the primary and secon",
       "vi_path": null,
@@ -2647,7 +2643,7 @@
     },
     {
       "name": "GPIB Function Defaults",
-      "page": 2865,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/gpib-function-defaults.html",
       "category": "Instrument I/O",
       "description": "When using GPIB functions, the default primary address of the GPIB controller is 0, with no secondary address. It is designated as System Controller. The default timeout value for GPIB functions is 10 seconds. If you want to set the primary address or change the default timeout value, use the configuration utility included with the GPIB controller. You also can use the GPIB Initialization and SetTimeOut functions to set the primary address and to change the default timeout value at run time, but",
       "vi_path": null,
@@ -2658,7 +2654,7 @@
     },
     {
       "name": "Configuring Serial and Parallel Ports with VISA",
-      "page": 2866,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/configuring-serial-and-parallel-ports-with-visa.html",
       "category": "Instrument I/O",
       "description": "NI-VISA automatically detects ports. You can view the list of ports with a VISA resource name control on the front panel or with the VISA Find Resource function. The maximum number of serial ports that NI-VISA supports on any platform is 256. The Functions 2866 ni.com default numbering of serial ports is system dependent. (Windows) NI-VISA supports interaction with parallel ports as well as with serial ports on your computer. You can use the VISA properties to communicate with parallel ports in ",
       "vi_path": null,

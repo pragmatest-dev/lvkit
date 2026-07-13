@@ -4,7 +4,7 @@
   "entries": [
     {
       "name": "Add Function",
-      "page": 515,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/add.html",
       "category": "Numeric",
       "description": "Computes the sum of the inputs.",
       "vi_path": null,
@@ -30,7 +30,7 @@
     },
     {
       "name": "Subtract Function",
-      "page": 517,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/subtract.html",
       "category": "Numeric",
       "description": "Computes the difference of the inputs. If you wire two waveform values or two dynamic data type values to this function, error in and error out terminals appear on the function. Subtracting two time stamp values yields a numeric value (difference in time), and subtracting a numeric value from a time stamp value yields a time stamp. You cannot subtract a time stamp value from a numeric value. The dimensions of two matrices that you want to subtract must be the same. Otherwise, this function retur",
       "vi_path": null,
@@ -70,7 +70,7 @@
     },
     {
       "name": "Multiply Function",
-      "page": 518,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/multiply.html",
       "category": "Numeric",
       "description": "Returns the product of the inputs. If you wire two waveform values or two dynamic data type values to this function, error in and error out terminals appear on the function. The connector pane displays the default data types for this polymorphic function. on the output terminal of the function to indicate that you have configured the output data type. Functions 518 ni.com",
       "vi_path": null,
@@ -89,7 +89,7 @@
     },
     {
       "name": "Divide Function",
-      "page": 520,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/divide.html",
       "category": "Numeric",
       "description": "Computes the quotient of the inputs.",
       "vi_path": null,
@@ -108,7 +108,7 @@
     },
     {
       "name": "Quotient & Remainder Function",
-      "page": 521,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/quotient-remainder.html",
       "category": "Numeric",
       "description": "Computes the integer quotient and the remainder of the inputs. This function rounds floor(x/y) to the nearest integer towards -inf. The connector pane displays the default data types for this polymorphic function.",
       "vi_path": null,
@@ -134,7 +134,7 @@
     },
     {
       "name": "To Extended Precision Float Function",
-      "page": 525,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/to-extended-precision-float.html",
       "category": "Numeric",
       "description": "Converts a number to an extended-precision, floating-point number. The connector pane displays the default data types for this polymorphic function. Functions © National Instruments 525",
       "vi_path": null,
@@ -160,7 +160,7 @@
     },
     {
       "name": "To Double Precision Float Function",
-      "page": 526,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/to-double-precision-float.html",
       "category": "Numeric",
       "description": "Converts a number to a double-precision, floating-point number. The connector pane displays the default data types for this polymorphic function.",
       "vi_path": null,
@@ -186,7 +186,7 @@
     },
     {
       "name": "To Single Precision Float Function",
-      "page": 526,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/to-single-precision-float.html",
       "category": "Numeric",
       "description": "Converts a number to a single-precision, floating-point number. The connector pane displays the default data types for this polymorphic function. Functions 526 ni.com",
       "vi_path": null,
@@ -212,7 +212,7 @@
     },
     {
       "name": "To Fixed-Point Function",
-      "page": 527,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/to-fixed-point.html",
       "category": "Numeric",
       "description": "Converts any non-complex number to fixed-point representation. If you do not wire a value to the fixed-point type input or configure the output settings of this function, the data type of the fixed-point output adapts to the data you wire to the number input. For example, if you wire an 8-bit unsigned integer to the number input, LabVIEW returns an 8-bit unsigned fixed-point number with 8 integer bits. This function saturates the number by default if overflow occurs.",
       "vi_path": null,
@@ -245,7 +245,7 @@
     },
     {
       "name": "To Quad Integer Function",
-      "page": 528,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/to-quad-integer.html",
       "category": "Numeric",
       "description": "Converts a number to a 64-bit integer in the range -(2^63) to (2^63)-1. The connector pane displays the default data types for this polymorphic function.",
       "vi_path": null,
@@ -271,7 +271,7 @@
     },
     {
       "name": "To Long Integer Function",
-      "page": 529,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/to-long-integer.html",
       "category": "Numeric",
       "description": "Converts a number to a 32-bit integer in the range -(2^ 31) to (2^ 31)-1. This function rounds all floating-point and fixed-point numeric values to the nearest integer. The connector pane displays the default data types for this polymorphic function.",
       "vi_path": null,
@@ -297,7 +297,7 @@
     },
     {
       "name": "To Word Integer Function",
-      "page": 529,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/to-word-integer.html",
       "category": "Numeric",
       "description": "Converts a number to a 16-bit integer in the range -32,768 to 32,767. The connector pane displays the default data types for this polymorphic function.",
       "vi_path": null,
@@ -323,7 +323,7 @@
     },
     {
       "name": "To Byte Integer Function",
-      "page": 530,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/to-byte-integer.html",
       "category": "Numeric",
       "description": "Converts a number to an 8-bit integer in the range -128 to 127. The connector pane displays the default data types for this polymorphic function.",
       "vi_path": null,
@@ -349,7 +349,7 @@
     },
     {
       "name": "To Unsigned Long Integer Function",
-      "page": 531,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/to-unsigned-long-integer.html",
       "category": "Numeric",
       "description": "Converts a number to a 32-bit unsigned integer in the range 0 to (2^32)-1. The connector pane displays the default data types for this polymorphic function.",
       "vi_path": null,
@@ -375,7 +375,7 @@
     },
     {
       "name": "To Unsigned Quad Integer Function",
-      "page": 531,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/to-unsigned-quad-integer.html",
       "category": "Numeric",
       "description": "Converts a number to a 64-bit unsigned integer in the range 0 to (2^64)-1. The connector pane displays the default data types for this polymorphic function.",
       "vi_path": null,
@@ -401,7 +401,7 @@
     },
     {
       "name": "To Unsigned Word Integer Function",
-      "page": 532,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/to-unsigned-word-integer.html",
       "category": "Numeric",
       "description": "Converts a number to a 16-bit unsigned integer in the range 0 to 65,535. The connector pane displays the default data types for this polymorphic function.",
       "vi_path": null,
@@ -427,7 +427,7 @@
     },
     {
       "name": "To Extended Precision Complex Function",
-      "page": 533,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/to-extended-precision-complex.html",
       "category": "Numeric",
       "description": "Converts a number to an extended-precision, complex number. The connector pane displays the default data types for this polymorphic function.",
       "vi_path": null,
@@ -453,7 +453,7 @@
     },
     {
       "name": "To Unsigned Byte Integer Function",
-      "page": 533,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/to-unsigned-byte-integer.html",
       "category": "Numeric",
       "description": "Converts a number to an 8-bit unsigned integer in the range 0 to 255. The connector pane displays the default data types for this polymorphic function.",
       "vi_path": null,
@@ -479,7 +479,7 @@
     },
     {
       "name": "To Double Precision Complex Function",
-      "page": 534,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/to-double-precision-complex.html",
       "category": "Numeric",
       "description": "Converts a number to a double-precision, complex number. The connector pane displays the default data types for this polymorphic function.",
       "vi_path": null,
@@ -505,7 +505,7 @@
     },
     {
       "name": "To Single Precision Complex Function",
-      "page": 534,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/to-single-precision-complex.html",
       "category": "Numeric",
       "description": "Converts a number to a single-precision, complex number. The connector pane displays the default data types for this polymorphic function. Functions 534 ni.com",
       "vi_path": null,
@@ -531,7 +531,7 @@
     },
     {
       "name": "Coerce To Type Function",
-      "page": 535,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/coerce-to-type.html",
       "category": "Numeric",
       "description": "Converts the input data to a compatible data type while preserving the data value. Unlike the Type Cast function, this function does not reinterpret the input data. Use this function in the following cases: • To eliminate a coercion dot • To convert data without a type definition to a compatible type definition or vice versa • To rename data on the wire, such as a user event refnum",
       "vi_path": null,
@@ -557,7 +557,7 @@
     },
     {
       "name": "Number To Boolean Array Function",
-      "page": 536,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/number-to-boolean-array.html",
       "category": "Numeric",
       "description": "Converts an integer or fixed-point number to a Boolean array. If you wire an integer to number, Boolean array returns an array of 8, 16, 32, or 64 elements, depending on the number of bits in the integer. If you wire a fixed-point number to number, the size of the array that Boolean array returns equals the word length of the fixed-point number. The 0th element of the array corresponds to the least significant bit of the two's complement representation of the integer.",
       "vi_path": null,
@@ -583,7 +583,7 @@
     },
     {
       "name": "Boolean Array To Number Function",
-      "page": 537,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/boolean-array-to-number.html",
       "category": "Numeric",
       "description": "Converts a Boolean array to an integer or a fixed-point number by interpreting the array as the binary representation of the number. The first element of the array corresponds to the least significant bit in the number.",
       "vi_path": null,
@@ -630,7 +630,7 @@
     },
     {
       "name": "Boolean To (0,1) Function",
-      "page": 538,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/boolean-to-0-1.html",
       "category": "Numeric",
       "description": "Converts a Boolean FALSE or TRUE value to a 16-bit integer with a value of 0 or 1, respectively.",
       "vi_path": null,
@@ -656,7 +656,7 @@
     },
     {
       "name": "To Time Stamp Function",
-      "page": 538,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/to-time-stamp.html",
       "category": "Numeric",
       "description": "Converts a number to a timestamp. Functions 538 ni.com",
       "vi_path": null,
@@ -682,7 +682,7 @@
     },
     {
       "name": "Byte Array To String Function",
-      "page": 539,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/byte-array-to-string.html",
       "category": "Numeric",
       "description": "Converts an array of unsigned bytes representing ASCII characters into a string. Functions © National Instruments 539",
       "vi_path": null,
@@ -708,7 +708,7 @@
     },
     {
       "name": "String To Byte Array Function",
-      "page": 539,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/string-to-byte-array.html",
       "category": "Numeric",
       "description": "Converts a string into an array of unsigned bytes. Each byte in the array has the ASCII value of the corresponding character in the string.",
       "vi_path": null,
@@ -734,7 +734,7 @@
     },
     {
       "name": "Convert Unit",
-      "page": 540,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/convert-unit.html",
       "category": "Numeric",
       "description": "Converts a physical number (a number that has a unit) to a pure number (a number with no units) or a pure number to a physical number. Right-click the function and select Build Unit String from the shortcut menu to build and edit a string of units.",
       "vi_path": null,
@@ -745,7 +745,7 @@
     },
     {
       "name": "Cast Unit Bases Function",
-      "page": 541,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/cast-unit-bases.html",
       "category": "Numeric",
       "description": "Changes the base units associated with the input to the base units associated with unit and returns the results at the output terminal. Functions © National Instruments 541",
       "vi_path": null,
@@ -764,7 +764,7 @@
     },
     {
       "name": "Color to RGB",
-      "page": 542,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/colorconv-llb/color-to-rgb-vi.html",
       "category": "Numeric",
       "description": "Resolves any color input, including system colors, into its respective red, green, and blue components. To perform a task such as color arithmetic with symbolic colors, you must convert the colors to their red, green, and blue components. Caution Use this function with extreme caution. Because this function works with bases, you must understand the conversion from an arbitrary unit to its bases before you can effectively use this function. This function can change base units, such as changing me",
       "vi_path": null,
@@ -790,7 +790,7 @@
     },
     {
       "name": "Enum to Array of Enums",
-      "page": 544,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/numeric/enum-to-array-of-enums-vim.html",
       "category": "Numeric",
       "description": "Creates an array of enums with the same number of elements as values in the enum.",
       "vi_path": null,
@@ -816,7 +816,7 @@
     },
     {
       "name": "Increment Function",
-      "page": 544,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/increment.html",
       "category": "Numeric",
       "description": "Adds 1 to the input value. The connector pane displays the default data types for this polymorphic function. Functions 544 ni.com",
       "vi_path": null,
@@ -863,7 +863,7 @@
     },
     {
       "name": "Decrement Function",
-      "page": 545,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/decrement.html",
       "category": "Numeric",
       "description": "Subtracts 1 from the input value. The connector pane displays the default data types for this polymorphic function. Note You can manually configure this function to output data of a type you want. To specify the output data type, right-click the function and select Properties to display the Object Properties dialog box. On the Output Configuration page, click the Representation icon and select the data type you want. A blue coercion dot appears on the output terminal of the function to indicate ",
       "vi_path": null,
@@ -910,7 +910,7 @@
     },
     {
       "name": "Add Array Elements Function",
-      "page": 546,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/add-array-elements.html",
       "category": "Numeric",
       "description": "Returns the sum of all the elements in numeric array. Note You can manually configure this function to output data of a type you want. To specify the output data type, right-click the function and select Properties to display the Object Properties dialog box. On the Output Configuration page, click the Representation icon and select the data type you want. A blue coercion dot appears on the output terminal of the function to indicate that you have configured the output data type. Functions 546 n",
       "vi_path": null,
@@ -943,7 +943,7 @@
     },
     {
       "name": "Multiply Array Elements Function",
-      "page": 547,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/multiply-array-elements.html",
       "category": "Numeric",
       "description": "Returns the product of all the elements in numeric array. If numeric array is an empty array, the function returns a value of 1. If numeric array contains only one element, the function returns that element. The connector pane displays the default data types for this polymorphic function. Note You cannot use this function with fixed-point numbers. If you wire fixed-point numbers to this function, the VI appears with a broken Run button. Functions © National Instruments 547",
       "vi_path": null,
@@ -976,7 +976,7 @@
     },
     {
       "name": "Compound Arithmetic",
-      "page": 548,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/compound-arithmetic.html",
       "category": "Numeric",
       "description": "Performs arithmetic on one or more numeric, array, cluster, or Boolean inputs. To select the operation (Add, Multiply, AND, OR, or XOR), right-click the function and select Change Mode from the shortcut menu. When you select this function from the Numeric palette, the default mode is Add. When you select this function from the Boolean palette, the default mode is OR. The connector pane displays the default data types for this polymorphic function.",
       "vi_path": null,
@@ -1009,7 +1009,6 @@
     },
     {
       "name": "Data Manipulation",
-      "page": 549,
       "category": "Numeric",
       "description": "Use the Data Manipulation functions to modify the data types used in LabVIEW. Note You cannot use this function with fixed-point numbers. If you wire fixed-point numbers to this function, the VI appears with a broken Run button. Functions © National Instruments 549 Palette Object Description Type Cast Function Casts x to the data type, type, by flattening it and unflattening it using the new data type. If the function must reinterpret data instead of transforming it, LabVIEW uses a temporary buf",
       "vi_path": null,
@@ -1028,7 +1027,7 @@
     },
     {
       "name": "Type Cast Function",
-      "page": 551,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/type-cast.html",
       "category": "Numeric",
       "description": "Casts x to the data type, type, by flattening it and unflattening it using the new data type. If the function must reinterpret data instead of transforming it, LabVIEW uses a temporary buffer. This function has the risk of reinterpreting data. To preserve the data value while converting the data, use the Coerce To Type function instead.",
       "vi_path": null,
@@ -1054,7 +1053,7 @@
     },
     {
       "name": "Flatten To String Function",
-      "page": 553,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/flatten-to-string.html",
       "category": "Numeric",
       "description": "Converts the anything input to a flattened data string of binary values. You also can use this function to convert the byte order, or endian format, of the data in the flattened data string.",
       "vi_path": null,
@@ -1128,7 +1127,7 @@
     },
     {
       "name": "Unflatten From String Function",
-      "page": 556,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/unflatten-from-string.html",
       "category": "Numeric",
       "description": "Converts binary string to the type wired to type. binary string should contain flattened data of the type wired to type. You also can use this function to specify the byte order, or endian format, of the data in the binary string.",
       "vi_path": null,
@@ -1209,7 +1208,7 @@
     },
     {
       "name": "Mantissa & Exponent Function",
-      "page": 558,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/mantissa-exponent.html",
       "category": "Numeric",
       "description": "Returns the mantissa and exponent of the input numeric value such that number = mantissa * 2^exponent. If number is 0, both mantissa and exponent are 0. Otherwise, the absolute value of mantissa is greater than or equal to 1 and less than 2, and the value of exponent is an integer. The connector pane displays the default data types for this polymorphic function. Functions 558 ni.com",
       "vi_path": null,
@@ -1242,7 +1241,7 @@
     },
     {
       "name": "Rotate Left With Carry Function",
-      "page": 559,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/rotate-left-with-carry.html",
       "category": "Numeric",
       "description": "Rotates each bit in the input value one bit to the left (from least significant to most significant bit), inserts carry in the low-order bit, and returns the most significant bit. The connector pane displays the default data types for this polymorphic function.",
       "vi_path": null,
@@ -1282,7 +1281,7 @@
     },
     {
       "name": "Logical Shift Function",
-      "page": 560,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/logical-shift.html",
       "category": "Numeric",
       "description": "Shifts x the number of bits specified by y. The connector pane displays the default data types for this polymorphic function. Functions 560 ni.com",
       "vi_path": null,
@@ -1301,7 +1300,7 @@
     },
     {
       "name": "Rotate Right With Carry Function",
-      "page": 560,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/rotate-right-with-carry.html",
       "category": "Numeric",
       "description": "Rotates each bit in value one bit to the right (from most significant to least significant), inserts carry in the high-order bit, and returns the least significant bit. The connector pane displays the default data types for this polymorphic function.",
       "vi_path": null,
@@ -1341,7 +1340,7 @@
     },
     {
       "name": "Rotate Function",
-      "page": 561,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/rotate.html",
       "category": "Numeric",
       "description": "Rotates x the number of bits specified by y. The connector pane displays the default data types for this polymorphic function.",
       "vi_path": null,
@@ -1360,7 +1359,7 @@
     },
     {
       "name": "Split Number Function",
-      "page": 562,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/split-number.html",
       "category": "Numeric",
       "description": "Breaks a number into its component bytes or words.",
       "vi_path": null,
@@ -1386,7 +1385,7 @@
     },
     {
       "name": "Join Numbers Function",
-      "page": 563,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/join-numbers.html",
       "category": "Numeric",
       "description": "Creates a number from the component bytes or words. The connector pane displays the default data types for this polymorphic function.",
       "vi_path": null,
@@ -1419,7 +1418,7 @@
     },
     {
       "name": "Swap Bytes Function",
-      "page": 563,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/swap-bytes.html",
       "category": "Numeric",
       "description": "Swaps the high-order 8 bits and the low-order 8 bits for every word in data. Functions © National Instruments 563 If you want to byte-swap floating-point or fixed-point numbers, use the Type Cast function to cast the value to a 1D array of bytes by wiring an array of numeric controls to the type input and the floating-point or fixed-point numbers to the x input. Then use the Reverse 1D Array function to convert the array to a floating-point number with the elements reversed. The connector pane d",
       "vi_path": null,
@@ -1445,7 +1444,7 @@
     },
     {
       "name": "Swap Words Function",
-      "page": 564,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/swap-words.html",
       "category": "Numeric",
       "description": "Swaps the high-order 16 bits and the low-order 16 bits for every long integer in data. For example, if the input in hexadecimal format is 1234567890ABCDEF, this function swaps 1234 with 5678 and 90AB with CDEF, returning 56781234CDEF90AB. The connector pane displays the default data types for this polymorphic function.",
       "vi_path": null,
@@ -1471,7 +1470,7 @@
     },
     {
       "name": "Byte Array Checksum",
-      "page": 565,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/security/message-digest/api/byte-array-checksum-vi.html",
       "category": "Numeric",
       "description": "Computes the message digest on a byte array. You must manually select the polymorphic instance you want to use. • SHA-256 Byte Array Checksum VI • SHA-224 Byte Array Checksum VI • SHA-384 Byte Array Checksum VI • SHA-512 Byte Array Checksum VI • SHA-512-256 Byte Array Checksum VI • SHA-512-224 Byte Array Checksum VI • SHA3-224 Byte Array Checksum VI • SHA3-256 Byte Array Checksum VI • SHA3-384 Byte Array Checksum VI • SHA3-512 Byte Array Checksum VI SHA-256 Byte Array Checksum VI SHA-256 Byte Ar",
       "vi_path": null,
@@ -1497,7 +1496,7 @@
     },
     {
       "name": "Absolute Value Function",
-      "page": 570,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/absolute-value.html",
       "category": "Numeric",
       "description": "Returns the absolute value of the input. Functions 570 ni.com The connector pane displays the default data types for this polymorphic function.",
       "vi_path": null,
@@ -1523,7 +1522,7 @@
     },
     {
       "name": "Round To Nearest Function",
-      "page": 572,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/round-to-nearest.html",
       "category": "Numeric",
       "description": "Rounds the input to the nearest integer. If the value of the input is midway between two integers, the function returns the nearest even integer. For example, if number is 1.5 or 2.5, nearest integer value is 2. The connector pane displays the default data types for this polymorphic function.",
       "vi_path": null,
@@ -1556,7 +1555,6 @@
     },
     {
       "name": "Round Toward +Infinity Function",
-      "page": 573,
       "category": "Numeric",
       "description": "Rounds the input to the next highest integer. For example, if the input is 3.1, the result is 4. If the input is –3.1, the result is –3. The connector pane displays the default data types for this polymorphic function.",
       "vi_path": null,
@@ -1575,7 +1573,6 @@
     },
     {
       "name": "Round Toward -Infinity Function",
-      "page": 573,
       "category": "Numeric",
       "description": "Truncates the input to the next lowest integer. For example, if the input is 3.8, the result is 3. If the input is –3.8, the result is –4. The connector pane displays the default data types for this polymorphic function.",
       "vi_path": null,
@@ -1594,7 +1591,7 @@
     },
     {
       "name": "Scale By Power Of 2 Function",
-      "page": 574,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/scale-by-power-of-2.html",
       "category": "Numeric",
       "description": "Multiplies x by 2 raised to the power of n. If x is an integer or fixed-point number, this function is the equivalent of an arithmetic shift. The connector pane displays the default data types for this polymorphic function.",
       "vi_path": null,
@@ -1620,7 +1617,7 @@
     },
     {
       "name": "Complex Conjugate Function",
-      "page": 576,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/complex-conjugate.html",
       "category": "Numeric",
       "description": "Produces the complex conjugate of x + iy. The connector pane displays the default data types for this polymorphic function.",
       "vi_path": null,
@@ -1646,7 +1643,7 @@
     },
     {
       "name": "Polar To Complex Function",
-      "page": 576,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/polar-to-complex.html",
       "category": "Numeric",
       "description": "Creates a complex number from two values in polar notation. The dimensions of two matrices that you want to combine must be the same. Otherwise, this function returns an empty complex matrix. The connector pane displays the default data types for this polymorphic function.",
       "vi_path": null,
@@ -1672,7 +1669,7 @@
     },
     {
       "name": "Complex To Polar Function",
-      "page": 577,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/complex-to-polar.html",
       "category": "Numeric",
       "description": "Breaks a complex number into its polar components. The connector pane displays the default data types for this polymorphic function.",
       "vi_path": null,
@@ -1698,7 +1695,7 @@
     },
     {
       "name": "Re/Im To Complex Function",
-      "page": 578,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/re-im-to-complex.html",
       "category": "Numeric",
       "description": "Creates a complex number from two values in rectangular notation. The dimensions of two matrices that you want to combine must be the same. Otherwise, this function returns an empty complex matrix. The connector pane displays the default data types for this polymorphic function.",
       "vi_path": null,
@@ -1717,7 +1714,7 @@
     },
     {
       "name": "Complex To Re/Im Function",
-      "page": 579,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/complex-to-re-im.html",
       "category": "Numeric",
       "description": "Breaks a complex number into its rectangular components. The connector pane displays the default data types for this polymorphic function.",
       "vi_path": null,
@@ -1736,7 +1733,7 @@
     },
     {
       "name": "Re/Im To Polar Function",
-      "page": 580,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/re-im-to-polar.html",
       "category": "Numeric",
       "description": "Converts the rectangular components of a complex number into its polar components. The connector pane displays the default data types for this polymorphic function.",
       "vi_path": null,
@@ -1755,7 +1752,7 @@
     },
     {
       "name": "Polar To Re/Im Function",
-      "page": 581,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/polar-to-re-im.html",
       "category": "Numeric",
       "description": "Converts the polar components of a complex number into its rectangular components.",
       "vi_path": null,
@@ -1774,7 +1771,7 @@
     },
     {
       "name": "Square Root Function",
-      "page": 581,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/square-root.html",
       "category": "Numeric",
       "description": "Computes the square root of the input value. If x is negative, the square root is NaN unless x is complex. If x is a matrix, this function takes the matrix square root of x. The connector pane displays the default data types for this polymorphic function. Functions © National Instruments 581",
       "vi_path": null,
@@ -1800,7 +1797,7 @@
     },
     {
       "name": "Square Function",
-      "page": 583,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/square.html",
       "category": "Numeric",
       "description": "Computes the square of the input value. The connector pane displays the default data types for this polymorphic function.",
       "vi_path": null,
@@ -1826,7 +1823,7 @@
     },
     {
       "name": "Negate Function",
-      "page": 584,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/negate.html",
       "category": "Numeric",
       "description": "Negates the input value. The connector pane displays the default data types for this polymorphic function.",
       "vi_path": null,
@@ -1852,7 +1849,7 @@
     },
     {
       "name": "Reciprocal Function",
-      "page": 585,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/reciprocal.html",
       "category": "Numeric",
       "description": "Divides 1 by the input value. The connector pane displays the default data types for this polymorphic function.",
       "vi_path": null,
@@ -1871,7 +1868,7 @@
     },
     {
       "name": "Sign Function",
-      "page": 586,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/sign.html",
       "category": "Numeric",
       "description": "Returns the sign of number. Text-based programming languages typically call this function signum or sgn. The connector pane displays the default data types for this polymorphic function.",
       "vi_path": null,
@@ -1904,7 +1901,7 @@
     },
     {
       "name": "Convert RTD Reading",
-      "page": 588,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/traddaqscaling-llb/convert-rtd-reading-vi.html",
       "category": "Numeric",
       "description": "Converts a voltage you read from an RTD into temperature in Celsius. Wire data to the RTDvolts input to determine the polymorphic instance to use or manually select the instance. • Convert RTD Reading (waveform) VI • Convert RTD Reading (scaler) VI Convert RTD Reading (waveform) VI Convert RTD Reading (waveform) VI Converts a voltage you read from an RTD into temperature in Celsius. Wire data to the RTDvolts input to determine the polymorphic instance to use or manually select the instance.",
       "vi_path": null,
@@ -1951,7 +1948,7 @@
     },
     {
       "name": "Convert Strain Gauge Reading",
-      "page": 590,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/traddaqscaling-llb/convert-strain-gauge-reading-vi.html",
       "category": "Numeric",
       "description": "Converts a voltage read from a strain gauge to units of strain. Wire data to the Vsg input to determine the polymorphic instance to use or manually select the instance. • Convert Strain Gauge Reading (waveform) VI • Convert Strain Gauge Reading (scaler) VI The conversion formula the VI uses is based solely on the bridge configuration. The following illustrations show the seven bridge configurations you can use and the corresponding formulas. For all bridge configurations, the VI uses the followi",
       "vi_path": null,
@@ -1962,7 +1959,7 @@
     },
     {
       "name": "Convert Thermistor Reading",
-      "page": 601,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/traddaqscaling-llb/convert-thermistor-reading-vi.html",
       "category": "Numeric",
       "description": "Converts a thermistor voltage into a temperature. This VI has different modes of operation for voltage-excited and current-excited thermistors. Wire data to the Voltage input to determine the polymorphic instance to use or manually select the instance. • Convert Thermistor Reading (waveform) VI • Convert Thermistor Reading (scaler) VI The Convert Thermistor Reading VI has two modes of operation for use with different types of thermistor circuits. The following illustration shows how the thermist",
       "vi_path": null,
@@ -2016,7 +2013,7 @@
     },
     {
       "name": "Convert Thermocouple Reading",
-      "page": 608,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/traddaqscaling-llb/convert-thermocouple-reading-vi.html",
       "category": "Numeric",
       "description": "Converts a voltage reading from a thermocouple into a temperature value. Wire data to the Voltage Waveform (waveform), Voltage Array (array), or Thermocouple Voltage (scalar) input to determine the polymorphic instance to use or manually select the instance. • Convert Thermocouple Reading (waveform) VI • Convert Thermocouple Reading (array) VI • Convert Thermocouple Reading (scaler) VI Convert Thermocouple Reading (waveform) Convert Thermocouple Reading (waveform) VI VI Converts a voltage readin",
       "vi_path": null,
@@ -2049,7 +2046,7 @@
     },
     {
       "name": "Radians to Degrees",
-      "page": 614,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/analysis/baseanly-llb/radians-to-degrees-vi.html",
       "category": "Numeric",
       "description": "Converts data from radians to degrees. This VI is a preconfigured Expression Node. Functions 614 ni.com",
       "vi_path": null,
@@ -2060,7 +2057,7 @@
     },
     {
       "name": "Degrees to Radians",
-      "page": 615,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/analysis/baseanly-llb/degrees-to-radians-vi.html",
       "category": "Numeric",
       "description": "Converts data from degrees to radians. This VI is a preconfigured Expression Node.",
       "vi_path": null,
@@ -2071,7 +2068,7 @@
     },
     {
       "name": "Radians per Second to RPM",
-      "page": 616,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/analysis/baseanly-llb/radians-per-second-to-rpm-vi.html",
       "category": "Numeric",
       "description": "Converts data from radians per second to revolutions per minute (RPM). This VI is a preconfigured Expression Node.",
       "vi_path": null,
@@ -2082,7 +2079,7 @@
     },
     {
       "name": "Random Number (0-1) Function",
-      "page": 618,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/random-number-0-1.html",
       "category": "Numeric",
       "description": "Produces a double-precision, floating-point number between 0 and 1. The number generated is greater than or equal to 0, but less than 1. The distribution is uniform. Alternatively, you can use several of the Signal Generation VIs or the Signal Generation PtByPt VIs to regenerate the same random sequence. For example, the Uniform White Noise VI allows you to set a seed number that you can use to initialize the generation of a pseudorandom pattern.",
       "vi_path": null,
@@ -2143,7 +2140,7 @@
     },
     {
       "name": "Random Number (Range)",
-      "page": 618,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/numeric/random-number-range-vi.html",
       "category": "Numeric",
       "description": "Generates a random value from a specified range. Wire data to the upper bound or lower bound input to determine the polymorphic instance to use or manually select the instance. Functions 618 ni.com • Random Number (Range) U64 VI • Random Number (Range) I64 VI • Random Number (Range) DBL VI Random Number (Range) U64 VI Random Number (Range) U64 VI Generates a random value from a specified range. Wire data to the upper bound or lower bound input to determine the polymorphic instance to use or manu",
       "vi_path": null,
@@ -2176,7 +2173,7 @@
     },
     {
       "name": "Random Number (Range) I64 VI",
-      "page": 619,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/numeric/random-number-range-i64-vi.html",
       "category": "Numeric",
       "description": "Generates a random value from a specified range. Wire data to the upper bound or lower bound input to determine the polymorphic instance to use or manually select the instance. Functions © National Instruments 619",
       "vi_path": null,
@@ -2209,7 +2206,7 @@
     },
     {
       "name": "Random Number (Range) U64 VI",
-      "page": 619,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/numeric/random-number-range-u64-vi.html",
       "category": "Numeric",
       "description": "Generates a random value from a specified range. Wire data to the upper bound or lower bound input to determine the polymorphic instance to use or manually select the instance.",
       "vi_path": null,
@@ -2242,7 +2239,7 @@
     },
     {
       "name": "Random Number (Range) DBL VI",
-      "page": 620,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/numeric/random-number-range-dbl-vi.html",
       "category": "Numeric",
       "description": "Generates a random value from a specified range. Wire data to the upper bound or lower bound input to determine the polymorphic instance to use or manually select the instance.",
       "vi_path": null,
@@ -2275,7 +2272,7 @@
     },
     {
       "name": "Fixed-Point to Integer Cast Function",
-      "page": 622,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/fixed-point-to-integer-cast.html",
       "category": "Numeric",
       "description": "Scales the fixed-point input to produce an integer output. This function is the equivalent of an arithmetic shift of the input, constrained so that the least significant bit of the input becomes the least significant bit of the output.",
       "vi_path": null,
@@ -2308,7 +2305,7 @@
     },
     {
       "name": "Integer to Fixed-Point Cast Function",
-      "page": 623,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/integer-to-fixed-point-cast.html",
       "category": "Numeric",
       "description": "Scales the integer input to produce an output with the requested fixed-point type. This function is the equivalent of an arithmetic shift of the input with configurable overflow handling, constrained so that the least significant bit of the input becomes the least significant bit of the output.",
       "vi_path": null,
@@ -2341,7 +2338,7 @@
     },
     {
       "name": "Clear Fixed-Point Overflow Status Function",
-      "page": 624,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/clear-fixed-point-overflow-status.html",
       "category": "Numeric",
       "description": "Clears the overflow status of FXP by changing the overflow status of FXP to FALSE.",
       "vi_path": null,
@@ -2374,7 +2371,7 @@
     },
     {
       "name": "Include Fixed-Point Overflow Status Function",
-      "page": 625,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/include-fixed-point-overflow-status.html",
       "category": "Numeric",
       "description": "Includes an overflow status with FXP. The value of the overflow status equals the value specified in overflow.",
       "vi_path": null,
@@ -2407,7 +2404,7 @@
     },
     {
       "name": "Remove Fixed-Point Overflow Status Function",
-      "page": 625,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/remove-fixed-point-overflow-status.html",
       "category": "Numeric",
       "description": "Removes the overflow status from FXP. To change the overflow status to FALSE, use the Clear Fixed-Point Overflow Status function.",
       "vi_path": null,
@@ -2440,7 +2437,7 @@
     },
     {
       "name": "Positive Infinity",
-      "page": 626,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/constants/positive-infinity.html",
       "category": "Numeric",
       "description": "Returns the value Inf (infinity). LabVIEW converts Inf to the highest value for a data type. For example, converting Inf Functions 626 ni.com to a 16-bit signed integer returns the value 32,767, the highest possible value for a 16-bit signed integer. Machine Epsilon Machine Epsilon Represents the round-off error for a floating-point number with a given precision. Use the machine epsilon constant to compare whether two floating-point numbers are equivalent. Not A Number Constant Not A Number Cons",
       "vi_path": null,
@@ -2466,7 +2463,7 @@
     },
     {
       "name": "Machine Epsilon",
-      "page": 627,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/constants/machine-epsilon.html",
       "category": "Numeric",
       "description": "Represents the round-off error for a floating-point number with a given precision. Use the machine epsilon constant to compare whether two floating-point numbers are equivalent. Not A Number Constant Not A Number Constant Returns the value NaN (not a number). You can change the numeric representation of this constant by right-clicking the constant and selecting Representation from the shortcut menu. You also can assign a label to this constant. Math & Scientific Constants Math & Scientific Const",
       "vi_path": null,
@@ -2499,7 +2496,7 @@
     },
     {
       "name": "Range Limits for Type",
-      "page": 628,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/numeric/range-limits-for-type-vim.html",
       "category": "Numeric",
       "description": "Returns the maximum and minimum values of the input data type.",
       "vi_path": null,
@@ -2532,7 +2529,7 @@
     },
     {
       "name": "Expression Node",
-      "page": 629,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/expression-node.html",
       "category": "Numeric",
       "description": "Use the Expression Node to calculate expressions that contain a single variable. The following built-in functions are allowed in formulas: abs, acos, acosh, asin, asinh, atan, atanh, ceil, cos, cosh, cot, csc, exp, expm1, floor, getexp, getman, int, intrz, ln, lnp1, log, log2, max, min, mod, rand, rem, sec, sign, sin, sinc, sinh, sizeOfDim, sqrt, tan, tanh.",
       "vi_path": null,

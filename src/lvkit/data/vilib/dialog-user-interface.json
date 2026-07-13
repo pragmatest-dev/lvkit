@@ -4,7 +4,7 @@
   "entries": [
     {
       "name": "One Button Dialog Function",
-      "page": 1857,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/one-button-dialog.html",
       "category": "Dialog & User Interface",
       "description": "Displays a dialog box that contains a message and a single button.",
       "vi_path": "vi.lib/dialog/One Button Dialog.vi",
@@ -41,7 +41,7 @@
     },
     {
       "name": "Two Button Dialog Function",
-      "page": 1857,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/two-button-dialog.html",
       "category": "Dialog & User Interface",
       "description": "Displays a dialog box that contains a message and two buttons.",
       "vi_path": "vi.lib/dialog/Two Button Dialog.vi",
@@ -82,7 +82,7 @@
     },
     {
       "name": "Three Button Dialog",
-      "page": 1858,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/error-llb/three-button-dialog-vi.html",
       "category": "Dialog & User Interface",
       "description": "Displays a dialog box that contains a message and three buttons.",
       "vi_path": "vi.lib/dialog/Three Button Dialog.vi",
@@ -167,6 +167,7 @@
     },
     {
       "name": "Simple Error Handler",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/error-llb/simple-error-handler-vi.html",
       "category": "Dialog & User Interface",
       "description": "Indicates whether an error occurred. If an error occurred, this VI returns a description of the error and optionally displays a dialog box. This VI calls the General Error Handler VI and has the same basic functionality as General Error Handler but with fewer options.",
       "terminals": [
@@ -250,12 +251,11 @@
       "inline": true,
       "imports": [],
       "status": "complete",
-      "page": 1862,
       "is_variant": false
     },
     {
       "name": "General Error Handler",
-      "page": 1863,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/error-llb/general-error-handler-vi.html",
       "category": "Dialog & User Interface",
       "description": "Indicates whether an error occurred. If an error occurred, this VI returns a description Functions © National Instruments 1863 of the error and optionally displays a dialog box.",
       "vi_path": null,
@@ -353,7 +353,7 @@
     },
     {
       "name": "Clear Errors",
-      "page": 1867,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/error-llb/clear-errors-vi.html",
       "category": "Dialog & User Interface",
       "description": "Resets the error status to no error, code to 0, and source to an empty string. Use this VI when you want to ignore an error. By default, this VI ignores all errors. Wire an error code value to specific error code to clear if you only want to ignore a specific error.",
       "vi_path": "vi.lib/Utility/error.llb/Clear Errors.vi",
@@ -405,7 +405,7 @@
     },
     {
       "name": "Error Ring",
-      "page": 1867,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/errorring/error-ring-xnode.html",
       "category": "Dialog & User Interface",
       "description": "Use the Error Ring to quickly select and pass NI or custom error codes throughout your VI. Functions © National Instruments 1867 You can configure the ring to return a built-in error message or you can create a custom error message for a one-time use. By default, the source string of the error cluster contains the call chain from the top-level VI to the current VI. (Real-Time Module) Exclude the call chain to reduce jitter in real-time applications. You cannot use the Error Ring in VIs that run ",
       "vi_path": null,
@@ -424,7 +424,7 @@
     },
     {
       "name": "Merge Errors",
-      "page": 1869,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/merge-errors.html",
       "category": "Dialog & User Interface",
       "description": "Merges error I/O clusters from different VIs and functions. By default, this function looks for errors beginning with the error in 0 parameter and reports the first error found. If the function finds no errors, it looks for warnings and returns the first warning found. If the function finds no warnings, it returns no error. Use exception control to treat what is normally an error as no error or to treat a warning as an error. To configure the function to return an error cluster that combines all",
       "vi_path": null,
@@ -457,6 +457,7 @@
     },
     {
       "name": "Error Cluster From Error Code",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/error-llb/error-cluster-from-error-code-vi.html",
       "vi_path": "vi.lib/Utility/error.llb/Error Cluster From Error Code.vi",
       "category": "Dialog & User Interface",
       "description": "Converts an error or warning code to an error cluster. This VI is useful when you receive a return value from a shared library call or when you return user-defined error codes. Passing error code 0 means that no error occurred and the VI does not modify the error cluster.",
@@ -512,14 +513,13 @@
         "from lvkit.labview_error_codes import get_error_description"
       ],
       "status": "complete",
-      "page": 1870,
       "is_variant": false,
       "match_names": [],
       "poly_selector_names": []
     },
     {
       "name": "Find First Error",
-      "page": 1871,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/error-llb/find-first-error-vi.html",
       "category": "Dialog & User Interface",
       "description": "Tests the error status of one or more low-level functions or subVIs that produce a numeric error code as output.",
       "vi_path": null,
@@ -566,7 +566,6 @@
     },
     {
       "name": "Multiple Errors",
-      "page": 1872,
       "category": "Dialog & User Interface",
       "description": "Use the Multiple Errors VIs to convert an error cluster into different formats or to manipulate the attributes of an error cluster. Functions 1872 ni.com Palette Object Description Error Cluster to Array of Errors Converts a cluster of errors into an array of encoded errors. This VI returns an empty array if the error cluster does not include any errors. Convert to Legacy Error Cluster Converts an error cluster from JSON encoded format to legacy format. Convert to Encoded Error Cluster Converts ",
       "vi_path": null,
@@ -592,7 +591,7 @@
     },
     {
       "name": "Error Cluster to Array of Errors",
-      "page": 1873,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/multierror/errors-cluster-multiple-errors/error-cluster-to-array-of-errors-vi.html",
       "category": "Dialog & User Interface",
       "description": "Converts a cluster of errors into an array of encoded errors. This VI returns an empty array if the error cluster does not include any errors. To create a cluster of errors from multiple VIs or functions, use the Merge Errors function. Functions © National Instruments 1873",
       "vi_path": null,
@@ -618,7 +617,7 @@
     },
     {
       "name": "Convert to Encoded Error Cluster",
-      "page": 1874,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/multierror/errors-cluster-multiple-errors/convert-to-encoded-error-cluster-vi.html",
       "category": "Dialog & User Interface",
       "description": "Converts an error cluster from legacy format to JSON encoded format. Functions 1874 ni.com",
       "vi_path": null,
@@ -644,7 +643,7 @@
     },
     {
       "name": "Convert to Legacy Error Cluster",
-      "page": 1874,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/multierror/errors-cluster-multiple-errors/convert-to-legacy-error-cluster-vi.html",
       "category": "Dialog & User Interface",
       "description": "Converts an error cluster from JSON encoded format to legacy format.",
       "vi_path": null,
@@ -670,7 +669,7 @@
     },
     {
       "name": "Write Error Cluster Attribute",
-      "page": 1875,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/multierror/errors-cluster-multiple-errors/write-error-cluster-attribute-vi.html",
       "category": "Dialog & User Interface",
       "description": "Updates the value of an attribute stored in an error cluster. If the specified attribute name is not found, this VI adds the attribute with the specified value to the error cluster. For a single cluster that stores multiple errors, this VI updates only the first error.",
       "vi_path": null,
@@ -717,7 +716,7 @@
     },
     {
       "name": "List Error Cluster Attributes",
-      "page": 1876,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/multierror/errors-cluster-multiple-errors/list-error-cluster-attributes-vi.html",
       "category": "Dialog & User Interface",
       "description": "Returns the names of all attributes stored in an error cluster. For a single cluster that stores multiple errors, this VI lists only the attribute names of the first error. Functions 1876 ni.com",
       "vi_path": null,
@@ -743,7 +742,7 @@
     },
     {
       "name": "Remove Error Cluster Attribute",
-      "page": 1876,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/multierror/errors-cluster-multiple-errors/remove-error-cluster-attribute-vi.html",
       "category": "Dialog & User Interface",
       "description": "Removes an attribute from an error cluster.",
       "vi_path": null,
@@ -783,7 +782,7 @@
     },
     {
       "name": "Read Error Cluster Attribute",
-      "page": 1877,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/multierror/errors-cluster-multiple-errors/read-error-cluster-attribute-vi.html",
       "category": "Dialog & User Interface",
       "description": "Returns the value of an attribute stored in an error cluster. If the attribute is not found, this VI returns an empty string.",
       "vi_path": null,
@@ -830,7 +829,7 @@
     },
     {
       "name": "Prompt User for Input",
-      "page": 1878,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/express/express-input/promptuserblock-llb/ex-inst-prompt-user-for-input-vi.html",
       "category": "Dialog & User Interface",
       "description": "Displays a standard dialog box that prompts users to enter information, such as a user name and password. Dialog Box Options Option Description Message to Display Contains the text to display in the dialog box. Buttons to Display Contains the following options: • First button name— Specifies the text that appears on the first button. By default, the text on the first button is OK. • Second button name— Specifies the text that appears on the second button. By default, the text on the second butto",
       "vi_path": null,
@@ -870,7 +869,7 @@
     },
     {
       "name": "Display Message to User",
-      "page": 1880,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/express/express-output/displaymessageblock-llb/ex-inst-display-message-to-user-vi.html",
       "category": "Dialog & User Interface",
       "description": "Displays a standard dialog box that contains an alert or a message for users. Dialog Box Options Option Description Message to Display Contains the text to display in the dialog box. Buttons Contains the following options: Functions 1880 ni.com Option Description to Display • First button name— Specifies the text that appears on the first button. By default, the text on the first button is OK. • Second button name— Specifies the text that appears on the second button. By default, the text on the",
       "vi_path": null,
@@ -917,7 +916,7 @@
     },
     {
       "name": "Write to System Log",
-      "page": 1882,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/systemlogging/write-to-system-log-vi.html",
       "category": "Dialog & User Interface",
       "description": "Writes a message to the nierrlog system log for storage and subsequent viewing.",
       "vi_path": null,
@@ -970,7 +969,7 @@
     },
     {
       "name": "Wait For Front Panel Activity Function",
-      "page": 1883,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/wait-for-front-panel-activity.html",
       "category": "Dialog & User Interface",
       "description": "Pauses the execution of the calling VI block diagram in run mode until the function detects front panel activity in the front panel you want to monitor.",
       "vi_path": null,
@@ -1010,7 +1009,7 @@
     },
     {
       "name": "Generate Front Panel Activity Function",
-      "page": 1885,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/generate-front-panel-activity.html",
       "category": "Dialog & User Interface",
       "description": "Programmatically generates front panel activity so any VI execution halted by the Wait on Front Panel Activity function continues executing. No actual changes occur on the front panel.",
       "vi_path": null,
@@ -1029,7 +1028,7 @@
     },
     {
       "name": "Register For Events",
-      "page": 1888,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/register-for-events.html",
       "category": "Dialog & User Interface",
       "description": "Dynamically registers events. The events for which you can register depend on the type of the reference you wire to each event source input. Wire the event reg refnum out output to an Event structure or to another Register For Events function.",
       "vi_path": null,
@@ -1076,7 +1075,7 @@
     },
     {
       "name": "Unregister For Events Function",
-      "page": 1890,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/unregister-for-events.html",
       "category": "Dialog & User Interface",
       "description": "Unregisters all events associated with an event registration refnum. Event structures that use this event registration refnum no longer receive any dynamic events. National Instruments recommends that you unregister for events when you no longer need to handle them. If you do not unregister for events, LabVIEW continues to generate and queue the events as long as the VI runs, even if no Event structure is waiting to handle them, which consumes memory and can hang the VI if you enable front panel",
       "vi_path": null,
@@ -1109,7 +1108,7 @@
     },
     {
       "name": "Flush Event Queue Function",
-      "page": 1891,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/flush-event-queue.html",
       "category": "Dialog & User Interface",
       "description": "Discards the least recent notify events from one or more event queues. If the event queue that you want to discard includes filter events, this function stops at the first filter event in the queue and discards only the events that occurred previous to the stop.",
       "vi_path": null,
@@ -1149,7 +1148,7 @@
     },
     {
       "name": "Create User Event Function",
-      "page": 1894,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/create-user-event.html",
       "category": "Dialog & User Interface",
       "description": "Returns a reference to a user event. LabVIEW uses the user event data type you wire to determine the event name and data type of the event. Wire the user event out output to a Register For Events function to register for the event. Wire the user event out output to a Generate User Event function to send the event and associated data to all Event structures registered for the event. Functions 1894 ni.com",
       "vi_path": null,
@@ -1189,7 +1188,7 @@
     },
     {
       "name": "Generate User Event Function",
-      "page": 1896,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/generate-user-event.html",
       "category": "Dialog & User Interface",
       "description": "Broadcasts the user event you wire to the user event input and sends the user event and associated event data to each Event structure registered to handle the event.",
       "vi_path": null,
@@ -1243,7 +1242,7 @@
     },
     {
       "name": "Destroy User Event Function",
-      "page": 1897,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/destroy-user-event.html",
       "category": "Dialog & User Interface",
       "description": "Releases a user event reference by destroying its associated user event refnum. Any Event structures registered for this user event no longer receive the event.",
       "vi_path": null,
@@ -1276,7 +1275,7 @@
     },
     {
       "name": "Current VI's Menubar Function",
-      "page": 1899,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/current-vi-s-menubar.html",
       "category": "Dialog & User Interface",
       "description": "Returns the menu reference refnum of the current VI. Use the menu reference refnum in conjunction with other Menu functions to programmatically modify the run-time menu of a VI. (Real-Time Module) You cannot use this function in VIs that run on RT targets.",
       "vi_path": null,
@@ -1295,7 +1294,7 @@
     },
     {
       "name": "Get Menu Selection Function",
-      "page": 1899,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/get-menu-selection.html",
       "category": "Dialog & User Interface",
       "description": "Returns the item tag of the last selected menu item, optionally waiting ms timeout milliseconds. Functions © National Instruments 1899 If you use this function with an Event structure configured to handle the same menu item, the Event structure takes precedence and LabVIEW ignores the Get Menu Selection function. In any given VI, use the Event structure or the Get Menu Selection function. (Real-Time Module) You cannot use this function in VIs that run on RT targets.",
       "vi_path": null,
@@ -1377,7 +1376,7 @@
     },
     {
       "name": "Enable Menu Tracking Function",
-      "page": 1901,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/enable-menu-tracking.html",
       "category": "Dialog & User Interface",
       "description": "Enables or disables tracking of menu bar selections. If you use the Get Menu Selection function to block a menu, you must use this function to enable the menu. (Real-Time Module) You cannot use this function in VIs that run on RT targets. Functions © National Instruments 1901",
       "vi_path": null,
@@ -1424,7 +1423,7 @@
     },
     {
       "name": "Insert Menu Items Function",
-      "page": 1902,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/insert-menu-items.html",
       "category": "Dialog & User Interface",
       "description": "Inserts menu items specified by item names or item tags into a menu or a submenu within the menu. (Real-Time Module) You cannot use this function in VIs that run on RT targets.",
       "vi_path": null,
@@ -1492,7 +1491,7 @@
     },
     {
       "name": "Delete Menu Items Function",
-      "page": 1904,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/delete-menu-items.html",
       "category": "Dialog & User Interface",
       "description": "Deletes menu items from the menu or a submenu within the menu. (Real-Time Module) You cannot use this function in VIs that run on RT targets.",
       "vi_path": null,
@@ -1553,7 +1552,7 @@
     },
     {
       "name": "Set Menu Item Info Function",
-      "page": 1905,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/set-menu-item-info.html",
       "category": "Dialog & User Interface",
       "description": "Sets the attributes of a menu item. Unwired attributes remain unchanged. (Real-Time Module) You cannot use this function in VIs that run on RT targets. Functions © National Instruments 1905",
       "vi_path": null,
@@ -1649,7 +1648,7 @@
     },
     {
       "name": "Get Menu Item Info Function",
-      "page": 1907,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/get-menu-item-info.html",
       "category": "Dialog & User Interface",
       "description": "Returns the attributes of a menu item or menu bar. (Real-Time Module) You cannot use this function in VIs that run on RT targets.",
       "vi_path": null,
@@ -1752,7 +1751,7 @@
     },
     {
       "name": "Get Menu Short Cut Info Function",
-      "page": 1909,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/get-menu-short-cut-info.html",
       "category": "Dialog & User Interface",
       "description": "Returns the menu item that is accessible through a given shortcut. (Real-Time Module) You cannot use this function in VIs that run on RT targets.",
       "vi_path": null,
@@ -1834,7 +1833,7 @@
     },
     {
       "name": "Create Cursor From File",
-      "page": 1912,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/cursorutil-llb/create-cursor-from-file-vi.html",
       "category": "Dialog & User Interface",
       "description": "Returns a reference to a cursor in a cursor file. If a VI that you want to distribute as a stand-alone application or as a shared library uses a cursor from a cursor file, you must distribute the cursor file with the application or shared library. (Real-Time Module) You cannot use this VI in VIs that run on RT targets.",
       "vi_path": null,
@@ -1888,7 +1887,7 @@
     },
     {
       "name": "Set Cursor",
-      "page": 1914,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/cursorutil-llb/set-cursor-vi.html",
       "category": "Dialog & User Interface",
       "description": "Changes the appearance of the cursor on the front panel of a VI. Wire data to the icon input to determine the polymorphic instance to use or manually select the instance. (Real-Time Module) You cannot use this VI in VIs that run on RT targets. • Set Cursor (Icon Pict) VI • Set Cursor (Cursor ID) VI Examples Refer to the following example files included with LabVIEW. • labview\\examples\\Dialog and User Interface\\Cursor\\Change Cursor Icon.vi Set Cursor (Icon Pict) VI Set Cursor (Icon Pict) VI Chang",
       "vi_path": null,
@@ -1907,7 +1906,7 @@
     },
     {
       "name": "Destroy Cursor",
-      "page": 1918,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/cursorutil-llb/destroy-cursor-vi.html",
       "category": "Dialog & User Interface",
       "description": "Closes a reference to a cursor and changes the cursor to the default cursor in any VIs using the reference. (Real-Time Module) You cannot use this VI in VIs that run on RT targets.",
       "vi_path": null,
@@ -1947,7 +1946,7 @@
     },
     {
       "name": "Set Busy",
-      "page": 1919,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/cursorutil-llb/set-busy-vi.html",
       "category": "Dialog & User Interface",
       "description": "Changes the appearance of the cursor on the front panel of a VI to the system busy cursor. You also can use this VI to disable the mouse and keyboard on the front panel. Use the Unset Busy VI to change the cursor back to the default LabVIEW cursor and to enable the mouse and keyboard again. Using the Set Busy VI is similar to using the Set Cursor VI and wiring 1 to the icon input. (Real-Time Module) You cannot use this VI in VIs that run on RT targets.",
       "vi_path": null,
@@ -1973,7 +1972,7 @@
     },
     {
       "name": "Unset Busy",
-      "page": 1920,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/cursorutil-llb/unset-busy-vi.html",
       "category": "Dialog & User Interface",
       "description": "Changes the appearance of the cursor on the front panel of a VI from a busy cursor to the default LabVIEW cursor and enables the mouse on the front panel. Functions 1920 ni.com Use this VI only after you use the Set Busy VI. (Real-Time Module) You cannot use this VI in VIs that run on RT targets.",
       "vi_path": null,
@@ -2013,7 +2012,7 @@
     },
     {
       "name": "Control Help Window Function",
-      "page": 1922,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/control-help-window.html",
       "category": "Dialog & User Interface",
       "description": "Modifies the Context Help window by showing, hiding, or by repositioning the window. (Real-Time Module) You cannot use this function in VIs that run on RT targets. Functions 1922 ni.com",
       "vi_path": null,
@@ -2053,7 +2052,7 @@
     },
     {
       "name": "Get Help Window Status Function",
-      "page": 1923,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/get-help-window-status.html",
       "category": "Dialog & User Interface",
       "description": "Returns the status and the position of the Context Help window. (Real-Time Module) You cannot use this function in VIs that run on RT targets.",
       "vi_path": null,
@@ -2093,7 +2092,7 @@
     },
     {
       "name": "Control Online Help Function",
-      "page": 1924,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/control-online-help.html",
       "category": "Dialog & User Interface",
       "description": "Controls a compiled help file by displaying the table of contents, jumping to a specific topic in the file, or closing the help file. You can create a compiled help file and use this function to link from a VI to the help file. You also can use this function to display an HTML file in the default browser. (Real-Time Module) You cannot use this function in VIs that run on RT targets.",
       "vi_path": null,
@@ -2140,7 +2139,7 @@
     },
     {
       "name": "Open URL in Default Browser",
-      "page": 1926,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/platform/browser-llb/open-url-in-default-browser-vi.html",
       "category": "Dialog & User Interface",
       "description": "Displays a URL or HTML file in the default Web browser. If the URL or path you wire to this VI contains a space character, the VI encodes the space as %20 before displaying the URL or HTML file in the Web browser. Wire data to the URL input to determine the polymorphic instance to use or manually select the instance. (Real-Time Module) You cannot use this VI in VIs that run on RT targets. • Open URL in Default Browser (string) VI • Open URL in Default Browser (path) VI Open URL in Default Browse",
       "vi_path": null,

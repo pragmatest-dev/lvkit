@@ -4,7 +4,7 @@
   "entries": [
     {
       "name": "Equal? Function",
-      "page": 745,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/equal.html",
       "category": "Comparison",
       "description": "Returns TRUE if x is equal to y. Otherwise, this function returns FALSE. You can change the comparison mode of this function. If you compare two matrices, the default comparison mode is Compare Aggregates, and this function returns a scalar. You can compare an array or cluster of a data type to a scalar of the same data type and produce an array or cluster of Boolean values. The connector pane displays the default data types for this polymorphic function.",
       "vi_path": null,
@@ -37,7 +37,7 @@
     },
     {
       "name": "Not Equal? Function",
-      "page": 747,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/not-equal.html",
       "category": "Comparison",
       "description": "Returns TRUE if x is not equal to y. Otherwise, this function returns FALSE. You can change the comparison mode of this function. If you compare two matrices, the default comparison mode is Compare Aggregates, and this function returns a scalar. You can compare an array or cluster of a data type to a scalar of the same data type and produce an array or cluster of Booleans. The connector pane displays the default data types for this polymorphic function.",
       "vi_path": null,
@@ -56,7 +56,7 @@
     },
     {
       "name": "Greater? Function",
-      "page": 748,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/greater.html",
       "category": "Comparison",
       "description": "Returns TRUE if x is greater than y. Otherwise, this function returns FALSE. You can change the comparison mode of this function. You can compare an array or cluster of a data type to a scalar of the same data type and produce an array or cluster of Boolean values. The connector pane displays the default data types for this polymorphic function. Note If you compare two inputs with the value not a number, NaN, or one input with the value NaN to an input with another value, this function always re",
       "vi_path": null,
@@ -82,7 +82,7 @@
     },
     {
       "name": "Less? Function",
-      "page": 749,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/less.html",
       "category": "Comparison",
       "description": "Returns TRUE if x is less than y. Otherwise, this function returns FALSE. You can change the comparison mode of this function. You can compare an array or cluster of a data type to a scalar of the same data type and produce an array or cluster of Boolean values. The connector pane displays the default data types for this polymorphic function.",
       "vi_path": null,
@@ -122,7 +122,7 @@
     },
     {
       "name": "Greater Or Equal? Function",
-      "page": 750,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/greater-or-equal.html",
       "category": "Comparison",
       "description": "Returns TRUE if x is greater than or equal to y. Otherwise, this function returns FALSE. You can change the comparison mode of this function. You can compare an array or cluster of a data type to a scalar of the same data type and produce an array or cluster of Boolean values. The connector pane displays the default data types for this polymorphic function.",
       "vi_path": null,
@@ -155,7 +155,7 @@
     },
     {
       "name": "Less Or Equal? Function",
-      "page": 750,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/less-or-equal.html",
       "category": "Comparison",
       "description": "Returns TRUE if x is less than or equal to y. Otherwise, this function returns FALSE. You can change the comparison mode of this function. Functions 750 ni.com You can compare an array or cluster of a data type to a scalar of the same data type and produce an array or cluster of Boolean values. The connector pane displays the default data types for this polymorphic function.",
       "vi_path": null,
@@ -181,7 +181,7 @@
     },
     {
       "name": "Equal To 0? Function",
-      "page": 751,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/equal-to-0.html",
       "category": "Comparison",
       "description": "Returns TRUE if x is equal to 0. Otherwise, this function returns FALSE. The connector pane displays the default data types for this polymorphic function.",
       "vi_path": null,
@@ -228,7 +228,7 @@
     },
     {
       "name": "Greater Than 0? Function",
-      "page": 752,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/greater-than-0.html",
       "category": "Comparison",
       "description": "Returns TRUE if x is greater than 0. Otherwise, this function returns FALSE. The connector pane displays the default data types for this polymorphic function.",
       "vi_path": null,
@@ -261,7 +261,7 @@
     },
     {
       "name": "Not Equal To 0? Function",
-      "page": 752,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/not-equal-to-0.html",
       "category": "Comparison",
       "description": "Returns TRUE if x is not equal to 0. Otherwise, this function returns FALSE. The connector pane displays the default data types for this polymorphic function.",
       "vi_path": null,
@@ -301,7 +301,7 @@
     },
     {
       "name": "Greater Or Equal To 0? Function",
-      "page": 753,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/greater-or-equal-to-0.html",
       "category": "Comparison",
       "description": "Returns TRUE if x is greater than or equal to 0. Otherwise, this function returns FALSE. The connector pane displays the default data types for this polymorphic function.",
       "vi_path": null,
@@ -327,7 +327,7 @@
     },
     {
       "name": "Less Than 0? Function",
-      "page": 753,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/less-than-0.html",
       "category": "Comparison",
       "description": "Returns TRUE if x is less than 0. Otherwise, this function returns FALSE. The connector pane displays the default data types for this polymorphic function.",
       "vi_path": null,
@@ -353,7 +353,7 @@
     },
     {
       "name": "Less Or Equal To 0? Function",
-      "page": 754,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/less-or-equal-to-0.html",
       "category": "Comparison",
       "description": "Returns TRUE if x is less than or equal to 0. Otherwise, this function returns FALSE. The connector pane displays the default data types for this polymorphic function.",
       "vi_path": null,
@@ -372,7 +372,7 @@
     },
     {
       "name": "Select Function",
-      "page": 754,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/select.html",
       "category": "Comparison",
       "description": "Returns the value wired to the t input or f input, depending on the value of s. If s is TRUE, this function returns the value wired to t. If s is FALSE, this function returns the value wired to f. The connector pane displays the default data types for this polymorphic function.",
       "vi_path": null,
@@ -391,7 +391,7 @@
     },
     {
       "name": "Max & Min Function",
-      "page": 755,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/max-min.html",
       "category": "Comparison",
       "description": "Compares x and y and returns the larger value at the top output terminal and the smaller value at the bottom output terminal. This function accepts time stamp values if all inputs are time stamp values. If the inputs are time stamp values, the function returns the later time at the top and the earlier time at the bottom. You can change the comparison mode of this function. The connector pane displays the default data types for this polymorphic function.",
       "vi_path": null,
@@ -459,7 +459,7 @@
     },
     {
       "name": "In Range and Coerce Function",
-      "page": 757,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/in-range-and-coerce.html",
       "category": "Comparison",
       "description": "Determines whether x falls within a range specified by the upper limit and lower limit inputs and optionally coerces the value to fall within the range. The function performs the coercion only in Compare Elements mode. This function accepts time stamp values if all inputs are time stamp values. You can change the comparison mode of this function. upper limit, x, and lower limit should usually be of the same data type structure, either arrays or clusters, but they can have different numeric repre",
       "vi_path": null,
@@ -541,7 +541,7 @@
     },
     {
       "name": "Not A Number/Path/Refnum? Function",
-      "page": 759,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/not-a-number-path-refnum.html",
       "category": "Comparison",
       "description": "Returns TRUE if number/path/refnum is not a number (NaN), <Not a Path>, or not a refnum. Otherwise, this function returns FALSE. Use this function to make sure a reference to an object, such as a VI, application, or control, still resides in system memory and was not closed. The connector pane displays the default data types for this polymorphic function.",
       "vi_path": null,
@@ -588,7 +588,7 @@
     },
     {
       "name": "Empty Array? Function",
-      "page": 760,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/empty-array.html",
       "category": "Comparison",
       "description": "Returns TRUE if the input array is empty. Otherwise, this function returns FALSE.",
       "vi_path": null,
@@ -649,7 +649,7 @@
     },
     {
       "name": "Empty String/Path? Function",
-      "page": 760,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/empty-string-path.html",
       "category": "Comparison",
       "description": "Returns TRUE if string/path is an empty string or an empty path. Otherwise, this function returns FALSE. This function is also designed to work with variants, pictures, and DSC tags. The connector pane displays the default data types for this polymorphic function.",
       "vi_path": null,
@@ -696,7 +696,7 @@
     },
     {
       "name": "Decimal Digit? Function",
-      "page": 761,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/decimal-digit.html",
       "category": "Comparison",
       "description": "Returns TRUE if char represents a decimal digit ranging from 0 through 9. If char is a string, this function uses the first character in the string. If char is a number, this function interprets it as the ASCII value of a character. If char is a floating-point number, this function rounds to the nearest integer. Otherwise, this function returns FALSE. The connector pane displays the default data types for this polymorphic function.",
       "vi_path": null,
@@ -778,7 +778,7 @@
     },
     {
       "name": "Hex Digit? Function",
-      "page": 762,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/hex-digit.html",
       "category": "Comparison",
       "description": "Returns TRUE if char represents a hex digit ranging from 0 through 9, A through F, or a through f. If char is a string, this function uses the first character in the string. If char is a number, this function interprets it as the ASCII value of a character. If char is a floating-point number, this function rounds to the nearest integer. Otherwise, this function returns FALSE. The connector pane displays the default data types for this polymorphic function.",
       "vi_path": null,
@@ -839,7 +839,7 @@
     },
     {
       "name": "Octal Digit? Function",
-      "page": 762,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/octal-digit.html",
       "category": "Comparison",
       "description": "Returns TRUE if char represents an octal digit ranging from 0 through 7. If char is a string, this function uses the first character in the string. If char is a number, this function interprets it as the ASCII value of a character. If char is a floating-point number, this function rounds to the nearest integer. Otherwise, this function returns FALSE. Functions 762 ni.com The connector pane displays the default data types for this polymorphic function.",
       "vi_path": null,
@@ -879,7 +879,7 @@
     },
     {
       "name": "Printable? Function",
-      "page": 763,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/printable.html",
       "category": "Comparison",
       "description": "Returns TRUE if char represents a printable ASCII character. If char is a string, this function uses the first character in the string. If char is a number, this function interprets it as the ASCII value of a character. If char is a floating-point number, this function rounds to the nearest integer. Otherwise, this function returns FALSE. The connector pane displays the default data types for this polymorphic function.",
       "vi_path": null,
@@ -933,7 +933,7 @@
     },
     {
       "name": "White Space? Function",
-      "page": 764,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/white-space.html",
       "category": "Comparison",
       "description": "Returns TRUE if char represents a white space character, such as Space, Tab, Newline, Carriage Return, Form Feed, or Vertical Tab. If char is a string, this function uses the first character in the string. If char is a number, this function interprets it as the ASCII value of a character. If char is a floating-point number, this function rounds to the nearest integer. Otherwise, the function returns FALSE. The connector pane displays the default data types for this polymorphic function.",
       "vi_path": null,
@@ -966,7 +966,7 @@
     },
     {
       "name": "Lexical Class Function",
-      "page": 765,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/lexical-class.html",
       "category": "Comparison",
       "description": "Returns the class number for char. If char is a string, this function uses the first character in the string. If char is a number, this function interprets it as the ASCII value of a character.",
       "vi_path": null,
@@ -992,7 +992,6 @@
     },
     {
       "name": "Assert Type",
-      "page": 773,
       "category": "Comparison",
       "description": "Use the Assert Type VIs and functions in conjunction with the Type Specialization structure for the following purposes: • Customizing sections of code in a malleable VI (.vim) for specific data types • Forcing a malleable VI to accept only data types that meet certain requirements • Forcing a malleable VI to decline specific data types Palette Object Description Type Specialization Structure Has one or more subdiagrams, exactly one of which LabVIEW compiles and executes, depending on the order a",
       "vi_path": null,
@@ -1003,7 +1002,7 @@
     },
     {
       "name": "Type Specialization Structure",
-      "page": 777,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/structures/type-specialization-structure.html",
       "category": "Comparison",
       "description": "Has one or more subdiagrams, exactly one of which LabVIEW compiles and executes, depending on the order and the compilation result of the subdiagram. LabVIEW declines subdiagrams in order if they have syntax errors. LabVIEW accepts the first subdiagram that does not have syntax errors and ignores the remaining subdiagrams. Functions © National Instruments 777 If all subdiagrams have syntax errors, this structure accepts the last subdiagram. Syntax errors are errors within the structure, such as ",
       "vi_path": null,
@@ -1029,7 +1028,7 @@
     },
     {
       "name": "Assert Structural Type Match Function",
-      "page": 778,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/assert-structural-type-match.html",
       "category": "Comparison",
       "description": "Breaks the calling VI unless the two input data types are identical, ignoring type definitions and type names. Functions 778 ni.com This function does nothing at run time. Use this function in conjunction with the Type Specialization structure to customize sections of code in a malleable VI (.vim) for specific data types or to force a malleable VI to accept only data types that meet certain requirements.",
       "vi_path": null,
@@ -1055,7 +1054,7 @@
     },
     {
       "name": "Assert Structural Type Mismatch",
-      "page": 779,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/assert-structural-type-mismatch.html",
       "category": "Comparison",
       "description": "Breaks the calling VI if type is the same data type as any of the mismatch inputs, ignoring type definitions and type names. This function does nothing at run time. Use this function in conjunction with the Type Functions © National Instruments 779 Specialization structure to customize sections of code in a malleable VI (.vim) for specific data types or to force a malleable VI to decline specific data types.",
       "vi_path": null,
@@ -1081,7 +1080,7 @@
     },
     {
       "name": "Assert Error Cluster Type VI",
-      "page": 781,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/typeassert/assert-error-cluster-type-vim.html",
       "category": "Comparison",
       "description": "Breaks the calling VI unless the input data is an error cluster. This VI does nothing at run time. Use this VI in conjunction with the Type Specialization structure to customize sections of code in a malleable VI (.vim) for error clusters or to force a malleable VI to accept error clusters only. This VI does nothing at run time. Use this VI in conjunction with the Type Specialization structure to customize sections of code in a malleable VI (.vim) for error clusters or to force a malleable VI to",
       "vi_path": null,
@@ -1107,7 +1106,7 @@
     },
     {
       "name": "Assert Array Dimension Count VI",
-      "page": 782,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/typeassert/assert-array-dimension-count-vim.html",
       "category": "Comparison",
       "description": "Breaks the calling VI unless value in is an array with the same number of dimensions as array type. To check if each dimension has the same size, use the Assert Array Dimension Sizes VI. This VI does nothing at run time. Use this VI in conjunction with the Type Specialization structure to customize sections of code in a malleable VI (.vim) for certain array types or to force a malleable VI to accept certain array types only.",
       "vi_path": null,
@@ -1140,7 +1139,7 @@
     },
     {
       "name": "Assert Array Dimension Sizes VI",
-      "page": 782,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/typeassert/assert-array-dimension-sizes-vim.html",
       "category": "Comparison",
       "description": "Breaks the calling VI unless value in is an array with the same number of dimensions Functions 782 ni.com as array type and each dimension in value in has the same size requirement (fixed, bounded, or variable-sized) and size (for fixed and bounded) as the corresponding dimension in array type. If you do not need to compare the size of each dimension, use the Assert Array Dimension Count VI. This VI does nothing at run time. Use this VI in conjunction with the Type Specialization structure to cu",
       "vi_path": null,
@@ -1173,7 +1172,7 @@
     },
     {
       "name": "Assert Same or Descendant Type VI",
-      "page": 783,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/typeassert/assert-same-or-descendant-type-vim.html",
       "category": "Comparison",
       "description": "Breaks the calling VI unless the input data is the same as or is a descendant of the Functions © National Instruments 783 input class or interface. This VI does nothing at run time. Use this VI in conjunction with the Type Specialization structure to customize sections of code in a malleable VI (.vim) for the specified class or interface or the descendants of the specified class or interface or to force a malleable VI to accept the specified class or interface or the descendants of the specified",
       "vi_path": null,
@@ -1206,7 +1205,7 @@
     },
     {
       "name": "Assert Scalar Numeric Or Waveform Type VI",
-      "page": 784,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/typeassert/assert-scalar-numeric-or-waveform-type-vim.html",
       "category": "Comparison",
       "description": "Breaks the calling VI unless the input data is a scalar numeric or analog waveform type. This VI does nothing at run time. Use this VI in conjunction with the Type Specialization Functions 784 ni.com structure to customize sections of code in a malleable VI (.vim) for scalar numeric or waveform types or to force a malleable VI to accept scalar numeric or waveform types only.",
       "vi_path": null,
@@ -1232,7 +1231,7 @@
     },
     {
       "name": "Assert Scalar Numeric Type VI",
-      "page": 785,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/typeassert/assert-scalar-numeric-type-vim.html",
       "category": "Comparison",
       "description": "Breaks the calling VI unless the input data is a scalar numeric type. This VI does nothing at run time. Use this VI in conjunction with the Type Specialization structure to customize sections of code in a malleable VI (.vim) for scalar numeric types or to force a malleable VI to accept scalar numeric types only.",
       "vi_path": null,
@@ -1258,7 +1257,7 @@
     },
     {
       "name": "Assert Real Numeric Or Waveform Type VI",
-      "page": 786,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/typeassert/assert-real-numeric-or-waveform-type-vim.html",
       "category": "Comparison",
       "description": "Breaks the calling VI unless the input data is a non-complex numeric or analog waveform type. This VI does nothing at run time. Use this VI in conjunction with the Type Specialization structure to customize sections of code in a malleable VI (.vim) for non-complex numeric or waveform types or to force a malleable VI to accept non-complex numeric or analog waveform types only.",
       "vi_path": null,
@@ -1284,7 +1283,7 @@
     },
     {
       "name": "Assert Real Numeric Type VI",
-      "page": 786,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/typeassert/assert-real-numeric-type-vim.html",
       "category": "Comparison",
       "description": "Breaks the calling VI unless the input data is a non-complex numeric type. This VI does nothing at run time. Use this VI in conjunction with the Type Specialization structure to customize sections of code in a malleable VI (.vim) for non-complex numeric types or to force a malleable VI to accept non-complex numeric types only. Functions 786 ni.com",
       "vi_path": null,
@@ -1310,7 +1309,7 @@
     },
     {
       "name": "Assert Fractional Numeric Type VI",
-      "page": 787,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/typeassert/assert-fractional-numeric-type-vim.html",
       "category": "Comparison",
       "description": "Breaks the calling VI unless the input data is a floating-point, complex floating-point, or fixed-point numeric type. This VI does nothing at run time. Use this VI in conjunction with the Type Specialization structure to customize sections of code in a malleable VI (.vim) for floating-point, complex floating-point, or fixed-point numeric types or to force a malleable VI to accept floating-point, complex floating-point, or fixed-point numeric types only.",
       "vi_path": null,
@@ -1336,7 +1335,7 @@
     },
     {
       "name": "Assert Complex Numeric Type VI",
-      "page": 788,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/typeassert/assert-complex-numeric-type-vim.html",
       "category": "Comparison",
       "description": "Breaks the calling VI unless the input data is a complex numeric type. This VI does nothing at run time. Use this VI in conjunction with the Type Specialization structure to customize sections of code in a malleable VI (.vim) for complex numeric types or to force a malleable VI to accept complex numeric types only.",
       "vi_path": null,
@@ -1362,7 +1361,7 @@
     },
     {
       "name": "Assert Floating-Point Numeric Type VI",
-      "page": 788,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/typeassert/assert-floating-point-numeric-type-vim.html",
       "category": "Comparison",
       "description": "Breaks the calling VI unless the input data is a floating-point or complex floating-point numeric type. This VI does nothing at run time. Use this VI in conjunction with the Type Specialization structure to customize sections of code in a malleable VI (.vim) for floating-point or complex floating-point numeric types or to force a malleable VI to accept floating- Functions 788 ni.com point or complex floating-point numeric types only.",
       "vi_path": null,
@@ -1388,7 +1387,7 @@
     },
     {
       "name": "Assert Real Floating-Point Numeric Type VI",
-      "page": 789,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/typeassert/assert-real-floating-point-numeric-type-vim.html",
       "category": "Comparison",
       "description": "Breaks the calling VI unless the input data is a non-complex floating-point numeric type. This VI does nothing at run time. Use this VI in conjunction with the Type Specialization structure to customize sections of code in a malleable VI (.vim) for non-complex floating-point numeric types or to force a malleable VI to accept non-complex floating- point numeric types only.",
       "vi_path": null,
@@ -1414,7 +1413,7 @@
     },
     {
       "name": "Assert Integer Type VI",
-      "page": 790,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/typeassert/assert-integer-type-vim.html",
       "category": "Comparison",
       "description": "Breaks the calling VI unless the input data is an integer numeric type. This VI does nothing at run time. Use this VI in conjunction with the Type Specialization structure to customize sections of code in a malleable VI (.vim) for integer numeric types or to force a malleable VI to accept integer numeric types only.",
       "vi_path": null,
@@ -1440,7 +1439,7 @@
     },
     {
       "name": "Assert Signed Integer Type VI",
-      "page": 790,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/typeassert/assert-signed-integer-type-vim.html",
       "category": "Comparison",
       "description": "Breaks the calling VI unless the input data is a signed integer numeric type. This VI does nothing at run time. Use this VI in conjunction with the Type Specialization structure to customize sections of code in a malleable VI (.vim) for signed integer numeric types or to force a malleable VI to accept signed integer numeric types only. Functions 790 ni.com",
       "vi_path": null,
@@ -1466,7 +1465,7 @@
     },
     {
       "name": "Assert Unsigned Integer Type VI",
-      "page": 791,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/typeassert/assert-unsigned-integer-type-vim.html",
       "category": "Comparison",
       "description": "Breaks the calling VI unless the input data is an unsigned integer numeric type. This VI does nothing at run time. Use this VI in conjunction with the Type Specialization structure to customize sections of code in a malleable VI (.vim) for unsigned integer numeric types or to force a malleable VI to accept unsigned integer numeric types only.",
       "vi_path": null,
@@ -1492,7 +1491,7 @@
     },
     {
       "name": "Assert Fixed-Point Numeric Type VI",
-      "page": 792,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/typeassert/assert-fixed-point-numeric-type-vim.html",
       "category": "Comparison",
       "description": "Breaks the calling VI unless the input data is a fixed-point numeric type. This VI does nothing at run time. Use this VI in conjunction with the Type Specialization structure to customize sections of code in a malleable VI (.vim) for fixed-point numeric data types or to force a malleable VI to accept fixed-point numeric types only. This VI does nothing at run time. Use this VI in conjunction with the Type Specialization structure to customize sections of code in a malleable VI (.vim) for fixed-p",
       "vi_path": null,
@@ -1518,7 +1517,7 @@
     },
     {
       "name": "Is Value Changed",
-      "page": 792,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/is-value-changed-vim.html",
       "category": "Comparison",
       "description": "Returns TRUE if this is the first call of this VI or if the input value is different from the value when this VI was last called.",
       "vi_path": null,
@@ -1565,7 +1564,7 @@
     },
     {
       "name": "Fixed-Point Overflow? Function",
-      "page": 793,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/fixed-point-overflowed.html",
       "category": "Comparison",
       "description": "Returns TRUE if FXP includes an overflow status and FXP is the result of an operation that overflowed. Otherwise, this function returns FALSE. Functions © National Instruments 793",
       "vi_path": null,
@@ -1591,7 +1590,7 @@
     },
     {
       "name": "Is Path and Not Empty?",
-      "page": 793,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/file-llb/is-path-and-not-empty-vi.html",
       "category": "Comparison",
       "description": "Returns TRUE if path is any value other than <Not A Path> or an empty path. Otherwise, this VI returns FALSE.",
       "vi_path": null,

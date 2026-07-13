@@ -1,6 +1,6 @@
 {
   "version": "1.0",
-  "source": "labview-api-ref.pdf",
+  "source": "labview-api-ref",
   "categories": {
     "Addons": "addons.json",
     "Application Control": "application-control.json",

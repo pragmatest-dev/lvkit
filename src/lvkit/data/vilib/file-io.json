@@ -4,7 +4,7 @@
   "entries": [
     {
       "name": "Write Delimited Spreadsheet",
-      "page": 1439,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/file-llb/write-delimited-spreadsheet-vi.html",
       "category": "File I/O",
       "description": "Converts a 2D or 1D array of strings, signed integers, or double-precision numbers to a text string and writes the string to a new byte stream file or appends the string to an existing file. Wire data to the 2D data input or 1D data input to determine the polymorphic instance to use or manually select the instance. Use this VI to transpose or separate data. Note To format with Microsoft Excel, use ActiveX with LabVIEW or the Report Generation Toolkit for Microsoft Office. Functions © National In",
       "vi_path": null,
@@ -72,7 +72,7 @@
     },
     {
       "name": "Write Delimited Spreadsheet (DBL) VI",
-      "page": 1440,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/file-llb/write-delimited-spreadsheet-dbl-vi.html",
       "category": "File I/O",
       "description": "Converts a 2D or 1D array of strings, signed integers, or double-precision numbers to a text string and writes the string to a new byte stream file or appends the string to an existing file. Wire data to the 2D data input or 1D data input to determine the polymorphic instance to use or manually select the instance. Use this VI to transpose or separate data.",
       "vi_path": null,
@@ -140,7 +140,7 @@
     },
     {
       "name": "Write Delimited Spreadsheet (I64) VI",
-      "page": 1442,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/file-llb/write-delimited-spreadsheet-i64-vi.html",
       "category": "File I/O",
       "description": "Converts a 2D or 1D array of strings, signed integers, or double-precision numbers to a text string and writes the string to a new byte stream file or appends the string to an existing file. Wire data to the 2D data input or 1D data input to determine the polymorphic instance to use or manually select the instance. Use this VI to transpose or separate data.",
       "vi_path": null,
@@ -208,7 +208,7 @@
     },
     {
       "name": "Write Delimited Spreadsheet (string) VI",
-      "page": 1444,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/file-llb/write-delimited-spreadsheet-string-vi.html",
       "category": "File I/O",
       "description": "Converts a 2D or 1D array of strings, signed integers, or double-precision numbers to a text string and writes the string to a new byte stream file or appends the string to an existing file. Wire data to the 2D data input or 1D data input to determine the polymorphic instance to use or manually select the instance. Use this VI to transpose or separate data.",
       "vi_path": null,
@@ -276,7 +276,7 @@
     },
     {
       "name": "Read Delimited Spreadsheet",
-      "page": 1446,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/file-llb/read-delimited-spreadsheet-vi.html",
       "category": "File I/O",
       "description": "Reads a specified number of lines or rows from a numeric text file beginning at a specified character offset and converts the data to a 2D, double-precision array of numbers, strings, or integers. You must manually select the polymorphic instance you want to use. You optionally can transpose the array. The VI opens the file before reading from it and closes it afterwards. You can use this VI to read a spreadsheet file saved in text format. This VI calls the Spreadsheet String to Array function t",
       "vi_path": null,
@@ -316,7 +316,7 @@
     },
     {
       "name": "Read Delimited Spreadsheet (DBL) VI",
-      "page": 1446,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/file-llb/read-delimited-spreadsheet-dbl-vi.html",
       "category": "File I/O",
       "description": "Reads a specified number of lines or rows from a numeric text file beginning at a specified character offset and converts the data to a 2D, double-precision array of numbers, strings, or integers. You must manually select the polymorphic instance you want to use. Functions 1446 ni.com You optionally can transpose the array. The VI opens the file before reading from it and closes it afterwards. You can use this VI to read a spreadsheet file saved in text format. This VI calls the Spreadsheet Stri",
       "vi_path": null,
@@ -356,7 +356,7 @@
     },
     {
       "name": "Read Delimited Spreadsheet (I64) VI",
-      "page": 1449,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/file-llb/read-delimited-spreadsheet-i64-vi.html",
       "category": "File I/O",
       "description": "Reads a specified number of lines or rows from a numeric text file beginning at a specified character offset and converts the data to a 2D, double-precision array of numbers, strings, or integers. You must manually select the polymorphic instance you want to use. You optionally can transpose the array. The VI opens the file before reading from it and closes it afterwards. You can use this VI to read a spreadsheet file saved in text format. This VI calls the Spreadsheet String to Array function t",
       "vi_path": null,
@@ -466,7 +466,7 @@
     },
     {
       "name": "Read Delimited Spreadsheet (string) VI",
-      "page": 1451,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/file-llb/read-delimited-spreadsheet-string-vi.html",
       "category": "File I/O",
       "description": "Reads a specified number of lines or rows from a numeric text file beginning at a specified character offset and converts the data to a 2D, double-precision array of numbers, strings, or integers. You must manually select the polymorphic instance you want to use. You optionally can transpose the array. The VI opens the file before reading from it and closes it afterwards. You can use this VI to read a spreadsheet file saved in text format. This VI calls the Spreadsheet String to Array function t",
       "vi_path": null,
@@ -576,7 +576,7 @@
     },
     {
       "name": "Write To Measurement File",
-      "page": 1454,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/express/express-output/exfilewriteblock-llb/ex-inst-write-labview-measurement-file-vi.html",
       "category": "File I/O",
       "description": "Writes data to text-based measurement files (.lvm), binary measurement files (.tdm or .tdms), or Microsoft Excel files (.xlsx). Use the Read From Measurement File Express VI to read data from the generated measurement file. Dialog Box Options Option Description Filename Displays the full path to the file to which you want to write data. The Express VI writes data to the file that this parameter specifies only if the Filename input is unwired. If you wire the Filename input, the VI writes data to",
       "vi_path": null,
@@ -587,7 +587,7 @@
     },
     {
       "name": "Read From Measurement File",
-      "page": 1463,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/express/express-input/exfilereadblock-llb/ex-inst-read-labview-measurement-file-vi.html",
       "category": "File I/O",
       "description": "Reads data from a text-based measurement file (.lvm) or binary measurement file (.tdm or .tdms). Dialog Box Options Option Description Filename Displays the full path to the file from which you want to read data. The Express VI reads data from the file that this parameter specifies only if the Filename input is unwired. If you wire the Filename input, the VI reads data from the file that this input specifies instead. Functions © National Instruments 1463 Option Description File Format Contains t",
       "vi_path": null,
@@ -598,7 +598,7 @@
     },
     {
       "name": "Open/Create/Replace File Function",
-      "page": 1470,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/open-create-replace-file.html",
       "category": "File I/O",
       "description": "Opens an existing file, creates a new file, or replaces an existing file, programmatically or interactively using a file dialog box. This function does not work for files inside an LLB.",
       "vi_path": null,
@@ -669,7 +669,7 @@
     },
     {
       "name": "Close File Function",
-      "page": 1472,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/close-file.html",
       "category": "File I/O",
       "description": "Closes an open file specified by refnum and returns the path to the file associated with the refnum. Error I/O operates uniquely in this function, which closes the file regardless of whether an error occurred in a preceding operation. This ensures that files are closed correctly. difference if you disable buffering. Functions 1472 ni.com",
       "vi_path": null,
@@ -716,7 +716,7 @@
     },
     {
       "name": "Format Into File",
-      "page": 1473,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/format-into-file.html",
       "category": "File I/O",
       "description": "Formats string, numeric, path, or Boolean data as text and writes the text to a file. If you wire a file refnum to the file input, writing begins at the current file position. To append to an existing file, open the file and set the file position to the end of the file by using the Set File Position function. Otherwise, the function will open the file and write to the beginning of the file. This function does not work for files inside an LLB. Functions © National Instruments 1473",
       "vi_path": null,
@@ -770,7 +770,7 @@
     },
     {
       "name": "Scan From File",
-      "page": 1476,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/scan-from-file.html",
       "category": "File I/O",
       "description": "Scans text in a file for string, numeric, path, and Boolean data, converts the text to a data type, and returns a duplicated refnum and the converted outputs in the order scanned. This function does not work for files inside an LLB. You can use this function to read all the text in the file. However, you cannot use this function to determine a starting point for the scan. To do so, use the Read from Text Functions 1476 ni.com File function and the Scan From String function.",
       "vi_path": null,
@@ -810,7 +810,7 @@
     },
     {
       "name": "Write to Text File Function",
-      "page": 1480,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/write-to-text-file.html",
       "category": "File I/O",
       "description": "Writes a string or an array of strings as lines to a file. This function does not work for files inside an LLB. Use the Set File Position function if you need to perform random access file reads or writes.",
       "vi_path": null,
@@ -871,7 +871,7 @@
     },
     {
       "name": "Read from Text File Function",
-      "page": 1482,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/read-from-text-file.html",
       "category": "File I/O",
       "description": "Reads a specified number of characters or lines from a byte stream file. This function does not work for files inside an LLB.",
       "vi_path": null,
@@ -939,7 +939,7 @@
     },
     {
       "name": "Write to Binary File Function",
-      "page": 1484,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/write-to-binary-file.html",
       "category": "File I/O",
       "description": "Writes binary data to a new file, appends data to an existing file, or replaces the contents of a file. This function does not work for files inside an LLB. If you want to use the Read from Binary File function to read the array or string data you write to file, the prepend array or string size? parameter must indicate TRUE. Otherwise, LabVIEW generates an error. This VI truncates arrays if the total array size is over 4 GB. Functions 1484 ni.com",
       "vi_path": null,
@@ -986,7 +986,7 @@
     },
     {
       "name": "Read from Binary File Function",
-      "page": 1487,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/read-from-binary-file.html",
       "category": "File I/O",
       "description": "Reads binary data from a file and returns it in data. How the data is read depends on the format of the specified file. This function does not work for files inside an LLB. Refer to the Preallocated Read from Binary File function for information about reading binary data and placing it into a pre-allocated array without incurring a copy.",
       "vi_path": null,
@@ -1019,7 +1019,7 @@
     },
     {
       "name": "Build Path Function",
-      "page": 1490,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/build-path.html",
       "category": "File I/O",
       "description": "Creates a new path by appending a name or a relative path to an existing path.",
       "vi_path": null,
@@ -1052,7 +1052,7 @@
     },
     {
       "name": "Strip Path Function",
-      "page": 1491,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/strip-path.html",
       "category": "File I/O",
       "description": "Returns the name of the last component of a path and the stripped path that leads to that component.",
       "vi_path": null,
@@ -1085,7 +1085,7 @@
     },
     {
       "name": "Current VI's Path Function",
-      "page": 1493,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/current-vi-s-path.html",
       "category": "File I/O",
       "description": "Returns the path to the file of the current VI. If the VI never has been saved, this function returns <Not A Path>. This function always returns the current location of the VI. If you move the VI, the value returned changes. If you build the VI into an application, this function returns the path to the VI in the application file, and treats the application file as a VI library.",
       "vi_path": null,
@@ -1104,7 +1104,7 @@
     },
     {
       "name": "Get System Directory",
-      "page": 1493,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/sysdir-llb/get-system-directory-vi.html",
       "category": "File I/O",
       "description": "Returns the system directory specified in the system directory type input. This VI returns the system directory of the current target, including My Computer. Note To obtain the path to the directory containing the application, use the Application Directory VI. Functions © National Instruments 1493 (Real-Time Module) You cannot use this VI in VIs that run on RT targets.",
       "vi_path": "vi.lib/Utility/sysdir.llb/Get System Directory.vi",
@@ -1149,7 +1149,7 @@
     },
     {
       "name": "Default Directory Function",
-      "page": 1496,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/default-directory.html",
       "category": "File I/O",
       "description": "Returns the path to the default directory. The default directory is the directory in which LabVIEW automatically stores information unless you specify otherwise. You can view and set the path to the default directory by selecting Default Directory from the pull-down menu on the Paths page of the Options dialog box. Note Do not test whether a refnum is invalid by comparing the refnum to the output returned by the Not a Refnum constant. The Not a Refnum constant returns a unique sequence of bits t",
       "vi_path": null,
@@ -1168,7 +1168,7 @@
     },
     {
       "name": "Default Data Directory",
-      "page": 1497,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/file-llb/dflt-data-dir-vi.html",
       "category": "File I/O",
       "description": "Returns the directory you configure to store the data a VI or function generates. You can set the default data directory in the Options dialog box.",
       "vi_path": null,
@@ -1187,7 +1187,7 @@
     },
     {
       "name": "VI Library Function",
-      "page": 1497,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/vi-library.html",
       "category": "File I/O",
       "description": "Returns the path to the VI library directory for the current application instance on the current computer. If you build the VI into an application, this function returns the path of the directory containing the application file.",
       "vi_path": null,
@@ -1206,7 +1206,7 @@
     },
     {
       "name": "Application Directory",
-      "page": 1498,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/file-llb/application-directory-vi.html",
       "category": "File I/O",
       "description": "Returns the path to the directory containing the application. If you call this VI from a stand-alone application, this VI returns the path to the folder containing the stand-alone application. If you call this VI from the development environment and the VI is loaded in a LabVIEW project file (.lvproj), this VI returns the path to the folder containing the project file. If the project is not saved, this VI returns <Not a Path>. If the top-level VI is not loaded in a project, the VI returns the pa",
       "vi_path": null,
@@ -1225,7 +1225,7 @@
     },
     {
       "name": "Temporary Directory Function",
-      "page": 1498,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/temporary-directory.html",
       "category": "File I/O",
       "description": "Returns the path to the temporary directory. This temporary directory is the directory in which you want LabVIEW to store information that you do not want to store in the default directory. You can set this temporary directory in the Options dialog box. Setting this directory does not change the system temporary directory. Functions 1498 ni.com",
       "vi_path": null,
@@ -1244,7 +1244,6 @@
     },
     {
       "name": "Configuration File VIs",
-      "page": 1499,
       "category": "File I/O",
       "description": "Use the Configuration File VIs to create, modify, and read a platform-independent configuration file. Palette Object Description Open Config Data Opens a reference to the configuration data found in a platform-independent configuration file. Read Key Reads a value associated with a key in a specified section from the configuration data identified by refnum. If the key does not exist, the VI returns the default value. This VI supports multibyte characters in strings. Wire data to the default valu",
       "vi_path": null,
@@ -1298,7 +1297,7 @@
     },
     {
       "name": "Open Config Data",
-      "page": 1501,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/config-llb/open-config-data-vi.html",
       "category": "File I/O",
       "description": "Opens a reference to the configuration data found in a platform-independent configuration file. Format the content of an .ini file correctly when you use this VI.",
       "vi_path": null,
@@ -1352,7 +1351,7 @@
     },
     {
       "name": "Read Key",
-      "page": 1502,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/config-llb/read-key-vi.html",
       "category": "File I/O",
       "description": "Reads a value associated with a key in a specified section from the configuration data identified by refnum. If the key does not exist, the VI returns the default value. This VI supports multibyte characters in strings. Wire data to the default value input to determine the polymorphic instance to use or manually select the instance. • Read Key (Boolean) VI • Read Key (Double) VI • Read Key (I32) VI • Read Key (Path) VI • Read Key (String) VI • Read Key (U32) VI Examples Refer to the following ex",
       "vi_path": null,
@@ -1427,7 +1426,7 @@
     },
     {
       "name": "Write Key",
-      "page": 1511,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/config-llb/write-key-vi.html",
       "category": "File I/O",
       "description": "Writes a value to a key in a specified section of the configuration data identified by refnum. This VI modifies data in memory. To write data to disk, use the Close Config Data VI. Wire data to the value input to determine the polymorphic instance to use or manually select the instance. Format the content of an .ini file correctly when you use this VI. Functions © National Instruments 1511 • Write Key (Boolean) VI • Write Key (Double) VI • Write Key (I32) VI • Write Key (Path) VI • Write Key (St",
       "vi_path": null,
@@ -1495,7 +1494,7 @@
     },
     {
       "name": "Remove Key",
-      "page": 1522,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/config-llb/remove-key-vi.html",
       "category": "File I/O",
       "description": "Removes a key in a specified section from the configuration data identified by refnum.",
       "vi_path": null,
@@ -1556,7 +1555,7 @@
     },
     {
       "name": "Remove Section",
-      "page": 1523,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/config-llb/remove-section-vi.html",
       "category": "File I/O",
       "description": "Removes a section from the configuration data identified by refnum.",
       "vi_path": null,
@@ -1610,7 +1609,7 @@
     },
     {
       "name": "Close Config Data",
-      "page": 1524,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/config-llb/close-config-data-vi.html",
       "category": "File I/O",
       "description": "Writes data to the platform-independent configuration file identified by refnum and then closes the reference to that file.",
       "vi_path": null,
@@ -1664,7 +1663,7 @@
     },
     {
       "name": "Get Key Names",
-      "page": 1525,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/config-llb/get-key-names-vi.html",
       "category": "File I/O",
       "description": "Gets the names of all keys in the specified section from the configuration data identified by refnum. Format the content of an .ini file correctly when you use this VI.",
       "vi_path": null,
@@ -1725,7 +1724,7 @@
     },
     {
       "name": "Get Section Names",
-      "page": 1526,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/config-llb/get-section-names-vi.html",
       "category": "File I/O",
       "description": "Gets the names of all sections from the configuration data identified by refnum. Format the content of an .ini file correctly when you use this VI.",
       "vi_path": null,
@@ -1772,7 +1771,7 @@
     },
     {
       "name": "Not A Config Data Refnum",
-      "page": 1527,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/config-llb/not-a-config-data-refnum-vi.html",
       "category": "File I/O",
       "description": "Determines whether a configuration data refnum is valid. This VI considers a configuration data refnum to be invalid if you do not open the reference with the Open Config Data VI, the file referenced does not exist, or the reference is already closed when passed to this VI.",
       "vi_path": null,
@@ -1798,7 +1797,7 @@
     },
     {
       "name": "TDMS Open Function",
-      "page": 1530,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/tdms-open.html",
       "category": "File I/O",
       "description": "Opens a .tdms file for reading or writing. You also can use this function to create a new file or replace an existing file. Use the TDMS Close function to close the reference to the file.",
       "vi_path": null,
@@ -1866,7 +1865,7 @@
     },
     {
       "name": "TDMS Write Function",
-      "page": 1533,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/tdms-write.html",
       "category": "File I/O",
       "description": "Streams data to the specified .tdms file. The data subset to write is determined by the values you identify in the group name in and channel name(s) in inputs.",
       "vi_path": null,
@@ -1898,7 +1897,7 @@
     },
     {
       "name": "TDMS Read Function",
-      "page": 1537,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/tdms-read.html",
       "category": "File I/O",
       "description": "Reads the specified .tdms file and returns data in a format specified by the data type input. If data has scaling information, this VI automatically scales the data. Use the count and offset inputs to read a specified subset of the data.",
       "vi_path": null,
@@ -1938,7 +1937,7 @@
     },
     {
       "name": "TDMS Close Function",
-      "page": 1540,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/tdms-close.html",
       "category": "File I/O",
       "description": "Closes the .tdms file you opened with the TDMS Open function.",
       "vi_path": null,
@@ -1999,7 +1998,7 @@
     },
     {
       "name": "TDMS List Contents Function",
-      "page": 1542,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/tdms-list-contents.html",
       "category": "File I/O",
       "description": "Provides a list of group and channel names contained within the .tdms file specified in the .tdms file input.",
       "vi_path": null,
@@ -2060,7 +2059,7 @@
     },
     {
       "name": "TDMS Set Properties Function",
-      "page": 1543,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/tdms-set-properties.html",
       "category": "File I/O",
       "description": "Sets the properties of the specified .tdms file, channel group, or channel. If you wire the group name and channel name inputs with values, the function writes the properties at the channel level. Wiring only the group name input with a value writes the properties at the channel group level. If both group name and channel name inputs contain no values, the properties become file-specific. If you wire the channel name input with a value, you must also wire a value to the group name input. You mus",
       "vi_path": null,
@@ -2184,7 +2183,7 @@
     },
     {
       "name": "TDMS Get Properties Function",
-      "page": 1554,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/tdms-get-properties.html",
       "category": "File I/O",
       "description": "Returns the properties of the specified .tdms file, channel group, or channel. If you wire the group name and channel name inputs with values, the function searches for properties at the channel level. Wiring only the group name input with a value searches for properties at the channel group level. If both group name and channel name inputs contain no values, the function searches for properties at the root level of the .tdms file. If you wire the channel name input with a value, you must also w",
       "vi_path": null,
@@ -2245,7 +2244,7 @@
     },
     {
       "name": "TDMS Flush Function",
-      "page": 1556,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/tdms-flush.html",
       "category": "File I/O",
       "description": "Writes all buffers of the .tdms file data to the file identified by the tdms file input. Data Functions 1556 ni.com written to a .tdms file often resides in a buffer until the buffer fills up or until you close the file. This function forces the operating system to write any buffer data to the .tdms file.",
       "vi_path": null,
@@ -2292,7 +2291,7 @@
     },
     {
       "name": "TDMS Defragment Function",
-      "page": 1558,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/tdms-defragment.html",
       "category": "File I/O",
       "description": "Defragments the .tdms file data specified in the file path input. Use this function to Functions 1558 ni.com clean up your .tdms data when it becomes cluttered, and increase performance.",
       "vi_path": null,
@@ -2325,7 +2324,6 @@
     },
     {
       "name": "Advanced TDMS",
-      "page": 1559,
       "category": "File I/O",
       "description": "Use the Advanced TDMS VIs and functions to perform advanced file I/O operations, such as asynchronous reads and writes, on .tdms files. You can use these VIs and functions to read data from an existing .tdms file, write data to a new .tdms file, or replace subsets of data in an existing .tdms file. You also can use these VIs and functions to convert the file format version of a .tdms file or to create scaling information for unscaled data. The VIs and functions on this palette can return TDM str",
       "vi_path": null,
@@ -2336,7 +2334,7 @@
     },
     {
       "name": "Open Data Storage",
-      "page": 1649,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/platform/storage/lvstorage-llb/xstorage/open-data-storage/open-data-storage-xnode.html",
       "category": "File I/O",
       "description": "Opens an NI TDM (.tdm) file for reading or writing. You also can use this VI to create a new file or replace an existing file. Use the Close Data Storage VI to close the reference to the file. Dialog Box Options Option Description DataPlugin Specifies the format of the file you want to access. If you wire a value to the DataPlugin name block diagram input of this Express VI, LabVIEW ignores the DataPlugin option. If you wire an empty string to the DataPlugin name block diagram input, LabVIEW aut",
       "vi_path": null,
@@ -2404,7 +2402,7 @@
     },
     {
       "name": "Write Data",
-      "page": 1652,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/platform/storage/lvstorage-llb/xstorage/write-data/write-data-xnode.html",
       "category": "File I/O",
       "description": "Adds a channel group or channel to a file you specify. You also can use this VI to define properties for the channel group or channel that you want to add. You also can use the Write To Measurement File Express VI to write data to a .tdm, .tdms, or .lvm file. Dialog Box Options Option Description Settings Contains the following options: • Object type— Specifies the type of object to add to the file. Contains the following options: ◦ Channel group—Adds a channel group to the file. ◦ Channel—Adds ",
       "vi_path": null,
@@ -2423,7 +2421,7 @@
     },
     {
       "name": "Read Data",
-      "page": 1656,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/platform/storage/lvstorage-llb/xstorage/read-data/read-data-xnode.html",
       "category": "File I/O",
       "description": "Returns an array of refnums that represent channel groups or channels in the file. If you select Channel as the Object type to read in the configuration dialog box, this VI reads waveforms associated with the channel. You also can use this VI to return channel groups or channels that meet query conditions you specify. Use the Set Properties Express VI to define properties and the Get Properties Express VI to return properties for the channel groups or channels this Express VI returns. You also c",
       "vi_path": null,
@@ -2456,7 +2454,7 @@
     },
     {
       "name": "Close Data Storage",
-      "page": 1659,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/platform/storage/lvstorage-llb/xstorage/close-data-storage/close-data-storage-xnode.html",
       "category": "File I/O",
       "description": "Closes a data file. You must use this Express VI to close a data file after you finish reading from or writing to the file. Memory leakage might occur if you do not close the data file. Functions © National Instruments 1659 Dialog Box Options",
       "vi_path": null,
@@ -2496,7 +2494,6 @@
     },
     {
       "name": "Set Properties",
-      "page": 1660,
       "category": "File I/O",
       "description": "Defines the properties of an existing file, channel group, or channel. If you configure this VI before you wire a refnum to storage refnum, the configuration might change depending on the refnum you wire. For example, if you configure this VI for a channel and then wire a channel group refnum, the VI returns broken wires on the block diagram because the same properties are not available for a channel group. Functions 1660 ni.com Dialog Box Options Option Description Settings Contains the followi",
       "vi_path": null,
@@ -2507,7 +2504,7 @@
     },
     {
       "name": "Get Properties",
-      "page": 1664,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/platform/storage/lvstorage-llb/xstorage/get-properties/get-properties-xnode.html",
       "category": "File I/O",
       "description": "Reads property values from a file, channel group, or channel. If you configure this VI before you wire a refnum to storage refnum, the configuration might change depending on the refnum you wire. For example, if you configure this VI for a channel and then wire a channel group refnum, the VI returns broken wires on the block diagram because the same properties are not available for a channel group. Note The Storage/DataPlugin VIs do not support strings that contain binary data. You must first co",
       "vi_path": null,
@@ -2518,7 +2515,7 @@
     },
     {
       "name": "Delete Data",
-      "page": 1669,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/platform/storage/lvstorage-llb/delete-data-vi.html",
       "category": "File I/O",
       "description": "Removes a channel group or channel you specify. If you choose to delete a channel group, this VI deletes all channels associated with that channel group. Wire data to the storage refnum input to determine the polymorphic instance to use or manually select the instance. • Delete Channel VI Note This VI does not delete data in .tdms files. Functions © National Instruments 1669 • Delete Channel Group VI Delete Channel VI Delete Channel VI Removes a channel group or channel you specify. If you choos",
       "vi_path": null,
@@ -2551,7 +2548,7 @@
     },
     {
       "name": "Data File Viewer",
-      "page": 1671,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/platform/storage/utility/data-file-viewer-vi.html",
       "category": "File I/O",
       "description": "Opens the data file specified in the file path input and presents the data in the Data File Viewer dialog box.",
       "vi_path": null,
@@ -2605,7 +2602,7 @@
     },
     {
       "name": "Convert to TDM or TDMS",
-      "page": 1672,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/platform/storage/utility/convert-to-tdm-or-tdms-vi.html",
       "category": "File I/O",
       "description": "Converts the specified file to the .tdm or .tdms file format.",
       "vi_path": null,
@@ -2696,7 +2693,6 @@
     },
     {
       "name": "Manage DataPlugins",
-      "page": 1674,
       "category": "File I/O",
       "description": "Use the Manage DataPlugins VIs to list, export, register, or unregister DataPlugins installed on the local computer. The VIs on this palette can return storage error codes. Note DataPlugins are shared between different National Instruments products and applications on the local computer. Registering or unregistering a DataPlugin might affect these products or applications. Functions 1674 ni.com Palette Object Description List DataPlugins Lists all DataPlugins existing on the National Instruments",
       "vi_path": null,
@@ -2780,7 +2776,6 @@
     },
     {
       "name": "Advanced Storage",
-      "page": 1684,
       "category": "File I/O",
       "description": "Use the Advanced Storage VIs to read, write, and query data when object types or property names are determined at run time. The VIs on this palette can return storage error codes. Palette Object Description Get Object Info Returns information about the object you specify. Get Property Info Retrieves the properties of a data file, channel group, or channel. Set Property Defines a property for a file, channel group, or channel. Wire data to the Value input to determine the polymorphic instance to ",
       "vi_path": null,
@@ -2848,7 +2843,7 @@
     },
     {
       "name": "New Zip File",
-      "page": 1722,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/zip/new-zip-file-vi.html",
       "category": "File I/O",
       "description": "Creates a new empty zip file in the path that target specifies. The new file overwrites an existing file or produces a confirmation dialog based on the value of the confirm overwrite? control.",
       "vi_path": null,
@@ -2909,7 +2904,7 @@
     },
     {
       "name": "Add File to Zip",
-      "page": 1723,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/zip/add-file-to-zip-vi.html",
       "category": "File I/O",
       "description": "Adds the file source file path specifies to a zip file. The destination path in zip control specifies the zipped path information. Functions © National Instruments 1723",
       "vi_path": null,
@@ -2970,7 +2965,7 @@
     },
     {
       "name": "Close Zip File",
-      "page": 1724,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/zip/close-zip-file-vi.html",
       "category": "File I/O",
       "description": "Closes the zip file zip file in specifies. Functions 1724 ni.com",
       "vi_path": null,
@@ -3017,7 +3012,6 @@
     },
     {
       "name": "LabVIEW Schema",
-      "page": 1727,
       "category": "File I/O",
       "description": "Use the LabVIEW Schema VIs and functions to manipulate LabVIEW data in XML format. Palette Object Description Flatten To XML Function Converts any data type you wire to anything and converts it to an XML string according to the LabVIEW XML schema. Unflatten From XML Function Converts an XML string to a LabVIEW data type according to the LabVIEW XML schema. Write to XML File Writes a text string of XML data with accompanying header tags to a text file. Wire data to the XML Input input to determin",
       "vi_path": null,
@@ -3050,7 +3044,6 @@
     },
     {
       "name": "Waveform File I/O",
-      "page": 1757,
       "category": "File I/O",
       "description": "Use the Waveform File I/O VIs to write waveform data to and read waveform data from files. The VIs on this palette can return waveform error codes. Palette Object Description Write Waveforms to File Creates a new file or appends to an existing file, writes the specified number of records to the file, then closes the file and checks for errors. Each record is an array of waveforms. Wire data to the Waveform input to determine the polymorphic instance to use or manually select the instance. Read W",
       "vi_path": null,
@@ -3061,7 +3054,6 @@
     },
     {
       "name": "Advanced File Functions",
-      "page": 1758,
       "category": "File I/O",
       "description": "Use the Advanced File VIs and functions to manipulate files, directories, and paths. Palette Object Description Get File Position Function Returns the position of the current file mark of the file identified by refnum relative to the beginning of the file. Get File Size Function Gets the file size of file. This function does not work for files inside an LLB. Get Permissions Function Returns the owner, group, and permissions of the file or directory specified by path. This function does not work ",
       "vi_path": null,
@@ -3072,7 +3064,7 @@
     },
     {
       "name": "Get File Position Function",
-      "page": 1761,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/get-file-position.html",
       "category": "File I/O",
       "description": "Returns the position of the current file mark of the file identified by refnum relative to the beginning of the file. Functions © National Instruments 1761",
       "vi_path": null,
@@ -3119,7 +3111,7 @@
     },
     {
       "name": "Get File Size Function",
-      "page": 1762,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/get-file-size.html",
       "category": "File I/O",
       "description": "Gets the file size of file. This function does not work for files inside an LLB.",
       "vi_path": null,
@@ -3166,7 +3158,7 @@
     },
     {
       "name": "Get Permissions Function",
-      "page": 1763,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/get-permissions.html",
       "category": "File I/O",
       "description": "Returns the owner, group, and permissions of the file or directory specified by path. This function does not work for files inside an LLB.",
       "vi_path": null,
@@ -3227,7 +3219,7 @@
     },
     {
       "name": "Get Type and Creator Function",
-      "page": 1764,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/get-type-and-creator.html",
       "category": "File I/O",
       "description": "Reads the type and creator of the file specified by path. type and creator are four- character strings. This function does not work for files inside an LLB. If the specified file has a name ending with characters that LabVIEW recognizes, such as .vi for the LVIN file type and .llb for the LVAR file type, this function returns that type in type and LBVW in creator. If the specified file is not a known LabVIEW file type, this function returns ???? in type and creator. Functions 1764 ni.com",
       "vi_path": null,
@@ -3281,7 +3273,7 @@
     },
     {
       "name": "Preallocated Read from Binary File Function",
-      "page": 1766,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/preallocated-read-from-binary-file.html",
       "category": "File I/O",
       "description": "Reads binary data from a file and places the data into an array that you have already allocated without incurring a copy of the data. Unlike the Read from Binary File function, this function avoids run-time memory allocations. The performance of this function depends on the array you preallocate. The connector pane displays the default data types for this polymorphic function.",
       "vi_path": null,
@@ -3348,7 +3340,7 @@
     },
     {
       "name": "File Dialog",
-      "page": 1770,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/express/express-input/filedialogblock-llb/file-dialog-source-vi.html",
       "category": "File I/O",
       "description": "Displays a dialog box with which you can specify the path to a file or directory. You can use this dialog box to select existing files or directories or to select a location and name for a new file or directory. (macOS) This VI does not recognize macOS-specific means of specifying the default application for a file. However, you can use the pattern input to specify a file type for files that include an extension to the filename. Dialog Box Options Option Description Limit selection to single ite",
       "vi_path": null,
@@ -3374,7 +3366,7 @@
     },
     {
       "name": "Set File Position Function",
-      "page": 1774,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/set-file-position.html",
       "category": "File I/O",
       "description": "Moves the position of the current file mark of the file identified by refnum to the position indicated by offset (in bytes) according to the mode in from.",
       "vi_path": null,
@@ -3441,7 +3433,7 @@
     },
     {
       "name": "Set File Size Function",
-      "page": 1775,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/set-file-size.html",
       "category": "File I/O",
       "description": "Sets the file size of file by setting the end-of-file marker to size bytes from the beginning of the file. This function does not work for files inside an LLB.",
       "vi_path": null,
@@ -3488,7 +3480,7 @@
     },
     {
       "name": "Set Permissions Function",
-      "page": 1776,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/set-permissions.html",
       "category": "File I/O",
       "description": "Sets the owner, group, and permissions of the file or directory specified by path. This function does not work for files inside an LLB.",
       "vi_path": null,
@@ -3549,7 +3541,7 @@
     },
     {
       "name": "Set Type and Creator Function",
-      "page": 1777,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/set-type-and-creator.html",
       "category": "File I/O",
       "description": "Sets the type and creator of the file specified by path. type and creator are four- character strings. This function does not work for files inside an LLB. Only macOS supports setting the type and creator of files.",
       "vi_path": null,
@@ -3603,7 +3595,7 @@
     },
     {
       "name": "Show in File System",
-      "page": 1778,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/libraryn-llb/show-in-file-system-vi.html",
       "category": "File I/O",
       "description": "Opens a path to a file or directory in (Windows) Windows Explorer, (macOS) the Finder, or (Linux) a file system browser depending on the current platform. If you specify a path to a file that is inside an LLB or a packed project library, this VI opens the path to the LLB or the packed project library.",
       "vi_path": null,
@@ -3636,7 +3628,7 @@
     },
     {
       "name": "Is Name Multiplatform",
-      "page": 1779,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/libraryn-llb/is-name-multiplatform-vi.html",
       "category": "File I/O",
       "description": "Checks if a filename is valid on different platforms. This VI checks filenames against only desktop platforms that support LabVIEW, which are Windows, macOS, and Linux. You can choose to check the filename against all possible platforms or against the current platform.",
       "vi_path": null,
@@ -3683,7 +3675,7 @@
     },
     {
       "name": "Create File with Incrementing Suffix",
-      "page": 1780,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/file-llb/create-file-with-incrementing-suffix-vi.html",
       "category": "File I/O",
       "description": "Creates a file and appends an incrementing number suffix to the filename if the file already exists at a specified path. If the file does not exist, this VI creates the file without appending an incrementing number suffix to the filename. Functions 1780 ni.com",
       "vi_path": null,
@@ -3737,7 +3729,7 @@
     },
     {
       "name": "Move Function",
-      "page": 1782,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/move.html",
       "category": "File I/O",
       "description": "Moves the file or directory that you specify in source path to the location that you specify in target path. If you move a directory, this function moves all the contents of the directory recursively to the new location. You cannot use this function to move files into or out of an LLB.",
       "vi_path": null,
@@ -3770,7 +3762,7 @@
     },
     {
       "name": "Copy Function",
-      "page": 1784,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/copy.html",
       "category": "File I/O",
       "description": "Copies the file or directory that you specify in source path to the location that you specify in target path. If you copy a directory, this function copies all its contents recursively to the new location. You cannot use this function to copy files into or out of an LLB. Functions 1784 ni.com",
       "vi_path": null,
@@ -3831,7 +3823,7 @@
     },
     {
       "name": "Delete Function",
-      "page": 1786,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/delete.html",
       "category": "File I/O",
       "description": "Deletes the file or directory specified by path. This function does not work for files inside an LLB. Note This function does not automatically append file extensions, such as .txt, to filenames when it copies or moves files. You must explicitly include the extension as a part of the new filename that you specify in target path. Functions 1786 ni.com",
       "vi_path": null,
@@ -3892,7 +3884,7 @@
     },
     {
       "name": "Flush File Function",
-      "page": 1788,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/flush-file.html",
       "category": "File I/O",
       "description": "Writes all buffers of the file identified by refnum to disk and updates the directory entry of the file associated with refnum. The file remains open, and refnum remains valid. Data written to a file often resides in a buffer until the buffer fills up or until you close the file. This function forces the operating system to write any buffer data to the file.",
       "vi_path": null,
@@ -3932,7 +3924,7 @@
     },
     {
       "name": "Deny Access Function",
-      "page": 1789,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/deny-access.html",
       "category": "File I/O",
       "description": "Reopens the instance of the file specified by refnum to temporarily change what read or write access is denied to other refnums, VIs, or applications.",
       "vi_path": null,
@@ -3992,7 +3984,7 @@
     },
     {
       "name": "File/Directory Info Function",
-      "page": 1790,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/file-directory-info.html",
       "category": "File I/O",
       "description": "Returns information about the file or directory specified by path, including its size, its last modification date, whether it is a directory, whether it is a shortcut, and the resolved path if the file or directory is a shortcut. This function does not work for files inside an LLB. The connector pane displays the default data types for this polymorphic function.",
       "vi_path": null,
@@ -4067,7 +4059,7 @@
     },
     {
       "name": "Get Volume Info Function",
-      "page": 1791,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/get-volume-info.html",
       "category": "File I/O",
       "description": "Returns information about the volume containing the file or directory specified by path, including the total storage space provided by the volume and the amount free in bytes. Functions © National Instruments 1791",
       "vi_path": null,
@@ -4135,7 +4127,7 @@
     },
     {
       "name": "Create Folder Function",
-      "page": 1793,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/create-folder.html",
       "category": "File I/O",
       "description": "Creates the appropriate folder specified by path. This function creates all folders that do not already exist in the specified path. If a file or folder already exists at the specified location, the function returns an error instead of overwriting the existing file or folder.",
       "vi_path": null,
@@ -4175,7 +4167,7 @@
     },
     {
       "name": "List Folder Function",
-      "page": 1794,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/list-folder.html",
       "category": "File I/O",
       "description": "Returns two arrays of strings listing the names of all files and folders found in path, filtering both arrays based upon pattern and filtering the filenames array based upon the specified datalog type.",
       "vi_path": null,
@@ -4243,7 +4235,7 @@
     },
     {
       "name": "Check if File or Folder Exists",
-      "page": 1796,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/libraryn-llb/check-if-file-or-folder-exists-vi.html",
       "category": "File I/O",
       "description": "Checks whether a file or folder exists on disk at a specified path. This VI works with standard files and folders as well as files in LLB files.",
       "vi_path": null,
@@ -4290,7 +4282,7 @@
     },
     {
       "name": "Recursive File List",
-      "page": 1797,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/libraryn-llb/recursive-file-list-vi.html",
       "category": "File I/O",
       "description": "Lists the contents of a folder or LLB.",
       "vi_path": null,
@@ -4337,7 +4329,7 @@
     },
     {
       "name": "Path To String Function",
-      "page": 1798,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/path-to-string.html",
       "category": "File I/O",
       "description": "Converts path into a string describing a path in the standard format of the platform. The connector pane displays the default data types for this polymorphic function. Functions 1798 ni.com",
       "vi_path": null,
@@ -4363,7 +4355,7 @@
     },
     {
       "name": "String To Path Function",
-      "page": 1799,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/string-to-path.html",
       "category": "File I/O",
       "description": "Converts a string, describing a path in the standard format for the current platform, to a path. The connector pane displays the default data types for this polymorphic function.",
       "vi_path": null,
@@ -4389,7 +4381,7 @@
     },
     {
       "name": "Array of Strings to Path Function",
-      "page": 1800,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/array-of-strings-to-path.html",
       "category": "File I/O",
       "description": "Converts an array of strings into a relative or absolute path. If you have an empty string in the array, the directory location before the empty string is deleted in the path output. This behavior is similar to moving up a level in directory hierarchy. Functions 1800 ni.com",
       "vi_path": null,
@@ -4422,7 +4414,7 @@
     },
     {
       "name": "Path to Array of Strings Function",
-      "page": 1800,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/path-to-array-of-strings.html",
       "category": "File I/O",
       "description": "Converts a path into an array of strings and indicates whether the path is relative.",
       "vi_path": null,
@@ -4455,7 +4447,7 @@
     },
     {
       "name": "Path Type Function",
-      "page": 1802,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/path-type.html",
       "category": "File I/O",
       "description": "Returns the type of the specified path, indicating whether it is an absolute, relative, or <Not A Path>. This function does not verify that the path exists on the computer. It checks only the syntax of the path. Use the File/Directory Info function to verify that a file or directory exists on the computer.",
       "vi_path": null,
@@ -4481,7 +4473,7 @@
     },
     {
       "name": "Refnum to Path Function",
-      "page": 1802,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/refnum-to-path.html",
       "category": "File I/O",
       "description": "Returns the path associated with the specified refnum.",
       "vi_path": null,
@@ -4507,7 +4499,7 @@
     },
     {
       "name": "Compare Two Paths",
-      "page": 1803,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/libraryn-llb/compare-two-paths-vi.html",
       "category": "File I/O",
       "description": "Compares Path 1 to Path 2 and returns a relative path between the two paths, the common path between the two paths, and a Boolean that indicates whether the paths are on the same path hierarchy level. For example, if Path 1 is C:\\folder\\sub\\test.txt and Path 2 is C:\\folder\\ sub2\\dir\\test2.doc, Relative Path from 1 to 2 returns ..\\..\\sub2\\dir\\ test2.doc. Common Path returns C:\\folder, and Path 2 Relative to Path 1 returns FALSE because you have to go up two levels in the path hierarchy to get to ",
       "vi_path": null,
@@ -4568,7 +4560,7 @@
     },
     {
       "name": "Get File Extension",
-      "page": 1804,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/libraryn-llb/get-file-extension-vi.html",
       "category": "File I/O",
       "description": "Returns the file extension, without the period (.), of a file you specify.",
       "vi_path": null,
@@ -4629,7 +4621,7 @@
     },
     {
       "name": "File Checksum",
-      "page": 1805,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/security/message-digest/api/file-checksum-vi.html",
       "category": "File I/O",
       "description": "Computes the message digest on the contents of a file. You must manually select the polymorphic instance you want to use. • SHA-256 File Checksum VI • SHA-224 File Checksum VI • SHA-512 File Checksum VI • SHA-384 File Checksum VI • SHA-512-256 File Checksum VI • SHA-512-224 File Checksum VI • SHA3-224 File Checksum VI Functions © National Instruments 1805 • SHA3-256 File Checksum VI • SHA3-384 File Checksum VI • SHA3-512 File Checksum VI SHA-256 File Checksum VI SHA-256 File Checksum VI Computes",
       "vi_path": null,
@@ -4669,7 +4661,7 @@
     },
     {
       "name": "Generate Temporary File Path",
-      "page": 1813,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/libraryn-llb/generate-temporary-file-path-vi.html",
       "category": "File I/O",
       "description": "Returns a unique file path to the temporary directory. This VI only returns a path. It does not create the temporary file.",
       "vi_path": null,
@@ -4709,7 +4701,6 @@
     },
     {
       "name": "Packed Library",
-      "page": 1824,
       "category": "File I/O",
       "description": "Use the Packed Library VIs to get and return data from a packed project library. Palette Object Description Get Exported File List Returns the qualified names and paths of the exported files in a packed project library. Get Exported File Path Returns the path of an exported file in a packed project library. Packed Library Path Returns the path to a packed project library for the VI you specify in vi reference. Get Exported File List Get Exported File List Returns the qualified names and paths of",
       "vi_path": null,
@@ -4756,7 +4747,7 @@
     },
     {
       "name": "Create Directory Recursive",
-      "page": 1826,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/libraryn-llb/create-directory-recursive-vi.html",
       "category": "File I/O",
       "description": "Creates a directory and any parent directories it requires to exist. Functions 1826 ni.com",
       "vi_path": null,
@@ -4817,7 +4808,7 @@
     },
     {
       "name": "Create File and Containing Folders",
-      "page": 1828,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/libraryn-llb/create-file-and-containing-folders-vi.html",
       "category": "File I/O",
       "description": "Creates a file at a specified path and any folders within that path that do not exist.",
       "vi_path": null,
@@ -4878,7 +4869,7 @@
     },
     {
       "name": "Contiguous and Noncontiguous Array Slices",
-      "page": 1829,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/contiguous-and-noncontiguous-array-slices.html",
       "category": "File I/O",
       "description": "To optimize performance, LabVIEW sometimes creates array slices from the arrays you wire to certain Array functions. An array slice is an array created from another array, and it contains some of the elements from the original array. LabVIEW expresses an array slice as a (sub)array in the Context Help window when you move the cursor over the wire for the resulting array. For example, (1-D (sub)array of) indicates that the function creates an array slice, while (1-D array of) indicates the result",
       "vi_path": null,
@@ -4889,7 +4880,7 @@
     },
     {
       "name": "Setting Permissions",
-      "page": 1831,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/setting-permissions.html",
       "category": "File I/O",
       "description": "The Set Permissions function includes a permissions input that allows you to control access to files and directories that you create. To define the permissions you want to set, you can wire the permissions output of the Get Permissions function to the permissions input of the Set Permissions function, or you can wire a constant or a control. The following illustration shows the format of the permissions parameter. The 9 bits that the permissions parameter uses are divided into three sets: user, ",
       "vi_path": null,

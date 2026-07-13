@@ -4,7 +4,7 @@
   "entries": [
     {
       "name": "Build Waveform",
-      "page": 797,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/build-waveform.html",
       "category": "Waveform",
       "description": "Builds an analog waveform or modifies an existing waveform. If you do not wire the waveform input, the function creates a new waveform based on the components you wire. If you wire the waveform input, the function modifies the waveform based on the components you wire. Functions © National Instruments 797",
       "vi_path": null,
@@ -51,7 +51,7 @@
     },
     {
       "name": "Get Waveform Components",
-      "page": 797,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/get-waveform-components.html",
       "category": "Waveform",
       "description": "Returns the analog waveform you specify. You specify components by clicking on the center of the output terminal and selecting the component you want.",
       "vi_path": null,
@@ -91,7 +91,7 @@
     },
     {
       "name": "Set Waveform Attribute Function",
-      "page": 798,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/set-waveform-attribute.html",
       "category": "Waveform",
       "description": "Adds or replaces a waveform attribute. You can use any type of data for the value of the attribute. Functions 798 ni.com",
       "vi_path": null,
@@ -152,7 +152,7 @@
     },
     {
       "name": "Get Waveform Attribute Function",
-      "page": 802,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/get-waveform-attribute.html",
       "category": "Waveform",
       "description": "Retrieves the names and values of all attributes or the value of a single attribute, depending on whether you wire the name parameter. Attributes can be channel names. The connector pane displays the default data types for this polymorphic function.",
       "vi_path": null,
@@ -220,7 +220,7 @@
     },
     {
       "name": "Analog to Digital",
-      "page": 805,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/waveform/dwdt-llb/analog-to-digital-vi.html",
       "category": "Waveform",
       "description": "Converts analog waveform to a digital waveform or digital data. You must manually select the polymorphic instance you want to use. • DWDT Analog to Digital VI • DTbl Analog to Digital VI To create digital data from an analog waveform or to graph an analog signal in a digital waveform graph, you must convert the raw analog data into digital data or the digital waveform data type. Use the Analog to Digital VI to convert the data to digital waveform. Use the Get Waveform Components function to extr",
       "vi_path": null,
@@ -290,7 +290,7 @@
     },
     {
       "name": "DWDT Analog to Digital VI",
-      "page": 806,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/waveform/dwdtops-llb/dwdt-analog-to-digital-vi.html",
       "category": "Waveform",
       "description": "Converts analog waveform to a digital waveform or digital data. You must manually select the polymorphic instance you want to use. Functions 806 ni.com",
       "vi_path": null,
@@ -360,7 +360,7 @@
     },
     {
       "name": "DTbl Analog to Digital VI",
-      "page": 809,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/waveform/dtblops-llb/dtbl-analog-to-digital-vi.html",
       "category": "Waveform",
       "description": "Converts analog waveform to a digital waveform or digital data. You must manually select the polymorphic instance you want to use.",
       "vi_path": null,
@@ -451,7 +451,7 @@
     },
     {
       "name": "Digital to Analog",
-      "page": 811,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/waveform/dwdt-llb/digital-to-analog-vi.html",
       "category": "Waveform",
       "description": "Converts a digital waveform or digital data to analog waveform. You must manually select the polymorphic instance you want to use. Functions © National Instruments 811 • DWDT Digital to Analog VI • DTbl Digital to Analog VI DWDT Digital to Analog VI DWDT Digital to Analog VI Converts a digital waveform or digital data to analog waveform. You must manually select the polymorphic instance you want to use.",
       "vi_path": null,
@@ -519,7 +519,7 @@
     },
     {
       "name": "DWDT Digital to Analog VI",
-      "page": 812,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/waveform/dwdtops-llb/dwdt-digital-to-analog-vi.html",
       "category": "Waveform",
       "description": "Converts a digital waveform or digital data to analog waveform. You must manually select the polymorphic instance you want to use.",
       "vi_path": null,
@@ -587,7 +587,7 @@
     },
     {
       "name": "DTbl Digital to Analog VI",
-      "page": 813,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/waveform/dtblops-llb/dtbl-digital-to-analog-vi.html",
       "category": "Waveform",
       "description": "Converts a digital waveform or digital data to analog waveform. You must manually select the polymorphic instance you want to use.",
       "vi_path": null,
@@ -664,7 +664,7 @@
     },
     {
       "name": "Index Waveform Array",
-      "page": 815,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/waveform/wdtops-llb/index-waveform-array-vi.html",
       "category": "Waveform",
       "description": "Selects one waveform out of an array of analog or digital waveforms by array index or channel name. The data types you wire to the waveform array and index inputs and the data type of the Y component of the analog waveform determine the polymorphic instance to use. • WDT Index Channel DBL VI • WDT Index Channel I64 VI • WDT Index Channel I32 VI • WDT Index Channel I16 VI • WDT Index Channel CDB VI • WDT Index Channel by Name DBL VI • WDT Index Channel by Name I64 VI • WDT Index Channel by Name I",
       "vi_path": null,
@@ -718,7 +718,7 @@
     },
     {
       "name": "WDT Index Channel DBL VI",
-      "page": 815,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/waveform/wdtops-llb/wdt-index-channel-dbl-vi.html",
       "category": "Waveform",
       "description": "Selects one waveform out of an array of analog or digital waveforms by array index or channel name. The data types you wire to the waveform array and index inputs and the data type of the Y component of the analog waveform determine the polymorphic instance to use. Functions © National Instruments 815",
       "vi_path": null,
@@ -772,7 +772,7 @@
     },
     {
       "name": "WDT Index Channel I64 VI",
-      "page": 816,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/waveform/wdtops-llb/wdt-index-channel-i64-vi.html",
       "category": "Waveform",
       "description": "Selects one waveform out of an array of analog or digital waveforms by array index or channel name. The data types you wire to the waveform array and index inputs and the data type of the Y component of the analog waveform determine the polymorphic instance to use. Functions 816 ni.com",
       "vi_path": null,
@@ -826,7 +826,7 @@
     },
     {
       "name": "WDT Index Channel I32 VI",
-      "page": 817,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/waveform/wdtops-llb/wdt-index-channel-i32-vi.html",
       "category": "Waveform",
       "description": "Selects one waveform out of an array of analog or digital waveforms by array index or channel name. The data types you wire to the waveform array and index inputs and the data type of the Y component of the analog waveform determine the polymorphic instance to use. Functions © National Instruments 817",
       "vi_path": null,
@@ -880,7 +880,7 @@
     },
     {
       "name": "WDT Index Channel I16 VI",
-      "page": 818,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/waveform/wdtops-llb/wdt-index-channel-i16-vi.html",
       "category": "Waveform",
       "description": "Selects one waveform out of an array of analog or digital waveforms by array index or channel name. The data types you wire to the waveform array and index inputs and the data type of the Y component of the analog waveform determine the polymorphic instance to use. Functions 818 ni.com",
       "vi_path": null,
@@ -934,7 +934,7 @@
     },
     {
       "name": "WDT Index Channel CDB VI",
-      "page": 819,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/waveform/wdtops-llb/wdt-index-channel-cdb-vi.html",
       "category": "Waveform",
       "description": "Selects one waveform out of an array of analog or digital waveforms by array index or channel name. The data types you wire to the waveform array and index inputs and the data type of the Y component of the analog waveform determine the polymorphic instance to use. Functions © National Instruments 819",
       "vi_path": null,
@@ -988,7 +988,7 @@
     },
     {
       "name": "WDT Index Channel by Name DBL VI",
-      "page": 820,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/waveform/wdtops-llb/wdt-index-channel-by-name-dbl-vi.html",
       "category": "Waveform",
       "description": "Selects one waveform out of an array of analog or digital waveforms by array index or channel name. The data types you wire to the waveform array and index inputs and the data type of the Y component of the analog waveform determine the polymorphic instance to use. Functions 820 ni.com",
       "vi_path": null,
@@ -1042,7 +1042,7 @@
     },
     {
       "name": "WDT Index Channel by Name I64 VI",
-      "page": 821,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/waveform/wdtops-llb/wdt-index-channel-by-name-i64-vi.html",
       "category": "Waveform",
       "description": "Selects one waveform out of an array of analog or digital waveforms by array index or channel name. The data types you wire to the waveform array and index inputs and the data type of the Y component of the analog waveform determine the polymorphic instance to use. Functions © National Instruments 821",
       "vi_path": null,
@@ -1096,7 +1096,7 @@
     },
     {
       "name": "WDT Index Channel by Name I32 VI",
-      "page": 822,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/waveform/wdtops-llb/wdt-index-channel-by-name-i32-vi.html",
       "category": "Waveform",
       "description": "Selects one waveform out of an array of analog or digital waveforms by array index or channel name. The data types you wire to the waveform array and index inputs and the data type of the Y component of the analog waveform determine the polymorphic Functions 822 ni.com instance to use.",
       "vi_path": null,
@@ -1150,7 +1150,7 @@
     },
     {
       "name": "WDT Index Channel by Name I16 VI",
-      "page": 823,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/waveform/wdtops-llb/wdt-index-channel-by-name-i16-vi.html",
       "category": "Waveform",
       "description": "Selects one waveform out of an array of analog or digital waveforms by array index or Functions © National Instruments 823 channel name. The data types you wire to the waveform array and index inputs and the data type of the Y component of the analog waveform determine the polymorphic instance to use.",
       "vi_path": null,
@@ -1204,7 +1204,7 @@
     },
     {
       "name": "WDT Index Channel by Name CDB VI",
-      "page": 825,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/waveform/wdtops-llb/wdt-index-channel-by-name-cdb-vi.html",
       "category": "Waveform",
       "description": "Selects one waveform out of an array of analog or digital waveforms by array index or channel name. The data types you wire to the waveform array and index inputs and the data type of the Y component of the analog waveform determine the polymorphic instance to use.",
       "vi_path": null,
@@ -1251,7 +1251,7 @@
     },
     {
       "name": "DWDT Index Channel VI",
-      "page": 826,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/waveform/dwdtops-llb/dwdt-index-channel-vi.html",
       "category": "Waveform",
       "description": "Selects one waveform out of an array of analog or digital waveforms by array index or channel name. The data types you wire to the waveform array and index inputs and the data type of the Y component of the analog waveform determine the polymorphic instance to use.",
       "vi_path": null,
@@ -1305,7 +1305,7 @@
     },
     {
       "name": "DWDT Index Channel by Name VI",
-      "page": 827,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/waveform/dwdtops-llb/dwdt-index-channel-by-name-vi.html",
       "category": "Waveform",
       "description": "Selects one waveform out of an array of analog or digital waveforms by array index or channel name. The data types you wire to the waveform array and index inputs and the data type of the Y component of the analog waveform determine the polymorphic instance to use.",
       "vi_path": null,
@@ -1352,7 +1352,7 @@
     },
     {
       "name": "Copy Waveform dt",
-      "page": 828,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/waveform/wdtops-llb/copy-waveform-dt-vi.html",
       "category": "Waveform",
       "description": "Replaces all dt values with the dt value of the waveform at index position in waveforms in. The data type you wire to the waveforms in input and the data type of the Y component of the analog waveform determine the polymorphic instance to use. • WDT Copy Waveform dt DBL VI • WDT Copy Waveform dt I64 VI • WDT Copy Waveform dt I32 VI • WDT Copy Waveform dt I16 VI • WDT Copy Waveform dt CDB VI • WDT Copy Waveform dt EXT VI • WDT Copy Waveform dt CXT VI • DWDT Copy Waveform dt VI WDT Copy Waveform d",
       "vi_path": null,
@@ -1399,7 +1399,7 @@
     },
     {
       "name": "WDT Copy Waveform dt DBL VI",
-      "page": 828,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/waveform/wdtops-llb/wdt-copy-waveform-dt-dbl-vi.html",
       "category": "Waveform",
       "description": "Replaces all dt values with the dt value of the waveform at index position in waveforms in. The data type you wire to the waveforms in input and the data type of the Y component of the analog waveform determine the polymorphic instance to use.",
       "vi_path": null,
@@ -1446,7 +1446,7 @@
     },
     {
       "name": "WDT Copy Waveform dt I64 VI",
-      "page": 829,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/waveform/wdtops-llb/wdt-copy-waveform-dt-i64-vi.html",
       "category": "Waveform",
       "description": "Replaces all dt values with the dt value of the waveform at index position in waveforms in. The data type you wire to the waveforms in input and the data type of the Y component of the analog waveform determine the polymorphic instance to use.",
       "vi_path": null,
@@ -1493,7 +1493,7 @@
     },
     {
       "name": "WDT Copy Waveform dt I32 VI",
-      "page": 830,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/waveform/wdtops-llb/wdt-copy-waveform-dt-i32-vi.html",
       "category": "Waveform",
       "description": "Replaces all dt values with the dt value of the waveform at index position in waveforms in. The data type you wire to the waveforms in input and the data type of the Y component of the analog waveform determine the polymorphic instance to use.",
       "vi_path": null,
@@ -1540,7 +1540,7 @@
     },
     {
       "name": "WDT Copy Waveform dt I16 VI",
-      "page": 831,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/waveform/wdtops-llb/wdt-copy-waveform-dt-i16-vi.html",
       "category": "Waveform",
       "description": "Replaces all dt values with the dt value of the waveform at index position in waveforms in. The data type you wire to the waveforms in input and the data type of the Y component of the analog waveform determine the polymorphic instance to use.",
       "vi_path": null,
@@ -1587,7 +1587,7 @@
     },
     {
       "name": "WDT Copy Waveform dt CDB VI",
-      "page": 832,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/waveform/wdtops-llb/wdt-copy-waveform-dt-cdb-vi.html",
       "category": "Waveform",
       "description": "Replaces all dt values with the dt value of the waveform at index position in waveforms in. The data type you wire to the waveforms in input and the data type of the Y component of the analog waveform determine the polymorphic instance to use.",
       "vi_path": null,
@@ -1634,7 +1634,7 @@
     },
     {
       "name": "WDT Copy Waveform dt EXT VI",
-      "page": 832,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/waveform/wdtops-llb/wdt-copy-waveform-dt-ext-vi.html",
       "category": "Waveform",
       "description": "Replaces all dt values with the dt value of the waveform at index position in waveforms in. The data type you wire to the waveforms in input and the data type of the Y component of the analog waveform determine the polymorphic instance to use. Functions 832 ni.com",
       "vi_path": null,
@@ -1681,7 +1681,7 @@
     },
     {
       "name": "WDT Copy Waveform dt CXT VI",
-      "page": 833,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/waveform/wdtops-llb/wdt-copy-waveform-dt-cxt-vi.html",
       "category": "Waveform",
       "description": "Replaces all dt values with the dt value of the waveform at index position in waveforms in. The data type you wire to the waveforms in input and the data type of the Y component of the analog waveform determine the polymorphic instance to use. Functions © National Instruments 833",
       "vi_path": null,
@@ -1728,7 +1728,7 @@
     },
     {
       "name": "DWDT Copy Waveform dt VI",
-      "page": 834,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/waveform/dwdtops-llb/dwdt-copy-waveform-dt-vi.html",
       "category": "Waveform",
       "description": "Replaces all dt values with the dt value of the waveform at index position in waveforms in. The data type you wire to the waveforms in input and the data type of the Y component of the analog waveform determine the polymorphic instance to use.",
       "vi_path": null,
@@ -1775,7 +1775,7 @@
     },
     {
       "name": "Align Waveform Timestamps",
-      "page": 835,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/waveform/wdtops-llb/align-waveform-timestamps-vi.html",
       "category": "Waveform",
       "description": "Replaces all the time stamp values (t0) in waveforms in with the value of the index element in the array. The data type you wire to the waveforms in input and the data type of the Y component of the analog waveform determine the polymorphic instance to use. • WDT Align Waveform Timestamps DBL VI • WDT Align Waveform Timestamps I64 VI • WDT Align Waveform Timestamps I32 VI • WDT Align Waveform Timestamps I16 VI • WDT Align Waveform Timestamps CDB VI • WDT Align Waveform Timestamps EXT VI • WDT Al",
       "vi_path": null,
@@ -1829,7 +1829,7 @@
     },
     {
       "name": "WDT Align Waveform Timestamps DBL VI",
-      "page": 836,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/waveform/wdtops-llb/wdt-align-waveform-timestamps-dbl-vi.html",
       "category": "Waveform",
       "description": "Replaces all the time stamp values (t0) in waveforms in with the value of the index element in the array. The data type you wire to the waveforms in input and the data type of the Y component of the analog waveform determine the polymorphic instance to use.",
       "vi_path": null,
@@ -1883,7 +1883,7 @@
     },
     {
       "name": "WDT Align Waveform Timestamps I64 VI",
-      "page": 837,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/waveform/wdtops-llb/wdt-align-waveform-timestamps-i64-vi.html",
       "category": "Waveform",
       "description": "Replaces all the time stamp values (t0) in waveforms in with the value of the index element in the array. The data type you wire to the waveforms in input and the data type of the Y component of the analog waveform determine the polymorphic instance to use.",
       "vi_path": null,
@@ -1930,7 +1930,7 @@
     },
     {
       "name": "WDT Align Waveform Timestamps I32 VI",
-      "page": 838,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/waveform/wdtops-llb/wdt-align-waveform-timestamps-i32-vi.html",
       "category": "Waveform",
       "description": "Replaces all the time stamp values (t0) in waveforms in with the value of the index element in the array. The data type you wire to the waveforms in input and the data type of the Y component of the analog waveform determine the polymorphic instance to use.",
       "vi_path": null,
@@ -1984,7 +1984,7 @@
     },
     {
       "name": "WDT Align Waveform Timestamps I16 VI",
-      "page": 839,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/waveform/wdtops-llb/wdt-align-waveform-timestamps-i16-vi.html",
       "category": "Waveform",
       "description": "Replaces all the time stamp values (t0) in waveforms in with the value of the index element in the array. The data type you wire to the waveforms in input and the data type of the Y component of the analog waveform determine the polymorphic instance to use.",
       "vi_path": null,
@@ -2031,7 +2031,7 @@
     },
     {
       "name": "WDT Align Waveform Timestamps CDB VI",
-      "page": 840,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/waveform/wdtops-llb/wdt-align-waveform-timestamps-cdb-vi.html",
       "category": "Waveform",
       "description": "Replaces all the time stamp values (t0) in waveforms in with the value of the index element in the array. The data type you wire to the waveforms in input and the data type of the Y component of the analog waveform determine the polymorphic instance to use.",
       "vi_path": null,
@@ -2085,7 +2085,7 @@
     },
     {
       "name": "WDT Align Waveform Timestamps EXT VI",
-      "page": 841,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/waveform/wdtops-llb/wdt-align-waveform-timestamps-ext-vi.html",
       "category": "Waveform",
       "description": "Replaces all the time stamp values (t0) in waveforms in with the value of the index element in the array. The data type you wire to the waveforms in input and the data type of the Y component of the analog waveform determine the polymorphic instance to use.",
       "vi_path": null,
@@ -2132,7 +2132,7 @@
     },
     {
       "name": "WDT Align Waveform Timestamps CXT VI",
-      "page": 842,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/waveform/wdtops-llb/wdt-align-waveform-timestamps-cxt-vi.html",
       "category": "Waveform",
       "description": "Replaces all the time stamp values (t0) in waveforms in with the value of the index element in the array. The data type you wire to the waveforms in input and the data type of the Y component of the analog waveform determine the polymorphic instance to use.",
       "vi_path": null,
@@ -2186,7 +2186,7 @@
     },
     {
       "name": "DWDT Align Waveform Timestamps VI",
-      "page": 843,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/waveform/dwdtops-llb/dwdt-align-waveform-timestamps-vi.html",
       "category": "Waveform",
       "description": "Replaces all the time stamp values (t0) in waveforms in with the value of the index element in the array. The data type you wire to the waveforms in input and the data type of the Y component of the analog waveform determine the polymorphic instance to use.",
       "vi_path": null,
@@ -2233,7 +2233,7 @@
     },
     {
       "name": "Get Waveform Subset",
-      "page": 844,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/waveform/wdtops-llb/get-waveform-subset-vi.html",
       "category": "Waveform",
       "description": "Retrieves a subset of a waveform at a specified time or index. You must manually select the polymorphic instance you want to use. • WDT Get Waveform Subset DBL VI • WDT Get Waveform Subset CDB VI • WDT Get Waveform Subset EXT VI • WDT Get Waveform Subset I16 VI • WDT Get Waveform Subset I32 VI • WDT Get Waveform Subset I8 VI • WDT Get Waveform Subset SGL VI • DWDT Get Waveform Subset VI • DTbl Digital Subset VI For example, consider a waveform of 128 scans with a dt of 1.00. If you wire 40.00 to",
       "vi_path": null,
@@ -2289,7 +2289,7 @@
     },
     {
       "name": "WDT Get Waveform Subset DBL VI",
-      "page": 845,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/waveform/wdtops-llb/wdt-get-waveform-subset-dbl-vi.html",
       "category": "Waveform",
       "description": "Retrieves a subset of a waveform at a specified time or index. You must manually select the polymorphic instance you want to use.",
       "vi_path": null,
@@ -2345,7 +2345,7 @@
     },
     {
       "name": "WDT Get Waveform Subset CDB VI",
-      "page": 846,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/waveform/wdtops-llb/wdt-get-waveform-subset-cdb-vi.html",
       "category": "Waveform",
       "description": "Retrieves a subset of a waveform at a specified time or index. You must manually Functions 846 ni.com select the polymorphic instance you want to use.",
       "vi_path": null,
@@ -2408,7 +2408,7 @@
     },
     {
       "name": "WDT Get Waveform Subset EXT VI",
-      "page": 848,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/waveform/wdtops-llb/wdt-get-waveform-subset-ext-vi.html",
       "category": "Waveform",
       "description": "Retrieves a subset of a waveform at a specified time or index. You must manually select the polymorphic instance you want to use. Functions 848 ni.com",
       "vi_path": null,
@@ -2471,7 +2471,7 @@
     },
     {
       "name": "WDT Get Waveform Subset I16 VI",
-      "page": 850,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/waveform/wdtops-llb/wdt-get-waveform-subset-i16-vi.html",
       "category": "Waveform",
       "description": "Retrieves a subset of a waveform at a specified time or index. You must manually select the polymorphic instance you want to use. Functions 850 ni.com",
       "vi_path": null,
@@ -2534,7 +2534,7 @@
     },
     {
       "name": "WDT Get Waveform Subset I32 VI",
-      "page": 852,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/waveform/wdtops-llb/wdt-get-waveform-subset-i32-vi.html",
       "category": "Waveform",
       "description": "Retrieves a subset of a waveform at a specified time or index. You must manually select the polymorphic instance you want to use. Functions 852 ni.com",
       "vi_path": null,
@@ -2597,7 +2597,7 @@
     },
     {
       "name": "WDT Get Waveform Subset I8 VI",
-      "page": 854,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/waveform/wdtops-llb/wdt-get-waveform-subset-i8-vi.html",
       "category": "Waveform",
       "description": "Retrieves a subset of a waveform at a specified time or index. You must manually select the polymorphic instance you want to use. Functions 854 ni.com",
       "vi_path": null,
@@ -2660,7 +2660,7 @@
     },
     {
       "name": "WDT Get Waveform Subset SGL VI",
-      "page": 856,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/waveform/wdtops-llb/wdt-get-waveform-subset-sgl-vi.html",
       "category": "Waveform",
       "description": "Retrieves a subset of a waveform at a specified time or index. You must manually select the polymorphic instance you want to use. Functions 856 ni.com",
       "vi_path": null,
@@ -2723,7 +2723,7 @@
     },
     {
       "name": "DWDT Get Waveform Subset VI",
-      "page": 858,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/waveform/dwdtops-llb/dwdt-get-waveform-subset-vi.html",
       "category": "Waveform",
       "description": "Retrieves a subset of a waveform at a specified time or index. You must manually select the polymorphic instance you want to use. Functions 858 ni.com",
       "vi_path": null,
@@ -2786,7 +2786,7 @@
     },
     {
       "name": "DTbl Digital Subset VI",
-      "page": 860,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/waveform/dtblops-llb/dtbl-digital-subset-vi.html",
       "category": "Waveform",
       "description": "Retrieves a subset of a waveform at a specified time or index. You must manually select the polymorphic instance you want to use. Functions 860 ni.com",
       "vi_path": null,
@@ -2847,7 +2847,7 @@
     },
     {
       "name": "Get Final Time Value",
-      "page": 862,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/waveform/wdtops-llb/get-final-time-value-vi.html",
       "category": "Waveform",
       "description": "Returns the ending time value of waveform in. The formula used is xf = x0 + duration of waveform in. Wire data to the waveform in input to determine the polymorphic instance to use or manually select the instance. • WDT Get Final Time Value DBL VI • DWDT Get Final Time Value VI Examples Refer to the following example files included with LabVIEW. • labview\\examples\\Waveform\\Waveform - Get Final Time and Duration.vi WDT Get Final Time Value DBL VI WDT Get Final Time Value DBL VI Returns the ending",
       "vi_path": null,
@@ -2908,7 +2908,7 @@
     },
     {
       "name": "WDT Get Final Time Value DBL VI",
-      "page": 862,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/waveform/wdtops-llb/wdt-get-final-time-value-dbl-vi.html",
       "category": "Waveform",
       "description": "Returns the ending time value of waveform in. The formula used is xf = x0 + duration of waveform in. Wire data to the waveform in input to determine the polymorphic instance to use or manually select the instance.",
       "vi_path": null,
@@ -2969,7 +2969,7 @@
     },
     {
       "name": "DWDT Get Final Time Value VI",
-      "page": 863,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/waveform/dwdtops-llb/dwdt-get-final-time-value-vi.html",
       "category": "Waveform",
       "description": "Returns the ending time value of waveform in. The formula used is xf = x0 + duration of waveform in. Wire data to the waveform in input to determine the polymorphic instance to use or manually select the instance. Functions © National Instruments 863",
       "vi_path": null,
@@ -3030,7 +3030,7 @@
     },
     {
       "name": "WDT Waveform Duration DBL VI",
-      "page": 865,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/waveform/wdtops-llb/wdt-waveform-duration-dbl-vi.html",
       "category": "Waveform",
       "description": "Computes the duration of waveform in using the following equation: duration = (#samples-1) × dx. Wire data to the waveform in input to determine the polymorphic instance to use or manually select the instance.",
       "vi_path": null,
@@ -3091,7 +3091,7 @@
     },
     {
       "name": "Waveform Duration",
-      "page": 865,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/waveform/wdtops-llb/waveform-duration-vi.html",
       "category": "Waveform",
       "description": "Computes the duration of waveform in using the following equation: duration = (#samples-1) × dx. Wire data to the waveform in input to determine the polymorphic instance to use or manually select the instance. • WDT Waveform Duration DBL VI • DWDT Waveform Duration VI Examples Refer to the following example files included with LabVIEW. • labview\\examples\\Waveform\\Waveform - Get Final Time and Duration.vi WDT Waveform Duration DBL VI WDT Waveform Duration DBL VI Computes the duration of waveform ",
       "vi_path": null,
@@ -3152,7 +3152,7 @@
     },
     {
       "name": "DWDT Waveform Duration VI",
-      "page": 866,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/waveform/dwdtops-llb/dwdt-waveform-duration-vi.html",
       "category": "Waveform",
       "description": "Computes the duration of waveform in using the following equation: duration = (#samples-1) x dx. Wire data to the waveform in input to determine the polymorphic instance to use or manually select the instance. Functions 866 ni.com",
       "vi_path": null,
@@ -3213,7 +3213,7 @@
     },
     {
       "name": "Scale Delta t",
-      "page": 868,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/waveform/wdtops-llb/scale-delta-t-vi.html",
       "category": "Waveform",
       "description": "Multiplies the delta t component of the waveform by the specified scale factor. Generally, this lengthens or shortens the sample rate of the waveform. The data type you wire to the waveform in input and the data type of the Y component of the analog waveform determine the polymorphic instance to use. • WDT Scale Delta t DBL VI • WDT Scale Delta t SGL VI • WDT Scale Delta t I64 VI • WDT Scale Delta t I32 VI • WDT Scale Delta t I16 VI • WDT Scale Delta t CDB VI • WDT Scale Delta t EXT VI • DWDT Sc",
       "vi_path": null,
@@ -3260,7 +3260,7 @@
     },
     {
       "name": "WDT Scale Delta t DBL VI",
-      "page": 868,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/waveform/wdtops-llb/wdt-scale-delta-t-dbl-vi.html",
       "category": "Waveform",
       "description": "Multiplies the delta t component of the waveform by the specified scale factor. Generally, this lengthens or shortens the sample rate of the waveform. The data type you wire to the waveform in input and the data type of the Y component of the analog waveform determine the polymorphic instance to use.",
       "vi_path": null,
@@ -3307,7 +3307,7 @@
     },
     {
       "name": "WDT Scale Delta t SGL VI",
-      "page": 869,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/waveform/wdtops-llb/wdt-scale-delta-t-sgl-vi.html",
       "category": "Waveform",
       "description": "Multiplies the delta t component of the waveform by the specified scale factor. Generally, this lengthens or shortens the sample rate of the waveform. The data type you wire to the waveform in input and the data type of the Y component of the analog waveform determine the polymorphic instance to use.",
       "vi_path": null,
@@ -3354,7 +3354,7 @@
     },
     {
       "name": "WDT Scale Delta t I64 VI",
-      "page": 870,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/waveform/wdtops-llb/wdt-scale-delta-t-i64-vi.html",
       "category": "Waveform",
       "description": "Multiplies the delta t component of the waveform by the specified scale factor. Generally, this lengthens or shortens the sample rate of the waveform. The data type you wire to the waveform in input and the data type of the Y component of the analog waveform determine the polymorphic instance to use.",
       "vi_path": null,
@@ -3401,7 +3401,7 @@
     },
     {
       "name": "WDT Scale Delta t I32 VI",
-      "page": 871,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/waveform/wdtops-llb/wdt-scale-delta-t-i32-vi.html",
       "category": "Waveform",
       "description": "Multiplies the delta t component of the waveform by the specified scale factor. Generally, this lengthens or shortens the sample rate of the waveform. The data type you wire to the waveform in input and the data type of the Y component of the analog waveform determine the polymorphic instance to use.",
       "vi_path": null,
@@ -3448,7 +3448,7 @@
     },
     {
       "name": "WDT Scale Delta t I16 VI",
-      "page": 872,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/waveform/wdtops-llb/wdt-scale-delta-t-i16-vi.html",
       "category": "Waveform",
       "description": "Multiplies the delta t component of the waveform by the specified scale factor. Generally, this lengthens or shortens the sample rate of the waveform. The data type you wire to the waveform in input and the data type of the Y component of the analog waveform determine the polymorphic instance to use.",
       "vi_path": null,
@@ -3495,7 +3495,7 @@
     },
     {
       "name": "WDT Scale Delta t CDB VI",
-      "page": 873,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/waveform/wdtops-llb/wdt-scale-delta-t-cdb-vi.html",
       "category": "Waveform",
       "description": "Multiplies the delta t component of the waveform by the specified scale factor. Generally, this lengthens or shortens the sample rate of the waveform. The data type you wire to the waveform in input and the data type of the Y component of the analog waveform determine the polymorphic instance to use.",
       "vi_path": null,
@@ -3542,7 +3542,7 @@
     },
     {
       "name": "WDT Scale Delta t EXT VI",
-      "page": 873,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/waveform/wdtops-llb/wdt-scale-delta-t-ext-vi.html",
       "category": "Waveform",
       "description": "Multiplies the delta t component of the waveform by the specified scale factor. Generally, this lengthens or shortens the sample rate of the waveform. The data type you wire to the waveform in input and the data type of the Y component of the analog Functions © National Instruments 873 waveform determine the polymorphic instance to use.",
       "vi_path": null,
@@ -3589,7 +3589,7 @@
     },
     {
       "name": "DWDT Scale Delta t VI",
-      "page": 874,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/waveform/dwdtops-llb/dwdt-scale-delta-t-vi.html",
       "category": "Waveform",
       "description": "Multiplies the delta t component of the waveform by the specified scale factor. Generally, this lengthens or shortens the sample rate of the waveform. The data type you wire to the waveform in input and the data type of the Y component of the analog waveform determine the polymorphic instance to use. Functions 874 ni.com",
       "vi_path": null,
@@ -3636,7 +3636,7 @@
     },
     {
       "name": "Get XY Value",
-      "page": 875,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/waveform/wdtops-llb/get-xy-value-vi.html",
       "category": "Waveform",
       "description": "Returns the X and Y value of a waveform or digital data set. The data type you wire to the waveform in input and the data type of the Y component of the analog waveform determine the polymorphic instance to use. • WDT Get XY Value DBL VI • WDT Get XY Value I64 VI • WDT Get XY Value I32 VI Functions © National Instruments 875 • WDT Get XY Value I16 VI • WDT Get XY Value CDB VI • WDT Get XY Value EXT VI • WDT Get XY Value CXT VI • DWDT Get XY Value VI • DTbl Get Digital Value VI Examples Refer to ",
       "vi_path": null,
@@ -3720,7 +3720,7 @@
     },
     {
       "name": "WDT Get XY Value DBL VI",
-      "page": 876,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/waveform/wdtops-llb/wdt-get-xy-value-dbl-vi.html",
       "category": "Waveform",
       "description": "Returns the X and Y value of a waveform or digital data set. The data type you wire to the waveform in input and the data type of the Y component of the analog waveform determine the polymorphic instance to use.",
       "vi_path": null,
@@ -3804,7 +3804,7 @@
     },
     {
       "name": "WDT Get XY Value I64 VI",
-      "page": 878,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/waveform/wdtops-llb/wdt-get-xy-value-i64-vi.html",
       "category": "Waveform",
       "description": "Returns the X and Y value of a waveform or digital data set. The data type you wire to the waveform in input and the data type of the Y component of the analog waveform determine the polymorphic instance to use.",
       "vi_path": null,
@@ -3895,7 +3895,7 @@
     },
     {
       "name": "WDT Get XY Value I32 VI",
-      "page": 879,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/waveform/wdtops-llb/wdt-get-xy-value-i32-vi.html",
       "category": "Waveform",
       "description": "Returns the X and Y value of a waveform or digital data set. The data type you wire to the waveform in input and the data type of the Y component of the analog waveform determine the polymorphic instance to use. Functions © National Instruments 879",
       "vi_path": null,
@@ -3986,7 +3986,7 @@
     },
     {
       "name": "WDT Get XY Value I16 VI",
-      "page": 881,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/waveform/wdtops-llb/wdt-get-xy-value-i16-vi.html",
       "category": "Waveform",
       "description": "Returns the X and Y value of a waveform or digital data set. The data type you wire to the waveform in input and the data type of the Y component of the analog waveform determine the polymorphic instance to use.",
       "vi_path": null,
@@ -4077,7 +4077,7 @@
     },
     {
       "name": "WDT Get XY Value CDB VI",
-      "page": 883,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/waveform/wdtops-llb/wdt-get-xy-value-cdb-vi.html",
       "category": "Waveform",
       "description": "Returns the X and Y value of a waveform or digital data set. The data type you wire to the waveform in input and the data type of the Y component of the analog waveform determine the polymorphic instance to use.",
       "vi_path": null,
@@ -4126,7 +4126,7 @@
     },
     {
       "name": "WDT Get XY Value EXT VI",
-      "page": 884,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/waveform/wdtops-llb/wdt-get-xy-value-ext-vi.html",
       "category": "Waveform",
       "description": "Returns the X and Y value of a waveform or digital data set. The data type you wire to the waveform in input and the data type of the Y component of the analog waveform determine the polymorphic instance to use. Functions 884 ni.com",
       "vi_path": null,
@@ -4196,7 +4196,7 @@
     },
     {
       "name": "WDT Get XY Value CXT VI",
-      "page": 886,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/waveform/wdtops-llb/wdt-get-xy-value-cxt-vi.html",
       "category": "Waveform",
       "description": "Returns the X and Y value of a waveform or digital data set. The data type you wire to the waveform in input and the data type of the Y component of the analog waveform determine the polymorphic instance to use.",
       "vi_path": null,
@@ -4271,7 +4271,7 @@
     },
     {
       "name": "DWDT Get XY Value VI",
-      "page": 888,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/waveform/dwdtops-llb/dwdt-get-xy-value-vi.html",
       "category": "Waveform",
       "description": "Returns the X and Y value of a waveform or digital data set. The data type you wire to the waveform in input and the data type of the Y component of the analog waveform determine the polymorphic instance to use.",
       "vi_path": null,
@@ -4369,7 +4369,7 @@
     },
     {
       "name": "DTbl Get Digital Value VI",
-      "page": 889,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/waveform/dtblops-llb/dtbl-get-digital-value-vi.html",
       "category": "Waveform",
       "description": "Returns the X and Y value of a waveform or digital data set. The data type you wire to the waveform in input and the data type of the Y component of the analog waveform determine the polymorphic instance to use. Functions © National Instruments 889",
       "vi_path": null,
@@ -4451,7 +4451,7 @@
     },
     {
       "name": "Get Waveform Time Array",
-      "page": 891,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/waveform/wdtops-llb/get-waveform-time-array-vi.html",
       "category": "Waveform",
       "description": "Creates an array of waveform time stamps. Each element in the array is the time stamp for each data value in the waveform. Wire data to the waveform in input to determine the polymorphic instance to use or manually select the instance. • WDT Get Waveform Time Array DBL VI • DWDT Get Waveform Time Array VI Examples Refer to the following example files included with LabVIEW. • labview\\examples\\Waveform\\Waveform - Get Time Array.vi WDT Get Waveform Time Array DBL VI WDT Get Waveform Time Array DBL ",
       "vi_path": null,
@@ -4498,7 +4498,7 @@
     },
     {
       "name": "WDT Get Waveform Time Array DBL VI",
-      "page": 891,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/waveform/wdtops-llb/wdt-get-waveform-time-array-dbl-vi.html",
       "category": "Waveform",
       "description": "Creates an array of waveform time stamps. Each element in the array is the time stamp for each data value in the waveform. Wire data to the waveform in input to determine the polymorphic instance to use or manually select the instance. Functions © National Instruments 891",
       "vi_path": null,
@@ -4545,7 +4545,7 @@
     },
     {
       "name": "DWDT Get Waveform Time Array VI",
-      "page": 892,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/waveform/dwdtops-llb/dwdt-get-waveform-time-array-vi.html",
       "category": "Waveform",
       "description": "Creates an array of waveform time stamps. Each element in the array is the time stamp for each data value in the waveform. Wire data to the waveform in input to determine the polymorphic instance to use or manually select the instance.",
       "vi_path": null,
@@ -4599,7 +4599,6 @@
     },
     {
       "name": "Analog Waveform",
-      "page": 893,
       "category": "Waveform",
       "description": "Use the Analog Waveform VIs and functions to perform arithmetic and comparison functions on waveforms. The VIs and functions on this palette can return waveform error codes. Note Many Analog Waveform VIs are available only in the LabVIEW Full and Professional Development Systems. If you have the LabVIEW Base Development System, you do not have the full set of the Analog Waveform VIs described in this help file. Functions © National Instruments 893 Palette Object Description Get Waveform Componen",
       "vi_path": null,
@@ -4618,7 +4617,7 @@
     },
     {
       "name": "Get Waveform Components",
-      "page": 895,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/get-waveform-components.html",
       "category": "Waveform",
       "description": "Returns the analog waveform you specify. You specify components by clicking on the center of the output terminal and selecting the component you want.",
       "vi_path": null,
@@ -4658,7 +4657,7 @@
     },
     {
       "name": "Build Waveform",
-      "page": 896,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/build-waveform.html",
       "category": "Waveform",
       "description": "Builds an analog waveform or modifies an existing waveform. If you do not wire the waveform input, the function creates a new waveform based on the components you wire. If you wire the waveform input, the function modifies the waveform based on the components you wire.",
       "vi_path": null,
@@ -4705,7 +4704,7 @@
     },
     {
       "name": "Set Waveform Attribute Function",
-      "page": 897,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/set-waveform-attribute.html",
       "category": "Waveform",
       "description": "Adds or replaces a waveform attribute. You can use any type of data for the value of the attribute.",
       "vi_path": null,
@@ -4766,7 +4765,7 @@
     },
     {
       "name": "Get Waveform Attribute Function",
-      "page": 900,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/get-waveform-attribute.html",
       "category": "Waveform",
       "description": "Retrieves the names and values of all attributes or the value of a single attribute, depending on whether you wire the name parameter. Attributes can be channel names. The connector pane displays the default data types for this polymorphic function. Note Express VIs also use the attributes set by NI-DAQ. If the waveform does not originate in NI-DAQ, Express VIs add NI_ChannelName. Functions 900 ni.com",
       "vi_path": null,
@@ -4834,7 +4833,7 @@
     },
     {
       "name": "Waveform Scale and Offset",
-      "page": 904,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/waveform/wdtops-llb/waveform-scale-and-offset-vi.html",
       "category": "Waveform",
       "description": "Scales the waveform data using the equation waveform out = (scale * waveform in + offset).",
       "vi_path": null,
@@ -4895,7 +4894,7 @@
     },
     {
       "name": "Normalize Waveform",
-      "page": 905,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/waveform/wdtops-llb/normalize-waveform-vi.html",
       "category": "Waveform",
       "description": "Determines the scale and offset necessary to transform the waveform data so that its maximum is 1.00 and its minimum is -1.00.",
       "vi_path": null,
@@ -4956,7 +4955,7 @@
     },
     {
       "name": "Append Waveforms",
-      "page": 906,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/waveform/wdtops-llb/append-waveforms-vi.html",
       "category": "Waveform",
       "description": "Appends waveform B to the end of waveform A. If the sampling rates do not match, the error cluster returns an error. The trigger time of waveform B is ignored. The data type of the Y component of waveform A and waveform B determines the polymorphic instance to use or you can manually select the instance. • WDT Append Waveforms DBL VI • WDT Append Waveforms I64 VI • WDT Append Waveforms I32 VI • WDT Append Waveforms I16 VI Functions 906 ni.com • WDT Append Waveforms CDB VI • WDT Append Waveforms ",
       "vi_path": null,
@@ -5010,7 +5009,7 @@
     },
     {
       "name": "Number of Waveform Samples",
-      "page": 914,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/waveform/wdtops-llb/number-of-waveform-samples-vi.html",
       "category": "Waveform",
       "description": "Returns the number of data elements in the waveform. You must manually select the polymorphic instance you want to use. • WDT Number of Waveform Samples DBL VI • WDT Number of Waveform Samples CDB VI • WDT Number of Waveform Samples EXT VI • WDT Number of Waveform Samples I16 VI • WDT Number of Waveform Samples I32 VI • WDT Number of Waveform Samples I8 VI • WDT Number of Waveform Samples SGL VI WDT Number of Waveform Samples DBL VI WDT Number of Waveform Samples DBL VI Returns the number of dat",
       "vi_path": null,
@@ -5057,7 +5056,7 @@
     },
     {
       "name": "Waveform Min Max",
-      "page": 920,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/waveform/wdtops-llb/waveform-min-max-vi.html",
       "category": "Waveform",
       "description": "Determines the maximum and minimum values and their associate time values for a waveform.",
       "vi_path": null,
@@ -5132,7 +5131,7 @@
     },
     {
       "name": "Waveform Scalar Limit Comparison",
-      "page": 921,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/waveform/wdtops-llb/waveform-scalar-limit-comparison-vi.html",
       "category": "Waveform",
       "description": "Compares the waveform data values to a scalar value.",
       "vi_path": null,
@@ -5200,7 +5199,7 @@
     },
     {
       "name": "Search Waveform",
-      "page": 923,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/waveform/wdtops-llb/search-waveform-vi.html",
       "category": "Waveform",
       "description": "Returns the time value in x for the value specified.",
       "vi_path": null,
@@ -5240,7 +5239,7 @@
     },
     {
       "name": "Waveform to XY Pairs",
-      "page": 924,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/waveform/wdtops-llb/waveform-to-xy-pairs-vi.html",
       "category": "Waveform",
       "description": "Creates an array of data values and their corresponding time stamps. Wire the data type of the Y component to the waveform in input to determine the polymorphic instance to use or manually select the instance. Functions 924 ni.com • WDT Waveform to XY Pairs DBL VI • WDT Waveform to XY Pairs SGL VI • WDT Waveform to XY Pairs I64 VI • WDT Waveform to XY Pairs I32 VI • WDT Waveform to XY Pairs I16 VI • WDT Waveform to XY Pairs I8 VI • WDT Waveform to XY Pairs U64 VI • WDT Waveform to XY Pairs U32 V",
       "vi_path": null,
@@ -5294,7 +5293,6 @@
     },
     {
       "name": "Waveform Generation",
-      "page": 943,
       "category": "Waveform",
       "description": "Use the Waveform Generation VIs to generate different types of single and multi-tone signals, function generator signals, and noise signals. The VIs on this palette can return waveform error codes. Functions © National Instruments 943 Palette Object Description Basic Function Generator Creates an output waveform based on signal type. Tones and Noise Waveform Generates a waveform composed of a sum of sine tones, noise, and DC offset. Formula Waveform Creates an output waveform using a formula str",
       "vi_path": null,
@@ -5305,7 +5303,6 @@
     },
     {
       "name": "Waveform Measurements",
-      "page": 998,
       "category": "Waveform",
       "description": "Use the Waveform Measurements VIs to perform common time and frequency domain measurements, such as DC, RMS, Tone Frequency/Amplitude/Phase, Harmonic Distortion, SINAD, and Averaged FFT Measurements. The VIs on this palette can return waveform error codes. In addition, the VIs on this palette return an error if an input waveform has a dt less than or equal to zero. Palette Object Description Basic Averaged DC- RMS Calculates the DC and RMS values of an input waveform or array of waveforms. This ",
       "vi_path": null,
@@ -5316,7 +5313,6 @@
     },
     {
       "name": "Digital Waveform",
-      "page": 1313,
       "category": "Waveform",
       "description": "Use the Digital Waveform VIs and functions to perform operations on digital waveforms and digital data. The VIs and functions on this palette can return waveform error codes. Palette Object Description Get Digital Waveform Components Returns the digital waveform components you specify. You specify components by clicking on the center of the output terminal and selecting the component you want. Get Digital Data Components Returns the digital data components you specify. You specify components by ",
       "vi_path": null,
@@ -5327,7 +5323,7 @@
     },
     {
       "name": "Get Digital Data Components",
-      "page": 1316,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/waveform/dtblops-llb/dtbl-get-digital-components-vi.html",
       "category": "Waveform",
       "description": "Returns the digital data components you specify. You specify components by clicking on the center of the output terminal and selecting either transitions or data. Functions 1316 ni.com",
       "vi_path": null,
@@ -5360,7 +5356,7 @@
     },
     {
       "name": "Get Digital Waveform Components",
-      "page": 1316,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/waveform/dwdtops-llb/dwdt-get-digital-components-vi.html",
       "category": "Waveform",
       "description": "Returns the digital waveform components you specify. You specify components by clicking on the center of the output terminal and selecting the component you want.",
       "vi_path": null,
@@ -5400,7 +5396,7 @@
     },
     {
       "name": "Build Digital Waveform",
-      "page": 1317,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/waveform/dwdtops-llb/dwdt-build-digital-vi.html",
       "category": "Waveform",
       "description": "Builds a digital waveform or modifies an existing waveform. If you do not wire the waveform input, the function creates a new waveform based on the components you wire. If you wire the waveform input, the function modifies the waveform based on the components you wire.",
       "vi_path": null,
@@ -5440,7 +5436,7 @@
     },
     {
       "name": "Build Digital Data",
-      "page": 1318,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/waveform/dtblops-llb/dtbl-build-digital-vi.html",
       "category": "Waveform",
       "description": "Builds digital data or modifies existing digital data. If you do not wire the digital data input, the function creates new digital data based on the components you wire. If you wire the digital data input, the function modifies the digital data based on the components you wire. You can use this function to build digital tables.",
       "vi_path": null,
@@ -5487,7 +5483,7 @@
     },
     {
       "name": "Set Waveform Attribute Function",
-      "page": 1320,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/set-waveform-attribute.html",
       "category": "Waveform",
       "description": "Adds or replaces a waveform attribute. You can use any type of data for the value of the attribute.",
       "vi_path": null,
@@ -5548,7 +5544,7 @@
     },
     {
       "name": "Get Waveform Attribute Function",
-      "page": 1323,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/get-waveform-attribute.html",
       "category": "Waveform",
       "description": "Retrieves the names and values of all attributes or the value of a single attribute, depending on whether you wire the name parameter. Attributes can be channel names. The connector pane displays the default data types for this polymorphic function.",
       "vi_path": null,
@@ -5588,7 +5584,7 @@
     },
     {
       "name": "Digital Pattern Generator",
-      "page": 1326,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/waveform/dwdt-llb/digital-pattern-generator-vi.html",
       "category": "Waveform",
       "description": "Generates a pattern and returns the pattern as a digital waveform. Depending on the instance you use, the VI can return a ramp, marching values, single value, random, or toggle pattern as a waveform. You must manually select the polymorphic instance you want to use. Note Express VIs also use the attributes set by NI-DAQ. If the waveform does not originate in NI-DAQ, Express VIs add NI_ChannelName. Functions 1326 ni.com • Digital Pattern Generator (Ramp) VI • Digital Pattern Generator (Marching V",
       "vi_path": null,
@@ -5642,7 +5638,7 @@
     },
     {
       "name": "Digital Size",
-      "page": 1333,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/waveform/dwdt-llb/digital-size-vi.html",
       "category": "Waveform",
       "description": "Returns the number of samples and signals contained in the digital input. Wire data to the digital waveform in input to determine the polymorphic instance to use or manually select the instance. • DWDT Digital Size VI • DTbl Digital Size VI DWDT Digital Size VI DWDT Digital Size VI Returns the number of samples and signals contained in the digital input. Wire data to the digital waveform in input to determine the polymorphic instance to use or manually select the instance. Functions © National I",
       "vi_path": null,
@@ -5696,7 +5692,7 @@
     },
     {
       "name": "Digital Signal Subset",
-      "page": 1335,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/waveform/dwdt-llb/digital-signal-subset-vi.html",
       "category": "Waveform",
       "description": "Returns a subset of the digital input so you can plot the extracted signals individually or in subgroups on a graph. Wire data to the digital waveform input to determine the polymorphic instance to use or manually select the instance. Functions © National Instruments 1335 • DWDT Digital Signal Subset VI • DTbl Digital Signal Subset VI Use the Digital Signal Subset VI to extract individual signals from a digital waveform. The block diagram below shows how you can combine extracted individual sign",
       "vi_path": null,
@@ -5743,7 +5739,7 @@
     },
     {
       "name": "Replace Subset",
-      "page": 1339,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/waveform/dwdt-llb/replace-subset-vi.html",
       "category": "Waveform",
       "description": "Replaces a subset of the input digital waveform or digital data starting at the value specified in start with new digital waveform data (DWDT) or digital data (DTbl). You must manually select the polymorphic instance you want to use. • DWDT Replace Subset VI • DTbl Replace Subset VI DWDT Replace Subset VI DWDT Replace Subset VI Replaces a subset of the input digital waveform or digital data starting at the value specified in start with new digital waveform data (DWDT) or digital data (DTbl). You",
       "vi_path": null,
@@ -5827,7 +5823,7 @@
     },
     {
       "name": "Uncompress Digital",
-      "page": 1342,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/waveform/dwdt-llb/uncompress-digital-vi.html",
       "category": "Waveform",
       "description": "Uncompresses the digital signals in the digital input and returns the result in the digital output. Wire data to the uncompressed digital waveform input to determine the polymorphic instance to use or manually select the instance. • DWDT Uncompress Digital VI • DTbl Uncompress Digital VI DWDT Uncompress Digital VI DWDT Uncompress Digital VI Uncompresses the digital signals in the digital input and returns the result in the digital output. Wire data to the uncompressed digital waveform input to d",
       "vi_path": null,
@@ -5867,7 +5863,7 @@
     },
     {
       "name": "Compress Digital",
-      "page": 1344,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/waveform/dwdt-llb/compress-digital-vi.html",
       "category": "Waveform",
       "description": "Compresses the digital signals in the digital input and returns the result in the digital output. Wire data to the uncompressed digital waveform input to determine the polymorphic instance to use or manually select the instance. • DWDT Compress Digital VI • DTbl Compress Digital VI Use the Compress Digital VI to compress digital data when you want to display two or more serial digital signals with the same bit sets on the same row to better visualize the data. For example, if you acquire 10 digi",
       "vi_path": null,
@@ -5914,7 +5910,7 @@
     },
     {
       "name": "Digital Comparison",
-      "page": 1346,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/waveform/dwdt-llb/digital-comparison-vi.html",
       "category": "Waveform",
       "description": "Compares a digital waveform to another digital waveform or to a specified value or compares a set of digital data to another set of digital data or to a specified value. You must manually select the polymorphic instance you want to use. Functions 1346 ni.com • DWDT Digital To Digital Comparison VI • DTbl Digital To Digital Comparison VI • DWDT Digital Comparison VI • DTbl Digital Comparison VI DWDT Digital To Digital Comparison VI DWDT Digital To Digital Comparison VI Compares a digital waveform",
       "vi_path": null,
@@ -6016,7 +6012,7 @@
     },
     {
       "name": "Search for Digital Pattern",
-      "page": 1353,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/waveform/dwdt-llb/search-for-digital-pattern-vi.html",
       "category": "Waveform",
       "description": "Searches for a digital pattern in the digital input. Wire data to the digital waveform in input to determine the polymorphic instance to use or manually select the instance. • DWDT Search for Digital Pattern VI • DTbl Search for Digital Pattern VI Examples Refer to the following example files included with LabVIEW. • labview\\examples\\Controls and Indicators\\Graphs and Charts\\Digital Waveform Graph\\Search Digital Data for Pattern.vi DWDT Search for Digital Pattern VI DWDT Search for Digital Patte",
       "vi_path": null,
@@ -6116,7 +6112,7 @@
     },
     {
       "name": "Append Digital Signals",
-      "page": 1357,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/waveform/dwdt-llb/append-digital-signals-vi.html",
       "category": "Waveform",
       "description": "Appends the signals from digital waveform (low bits) to the LSB side of digital waveform (high bits). If the sampling rates do not match, error out returns a warning. The start time of digital waveform (low bits) is ignored. Wire data to the digital waveform (high bits) input to determine the polymorphic instance to use or manually select the instance. • DWDT Append Digital Signals VI • DTbl Append Digital Signals VI Use the Append Digital Signals VI to append the signals from two separate digit",
       "vi_path": null,
@@ -6170,7 +6166,7 @@
     },
     {
       "name": "Append Digital Samples",
-      "page": 1362,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/waveform/dwdt-llb/append-digital-samples-vi.html",
       "category": "Waveform",
       "description": "Appends all samples from digital waveform B to the end of digital waveform A. If the sampling rates do not match, error out returns a warning. The start time of digital waveform B is ignored. Wire data to the digital waveform A input to determine the polymorphic instance to use or manually select the instance. • DWDT Append Digital Samples VI • DTbl Append Digital Samples VI Examples Refer to the following example files included with LabVIEW. • labview\\examples\\Controls and Indicators\\Graphs and",
       "vi_path": null,
@@ -6224,7 +6220,7 @@
     },
     {
       "name": "Invert Digital",
-      "page": 1366,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/waveform/dwdt-llb/invert-digital-vi.html",
       "category": "Waveform",
       "description": "Inverts the digital data in the digital input so that a 0 becomes a 1 and vice versa or an H becomes an L and vice versa. Wire data to the digital waveform input to determine the polymorphic instance to use or manually select the instance. • DWDT Invert Digital VI • DTbl Invert Digital VI DWDT Invert Digital VI DWDT Invert Digital VI Inverts the digital data in the digital input so that a 0 becomes a 1 and vice versa or an H becomes an L and vice versa. Wire data to the digital waveform input to",
       "vi_path": null,
@@ -6294,7 +6290,7 @@
     },
     {
       "name": "Group Digital Signals",
-      "page": 1368,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/express/express-signal-manip/digitaldatagroupingxnode/digital-group-xnode.html",
       "category": "Waveform",
       "description": "Groups digital data into a digital data array and groups digital waveforms into a digital waveform array. LabVIEW treats ungrouped signals as individual groups. Functions 1368 ni.com Dialog Box Options Option Description Number of signals Specifies the number of signals you want to wire to the Express VI. Configure this option first. This number must match the number of signals you wire to Digital Data In. Otherwise, LabVIEW returns an error. Use incoming waveform names Allows you to retain the ",
       "vi_path": null,
@@ -6334,7 +6330,7 @@
     },
     {
       "name": "Empty Digital Waveform",
-      "page": 1371,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/waveform/dwdtops-llb/dwdt-empty-digital-vi.html",
       "category": "Waveform",
       "description": "Returns an empty digital waveform. Use this constant to initialize shift registers or build digital waveforms. Functions © National Instruments 1371",
       "vi_path": null,
@@ -6353,7 +6349,6 @@
     },
     {
       "name": "Digital Conversion",
-      "page": 1372,
       "category": "Waveform",
       "description": "Use the Digital Conversion VIs and Functions to convert to and from digital data. The VIs on this palette can return waveform error codes. Functions 1372 ni.com Palette Object Description Boolean Array to Digital Converts a 2D Boolean array to a digital waveform or digital data. You must manually select the polymorphic instance you want to use. Binary to Digital Converts a binary array of unsigned integers to a digital waveform or set of digital data. You must manually select the polymorphic ins",
       "vi_path": null,
@@ -6393,7 +6388,7 @@
     },
     {
       "name": "Empty Digital Data",
-      "page": 1372,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/waveform/dtblops-llb/dtbl-empty-digital-vi.html",
       "category": "Waveform",
       "description": "Returns empty digital data. Use this constant to initialize shift registers or build digital tables.",
       "vi_path": null,
@@ -6412,7 +6407,6 @@
     },
     {
       "name": "Waveform File I/O",
-      "page": 1394,
       "category": "Waveform",
       "description": "Use the Waveform File I/O VIs to write waveform data to and read waveform data from files. The VIs on this palette can return waveform error codes. Palette Object Description Write Waveforms to File Creates a new file or appends to an existing file, writes the specified number of Functions 1394 ni.com Palette Object Description records to the file, then closes the file and checks for errors. Each record is an array of waveforms. Wire data to the Waveform input to determine the polymorphic instan",
       "vi_path": null,
@@ -6452,7 +6446,7 @@
     },
     {
       "name": "Write Waveforms to File",
-      "page": 1395,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/waveform/wdtfileio-llb/write-waveforms-to-file-vi.html",
       "category": "Waveform",
       "description": "Creates a new file or appends to an existing file, writes the specified number of records to the file, then closes the file and checks for errors. Each record is an array of waveforms. Wire data to the Waveform input to determine the polymorphic instance to use or manually select the instance. You can use any file extension, for example .dat or .txt, for the file you write the waveform data to. Functions © National Instruments 1395 • Write Waveform to File VI • Write Waveforms to File (1D) VI • ",
       "vi_path": null,
@@ -6534,7 +6528,7 @@
     },
     {
       "name": "Read Waveforms from File",
-      "page": 1400,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/waveform/wdtfileio-llb/read-waveforms-from-file-vi.html",
       "category": "Waveform",
       "description": "Opens a file created with the Write Waveforms to File VI and reads one record of the file. Each record might contain one or more separate waveforms. To retrieve all records in the file, call this VI in a loop until the end of the file is reached. This VI returns an end-of-file error in the error out output. • Read Waveform from File VI • Read Waveform from File (Digital) VI Read Waveform from File VI Read Waveform from File VI Opens a file created with the Write Waveforms to File VI and reads on",
       "vi_path": null,
@@ -6595,7 +6589,7 @@
     },
     {
       "name": "Export Waveforms to Spreadsheet File",
-      "page": 1403,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/waveform/wdtfileio-llb/export-waveforms-to-spreadsheet-file-vi.html",
       "category": "Waveform",
       "description": "Converts a waveform to a text string and writes the string to a new byte stream file or appends the string to an existing file. Wire data to the waveforms input to determine the polymorphic instance to use or manually select the instance. • Export Waveforms To Spreadsheet File (1D) VI • Export Waveforms To Spreadsheet File (2D) VI • Export Waveform To Spreadsheet File VI • Export Waveforms To Spreadsheet File (Digital) VI This VI opens or creates the file beforehand and closes it afterwards. You",
       "vi_path": null,

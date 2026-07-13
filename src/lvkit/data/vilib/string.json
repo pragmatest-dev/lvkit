@@ -4,7 +4,7 @@
   "entries": [
     {
       "name": "Concatenate Strings",
-      "page": 649,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/concatenate-strings.html",
       "category": "String",
       "description": "Concatenates input strings and 1D arrays of strings into a single output string. For array inputs, this function concatenates each element of the array. Add inputs to the function by right-clicking an input and selecting Add Input from the shortcut menu or by resizing the function. Functions © National Instruments 649",
       "vi_path": null,
@@ -44,7 +44,7 @@
     },
     {
       "name": "String Length Function",
-      "page": 649,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/string-length.html",
       "category": "String",
       "description": "Returns in length the number of characters (bytes) in string. The connector pane displays the default data types for this polymorphic function.",
       "vi_path": null,
@@ -77,7 +77,7 @@
     },
     {
       "name": "String Subset Function",
-      "page": 650,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/string-subset.html",
       "category": "String",
       "description": "Returns the substring of the input string beginning at offset and containing length number of characters. The connector pane displays the default data types for this polymorphic function. Functions 650 ni.com",
       "vi_path": null,
@@ -117,7 +117,7 @@
     },
     {
       "name": "Trim Whitespace",
-      "page": 651,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/error-llb/trim-whitespace-vi.html",
       "category": "String",
       "description": "Removes all ASCII white space (spaces, tabs, carriage returns, and linefeeds) from the beginning, end, or both ends of string. The Trim Whitespace VI does not remove double byte characters. The default is to remove white space from both ends of string.",
       "vi_path": null,
@@ -170,7 +170,7 @@
     },
     {
       "name": "Normalize End Of Line",
-      "page": 652,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/advancedstring/normalize-end-of-line-vi.html",
       "category": "String",
       "description": "Converts the line endings of the input string to the line ending format you specify. If you do not specify a line ending format, this VI converts the line endings of the string to the line endings that the current platform expects. Use this VI to make your strings readable by different platforms or by the command line of the current platform. For example, if you specify UNIX in end of line, LabVIEW converts the line endings of string in to \\n because \\n is the standard UNIX line ending.",
       "vi_path": null,
@@ -220,7 +220,7 @@
     },
     {
       "name": "Replace Substring Function",
-      "page": 653,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/replace-substring.html",
       "category": "String",
       "description": "Inserts, deletes, or replaces a substring at the offset you specify in string.",
       "vi_path": null,
@@ -274,7 +274,7 @@
     },
     {
       "name": "Search and Replace String Function",
-      "page": 654,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/search-and-replace-string.html",
       "category": "String",
       "description": "Replaces one or all instances of a substring with another substring. To include the multiline? input and enable advanced regular expression searches, right-click the function and select Regular Expression.",
       "vi_path": null,
@@ -328,7 +328,7 @@
     },
     {
       "name": "Match Pattern Function",
-      "page": 657,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/match-pattern.html",
       "category": "String",
       "description": "Searches for regular expression in string beginning at offset. If the function finds a match, it splits string into three substrings. A regular expression requires a specific combination of characters for pattern matching. This function gives you fewer options for matching strings but performs more quickly than the Match Regular Expression function. The Match Pattern function is compatible with a limited set of regular expressions and does not support character grouping, alternate pattern matchi",
       "vi_path": null,
@@ -389,7 +389,7 @@
     },
     {
       "name": "Match Regular Expression",
-      "page": 660,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/regexp/match-regular-expression-xnode.html",
       "category": "String",
       "description": "Searches for a regular expression in the input string beginning at the offset you enter. If the function finds a match, it splits the string into three substrings and any number of submatches. Resize the function to view any submatches found in the string.",
       "vi_path": null,
@@ -478,7 +478,6 @@
     },
     {
       "name": "Path/Array/String Conversion",
-      "page": 663,
       "category": "String",
       "description": "Use the Path/Array/String Conversion functions to convert strings, arrays, and paths. Palette Object Description Path to Array of Strings Function Converts a path into an array of strings and indicates whether the path is relative. Array of Strings to Path Function Converts an array of strings into a relative or absolute path. Path To String Function Converts path into a string describing a path in the standard format of the platform. String To Path Function Converts a string, describing a path ",
       "vi_path": null,
@@ -511,7 +510,7 @@
     },
     {
       "name": "Array of Strings to Path Function",
-      "page": 664,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/array-of-strings-to-path.html",
       "category": "String",
       "description": "Converts an array of strings into a relative or absolute path. If you have an empty string in the array, the directory location before the empty string is deleted in the path output. This behavior is similar to moving up a level in directory hierarchy. Functions 664 ni.com",
       "vi_path": null,
@@ -544,7 +543,7 @@
     },
     {
       "name": "Path to Array of Strings Function",
-      "page": 664,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/path-to-array-of-strings.html",
       "category": "String",
       "description": "Converts a path into an array of strings and indicates whether the path is relative.",
       "vi_path": null,
@@ -577,7 +576,7 @@
     },
     {
       "name": "Path To String Function",
-      "page": 666,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/path-to-string.html",
       "category": "String",
       "description": "Converts path into a string describing a path in the standard format of the platform. The connector pane displays the default data types for this polymorphic function.",
       "vi_path": null,
@@ -603,7 +602,7 @@
     },
     {
       "name": "String To Path Function",
-      "page": 666,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/string-to-path.html",
       "category": "String",
       "description": "Converts a string, describing a path in the standard format for the current platform, to a path. The connector pane displays the default data types for this polymorphic function.",
       "vi_path": null,
@@ -629,7 +628,7 @@
     },
     {
       "name": "Byte Array To String Function",
-      "page": 667,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/byte-array-to-string.html",
       "category": "String",
       "description": "Converts an array of unsigned bytes representing ASCII characters into a string. Note If string is <Not a Path>, the function returns a path to <Not a Path>. If you attempt to use the path, LabVIEW cannot find the file and throws an error. Functions © National Instruments 667",
       "vi_path": null,
@@ -655,7 +654,7 @@
     },
     {
       "name": "String To Byte Array Function",
-      "page": 667,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/string-to-byte-array.html",
       "category": "String",
       "description": "Converts a string into an array of unsigned bytes. Each byte in the array has the ASCII value of the corresponding character in the string.",
       "vi_path": null,
@@ -681,7 +680,7 @@
     },
     {
       "name": "Scan From String",
-      "page": 668,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/scan-from-string.html",
       "category": "String",
       "description": "Scans the input string and converts the string according to format string. Use this function when you know the exact format of the input. The input can be string, path, enumerated type, time stamp, or numeric data. Alternatively, you can use the Scan From File function to scan text from a file. The connector pane displays the default data types for this polymorphic function.",
       "vi_path": null,
@@ -728,7 +727,7 @@
     },
     {
       "name": "Format Into String",
-      "page": 672,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/format-into-string.html",
       "category": "String",
       "description": "Formats string, path, enumerated type, time stamp, Boolean, or numeric data as text. You can use the Format Into String function to convert a number into a string. To format data as text and write the text to a file, use the Format Into File function instead.",
       "vi_path": null,
@@ -782,7 +781,7 @@
     },
     {
       "name": "Format Date/Time String Function",
-      "page": 675,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/format-date-time-string.html",
       "category": "String",
       "description": "Displays a timestamp value or a numeric value as time in the format you specify using time format codes.",
       "vi_path": null,
@@ -822,7 +821,7 @@
     },
     {
       "name": "Build Text",
-      "page": 676,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/express/express-output/buildtextblock-llb/ex-inst-build-text-vi.html",
       "category": "String",
       "description": "Creates an output string from a combination of text and parameterized inputs. If the input is not a string, this Express VI converts the input into a string based on the configuration of the Express VI. Functions 676 ni.com Dialog Box Options Option Description Text with Parameters in Percents (%parameter name%) Specifies the text you want to build. Define parameters by placing text between a pair of percent signs. You can use each parameter only once in the text that you build. To include a per",
       "vi_path": null,
@@ -833,7 +832,6 @@
     },
     {
       "name": "Number/String Conversion",
-      "page": 681,
       "category": "String",
       "description": "Use the String/Number Conversion functions to convert strings. Palette Object Description Number To Decimal String Function Converts number to a string of decimal digits at least width characters wide or wider if necessary. If number is floating-point or fixed-point, it is rounded to a 64-bit integer before conversion. Number To Hexadecimal String Function Converts number to a string of hexadecimal digits at least width characters wide or wider if necessary. The digits A-F always appear in upper",
       "vi_path": null,
@@ -866,7 +864,7 @@
     },
     {
       "name": "Number To Decimal String Function",
-      "page": 683,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/number-to-decimal-string.html",
       "category": "String",
       "description": "Converts number to a string of decimal digits at least width characters wide or wider if necessary. If number is floating-point or fixed-point, it is rounded to a 64-bit integer before conversion. The connector pane displays the default data types for this polymorphic function.",
       "vi_path": null,
@@ -899,7 +897,7 @@
     },
     {
       "name": "Number To Hexadecimal String Function",
-      "page": 684,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/number-to-hexadecimal-string.html",
       "category": "String",
       "description": "Converts number to a string of hexadecimal digits at least width characters wide or wider if necessary. The digits A-F always appear in uppercase in the output string. If number is floating-point or fixed-point, it is rounded to a 64-bit integer before conversion. The connector pane displays the default data types for this polymorphic function.",
       "vi_path": null,
@@ -932,7 +930,7 @@
     },
     {
       "name": "Number To Fractional String Function",
-      "page": 685,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/number-to-fractional-string.html",
       "category": "String",
       "description": "Converts number to an F-format (fractional notation), floating-point string at least Functions © National Instruments 685 width characters wide or wider if necessary. The connector pane displays the default data types for this polymorphic function.",
       "vi_path": null,
@@ -979,7 +977,7 @@
     },
     {
       "name": "Number To Octal String Function",
-      "page": 685,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/number-to-octal-string.html",
       "category": "String",
       "description": "Converts number to a string of octal digits at least width characters wide or wider if necessary. If number is floating-point or fixed-point, it is rounded to a 64-bit integer before conversion. The connector pane displays the default data types for this polymorphic function.",
       "vi_path": null,
@@ -1012,7 +1010,7 @@
     },
     {
       "name": "Number To Exponential String Function",
-      "page": 687,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/number-to-exponential-string.html",
       "category": "String",
       "description": "Converts number to an E-format (exponential notation), floating-point string at least width characters wide or wider if necessary. The connector pane displays the default data types for this polymorphic function.",
       "vi_path": null,
@@ -1059,7 +1057,7 @@
     },
     {
       "name": "Number To Engineering String Function",
-      "page": 688,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/number-to-engineering-string.html",
       "category": "String",
       "description": "Converts number to an engineering format, floating-point string at least width characters wide or wider if necessary. Engineering format is similar to E format (exponential notation), except the exponent is a multiple of three (..., –3, 0, 3, 6, ...). The connector pane displays the default data types for this polymorphic function.",
       "vi_path": null,
@@ -1106,7 +1104,7 @@
     },
     {
       "name": "Format Value Function",
-      "page": 689,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/format-value.html",
       "category": "String",
       "description": "Converts a number into a regular string according to the format specified in format string and appends this to string. The connector pane displays the default data types for this polymorphic function.",
       "vi_path": null,
@@ -1146,7 +1144,7 @@
     },
     {
       "name": "Decimal String To Number Function",
-      "page": 690,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/decimal-string-to-number.html",
       "category": "String",
       "description": "Converts the numeric characters in string, starting at offset, to a decimal integer and returns it in number. The connector pane displays the default data types for this polymorphic function. If you want the function to return a 64-bit integer output, you must wire a 64-bit integer to the default input.",
       "vi_path": null,
@@ -1193,7 +1191,7 @@
     },
     {
       "name": "Hexadecimal String To Number Function",
-      "page": 691,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/hexadecimal-string-to-number.html",
       "category": "String",
       "description": "Interprets the characters 0 through 9, A through F, and a through f in string starting at offset as a hex integer and returns it in number. The connector pane displays the default data types for this polymorphic function. Functions © National Instruments 691",
       "vi_path": null,
@@ -1240,7 +1238,7 @@
     },
     {
       "name": "Octal String To Number Function",
-      "page": 693,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/octal-string-to-number.html",
       "category": "String",
       "description": "Interprets the characters 0 through 7 in string starting at offset as an octal integer and returns it in number. This function also returns the index in string of the first character following the number. The connector pane displays the default data types for this polymorphic function. If you want the function to return a 64-bit integer output, you must wire a 64-bit integer to the default input.",
       "vi_path": null,
@@ -1287,7 +1285,7 @@
     },
     {
       "name": "Fract/Exp String To Number Function",
-      "page": 694,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/fract-exp-string-to-number.html",
       "category": "String",
       "description": "Interprets the characters 0 through 9, plus, minus, e, E, and the decimal point (usually period) in string starting at offset as a floating-point number in engineering notation, exponential, or fractional format and returns it in number. The connector pane displays the default data types for this polymorphic function. Functions 694 ni.com",
       "vi_path": null,
@@ -1341,7 +1339,7 @@
     },
     {
       "name": "Scan Value Function",
-      "page": 696,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/scan-value.html",
       "category": "String",
       "description": "Converts characters at the beginning of string to the data type represented by default, according to the conversion codes in format string, and returns the converted number in value and the remainder of string after the match in output string. The connector pane displays the default data types for this polymorphic function.",
       "vi_path": null,
@@ -1388,7 +1386,7 @@
     },
     {
       "name": "Spreadsheet String To Array Function",
-      "page": 697,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/spreadsheet-string-to-array.html",
       "category": "String",
       "description": "Converts the spreadsheet string to an array of the dimension and representation of array type. This function works for arrays of strings and arrays of numbers. The connector pane displays the default data types for this polymorphic function.",
       "vi_path": null,
@@ -1407,7 +1405,7 @@
     },
     {
       "name": "Array To Spreadsheet String Function",
-      "page": 698,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/array-to-spreadsheet-string.html",
       "category": "String",
       "description": "Converts an array of any dimension to a table in string form, containing tabs separating column elements, a platform-dependent EOL character separating rows, and, for arrays of three or more dimensions, headers separating pages. Functions 698 ni.com",
       "vi_path": null,
@@ -1447,7 +1445,7 @@
     },
     {
       "name": "To Upper Case Function",
-      "page": 701,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/to-upper-case.html",
       "category": "String",
       "description": "Converts all alphabetic characters in string to uppercase characters. Evaluates all numbers in string as ASCII codes for characters. This function does not affect non- alphabetic characters. Functions © National Instruments 701 The connector pane displays the default data types for this polymorphic function.",
       "vi_path": null,
@@ -1473,7 +1471,7 @@
     },
     {
       "name": "To Lower Case Function",
-      "page": 702,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/to-lower-case.html",
       "category": "String",
       "description": "Converts all alphabetic characters in string to lowercase characters. Evaluates all numbers in string as ASCII codes for characters. This function does not affect non- alphabetic characters. The connector pane displays the default data types for this polymorphic function.",
       "vi_path": null,
@@ -1499,7 +1497,6 @@
     },
     {
       "name": "Flatten/Unflatten String",
-      "page": 703,
       "category": "String",
       "description": "Use the Flatten/Unflatten String functions to flatten and unflatten LabVIEW data types to and from strings. Palette Object Description Flatten To String Function Converts the anything input to a flattened data string of binary values. You also can use this function to convert the byte order, or endian format, of the data in the flattened data string. Unflatten From String Function Converts binary string to the type wired to type. binary string should contain flattened data of the type wired to t",
       "vi_path": null,
@@ -1566,7 +1563,7 @@
     },
     {
       "name": "Flatten To String Function",
-      "page": 704,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/flatten-to-string.html",
       "category": "String",
       "description": "Converts the anything input to a flattened data string of binary values. You also can use this function to convert the byte order, or endian format, of the data in the flattened data string.",
       "vi_path": null,
@@ -1633,7 +1630,7 @@
     },
     {
       "name": "Unflatten From String Function",
-      "page": 707,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/unflatten-from-string.html",
       "category": "String",
       "description": "Converts binary string to the type wired to type. binary string should contain flattened data of the type wired to type. You also can use this function to specify the byte order, or endian format, of the data in the binary string.",
       "vi_path": null,
@@ -1666,7 +1663,7 @@
     },
     {
       "name": "Variant To Flattened String Function",
-      "page": 709,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/variant-to-flattened-string.html",
       "category": "String",
       "description": "Converts variant data into a flattened string and an array of integers that represent the data type. You cannot flatten ActiveX variant data.",
       "vi_path": null,
@@ -1699,7 +1696,7 @@
     },
     {
       "name": "Flatten To XML Function",
-      "page": 710,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/flatten-to-xml.html",
       "category": "String",
       "description": "Converts any data type you wire to anything and converts it to an XML string according Functions 710 ni.com to the LabVIEW XML schema. If anything contains the characters <, >, or &, the function converts those characters to &lt;, &gt;, or &amp;, respectively. Use the Escape XML VI to convert other characters, such as \", to XML syntax.",
       "vi_path": null,
@@ -1732,7 +1729,7 @@
     },
     {
       "name": "Flattened String To Variant Function",
-      "page": 710,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/flattened-string-to-variant.html",
       "category": "String",
       "description": "Converts flattened data into variant data. Use the Flatten to String function to produce data string and type string.",
       "vi_path": null,
@@ -1779,7 +1776,7 @@
     },
     {
       "name": "Unflatten From XML Function",
-      "page": 711,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/unflatten-from-xml.html",
       "category": "String",
       "description": "Converts an XML string to a LabVIEW data type according to the LabVIEW XML schema. If xml string contains the characters &lt;, &gt;, or &amp;, the function converts those characters to <, >, or &, respectively. Use the Unescape XML VI to convert other characters, such as \". Functions © National Instruments 711",
       "vi_path": null,
@@ -1826,7 +1823,7 @@
     },
     {
       "name": "Flatten To JSON Function",
-      "page": 712,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/flatten-to-json.html",
       "category": "String",
       "description": "Converts data you wire to the anything input to a UTF-8 JavaScript Object Notation (JSON) string. Functions 712 ni.com",
       "vi_path": null,
@@ -1873,7 +1870,7 @@
     },
     {
       "name": "Unflatten From JSON Function",
-      "page": 713,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/unflatten-from-json.html",
       "category": "String",
       "description": "Converts a UTF-8 JavaScript Object Notation (JSON) string to the LabVIEW data type you wire to type/defaults. Functions © National Instruments 713",
       "vi_path": null,
@@ -1948,7 +1945,6 @@
     },
     {
       "name": "Additional String Functions",
-      "page": 717,
       "category": "String",
       "description": "Use the Additional String VIs and functions to scan and search in strings, match patterns, and manipulate strings. Functions © National Instruments 717 Palette Object Description Search/ Split String Function Divides a single string into two substrings. Pick Line Function Chooses a line from multi-line string and appends that line to string. Match First String Function Compares each prefix string in string array to the beginning of string until it encounters a match. This function returns the or",
       "vi_path": null,
@@ -1967,7 +1963,7 @@
     },
     {
       "name": "Search/Split String Function",
-      "page": 719,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/search-split-string.html",
       "category": "String",
       "description": "Divides a single string into two substrings. You can divide the string at a certain character or substring. Search/Split String searches string for the string or character in search string/char. The function splits the string and returns the resulting two strings in substring before match and match + rest of string.",
       "vi_path": null,
@@ -2021,7 +2017,7 @@
     },
     {
       "name": "Match First String Function",
-      "page": 721,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/match-first-string.html",
       "category": "String",
       "description": "Compares each prefix string in string array to the beginning of string until it encounters a match. This function returns the original input string with the matching Functions © National Instruments 721 prefix string removed.",
       "vi_path": null,
@@ -2061,7 +2057,7 @@
     },
     {
       "name": "Pick Line Function",
-      "page": 721,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/pick-line.html",
       "category": "String",
       "description": "Chooses a line from multi-line string and appends that line to string. The connector pane displays the default data types for this polymorphic function.",
       "vi_path": null,
@@ -2101,7 +2097,7 @@
     },
     {
       "name": "Match True/False String Function",
-      "page": 722,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/match-true-false-string.html",
       "category": "String",
       "description": "Examines the beginning of string to see whether it matches true string or false string. This function returns a Boolean TRUE or FALSE value in selection, depending on whether string matches true string or false string. Functions 722 ni.com",
       "vi_path": null,
@@ -2148,7 +2144,7 @@
     },
     {
       "name": "Scan String For Tokens Function",
-      "page": 723,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/scan-string-for-tokens.html",
       "category": "String",
       "description": "Scans input string starting at offset for tokens and outputs each segment as a token string. Functions © National Instruments 723",
       "vi_path": null,
@@ -2230,7 +2226,7 @@
     },
     {
       "name": "Search and Replace Pattern",
-      "page": 728,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/error-llb/search-and-replace-pattern-vi.html",
       "category": "String",
       "description": "Searches string for substrings that match regular expression and replaces those substrings with replace string. A regular expression requires a specific combination of characters for pattern matching. For more information about special characters in regular expressions, refer to the regular expression input description in the detailed help.",
       "vi_path": null,
@@ -2291,7 +2287,7 @@
     },
     {
       "name": "Append True/False String Function",
-      "page": 730,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/append-true-false-string.html",
       "category": "String",
       "description": "Selects either a FALSE or TRUE string according to a Boolean selector and appends that string to string. Functions 730 ni.com",
       "vi_path": null,
@@ -2338,7 +2334,7 @@
     },
     {
       "name": "Index String Array Function",
-      "page": 730,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/index-string-array.html",
       "category": "String",
       "description": "Selects a string specified by index from string array and appends that string to string.",
       "vi_path": null,
@@ -2378,7 +2374,7 @@
     },
     {
       "name": "Rotate String Function",
-      "page": 731,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/rotate-string.html",
       "category": "String",
       "description": "Places the first character of string in the last position of first char last, shifting the other characters forward one position. For example, the string abcd becomes bcda. The connector pane displays the default data types for this polymorphic function.",
       "vi_path": null,
@@ -2404,7 +2400,7 @@
     },
     {
       "name": "Delimited String to 1D String Array",
-      "page": 732,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/advancedstring/delimited-string-to-1d-string-array-vi.html",
       "category": "String",
       "description": "Converts substrings in a delimited string to the elements of a one-dimensional string array.",
       "vi_path": null,
@@ -2458,7 +2454,7 @@
     },
     {
       "name": "Reverse String Function",
-      "page": 732,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/reverse-string.html",
       "category": "String",
       "description": "Produces a string whose characters are in reverse order of those in string. The connector pane displays the default data types for this polymorphic function.",
       "vi_path": null,
@@ -2484,7 +2480,7 @@
     },
     {
       "name": "Create NI GUID",
-      "page": 733,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/string/create-ni-guid-vi.html",
       "category": "String",
       "description": "Generates a globally unique identifier (GUID) string. Functions © National Instruments 733",
       "vi_path": null,

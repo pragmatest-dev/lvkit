@@ -4,7 +4,6 @@
   "entries": [
     {
       "name": "Notifier Operations",
-      "page": 1929,
       "category": "Synchronization",
       "description": "Use the Notifier Operations functions to suspend the execution of a block diagram until you receive data from another section of the block diagram or from another VI running in the same application instance. You cannot use notifiers to communicate with VIs on other computers. For example, you cannot use notifiers to communicate across a network or the VI Server. Unlike the Queue Operations functions, the Notifier Operations functions do not buffer sent messages. If no nodes are waiting on a mess",
       "vi_path": null,
@@ -65,7 +64,7 @@
     },
     {
       "name": "Obtain Notifier Function",
-      "page": 1930,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/obtain-notifier.html",
       "category": "Synchronization",
       "description": "Returns a reference to a notifier. Use this reference when calling other Notifier Operations functions.",
       "vi_path": null,
@@ -126,7 +125,7 @@
     },
     {
       "name": "Send Notification Function",
-      "page": 1932,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/send-notification.html",
       "category": "Synchronization",
       "description": "Sends a message to all functions waiting on a notifier. All Wait on Notification and Wait on Notification from Multiple functions currently waiting on the notifier stop waiting and continue to execute.",
       "vi_path": null,
@@ -180,7 +179,7 @@
     },
     {
       "name": "Cancel Notification Function",
-      "page": 1933,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/cancel-notification.html",
       "category": "Synchronization",
       "description": "Erases any message currently in a notifier and returns the cancelled message.",
       "vi_path": null,
@@ -227,7 +226,7 @@
     },
     {
       "name": "Get Notifier Status Function",
-      "page": 1934,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/get-notifier-status.html",
       "category": "Synchronization",
       "description": "Returns information about the current state of a notifier, such as the last uncancelled notification sent to the notifier.",
       "vi_path": null,
@@ -288,7 +287,7 @@
     },
     {
       "name": "Release Notifier Function",
-      "page": 1935,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/release-notifier.html",
       "category": "Synchronization",
       "description": "Releases a reference to a notifier.",
       "vi_path": null,
@@ -342,7 +341,7 @@
     },
     {
       "name": "Wait on Notification Function",
-      "page": 1937,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/wait-on-notification.html",
       "category": "Synchronization",
       "description": "Waits until a notifier receives a message. When the notifier receives a message, this function continues to execute. Use the Send Notification function to send the message. If a notifier reference becomes invalid such as when another function closes it, the function stops waiting and returns error code 1122. If the notifier does not contain a message, this function waits until the notifier receives a message.",
       "vi_path": null,
@@ -382,7 +381,7 @@
     },
     {
       "name": "Wait on Notification from Multiple Function",
-      "page": 1939,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/wait-on-notification-from-multiple.html",
       "category": "Synchronization",
       "description": "Waits until at least one of the notifiers you specify receives a message. When one of the notifiers receives a message, this function continues to execute. Use the Send Notification function to send the message. If a notifier reference becomes invalid, such as when another function closes it, this function stops waiting and returns error code 1122. If the notifier does not contain a message, this function waits until the notifier receives a message.",
       "vi_path": null,
@@ -422,7 +421,6 @@
     },
     {
       "name": "Advanced Notifier Waiting",
-      "page": 1941,
       "category": "Synchronization",
       "description": "Use the Advanced Notifier Waiting functions to prevent dropped messages and other problems when you use the functions repeatedly with different notifiers. Palette Object Description Wait on Notification with Notifier History Function Waits until a notifier receives a message. This function tracks the most recent message and timestamp for each individual notifier when you use this function repeatedly with different notifiers. Wait on Notification from Multiple with Notifier History Function Waits",
       "vi_path": null,
@@ -490,7 +488,6 @@
     },
     {
       "name": "Queue Operations",
-      "page": 1946,
       "category": "Synchronization",
       "description": "Use the Queue Operations functions to create a queue for communicating data between sections of a block diagram or from another VI. Unlike the Notifier Operations functions, the Queue Operations functions buffer data. Palette Object Description Obtain Queue Function Returns a reference to a queue. Enqueue Element Function Adds an element to the back of a queue. Preview Queue Element Function Returns the element at the front of the queue without removing the element from the queue. Get Queue Retu",
       "vi_path": null,
@@ -537,7 +534,7 @@
     },
     {
       "name": "Obtain Queue Function",
-      "page": 1947,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/obtain-queue.html",
       "category": "Synchronization",
       "description": "Returns a reference to a queue. Use this reference when calling other Queue Operations functions. Functions © National Instruments 1947",
       "vi_path": null,
@@ -605,7 +602,7 @@
     },
     {
       "name": "Enqueue Element Function",
-      "page": 1950,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/enqueue-element.html",
       "category": "Synchronization",
       "description": "Adds an element to the back of a queue.",
       "vi_path": null,
@@ -673,7 +670,7 @@
     },
     {
       "name": "Preview Queue Element Function",
-      "page": 1952,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/preview-queue-element.html",
       "category": "Synchronization",
       "description": "Returns the element at the front of the queue without removing the element from the queue.",
       "vi_path": null,
@@ -734,7 +731,7 @@
     },
     {
       "name": "Get Queue Status Function",
-      "page": 1953,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/get-queue-status.html",
       "category": "Synchronization",
       "description": "Returns information about the current state of a queue, such as the number of elements currently in the queue. You also can use this function to verify that queue is a valid queue refnum. If queue is not a valid queue refnum, the function returns error code 1.",
       "vi_path": null,
@@ -823,7 +820,7 @@
     },
     {
       "name": "Release Queue Function",
-      "page": 1955,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/release-queue.html",
       "category": "Synchronization",
       "description": "Releases a reference to a queue.",
       "vi_path": null,
@@ -863,7 +860,7 @@
     },
     {
       "name": "Lossy Enqueue Element Function",
-      "page": 1956,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/lossy-enqueue-element.html",
       "category": "Synchronization",
       "description": "Adds an element to a queue. If no space is available in the queue, this function removes an element from the front of the queue and discards the element to make Functions 1956 ni.com space. Unlike the Enqueue Element function, this function does not wait for room in the queue to become available. Use the Obtain Queue function to set the maximum size of the queue.",
       "vi_path": null,
@@ -924,7 +921,7 @@
     },
     {
       "name": "Enqueue Element At Opposite End Function",
-      "page": 1958,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/enqueue-element-at-opposite-end.html",
       "category": "Synchronization",
       "description": "Adds an element to the front of a queue.",
       "vi_path": null,
@@ -992,7 +989,7 @@
     },
     {
       "name": "Dequeue Element Function",
-      "page": 1959,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/dequeue-element.html",
       "category": "Synchronization",
       "description": "Removes an element from the front of a queue and returns the element. If the queue is empty, the function waits timeout in ms before timing out. If an element becomes available in the queue during the wait, the function removes and returns the element and timed out? is FALSE. If queue becomes invalid (for example, the queue reference is released), the function stops waiting and returns error code 1122. Functions © National Instruments 1959",
       "vi_path": null,
@@ -1060,7 +1057,7 @@
     },
     {
       "name": "Flush Queue Function",
-      "page": 1961,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/flush-queue.html",
       "category": "Synchronization",
       "description": "Removes all elements from a queue and returns the elements as an array. This function does not release the queue reference. Use the Release Queue function to release the reference.",
       "vi_path": null,
@@ -1107,7 +1104,7 @@
     },
     {
       "name": "Obtain Semaphore Reference",
-      "page": 1963,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/semaphor-llb/obtain-semaphore-reference-vi.html",
       "category": "Synchronization",
       "description": "Obtains a reference to an existing semaphore or creates a new semaphore and returns a reference to that semaphore. Use this VI in conjunction with the other Semaphore VIs to implement a semaphore in LabVIEW.",
       "vi_path": null,
@@ -1147,7 +1144,7 @@
     },
     {
       "name": "Acquire Semaphore",
-      "page": 1964,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/semaphor-llb/acquire-semaphore-vi.html",
       "category": "Synchronization",
       "description": "Acquires access to a semaphore. Use this VI in conjunction with the other Semaphore VIs to implement a semaphore in LabVIEW. Functions 1964 ni.com",
       "vi_path": null,
@@ -1201,7 +1198,7 @@
     },
     {
       "name": "Release Semaphore",
-      "page": 1966,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/semaphor-llb/release-semaphore-vi.html",
       "category": "Synchronization",
       "description": "Releases access to a semaphore. If the Acquire Semaphore VI is waiting for the semaphore this VI releases, it stops waiting and continues execution. Use this VI in conjunction with the other Semaphore VIs to implement a semaphore in LabVIEW.",
       "vi_path": null,
@@ -1248,7 +1245,7 @@
     },
     {
       "name": "Release Semaphore Reference",
-      "page": 1967,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/semaphor-llb/release-semaphore-reference-vi.html",
       "category": "Synchronization",
       "description": "Releases a reference to a semaphore. Use this VI in conjunction with the other Semaphore VIs to implement a semaphore in LabVIEW.",
       "vi_path": null,
@@ -1288,7 +1285,7 @@
     },
     {
       "name": "Get Semaphore Status",
-      "page": 1968,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/semaphor-llb/get-semaphore-status-vi.html",
       "category": "Synchronization",
       "description": "Returns current status information of a semaphore. Use this VI in conjunction with the other Semaphore VIs to implement a semaphore in LabVIEW.",
       "vi_path": null,
@@ -1356,7 +1353,7 @@
     },
     {
       "name": "Not A Semaphore",
-      "page": 1969,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/semaphor-llb/not-a-semaphore-vi.html",
       "category": "Synchronization",
       "description": "Returns TRUE if semaphore is not a valid semaphore refnum. Use this VI in conjunction with the other Semaphore VIs to implement a semaphore in LabVIEW. Functions © National Instruments 1969",
       "vi_path": null,
@@ -1382,7 +1379,7 @@
     },
     {
       "name": "Create Rendezvous",
-      "page": 1971,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/rendezvs-llb/create-rendezvous-vi.html",
       "category": "Synchronization",
       "description": "Looks up an existing rendezvous or creates a new rendezvous and returns a refnum. You can use this refnum when calling other Rendezvous VIs.",
       "vi_path": null,
@@ -1415,7 +1412,7 @@
     },
     {
       "name": "Wait at Rendezvous",
-      "page": 1972,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/rendezvs-llb/wait-at-rendezvous-vi.html",
       "category": "Synchronization",
       "description": "Waits until a sufficient number of tasks have arrived at the rendezvous. Note You cannot use a rendezvous to communicate between LabVIEW application instance. If you create a rendezvous reference in one application instance, you cannot use that rendezvous reference in another application instance. Functions 1972 ni.com",
       "vi_path": null,
@@ -1469,7 +1466,7 @@
     },
     {
       "name": "Resize Rendezvous",
-      "page": 1973,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/rendezvs-llb/resize-rendezvous-vi.html",
       "category": "Synchronization",
       "description": "Changes the size of rendezvous by size change and returns new size. Functions © National Instruments 1973",
       "vi_path": null,
@@ -1523,7 +1520,7 @@
     },
     {
       "name": "Destroy Rendezvous",
-      "page": 1974,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/rendezvs-llb/destroy-rendezvous-vi.html",
       "category": "Synchronization",
       "description": "Destroys the specified rendezvous. All Wait at Rendezvous VIs that are currently waiting on this rendezvous time out immediately and return an error. Functions 1974 ni.com",
       "vi_path": null,
@@ -1570,7 +1567,7 @@
     },
     {
       "name": "Get Rendezvous Status",
-      "page": 1975,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/rendezvs-llb/get-rendezvous-status-vi.html",
       "category": "Synchronization",
       "description": "Returns current status information of a rendezvous. Functions © National Instruments 1975",
       "vi_path": null,
@@ -1631,7 +1628,7 @@
     },
     {
       "name": "Not A Rendezvous",
-      "page": 1976,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/rendezvs-llb/not-a-rendezvous-vi.html",
       "category": "Synchronization",
       "description": "Returns TRUE if rendezvous is not a valid rendezvous refnum.",
       "vi_path": null,
@@ -1657,7 +1654,7 @@
     },
     {
       "name": "Generate Occurrence Function",
-      "page": 1978,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/generate-occurrence.html",
       "category": "Synchronization",
       "description": "Generates an occurrence that you can pass to the Wait on Occurrence and Set Occurrence functions.",
       "vi_path": null,
@@ -1683,7 +1680,7 @@
     },
     {
       "name": "Wait on Occurrence Function",
-      "page": 1979,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/wait-on-occurrence.html",
       "category": "Synchronization",
       "description": "Waits for the Set Occurrence function to set the given occurrence.",
       "vi_path": null,
@@ -1716,7 +1713,7 @@
     },
     {
       "name": "Set Occurrence Function",
-      "page": 1980,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/set-occurrence.html",
       "category": "Synchronization",
       "description": "Sets the specified occurrence. All nodes that are waiting for this occurrence stop waiting.",
       "vi_path": null,
@@ -1749,7 +1746,7 @@
     },
     {
       "name": "First Call? Function",
-      "page": 1981,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/first-call.html",
       "category": "Synchronization",
       "description": "Indicates that a subVI or section of a block diagram is running for the first time. The First Call? function returns TRUE only the first time you call it after you click the Run button. You can place the First Call? function in multiple locations within a VI. The function returns TRUE the first time the section of the block diagram in which it is placed runs.",
       "vi_path": null,
@@ -1768,7 +1765,7 @@
     },
     {
       "name": "Synchronize Data Flow",
-      "page": 1982,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/synchronize-data-flow-vim.html",
       "category": "Synchronization",
       "description": "Passes through the values of the input wires after the upstream code executes. Use this VI to synchronize multiple parallel code paths at a single point of data flow to ensure a certain execution order.",
       "vi_path": null,

@@ -161,7 +161,11 @@ class VIEntry(BaseModel):
     inline: bool = False
     imports: list[str] = Field(default_factory=list)
     status: str = "needs_review"
-    page: int | None = None
+    # Public NI docs URL (labview-api-ref bundle). Replaces the old `page` PDF
+    # ref (task #87) — devs don't have the licensed PDF. Absent when no
+    # authoritative NI Functions page exists for this VI (category headers,
+    # a few edge math funcs, ambiguous polymorphic channel ops).
+    doc_url: str | None = None
     # Polymorphic variant support
     variant_signature: str | None = None  # Signature key for this variant
     is_variant: bool = False  # True if this is a variant entry

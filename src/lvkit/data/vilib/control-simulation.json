@@ -4,7 +4,7 @@
   "entries": [
     {
       "name": "PID (DBL) VI",
-      "page": 5716,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/addons/control/pid/pid-llb/pid-dbl-vi.html",
       "category": "Control & Simulation",
       "description": "Implements a PID controller using a PID algorithm for simple PID applications or high speed control applications that require an efficient algorithm. The PID algorithm features control output range limiting with integrator anti-windup and bumpless controller output for PID gain changes. Use the DBL instance of this VI to implement a single control loop. Use the DBL Array instance to implement parallel multi-loop control. Functions 5716 ni.com",
       "vi_path": null,
@@ -65,7 +65,7 @@
     },
     {
       "name": "PID (DBL Array) VI",
-      "page": 5719,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/addons/control/pid/pid-llb/pid-dbl-array-vi.html",
       "category": "Control & Simulation",
       "description": "Implements a PID controller using a PID algorithm for simple PID applications or high speed control applications that require an efficient algorithm. The PID algorithm features control output range limiting with integrator anti-windup and bumpless controller output for PID gain changes. Use the DBL instance of this VI to implement a single control loop. Use the DBL Array instance to implement parallel multi-loop control.",
       "vi_path": null,
@@ -182,7 +182,7 @@
     },
     {
       "name": "PID (Compatibility) VI",
-      "page": 5722,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/addons/control/pid/prctrl-compat-llb/pid-compatibility-vi.html",
       "category": "Control & Simulation",
       "description": "Implements a PID controller using a PID algorithm for simple PID applications or high speed control applications that require an efficient algorithm. The PID algorithm features control output range limiting with integrator anti-windup and bumpless controller output for PID gain changes. Use the DBL instance of this VI to implement a single control loop. Use the DBL Array instance to implement parallel multi-loop control.",
       "vi_path": null,
@@ -285,7 +285,7 @@
     },
     {
       "name": "PID Advanced (DBL) VI",
-      "page": 5727,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/addons/control/pid/pid-llb/pid-advanced-dbl-vi.html",
       "category": "Control & Simulation",
       "description": "Implements a PID controller using a PID algorithm with advanced optional features. The advanced PID algorithm includes the features of the algorithm the PID VI uses, as well as manual mode control with bumpless manual-to-automatic transitions, nonlinear integral action, two degree-of-freedom control, and error-squared control. Use the DBL instance of this VI to implement a single control loop. Use the DBL Array instance to implement parallel multi-loop control. Functions © National Instruments 5",
       "vi_path": null,
@@ -381,7 +381,7 @@
     },
     {
       "name": "PID Advanced (DBL Array) VI",
-      "page": 5732,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/addons/control/pid/pid-llb/pid-advanced-dbl-array-vi.html",
       "category": "Control & Simulation",
       "description": "Implements a PID controller using a PID algorithm with advanced optional features. The advanced PID algorithm includes the features of the algorithm the PID VI uses, as well as manual mode control with bumpless manual-to-automatic transitions, nonlinear integral action, two degree-of-freedom control, and error-squared control. Use the DBL instance of this VI to implement a single control loop. Use the DBL Array instance to implement parallel multi-loop control. Functions 5732 ni.com",
       "vi_path": null,
@@ -421,7 +421,7 @@
     },
     {
       "name": "PID Gain Schedule (DBL) VI",
-      "page": 5753,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/addons/control/pid/pid-llb/pid-gain-schedule-dbl-vi.html",
       "category": "Control & Simulation",
       "description": "Selects a set of PID gains from a gain schedule for the control of processes that require different sets of gains for different regions of operation, such as highly nonlinear processes. Use the DBL instance of this VI to implement a single control loop. Use the DBL Array instance to implement parallel multi-loop control.",
       "vi_path": null,
@@ -468,7 +468,7 @@
     },
     {
       "name": "PID Gain Schedule (DBL Array) VI",
-      "page": 5755,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/addons/control/pid/pid-llb/pid-gain-schedule-dbl-array-vi.html",
       "category": "Control & Simulation",
       "description": "Selects a set of PID gains from a gain schedule for the control of processes that require different sets of gains for different regions of operation, such as highly nonlinear processes. Use the DBL instance of this VI to implement a single control loop. Use the DBL Array instance to implement parallel multi-loop control.",
       "vi_path": null,
@@ -585,7 +585,7 @@
     },
     {
       "name": "PID Structure Conversion (DBL) VI",
-      "page": 5759,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/addons/control/pid/pid-llb/pid-structure-conversion-dbl-vi.html",
       "category": "Control & Simulation",
       "description": "Converts a PID controller or controllers in Academic, Parallel, or Series form into the form (Academic) and PID gains units that the PID VIs expect. Wire data to the proportional, integral, or derivative input to determine the polymorphic instance to use, or manually select the instance.",
       "vi_path": null,
@@ -629,7 +629,7 @@
     },
     {
       "name": "PID Structure Conversion (DBL Array) VI",
-      "page": 5762,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/addons/control/pid/pid-llb/pid-structure-conversion-dbl-array-vi.html",
       "category": "Control & Simulation",
       "description": "Converts a PID controller or controllers in Academic, Parallel, or Series form into the form (Academic) and PID gains units that the PID VIs expect. Wire data to the proportional, integral, or derivative input to determine the polymorphic instance to use, or manually select the instance.",
       "vi_path": null,
@@ -733,7 +733,7 @@
     },
     {
       "name": "PID Autotuning Design (Auto) VI",
-      "page": 5765,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/addons/control/pid/autopid-llb/pid-autotuning-design-auto-vi.html",
       "category": "Control & Simulation",
       "description": "Implements autotuning using the tuning method associated with the polymorphic instance you select. This VI generates PID parameters based on the Stimulus signal and Response signal you specify. You can use this VI to generate initial parameters when you do not have sufficient information about the system you want to tune. You must manually select the polymorphic instance to use. Functions © National Instruments 5765",
       "vi_path": null,
@@ -879,7 +879,7 @@
     },
     {
       "name": "PID Autotuning Design (Ziegler-Nichols) VI",
-      "page": 5768,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/addons/control/pid/autopid-llb/pid-autotuning-design-ziegler-nichols-vi.html",
       "category": "Control & Simulation",
       "description": "Implements autotuning using the tuning method associated with the polymorphic instance you select. This VI generates PID parameters based on the Stimulus signal and Response signal you specify. You can use this VI to generate initial parameters when you do not have sufficient information about the system you want to tune. You must manually select the polymorphic instance to use.",
       "vi_path": null,
@@ -972,7 +972,7 @@
     },
     {
       "name": "PID Autotuning Design (Cohen-Coon) VI",
-      "page": 5771,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/addons/control/pid/autopid-llb/pid-autotuning-design-cohen-coon-vi.html",
       "category": "Control & Simulation",
       "description": "Implements autotuning using the tuning method associated with the polymorphic instance you select. This VI generates PID parameters based on the Stimulus signal and Response signal you specify. You can use this VI to generate initial parameters when you do not have sufficient information about the system you want to tune. You must manually select the polymorphic instance to use.",
       "vi_path": null,
@@ -1021,7 +1021,7 @@
     },
     {
       "name": "PID Autotuning Design (Chien-Hrones-Reswick) VI",
-      "page": 5773,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/addons/control/pid/autopid-llb/pid-autotuning-design-chien-hrones-reswick-vi.html",
       "category": "Control & Simulation",
       "description": "Implements autotuning using the tuning method associated with the polymorphic instance you select. This VI generates PID parameters based on the Stimulus signal and Response signal you specify. You can use this VI to generate initial parameters when you do not have sufficient information about the system you want to tune. You must manually select the polymorphic instance to use.",
       "vi_path": null,
@@ -1161,7 +1161,7 @@
     },
     {
       "name": "PID Autotuning Design (Internal Model Control) VI",
-      "page": 5776,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/addons/control/pid/autopid-llb/pid-autotuning-design-internal-model-control-vi.html",
       "category": "Control & Simulation",
       "description": "Implements autotuning using the tuning method associated with the polymorphic instance you select. This VI generates PID parameters based on the Stimulus signal and Response signal you specify. You can use this VI to generate initial parameters when you do not have sufficient information about the system you want to tune. You must manually select the polymorphic instance to use.",
       "vi_path": null,
@@ -1280,7 +1280,7 @@
     },
     {
       "name": "PID Online Autotuning (Step Open Loop) VI",
-      "page": 5779,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/addons/control/pid/autopid-llb/pid-online-autotuning-step-open-loop-vi.html",
       "category": "Control & Simulation",
       "description": "Controls the parameters of a PID controller based on the autotuning technique of the polymorphic instance you select. You can use this VI in applications with other PID VIs, such as PID or PID Advanced, to construct and tune a PID controller. You must manually select the polymorphic instance to use.",
       "vi_path": null,
@@ -1440,7 +1440,7 @@
     },
     {
       "name": "PID Online Autotuning (Step Closed Loop) VI",
-      "page": 5783,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/addons/control/pid/autopid-llb/pid-online-autotuning-step-closed-loop-vi.html",
       "category": "Control & Simulation",
       "description": "Controls the parameters of a PID controller based on the autotuning technique of the polymorphic instance you select. You can use this VI in applications with other PID VIs, such as PID or PID Advanced, to construct and tune a PID controller. You must manually select the polymorphic instance to use.",
       "vi_path": null,
@@ -1475,7 +1475,7 @@
     },
     {
       "name": "PID Online Autotuning (Relay Feedback) VI",
-      "page": 5787,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/addons/control/pid/autopid-llb/pid-online-autotuning-relay-feedback-vi.html",
       "category": "Control & Simulation",
       "description": "Controls the parameters of a PID controller based on the autotuning technique of the polymorphic instance you select. You can use this VI in applications with other PID VIs, such as PID or PID Advanced, to construct and tune a PID controller. You must manually select the polymorphic instance to use.",
       "vi_path": null,
@@ -1501,7 +1501,7 @@
     },
     {
       "name": "PID Online Autotuning (PID on the loop) VI",
-      "page": 5791,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/addons/control/pid/autopid-llb/pid-online-autotuning-pid-on-the-loop-vi.html",
       "category": "Control & Simulation",
       "description": "Controls the parameters of a PID controller based on the autotuning technique of the polymorphic instance you select. You can use this VI in applications with other PID VIs, such as PID or PID Advanced, to construct and tune a PID controller. You must manually select the polymorphic instance to use.",
       "vi_path": null,
@@ -1640,7 +1640,7 @@
     },
     {
       "name": "PID Lead-Lag (DBL) VI",
-      "page": 5796,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/addons/control/pid/pid-llb/pid-lead-lag-dbl-vi.html",
       "category": "Control & Simulation",
       "description": "Implements a PID controller with a lead/lag function, which is generally used as a dynamic compensator in feedforward control schemes. This VI uses a positional algorithm and is an approximation of a true exponential lead/lag. Use the DBL instance of this VI to implement a single control loop. Use the DBL Array instance to implement parallel multi-loop control.",
       "vi_path": null,
@@ -1729,7 +1729,7 @@
     },
     {
       "name": "PID Lead-Lag (DBL Array) VI",
-      "page": 5798,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/addons/control/pid/pid-llb/pid-lead-lag-dbl-array-vi.html",
       "category": "Control & Simulation",
       "description": "Implements a PID controller with a lead/lag function, which is generally used as a dynamic compensator in feedforward control schemes. This VI uses a positional algorithm and is an approximation of a true exponential lead/lag. Use the DBL instance of this VI to implement a single control loop. Use the DBL Array instance to implement Functions 5798 ni.com parallel multi-loop control.",
       "vi_path": null,
@@ -1790,7 +1790,7 @@
     },
     {
       "name": "PID Control Input Filter (DBL) VI",
-      "page": 5804,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/addons/control/pid/pid-llb/pid-control-input-filter-dbl-vi.html",
       "category": "Control & Simulation",
       "description": "Applies a fifth-order lowpass finite impulse response (FIR) filter to the input value. Filter cut-off frequency is designed to be 1/10 of the sample frequency of the input value. Use this VI to filter measured values, such as the process variable, in control applications. Use the DBL instance of this VI to implement a single control loop. Use the DBL Array instance to implement parallel multi-loop control. To ensure that the filter does not attenuate useful measurement information, set the sampl",
       "vi_path": null,
@@ -1858,7 +1858,7 @@
     },
     {
       "name": "PID Control Input Filter (DBL Array) VI",
-      "page": 5805,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/addons/control/pid/pid-llb/pid-control-input-filter-dbl-array-vi.html",
       "category": "Control & Simulation",
       "description": "Applies a fifth-order lowpass finite impulse response (FIR) filter to the input value. Filter cut-off frequency is designed to be 1/10 of the sample frequency of the input value. Use this VI to filter measured values, such as the process variable, in control applications. Use the DBL instance of this VI to implement a single control loop. Use the DBL Array instance to implement parallel multi-loop control. To ensure that the filter does not attenuate useful measurement information, set the sampl",
       "vi_path": null,
@@ -1912,7 +1912,7 @@
     },
     {
       "name": "PID Output Rate Limiter (DBL) VI",
-      "page": 5807,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/addons/control/pid/pid-llb/pid-output-rate-limiter-dbl-vi.html",
       "category": "Control & Simulation",
       "description": "Limits the rate of change of the controller output. Place this VI immediately after the PID VI in your control application. Use the DBL instance of this VI to implement a single control loop. Use the DBL Array instance to implement parallel multi-loop control. Functions © National Instruments 5807",
       "vi_path": null,
@@ -2008,7 +2008,7 @@
     },
     {
       "name": "PID Output Rate Limiter (DBL Array) VI",
-      "page": 5809,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/addons/control/pid/pid-llb/pid-output-rate-limiter-dbl-array-vi.html",
       "category": "Control & Simulation",
       "description": "Limits the rate of change of the controller output. Place this VI immediately after the PID VI in your control application. Use the DBL instance of this VI to implement a single control loop. Use the DBL Array instance to implement parallel multi-loop control.",
       "vi_path": null,
@@ -2090,7 +2090,7 @@
     },
     {
       "name": "PID EGU to Percentage (DBL) VI",
-      "page": 5812,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/addons/control/pid/pid-llb/pid-egu-to-percentage-dbl-vi.html",
       "category": "Control & Simulation",
       "description": "Converts an engineering-units input to a percent-of-range output based on the minimum and maximum range settings. Use the DBL instance of this VI to implement a single control loop. Use the DBL Array instance to implement parallel multi-loop control.",
       "vi_path": null,
@@ -2165,7 +2165,7 @@
     },
     {
       "name": "PID EGU to Percentage (DBL Array) VI",
-      "page": 5813,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/addons/control/pid/pid-llb/pid-egu-to-percentage-dbl-array-vi.html",
       "category": "Control & Simulation",
       "description": "Converts an engineering-units input to a percent-of-range output based on the minimum and maximum range settings. Use the DBL instance of this VI to implement a single control loop. Use the DBL Array instance to implement parallel multi-loop control.",
       "vi_path": null,
@@ -2226,7 +2226,7 @@
     },
     {
       "name": "PID Percentage to EGU (DBL) VI",
-      "page": 5815,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/addons/control/pid/pid-llb/pid-percentage-to-egu-dbl-vi.html",
       "category": "Control & Simulation",
       "description": "Converts a percent-of-range input to an engineering-units output based on the minimum and maximum range settings. The output is normally limited to the range [max...min]. Values outside of the range [max..min] are allowed when coerce output to range? is FALSE. Use the DBL instance of this VI to implement a single control loop. Use Functions © National Instruments 5815 the DBL Array instance to implement parallel multi-loop control.",
       "vi_path": null,
@@ -2315,7 +2315,7 @@
     },
     {
       "name": "PID Percentage to EGU (DBL Array) VI",
-      "page": 5817,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/addons/control/pid/pid-llb/pid-percentage-to-egu-dbl-array-vi.html",
       "category": "Control & Simulation",
       "description": "Converts a percent-of-range input to an engineering-units output based on the minimum and maximum range settings. The output is normally limited to the range [max...min]. Values outside of the range [max..min] are allowed when coerce output to range? is FALSE. Use the DBL instance of this VI to implement a single control loop. Use the DBL Array instance to implement parallel multi-loop control.",
       "vi_path": null,
@@ -2383,7 +2383,7 @@
     },
     {
       "name": "FL Fuzzy Controller (SISO) VI",
-      "page": 5820,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/addons/fuzzy-logic/fl-fuzzy-controller-siso-vi.html",
       "category": "Control & Simulation",
       "description": "Implements a fuzzy logic controller for the fuzzy system you specify. By default, this VI implements a fuzzy logic controller for a single-input single-output (SISO) fuzzy system. You must manually select the polymorphic instance you want to use. Functions 5820 ni.com",
       "vi_path": null,
@@ -2444,7 +2444,7 @@
     },
     {
       "name": "FL Fuzzy Controller (SIMO) VI",
-      "page": 5822,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/addons/fuzzy-logic/fl-fuzzy-controller-simo-vi.html",
       "category": "Control & Simulation",
       "description": "Implements a fuzzy logic controller for the fuzzy system you specify. By default, this VI implements a fuzzy logic controller for a single-input single-output (SISO) fuzzy system. You must manually select the polymorphic instance you want to use.",
       "vi_path": null,
@@ -2512,7 +2512,7 @@
     },
     {
       "name": "FL Fuzzy Controller (MISO) VI",
-      "page": 5823,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/addons/fuzzy-logic/fl-fuzzy-controller-miso-vi.html",
       "category": "Control & Simulation",
       "description": "Implements a fuzzy logic controller for the fuzzy system you specify. By default, this VI implements a fuzzy logic controller for a single-input single-output (SISO) fuzzy system. You must manually select the polymorphic instance you want to use. Functions © National Instruments 5823",
       "vi_path": null,
@@ -2601,7 +2601,7 @@
     },
     {
       "name": "FL Fuzzy Controller (MIMO) VI",
-      "page": 5825,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/addons/fuzzy-logic/fl-fuzzy-controller-mimo-vi.html",
       "category": "Control & Simulation",
       "description": "Implements a fuzzy logic controller for the fuzzy system you specify. By default, this VI implements a fuzzy logic controller for a single-input single-output (SISO) fuzzy system. You must manually select the polymorphic instance you want to use.",
       "vi_path": null,
@@ -2634,7 +2634,7 @@
     },
     {
       "name": "FL Get Variable VI",
-      "page": 5838,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/addons/fuzzy-logic/variables/fl-get-variable-vi.html",
       "category": "Control & Simulation",
       "description": "Returns the name, range, and membership functions for a linguistic variable in a fuzzy system.",
       "vi_path": null,
@@ -2723,7 +2723,7 @@
     },
     {
       "name": "FL Set Variable VI",
-      "page": 5840,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/addons/fuzzy-logic/variables/fl-set-variable-vi.html",
       "category": "Control & Simulation",
       "description": "Modifies the name, range, or membership functions of a linguistic variable in a fuzzy system. Functions 5840 ni.com",
       "vi_path": null,
@@ -2793,7 +2793,7 @@
     },
     {
       "name": "FL Plot Variable VI",
-      "page": 5844,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/addons/fuzzy-logic/utilities/fl-plot-variable-vi.html",
       "category": "Control & Simulation",
       "description": "Plots a specific input or output variable that is in a fuzzy system with the membership functions of that variable. Functions 5844 ni.com",
       "vi_path": null,
@@ -2870,7 +2870,6 @@
     },
     {
       "name": "FL Create Membership Function",
-      "page": 5847,
       "category": "Control & Simulation",
       "description": "Creates a membership function for a linguistic variable. You also can use the Define Variable dialog box to create membership functions interactively. By default, this VI uses a triangle function to determine the degrees of membership for the linguistic variable. You must manually select the polymorphic instance you want to use. • FL Create Membership Function (Triangle) VI • FL Create Membership Function (Trapezoid) VI • FL Create Membership Function (Singleton) VI • FL Create Membership Functi",
       "vi_path": null,
@@ -2966,7 +2965,7 @@
     },
     {
       "name": "FL Get Membership Function VI",
-      "page": 5862,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/addons/fuzzy-logic/membership/fl-get-membership-function-vi.html",
       "category": "Control & Simulation",
       "description": "Returns the shape, color, and points of a membership function for a linguistic variable. You can return a membership function from a fuzzy system or from an array of membership functions. The data type you wire to the fuzzy system in input determines the polymorphic instance to use. Functions 5862 ni.com • FL Get Membership Function (Fuzzy System) VI • FL Get Membership Function (MF Array) VI FL Get Membership Function (Fuzzy System) FL Get Membership Function (Fuzzy System) VI VI Returns the sh",
       "vi_path": null,
@@ -2999,7 +2998,7 @@
     },
     {
       "name": "FL Set Membership Function VI",
-      "page": 5869,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/addons/fuzzy-logic/membership/fl-set-membership-function-vi.html",
       "category": "Control & Simulation",
       "description": "Modifies the shape, color, or points of a membership function for a linguistic variable. You can modify a membership function from a fuzzy system or from an array of membership functions. The data type you wire to the fuzzy system in input determines the polymorphic instance to use. • FL Set Membership Function (Fuzzy System) VI • FL Set Membership Function (MF array) VI FL Set Membership Function (Fuzzy System) FL Set Membership Function (Fuzzy System) VI VI Modifies the shape, color, or points",
       "vi_path": null,
@@ -3115,7 +3114,7 @@
     },
     {
       "name": "FL Get Number of Membership Functions",
-      "page": 5876,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/addons/fuzzy-logic/membership/fl-get-number-of-membership-functions-vi.html",
       "category": "Control & Simulation",
       "description": "Returns the number of membership functions for all input and output variables in the fuzzy system you specify.",
       "vi_path": null,
@@ -3169,7 +3168,7 @@
     },
     {
       "name": "FL Get Membership Function Names VI",
-      "page": 5877,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/addons/fuzzy-logic/membership/fl-get-membership-function-names-vi.html",
       "category": "Control & Simulation",
       "description": "Returns the names of the linguistic terms for a linguistic variable. Membership functions represent the degree of membership of linguistic variables within their linguistic terms. You can return the names of the membership functions from a fuzzy system or from an array of membership functions. The data type you wire to the fuzzy system in input determines the polymorphic instance to use. • FL Get Membership Function Names (Fuzzy System) VI • FL Get Membership Function Names (MF Array) VI FL Get ",
       "vi_path": null,
@@ -3260,7 +3259,7 @@
     },
     {
       "name": "FL System VI",
-      "page": 5901,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/addons/fuzzy-logic/typedefs/fl-system-ctl.html",
       "category": "Control & Simulation",
       "description": "Many Fuzzy Logic VIs contain a fuzzy system in or fuzzy system out parameter that contains the complete information for a fuzzy system. Wire the fuzzy system out output from one VI to the fuzzy system in input of another VI. Data type • fuzzy system — Specifies the complete information for a fuzzy system. Wire the fuzzy system out output from one VI to the fuzzy system in input of another VI. • input variables — input variables specifies the input linguistic variables for the fuzzy system. • nam",
       "vi_path": null,

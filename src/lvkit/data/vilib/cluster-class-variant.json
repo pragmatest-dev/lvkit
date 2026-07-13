@@ -4,7 +4,6 @@
   "entries": [
     {
       "name": "Related Information",
-      "page": 455,
       "category": "Cluster, Class, & Variant",
       "description": "",
       "vi_path": null,
@@ -15,7 +14,7 @@
     },
     {
       "name": "Unbundle By Name",
-      "page": 457,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/unbundle-by-name.html",
       "category": "Cluster, Class, & Variant",
       "description": "Returns the cluster elements whose names you specify. Functions © National Instruments 457 You do not have to keep track of the order of the elements within the cluster. This function does not require the number of elements to match the number in the cluster. After you wire a cluster to this function, you can select an individual element from the function. The connector pane displays the default data types for this polymorphic function.",
       "vi_path": null,
@@ -41,7 +40,7 @@
     },
     {
       "name": "Bundle By Name",
-      "page": 458,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/bundle-by-name.html",
       "category": "Cluster, Class, & Variant",
       "description": "Replaces one or more cluster elements. This function refers to cluster elements by name instead of by their position in the cluster. After you wire the node to an input cluster, right-click the name terminals to select elements from the shortcut menu. You also can use the Operating tool to click the name terminals and select from a list of cluster elements. The connector pane displays the default data types for this polymorphic function. Functions 458 ni.com",
       "vi_path": null,
@@ -74,7 +73,7 @@
     },
     {
       "name": "Build Cluster Array",
-      "page": 462,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/build-cluster-array.html",
       "category": "Cluster, Class, & Variant",
       "description": "Bundles each element input into a cluster and assembles all element clusters into an array of clusters. The connector pane displays the default data types for this polymorphic function.",
       "vi_path": null,
@@ -100,7 +99,7 @@
     },
     {
       "name": "Index & Bundle Cluster Array",
-      "page": 463,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/index-bundle-cluster-array.html",
       "category": "Cluster, Class, & Variant",
       "description": "Indexes a set of arrays and creates a cluster array in which the ith element contains the ith element of each input array. The connector pane displays the default data types for this polymorphic function.",
       "vi_path": null,
@@ -126,7 +125,7 @@
     },
     {
       "name": "Cluster To Array Function",
-      "page": 464,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/cluster-to-array.html",
       "category": "Cluster, Class, & Variant",
       "description": "Converts a cluster of elements of the same data type to a 1D array of elements of the same data type. Functions 464 ni.com",
       "vi_path": null,
@@ -159,7 +158,7 @@
     },
     {
       "name": "Array To Cluster Function",
-      "page": 465,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/array-to-cluster.html",
       "category": "Cluster, Class, & Variant",
       "description": "Converts a 1D array to a cluster of elements of the same type as the array elements. Double-click the function to open the Cluster Size dialog box and set the number of elements in the cluster. The default is nine. The maximum cluster size for this function is 256. Use this function when you want to display elements of the same type in a front panel cluster indicator but want to manipulate the elements on the block diagram by their index values. Functions © National Instruments 465",
       "vi_path": null,
@@ -192,7 +191,7 @@
     },
     {
       "name": "Call Parent Class Method",
-      "page": 466,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/call-parent-class-method.html",
       "category": "Cluster, Class, & Variant",
       "description": "Calls the nearest ancestor implementation of a class method. You can use the Call Parent Class Method node only on the block diagram of a member VI that belongs to a Functions 466 ni.com class that inherits member VIs from an ancestor class. The child member VI must be a dynamic dispatching member VI and have the same name as the ancestor member VI. You cannot use this node to invoke methods from ancestor interfaces. The parameters, or input and output terminals, of this node depend on the ances",
       "vi_path": null,
@@ -203,7 +202,7 @@
     },
     {
       "name": "To More Specific Class Function",
-      "page": 467,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/to-more-specific-class.html",
       "category": "Cluster, Class, & Variant",
       "description": "Typecasts a reference, such as a control or a type definition, to a more specific class or interface in the inheritance hierarchy. For example, if Class A inherits from Class B, a variable of type B can hold a value of type A. You can use the function to downcast from type B to type A. If the typecast is invalid, this function returns an error at run time. You can use the To More Specific Class function for casting any class hierarchy in LabVIEW, including VI Server refnums, .NET/ActiveX refnums",
       "vi_path": null,
@@ -257,7 +256,7 @@
     },
     {
       "name": "To More Generic Class Function",
-      "page": 469,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/to-more-generic-class.html",
       "category": "Cluster, Class, & Variant",
       "description": "Typecasts a reference, such as a control or a type definition, to a more generic class or interface in the inheritance hierarchy. For example, if Class A inherits from Class B, the function upcasts a variable of type A to a variable of type B. You can use the To More Generic Class function for casting any class hierarchy in LabVIEW, including VI Server refnums, .NET/ActiveX refnums, and LabVIEW classes or interfaces.",
       "vi_path": null,
@@ -290,7 +289,7 @@
     },
     {
       "name": "Preserve Run-Time Class Function",
-      "page": 470,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/preserve-run-time-class.html",
       "category": "Cluster, Class, & Variant",
       "description": "Checks at run time whether object in is of the same class as, or is a child class of, target object. Use this function on the block diagram of a subVI when you want to guarantee that LabVIEW downcasts a LabVIEW class output of the subVI node to the same class type as a LabVIEW class input when the subVI receives a child class of the expected input type. Functions 470 ni.com",
       "vi_path": null,
@@ -358,7 +357,7 @@
     },
     {
       "name": "Get LV Class Default Value",
-      "page": 473,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/lvclass/get-lv-class-default-value-vi.html",
       "category": "Cluster, Class, & Variant",
       "description": "Returns the class data for the class whose path you wire to the class path input. If the class is not in memory, LabVIEW attempts to load it from disk. If any dependencies are missing, LabVIEW searches for the missing dependencies. If LabVIEW cannot find the dependency, LabVIEW assumes the dependency is missing and does not prompt the user to browse to the needed file. Use this VI to dynamically create class objects, including class objects that are unknown at edit time. Related Information Crea",
       "vi_path": null,
@@ -384,7 +383,7 @@
     },
     {
       "name": "Get LV Class Path",
-      "page": 474,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/lvclass/get-lv-class-path-vi.html",
       "category": "Cluster, Class, & Variant",
       "description": "Returns the path to the class of the object.",
       "vi_path": null,
@@ -440,7 +439,7 @@
     },
     {
       "name": "Get LV Class Default Value By Name",
-      "page": 475,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/lvclass/get-lv-class-default-value-by-name-vi.html",
       "category": "Cluster, Class, & Variant",
       "description": "Returns the class data for the class whose name you wire to the class name input. If the class is not in memory or is broken, LabVIEW returns an error.",
       "vi_path": null,
@@ -480,7 +479,7 @@
     },
     {
       "name": "Get LV Class Name",
-      "page": 476,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/lvclass/get-lv-class-name-vi.html",
       "category": "Cluster, Class, & Variant",
       "description": "Returns the name of the class of the object.",
       "vi_path": null,
@@ -520,7 +519,7 @@
     },
     {
       "name": "To Variant Function",
-      "page": 477,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/to-variant.html",
       "category": "Cluster, Class, & Variant",
       "description": "Converts any LabVIEW data to variant data. You also can use this function to convert ActiveX data to variant data.",
       "vi_path": null,
@@ -546,7 +545,7 @@
     },
     {
       "name": "Variant To Data Function",
-      "page": 478,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/variant-to-data.html",
       "category": "Cluster, Class, & Variant",
       "description": "Converts variant data to a LabVIEW data type so LabVIEW can display or process the data. You also can use this function to convert variant data to ActiveX data.",
       "vi_path": null,
@@ -593,7 +592,7 @@
     },
     {
       "name": "Flattened String To Variant Function",
-      "page": 480,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/flattened-string-to-variant.html",
       "category": "Cluster, Class, & Variant",
       "description": "Converts flattened data into variant data. Use the Flatten to String function to produce data string and type string.",
       "vi_path": null,
@@ -640,7 +639,7 @@
     },
     {
       "name": "Variant To Flattened String Function",
-      "page": 480,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/variant-to-flattened-string.html",
       "category": "Cluster, Class, & Variant",
       "description": "Converts variant data into a flattened string and an array of integers that represent the Functions 480 ni.com data type. You cannot flatten ActiveX variant data.",
       "vi_path": null,
@@ -673,7 +672,7 @@
     },
     {
       "name": "Get Variant Attribute Function",
-      "page": 481,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/get-variant-attribute.html",
       "category": "Cluster, Class, & Variant",
       "description": "Retrieves the names and values of all attributes or the value of a single attribute, depending on whether you wire the name parameter. The connector pane displays the default data types for this polymorphic function.",
       "vi_path": null,
@@ -741,7 +740,7 @@
     },
     {
       "name": "Set Variant Attribute Function",
-      "page": 483,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/set-variant-attribute.html",
       "category": "Cluster, Class, & Variant",
       "description": "Allows you to change or create an attribute and value for variant data.",
       "vi_path": null,
@@ -781,7 +780,7 @@
     },
     {
       "name": "Delete Variant Attribute Function",
-      "page": 484,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/delete-variant-attribute.html",
       "category": "Cluster, Class, & Variant",
       "description": "Deletes an attribute(s) and value(s) in variant data.",
       "vi_path": null,
@@ -835,7 +834,6 @@
     },
     {
       "name": "Data Type Parsing",
-      "page": 485,
       "category": "Cluster, Class, & Variant",
       "description": "Use the Data Type Parsing VIs to retrieve and compare the data type stored in a variant to other data types. Palette Object Description Get Type Information Retrieves data type information from the data type stored in variant. Get Array Information Retrieves array information from the data type stored in variant. This VI returns an error if variant does not contain an array. Get Cluster Information Retrieves cluster information from the data type stored in variant. This VI returns an error if va",
       "vi_path": null,
