@@ -39,12 +39,18 @@ def _decode_lengths(stream: list[int], n: int) -> list[int] | None:
     A byte below ``0xff`` is a one-byte length; ``0xff hi lo`` is a 16-bit
     big-endian length (used when a segment is 256 px or longer). Returns
     ``None`` unless exactly ``n`` values consume the whole stream.
+
+    The largest length observed across the corpus is 1510 px, and ``hi`` is
+    never ``0xff`` (no value >= 65280), so a ``0xff 0xff`` pair — the natural
+    sentinel for any wider/chained encoding — is unobserved and uncharacterized.
+    We return ``None`` on it rather than guess, letting the caller fall back to
+    the auto-router.
     """
     out: list[int] = []
     i = 0
     while i < len(stream) and len(out) < n:
         if stream[i] == 0xFF:
-            if i + 2 >= len(stream):
+            if i + 2 >= len(stream) or stream[i + 1] == 0xFF:
                 return None
             out.append((stream[i + 1] << 8) | stream[i + 2])
             i += 3
