@@ -2,7 +2,7 @@
 
 Lookup order:
 1. primResID -> exact match from primitives.json
-2. Name -> exact name match from primitives.json or primitives-from-pdf.json
+2. Name -> exact name match from primitives.json
 3. Exact type signature match
 4. Compatible type match (polymorphic/adapt-to-type)
 """
@@ -243,22 +243,18 @@ class PrimitiveResolver:
     def __init__(
         self,
         primitives_path: Path | str | None = None,
-        pdf_path: Path | str | None = None,
         project_data_dir: Path | None = None,
     ):
         """Load primitive database.
 
         Args:
             primitives_path: Path to primitives.json (shipped data)
-            pdf_path: Path to primitives-from-pdf.json (shipped data)
             project_data_dir: Optional project-local .lvkit/ directory.
                 Loaded BEFORE shipped data so project entries take priority.
         """
         bundled = _bundled_data_dir()
         if primitives_path is None:
             primitives_path = bundled / "primitives.json"
-        if pdf_path is None:
-            pdf_path = bundled / "primitives-from-pdf.json"
 
         self._by_id: dict[str, dict] = {}
         self._by_name: dict[str, dict] = {}  # Normalized name -> primitive
@@ -298,12 +294,11 @@ class PrimitiveResolver:
         }
 
         # Project data wins: load project file first, shipped file second.
-        # _load_codegen / _load_pdf both skip entries already present, so the
-        # first loader's entries take priority.
+        # _load_codegen skips entries already present, so the first loader's
+        # entries take priority.
         if project_data_dir is not None:
             self._load_codegen(project_data_dir / "primitives.json")
         self._load_codegen(Path(primitives_path))
-        self._load_pdf(Path(pdf_path))
 
     def clear(self) -> None:
         """Empty the data-bearing lookup tables.
@@ -384,23 +379,6 @@ class PrimitiveResolver:
         for node_type, info in node_types.items():
             if node_type not in self._by_node_type:
                 self._by_node_type[node_type] = info
-
-    def _load_pdf(self, path: Path) -> None:
-        """Load primitives from PDF extraction (no IDs, for name-based lookup)."""
-        if not path.exists():
-            return
-
-        with open(path) as f:
-            pdf_prims = json.load(f)
-
-        for python_name, prim_data in pdf_prims.items():
-            # Only add if not already present (codegen has priority)
-            norm_name = self._normalize_name(prim_data.get("name", python_name))
-            if norm_name not in self._by_name:
-                self._by_name[norm_name] = prim_data
-            # Also index by python_name
-            if python_name not in self._by_name:
-                self._by_name[python_name] = prim_data
 
     def _normalize_type(self, type_str: str) -> str:
         """Normalize type string."""
