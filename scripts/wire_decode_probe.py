@@ -8,17 +8,22 @@ direction encoding (see docs/wire-compression-format.md).
 
 Findings banked here (2026-07-13, branch wire-decode-fork-rule):
 
-* Fork token low-2-bits select a direction SUBSET; the 4th direction (W=0x02) is
-  the "unused bit" for the common eastbound-trunk case:
-      0x4 -> {N,S,E} (3-way)   0x5 -> {S,E}   0x6 -> {N,E}   0x7 -> {N,S}
-  This ABSOLUTE reading reproduces the eastbound-trunk corpus (~99%) and beats a
-  relative reading decisively (98.6% vs 92.4% on the reference set).
+* Fork token low-2-bits select an ABSOLUTE direction SUBSET of {N,S,E} (the base
+  set); the 4th direction (W=0x02) is the "unused bit" here:
+      0x4 -> imm N, sib [S,E] (3-way)   0x5 -> imm S, sib [E]
+      0x6 -> imm N, sib [E]             0x7 -> imm N, sib [S]
+  Beats a relative reading decisively (relative regresses to 92.4%).
+* UNIFIED TURNED-TRUNK RULE: any base direction that points BACKWARD (opposite
+  the current trunk) is remapped to the trunk's negative-axis perpendicular
+  (neg_perp = N for a horizontal trunk, W for a vertical trunk). This is fully
+  endpoint-free and reproduces the deep "comb" fan-ins on turned trunks. It also
+  corrects an earlier wrong conclusion (that the 0x7 tap side was endpoint-derived
+  and not in the bytes): it IS in the bytes -- it is neg_perp of the trunk.
 * The source compound-dir0 tee is the SAME rule seeded at the source.
-* OPEN PROBLEM: on a trunk that has turned SOUTH (deep "comb" fan-ins), the 0x7
-  tap must go WEST, not North. The tap direction of 0x7 flips N->W when the
-  incoming trunk turns E->S, and that context dependence is not yet modelled, so
-  deep S-trunk combs still mis-decode and must fall back to the auto-router (the
-  shipped search-based decoder handles them; this deterministic one does not yet).
+* Result: 99.48% faithful (<=20px) on the reference set with NO fork search and
+  NO tolerance. The residual ~0.5% is dominated by provably-misplaced terminals
+  (sRN/rSR, task #96), one deep mixed comb (n=8), and two flag=0x01 tapped-format
+  edge cases -- not fork-direction errors.
 
 Run:  uv run python scripts/wire_decode_probe.py
 """
@@ -31,10 +36,25 @@ from lvkit.extractor import extract_vi_xml
 from lvkit.render.layout import _LayoutBuilder
 from lvkit.render.wire_table import DIR, _decode_chain, _decode_lengths, _flip
 
+Point = tuple[float, float]
 N, S, E, W = (0, -1), (0, 1), (1, 0), (-1, 0)
-# ABSOLUTE fork directions keyed by the fork token's low 2 bits (W is the unused
-# 4th direction for eastbound trunks). immediate = fs[0]; deferred siblings = rest.
-FORKSET = {0x4: [N, S, E], 0x5: [S, E], 0x6: [N, E], 0x7: [N, S]}
+# Fork base sets keyed by the token's low 2 bits: (immediate, [deferred siblings]),
+# absolute directions over {N,S,E} (W is the unused 4th bit). On a TURNED trunk,
+# any base direction that points backward (opposite the trunk) is remapped to the
+# trunk's negative-axis perpendicular -- see _remap. Endpoint-free.
+FORK_BASE = {0x4: (N, [S, E]), 0x5: (S, [E]), 0x6: (N, [E]), 0x7: (N, [S])}
+
+
+def _neg_perp(d: Point) -> Point:
+    """The trunk's negative-axis perpendicular: N for a horizontal trunk (E/W),
+    W for a vertical trunk (N/S)."""
+    return N if d[0] != 0 else W
+
+
+def _remap(direction: Point, trunk: Point) -> Point:
+    """A fork direction that points BACKWARD (opposite the trunk) is drawn as the
+    trunk's negative-axis perpendicular instead."""
+    return _neg_perp(trunk) if direction == (-trunk[0], -trunk[1]) else direction
 
 # The reference VIs the fork rule is validated against (last night's + today's).
 REFS = [
@@ -89,11 +109,11 @@ def walk_tree(blob: str, sinks_n: int) -> list[tuple[float, float]] | None:
             pos = (jp[0] + sd[0] * L, jp[1] + sd[1] * L)
             d, path = sd, jpa + [pos]
         elif t & 0x04:  # BRANCH
-            fs = FORKSET.get(t)
-            if fs is None:
+            base = FORK_BASE.get(t)
+            if base is None:
                 return None
-            im = fs[0]
-            for sd in reversed(fs[1:]):
+            im = _remap(base[0], d)
+            for sd in reversed([_remap(s, d) for s in base[1]]):
                 stack.append((pos, sd, list(path)))
             pos = (pos[0] + im[0] * L, pos[1] + im[1] * L)
             d, path = im, path + [pos]

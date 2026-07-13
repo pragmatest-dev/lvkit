@@ -194,61 +194,57 @@ the deterministic faithful rate from **98.6% → 92.4%**. Absolute wins decisive
 It only *coincides* with a relative reading because ~99% of the corpus forks off
 an **eastbound** trunk, where `left/right/straight ≡ N/S/E`.
 
-**Fork = (sibling, tap), mined from ground truth.** A validating search over the
-reference set (try each perpendicular/straight at every fork, keep the decode
-whose leaves land on the known sinks) recovers each fork's two absolute
-directions. The **sibling** (how the trunk turns / continues after the fork) is
-**fully absolute and token-determined**, every sample agreeing:
+**Fork base sets + the turned-trunk remap (SOLVED, 2026-07-13).** Each fork's low
+2 bits select an ABSOLUTE base pair over `{N, S, E}` — `(immediate, [siblings])`:
 
-| token | sibling (trunk turn) | tap (branch) |
-|-------|----------------------|--------------|
-| `0x05` | **E** | **S** (absolute; E- and S-trunk agree) |
-| `0x06` | **E** | **N** (absolute; E- and N-trunk agree) |
-| `0x07` | **S** | **N** on an E-trunk, **W** on an S-trunk *(open)* |
+| token | immediate | sibling(s) |
+|-------|-----------|------------|
+| `0x04` | **N** | **S**, **E** (3-way) |
+| `0x05` | **S** | **E** |
+| `0x06` | **N** | **E** |
+| `0x07` | **N** | **S** |
 
-So `0x05`/`0x06` are fully determined (sibling E; tap S/N absolute — confirmed
-across E/S/N trunks with strong sample counts). `0x07`'s sibling is absolute S,
-but its **tap is the one unresolved degree of freedom**.
+On a **turned trunk**, any base direction that points **backward** (opposite the
+current trunk direction) is remapped to the trunk's **negative-axis
+perpendicular** (`neg_perp` = **N** for a horizontal E/W trunk, **W** for a
+vertical N/S trunk). Examples: `0x07` on a southbound trunk — its immediate `N`
+points backward (up, against the S flow) → remapped to `neg_perp(S) = W`, giving
+tap W / sib S (the comb teeth); `0x05` on a westbound trunk — its `E` sibling
+points backward → `neg_perp(W) = N`. This is **fully endpoint-free** and lifts the
+deterministic walk to **99.48%** on the reference set (no fork search, no
+tolerance).
 
-**OPEN PROBLEM — the `0x07` tap side.** On an eastbound trunk the `0x07` tap goes
-**N**; on a southbound trunk (deep "comb" fan-ins, e.g.
-`MasterAcquisitionFile_PCO_IOS.vi` blob `190008060103...`, 4 teeth) it goes
-**W**. Both are perpendicular to the trunk, but the side flips (visual-CCW for E,
-visual-CW for S) — no rigid rotation reproduces both. Candidate explanations:
-(a) the tap is genuinely endpoint-derived for `0x07` only (LV picks the side
-toward the sink, so it is NOT fully in the bytes); (b) a **length sign** bit on
-the tap segment encodes the side. **(b) is disproven (2026-07-13):** the tap
-length's high bit is just the magnitude boundary (128–254 = one byte with bit7
-set; ≥256 uses the `0xFF` escape), not a sign — E-trunk N-taps carry bit7 whenever
-they are long (`0x8d`, `0xa8`, …) and still go N, and S-trunk W-taps are all
-≥`0x80` only because western comb jumps are physically long (151–610 px). No token
-bit and no length bit distinguishes the side, which leaves **(a)**: for a
-turned-trunk `0x07`, the tap side is endpoint-derived and not recoverable from the
-bytes alone. "Draw without knowing the endpoint" holds for ~99.6% of wires; the
-turned-trunk `0x07` combs (~0.4%) are the genuine exception. These deep S-trunk
-combs are the residual ~1.4% the deterministic walk still misses; the shipped search-based decoder handles them (its `_perp3` search
-turns either way). Until the `0x07` tap side is cracked, the deterministic walk is
-a research harness (`scripts/wire_decode_probe.py`), not a drop-in replacement —
-swapping it in would regress the combs. The token alphabet carries no extra
-unused bit here (bit `0x08` is never set in a token; see "Tokens").
+This **supersedes an earlier wrong conclusion** in this doc's history that the
+`0x07` tap side was "endpoint-derived / not in the bytes." It IS in the bytes:
+the side is `neg_perp` of the trunk. The length-sign hypothesis was correctly
+disproven (the tap length's high bit is only the magnitude boundary: 128–254 = one
+byte with bit7 set, ≥256 uses the `0xFF` escape — not a sign), but the resolution
+was the trunk-relative remap, not endpoints.
 
-**Error budget (reference set, 2026-07-13).** The deterministic walk's failures
-partition cleanly into exactly two causes:
+**Why it is derivable (routing invariant).** The remap is not really a stored bit
+— it is a consequence of LabVIEW never drawing a fork branch *backward into the
+trunk it just came from*. When a base direction would double back, LV deflects it
+to the perpendicular. So the geometry is recoverable without the endpoint.
 
-* **Turned-trunk forks — 7 of 11 failing fan-outs.** Every decode-error fan-out
-  contains a fork that fires on a **non-eastbound** trunk (3 are the `0x07`→W
-  combs; 4 are `0x05`/`0x06` mis-turning on N/S trunks). **Zero** correctly-decoded
-  fan-outs contain a non-E `0x07` fork — perfect separation, so the turned-trunk
-  fork rule IS the decode-error budget.
-* **Misplaced terminals — the other 4.** No non-E fork at all; these terminate on
-  degenerate-bounds `sRN`/`rSR` terminals (task #96) — a terminal-position bug,
-  not a decode bug.
+**Error budget (reference set, 2026-07-13).** After the remap, the deterministic
+walk's residual (~0.5%, 10 branches) is:
+
+* **Misplaced terminals** — degenerate-bounds `sRN`/`rSR` terminals (task #96),
+  a terminal-position bug, not a decode bug (List VI Hierarchy, Close Generic).
+* **One deeply-nested mixed comb** (n=8) — 7 of its 8 leaves land exactly; the
+  lone straggler is likely a `neg_perp`-vs-`pos_perp` **side** choice (when
+  `neg_perp` would collide, LV appears to take the other perpendicular) — the same
+  derivable-from-geometry class, not a new stored bit.
+* **Two `flag=0x01` tapped-format** fan-outs (straight-through terminal tap) —
+  a sub-format the walk does not yet fully model.
 * **Compound `dir0` is NOT a failure source.** All compound multi-bit `dir0`
   source-tees decode correctly; it is the turned trunk *axis*, not the direction
   bitset, that breaks forks.
 
-So the path to ~99.9% deterministic is quantified: crack the `0x07`/turned-trunk
-tap side (+7) and fix the `sRN`/`rSR` terminal centers, #96 (+4).
+So the remaining path to ~99.9% deterministic is small and quantified: fix the
+`sRN`/`rSR` terminal centers (#96), the lone n=8 `neg_perp`-vs-`pos_perp` side
+choice, and the `flag=0x01` tapped sub-format. The turned-trunk fork rule itself
+is solved (the remap above); the walk is at 99.48% endpoint-free.
 
 ### Source branch is the same rule at the source
 
